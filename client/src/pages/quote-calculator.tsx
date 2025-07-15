@@ -50,6 +50,7 @@ export default function QuoteCalculator() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
+  const [selectedTier, setSelectedTier] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [customWidth, setCustomWidth] = useState<string>("");
   const [customHeight, setCustomHeight] = useState<string>("");
@@ -88,10 +89,15 @@ export default function QuoteCalculator() {
         height: parseFloat(customHeight),
         widthUnit: customWidthUnit,
         heightUnit: customHeightUnit,
+        typeId: selectedType ? parseInt(selectedType) : undefined,
+        tierId: selectedTier ? parseInt(selectedTier) : undefined,
       });
 
       const data = await response.json();
-      setCustomCalculation(data);
+      setCustomCalculation({
+        squareMeters: data.squareMeters,
+        price: data.pricePerSqm || 0
+      });
     } catch (error) {
       console.error("Failed to calculate custom size:", error);
       setCustomCalculation(null);
@@ -102,7 +108,7 @@ export default function QuoteCalculator() {
     if (isCustomSize) {
       calculateCustomSize();
     }
-  }, [customWidth, customHeight, customWidthUnit, customHeightUnit, isCustomSize]);
+  }, [customWidth, customHeight, customWidthUnit, customHeightUnit, isCustomSize, selectedType, selectedTier]);
 
   const handleSizeSelect = (size: ProductSize) => {
     setSelectedSize(size);
@@ -114,18 +120,19 @@ export default function QuoteCalculator() {
     setIsCustomSize(true);
   };
 
-  const getCurrentPrice = () => {
+  const getCurrentPrice = async () => {
     if (isCustomSize && customCalculation) {
       return customCalculation.price;
     }
-    if (selectedSize && pricingTiers) {
-      const sqm = parseFloat(selectedSize.squareMeters);
-      for (const tier of pricingTiers) {
-        const min = parseFloat(tier.minSquareMeters);
-        const max = parseFloat(tier.maxSquareMeters);
-        if (sqm >= min && sqm <= max) {
-          return parseFloat(tier.pricePerSquareMeter);
+    if (selectedSize && selectedType && selectedTier) {
+      try {
+        const response = await fetch(`/api/price/${selectedSize.squareMeters}/${selectedType}/${selectedTier}`);
+        if (response.ok) {
+          const data = await response.json();
+          return data.pricePerSqm;
         }
+      } catch (error) {
+        console.error("Failed to fetch pricing:", error);
       }
     }
     return 0;
@@ -166,6 +173,7 @@ export default function QuoteCalculator() {
   const resetSelections = () => {
     setSelectedType("");
     setSelectedSize(null);
+    setSelectedTier("");
     setIsCustomSize(false);
     setCustomWidth("");
     setCustomHeight("");
@@ -240,6 +248,23 @@ export default function QuoteCalculator() {
                   placeholder="Enter quantity"
                 />
               </div>
+
+              {/* Pricing Tier */}
+              <div className="space-y-2">
+                <Label htmlFor="tier">Pricing Tier</Label>
+                <Select value={selectedTier} onValueChange={setSelectedTier}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pricing tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pricingTiers?.map((tier) => (
+                      <SelectItem key={tier.id} value={tier.id.toString()}>
+                        {tier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
 
@@ -270,10 +295,7 @@ export default function QuoteCalculator() {
                     <div className="text-sm text-muted-foreground">
                       <span className="block">{parseFloat(size.squareMeters).toFixed(2)} sq.m</span>
                       <span className="block text-primary font-medium">
-                        ${pricingTiers?.find(tier => {
-                          const sqm = parseFloat(size.squareMeters);
-                          return sqm >= parseFloat(tier.minSquareMeters) && sqm <= parseFloat(tier.maxSquareMeters);
-                        })?.pricePerSquareMeter}/sq.m
+                        {selectedTier ? `Tier pricing applies` : 'Select pricing tier'}
                       </span>
                     </div>
                   </div>
@@ -367,7 +389,7 @@ export default function QuoteCalculator() {
                     <div className="font-medium mb-1">
                       {parseFloat(tier.minSquareMeters).toFixed(2)} - {parseFloat(tier.maxSquareMeters) > 999 ? '∞' : parseFloat(tier.maxSquareMeters).toFixed(2)} sq.m
                     </div>
-                    <div className="text-primary font-semibold">${tier.pricePerSquareMeter}/sq.m</div>
+                    <div className="text-primary font-semibold">${tier.name}</div>
                   </CardContent>
                 </Card>
               ))}
@@ -406,7 +428,7 @@ export default function QuoteCalculator() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Price per sq.m:</span>
                     <span className="font-medium text-primary">
-                      {getCurrentPrice() > 0 ? `$${getCurrentPrice().toFixed(2)}/sq.m` : '-'}
+                      {selectedTier ? `Tier-based pricing` : 'Select pricing tier'}
                     </span>
                   </div>
                   <div className="flex justify-between">

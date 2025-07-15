@@ -4,6 +4,7 @@ import {
   productTypes,
   productSizes,
   pricingTiers,
+  productPricing,
   type User, 
   type InsertUser,
   type ProductCategory,
@@ -13,8 +14,11 @@ import {
   type ProductSize,
   type InsertProductSize,
   type PricingTier,
-  type InsertPricingTier
+  type InsertPricingTier,
+  type ProductPricing,
+  type InsertProductPricing
 } from "@shared/schema";
+import { parseProductData } from "./csv-parser";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -42,7 +46,12 @@ export interface IStorage {
   getPricingTiers(): Promise<PricingTier[]>;
   getPricingTier(id: number): Promise<PricingTier | undefined>;
   createPricingTier(tier: InsertPricingTier): Promise<PricingTier>;
-  getPriceForSquareMeters(squareMeters: number): Promise<number>;
+  
+  // Product Pricing
+  getProductPricing(): Promise<ProductPricing[]>;
+  getProductPricingByType(typeId: number): Promise<ProductPricing[]>;
+  getPriceForProductType(typeId: number, tierId: number): Promise<number>;
+  getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -51,11 +60,13 @@ export class MemStorage implements IStorage {
   private productTypes: Map<number, ProductType>;
   private productSizes: Map<number, ProductSize>;
   private pricingTiers: Map<number, PricingTier>;
+  private productPricing: Map<number, ProductPricing>;
   private currentUserId: number;
   private currentCategoryId: number;
   private currentTypeId: number;
   private currentSizeId: number;
   private currentTierId: number;
+  private currentPricingId: number;
 
   constructor() {
     this.users = new Map();
@@ -63,64 +74,72 @@ export class MemStorage implements IStorage {
     this.productTypes = new Map();
     this.productSizes = new Map();
     this.pricingTiers = new Map();
+    this.productPricing = new Map();
     this.currentUserId = 1;
     this.currentCategoryId = 1;
     this.currentTypeId = 1;
     this.currentSizeId = 1;
     this.currentTierId = 1;
+    this.currentPricingId = 1;
     
     this.initializeData();
   }
 
   private initializeData() {
-    // Initialize pricing tiers
-    const tiers = [
-      { minSquareMeters: "0.01", maxSquareMeters: "0.5", pricePerSquareMeter: "8.50" },
-      { minSquareMeters: "0.51", maxSquareMeters: "2.0", pricePerSquareMeter: "7.50" },
-      { minSquareMeters: "2.01", maxSquareMeters: "5.0", pricePerSquareMeter: "6.50" },
-      { minSquareMeters: "5.01", maxSquareMeters: "999999", pricePerSquareMeter: "5.50" }
-    ];
-
-    tiers.forEach(tier => {
-      this.createPricingTier(tier);
-    });
-
-    // Initialize product categories
-    const categories = [
-      { name: "Banners & Signs", description: "Outdoor and indoor banner solutions" },
-      { name: "Prints & Posters", description: "High-quality prints and posters" },
-      { name: "Vinyl Graphics", description: "Custom vinyl graphics and decals" },
-      { name: "Fabric Products", description: "Fabric-based printing solutions" }
-    ];
-
-    categories.forEach(category => {
-      this.createProductCategory(category);
-    });
-
-    // Initialize product types for Banners & Signs
-    const bannerTypes = [
-      { categoryId: 1, name: "Outdoor Banner", description: "Weather-resistant outdoor banners" },
-      { categoryId: 1, name: "Indoor Banner", description: "High-quality indoor banners" },
-      { categoryId: 1, name: "Mesh Banner", description: "Wind-resistant mesh banners" }
-    ];
-
-    bannerTypes.forEach(type => {
-      this.createProductType(type);
-    });
-
-    // Initialize sizes for Outdoor Banner
-    const outdoorBannerSizes = [
-      { typeId: 1, name: '12" × 18"', width: "12", height: "18", widthUnit: "inch", heightUnit: "inch", squareMeters: "0.1394" },
-      { typeId: 1, name: '18" × 24"', width: "18", height: "24", widthUnit: "inch", heightUnit: "inch", squareMeters: "0.2787" },
-      { typeId: 1, name: '24" × 36"', width: "24", height: "36", widthUnit: "inch", heightUnit: "inch", squareMeters: "0.5574" },
-      { typeId: 1, name: '36" × 48"', width: "36", height: "48", widthUnit: "inch", heightUnit: "inch", squareMeters: "1.1148" },
-      { typeId: 1, name: '48" × 8\'', width: "48", height: "8", widthUnit: "inch", heightUnit: "feet", squareMeters: "2.9728" },
-      { typeId: 1, name: '60" × 10\'', width: "60", height: "10", widthUnit: "inch", heightUnit: "feet", squareMeters: "4.6450" }
-    ];
-
-    outdoorBannerSizes.forEach(size => {
-      this.createProductSize(size);
-    });
+    try {
+      const csvData = parseProductData();
+      
+      // Initialize categories
+      csvData.categories.forEach(category => {
+        this.productCategories.set(category.id, category);
+        this.currentCategoryId = Math.max(this.currentCategoryId, category.id + 1);
+      });
+      
+      // Initialize types
+      csvData.types.forEach(type => {
+        this.productTypes.set(type.id, type);
+        this.currentTypeId = Math.max(this.currentTypeId, type.id + 1);
+      });
+      
+      // Initialize sizes
+      csvData.sizes.forEach(size => {
+        this.productSizes.set(size.id, size);
+        this.currentSizeId = Math.max(this.currentSizeId, size.id + 1);
+      });
+      
+      // Initialize pricing tiers
+      csvData.pricingTiers.forEach(tier => {
+        this.pricingTiers.set(tier.id, tier);
+        this.currentTierId = Math.max(this.currentTierId, tier.id + 1);
+      });
+      
+      // Initialize product pricing
+      csvData.productPricing.forEach(pricing => {
+        this.productPricing.set(pricing.id, pricing);
+        this.currentPricingId = Math.max(this.currentPricingId, pricing.id + 1);
+      });
+      
+    } catch (error) {
+      console.error('Error initializing CSV data:', error);
+      
+      // Fallback to basic data if CSV parsing fails
+      this.productCategories.set(1, { id: 1, name: "Graffiti Polyester Paper", description: null });
+      this.productTypes.set(1, { id: 1, categoryId: 1, name: "Graffiti Polyester Paper 5mil", description: null });
+      this.productSizes.set(1, { 
+        id: 1, 
+        typeId: 1, 
+        name: '12" × 18"', 
+        width: "12", 
+        height: "18", 
+        widthUnit: "inch", 
+        heightUnit: "inch", 
+        squareMeters: "0.1394",
+        itemCode: null,
+        minOrderQty: null
+      });
+      this.pricingTiers.set(1, { id: 1, name: "Retail", description: "Retail pricing tier" });
+      this.productPricing.set(1, { id: 1, productTypeId: 1, tierId: 1, pricePerSquareMeter: "5.70" });
+    }
   }
 
   private calculateSquareMeters(width: number, height: number, widthUnit: string, heightUnit: string): number {
@@ -156,7 +175,7 @@ export class MemStorage implements IStorage {
 
   async createProductCategory(category: InsertProductCategory): Promise<ProductCategory> {
     const id = this.currentCategoryId++;
-    const newCategory: ProductCategory = { ...category, id };
+    const newCategory: ProductCategory = { ...category, id, description: category.description || null };
     this.productCategories.set(id, newCategory);
     return newCategory;
   }
@@ -175,7 +194,7 @@ export class MemStorage implements IStorage {
 
   async createProductType(type: InsertProductType): Promise<ProductType> {
     const id = this.currentTypeId++;
-    const newType: ProductType = { ...type, id };
+    const newType: ProductType = { ...type, id, description: type.description || null };
     this.productTypes.set(id, newType);
     return newType;
   }
@@ -194,7 +213,12 @@ export class MemStorage implements IStorage {
 
   async createProductSize(size: InsertProductSize): Promise<ProductSize> {
     const id = this.currentSizeId++;
-    const newSize: ProductSize = { ...size, id };
+    const newSize: ProductSize = { 
+      ...size, 
+      id, 
+      itemCode: size.itemCode || null,
+      minOrderQty: size.minOrderQty || null
+    };
     this.productSizes.set(id, newSize);
     return newSize;
   }
@@ -209,21 +233,29 @@ export class MemStorage implements IStorage {
 
   async createPricingTier(tier: InsertPricingTier): Promise<PricingTier> {
     const id = this.currentTierId++;
-    const newTier: PricingTier = { ...tier, id };
+    const newTier: PricingTier = { ...tier, id, description: tier.description || null };
     this.pricingTiers.set(id, newTier);
     return newTier;
   }
 
-  async getPriceForSquareMeters(squareMeters: number): Promise<number> {
-    const tiers = await this.getPricingTiers();
-    for (const tier of tiers) {
-      const min = parseFloat(tier.minSquareMeters);
-      const max = parseFloat(tier.maxSquareMeters);
-      if (squareMeters >= min && squareMeters <= max) {
-        return parseFloat(tier.pricePerSquareMeter);
-      }
-    }
-    return parseFloat(tiers[tiers.length - 1].pricePerSquareMeter);
+  async getProductPricing(): Promise<ProductPricing[]> {
+    return Array.from(this.productPricing.values());
+  }
+
+  async getProductPricingByType(typeId: number): Promise<ProductPricing[]> {
+    return Array.from(this.productPricing.values()).filter(pricing => pricing.productTypeId === typeId);
+  }
+
+  async getPriceForProductType(typeId: number, tierId: number): Promise<number> {
+    const pricing = Array.from(this.productPricing.values()).find(
+      p => p.productTypeId === typeId && p.tierId === tierId
+    );
+    return pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
+  }
+
+  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number> {
+    const pricePerSqm = await this.getPriceForProductType(typeId, tierId);
+    return squareMeters * pricePerSqm;
   }
 }
 

@@ -54,42 +54,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get price for specific square meters
-  app.get("/api/price/:squareMeters", async (req, res) => {
+  // Get price for specific square meters with product type and tier
+  app.get("/api/price/:squareMeters/:typeId/:tierId", async (req, res) => {
     try {
       const squareMeters = parseFloat(req.params.squareMeters);
+      const typeId = parseInt(req.params.typeId);
+      const tierId = parseInt(req.params.tierId);
+      
       if (isNaN(squareMeters) || squareMeters <= 0) {
         return res.status(400).json({ error: "Invalid square meters value" });
       }
       
-      const price = await storage.getPriceForSquareMeters(squareMeters);
-      res.json({ price });
+      if (isNaN(typeId) || isNaN(tierId)) {
+        return res.status(400).json({ error: "Invalid type or tier ID" });
+      }
+      
+      const totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId);
+      const pricePerSqm = await storage.getPriceForProductType(typeId, tierId);
+      
+      res.json({ 
+        totalPrice, 
+        pricePerSqm,
+        squareMeters 
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to calculate price" });
     }
   });
 
-  // Calculate custom size square meters
+  // Calculate custom size square meters with pricing
   app.post("/api/calculate-square-meters", async (req, res) => {
     try {
       const schema = z.object({
         width: z.number().positive(),
         height: z.number().positive(),
         widthUnit: z.enum(['inch', 'feet']),
-        heightUnit: z.enum(['inch', 'feet'])
+        heightUnit: z.enum(['inch', 'feet']),
+        typeId: z.number().optional(),
+        tierId: z.number().optional()
       });
 
-      const { width, height, widthUnit, heightUnit } = schema.parse(req.body);
+      const { width, height, widthUnit, heightUnit, typeId, tierId } = schema.parse(req.body);
       
       const widthInches = widthUnit === 'feet' ? width * 12 : width;
       const heightInches = heightUnit === 'feet' ? height * 12 : height;
       const squareMeters = (widthInches * heightInches) * (0.0254 * 0.0254);
       
-      const price = await storage.getPriceForSquareMeters(squareMeters);
+      let pricePerSqm = 0;
+      let totalPrice = 0;
+      
+      if (typeId && tierId) {
+        pricePerSqm = await storage.getPriceForProductType(typeId, tierId);
+        totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId);
+      }
       
       res.json({ 
         squareMeters: parseFloat(squareMeters.toFixed(4)), 
-        price 
+        pricePerSqm,
+        totalPrice
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
