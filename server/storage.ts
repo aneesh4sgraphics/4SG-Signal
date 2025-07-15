@@ -33,6 +33,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   approveUser(userId: string, adminId: string): Promise<User | undefined>;
   rejectUser(userId: string, adminId: string): Promise<User | undefined>;
+  updateUserRole(userId: string, role: string, adminId: string): Promise<User | undefined>;
   
   // Product Categories
   getProductCategories(): Promise<ProductCategory[]>;
@@ -307,6 +308,22 @@ export class MemStorage implements IStorage {
       status: "rejected" as const,
       approvedBy: adminId,
       approvedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserRole(userId: string, role: string, adminId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return undefined;
+    }
+    
+    const updatedUser = {
+      ...user,
+      role: role as "admin" | "user",
       updatedAt: new Date()
     };
     

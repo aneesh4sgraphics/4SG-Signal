@@ -109,6 +109,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/users/:userId/role', requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.userId;
+      const adminId = req.user.claims.sub;
+      const { role } = req.body;
+      
+      if (!role || !['admin', 'user'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be 'admin' or 'user'" });
+      }
+      
+      const user = await storage.updateUserRole(userId, role, adminId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
   // Get all product categories
   app.get("/api/product-categories", async (req, res) => {
     try {

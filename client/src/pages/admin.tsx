@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, AlertCircle, Settings, Calendar, Mail, Download, Eye, ArrowLeft, Users, UserCheck, UserX, Clock } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, Settings, Calendar, Mail, Download, Eye, ArrowLeft, Users, UserCheck, UserX, Clock, UserCog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "wouter";
 import { 
   Table, 
@@ -106,6 +107,32 @@ export default function Admin() {
     onError: (error) => {
       toast({
         title: "Error rejecting user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      return await apiRequest(`/api/admin/users/${userId}/role`, {
+        method: "POST",
+        body: JSON.stringify({ role }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User role updated",
+        description: "User role has been updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating user role",
         description: error.message,
         variant: "destructive",
       });
@@ -378,9 +405,24 @@ export default function Admin() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                              {user.role}
+                            </Badge>
+                            <Select
+                              value={user.role}
+                              onValueChange={(newRole) => updateUserRoleMutation.mutate({ userId: user.id, role: newRole })}
+                              disabled={updateUserRoleMutation.isPending}
+                            >
+                              <SelectTrigger className="w-20 h-6 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="user">User</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge 
