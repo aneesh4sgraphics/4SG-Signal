@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Link } from "wouter";
 import { 
   Table, 
@@ -113,31 +113,7 @@ export default function Admin() {
     },
   });
 
-  const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
-        method: "POST",
-        body: JSON.stringify({ role }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
-        title: "User role updated",
-        description: "User role has been updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error updating user role",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+
 
   const handleProductFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -405,27 +381,9 @@ export default function Admin() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                              {user.role}
-                            </Badge>
-                            <Select
-                              value={user.role}
-                              onValueChange={(newRole) => {
-                                console.log('Updating role:', { userId: user.id, currentRole: user.role, newRole });
-                                updateUserRoleMutation.mutate({ userId: user.id, role: newRole });
-                              }}
-                              disabled={updateUserRoleMutation.isPending}
-                            >
-                              <SelectTrigger className="w-20 h-6 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="user">User</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge 

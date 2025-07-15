@@ -70,7 +70,7 @@ async function upsertUser(claims: any) {
     "patricio@4sgraphics.com"
   ];
   
-  const isAdmin = email === "aneesh@4sgraphics.com";
+  const isAdmin = email === "aneesh@4sgraphics.com" || email === "oscar@4sgraphics.com";
   const isPreApproved = preApprovedEmails.includes(email);
   
   // Extract first name from email if not provided
