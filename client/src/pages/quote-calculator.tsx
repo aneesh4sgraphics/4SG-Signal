@@ -492,7 +492,7 @@ export default function QuoteCalculator() {
         const totalBasedOnMinOrder = item.pricePerSheet * effectiveQuantity;
         
         return `Items:
-Product Name: ${item.productBrand} ${item.productType}
+Product Name: ${item.productType}
 Product Code: ${item.itemCode}
 Size: ${item.productSize}
 Qty Requested: ${item.quantity}
