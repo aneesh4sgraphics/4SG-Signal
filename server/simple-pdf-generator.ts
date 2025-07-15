@@ -104,9 +104,10 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         }
         .quote-header-info {
           margin-bottom: 30px;
-          padding: 15px;
+          padding: 20px;
           background-color: #f8f9fa;
           border-radius: 8px;
+          border: 1px solid #e9ecef;
         }
         .quote-field {
           margin-bottom: 8px;
@@ -129,9 +130,12 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           margin-bottom: 20px;
           border: none;
           font-size: 14px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          border-radius: 8px;
+          overflow: hidden;
         }
         .items-table th {
-          background-color: #4a7c59 !important;
+          background-color: #2c5f41 !important;
           color: white !important;
           padding: 12px 8px;
           text-align: center;
@@ -165,19 +169,19 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .items-table td {
           padding: 12px 8px;
           border: none;
-          background-color: #e8f5e8 !important;
+          background-color: #f8f9fa !important;
           text-align: center;
           font-size: 13px;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
         .items-table tr:nth-child(even) td {
-          background-color: #f0f8f0 !important;
+          background-color: #f1f3f4 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
         .items-table tr:nth-child(odd) td {
-          background-color: #e8f5e8 !important;
+          background-color: #f8f9fa !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
@@ -187,13 +191,13 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         }
         .total-row td {
           background-color: #ffffff !important;
-          border-top: 2px solid #4a7c59;
+          border-top: 2px solid #2c5f41;
           font-size: 16px;
         }
         .total-amount {
           font-size: 18px;
           font-weight: bold;
-          color: #4a7c59 !important;
+          color: #2c5f41 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
@@ -276,6 +280,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
       <div class="footer">
         <p>Thank you for your business!</p>
         <p>This quote is valid for 30 days from the date above.</p>
+        <p style="margin-top: 15px; font-weight: bold;">Shipping costs extra at actuals.</p>
       </div>
     </body>
     </html>
