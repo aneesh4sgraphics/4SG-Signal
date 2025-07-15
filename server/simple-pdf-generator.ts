@@ -43,12 +43,12 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
   // Generate table rows for quote items
   const itemRows = quoteItems.map((item, index) => `
     <tr>
-      <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${index + 1}</td>
-      <td style="padding: 12px; border: 1px solid #ddd;">${item.productType}</td>
-      <td style="padding: 12px; border: 1px solid #ddd;">${item.productSize}</td>
-      <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
-      <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
-      <td style="padding: 12px; border: 1px solid #ddd; text-align: right;">$${item.total.toFixed(2)}</td>
+      <td style="text-align: center;">${index + 1}</td>
+      <td>${item.productType}</td>
+      <td>${item.productSize}</td>
+      <td style="text-align: center;">${item.quantity}</td>
+      <td style="text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
+      <td style="text-align: right;">$${item.total.toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -120,25 +120,50 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
+          border: none;
         }
         .items-table th {
-          background-color: #7c3aed;
+          background-color: #4a5568;
           color: white;
-          padding: 12px;
+          padding: 15px 12px;
           text-align: left;
           font-weight: bold;
+          border: none;
         }
-        .items-table th:nth-child(1),
+        .items-table th:nth-child(1) {
+          text-align: center;
+          width: 8%;
+        }
+        .items-table th:nth-child(2) {
+          width: 35%;
+        }
+        .items-table th:nth-child(3) {
+          width: 15%;
+        }
         .items-table th:nth-child(4) {
           text-align: center;
+          width: 12%;
         }
         .items-table th:nth-child(5),
         .items-table th:nth-child(6) {
           text-align: right;
+          width: 15%;
+        }
+        .items-table td {
+          padding: 12px;
+          border: none;
+          background-color: #f8f9fa;
+        }
+        .items-table tr:nth-child(even) td {
+          background-color: #ffffff;
         }
         .total-row {
-          background-color: #f8f9fa;
+          background-color: #e2e8f0 !important;
           font-weight: bold;
+        }
+        .total-row td {
+          background-color: #e2e8f0 !important;
+          border-top: 2px solid #4a5568;
         }
         .total-amount {
           font-size: 18px;
@@ -212,8 +237,8 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         <tbody>
           ${itemRows}
           <tr class="total-row">
-            <td colspan="5" style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Total Amount:</td>
-            <td style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: bold;">
+            <td colspan="5" style="text-align: right; font-weight: bold; padding: 15px 12px;">Total Amount:</td>
+            <td style="text-align: right; font-weight: bold; padding: 15px 12px;">
               <span class="total-amount">$${totalAmount.toFixed(2)}</span>
             </td>
           </tr>
