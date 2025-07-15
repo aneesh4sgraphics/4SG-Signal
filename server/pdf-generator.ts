@@ -15,6 +15,7 @@ interface QuoteItem {
   tierId: number;
   tierName: string;
   minOrderQty: string;
+  itemCode: string;
 }
 
 interface PDFGenerationRequest {

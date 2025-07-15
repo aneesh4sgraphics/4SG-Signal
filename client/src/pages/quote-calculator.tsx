@@ -90,6 +90,7 @@ interface QuoteItem {
   tierId: number;
   tierName: string;
   minOrderQty: string;
+  itemCode: string;
 }
 
 export default function QuoteCalculator() {
@@ -320,7 +321,8 @@ export default function QuoteCalculator() {
       total,
       tierId: targetTier.id,
       tierName: targetTier.name,
-      minOrderQty
+      minOrderQty,
+      itemCode: selectedSize?.itemCode || "N/A"
     };
 
     setQuoteItems(prev => [...prev, newItem]);
@@ -491,17 +493,9 @@ Date: ${quoteDate}
 Total Amount: $${totalAmount.toFixed(2)}
 
 Quote Items:
-${quoteItems.map(item => `• ${item.productBrand} ${item.productType} - ${item.productSize} (Qty: ${item.quantity}) - $${item.total.toFixed(2)}`).join('\n')}
+${quoteItems.map(item => `• ${item.productBrand} ${item.productType} - ${item.productSize} (Code: ${item.itemCode}) - Qty: ${item.quantity} - $${item.total.toFixed(2)}`).join('\n')}
 
-Thank you for your business!
-
-Best regards,
-${salesRep || 'Sales Team'}
-4S Graphics, Inc.
-764 NW 57th Court
-Fort Lauderdale, FL 33309
-Phone: (954) 493-6484
-www.4sgraphics.com`;
+Thank you for your business!`;
 
       // Use mailto to open default email client
       const mailtoUrl = `mailto:${customerEmail || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
@@ -864,9 +858,10 @@ www.4sgraphics.com`;
                 {/* Quote Items Table */}
                 <div className="border rounded-lg overflow-hidden">
                   <div className="bg-purple-800 text-white">
-                    <div className={`grid gap-4 p-4 text-sm font-medium ${hasMinOrderQtyDisplay() ? 'grid-cols-7' : 'grid-cols-6'}`}>
+                    <div className={`grid gap-4 p-4 text-sm font-medium ${hasMinOrderQtyDisplay() ? 'grid-cols-8' : 'grid-cols-7'}`}>
                       <div>Product</div>
                       <div>Details</div>
+                      <div className="text-center">Code</div>
                       <div className="text-center">Qty</div>
                       {hasMinOrderQtyDisplay() && <div className="text-center">Min Order Qty</div>}
                       <div className="text-center">Price/Sheet</div>
@@ -881,7 +876,7 @@ www.4sgraphics.com`;
                       const isMinOrderQtyActive = item.quantity < minOrderQty;
                       
                       return (
-                        <div key={item.id} className={`grid gap-4 p-4 text-sm items-center ${hasMinOrderQtyDisplay() ? 'grid-cols-7' : 'grid-cols-6'}`}>
+                        <div key={item.id} className={`grid gap-4 p-4 text-sm items-center ${hasMinOrderQtyDisplay() ? 'grid-cols-8' : 'grid-cols-7'}`}>
                           <div className="font-medium">
                             {item.productBrand}
                           </div>
@@ -889,6 +884,9 @@ www.4sgraphics.com`;
                             <div>Type: {item.productType}</div>
                             <div>Size: {item.productSize}</div>
                             <div>Added as: {item.tierName}</div>
+                          </div>
+                          <div className="text-center font-medium text-blue-600">
+                            {item.itemCode}
                           </div>
                           <div className="text-center">
                             <Input

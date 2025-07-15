@@ -6,6 +6,9 @@ This is a full-stack TypeScript application that provides a quote calculator for
 
 ## Recent Changes
 
+- **Product Code Integration (2025-07-15)**: Added product code display to quote items table, email composition, and PDF generation. Updated all QuoteItem interfaces to include itemCode field from productSizes schema
+- **Email Signature Removal (2025-07-15)**: Removed company signature section from email composition at user request while keeping product codes in quote items
+- **Minimum Order Quantity Logic (2025-07-15)**: Implemented smart minimum order quantity display - Min Order Qty column appears only when needed, calculations use minimum when user quantity is below threshold
 - **Authentication System (2025-07-15)**: Implemented Replit Auth with domain restriction to @4sgraphics.com emails only. Added admin approval workflow with aneesh@4sgraphics.com as default admin
 - **New Dashboard Design (2025-07-15)**: Created employee portal dashboard matching user requirements with tool grid layout, proper branding, and personalized welcome message
 - **Database Integration (2025-07-15)**: Added PostgreSQL database with Drizzle ORM for user management and session storage

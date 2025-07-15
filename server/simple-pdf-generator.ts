@@ -13,6 +13,7 @@ interface QuoteItem {
   tierId: number;
   tierName: string;
   minOrderQty: string;
+  itemCode: string;
 }
 
 interface PDFGenerationRequest {
@@ -56,6 +57,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         <td>${index + 1}</td>
         <td>${item.productType}</td>
         <td>${item.productSize}</td>
+        <td>${item.itemCode}</td>
         <td>${item.quantity}</td>
         ${hasMinOrderQtyDisplay ? `<td>${isMinOrderQtyActive ? minOrderQty : '-'}</td>` : ''}
         <td>$${item.pricePerSheet.toFixed(2)}</td>
@@ -169,19 +171,21 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         }
         ${hasMinOrderQtyDisplay ? `
         .items-table th:nth-child(1) { width: 8%; }
-        .items-table th:nth-child(2) { width: 25%; }
+        .items-table th:nth-child(2) { width: 20%; }
         .items-table th:nth-child(3) { width: 12%; }
         .items-table th:nth-child(4) { width: 12%; }
-        .items-table th:nth-child(5) { width: 18%; }
-        .items-table th:nth-child(6) { width: 12%; }
-        .items-table th:nth-child(7) { width: 13%; }
+        .items-table th:nth-child(5) { width: 10%; }
+        .items-table th:nth-child(6) { width: 15%; }
+        .items-table th:nth-child(7) { width: 11%; }
+        .items-table th:nth-child(8) { width: 12%; }
         ` : `
         .items-table th:nth-child(1) { width: 8%; }
-        .items-table th:nth-child(2) { width: 30%; }
+        .items-table th:nth-child(2) { width: 25%; }
         .items-table th:nth-child(3) { width: 15%; }
         .items-table th:nth-child(4) { width: 15%; }
-        .items-table th:nth-child(5) { width: 16%; }
-        .items-table th:nth-child(6) { width: 16%; }
+        .items-table th:nth-child(5) { width: 12%; }
+        .items-table th:nth-child(6) { width: 12%; }
+        .items-table th:nth-child(7) { width: 13%; }
         `}
         .items-table td {
           padding: 12px 8px;
@@ -280,6 +284,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
             <th>Sl. No.</th>
             <th>Product</th>
             <th>Size</th>
+            <th>Product Code</th>
             <th>Quantity</th>
             ${hasMinOrderQtyDisplay ? '<th>Min Order Quantity</th>' : ''}
             <th>Price/Sheet</th>
@@ -289,7 +294,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         <tbody>
           ${itemRows}
           <tr class="total-row">
-            <td colspan="${hasMinOrderQtyDisplay ? '6' : '5'}" style="text-align: right; font-weight: bold; padding: 15px 12px;">Total</td>
+            <td colspan="${hasMinOrderQtyDisplay ? '7' : '6'}" style="text-align: right; font-weight: bold; padding: 15px 12px;">Total</td>
             <td style="text-align: center; font-weight: bold; padding: 15px 12px;">
               <span class="total-amount">$${totalAmount.toFixed(2)}</span>
             </td>
