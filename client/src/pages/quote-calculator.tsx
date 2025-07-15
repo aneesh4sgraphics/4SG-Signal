@@ -281,47 +281,20 @@ export default function QuoteCalculator() {
                 />
               </div>
 
-              {/* Pricing Tier */}
+              {/* Product Size */}
               <div className="space-y-2">
-                <Label htmlFor="tier">Pricing Tier</Label>
-                <Select value={selectedTier} onValueChange={setSelectedTier}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select pricing tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pricingTiers?.map((tier) => (
-                      <SelectItem key={tier.id} value={tier.id.toString()}>
-                        {tier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-
-          {/* Size Selection */}
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Ruler className="h-5 w-5 text-primary" />
-              Size Selection
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {selectedType && sizes ? (
-              <div className="space-y-2 mb-6">
                 <Label htmlFor="size">Product Size</Label>
                 <Select value={selectedSize?.id.toString() || ""} onValueChange={(value) => {
-                  const size = sizes.find(s => s.id.toString() === value);
+                  const size = sizes?.find(s => s.id.toString() === value);
                   if (size) {
                     handleSizeSelect(size);
                   }
-                }}>
+                }} disabled={!selectedType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Size" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sizes.map((size) => (
+                    {sizes?.map((size) => (
                       <SelectItem key={size.id} value={size.id.toString()}>
                         <div className="flex items-center justify-between w-full">
                           <span>{size.name}</span>
@@ -334,100 +307,83 @@ export default function QuoteCalculator() {
                   </SelectContent>
                 </Select>
               </div>
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                Please select a product category and type to view available sizes
-              </div>
-            )}
-
-            {/* Custom Size Option */}
-            {selectedType && (
-              <Card className="bg-muted/50">
-                <CardHeader>
-                  <CardTitle className="text-lg">Custom Size</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Width</Label>
-                      <div className="flex">
-                        <Input
-                          type="number"
-                          value={customWidth}
-                          onChange={(e) => setCustomWidth(e.target.value)}
-                          placeholder="24"
-                          className="rounded-r-none"
-                          onFocus={handleCustomSizeSelect}
-                        />
-                        <Select value={customWidthUnit} onValueChange={setCustomWidthUnit}>
-                          <SelectTrigger className="w-20 rounded-l-none">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="inch">in</SelectItem>
-                            <SelectItem value="feet">ft</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Height</Label>
-                      <div className="flex">
-                        <Input
-                          type="number"
-                          value={customHeight}
-                          onChange={(e) => setCustomHeight(e.target.value)}
-                          placeholder="36"
-                          className="rounded-r-none"
-                          onFocus={handleCustomSizeSelect}
-                        />
-                        <Select value={customHeightUnit} onValueChange={setCustomHeightUnit}>
-                          <SelectTrigger className="w-20 rounded-l-none">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="inch">in</SelectItem>
-                            <SelectItem value="feet">ft</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Square Meters</Label>
-                      <div className="px-3 py-2 bg-background border rounded-lg">
-                        <span className="font-medium">
-                          {isCustomSize && customCalculation ? `${customCalculation.squareMeters.toFixed(2)} sq.m` : '0.00 sq.m'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </CardContent>
-
-          {/* Pricing Tiers */}
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              Pricing Tiers
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {pricingTiers?.map((tier, index) => (
-                <Card key={tier.id} className="bg-muted/50">
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground mb-1">Tier {index + 1}</div>
-                    <div className="font-medium mb-1">
-                      {parseFloat(tier.minSquareMeters).toFixed(2)} - {parseFloat(tier.maxSquareMeters) > 999 ? '∞' : parseFloat(tier.maxSquareMeters).toFixed(2)} sq.m
-                    </div>
-                    <div className="text-primary font-semibold">${tier.name}</div>
-                  </CardContent>
-                </Card>
-              ))}
             </div>
           </CardContent>
+
+          {/* Custom Size Option */}
+          {selectedType && (
+            <>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <Ruler className="h-5 w-5 text-primary" />
+                  Custom Size (Optional)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <Card className="bg-muted/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Custom Size</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Width</Label>
+                        <div className="flex">
+                          <Input
+                            type="number"
+                            value={customWidth}
+                            onChange={(e) => setCustomWidth(e.target.value)}
+                            placeholder="24"
+                            className="rounded-r-none"
+                            onFocus={handleCustomSizeSelect}
+                          />
+                          <Select value={customWidthUnit} onValueChange={setCustomWidthUnit}>
+                            <SelectTrigger className="w-20 rounded-l-none">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="inch">in</SelectItem>
+                              <SelectItem value="feet">ft</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Height</Label>
+                        <div className="flex">
+                          <Input
+                            type="number"
+                            value={customHeight}
+                            onChange={(e) => setCustomHeight(e.target.value)}
+                            placeholder="36"
+                            className="rounded-r-none"
+                            onFocus={handleCustomSizeSelect}
+                          />
+                          <Select value={customHeightUnit} onValueChange={setCustomHeightUnit}>
+                            <SelectTrigger className="w-20 rounded-l-none">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="inch">in</SelectItem>
+                              <SelectItem value="feet">ft</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Square Meters</Label>
+                        <div className="px-3 py-2 bg-background border rounded-lg">
+                          <span className="font-medium">
+                            {isCustomSize && customCalculation ? `${customCalculation.squareMeters.toFixed(2)} sq.m` : '0.00 sq.m'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </>
+          )}
 
           {/* Quote Summary */}
           {selectedSize && selectedType && selectedCategory && (
