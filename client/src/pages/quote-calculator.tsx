@@ -424,10 +424,10 @@ export default function QuoteCalculator() {
   };
 
   const handleEmailQuote = async () => {
-    if (!customerName.trim() || !customerEmail.trim()) {
+    if (!customerName.trim()) {
       toast({
         title: "Error",
-        description: "Please enter both customer name and email",
+        description: "Please enter customer name",
         variant: "destructive",
       });
       return;
@@ -435,25 +435,73 @@ export default function QuoteCalculator() {
 
     setIsEmailSending(true);
     try {
-      const response = await apiRequest("POST", "/api/send-email-quote", {
-        customerName,
-        customerEmail,
-        quoteItems,
+      // Generate quote HTML for email
+      const response = await fetch("/api/generate-pdf-quote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerName,
+          customerEmail: customerEmail || undefined,
+          salesRep: salesRep || undefined,
+          quoteItems,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate quote");
+      }
+
+      const { html } = await response.json();
+      
+      // Extract quote details for email
+      const quoteNumber = `Q${Date.now().toString().slice(-6)}`;
+      const totalAmount = getQuoteTotal();
+      const quoteDate = new Date().toLocaleDateString();
+      
+      // Create email content
+      const emailSubject = `Quote ${quoteNumber} - ${customerName}`;
+      const emailBody = `Dear ${customerName},
+
+Please find your quote details below:
+
+Quote Number: ${quoteNumber}
+Date: ${quoteDate}
+Total Amount: $${totalAmount.toFixed(2)}
+
+Quote Items:
+${quoteItems.map(item => `• ${item.productBrand} ${item.productType} - ${item.productSize} (Qty: ${item.quantity}) - $${item.total.toFixed(2)}`).join('\n')}
+
+Thank you for your business!
+
+Best regards,
+${salesRep || 'Sales Team'}
+4S Graphics, Inc.
+764 NW 57th Court
+Fort Lauderdale, FL 33309
+Phone: (954) 493-6484
+www.4sgraphics.com`;
+
+      // Use mailto to open default email client
+      const mailtoUrl = `mailto:${customerEmail || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      
+      window.location.href = mailtoUrl;
 
       toast({
         title: "Success",
-        description: `Quote email sent successfully. Quote #${response.quoteNumber}`,
+        description: "Email client opened with quote details",
       });
 
       setShowEmailDialog(false);
       setCustomerName("");
       setCustomerEmail("");
+      setSalesRep("");
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error("Error preparing email:", error);
       toast({
         title: "Error",
-        description: "Failed to send email quote",
+        description: "Failed to prepare email quote",
         variant: "destructive",
       });
     } finally {
@@ -871,9 +919,9 @@ export default function QuoteCalculator() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Send Email Quote</DialogTitle>
+                        <DialogTitle>Email Quote</DialogTitle>
                         <DialogDescription>
-                          Enter customer details to send a quote via email
+                          This will open your default email client with a pre-composed quote message
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
@@ -887,13 +935,13 @@ export default function QuoteCalculator() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="customerEmail">Customer Email *</Label>
+                          <Label htmlFor="customerEmail">Customer Email</Label>
                           <Input
                             id="customerEmail"
                             type="email"
                             value={customerEmail}
                             onChange={(e) => setCustomerEmail(e.target.value)}
-                            placeholder="Enter customer email"
+                            placeholder="Enter customer email (optional)"
                           />
                         </div>
                         <div className="flex justify-end gap-2">
@@ -907,7 +955,7 @@ export default function QuoteCalculator() {
                             onClick={handleEmailQuote}
                             disabled={isEmailSending}
                           >
-                            {isEmailSending ? "Sending..." : "Send Email"}
+                            {isEmailSending ? "Preparing..." : "Open Email Client"}
                           </Button>
                         </div>
                       </div>
