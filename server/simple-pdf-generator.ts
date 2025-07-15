@@ -63,12 +63,18 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
       <meta charset="UTF-8">
       <title>Quote ${quoteNumber}</title>
       <style>
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body {
           font-family: Arial, sans-serif;
           margin: 0;
           padding: 20px;
           background-color: white;
           color: #333;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .header {
           text-align: center;
@@ -132,6 +138,8 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           font-weight: bold;
           border: none;
           font-size: 14px;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .items-table th:nth-child(1) {
           width: 8%;
@@ -157,15 +165,21 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .items-table td {
           padding: 12px 8px;
           border: none;
-          background-color: #e8f5e8;
+          background-color: #e8f5e8 !important;
           text-align: center;
           font-size: 13px;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .items-table tr:nth-child(even) td {
-          background-color: #f0f8f0;
+          background-color: #f0f8f0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .items-table tr:nth-child(odd) td {
-          background-color: #e8f5e8;
+          background-color: #e8f5e8 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .total-row {
           background-color: #ffffff !important;
@@ -179,7 +193,9 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .total-amount {
           font-size: 18px;
           font-weight: bold;
-          color: #4a7c59;
+          color: #4a7c59 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .footer {
           margin-top: 40px;
