@@ -585,53 +585,56 @@ export default function QuoteCalculator() {
           {/* Right Column - Quote Summary */}
           <Card className="shadow-sm">
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg">QUOTE SUMMARY</CardTitle>
+              <CardTitle className="text-lg font-bold">QUOTE SUMMARY</CardTitle>
               <p className="text-sm text-muted-foreground">Using default pricing.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Product Details */}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="font-medium">Product Brand:</span>
+                  <span className="font-medium text-gray-700">Product Brand:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-primary">Graffiti</span>
+                    <span className="text-blue-600">Graffiti</span>
                     <sup className="text-xs">®</sup>
                     <span>Polyester Paper</span>
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Product Type:</span>
+                  <span className="font-medium text-gray-700">Product Type:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-primary">Graffiti</span>
+                    <span className="text-blue-600">Graffiti</span>
                     <sup className="text-xs">®</sup>
                     <span>Polyester Paper 5mil</span>
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Product Size:</span>
+                  <span className="font-medium text-gray-700">Product Size:</span>
                   <span>{getSelectedSizeName()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Total Sqm:</span>
+                  <span className="font-medium text-gray-700">Total Sqm:</span>
                   <span>{getCurrentSquareMeters().toFixed(3)} sqm</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Total Quantity:</span>
-                  <span className="text-red-600">{quantity}</span>
+                  <span className="font-medium text-gray-700">Total Quantity:</span>
+                  <div className="w-6 h-6 border-2 border-red-500 rounded text-center text-red-500 font-bold text-xs leading-5">
+                    {quantity}
+                  </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-medium">Min. Order Qty:</span>
+                  <span className="font-medium text-gray-700">Min. Order Qty:</span>
                   <span>50 Sheets</span>
                 </div>
               </div>
 
               {/* Pricing Table */}
-              <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-2 text-xs font-medium bg-muted/50 p-2 rounded">
+              <div className="space-y-0 border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-5 gap-2 text-xs font-medium bg-muted/50 p-3 border-b">
                   <span>Pricing Tier</span>
-                  <span>$/m²</span>
-                  <span>Price/Sheet</span>
-                  <span>Min. Order Qty Price</span>
+                  <span className="text-center">$/m²</span>
+                  <span className="text-center">Price/Sheet</span>
+                  <span className="text-center">Min. Order Qty Price</span>
+                  <span className="text-center">Add</span>
                 </div>
                 
                 {pricingTiers?.map((tier) => (
@@ -684,12 +687,25 @@ function PricingTierRow({ tier, selectedType, getCurrentSquareMeters, getMinOrde
     fetchPrice();
   }, [tier.id, selectedType, selectedSize, customCalculation]);
 
+  const isRetail = tier.name === "Retail";
+
   return (
-    <div className="grid grid-cols-4 gap-2 text-xs p-2 hover:bg-muted/30 rounded">
-      <span className="font-medium">{tier.name}</span>
-      <span>${price.toFixed(2)}</span>
-      <span>${pricePerSheet.toFixed(2)}</span>
-      <span>${minOrderPrice.toFixed(2)}</span>
+    <div className={`grid grid-cols-5 gap-2 text-sm p-3 border-b last:border-b-0 ${isRetail ? 'bg-green-50' : 'hover:bg-muted/30'}`}>
+      <span className="font-medium text-gray-700">{tier.name}</span>
+      <span className="text-center">${price.toFixed(2)}</span>
+      <span className="text-center">${pricePerSheet.toFixed(2)}</span>
+      <span className="text-center font-medium">${minOrderPrice.toFixed(2)}</span>
+      <div className="text-center">
+        {isRetail ? (
+          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mx-auto">
+            <span className="text-white text-xs">✓</span>
+          </div>
+        ) : (
+          <button className="w-6 h-6 border-2 border-gray-400 rounded-full flex items-center justify-center mx-auto hover:bg-gray-100">
+            <span className="text-gray-600 text-lg font-bold leading-none">+</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
