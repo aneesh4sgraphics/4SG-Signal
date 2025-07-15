@@ -184,6 +184,21 @@ export default function QuoteCalculator() {
     }
   }, [customWidth, customHeight, customWidthUnit, customHeightUnit, isCustomSize, selectedType, selectedTier]);
 
+  // Auto-fill customer information when a customer is selected
+  useEffect(() => {
+    if (selectedCustomer) {
+      setCustomerName(`${selectedCustomer.firstName} ${selectedCustomer.lastName}`);
+      setCustomerEmail(selectedCustomer.email);
+    } else {
+      // Reset when no customer is selected (but only if dialogs are not open)
+      if (!showPDFDialog && !showEmailDialog) {
+        setCustomerName("");
+        setCustomerEmail("");
+        setSalesRep("");
+      }
+    }
+  }, [selectedCustomer, showPDFDialog, showEmailDialog]);
+
   const handleSizeSelect = (size: ProductSize) => {
     setSelectedSize(size);
     setIsCustomSize(false);

@@ -4,6 +4,13 @@
 
 This is a full-stack TypeScript application that provides a quote calculator for product pricing. The application uses a React frontend with a Node.js/Express backend, PostgreSQL database with Drizzle ORM, and is styled with Tailwind CSS and shadcn/ui components.
 
+## Recent Changes
+
+- **PDF Header Format (2025-07-15)**: Updated PDF quote generation to match exact 4S Graphics branding format with three required fields: "Quote for: Customer Name", "Date Issued: Today's Date", and "Sales Rep: User Name"
+- **Customer Auto-Fill (2025-07-15)**: Added automatic customer information prefilling when a customer is selected from the dropdown in quote generation forms
+- **Sent Quotes Tracking (2025-07-15)**: Added comprehensive quote tracking system visible in Admin panel showing all generated quotes with customer info, amounts, dates, and delivery method
+- **Performance Optimization (2025-07-15)**: Implemented client-side and server-side caching to improve API response times and reduce loading delays
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
