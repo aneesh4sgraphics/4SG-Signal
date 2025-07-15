@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, Box, Ruler, Layers, FileText, Save, Trash2, Mail, Download, User, MapPin, Tag, Settings } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -357,19 +357,26 @@ export default function QuoteCalculator() {
         throw new Error("Failed to generate PDF");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Quote-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const { html, filename } = await response.json();
+      
+      // Create a temporary window to generate PDF
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        throw new Error("Could not open print window");
+      }
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+      
+      // Wait for content to load then print
+      printWindow.onload = () => {
+        printWindow.print();
+        printWindow.close();
+      };
 
       toast({
         title: "Success",
-        description: "PDF quote generated and downloaded successfully",
+        description: "PDF quote generated successfully",
       });
 
       setShowPDFDialog(false);
@@ -828,6 +835,9 @@ export default function QuoteCalculator() {
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Send Email Quote</DialogTitle>
+                        <DialogDescription>
+                          Enter customer details to send a quote via email
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
@@ -880,6 +890,9 @@ export default function QuoteCalculator() {
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Generate PDF Quote</DialogTitle>
+                        <DialogDescription>
+                          Enter customer details to generate a PDF quote
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>

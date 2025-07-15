@@ -7,7 +7,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
-import { generateQuotePDF, generateQuoteNumber } from "./pdf-generator";
+import { generateQuoteHTMLForDownload, generateQuoteNumber } from "./simple-pdf-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate PDF quote
+  // Generate PDF quote HTML
   app.post("/api/generate-pdf-quote", async (req, res) => {
     try {
       const { customerName, customerEmail, quoteItems } = req.body;
@@ -307,8 +307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate total
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
       
-      // Generate PDF
-      const pdfBuffer = await generateQuotePDF({
+      // Generate HTML
+      const htmlContent = generateQuoteHTMLForDownload({
         customerName,
         customerEmail,
         quoteItems,
@@ -328,10 +328,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'sent'
       });
       
-      // Send PDF as download
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Quote-${quoteNumber}.pdf"`);
-      res.send(pdfBuffer);
+      // Return HTML and quote info
+      res.json({
+        html: htmlContent,
+        quoteNumber,
+        totalAmount,
+        filename: `Quote-${quoteNumber}.pdf`
+      });
     } catch (error) {
       console.error("Error generating PDF quote:", error);
       res.status(500).json({ error: "Failed to generate PDF quote" });
