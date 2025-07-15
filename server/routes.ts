@@ -413,12 +413,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'sent'
       });
       
+      // Generate filename with QuoteNumber-ClientName-Date format
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const sanitizedCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20); // Remove special chars and limit length
+      const filename = `${quoteNumber}-${sanitizedCustomerName}-${currentDate}.pdf`;
+      
       // Return HTML and quote info
       res.json({
         html: htmlContent,
         quoteNumber,
         totalAmount,
-        filename: `Quote-${quoteNumber}.pdf`
+        filename
       });
     } catch (error) {
       console.error("Error generating PDF quote:", error);

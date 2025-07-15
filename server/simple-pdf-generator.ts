@@ -268,6 +268,9 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
 
       <div class="quote-header-info">
         <div class="quote-field">
+          <strong>Quote Number:</strong> <span>${quoteNumber}</span>
+        </div>
+        <div class="quote-field">
           <strong>Quote for:</strong> <span>${customerName}</span>
         </div>
         <div class="quote-field">
