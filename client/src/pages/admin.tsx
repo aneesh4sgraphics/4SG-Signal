@@ -10,10 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 export default function Admin() {
   const [productFile, setProductFile] = useState<File | null>(null);
   const [pricingFile, setPricingFile] = useState<File | null>(null);
+  const [customerFile, setCustomerFile] = useState<File | null>(null);
   const [productUploading, setProductUploading] = useState(false);
   const [pricingUploading, setPricingUploading] = useState(false);
+  const [customerUploading, setCustomerUploading] = useState(false);
   const [productUploadStatus, setProductUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [pricingUploadStatus, setPricingUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [customerUploadStatus, setCustomerUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const { toast } = useToast();
 
   const handleProductFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +38,20 @@ export default function Admin() {
     if (file && file.type === 'text/csv') {
       setPricingFile(file);
       setPricingUploadStatus('idle');
+    } else {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCustomerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'text/csv') {
+      setCustomerFile(file);
+      setCustomerUploadStatus('idle');
     } else {
       toast({
         title: "Invalid file type",
@@ -134,6 +151,51 @@ export default function Admin() {
     }
   };
 
+  const uploadCustomerFile = async () => {
+    if (!customerFile) return;
+
+    setCustomerUploading(true);
+    setCustomerUploadStatus('idle');
+
+    const formData = new FormData();
+    formData.append('file', customerFile);
+
+    try {
+      const response = await fetch('/api/admin/upload-customer-data', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        setCustomerUploadStatus('success');
+        toast({
+          title: "Success",
+          description: "Customer data file uploaded successfully",
+        });
+        // Reset file input
+        setCustomerFile(null);
+        const fileInput = document.getElementById('customer-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+      } else {
+        setCustomerUploadStatus('error');
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload customer data file",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setCustomerUploadStatus('error');
+      toast({
+        title: "Upload failed",
+        description: "An error occurred while uploading the file",
+        variant: "destructive",
+      });
+    } finally {
+      setCustomerUploading(false);
+    }
+  };
+
   const getStatusIcon = (status: 'idle' | 'success' | 'error') => {
     switch (status) {
       case 'success':
@@ -179,7 +241,7 @@ export default function Admin() {
           </AlertDescription>
         </Alert>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Product Data Upload */}
           <Card className="shadow-lg">
             <CardHeader className="border-b">
@@ -329,6 +391,81 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Customer Data Upload */}
+          <Card className="shadow-lg">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Customer Data File
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p className="mb-2">
+                    <strong>File:</strong> customers_export.csv
+                  </p>
+                  <p className="mb-2">
+                    <strong>Contains:</strong> Customer information including names, emails, addresses, and purchase history
+                  </p>
+                  <p>
+                    <strong>Format:</strong> CSV with headers (Customer ID, First Name, Last Name, Email, etc.)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customer-file">Select Customer Data File</Label>
+                  <Input
+                    id="customer-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCustomerFileChange}
+                    disabled={customerUploading}
+                  />
+                </div>
+
+                {customerFile && (
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4" />
+                      <span className="font-medium">{customerFile.name}</span>
+                      <span className="text-muted-foreground">
+                        ({(customerFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={uploadCustomerFile}
+                  disabled={!customerFile || customerUploading}
+                  className="w-full"
+                >
+                  {customerUploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Customer Data
+                    </>
+                  )}
+                </Button>
+
+                {customerUploadStatus !== 'idle' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    {getStatusIcon(customerUploadStatus)}
+                    <span className={customerUploadStatus === 'success' ? 'text-green-600' : 'text-red-600'}>
+                      {getStatusMessage(customerUploadStatus)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Usage Instructions */}
@@ -353,7 +490,14 @@ export default function Admin() {
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">3. Upload Process</h3>
+                <h3 className="font-semibold mb-2">3. Customer Data File</h3>
+                <p className="text-muted-foreground">
+                  This file contains customer information including contact details, purchase history, and 
+                  customer tiers. Used for quote generation and customer management.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">4. Upload Process</h3>
                 <p className="text-muted-foreground">
                   Upload files one at a time. The system will validate the file format and update the database 
                   with the new information. Changes take effect immediately.

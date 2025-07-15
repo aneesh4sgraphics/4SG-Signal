@@ -227,6 +227,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload customer data file
+  app.post("/api/admin/upload-customer-data", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Read the uploaded CSV file
+      const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+      
+      // Save the file to the attached_assets directory
+      const targetPath = path.join(process.cwd(), 'attached_assets', 'customers_export.csv');
+      fs.copyFileSync(req.file.path, targetPath);
+      
+      // Clean up the temporary file
+      fs.unlinkSync(req.file.path);
+      
+      // Count customer records for feedback
+      const lines = csvContent.split('\n').filter(line => line.trim().length > 0);
+      const customerCount = lines.length - 1; // Subtract header row
+      
+      res.json({ 
+        message: "Customer data uploaded successfully",
+        stats: {
+          customers: customerCount
+        }
+      });
+    } catch (error) {
+      console.error("Error uploading customer data:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Failed to upload customer data file" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
