@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, AlertCircle, Settings, Calendar, Mail, Download, Eye, ArrowLeft } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, Settings, Calendar, Mail, Download, Eye, ArrowLeft, Users, UserCheck, UserX, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import { 
   Table, 
@@ -30,6 +31,18 @@ interface SentQuote {
   status: string;
 }
 
+interface User {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+}
+
 export default function Admin() {
   const [productFile, setProductFile] = useState<File | null>(null);
   const [pricingFile, setPricingFile] = useState<File | null>(null);
@@ -41,11 +54,62 @@ export default function Admin() {
   const [pricingUploadStatus, setPricingUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [customerUploadStatus, setCustomerUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: sentQuotes, isLoading: quotesLoading } = useQuery<SentQuote[]>({
     queryKey: ["/api/sent-quotes"],
     staleTime: 1 * 60 * 1000, // 1 minute
     cacheTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ["/api/admin/users"],
+    staleTime: 1 * 60 * 1000, // 1 minute
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const approveUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest(`/api/admin/users/${userId}/approve`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User approved",
+        description: "User has been approved and can now access the system",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error approving user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest(`/api/admin/users/${userId}/reject`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "User rejected",
+        description: "User has been rejected and cannot access the system",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error rejecting user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const handleProductFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,6 +342,93 @@ export default function Admin() {
             Make sure to backup your current data before proceeding.
           </AlertDescription>
         </Alert>
+
+        {/* User Management Section */}
+        <Card className="shadow-lg mb-8">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              User Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {usersLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading users...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users?.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.firstName} {user.lastName}
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              user.status === 'approved' ? 'default' : 
+                              user.status === 'pending' ? 'secondary' : 
+                              'destructive'
+                            }
+                          >
+                            {user.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+                            {user.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {user.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => approveUserMutation.mutate(user.id)}
+                                disabled={approveUserMutation.isPending}
+                              >
+                                <UserCheck className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => rejectUserMutation.mutate(user.id)}
+                                disabled={rejectUserMutation.isPending}
+                              >
+                                <UserX className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Product Data Upload */}

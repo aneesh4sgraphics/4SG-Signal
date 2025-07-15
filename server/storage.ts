@@ -30,6 +30,9 @@ export interface IStorage {
   // User operations for Replit Auth
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  approveUser(userId: string, adminId: string): Promise<User | undefined>;
+  rejectUser(userId: string, adminId: string): Promise<User | undefined>;
   
   // Product Categories
   getProductCategories(): Promise<ProductCategory[]>;
@@ -230,6 +233,46 @@ export class MemStorage implements IStorage {
       this.users.set(userData.id, newUser);
       return newUser;
     }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async approveUser(userId: string, adminId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return undefined;
+    }
+    
+    const updatedUser = {
+      ...user,
+      status: "approved" as const,
+      approvedBy: adminId,
+      approvedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async rejectUser(userId: string, adminId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) {
+      return undefined;
+    }
+    
+    const updatedUser = {
+      ...user,
+      status: "rejected" as const,
+      approvedBy: adminId,
+      approvedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 
   async getProductCategories(): Promise<ProductCategory[]> {
