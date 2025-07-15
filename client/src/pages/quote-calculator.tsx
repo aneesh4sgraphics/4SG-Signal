@@ -790,28 +790,20 @@ function PricingTierRow({ tier, selectedType, getCurrentSquareMeters, getMinOrde
     fetchPrice();
   }, [tier.id, selectedType, selectedSize, customCalculation]);
 
-  const isRetail = tier.name === "Retail";
-
   return (
-    <div className={`grid grid-cols-5 gap-2 text-sm p-3 border-b last:border-b-0 ${isRetail ? 'bg-green-50' : 'hover:bg-muted/30'}`}>
+    <div className="grid grid-cols-5 gap-2 text-sm p-3 border-b last:border-b-0 hover:bg-muted/30">
       <span className="font-medium text-gray-700">{tier.name}</span>
       <span className="text-center">${price.toFixed(2)}</span>
       <span className="text-center">${pricePerSheet.toFixed(2)}</span>
       <span className="text-center font-medium">${minOrderPrice.toFixed(2)}</span>
       <div className="text-center">
-        {isRetail ? (
-          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center mx-auto">
-            <span className="text-white text-xs">✓</span>
-          </div>
-        ) : (
-          <button 
-            className="w-6 h-6 border-2 border-gray-400 rounded-full flex items-center justify-center mx-auto hover:bg-gray-100 transition-colors"
-            onClick={() => addToQuote(tier.id)}
-            disabled={!selectedType || getCurrentSquareMeters() === 0}
-          >
-            <span className="text-gray-600 text-lg font-bold leading-none">+</span>
-          </button>
-        )}
+        <button 
+          className="w-6 h-6 border-2 border-gray-400 rounded-full flex items-center justify-center mx-auto hover:bg-gray-100 transition-colors"
+          onClick={() => addToQuote(tier.id)}
+          disabled={!selectedType || getCurrentSquareMeters() === 0}
+        >
+          <span className="text-gray-600 text-lg font-bold leading-none">+</span>
+        </button>
       </div>
     </div>
   );
