@@ -6,6 +6,7 @@ import fs from "fs";
 import { storage } from "./storage";
 import { z } from "zod";
 import { parseProductData } from "./csv-parser";
+import { parseCustomerData } from "./customer-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all product categories
@@ -137,6 +138,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input data" });
       }
       res.status(500).json({ error: "Failed to calculate square meters" });
+    }
+  });
+
+  // Get all customers
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const customers = parseCustomerData();
+      res.json(customers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  // Get customer by ID
+  app.get("/api/customers/:id", async (req, res) => {
+    try {
+      const customers = parseCustomerData();
+      const customer = customers.find(c => c.id === req.params.id);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer" });
     }
   });
 

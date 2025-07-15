@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Box, Ruler, Layers, FileText, Save, Trash2, Mail, Download } from "lucide-react";
+import { Calculator, Box, Ruler, Layers, FileText, Save, Trash2, Mail, Download, User, MapPin, Tag, Settings } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ProductCategory {
@@ -55,6 +55,26 @@ interface CustomSizeCalculation {
   price: number;
 }
 
+interface Customer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  acceptsEmailMarketing: boolean;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  country: string;
+  zip: string;
+  phone: string;
+  totalSpent: number;
+  totalOrders: number;
+  note: string;
+  tags: string;
+}
+
 interface QuoteItem {
   id: string;
   productBrand: string;
@@ -70,6 +90,7 @@ interface QuoteItem {
 }
 
 export default function QuoteCalculator() {
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
@@ -82,6 +103,10 @@ export default function QuoteCalculator() {
   const [customCalculation, setCustomCalculation] = useState<CustomSizeCalculation | null>(null);
   const [isCustomSize, setIsCustomSize] = useState<boolean>(false);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+
+  const { data: customers } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
 
   const { data: categories } = useQuery<ProductCategory[]>({
     queryKey: ["/api/product-categories"],
@@ -322,34 +347,96 @@ export default function QuoteCalculator() {
   };
 
   return (
-    <div className="py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-secondary mb-2">Product Quote Calculator</h1>
-          <p className="text-muted-foreground">Calculate pricing for your products with accurate square meter calculations</p>
-        </div>
-
-        {/* Main Calculator Container */}
-        <Card className="shadow-lg">
-          {/* Product Selection */}
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Box className="h-5 w-5 text-primary" />
-              Product Selection
+    <div className="py-8 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Customer Selection Section */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <User className="h-5 w-5" />
+              Select Customer
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Search for and select a customer to associate with this quote.
+            </p>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Product Category */}
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Customer Dropdown */}
               <div className="space-y-2">
-                <Label htmlFor="category">Product Category</Label>
+                <Select value={selectedCustomer?.id || ""} onValueChange={(value) => {
+                  const customer = customers?.find(c => c.id === value);
+                  setSelectedCustomer(customer || null);
+                }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select customer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers?.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.firstName} {customer.lastName} - {customer.company || customer.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Customer Info Display */}
+              {selectedCustomer && (
+                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">
+                      {selectedCustomer.firstName} {selectedCustomer.lastName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    <span>{selectedCustomer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>
+                      {selectedCustomer.address1}
+                      {selectedCustomer.address2 && `, ${selectedCustomer.address2}`}
+                      {selectedCustomer.city && `, ${selectedCustomer.city}`}
+                      {selectedCustomer.province && `, ${selectedCustomer.province}`}
+                      {selectedCustomer.zip && ` ${selectedCustomer.zip}`}
+                    </span>
+                  </div>
+                  {selectedCustomer.tags && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      <Badge variant="outline">{selectedCustomer.tags}</Badge>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Configure Product */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Settings className="h-5 w-5" />
+                Configure Product
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Product */}
+              <div className="space-y-2">
+                <Label htmlFor="product">Product</Label>
                 <Select value={selectedCategory} onValueChange={(value) => {
                   setSelectedCategory(value);
                   resetSelections();
                 }}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Category" />
+                    <SelectValue placeholder="Select product..." />
                   </SelectTrigger>
                   <SelectContent>
                     {categories?.map((category) => (
@@ -363,10 +450,14 @@ export default function QuoteCalculator() {
 
               {/* Product Type */}
               <div className="space-y-2">
-                <Label htmlFor="type">Product Type</Label>
-                <Select value={selectedType} onValueChange={setSelectedType} disabled={!selectedCategory}>
+                <Label htmlFor="product-type">Product Type</Label>
+                <Select value={selectedType} onValueChange={(value) => {
+                  setSelectedType(value);
+                  setSelectedSize(null);
+                  setIsCustomSize(false);
+                }} disabled={!selectedCategory}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Type" />
+                    <SelectValue placeholder="Select product type..." />
                   </SelectTrigger>
                   <SelectContent>
                     {types?.map((type) => (
@@ -378,349 +469,227 @@ export default function QuoteCalculator() {
                 </Select>
               </div>
 
-              {/* Quantity */}
+              {/* Predefined Size */}
               <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  placeholder="Enter quantity"
-                />
-              </div>
-
-              {/* Product Size */}
-              <div className="space-y-2">
-                <Label htmlFor="size">Product Size</Label>
+                <Label htmlFor="size">Predefined Size</Label>
                 <Select value={selectedSize?.id.toString() || (isCustomSize ? "custom" : "")} onValueChange={(value) => {
                   if (value === "custom") {
                     setIsCustomSize(true);
                     setSelectedSize(null);
                   } else {
+                    setIsCustomSize(false);
                     const size = sizes?.find(s => s.id.toString() === value);
-                    if (size) {
-                      handleSizeSelect(size);
-                    }
+                    setSelectedSize(size || null);
                   }
                 }} disabled={!selectedType}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select Size" />
+                    <SelectValue placeholder="Select size..." />
                   </SelectTrigger>
                   <SelectContent>
                     {sizes?.map((size) => (
                       <SelectItem key={size.id} value={size.id.toString()}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{size.name}</span>
-                          <span className="text-muted-foreground text-sm ml-2">
-                            {parseFloat(size.squareMeters).toFixed(3)} sq.m
-                          </span>
-                        </div>
+                        {size.name}
                       </SelectItem>
                     ))}
                     <SelectItem value="custom">Custom Size</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          </CardContent>
 
-          {/* Custom Size Option - Only shown when Custom Size is selected */}
-          {selectedType && isCustomSize && (
-            <>
-              <CardHeader className="border-b">
-                <CardTitle className="flex items-center gap-2">
-                  <Ruler className="h-5 w-5 text-primary" />
-                  Custom Size
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <Card className="bg-muted/50">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Enter Custom Dimensions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Width</Label>
-                        <div className="flex">
-                          <Input
-                            type="number"
-                            value={customWidth}
-                            onChange={(e) => {
-                              setCustomWidth(e.target.value);
-                              // Auto-calculate when both width and height are entered
-                              if (e.target.value && customHeight) {
-                                setTimeout(() => calculateCustomSize(), 100);
-                              }
-                            }}
-                            placeholder="24"
-                            className="rounded-r-none"
-                          />
-                          <Select value={customWidthUnit} onValueChange={(value) => {
-                            setCustomWidthUnit(value);
-                            if (customWidth && customHeight) {
-                              setTimeout(() => calculateCustomSize(), 100);
-                            }
-                          }}>
-                            <SelectTrigger className="w-20 rounded-l-none">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="inch">in</SelectItem>
-                              <SelectItem value="feet">ft</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Height</Label>
-                        <div className="flex">
-                          <Input
-                            type="number"
-                            value={customHeight}
-                            onChange={(e) => {
-                              setCustomHeight(e.target.value);
-                              // Auto-calculate when both width and height are entered
-                              if (e.target.value && customWidth) {
-                                setTimeout(() => calculateCustomSize(), 100);
-                              }
-                            }}
-                            placeholder="36"
-                            className="rounded-r-none"
-                          />
-                          <Select value={customHeightUnit} onValueChange={(value) => {
-                            setCustomHeightUnit(value);
-                            if (customWidth && customHeight) {
-                              setTimeout(() => calculateCustomSize(), 100);
-                            }
-                          }}>
-                            <SelectTrigger className="w-20 rounded-l-none">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="inch">in</SelectItem>
-                              <SelectItem value="feet">ft</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Square Meters</Label>
-                        <div className="px-3 py-2 bg-background border rounded-lg">
-                          <span className="font-medium">
-                            {isCustomSize && customCalculation ? `${customCalculation.squareMeters.toFixed(2)} sq.m` : '0.00 sq.m'}
-                          </span>
-                        </div>
+              {/* Custom Size Section */}
+              {isCustomSize && (
+                <div className="space-y-4 p-4 bg-muted/30 rounded-lg border-2 border-dashed">
+                  <div className="flex items-center gap-2">
+                    <Ruler className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Custom Size</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="width">Width</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="width"
+                          type="number"
+                          value={customWidth}
+                          onChange={(e) => setCustomWidth(e.target.value)}
+                          placeholder="Enter width"
+                          className="flex-1"
+                        />
+                        <Select value={customWidthUnit} onValueChange={setCustomWidthUnit}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="inch">in</SelectItem>
+                            <SelectItem value="feet">ft</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </CardContent>
-            </>
-          )}
-
-          {/* Quote Summary */}
-          {selectedSize && selectedType && selectedCategory && (
-            <>
-              <CardHeader className="border-b">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  QUOTE SUMMARY
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="text-sm text-muted-foreground mb-6">
-                  Using default pricing.
-                </div>
-                
-                {/* Product Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Product Brand:</span>
-                      <span className="text-muted-foreground">{getSelectedCategoryName()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Product Type:</span>
-                      <span className="text-muted-foreground">{getSelectedTypeName()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Product Size:</span>
-                      <span className="text-muted-foreground">{getSelectedSizeName()}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Total Sqm:</span>
-                      <span className="text-muted-foreground">{getCurrentSquareMeters().toFixed(3)} sqm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Total Quantity:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 border border-red-500 rounded text-center text-red-500 font-bold text-sm leading-8">
-                          {quantity}
-                        </span>
+                    <div className="space-y-2">
+                      <Label htmlFor="height">Height</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="height"
+                          type="number"
+                          value={customHeight}
+                          onChange={(e) => setCustomHeight(e.target.value)}
+                          placeholder="Enter height"
+                          className="flex-1"
+                        />
+                        <Select value={customHeightUnit} onValueChange={setCustomHeightUnit}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="inch">in</SelectItem>
+                            <SelectItem value="feet">ft</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Min. Order Qty:</span>
-                      <span className="text-muted-foreground">{selectedSize?.minOrderQty || 'N/A'}</span>
-                    </div>
                   </div>
-                </div>
-
-                {/* Pricing Table */}
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-muted/50 border-b">
-                    <div className="grid grid-cols-5 gap-4 p-4 text-sm font-medium">
-                      <div>Pricing Tier</div>
-                      <div className="text-center">$/m²</div>
-                      <div className="text-center">Price/Sheet</div>
-                      <div className="text-center">Min. Order Qty Price</div>
-                      <div className="text-center">Add</div>
-                    </div>
-                  </div>
-                  <div className="divide-y">
-                    {pricingTiers?.map((tier) => {
-                      const pricing = productPricing?.find(p => p.tierId === tier.id);
-                      const pricePerSqm = pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
-                      const pricePerSheet = pricePerSqm * getCurrentSquareMeters();
-                      const minOrderPrice = pricePerSheet * (getMinOrderQuantity() || 1);
-                      
-                      return (
-                        <div key={tier.id} className="grid grid-cols-5 gap-4 p-4 text-sm items-center">
-                          <div className="font-medium">{tier.name}</div>
-                          <div className="text-center">${pricePerSqm.toFixed(2)}</div>
-                          <div className="text-center">${pricePerSheet.toFixed(2)}</div>
-                          <div className="text-center font-medium">${minOrderPrice.toFixed(2)}</div>
-                          <div className="text-center">
-                            <Button 
-                              size="sm" 
-                              className="w-8 h-8 rounded-full p-0"
-                              onClick={() => addToQuote()}
-                            >
-                              <span className="text-lg font-bold">+</span>
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </>
-          )}
-        </Card>
-
-        {/* Added Items to Quote */}
-        {quoteItems.length > 0 && (
-          <Card className="shadow-lg mt-6">
-            <CardHeader className="border-b bg-muted/50">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Added Items to Quote
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Review your finalized items and overall pricing.
-              </p>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Box className="h-4 w-4" />
-                  Sheet Products
-                </div>
-                
-                {/* Quote Items Table */}
-                <div className="rounded-lg border overflow-hidden">
-                  <div className="bg-purple-800 text-white">
-                    <div className="grid grid-cols-6 gap-4 p-4 text-sm font-medium">
-                      <div>Product</div>
-                      <div>Details</div>
-                      <div className="text-center">Qty</div>
-                      <div className="text-center">Price/Sheet</div>
-                      <div className="text-center">Total</div>
-                      <div className="text-center">Actions</div>
-                    </div>
-                  </div>
-                  
-                  <div className="divide-y">
-                    {quoteItems.map((item) => (
-                      <div key={item.id} className="grid grid-cols-6 gap-4 p-4 text-sm items-center">
-                        <div className="font-medium">
-                          {item.productType}
-                        </div>
-                        <div className="text-muted-foreground">
-                          <div>Size: {item.productSize}</div>
-                          <div>Added as: {item.tierName}</div>
-                        </div>
-                        <div className="text-center">
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                            className="w-16 text-center"
-                            min="1"
-                          />
-                        </div>
-                        <div className="text-center font-medium">
-                          ${item.pricePerSheet.toFixed(2)}
-                        </div>
-                        <div className="text-center font-medium">
-                          ${item.total.toFixed(2)}
-                        </div>
-                        <div className="text-center">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeFromQuote(item.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Quote Total */}
-                <div className="flex justify-end">
-                  <div className="text-right">
-                    <div className="text-lg font-medium">
-                      Total: <span className="text-xl font-bold">${getQuoteTotal().toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 pt-4">
                   <Button 
-                    variant="outline" 
-                    className="flex items-center gap-2"
-                    onClick={handleEmailQuote}
+                    onClick={calculateCustomSize}
+                    disabled={!customWidth || !customHeight}
+                    className="w-full"
                   >
-                    <Mail className="h-4 w-4" />
-                    Email Quote
+                    <Calculator className="h-4 w-4 mr-2" />
+                    Calculate Size
                   </Button>
-                  <Button className="flex items-center gap-2 bg-purple-800 hover:bg-purple-900">
-                    <Download className="h-4 w-4" />
-                    Generate PDF of Full Quote
-                  </Button>
+                  {customCalculation && (
+                    <div className="text-sm text-center p-2 bg-background rounded">
+                      <span className="font-medium">
+                        {customCalculation.squareMeters.toFixed(4)} sqm
+                      </span>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {/* Quantity */}
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                  min="1"
+                  className="w-24"
+                />
               </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-muted-foreground">
-          <p className="text-sm">
-            Need help with your quote? <a href="#" className="text-primary hover:underline">Contact our sales team</a>
-          </p>
+          {/* Right Column - Quote Summary */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">QUOTE SUMMARY</CardTitle>
+              <p className="text-sm text-muted-foreground">Using default pricing.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Product Details */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="font-medium">Product Brand:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-primary">Graffiti</span>
+                    <sup className="text-xs">®</sup>
+                    <span>Polyester Paper</span>
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Product Type:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-primary">Graffiti</span>
+                    <sup className="text-xs">®</sup>
+                    <span>Polyester Paper 5mil</span>
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Product Size:</span>
+                  <span>{getSelectedSizeName()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Total Sqm:</span>
+                  <span>{getCurrentSquareMeters().toFixed(3)} sqm</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Total Quantity:</span>
+                  <span className="text-red-600">{quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Min. Order Qty:</span>
+                  <span>50 Sheets</span>
+                </div>
+              </div>
+
+              {/* Pricing Table */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 text-xs font-medium bg-muted/50 p-2 rounded">
+                  <span>Pricing Tier</span>
+                  <span>$/m²</span>
+                  <span>Price/Sheet</span>
+                  <span>Min. Order Qty Price</span>
+                </div>
+                
+                {pricingTiers?.map((tier) => (
+                  <PricingTierRow 
+                    key={tier.id} 
+                    tier={tier} 
+                    selectedType={selectedType}
+                    getCurrentSquareMeters={getCurrentSquareMeters}
+                    getMinOrderQuantity={getMinOrderQuantity}
+                    getPriceForTier={getPriceForTier}
+                    selectedSize={selectedSize}
+                    customCalculation={customCalculation}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+    </div>
+  );
+
+}
+
+function PricingTierRow({ tier, selectedType, getCurrentSquareMeters, getMinOrderQuantity, getPriceForTier, selectedSize, customCalculation }: { 
+  tier: PricingTier; 
+  selectedType: string;
+  getCurrentSquareMeters: () => number;
+  getMinOrderQuantity: () => number;
+  getPriceForTier: (tierId: number) => Promise<number>;
+  selectedSize: ProductSize | null;
+  customCalculation: CustomSizeCalculation | null;
+}) {
+  const [price, setPrice] = useState<number>(0);
+  const [pricePerSheet, setPricePerSheet] = useState<number>(0);
+  const [minOrderPrice, setMinOrderPrice] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      if (selectedType) {
+        const fetchedPrice = await getPriceForTier(tier.id);
+        setPrice(fetchedPrice);
+        
+        const sqm = getCurrentSquareMeters();
+        setPricePerSheet(fetchedPrice * sqm);
+        setMinOrderPrice(fetchedPrice * sqm * getMinOrderQuantity());
+      }
+    };
+    
+    fetchPrice();
+  }, [tier.id, selectedType, selectedSize, customCalculation]);
+
+  return (
+    <div className="grid grid-cols-4 gap-2 text-xs p-2 hover:bg-muted/30 rounded">
+      <span className="font-medium">{tier.name}</span>
+      <span>${price.toFixed(2)}</span>
+      <span>${pricePerSheet.toFixed(2)}</span>
+      <span>${minOrderPrice.toFixed(2)}</span>
     </div>
   );
 }
