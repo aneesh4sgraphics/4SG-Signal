@@ -52,6 +52,9 @@ export interface IStorage {
   getProductPricingByType(typeId: number): Promise<ProductPricing[]>;
   getPriceForProductType(typeId: number, tierId: number): Promise<number>;
   getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number>;
+  
+  // Admin methods
+  reinitializeData(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -256,6 +259,25 @@ export class MemStorage implements IStorage {
   async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number> {
     const pricePerSqm = await this.getPriceForProductType(typeId, tierId);
     return squareMeters * pricePerSqm;
+  }
+
+  async reinitializeData(): Promise<void> {
+    // Clear existing data
+    this.productCategories.clear();
+    this.productTypes.clear();
+    this.productSizes.clear();
+    this.pricingTiers.clear();
+    this.productPricing.clear();
+    
+    // Reset counters
+    this.currentCategoryId = 1;
+    this.currentTypeId = 1;
+    this.currentSizeId = 1;
+    this.currentTierId = 1;
+    this.currentPricingId = 1;
+    
+    // Reinitialize with fresh data
+    this.initializeData();
   }
 }
 

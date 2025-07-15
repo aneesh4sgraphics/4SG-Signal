@@ -1,7 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { z } from "zod";
+import { parseProductData } from "./csv-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all product categories
@@ -133,6 +137,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input data" });
       }
       res.status(500).json({ error: "Failed to calculate square meters" });
+    }
+  });
+
+  // Configure multer for file uploads
+  const upload = multer({
+    dest: 'uploads/',
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only CSV files are allowed'));
+      }
+    },
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+  });
+
+  // Upload product data file
+  app.post("/api/admin/upload-product-data", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Read the uploaded CSV file
+      const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+      
+      // Parse and update the database
+      const { categories, types, sizes } = parseProductData();
+      
+      // Save the file to the attached_assets directory
+      const targetPath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
+      fs.copyFileSync(req.file.path, targetPath);
+      
+      // Clean up the temporary file
+      fs.unlinkSync(req.file.path);
+      
+      // Reinitialize storage with new data
+      await storage.reinitializeData();
+      
+      res.json({ 
+        message: "Product data uploaded successfully",
+        stats: {
+          categories: categories.length,
+          types: types.length,
+          sizes: sizes.length
+        }
+      });
+    } catch (error) {
+      console.error("Error uploading product data:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Failed to upload product data file" });
+    }
+  });
+
+  // Upload pricing data file
+  app.post("/api/admin/upload-pricing-data", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Read the uploaded CSV file
+      const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+      
+      // Save the file to the attached_assets directory
+      const targetPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
+      fs.copyFileSync(req.file.path, targetPath);
+      
+      // Clean up the temporary file
+      fs.unlinkSync(req.file.path);
+      
+      // Reinitialize storage with new data
+      await storage.reinitializeData();
+      
+      res.json({ 
+        message: "Pricing data uploaded successfully"
+      });
+    } catch (error) {
+      console.error("Error uploading pricing data:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Failed to upload pricing data file" });
     }
   });
 
