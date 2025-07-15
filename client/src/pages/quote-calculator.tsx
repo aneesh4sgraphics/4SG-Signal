@@ -484,18 +484,32 @@ export default function QuoteCalculator() {
       
       // Create email content
       const emailSubject = `Quote ${quoteNumber} - ${customerName}`;
+      
+      // Create detailed product sections
+      const productSections = quoteItems.map(item => {
+        const minOrderQty = parseInt(item.minOrderQty) || 50;
+        const effectiveQuantity = Math.max(item.quantity, minOrderQty);
+        const totalBasedOnMinOrder = item.pricePerSheet * effectiveQuantity;
+        
+        return `Items:
+Product Name: ${item.productBrand} ${item.productType}
+Product Code: ${item.itemCode}
+Size: ${item.productSize}
+Qty Requested: ${item.quantity}
+Price per sheet: $${item.pricePerSheet.toFixed(2)}
+Minimum Order Quantity: ${minOrderQty} Sheets
+Total (based on min order Qty): $${totalBasedOnMinOrder.toFixed(2)}`;
+      }).join('\n\n----------------------------\n\n');
+      
       const emailBody = `Dear ${customerName},
 
 Please find your quote details below:
 
 Quote Number: ${quoteNumber}
-Date: ${quoteDate}
-Total Amount: $${totalAmount.toFixed(2)}
 
-Quote Items:
-${quoteItems.map(item => `• ${item.productBrand} ${item.productType} - ${item.productSize} (Code: ${item.itemCode}) - Qty: ${item.quantity} - $${item.total.toFixed(2)}`).join('\n')}
+${productSections}
 
-Thank you for your business!`;
+Look forward for your order!`;
 
       // Use mailto to open default email client
       const mailtoUrl = `mailto:${customerEmail || ''}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
