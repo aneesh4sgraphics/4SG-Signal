@@ -8,6 +8,7 @@ import {
   sentQuotes,
   type User, 
   type InsertUser,
+  type UpsertUser,
   type ProductCategory,
   type InsertProductCategory,
   type ProductType,
@@ -22,11 +23,13 @@ import {
   type InsertSentQuote
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // User operations for Replit Auth
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   
   // Product Categories
   getProductCategories(): Promise<ProductCategory[]>;
@@ -65,8 +68,31 @@ export interface IStorage {
   reinitializeData(): Promise<void>;
 }
 
+export class DatabaseStorage implements IStorage {
+  // User operations for Replit Auth
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+}
+
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
+  private users: Map<string, User>;
   private productCategories: Map<number, ProductCategory>;
   private productTypes: Map<number, ProductType>;
   private productSizes: Map<number, ProductSize>;
@@ -96,6 +122,21 @@ export class MemStorage implements IStorage {
     this.currentTierId = 1;
     this.currentPricingId = 1;
     this.currentSentQuoteId = 1;
+
+    // Initialize with admin user
+    this.users.set("admin", {
+      id: "admin",
+      email: "aneesh@4sgraphics.com",
+      firstName: "Aneesh",
+      lastName: "Admin",
+      profileImageUrl: null,
+      role: "admin",
+      status: "approved",
+      approvedBy: "system",
+      approvedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     
     this.initializeData();
   }
@@ -163,21 +204,32 @@ export class MemStorage implements IStorage {
     return (widthInches * heightInches) * (0.0254 * 0.0254);
   }
 
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existingUser = this.users.get(userData.id);
+    if (existingUser) {
+      const updatedUser = { ...existingUser, ...userData, updatedAt: new Date() };
+      this.users.set(userData.id, updatedUser);
+      return updatedUser;
+    } else {
+      const newUser: User = { 
+        ...userData,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        profileImageUrl: userData.profileImageUrl || null,
+        role: userData.role || "user",
+        status: userData.status || "pending",
+        approvedBy: userData.approvedBy || null,
+        approvedAt: userData.approvedAt || null,
+        createdAt: new Date(), 
+        updatedAt: new Date() 
+      };
+      this.users.set(userData.id, newUser);
+      return newUser;
+    }
   }
 
   async getProductCategories(): Promise<ProductCategory[]> {
@@ -283,7 +335,12 @@ export class MemStorage implements IStorage {
 
   async createSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
     const id = this.currentSentQuoteId++;
-    const newQuote: SentQuote = { ...quote, id };
+    const newQuote: SentQuote = { 
+      ...quote, 
+      id,
+      status: quote.status || "sent",
+      customerEmail: quote.customerEmail || null
+    };
     this.sentQuotes.set(id, newQuote);
     return newQuote;
   }

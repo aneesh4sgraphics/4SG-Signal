@@ -6,9 +6,10 @@ This is a full-stack TypeScript application that provides a quote calculator for
 
 ## Recent Changes
 
-- **PDF Header Format (2025-07-15)**: Updated PDF quote generation to match exact 4S Graphics branding format with three required fields: "Quote for: Customer Name", "Date Issued: Today's Date", and "Sales Rep: User Name"
-- **Customer Auto-Fill (2025-07-15)**: Added automatic customer information prefilling when a customer is selected from the dropdown in quote generation forms
-- **Sent Quotes Tracking (2025-07-15)**: Added comprehensive quote tracking system visible in Admin panel showing all generated quotes with customer info, amounts, dates, and delivery method
+- **Authentication System (2025-07-15)**: Implemented Replit Auth with domain restriction to @4sgraphics.com emails only. Added admin approval workflow with aneesh@4sgraphics.com as default admin
+- **New Dashboard Design (2025-07-15)**: Created employee portal dashboard matching user requirements with tool grid layout, proper branding, and personalized welcome message
+- **Database Integration (2025-07-15)**: Added PostgreSQL database with Drizzle ORM for user management and session storage
+- **PDF Typography (2025-07-15)**: Updated PDF styling to use Roboto font - 15px for company name, 10px for all other text with professional alternating row colors
 - **Performance Optimization (2025-07-15)**: Implemented client-side and server-side caching to improve API response times and reduce loading delays
 
 ## User Preferences

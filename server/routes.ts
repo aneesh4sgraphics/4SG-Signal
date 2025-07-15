@@ -9,6 +9,7 @@ import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
 import { generateQuoteHTMLForDownload, generateQuoteNumber } from "./simple-pdf-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
 
 // Simple in-memory cache for frequently accessed data
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -27,6 +28,20 @@ function setCachedData(key: string, data: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
   // Get all product categories
   app.get("/api/product-categories", async (req, res) => {
     try {
