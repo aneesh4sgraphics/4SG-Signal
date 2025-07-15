@@ -592,11 +592,9 @@ export default function QuoteCalculator() {
                     {quoteItems.map((item) => (
                       <div key={item.id} className="grid grid-cols-6 gap-4 p-4 text-sm items-center">
                         <div className="font-medium">
-                          {item.productBrand}
-                          <sup>®</sup> {item.productType}
+                          {item.productBrand}<sup>®</sup> {item.productType}
                         </div>
                         <div className="text-muted-foreground">
-                          <div>{item.productBrand}<sup>®</sup> {item.productType} {item.productSize.split('×')[0]}</div>
                           <div>Size: {item.productSize}</div>
                           <div>Added as: {item.tierName}</div>
                         </div>
