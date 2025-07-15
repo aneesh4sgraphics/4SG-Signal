@@ -299,27 +299,22 @@ export default function QuoteCalculator() {
   };
 
   const generateEmailBody = () => {
-    let body = "Dear Customer,\n\n";
-    body += "Thank you for your interest in our products. Please find your price quote below:\n\n";
-    body += "QUOTE SUMMARY\n";
-    body += "=============\n\n";
+    let body = "Dear {{Client Name}},\n\n";
+    body += "Here below is the quote you requested.\n\n";
     
     quoteItems.forEach((item, index) => {
-      body += `${index + 1}. ${item.productType}\n`;
-      body += `   Size: ${item.productSize}\n`;
-      body += `   Quantity: ${item.quantity}\n`;
-      body += `   Price per Sheet: $${item.pricePerSheet.toFixed(2)}\n`;
-      body += `   Total: $${item.total.toFixed(2)}\n`;
-      body += `   Added as: ${item.tierName}\n\n`;
+      body += `${index + 1}. Quote Item:\n`;
+      body += `* Product Brand: ${item.productBrand}\n`;
+      body += `* Product Type: ${item.productType}\n`;
+      body += `* Product Size: ${item.productSize}\n`;
+      body += `* Total Quantity Requested: ${item.quantity}\n`;
+      body += `* Pricing per sheet: $${item.pricePerSheet.toFixed(2)}\n\n`;
     });
     
-    body += `TOTAL AMOUNT: $${getQuoteTotal().toFixed(2)}\n\n`;
-    body += "This quote is valid for 30 days from the date of issue.\n\n";
-    body += "If you have any questions or would like to proceed with your order, please don't hesitate to contact us.\n\n";
+    body += `Total Quote Amount: $${getQuoteTotal().toFixed(2)}\n\n`;
+    body += "Thank you for your business.\n\n";
     body += "Best regards,\n";
-    body += "4S Graphics Team\n";
-    body += "Email: sales@4sgraphics.com\n";
-    body += "Phone: (555) 123-4567";
+    body += "4S Graphics Team";
     
     return body;
   };
