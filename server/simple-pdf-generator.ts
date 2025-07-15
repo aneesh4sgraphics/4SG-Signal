@@ -21,6 +21,7 @@ interface PDFGenerationRequest {
   quoteItems: QuoteItem[];
   quoteNumber: string;
   totalAmount: number;
+  salesRep?: string;
 }
 
 const companyDetails = {
@@ -32,7 +33,7 @@ const companyDetails = {
 };
 
 function generateQuoteHTML(request: PDFGenerationRequest): string {
-  const { customerName, quoteItems, quoteNumber, totalAmount } = request;
+  const { customerName, quoteItems, quoteNumber, totalAmount, salesRep = "Sales Representative" } = request;
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -69,49 +70,48 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           color: #333;
         }
         .header {
-          display: flex;
-          align-items: center;
+          text-align: center;
           margin-bottom: 30px;
           padding-bottom: 20px;
-          border-bottom: 2px solid #7c3aed;
         }
-        .company-info {
-          flex: 1;
+        .logo-container {
+          text-align: center;
+          margin-bottom: 10px;
         }
         .company-name {
-          font-size: 24px;
+          font-size: 36px;
           font-weight: bold;
-          color: #7c3aed;
-          margin: 0;
+          color: #333;
+          margin: 10px 0 5px 0;
         }
         .company-details {
-          font-size: 14px;
+          font-size: 16px;
           color: #666;
-          margin-top: 5px;
+          margin-bottom: 20px;
         }
-        .quote-info {
+        .price-list-title {
+          font-size: 28px;
+          font-weight: bold;
+          color: #333;
+          margin: 20px 0;
+        }
+        .quote-header-info {
           display: flex;
           justify-content: space-between;
           margin-bottom: 30px;
+          padding: 15px;
+          background-color: #f8f9fa;
+          border-radius: 8px;
         }
-        .quote-number {
-          font-size: 18px;
-          font-weight: bold;
-          color: #7c3aed;
+        .quote-field {
+          flex: 1;
+          text-align: left;
         }
-        .quote-date {
-          font-size: 14px;
-          color: #666;
-        }
-        .customer-section {
-          margin-bottom: 30px;
-        }
-        .customer-label {
+        .quote-field strong {
           font-weight: bold;
           color: #333;
-          margin-bottom: 5px;
         }
-        .customer-name {
+        .quote-field span {
           font-size: 16px;
           color: #666;
         }
@@ -174,28 +174,27 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     </head>
     <body>
       <div class="header">
-        ${logoHtml}
-        <div class="company-info">
-          <h1 class="company-name">${companyDetails.name}</h1>
-          <div class="company-details">
-            ${companyDetails.address}<br>
-            ${companyDetails.city}<br>
-            Phone: ${companyDetails.phone}<br>
-            Website: ${companyDetails.website}
-          </div>
+        <div class="logo-container">
+          ${logoHtml}
         </div>
+        <h1 class="company-name">${companyDetails.name}</h1>
+        <div class="company-details">
+          ${companyDetails.address}, ${companyDetails.city}<br>
+          Phone: ${companyDetails.phone} | Website: https://${companyDetails.website}
+        </div>
+        <div class="price-list-title">PRICE LIST</div>
       </div>
 
-      <div class="quote-info">
-        <div>
-          <div class="quote-number">Quote #${quoteNumber}</div>
-          <div class="quote-date">Date: ${currentDate}</div>
+      <div class="quote-header-info">
+        <div class="quote-field">
+          <strong>1. Quote for:</strong> <span>${customerName}</span>
         </div>
-      </div>
-
-      <div class="customer-section">
-        <div class="customer-label">Quote For:</div>
-        <div class="customer-name">${customerName}</div>
+        <div class="quote-field">
+          <strong>2. Date Issued:</strong> <span>${currentDate}</span>
+        </div>
+        <div class="quote-field">
+          <strong>3. Sales Rep:</strong> <span>${salesRep}</span>
+        </div>
       </div>
 
       <table class="items-table">

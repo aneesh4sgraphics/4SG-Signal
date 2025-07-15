@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate PDF quote HTML
   app.post("/api/generate-pdf-quote", async (req, res) => {
     try {
-      const { customerName, customerEmail, quoteItems } = req.body;
+      const { customerName, customerEmail, quoteItems, salesRep } = req.body;
       
       if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
         return res.status(400).json({ error: "Customer name and quote items are required" });
@@ -361,7 +361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerEmail,
         quoteItems,
         quoteNumber,
-        totalAmount
+        totalAmount,
+        salesRep
       });
       
       // Save quote to database

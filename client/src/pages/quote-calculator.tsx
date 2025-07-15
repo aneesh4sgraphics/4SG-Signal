@@ -109,6 +109,7 @@ export default function QuoteCalculator() {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [salesRep, setSalesRep] = useState("");
   const [isPDFGenerating, setIsPDFGenerating] = useState(false);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const { toast } = useToast();
@@ -359,6 +360,7 @@ export default function QuoteCalculator() {
         body: JSON.stringify({
           customerName,
           customerEmail: customerEmail || undefined,
+          salesRep: salesRep || undefined,
           quoteItems,
         }),
       });
@@ -392,6 +394,7 @@ export default function QuoteCalculator() {
       setShowPDFDialog(false);
       setCustomerName("");
       setCustomerEmail("");
+      setSalesRep("");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast({
@@ -922,6 +925,15 @@ export default function QuoteCalculator() {
                             value={customerEmail}
                             onChange={(e) => setCustomerEmail(e.target.value)}
                             placeholder="Enter customer email (optional)"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="pdfSalesRep">Sales Representative</Label>
+                          <Input
+                            id="pdfSalesRep"
+                            value={salesRep}
+                            onChange={(e) => setSalesRep(e.target.value)}
+                            placeholder="Enter sales representative name"
                           />
                         </div>
                         <div className="flex justify-end gap-2">

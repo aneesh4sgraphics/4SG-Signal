@@ -4,8 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, AlertCircle, Settings } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, Settings, Calendar, Mail, Download, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+
+interface SentQuote {
+  id: number;
+  quoteNumber: string;
+  customerName: string;
+  customerEmail: string | null;
+  quoteItems: string;
+  totalAmount: string;
+  createdAt: string;
+  sentVia: string;
+  status: string;
+}
 
 export default function Admin() {
   const [productFile, setProductFile] = useState<File | null>(null);
@@ -18,6 +40,12 @@ export default function Admin() {
   const [pricingUploadStatus, setPricingUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [customerUploadStatus, setCustomerUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const { toast } = useToast();
+
+  const { data: sentQuotes, isLoading: quotesLoading } = useQuery<SentQuote[]>({
+    queryKey: ["/api/sent-quotes"],
+    staleTime: 1 * 60 * 1000, // 1 minute
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const handleProductFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -503,6 +531,78 @@ export default function Admin() {
                   with the new information. Changes take effect immediately.
                 </p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sent Quotes Section */}
+        <Card className="shadow-lg mt-8">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Sent Quotes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-4">
+                  <strong>All generated quotes are automatically saved here.</strong> This includes both PDF and email quotes generated from the quote calculator.
+                </p>
+              </div>
+
+              {quotesLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : sentQuotes && sentQuotes.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quote #</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Total Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sentQuotes.map((quote) => (
+                        <TableRow key={quote.id}>
+                          <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                          <TableCell>{quote.customerName}</TableCell>
+                          <TableCell>{quote.customerEmail || 'N/A'}</TableCell>
+                          <TableCell>${parseFloat(quote.totalAmount).toFixed(2)}</TableCell>
+                          <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={quote.sentVia === 'email' ? 'default' : 'secondary'}>
+                              {quote.sentVia === 'email' ? (
+                                <><Mail className="h-3 w-3 mr-1" />Email</>
+                              ) : (
+                                <><Download className="h-3 w-3 mr-1" />PDF</>
+                              )}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={quote.status === 'sent' ? 'default' : 'secondary'}>
+                              {quote.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No quotes have been generated yet.</p>
+                  <p className="text-sm mt-2">Generated quotes will appear here automatically.</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
