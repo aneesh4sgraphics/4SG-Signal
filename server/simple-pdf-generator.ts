@@ -67,8 +67,11 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        
         body {
-          font-family: Arial, sans-serif;
+          font-family: 'Roboto', sans-serif;
+          font-size: 10px;
           margin: 0;
           padding: 20px;
           background-color: white;
@@ -86,21 +89,24 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           margin-bottom: 10px;
         }
         .company-name {
-          font-size: 36px;
+          font-size: 15px;
           font-weight: bold;
           color: #333;
           margin: 10px 0 5px 0;
+          font-family: 'Roboto', sans-serif;
         }
         .company-details {
-          font-size: 16px;
+          font-size: 10px;
           color: #666;
           margin-bottom: 20px;
+          font-family: 'Roboto', sans-serif;
         }
         .price-list-title {
-          font-size: 28px;
+          font-size: 10px;
           font-weight: bold;
           color: #333;
           margin: 20px 0;
+          font-family: 'Roboto', sans-serif;
         }
         .quote-header-info {
           margin-bottom: 30px;
@@ -119,17 +125,21 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .quote-field strong {
           font-weight: bold;
           color: #333;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
         }
         .quote-field span {
-          font-size: 16px;
+          font-size: 10px;
           color: #666;
+          font-family: 'Roboto', sans-serif;
         }
         .items-table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
           border: none;
-          font-size: 14px;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
           box-shadow: 0 2px 4px rgba(0,0,0,0.1);
           border-radius: 8px;
           overflow: hidden;
@@ -141,7 +151,8 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           text-align: center;
           font-weight: bold;
           border: none;
-          font-size: 14px;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
@@ -169,18 +180,18 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .items-table td {
           padding: 12px 8px;
           border: none;
-          background-color: #f8f9fa !important;
           text-align: center;
-          font-size: 13px;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .items-table tr:nth-child(even) td {
+        .items-table tbody tr:nth-child(even) td {
           background-color: #f1f3f4 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        .items-table tr:nth-child(odd) td {
+        .items-table tbody tr:nth-child(odd) td {
           background-color: #f8f9fa !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
@@ -192,11 +203,13 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .total-row td {
           background-color: #ffffff !important;
           border-top: 2px solid #2c5f41;
-          font-size: 16px;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
         }
         .total-amount {
-          font-size: 18px;
+          font-size: 10px;
           font-weight: bold;
+          font-family: 'Roboto', sans-serif;
           color: #2c5f41 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
@@ -204,7 +217,8 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         .footer {
           margin-top: 40px;
           text-align: center;
-          font-size: 12px;
+          font-size: 10px;
+          font-family: 'Roboto', sans-serif;
           color: #666;
           border-top: 1px solid #ddd;
           padding-top: 20px;
