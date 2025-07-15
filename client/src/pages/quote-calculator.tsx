@@ -532,9 +532,9 @@ export default function QuoteCalculator() {
         </Card>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left Column - Configure Product */}
-          <Card className="shadow-sm">
+          <Card className="shadow-sm lg:col-span-2">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Settings className="h-5 w-5" />
@@ -697,49 +697,49 @@ export default function QuoteCalculator() {
           </Card>
 
           {/* Right Column - Quote Summary */}
-          <Card className="shadow-sm">
+          <Card className="shadow-sm lg:col-span-3">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg font-bold">QUOTE SUMMARY</CardTitle>
               <p className="text-sm text-muted-foreground">Using default pricing.</p>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               {/* Product Details */}
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Product Brand:</span>
-                  <span className="text-blue-600 font-medium">{getSelectedCategoryName()}</span>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-start">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Product Brand:</span>
+                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{getSelectedCategoryName()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Product Type:</span>
-                  <span className="text-blue-600 font-medium">{getSelectedTypeName()}</span>
+                <div className="flex justify-between items-start">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Product Type:</span>
+                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{getSelectedTypeName()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Product Size:</span>
-                  <span>{getSelectedSizeName()}</span>
+                <div className="flex justify-between items-start">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Product Size:</span>
+                  <span className="text-right ml-2 break-words">{getSelectedSizeName()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Total Sqm:</span>
-                  <span>{getCurrentSquareMeters().toFixed(3)} sqm</span>
+                <div className="flex justify-between items-start">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Total Sqm:</span>
+                  <span className="text-right ml-2">{getCurrentSquareMeters().toFixed(3)} sqm</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Total Quantity:</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Total Quantity:</span>
                   <div className="w-6 h-6 border-2 border-red-500 rounded text-center text-red-500 font-bold text-xs leading-5">
                     {quantity}
                   </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Min. Order Qty:</span>
-                  <span>{selectedSize?.minOrderQty || "50 Sheets"}</span>
+                <div className="flex justify-between items-start">
+                  <span className="font-medium text-gray-700 flex-shrink-0">Min. Order Qty:</span>
+                  <span className="text-right ml-2">{selectedSize?.minOrderQty || "50 Sheets"}</span>
                 </div>
               </div>
 
               {/* Pricing Table */}
               <div className="space-y-0 border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-5 gap-2 text-xs font-medium bg-muted/50 p-3 border-b">
-                  <span>Pricing Tier</span>
+                <div className="grid grid-cols-5 gap-1 text-xs font-medium bg-muted/50 p-2 border-b">
+                  <span className="text-left">Pricing Tier</span>
                   <span className="text-center">$/m²</span>
                   <span className="text-center">Price/Sheet</span>
-                  <span className="text-center">Min. Order Qty Price</span>
+                  <span className="text-center text-xs">Min. Order Qty Price</span>
                   <span className="text-center">Add</span>
                 </div>
                 
@@ -1002,8 +1002,8 @@ function PricingTierRow({ tier, selectedType, getCurrentSquareMeters, getMinOrde
   }, [tier.id, selectedType, selectedSize, customCalculation]);
 
   return (
-    <div className="grid grid-cols-5 gap-2 text-sm p-3 border-b last:border-b-0 hover:bg-muted/30">
-      <span className="font-medium text-gray-700">{tier.name}</span>
+    <div className="grid grid-cols-5 gap-1 text-sm p-2 border-b last:border-b-0 hover:bg-muted/30">
+      <span className="font-medium text-gray-700 text-left truncate">{tier.name}</span>
       <span className="text-center">${price.toFixed(2)}</span>
       <span className="text-center">${pricePerSheet.toFixed(2)}</span>
       <span className="text-center font-medium">${minOrderPrice.toFixed(2)}</span>
