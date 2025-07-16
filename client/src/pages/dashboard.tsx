@@ -119,29 +119,7 @@ export default function Dashboard() {
               </Card>
             </Link>
 
-            {/* Customer Management */}
-            <Link href="/customer-management">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-3 pt-4">
-                  <div className="w-12 h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <CardTitle className="text-sm">Customer Management</CardTitle>
-                </CardHeader>
-              </Card>
-            </Link>
 
-            {/* Product Management */}
-            <Link href="/product-management">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-3 pt-4">
-                  <div className="w-12 h-12 mx-auto mb-2 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <Package className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <CardTitle className="text-sm">Product Management</CardTitle>
-                </CardHeader>
-              </Card>
-            </Link>
 
             {/* Competitor Prices */}
             <Link href="/competitor-pricing">
@@ -155,25 +133,7 @@ export default function Dashboard() {
               </Card>
             </Link>
 
-            {/* Area Pricer */}
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white opacity-50 h-full">
-              <CardHeader className="text-center pb-3 pt-4">
-                <div className="w-12 h-12 mx-auto mb-2 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Calculator className="w-6 h-6 text-yellow-600" />
-                </div>
-                <CardTitle className="text-sm">Area Pricer</CardTitle>
-              </CardHeader>
-            </Card>
 
-            {/* Data Guide */}
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white opacity-50 h-full">
-              <CardHeader className="text-center pb-3 pt-4">
-                <div className="w-12 h-12 mx-auto mb-2 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Database className="w-6 h-6 text-indigo-600" />
-                </div>
-                <CardTitle className="text-sm">Data Guide</CardTitle>
-              </CardHeader>
-            </Card>
           </div>
         </div>
 
@@ -193,6 +153,30 @@ export default function Dashboard() {
                       <Settings className="w-6 h-6 text-red-600" />
                     </div>
                     <CardTitle className="text-sm text-red-600">Admin Panel</CardTitle>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              {/* Customer Management */}
+              <Link href="/customer-management">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white border-blue-200">
+                  <CardHeader className="text-center pb-4">
+                    <div className="w-12 h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Users className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-sm text-blue-600">Customer Management</CardTitle>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              {/* Product Management */}
+              <Link href="/product-management">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white border-indigo-200">
+                  <CardHeader className="text-center pb-4">
+                    <div className="w-12 h-12 mx-auto mb-2 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <Package className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <CardTitle className="text-sm text-indigo-600">Product Management</CardTitle>
                   </CardHeader>
                 </Card>
               </Link>

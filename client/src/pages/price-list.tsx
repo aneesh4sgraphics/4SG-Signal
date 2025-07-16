@@ -274,10 +274,10 @@ export default function PriceList() {
 
   // Download functions
   const handleDownload = async (type: "pdf" | "csv") => {
-    if (!selectedCustomer) {
+    if (type === "pdf" && !selectedCustomer) {
       toast({
-        title: "Customer Required",
-        description: "Please select a customer before downloading.",
+        title: "No Company Name Found",
+        description: "Please select a customer before downloading PDF.",
         variant: "destructive",
       });
       return;

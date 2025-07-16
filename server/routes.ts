@@ -974,11 +974,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save to Saved Quotes
       const quoteNumber = generateQuoteNumber();
-      const fileName = `${categoryName}_${clientName.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
+      const fileName = `${categoryName}_${clientName ? clientName.replace(/[^a-zA-Z0-9]/g, '') : 'PriceList'}.pdf`;
       
       await storage.createSentQuote({
         quoteNumber,
-        customerName: clientName,
+        customerName: clientName || 'No Customer',
         customerEmail: null,
         items: JSON.stringify(items.map(item => ({
           id: `${item.size.id}`,
@@ -1016,8 +1016,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { clientName, categoryName, tierName, items } = req.body;
       
-      if (!clientName || !categoryName || !tierName || !items || !Array.isArray(items)) {
-        return res.status(400).json({ error: "Client name, category name, tier name, and items are required" });
+      if (!categoryName || !tierName || !items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "Category name, tier name, and items are required" });
       }
 
       const csvContent = generatePriceListCSV({
@@ -1029,11 +1029,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save to Saved Quotes
       const quoteNumber = generateQuoteNumber();
-      const fileName = `price-list-${categoryName}-${clientName.replace(/[^a-zA-Z0-9]/g, '')}.csv`;
+      const fileName = `price-list-${categoryName}-${clientName ? clientName.replace(/[^a-zA-Z0-9]/g, '') : 'PriceList'}.csv`;
       
       await storage.createSentQuote({
         quoteNumber,
-        customerName: clientName,
+        customerName: clientName || 'No Customer',
         customerEmail: null,
         items: JSON.stringify(items.map(item => ({
           id: `${item.size.id}`,
