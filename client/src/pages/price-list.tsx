@@ -218,29 +218,51 @@ export default function PriceList() {
 
     if (!response.ok) throw new Error('Failed to generate PDF');
 
-    // Get the PDF blob
-    const pdfBlob = await response.blob();
-    const url = window.URL.createObjectURL(pdfBlob);
+    const data = await response.json();
+    const { html, filename } = data;
+
+    // Create a new window with the HTML content
+    const newWindow = window.open('', '_blank');
+    if (!newWindow) {
+      toast({
+        title: "Popup blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Write the HTML content to the new window
+    newWindow.document.write(html);
+    newWindow.document.close();
+
+    // Add a print button and instructions
+    const printButton = newWindow.document.createElement('button');
+    printButton.textContent = 'Print to PDF';
+    printButton.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    `;
+    printButton.onclick = () => {
+      newWindow.print();
+    };
     
-    // Create a temporary link element
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${selectedCategoryData?.name}_${clientName.trim().replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
-    link.style.display = 'none';
-    
-    // Add to document, click, and remove
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up the URL object
-    window.URL.revokeObjectURL(url);
+    newWindow.document.body.appendChild(printButton);
 
     // Show success toast
     toast({
-      title: "PDF downloaded successfully",
-      description: "The price list has been saved to your downloads folder.",
-      duration: 3000,
+      title: "PDF preview opened",
+      description: "Click 'Print to PDF' in the new window to save the PDF file.",
+      duration: 5000,
     });
   };
 

@@ -10,7 +10,6 @@ import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
 
 import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generatePriceListCSV } from "./simple-pdf-generator";
-import htmlPdf from "html-pdf-node";
 import { insertSentQuoteSchema } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
 
@@ -782,19 +781,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items
       });
 
-      // Generate PDF from HTML
-      const options = {
-        format: 'A4',
-        border: {
-          top: '0.5in',
-          right: '0.5in',
-          bottom: '0.5in',
-          left: '0.5in'
-        }
-      };
-
-      const pdfBuffer = await htmlPdf.generatePdf({ content: htmlContent }, options);
-
       // Save to Saved Quotes
       const quoteNumber = generateQuoteNumber();
       const fileName = `${categoryName}_${clientName.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
@@ -823,10 +809,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date()
       });
 
-      // Return PDF file
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.send(pdfBuffer);
+      // Return HTML for PDF conversion
+      res.json({ 
+        html: htmlContent,
+        filename: fileName
+      });
     } catch (error) {
       console.error("Error generating price list PDF:", error);
       res.status(500).json({ error: "Failed to generate price list PDF" });
