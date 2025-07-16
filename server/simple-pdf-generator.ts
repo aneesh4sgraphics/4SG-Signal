@@ -34,11 +34,11 @@ const companyDetails = {
 };
 
 function generateQuoteHTML(request: PDFGenerationRequest): string {
-  const { customerName, quoteItems, quoteNumber, totalAmount, salesRep = "Sales Representative" } = request;
+  const { customerName, quoteItems, quoteNumber, totalAmount, salesRep = "aneesh@4sgraphics.com" } = request;
   const currentDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric'
   });
 
   // Check if any item has quantity below minimum order quantity
@@ -54,10 +54,9 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     
     return `
       <tr>
-        <td>${index + 1}</td>
+        <td>${item.productBrand}</td>
         <td>${item.productType}</td>
         <td>${item.productSize}</td>
-        <td>${item.itemCode}</td>
         <td>${item.quantity}</td>
         ${hasMinOrderQtyDisplay ? `<td>${isMinOrderQtyActive ? minOrderQty : '-'}</td>` : ''}
         <td>$${item.pricePerSheet.toFixed(2)}</td>
@@ -67,7 +66,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
   }).join('');
 
   const logoBase64 = getLogoBase64();
-  const logoHtml = logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" alt="4S Graphics Logo" style="height: 60px; margin-right: 20px;">` : '';
+  const logoHtml = logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" alt="4S Graphics Logo" style="height: 80px; margin-right: 15px;">` : '';
 
   return `
     <!DOCTYPE html>
@@ -80,236 +79,190 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
         
         body {
-          font-family: 'Roboto', sans-serif;
-          font-size: 10px;
+          font-family: Arial, sans-serif;
+          font-size: 12px;
           margin: 0;
-          padding: 20px;
+          padding: 30px;
           background-color: white;
-          color: #333;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          color: #000;
+          line-height: 1.4;
         }
-        .header {
-          text-align: center;
+        
+        .header-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
           margin-bottom: 30px;
+          border-bottom: 2px solid #000;
           padding-bottom: 20px;
         }
-        .logo-container {
-          text-align: center;
-          margin-bottom: 10px;
+        
+        .company-info {
+          display: flex;
+          align-items: flex-start;
         }
-        .company-name {
-          font-size: 15px;
-          font-weight: bold;
-          color: #333;
-          margin: 10px 0 5px 0;
-          font-family: 'Roboto', sans-serif;
-        }
+        
         .company-details {
-          font-size: 10px;
-          color: #666;
-          margin-bottom: 20px;
-          font-family: 'Roboto', sans-serif;
+          margin-left: 15px;
         }
-        .price-list-title {
-          font-size: 10px;
+        
+        .company-name {
+          font-size: 18px;
           font-weight: bold;
-          color: #333;
-          margin: 20px 0;
-          font-family: 'Roboto', sans-serif;
+          color: #000;
+          margin-bottom: 5px;
         }
-        .quote-header-info {
+        
+        .company-address {
+          font-size: 12px;
+          color: #000;
+          margin-bottom: 2px;
+        }
+        
+        .quote-date {
+          font-size: 12px;
+          color: #000;
+          text-align: right;
+        }
+        
+        .quote-info {
+          display: flex;
+          justify-content: space-between;
           margin-bottom: 30px;
-          padding: 20px;
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          border: 1px solid #e9ecef;
+          font-size: 12px;
         }
-        .quote-field {
-          margin-bottom: 8px;
-          text-align: left;
-        }
-        .quote-field:last-child {
-          margin-bottom: 0;
-        }
-        .quote-field strong {
+        
+        .price-quote-title {
+          text-align: center;
+          font-size: 18px;
           font-weight: bold;
-          color: #333;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
+          color: #000;
+          margin: 30px 0;
         }
-        .quote-field span {
-          font-size: 10px;
-          color: #666;
-          font-family: 'Roboto', sans-serif;
-        }
+        
         .items-table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 20px;
-          border: none;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          border-radius: 8px;
-          overflow: hidden;
+          border: 1px solid #000;
         }
+        
         .items-table th {
-          background-color: #2c5f41 !important;
-          color: white !important;
-          padding: 12px 8px;
+          background-color: #6FA8DC !important;
+          color: #000 !important;
+          padding: 8px;
           text-align: center;
           font-weight: bold;
-          border: none;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
+          border: 1px solid #000;
+          font-size: 12px;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
-        ${hasMinOrderQtyDisplay ? `
-        .items-table th:nth-child(1) { width: 8%; }
-        .items-table th:nth-child(2) { width: 20%; }
-        .items-table th:nth-child(3) { width: 12%; }
-        .items-table th:nth-child(4) { width: 12%; }
-        .items-table th:nth-child(5) { width: 10%; }
-        .items-table th:nth-child(6) { width: 15%; }
-        .items-table th:nth-child(7) { width: 11%; }
-        .items-table th:nth-child(8) { width: 12%; }
-        ` : `
-        .items-table th:nth-child(1) { width: 8%; }
-        .items-table th:nth-child(2) { width: 25%; }
-        .items-table th:nth-child(3) { width: 15%; }
-        .items-table th:nth-child(4) { width: 15%; }
-        .items-table th:nth-child(5) { width: 12%; }
-        .items-table th:nth-child(6) { width: 12%; }
-        .items-table th:nth-child(7) { width: 13%; }
-        `}
+        
         .items-table td {
-          padding: 12px 8px;
-          border: none;
+          padding: 8px;
           text-align: center;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          border: 1px solid #000;
+          font-size: 12px;
         }
-        .items-table tbody tr:nth-child(even) td {
-          background-color: #f1f3f4 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        .items-table tbody tr:nth-child(odd) td {
-          background-color: #f8f9fa !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
+        
         .total-row {
-          background-color: #ffffff !important;
+          text-align: right;
+          font-size: 14px;
           font-weight: bold;
+          margin: 20px 0;
         }
-        .total-row td {
-          background-color: #ffffff !important;
-          border-top: 2px solid #2c5f41;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
+        
+        .confirm-order {
+          margin-top: 30px;
         }
-        .total-amount {
-          font-size: 10px;
+        
+        .confirm-order h3 {
+          font-size: 14px;
           font-weight: bold;
-          font-family: 'Roboto', sans-serif;
-          color: #2c5f41 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+          margin-bottom: 10px;
         }
-        .footer {
-          margin-top: 40px;
+        
+        .confirm-order p {
+          font-size: 12px;
+          margin-bottom: 5px;
+        }
+        
+        .confirm-order ol {
+          font-size: 12px;
+          margin-left: 20px;
+        }
+        
+        .footer-info {
+          margin-top: 30px;
+          font-size: 12px;
+        }
+        
+        .page-number {
           text-align: center;
-          font-size: 10px;
-          font-family: 'Roboto', sans-serif;
-          color: #666;
-          border-top: 1px solid #ddd;
-          padding-top: 20px;
-        }
-        @media print {
-          body {
-            margin: 0;
-            padding: 15px;
-          }
-          .header {
-            margin-bottom: 20px;
-          }
-          .quote-info {
-            margin-bottom: 20px;
-          }
-          .customer-section {
-            margin-bottom: 20px;
-          }
-          .footer {
-            margin-top: 30px;
-          }
+          font-size: 12px;
+          margin-top: 40px;
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="logo-container">
+      <div class="header-container">
+        <div class="company-info">
           ${logoHtml}
+          <div class="company-details">
+            <div class="company-name">${companyDetails.name}</div>
+            <div class="company-address">${companyDetails.address}</div>
+            <div class="company-address">${companyDetails.city}</div>
+            <div class="company-address">Phone: ${companyDetails.phone} | Website: https://${companyDetails.website}/</div>
+          </div>
         </div>
-        <h1 class="company-name">${companyDetails.name}</h1>
-        <div class="company-details">
-          ${companyDetails.address}, ${companyDetails.city}<br>
-          Phone: ${companyDetails.phone} | Website: https://${companyDetails.website}
-        </div>
-        <div class="price-list-title">PRICE LIST</div>
+        <div class="quote-date">Quote Date: ${currentDate}</div>
       </div>
-
-      <div class="quote-header-info">
-        <div class="quote-field">
-          <strong>Quote Number:</strong> <span>${quoteNumber}</span>
-        </div>
-        <div class="quote-field">
-          <strong>Quote for:</strong> <span>${customerName}</span>
-        </div>
-        <div class="quote-field">
-          <strong>Date Issued:</strong> <span>${currentDate}</span>
-        </div>
-        <div class="quote-field">
-          <strong>Sales Rep:</strong> <span>${salesRep}</span>
-        </div>
+      
+      <div class="quote-info">
+        <div>Quote Prepared for: ${customerName}</div>
       </div>
-
+      
+      <div class="price-quote-title">PRICE QUOTE</div>
+      
       <table class="items-table">
         <thead>
           <tr>
-            <th>Sl. No.</th>
             <th>Product</th>
+            <th>Product Type</th>
             <th>Size</th>
-            <th>Product Code</th>
-            <th>Quantity</th>
-            ${hasMinOrderQtyDisplay ? '<th>Min Order Quantity</th>' : ''}
+            <th>Qty</th>
+            ${hasMinOrderQtyDisplay ? '<th>Min Order Qty</th>' : ''}
             <th>Price/Sheet</th>
             <th>Total</th>
           </tr>
         </thead>
         <tbody>
           ${itemRows}
-          <tr class="total-row">
-            <td colspan="${hasMinOrderQtyDisplay ? '7' : '6'}" style="text-align: right; font-weight: bold; padding: 15px 12px;">Total</td>
-            <td style="text-align: center; font-weight: bold; padding: 15px 12px;">
-              <span class="total-amount">$${totalAmount.toFixed(2)}</span>
-            </td>
-          </tr>
         </tbody>
       </table>
-
-      <div class="footer">
-        <p>Thank you for your business!</p>
-        <p>This quote is valid for 30 days from the date above.</p>
-        <p style="margin-top: 15px; font-weight: bold;">Shipping costs extra at actuals.</p>
+      
+      <div class="total-row">
+        Quote Total: $${totalAmount.toFixed(2)}
       </div>
+      
+      <div class="confirm-order">
+        <h3>Confirm Your Order</h3>
+        <p>To proceed with this order, please choose one of the following options:</p>
+        <ol>
+          <li>Forward this PDF to: sales@4sgraphics.com</li>
+          <li>Click here to start an email (please attach this PDF).</li>
+        </ol>
+      </div>
+      
+      <div class="footer-info">
+        <p>Quote Prepared by: ${salesRep}</p>
+        <p>Date: ${currentDate}</p>
+      </div>
+      
+      <div class="page-number">Page 1 of 1</div>
     </body>
     </html>
   `;
