@@ -67,6 +67,28 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  acceptsEmailMarketing: boolean("accepts_email_marketing").default(false),
+  company: varchar("company", { length: 255 }).notNull(),
+  address1: varchar("address1", { length: 255 }),
+  address2: varchar("address2", { length: 255 }),
+  city: varchar("city", { length: 255 }),
+  province: varchar("province", { length: 255 }),
+  country: varchar("country", { length: 255 }),
+  zip: varchar("zip", { length: 20 }),
+  phone: varchar("phone", { length: 50 }),
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).default("0"),
+  totalOrders: integer("total_orders").default(0),
+  note: text("note"),
+  tags: varchar("tags", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const sentQuotes = pgTable("sent_quotes", {
   id: serial("id").primaryKey(),
   quoteNumber: varchar("quote_number", { length: 50 }).notNull(),
@@ -110,6 +132,11 @@ export const insertUserSchema = createInsertSchema(users).pick({
   lastName: true,
 });
 
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertSentQuoteSchema = createInsertSchema(sentQuotes).omit({
   id: true,
 });
@@ -120,6 +147,7 @@ export type ProductSize = typeof productSizes.$inferSelect;
 export type PricingTier = typeof pricingTiers.$inferSelect;
 export type ProductPricing = typeof productPricing.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Customer = typeof customers.$inferSelect;
 export type SentQuote = typeof sentQuotes.$inferSelect;
 
 export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
@@ -129,4 +157,5 @@ export type InsertPricingTier = z.infer<typeof insertPricingTierSchema>;
 export type InsertProductPricing = z.infer<typeof insertProductPricingSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertSentQuote = z.infer<typeof insertSentQuoteSchema>;

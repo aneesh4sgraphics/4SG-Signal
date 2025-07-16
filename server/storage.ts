@@ -12,10 +12,13 @@ import {
   type InsertPricingTier,
   type ProductPricing,
   type InsertProductPricing,
+  type Customer,
+  type InsertCustomer,
   type SentQuote,
   type InsertSentQuote
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
+import { parseCustomerData } from "./customer-parser";
 
 export interface IStorage {
   // User operations for Replit Auth
@@ -54,6 +57,11 @@ export interface IStorage {
   getPriceForProductType(typeId: number, tierId: number): Promise<number>;
   getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number>;
   
+  // Customers
+  getCustomers(): Promise<Customer[]>;
+  getCustomer(id: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  
   // Sent Quotes
   getSentQuotes(): Promise<SentQuote[]>;
   getSentQuote(id: number): Promise<SentQuote | undefined>;
@@ -73,6 +81,7 @@ export class MemStorage implements IStorage {
   private productSizes: Map<number, ProductSize>;
   private pricingTiers: Map<number, PricingTier>;
   private productPricing: Map<number, ProductPricing>;
+  private customers: Map<string, Customer>;
   private sentQuotes: Map<number, SentQuote>;
 
   private currentCategoryId: number;
@@ -89,6 +98,7 @@ export class MemStorage implements IStorage {
     this.productSizes = new Map();
     this.pricingTiers = new Map();
     this.productPricing = new Map();
+    this.customers = new Map();
     this.sentQuotes = new Map();
 
     this.currentCategoryId = 1;
@@ -135,6 +145,16 @@ export class MemStorage implements IStorage {
       csvData.productPricing.forEach(pricing => {
         this.productPricing.set(pricing.id, pricing);
         this.currentPricingId = Math.max(this.currentPricingId, pricing.id + 1);
+      });
+
+      // Initialize customers from CSV
+      const customerData = parseCustomerData();
+      customerData.forEach(customer => {
+        this.customers.set(customer.id, {
+          ...customer,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
       });
       
     } catch (error) {
@@ -375,6 +395,25 @@ export class MemStorage implements IStorage {
       // Create new quote
       return await this.createSentQuote(quote);
     }
+  }
+
+  // Customer management methods
+  async getCustomers(): Promise<Customer[]> {
+    return Array.from(this.customers.values());
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    return this.customers.get(id);
+  }
+
+  async createCustomer(customerData: InsertCustomer): Promise<Customer> {
+    const newCustomer: Customer = {
+      ...customerData,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.customers.set(customerData.id, newCustomer);
+    return newCustomer;
   }
 
   async reinitializeData(): Promise<void> {

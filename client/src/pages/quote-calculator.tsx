@@ -98,6 +98,17 @@ export default function QuoteCalculator() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
+  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState<boolean>(false);
+  const [newCustomer, setNewCustomer] = useState({
+    company: "",
+    address1: "",
+    city: "",
+    province: "",
+    zip: "",
+    firstName: "",
+    phone: "",
+    email: ""
+  });
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
@@ -340,6 +351,82 @@ export default function QuoteCalculator() {
     setCustomWidthUnit("inch");
     setCustomHeightUnit("inch");
     setCustomCalculation(null);
+  };
+
+  const createNewCustomer = async () => {
+    if (!newCustomer.company || !newCustomer.firstName || !newCustomer.email) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields: Company Name, Contact Name, and Email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const customerData = {
+        id: customerId,
+        company: newCustomer.company,
+        address1: newCustomer.address1,
+        city: newCustomer.city,
+        province: newCustomer.province,
+        zip: newCustomer.zip,
+        firstName: newCustomer.firstName,
+        lastName: "", // Not collected in this form
+        phone: newCustomer.phone,
+        email: newCustomer.email,
+        acceptsEmailMarketing: false,
+        address2: "",
+        country: "Canada",
+        totalSpent: 0,
+        totalOrders: 0,
+        note: "",
+        tags: "",
+      };
+
+      const response = await apiRequest("POST", "/api/customers", customerData);
+      
+      if (response.ok) {
+        const createdCustomer = await response.json();
+        
+        // Invalidate customers cache to refresh the list
+        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+        
+        // Reset the form
+        setNewCustomer({
+          company: "",
+          address1: "",
+          city: "",
+          province: "",
+          zip: "",
+          firstName: "",
+          phone: "",
+          email: ""
+        });
+        
+        // Select the new customer
+        setSelectedCustomer(createdCustomer);
+        setCustomerSearchTerm(`${createdCustomer.firstName} ${createdCustomer.lastName}`);
+        
+        // Close the dialog
+        setShowNewCustomerDialog(false);
+        
+        toast({
+          title: "Success",
+          description: "Customer created successfully",
+        });
+      } else {
+        throw new Error("Failed to create customer");
+      }
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create customer. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const clearQuote = () => {
@@ -643,23 +730,121 @@ Look forward for your order!`;
               {/* Customer Search */}
               <div className="space-y-2 relative customer-search-container">
                 <Label htmlFor="customer-search">Search Customer</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="customer-search"
-                    type="text"
-                    placeholder="Type customer name, company, or email..."
-                    value={customerSearchTerm}
-                    onChange={(e) => {
-                      setCustomerSearchTerm(e.target.value);
-                      setShowCustomerDropdown(true);
-                      if (!e.target.value) {
-                        setSelectedCustomer(null);
-                      }
-                    }}
-                    onFocus={() => setShowCustomerDropdown(true)}
-                    className="w-full pl-10"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="customer-search"
+                      type="text"
+                      placeholder="Type customer name, company, or email..."
+                      value={customerSearchTerm}
+                      onChange={(e) => {
+                        setCustomerSearchTerm(e.target.value);
+                        setShowCustomerDropdown(true);
+                        if (!e.target.value) {
+                          setSelectedCustomer(null);
+                        }
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      className="w-full pl-10"
+                    />
+                  </div>
+                  <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        New Customer
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create New Customer</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Company Name *</label>
+                            <Input
+                              value={newCustomer.company}
+                              onChange={(e) => setNewCustomer({...newCustomer, company: e.target.value})}
+                              placeholder="Company Name"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Contact Name *</label>
+                            <Input
+                              value={newCustomer.firstName}
+                              onChange={(e) => setNewCustomer({...newCustomer, firstName: e.target.value})}
+                              placeholder="Contact Name"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Address</label>
+                          <Input
+                            value={newCustomer.address1}
+                            onChange={(e) => setNewCustomer({...newCustomer, address1: e.target.value})}
+                            placeholder="Street Address"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">City</label>
+                            <Input
+                              value={newCustomer.city}
+                              onChange={(e) => setNewCustomer({...newCustomer, city: e.target.value})}
+                              placeholder="City"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Province</label>
+                            <Input
+                              value={newCustomer.province}
+                              onChange={(e) => setNewCustomer({...newCustomer, province: e.target.value})}
+                              placeholder="Province"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Zip Code</label>
+                            <Input
+                              value={newCustomer.zip}
+                              onChange={(e) => setNewCustomer({...newCustomer, zip: e.target.value})}
+                              placeholder="Zip Code"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Phone</label>
+                            <Input
+                              value={newCustomer.phone}
+                              onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                              placeholder="Phone Number"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Email *</label>
+                            <Input
+                              value={newCustomer.email}
+                              onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                              placeholder="Email Address"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowNewCustomerDialog(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button onClick={createNewCustomer}>
+                            Create Customer
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 
                 {/* Customer Dropdown */}

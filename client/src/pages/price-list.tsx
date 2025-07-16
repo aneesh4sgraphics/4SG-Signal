@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ProductCategory {
   id: number;
@@ -188,51 +189,62 @@ export default function PriceList() {
     }
 
     try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: newCustomer.company,
-          address1: newCustomer.address1,
-          city: newCustomer.city,
-          province: newCustomer.province,
-          zip: newCustomer.zip,
-          firstName: newCustomer.firstName,
-          lastName: "",
-          phone: newCustomer.phone,
-          email: newCustomer.email,
-          id: Date.now().toString(), // Generate simple ID
-          acceptsEmailMarketing: false,
-          address2: "",
-          country: "USA",
-          totalSpent: 0,
-          totalOrders: 0,
-          note: "",
-          tags: ""
-        })
-      });
+      const customerId = `customer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const customerData = {
+        id: customerId,
+        company: newCustomer.company,
+        address1: newCustomer.address1,
+        city: newCustomer.city,
+        province: newCustomer.province,
+        zip: newCustomer.zip,
+        firstName: newCustomer.firstName,
+        lastName: "", // Not collected in this form
+        phone: newCustomer.phone,
+        email: newCustomer.email,
+        acceptsEmailMarketing: false,
+        address2: "",
+        country: "Canada",
+        totalSpent: 0,
+        totalOrders: 0,
+        note: "",
+        tags: "",
+      };
 
-      if (!response.ok) throw new Error('Failed to create customer');
+      const response = await apiRequest("POST", "/api/customers", customerData);
       
-      const customer = await response.json();
-      setSelectedCustomer(customer.id);
-      setShowNewCustomerDialog(false);
-      setNewCustomer({
-        company: "",
-        address1: "",
-        city: "",
-        province: "",
-        zip: "",
-        firstName: "",
-        phone: "",
-        email: ""
-      });
-      
-      toast({
-        title: "Customer Created",
-        description: "New customer has been added successfully.",
-      });
+      if (response.ok) {
+        const createdCustomer = await response.json();
+        
+        // Invalidate customers cache to refresh the list
+        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+        
+        // Reset the form
+        setNewCustomer({
+          company: "",
+          address1: "",
+          city: "",
+          province: "",
+          zip: "",
+          firstName: "",
+          phone: "",
+          email: ""
+        });
+        
+        // Select the new customer
+        setSelectedCustomer(createdCustomer.id);
+        
+        // Close the dialog
+        setShowNewCustomerDialog(false);
+        
+        toast({
+          title: "Customer Created",
+          description: "New customer has been added successfully.",
+        });
+      } else {
+        throw new Error("Failed to create customer");
+      }
     } catch (error) {
+      console.error("Error creating customer:", error);
       toast({
         title: "Error",
         description: "Failed to create customer. Please try again.",

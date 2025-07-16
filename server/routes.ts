@@ -253,6 +253,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer management routes
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const cacheKey = "customers";
+      const cachedData = getCachedData(cacheKey);
+      
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+      
+      const customers = await storage.getCustomers();
+      setCachedData(cacheKey, customers);
+      res.json(customers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  app.post("/api/customers", async (req, res) => {
+    try {
+      const customerData = req.body;
+      const customer = await storage.createCustomer(customerData);
+      
+      // Clear cache to ensure fresh data
+      setCachedData("customers", null);
+      
+      res.json(customer);
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
   // Get product pricing by type ID
   app.get("/api/product-pricing/:typeId", async (req, res) => {
     try {
