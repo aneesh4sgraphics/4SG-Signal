@@ -144,7 +144,7 @@ export default function Dashboard() {
               <Shield className="w-5 h-5 text-red-600" />
               <h3 className="text-lg font-semibold text-gray-900">Admin Tools</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {/* Admin Panel */}
               <Link href="/admin">
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white border-red-200">
