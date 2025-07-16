@@ -781,10 +781,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items
       });
 
+      // Save to Saved Quotes
+      const quoteNumber = generateQuoteNumber();
+      const fileName = `${categoryName}_${clientName.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
+      
+      await storage.createSentQuote({
+        quoteNumber,
+        customerName: clientName,
+        customerEmail: null,
+        items: JSON.stringify(items.map(item => ({
+          id: `${item.size.id}`,
+          productBrand: categoryName,
+          productType: item.type.name,
+          productSize: item.size.name,
+          squareMeters: parseFloat(item.size.squareMeters),
+          pricePerSheet: parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters),
+          quantity: 1,
+          total: parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters),
+          tierId: item.pricing.tierId,
+          tierName: tierName,
+          minOrderQty: item.size.minOrderQty,
+          itemCode: item.size.itemCode
+        }))),
+        totalAmount: items.reduce((sum, item) => sum + (parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters)), 0),
+        fileName,
+        fileType: 'PDF',
+        createdAt: new Date()
+      });
+
       // Return HTML for frontend to handle PDF generation
       res.json({ 
         html: htmlContent,
-        filename: `${categoryName}_${tierName}_${clientName.replace(/[^a-zA-Z0-9]/g, '')}.pdf`
+        filename: fileName
       });
     } catch (error) {
       console.error("Error generating price list PDF:", error);
@@ -808,8 +836,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items
       });
 
+      // Save to Saved Quotes
+      const quoteNumber = generateQuoteNumber();
+      const fileName = `price-list-${categoryName}-${clientName.replace(/[^a-zA-Z0-9]/g, '')}.csv`;
+      
+      await storage.createSentQuote({
+        quoteNumber,
+        customerName: clientName,
+        customerEmail: null,
+        items: JSON.stringify(items.map(item => ({
+          id: `${item.size.id}`,
+          productBrand: categoryName,
+          productType: item.type.name,
+          productSize: item.size.name,
+          squareMeters: parseFloat(item.size.squareMeters),
+          pricePerSheet: parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters),
+          quantity: 1,
+          total: parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters),
+          tierId: item.pricing.tierId,
+          tierName: tierName,
+          minOrderQty: item.size.minOrderQty,
+          itemCode: item.size.itemCode
+        }))),
+        totalAmount: items.reduce((sum, item) => sum + (parseFloat(item.pricing.pricePerSquareMeter) * parseFloat(item.size.squareMeters)), 0),
+        fileName,
+        fileType: 'CSV',
+        createdAt: new Date()
+      });
+
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="price-list-${categoryName}-${tierName}.csv"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.send(csvContent);
     } catch (error) {
       console.error("Error generating price list CSV:", error);

@@ -516,7 +516,6 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       <div class="price-list-info">
         <div>Price List for: ${clientName}</div>
         <div>Product Category: ${categoryName}</div>
-        <div>Pricing Tier: ${tierName}</div>
         <div>Date: ${currentDate}</div>
       </div>
       
@@ -550,7 +549,6 @@ export function generatePriceListCSV(request: PriceListRequest): string {
 
   let csvContent = `Price List for ${clientName}\n`;
   csvContent += `Product Category: ${categoryName}\n`;
-  csvContent += `Pricing Tier: ${tierName}\n`;
   csvContent += `Date: ${currentDate}\n\n`;
 
   // Generate CSV sections for each product type
