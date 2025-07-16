@@ -218,15 +218,32 @@ export default function PriceList() {
 
     if (!response.ok) throw new Error('Failed to generate PDF');
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${selectedCategoryData?.name}_${selectedTierData?.name}_${clientName.trim()}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    const data = await response.json();
+    const { html, filename } = data;
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      throw new Error('Failed to open print window');
+    }
+
+    // Write HTML content to the new window
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+
+    // For browsers that don't trigger onload
+    setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.print();
+        printWindow.close();
+      }
+    }, 1000);
   };
 
   const downloadCSV = async (items: PriceListItem[]) => {

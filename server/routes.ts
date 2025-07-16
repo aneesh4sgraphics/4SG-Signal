@@ -781,8 +781,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items
       });
 
-      res.setHeader('Content-Type', 'text/html');
-      res.send(htmlContent);
+      // Return HTML for frontend to handle PDF generation
+      res.json({ 
+        html: htmlContent,
+        filename: `${categoryName}_${tierName}_${clientName.replace(/[^a-zA-Z0-9]/g, '')}.pdf`
+      });
     } catch (error) {
       console.error("Error generating price list PDF:", error);
       res.status(500).json({ error: "Failed to generate price list PDF" });
