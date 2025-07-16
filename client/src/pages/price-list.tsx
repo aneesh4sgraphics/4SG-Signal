@@ -827,11 +827,8 @@ export default function PriceList() {
                                 const price = getPriceForTier(item, parseInt(selectedTier));
                                 const basePricePerSqm = item.pricing.find((p: ProductPricing) => p.tierId === parseInt(selectedTier))?.pricePerSquareMeter || "0";
                                 
-                                // Apply 99-cent rounding for retail pricing tier display
-                                const selectedTierData = tiers.find((t: PricingTier) => t.id === parseInt(selectedTier));
-                                const adjustedPricePerSqm = selectedTierData?.name?.toLowerCase().includes('retail') 
-                                  ? roundToNinetyNine(parseFloat(basePricePerSqm)) 
-                                  : parseFloat(basePricePerSqm);
+                                // Keep the price per square meter unchanged from CSV data
+                                const pricePerSqm = parseFloat(basePricePerSqm);
                                 
                                 const rowId = `${item.size.id}-${item.type.id}`;
                                 
@@ -851,7 +848,7 @@ export default function PriceList() {
                                     </td>
                                     <td className="py-3 px-4 text-sm">{item.size.minOrderQty}</td>
                                     <td className="py-3 px-4 text-sm text-right font-medium">
-                                      ${adjustedPricePerSqm.toFixed(2)}
+                                      ${pricePerSqm.toFixed(2)}
                                     </td>
                                     <td className="py-3 px-4 text-sm text-right font-bold text-green-600">
                                       ${price.toFixed(2)}
