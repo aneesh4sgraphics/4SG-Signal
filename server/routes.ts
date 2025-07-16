@@ -48,6 +48,65 @@ function convertQuotesToCSV(quotes: any[]): string {
   return [headers, ...rows].map(row => row.join(',')).join('\n');
 }
 
+async function saveProductDataToFile() {
+  try {
+    // Get current product data
+    const categories = await storage.getProductCategories();
+    const types = await storage.getProductTypes();
+    const sizes = await storage.getProductSizes();
+    const tiers = await storage.getPricingTiers();
+    const pricing = await storage.getProductPricing();
+
+    // Build CSV data similar to the original format
+    const csvData = [];
+    
+    // Add header
+    csvData.push([
+      "ProductID",
+      "ProductName", 
+      "ProductType",
+      "Size",
+      "ItemCode",
+      "MinOrderQty",
+      ...tiers.map(tier => `${tier.name}_pricePerSqm`)
+    ]);
+
+    // Build rows
+    sizes.forEach(size => {
+      const type = types.find(t => t.id === size.typeId);
+      const category = categories.find(c => c.id === type?.categoryId);
+      const sizePricing = pricing.filter(p => p.productTypeId === size.typeId);
+      
+      const row = [
+        size.id.toString(),
+        `${category?.name || ""} ${type?.name || ""}`.trim(),
+        type?.name || "",
+        size.name,
+        size.itemCode || "",
+        size.minOrderQty || "",
+        ...tiers.map(tier => {
+          const tierPrice = sizePricing.find(p => p.tierId === tier.id);
+          return tierPrice ? tierPrice.pricePerSquareMeter : "0";
+        })
+      ];
+      
+      csvData.push(row);
+    });
+
+    // Convert to CSV string
+    const csvString = csvData.map(row => row.join(",")).join("\n");
+    
+    // Save to file
+    const filePath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
+    fs.writeFileSync(filePath, csvString);
+    
+    console.log("Product data saved to file successfully");
+  } catch (error) {
+    console.error("Error saving product data to file:", error);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
@@ -322,6 +381,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting customer:", error);
       res.status(500).json({ error: "Failed to delete customer" });
+    }
+  });
+
+  // Product management routes
+  app.put("/api/product-sizes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const sizeId = parseInt(req.params.id);
+      const sizeData = req.body;
+
+      if (isNaN(sizeId)) {
+        return res.status(400).json({ error: "Invalid product size ID" });
+      }
+
+      // Check if user is admin
+      const userRole = req.user?.claims?.email === "aneesh@4sgraphics.com" || req.user?.claims?.email === "oscar@4sgraphics.com" ? "admin" : "user";
+      if (userRole !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const updatedSize = await storage.updateProductSize(sizeId, sizeData);
+      
+      if (!updatedSize) {
+        return res.status(404).json({ error: "Product size not found" });
+      }
+      
+      // Clear cache to ensure fresh data
+      setCachedData("product-sizes", null);
+      
+      // Save updated data to file
+      await saveProductDataToFile();
+      
+      res.json(updatedSize);
+    } catch (error) {
+      console.error("Error updating product size:", error);
+      res.status(500).json({ error: "Failed to update product size" });
+    }
+  });
+
+  // Save current product data to CSV file
+  app.post("/api/admin/save-product-data", isAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin
+      const userRole = req.user?.claims?.email === "aneesh@4sgraphics.com" || req.user?.claims?.email === "oscar@4sgraphics.com" ? "admin" : "user";
+      if (userRole !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      await saveProductDataToFile();
+      
+      res.json({ message: "Product data saved to file successfully" });
+    } catch (error) {
+      console.error("Error saving product data:", error);
+      res.status(500).json({ error: "Failed to save product data" });
     }
   });
 

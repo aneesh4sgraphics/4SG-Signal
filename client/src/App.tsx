@@ -11,6 +11,7 @@ import CompetitorPricing from "@/pages/competitor-pricing";
 import SavedQuotes from "@/pages/saved-quotes";
 import PriceList from "@/pages/price-list";
 import CustomerManagement from "@/pages/customer-management";
+import ProductManagement from "@/pages/product-management";
 import Admin from "@/pages/admin";
 import Dashboard from "@/pages/dashboard";
 import Landing from "@/pages/landing";
@@ -59,6 +60,7 @@ function Router() {
             <Route path="/saved-quotes" component={SavedQuotes} />
             <Route path="/price-list" component={PriceList} />
             <Route path="/customer-management" component={CustomerManagement} />
+            <Route path="/product-management" component={ProductManagement} />
             <Route path="/admin" component={Admin} />
             <Route component={NotFound} />
           </Switch>

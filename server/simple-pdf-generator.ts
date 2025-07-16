@@ -345,14 +345,17 @@ export function generatePriceListHTML(request: PriceListRequest): string {
     const itemRows = typeItems.map((item) => {
       const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
-      const totalPrice = pricePerSqm * squareMeters;
+      const pricePerSheet = pricePerSqm * squareMeters;
+      const minOrderQty = parseInt(item.size.minOrderQty) || 1;
+      const minQtyPrice = pricePerSheet * minOrderQty;
       
       return `
         <tr>
           <td>${item.size.name}</td>
           <td>${item.size.itemCode}</td>
           <td>${item.size.minOrderQty}</td>
-          <td>$${totalPrice.toFixed(2)}</td>
+          <td>$${pricePerSheet.toFixed(2)}</td>
+          <td>$${minQtyPrice.toFixed(2)}</td>
         </tr>
       `;
     }).join('');
@@ -366,7 +369,8 @@ export function generatePriceListHTML(request: PriceListRequest): string {
               <th>Size</th>
               <th>Item Code</th>
               <th>Min Qty</th>
-              <th>Total Price</th>
+              <th>Price per Sheet</th>
+              <th>Min. Qty Price</th>
             </tr>
           </thead>
           <tbody>
@@ -388,12 +392,19 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Price List - ${categoryName}</title>
       <style>
+        @page {
+          size: 8.5in 11in;
+          orientation: portrait;
+          margin: 0.75in;
+        }
+        
         body {
           font-family: 'Roboto', Arial, sans-serif;
           margin: 0;
-          padding: 20px;
+          padding: 0;
           background-color: #ffffff;
           color: #333;
+          line-height: 1.4;
         }
         
         .header-container {
@@ -489,12 +500,23 @@ export function generatePriceListHTML(request: PriceListRequest): string {
           text-align: center;
           font-size: 10px;
           margin-top: 40px;
+          position: fixed;
+          bottom: 0.5in;
+          left: 0;
+          right: 0;
         }
 
         @media print {
-          body { margin: 0; padding: 15px; }
+          body { margin: 0; padding: 0; }
           .header-container { page-break-inside: avoid; }
           .product-type-section { page-break-inside: avoid; }
+          .page-number { display: block; }
+          
+          @page {
+            @bottom-center {
+              content: "Page " counter(page) " of " counter(pages);
+            }
+          }
         }
       </style>
     </head>
@@ -526,7 +548,29 @@ export function generatePriceListHTML(request: PriceListRequest): string {
         <p>Contact us at ${companyDetails.phone} or visit https://${companyDetails.website}/ for more information</p>
       </div>
       
-      <div class="page-number">Page 1 of 1</div>
+      <div class="page-number" id="page-number"></div>
+      
+      <script>
+        // Set up proper page numbering
+        function updatePageNumbers() {
+          const pageNumberElement = document.getElementById('page-number');
+          if (pageNumberElement) {
+            pageNumberElement.textContent = 'Page 1 of 1';
+          }
+        }
+        
+        // Update page numbers when the document loads
+        document.addEventListener('DOMContentLoaded', updatePageNumbers);
+        
+        // Update page numbers before printing
+        window.addEventListener('beforeprint', function() {
+          // For print, let CSS handle page numbering
+          const pageNumberElement = document.getElementById('page-number');
+          if (pageNumberElement) {
+            pageNumberElement.style.display = 'none';
+          }
+        });
+      </script>
     </body>
     </html>
   `;
@@ -552,14 +596,16 @@ export function generatePriceListCSV(request: PriceListRequest): string {
   // Generate CSV sections for each product type
   Object.entries(itemsByType).forEach(([typeName, typeItems]) => {
     csvContent += `${typeName}\n`;
-    csvContent += `Size,Item Code,Min Qty,Total Price\n`;
+    csvContent += `Size,Item Code,Min Qty,Price per Sheet,Min. Qty Price\n`;
     
     typeItems.forEach((item) => {
       const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
-      const totalPrice = pricePerSqm * squareMeters;
+      const pricePerSheet = pricePerSqm * squareMeters;
+      const minOrderQty = parseInt(item.size.minOrderQty) || 1;
+      const minQtyPrice = pricePerSheet * minOrderQty;
       
-      csvContent += `"${item.size.name}","${item.size.itemCode}","${item.size.minOrderQty}","$${totalPrice.toFixed(2)}"\n`;
+      csvContent += `"${item.size.name}","${item.size.itemCode}","${item.size.minOrderQty}","$${pricePerSheet.toFixed(2)}","$${minQtyPrice.toFixed(2)}"\n`;
     });
     
     csvContent += `\n`;

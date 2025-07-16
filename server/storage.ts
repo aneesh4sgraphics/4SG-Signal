@@ -45,6 +45,7 @@ export interface IStorage {
   getProductSizesByType(typeId: number): Promise<ProductSize[]>;
   getProductSize(id: number): Promise<ProductSize | undefined>;
   createProductSize(size: InsertProductSize): Promise<ProductSize>;
+  updateProductSize(id: number, size: Partial<InsertProductSize>): Promise<ProductSize | undefined>;
   
   // Pricing Tiers
   getPricingTiers(): Promise<PricingTier[]>;
@@ -321,6 +322,20 @@ export class MemStorage implements IStorage {
     };
     this.productSizes.set(id, newSize);
     return newSize;
+  }
+
+  async updateProductSize(id: number, sizeData: Partial<InsertProductSize>): Promise<ProductSize | undefined> {
+    const existingSize = this.productSizes.get(id);
+    if (!existingSize) {
+      return undefined;
+    }
+    
+    const updatedSize: ProductSize = {
+      ...existingSize,
+      ...sizeData
+    };
+    this.productSizes.set(id, updatedSize);
+    return updatedSize;
   }
 
   async getPricingTiers(): Promise<PricingTier[]> {
