@@ -370,7 +370,7 @@ export function generatePriceListHTML(request: PriceListRequest): string {
               <th>Item Code</th>
               <th>Min Qty</th>
               <th>Price per Sheet</th>
-              <th>Min. Qty Price</th>
+              <th>Price Per Pack</th>
             </tr>
           </thead>
           <tbody>
@@ -596,7 +596,7 @@ export function generatePriceListCSV(request: PriceListRequest): string {
   // Generate CSV sections for each product type
   Object.entries(itemsByType).forEach(([typeName, typeItems]) => {
     csvContent += `${typeName}\n`;
-    csvContent += `Size,Item Code,Min Qty,Price per Sheet,Min. Qty Price\n`;
+    csvContent += `Size,Item Code,Min Qty,Price per Sheet,Price Per Pack\n`;
     
     typeItems.forEach((item) => {
       const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
