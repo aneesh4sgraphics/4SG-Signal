@@ -7,7 +7,7 @@ channel = "stable-24_05"
 packages = ["chromium", "nss", "freetype", "harfbuzz", "fontconfig", "glib"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "gce"
 build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
