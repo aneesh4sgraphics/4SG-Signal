@@ -59,19 +59,55 @@ interface PriceListItem {
   pricing: ProductPricing[];
 }
 
+interface Customer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  acceptsEmailMarketing: boolean;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  country: string;
+  zip: string;
+  phone: string;
+  totalSpent: number;
+  totalOrders: number;
+  note: string;
+  tags: string;
+}
+
 export default function PriceList() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [showPriceList, setShowPriceList] = useState<boolean>(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
   const [showDownloadDialog, setShowDownloadDialog] = useState<boolean>(false);
+  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState<boolean>(false);
   const [downloadType, setDownloadType] = useState<"pdf" | "csv">("pdf");
+  const [newCustomer, setNewCustomer] = useState({
+    company: "",
+    address1: "",
+    city: "",
+    province: "",
+    zip: "",
+    firstName: "",
+    phone: "",
+    email: ""
+  });
   const { toast } = useToast();
 
   // Fetch all data
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/product-categories"],
+  });
+
+  const { data: customers = [], isLoading: customersLoading } = useQuery({
+    queryKey: ["/api/customers"],
   });
 
   const { data: tiers = [], isLoading: tiersLoading } = useQuery({
@@ -94,12 +130,13 @@ export default function PriceList() {
     enabled: !!selectedCategory,
   });
 
-  const isLoading = categoriesLoading || tiersLoading || 
+  const isLoading = categoriesLoading || tiersLoading || customersLoading ||
     (selectedCategory && (categoryTypesLoading || allSizesLoading || allPricingLoading));
 
   // Get selected category data
   const selectedCategoryData = categories.find((c: ProductCategory) => c.id === parseInt(selectedCategory));
   const selectedTierData = tiers.find((t: PricingTier) => t.id === parseInt(selectedTier));
+  const selectedCustomerData = customers.find((c: Customer) => c.id === selectedCustomer);
 
   // Create price list items for selected category
   const priceListItems: PriceListItem[] = selectedCategory && selectedTier ? 
@@ -127,16 +164,81 @@ export default function PriceList() {
 
   // Generate price list function
   const generatePriceList = () => {
-    if (!selectedCategory || !selectedTier) {
+    if (!selectedCategory || !selectedTier || !selectedCustomer) {
       toast({
         title: "Missing Selection",
-        description: "Please select both a product category and pricing tier.",
+        description: "Please select a product category, pricing tier, and customer.",
         variant: "destructive",
       });
       return;
     }
     setShowPriceList(true);
     setSelectedRows(new Set());
+  };
+
+  // Create new customer
+  const createNewCustomer = async () => {
+    if (!newCustomer.company || !newCustomer.firstName || !newCustomer.email) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in company name, contact name, and email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company: newCustomer.company,
+          address1: newCustomer.address1,
+          city: newCustomer.city,
+          province: newCustomer.province,
+          zip: newCustomer.zip,
+          firstName: newCustomer.firstName,
+          lastName: "",
+          phone: newCustomer.phone,
+          email: newCustomer.email,
+          id: Date.now().toString(), // Generate simple ID
+          acceptsEmailMarketing: false,
+          address2: "",
+          country: "USA",
+          totalSpent: 0,
+          totalOrders: 0,
+          note: "",
+          tags: ""
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to create customer');
+      
+      const customer = await response.json();
+      setSelectedCustomer(customer.id);
+      setShowNewCustomerDialog(false);
+      setNewCustomer({
+        company: "",
+        address1: "",
+        city: "",
+        province: "",
+        zip: "",
+        firstName: "",
+        phone: "",
+        email: ""
+      });
+      
+      toast({
+        title: "Customer Created",
+        description: "New customer has been added successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create customer. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Row selection handlers
@@ -205,7 +307,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: clientName.trim(),
+        clientName: selectedCustomerData?.company || clientName.trim(),
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -236,7 +338,7 @@ export default function PriceList() {
     newWindow.document.write(html);
     newWindow.document.close();
 
-    // Add a print button and instructions
+    // Add a print button and instructions that hide during print
     const printButton = newWindow.document.createElement('button');
     printButton.textContent = 'Print to PDF';
     printButton.style.cssText = `
@@ -256,6 +358,17 @@ export default function PriceList() {
       newWindow.print();
     };
     
+    // Add print media query to hide button during print
+    const style = newWindow.document.createElement('style');
+    style.textContent = `
+      @media print {
+        button {
+          display: none !important;
+        }
+      }
+    `;
+    newWindow.document.head.appendChild(style);
+    
     newWindow.document.body.appendChild(printButton);
 
     // Show success toast
@@ -271,7 +384,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: clientName.trim(),
+        clientName: selectedCustomerData?.company || clientName.trim(),
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -288,7 +401,7 @@ export default function PriceList() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedCategoryData?.name}_${selectedTierData?.name}_${clientName.trim()}.csv`;
+    a.download = `${selectedCategoryData?.name}_${selectedCustomerData?.company || clientName.trim()}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -367,11 +480,126 @@ export default function PriceList() {
                 </Select>
               </div>
 
+              {/* Select Customer */}
+              <div className="space-y-3">
+                <label className="block text-base font-medium text-gray-900">Select Customer</label>
+                <div className="flex gap-2">
+                  <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                    <SelectTrigger className="flex-1 h-12 text-base">
+                      <SelectValue placeholder="Choose a customer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer: Customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.company} - {customer.firstName} {customer.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="h-12 px-6">
+                        <User className="h-4 w-4 mr-2" />
+                        New Customer
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create New Customer</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Company Name *</label>
+                            <Input
+                              value={newCustomer.company}
+                              onChange={(e) => setNewCustomer({...newCustomer, company: e.target.value})}
+                              placeholder="Company Name"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Contact Name *</label>
+                            <Input
+                              value={newCustomer.firstName}
+                              onChange={(e) => setNewCustomer({...newCustomer, firstName: e.target.value})}
+                              placeholder="Contact Name"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Address</label>
+                          <Input
+                            value={newCustomer.address1}
+                            onChange={(e) => setNewCustomer({...newCustomer, address1: e.target.value})}
+                            placeholder="Street Address"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">City</label>
+                            <Input
+                              value={newCustomer.city}
+                              onChange={(e) => setNewCustomer({...newCustomer, city: e.target.value})}
+                              placeholder="City"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">State</label>
+                            <Input
+                              value={newCustomer.province}
+                              onChange={(e) => setNewCustomer({...newCustomer, province: e.target.value})}
+                              placeholder="State"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Zip</label>
+                            <Input
+                              value={newCustomer.zip}
+                              onChange={(e) => setNewCustomer({...newCustomer, zip: e.target.value})}
+                              placeholder="Zip Code"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Phone</label>
+                            <Input
+                              value={newCustomer.phone}
+                              onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                              placeholder="Phone Number"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Email *</label>
+                            <Input
+                              value={newCustomer.email}
+                              onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                              placeholder="Email Address"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowNewCustomerDialog(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button onClick={createNewCustomer}>
+                            Create Customer
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+
               {/* Generate Button */}
               <Button 
                 onClick={generatePriceList} 
                 className="w-full h-12 text-base bg-purple-600 hover:bg-purple-700" 
-                disabled={!selectedCategory || !selectedTier}
+                disabled={!selectedCategory || !selectedTier || !selectedCustomer}
               >
                 Generate Price List
               </Button>
@@ -415,12 +643,11 @@ export default function PriceList() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Client Name *</label>
-                          <Input
-                            placeholder="Enter client name"
-                            value={clientName}
-                            onChange={(e) => setClientName(e.target.value)}
-                          />
+                          <label className="text-sm font-medium">Customer</label>
+                          <div className="p-3 bg-gray-50 rounded-md">
+                            <p className="font-medium">{selectedCustomerData?.company}</p>
+                            <p className="text-sm text-gray-600">{selectedCustomerData?.firstName} {selectedCustomerData?.lastName}</p>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Download Type</label>
