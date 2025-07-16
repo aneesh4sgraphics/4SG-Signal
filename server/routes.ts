@@ -961,8 +961,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { clientName, categoryName, tierName, items } = req.body;
       
-      if (!clientName || !categoryName || !tierName || !items || !Array.isArray(items)) {
-        return res.status(400).json({ error: "Client name, category name, tier name, and items are required" });
+      if (!categoryName || !tierName || !items || !Array.isArray(items)) {
+        return res.status(400).json({ error: "Category name, tier name, and items are required" });
       }
 
       const htmlContent = generatePriceListHTML({

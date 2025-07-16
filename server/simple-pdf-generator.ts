@@ -317,7 +317,7 @@ interface PriceListItem {
 }
 
 interface PriceListRequest {
-  clientName: string;
+  clientName: string | null;
   categoryName: string;
   tierName: string;
   items: PriceListItem[];
@@ -534,7 +534,7 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       </div>
       
       <div class="price-list-info">
-        <div>Price List for: ${clientName}</div>
+        ${clientName ? `<div>Price List for: ${clientName}</div>` : ''}
         <div>Product Category: ${categoryName}</div>
         <div>Date: ${currentDate}</div>
       </div>
@@ -544,7 +544,7 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       ${typeSections}
       
       <div class="footer-info">
-        <p>This price list was generated on ${currentDate} for ${clientName}</p>
+        <p>This price list was generated on ${currentDate}${clientName ? ` for ${clientName}` : ''}</p>
         <p>Contact us at ${companyDetails.phone} or visit https://${companyDetails.website}/ for more information</p>
       </div>
       
@@ -589,7 +589,10 @@ export function generatePriceListCSV(request: PriceListRequest): string {
     return acc;
   }, {} as Record<string, PriceListItem[]>);
 
-  let csvContent = `Price List for ${clientName}\n`;
+  let csvContent = '';
+  if (clientName) {
+    csvContent += `Price List for ${clientName}\n`;
+  }
   csvContent += `Product Category: ${categoryName}\n`;
   csvContent += `Date: ${currentDate}\n\n`;
 

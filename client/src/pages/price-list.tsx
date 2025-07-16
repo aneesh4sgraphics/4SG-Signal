@@ -317,7 +317,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: selectedCustomerData?.company || "4S Graphics",
+        clientName: selectedCustomerData?.company || null,
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -394,7 +394,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: selectedCustomerData?.company || "4S Graphics",
+        clientName: selectedCustomerData?.company || null,
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -411,7 +411,7 @@ export default function PriceList() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedCategoryData?.name}_${selectedCustomerData?.company || "4S_Graphics"}.csv`;
+    a.download = `${selectedCategoryData?.name}_${selectedCustomerData?.company ? selectedCustomerData.company.replace(/[^a-zA-Z0-9]/g, '_') : 'PriceList'}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
