@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, Box, Ruler, Layers, FileText, Save, Trash2, Mail, Download, User, MapPin, Tag, Settings, ArrowLeft, Home } from "lucide-react";
+import { Calculator, Box, Ruler, Layers, FileText, Save, Trash2, Mail, Download, User, MapPin, Tag, Settings, ArrowLeft, Home, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +95,8 @@ interface QuoteItem {
 
 export default function QuoteCalculator() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
@@ -186,11 +188,24 @@ export default function QuoteCalculator() {
     }
   }, [customWidth, customHeight, customWidthUnit, customHeightUnit, isCustomSize, selectedType, selectedTier]);
 
+  // Filter customers based on search term
+  const filteredCustomers = customers?.filter(customer => {
+    const searchLower = customerSearchTerm.toLowerCase();
+    const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+    const company = customer.company?.toLowerCase() || "";
+    const email = customer.email?.toLowerCase() || "";
+    
+    return fullName.includes(searchLower) || 
+           company.includes(searchLower) || 
+           email.includes(searchLower);
+  }) || [];
+
   // Auto-fill customer information when a customer is selected
   useEffect(() => {
     if (selectedCustomer) {
       setCustomerName(`${selectedCustomer.firstName} ${selectedCustomer.lastName}`);
       setCustomerEmail(selectedCustomer.email);
+      setCustomerSearchTerm(`${selectedCustomer.firstName} ${selectedCustomer.lastName}`);
     } else {
       // Reset when no customer is selected (but only if dialogs are not open)
       if (!showPDFDialog && !showEmailDialog) {
@@ -200,6 +215,21 @@ export default function QuoteCalculator() {
       }
     }
   }, [selectedCustomer, showPDFDialog, showEmailDialog]);
+
+  // Close customer dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.customer-search-container')) {
+        setShowCustomerDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleSizeSelect = (size: ProductSize) => {
     setSelectedSize(size);
@@ -567,23 +597,57 @@ Look forward for your order!`;
           </CardHeader>
           <CardContent className="pt-0">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Customer Dropdown */}
-              <div className="space-y-2">
-                <Select value={selectedCustomer?.id || ""} onValueChange={(value) => {
-                  const customer = customers?.find(c => c.id === value);
-                  setSelectedCustomer(customer || null);
-                }}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select customer..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers?.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.firstName} {customer.lastName} - {customer.company || customer.email}
-                      </SelectItem>
+              {/* Customer Search */}
+              <div className="space-y-2 relative customer-search-container">
+                <Label htmlFor="customer-search">Search Customer</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="customer-search"
+                    type="text"
+                    placeholder="Type customer name, company, or email..."
+                    value={customerSearchTerm}
+                    onChange={(e) => {
+                      setCustomerSearchTerm(e.target.value);
+                      setShowCustomerDropdown(true);
+                      if (!e.target.value) {
+                        setSelectedCustomer(null);
+                      }
+                    }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    className="w-full pl-10"
+                  />
+                </div>
+                
+                {/* Customer Dropdown */}
+                {showCustomerDropdown && customerSearchTerm && filteredCustomers.length > 0 && (
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {filteredCustomers.slice(0, 10).map((customer) => (
+                      <div
+                        key={customer.id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        onClick={() => {
+                          setSelectedCustomer(customer);
+                          setShowCustomerDropdown(false);
+                        }}
+                      >
+                        <div className="font-medium">
+                          {customer.firstName} {customer.lastName}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {customer.company || customer.email}
+                        </div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
+                
+                {/* No results message */}
+                {showCustomerDropdown && customerSearchTerm && filteredCustomers.length === 0 && (
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg p-3 text-gray-500 text-center">
+                    No customers found matching "{customerSearchTerm}"
+                  </div>
+                )}
               </div>
 
               {/* Customer Info Display */}

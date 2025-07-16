@@ -7,6 +7,7 @@ import archiver from "archiver";
 import { storage } from "./storage";
 import { z } from "zod";
 import { parseProductData } from "./csv-parser";
+import { parseCustomerData } from "./customer-parser";
 
 import { generateQuoteHTMLForDownload, generateQuoteNumber } from "./simple-pdf-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
@@ -283,9 +284,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all customers
   app.get("/api/customers", async (req, res) => {
     try {
+      const filePath = path.join(process.cwd(), 'attached_assets', 'customers_export.csv');
+      
+      if (!fs.existsSync(filePath)) {
+        return res.json([]); // Return empty array if no customer file exists
+      }
+      
       const customers = parseCustomerData();
       res.json(customers);
     } catch (error) {
+      console.error("Error fetching customers:", error);
       res.status(500).json({ error: "Failed to fetch customers" });
     }
   });
