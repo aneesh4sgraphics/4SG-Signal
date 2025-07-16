@@ -114,35 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fix Oscar's role (temporary endpoint)
-  app.post('/api/admin/fix-oscar-role', requireAdmin, async (req: any, res) => {
-    try {
-      await storage.fixOscarRole();
-      res.json({ message: "Oscar's role has been fixed to admin" });
-    } catch (error) {
-      console.error("Error fixing Oscar's role:", error);
-      res.status(500).json({ message: "Failed to fix Oscar's role" });
-    }
-  });
 
-  // Clear Oscar's user data so he can log in fresh
-  app.post('/api/admin/clear-oscar-session', requireAdmin, async (req: any, res) => {
-    try {
-      // Find Oscar's user and remove it so he gets fresh admin role on next login
-      const users = await storage.getAllUsers();
-      for (const user of users) {
-        if (user.email === "oscar@4sgraphics.com") {
-          // Remove Oscar from memory storage
-          await storage.clearUser(user.id);
-          break;
-        }
-      }
-      res.json({ message: "Oscar's session has been cleared. He can now log in fresh with admin role." });
-    } catch (error) {
-      console.error("Error clearing Oscar's session:", error);
-      res.status(500).json({ message: "Failed to clear Oscar's session" });
-    }
-  });
 
   // Get all product categories
   app.get("/api/product-categories", async (req, res) => {
