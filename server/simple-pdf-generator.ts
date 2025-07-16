@@ -253,7 +253,6 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         <p>To proceed with this order, please choose one of the following options:</p>
         <ol>
           <li>Forward this PDF to: sales@4sgraphics.com</li>
-          <li>Click here to start an email (please attach this PDF).</li>
         </ol>
       </div>
       

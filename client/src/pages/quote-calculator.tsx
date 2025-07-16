@@ -398,7 +398,6 @@ export default function QuoteCalculator() {
         body: JSON.stringify({
           customerName,
           customerEmail: customerEmail || undefined,
-          salesRep: salesRep || undefined,
           quoteItems,
         }),
       });
@@ -466,7 +465,6 @@ export default function QuoteCalculator() {
         body: JSON.stringify({
           customerName,
           customerEmail: customerEmail || undefined,
-          salesRep: salesRep || undefined,
           quoteItems,
         }),
       });

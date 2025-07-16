@@ -458,13 +458,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate PDF quote HTML
-  app.post("/api/generate-pdf-quote", async (req, res) => {
+  app.post("/api/generate-pdf-quote", isAuthenticated, async (req: any, res) => {
     try {
-      const { customerName, customerEmail, quoteItems, salesRep } = req.body;
+      const { customerName, customerEmail, quoteItems } = req.body;
       
       if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
         return res.status(400).json({ error: "Customer name and quote items are required" });
       }
+
+      // Get current user's email from authenticated session
+      const currentUserEmail = req.user?.claims?.email || "sales@4sgraphics.com";
 
       // Generate quote number
       const quoteNumber = generateQuoteNumber();
@@ -479,7 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quoteItems,
         quoteNumber,
         totalAmount,
-        salesRep
+        salesRep: currentUserEmail
       });
       
       // Save quote to database
@@ -513,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send email quote
-  app.post("/api/send-email-quote", async (req, res) => {
+  app.post("/api/send-email-quote", isAuthenticated, async (req: any, res) => {
     try {
       const { customerName, customerEmail, quoteItems } = req.body;
       
