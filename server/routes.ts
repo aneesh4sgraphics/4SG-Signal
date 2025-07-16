@@ -390,21 +390,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sizeId = parseInt(req.params.id);
       const sizeData = req.body;
 
+      console.log("Updating product size:", { sizeId, sizeData });
+
       if (isNaN(sizeId)) {
+        console.error("Invalid product size ID:", req.params.id);
         return res.status(400).json({ error: "Invalid product size ID" });
       }
 
       // Check if user is admin
       const userRole = req.user?.claims?.email === "aneesh@4sgraphics.com" || req.user?.claims?.email === "oscar@4sgraphics.com" ? "admin" : "user";
       if (userRole !== "admin") {
+        console.error("Non-admin user attempted to update product:", req.user?.claims?.email);
         return res.status(403).json({ error: "Admin access required" });
       }
 
       const updatedSize = await storage.updateProductSize(sizeId, sizeData);
       
       if (!updatedSize) {
+        console.error("Product size not found:", sizeId);
         return res.status(404).json({ error: "Product size not found" });
       }
+      
+      console.log("Product size updated successfully:", updatedSize);
       
       // Clear cache to ensure fresh data
       setCachedData("product-sizes", null);
