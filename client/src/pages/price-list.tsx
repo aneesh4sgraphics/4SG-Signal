@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User, Sheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
+import { filterTiersByRole, getUserRoleFromEmail } from "@/utils/roleBasedTiers";
 
 // Utility function to apply brand-specific fonts to individual words
 const applyBrandFonts = (text: string): JSX.Element => {
@@ -121,6 +123,7 @@ interface Customer {
 }
 
 export default function PriceList() {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [showPriceList, setShowPriceList] = useState<boolean>(false);
@@ -173,9 +176,28 @@ export default function PriceList() {
   const isLoading = categoriesLoading || tiersLoading || customersLoading ||
     (selectedCategory && (categoryTypesLoading || allSizesLoading || allPricingLoading));
 
+  // Get filtered pricing tiers based on user role and hide zero-price tiers
+  const getFilteredPricingTiers = () => {
+    if (!tiers || !allPricing || !user) return [];
+    
+    const userRole = getUserRoleFromEmail(user.email);
+    const roleFilteredTiers = filterTiersByRole(tiers, userRole);
+    
+    // If no category selected, return all role-filtered tiers
+    if (!selectedCategory) return roleFilteredTiers;
+    
+    // Filter out tiers with zero pricing for any product in the selected category
+    return roleFilteredTiers.filter(tier => {
+      const hasNonZeroPricing = allPricing.some(p => 
+        p.tierId === tier.id && parseFloat(p.pricePerSquareMeter) > 0
+      );
+      return hasNonZeroPricing;
+    });
+  };
+
   // Get selected category data
   const selectedCategoryData = categories.find((c: ProductCategory) => c.id === parseInt(selectedCategory));
-  const selectedTierData = tiers.find((t: PricingTier) => t.id === parseInt(selectedTier));
+  const selectedTierData = getFilteredPricingTiers().find((t: PricingTier) => t.id === parseInt(selectedTier));
   const selectedCustomerData = customers.find((c: Customer) => c.id === selectedCustomer);
 
   // Create price list items for selected category
@@ -540,7 +562,7 @@ export default function PriceList() {
                     <SelectValue placeholder="Choose a pricing tier..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {tiers.map((tier: PricingTier) => (
+                    {getFilteredPricingTiers().map((tier: PricingTier) => (
                       <SelectItem key={tier.id} value={tier.id.toString()}>
                         {tier.name}
                       </SelectItem>

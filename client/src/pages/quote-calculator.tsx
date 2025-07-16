@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import EmailCelebrationAnimation from "@/components/EmailCelebrationAnimation";
+import { useAuth } from "@/hooks/useAuth";
+import { filterTiersByRole, getUserRoleFromEmail } from "@/utils/roleBasedTiers";
 
 // Utility function to apply brand-specific fonts to individual words
 const applyBrandFonts = (text: string): JSX.Element => {
@@ -136,6 +138,7 @@ interface QuoteItem {
 }
 
 export default function QuoteCalculator() {
+  const { user } = useAuth();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
@@ -210,6 +213,20 @@ export default function QuoteCalculator() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     cacheTime: 10 * 60 * 1000, // 10 minutes
   });
+
+  // Get filtered pricing tiers based on user role and hide zero-price tiers
+  const getFilteredPricingTiers = () => {
+    if (!pricingTiers || !productPricing || !user) return [];
+    
+    const userRole = getUserRoleFromEmail(user.email);
+    const roleFilteredTiers = filterTiersByRole(pricingTiers, userRole);
+    
+    // Filter out tiers with zero pricing for the selected product type
+    return roleFilteredTiers.filter(tier => {
+      const priceForTier = productPricing.find(p => p.tierId === tier.id);
+      return priceForTier && parseFloat(priceForTier.pricePerSquareMeter) > 0;
+    });
+  };
 
   const calculateCustomSize = async () => {
     if (!customWidth || !customHeight || parseFloat(customWidth) <= 0 || parseFloat(customHeight) <= 0) {
@@ -1175,7 +1192,7 @@ Look forward for your order!`;
                   <span className="text-center">Add</span>
                 </div>
                 
-                {pricingTiers?.map((tier) => (
+                {getFilteredPricingTiers().map((tier) => (
                   <PricingTierRow 
                     key={tier.id} 
                     tier={tier} 
