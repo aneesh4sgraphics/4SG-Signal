@@ -144,13 +144,7 @@ export default function ProductManagement() {
         [editingCell.field]: editingCell.value
       };
 
-      await apiRequest(`/api/product-sizes/${sizeId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateData),
-      });
+      await apiRequest("PUT", `/api/product-sizes/${sizeId}`, updateData);
 
       // Invalidate related caches
       queryClient.invalidateQueries({ queryKey: ["/api/product-sizes"] });
