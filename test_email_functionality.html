@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4S Graphics - Shipping Calculator Email Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1f2937;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .calculation-display {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        .rate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .rate-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .rate-service {
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .rate-price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #059669;
+            margin-bottom: 10px;
+        }
+        .rate-details {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .email-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .email-btn:hover {
+            background: #2563eb;
+        }
+        .success-message {
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .info-item {
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #374151;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚚 4S Graphics Shipping Calculator</h1>
+        <p style="text-align: center; color: #6b7280; margin-bottom: 30px;">
+            Email functionality demonstration for individual shipping rates
+        </p>
+        
+        <div class="calculation-display">
+            <h3 style="margin-top: 0;">Current Calculation</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Route:</span> 33309 → 11001
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Weight:</span> 65.00 lbs
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Dimensions:</span> 13×19×10"
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Package Type:</span> Box
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Zone:</span> 3
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Value:</span> $150.00
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <span class="info-label">Notes:</span> Test shipping calculation for email functionality
+            </div>
+        </div>
+        
+        <h3>Available Shipping Options</h3>
+        <div class="rate-grid">
+            <div class="rate-card">
+                <div class="rate-service">Ground Service</div>
+                <div class="rate-price">$63.85</div>
+                <div class="rate-details">
+                    Standard Carrier<br>
+                    5-7 business days<br>
+                    Tracking, Insurance up to $100
+                </div>
+                <button class="email-btn" onclick="emailShippingRate({
+                    service: 'Ground',
+                    carrier: 'Standard',
+                    rate: 63.85,
+                    deliveryTime: '5-7 business days',
+                    features: ['Tracking included', 'Insurance up to $100']
+                })">
+                    📧 Email This
+                </button>
+            </div>
+            
+            <div class="rate-card">
+                <div class="rate-service">Priority Service</div>
+                <div class="rate-price">$95.78</div>
+                <div class="rate-details">
+                    Standard Carrier<br>
+                    2-3 business days<br>
+                    Tracking, Insurance up to $200
+                </div>
+                <button class="email-btn" onclick="emailShippingRate({
+                    service: 'Priority',
+                    carrier: 'Standard',
+                    rate: 95.78,
+                    deliveryTime: '2-3 business days',
+                    features: ['Tracking included', 'Insurance up to $200', 'Priority handling']
+                })">
+                    📧 Email This
+                </button>
+            </div>
+            
+            <div class="rate-card">
+                <div class="rate-service">Express Service</div>
+                <div class="rate-price">$128.45</div>
+                <div class="rate-details">
+                    Express Carrier<br>
+                    1-2 business days<br>
+                    Tracking, Insurance up to $300
+                </div>
+                <button class="email-btn" onclick="emailShippingRate({
+                    service: 'Express',
+                    carrier: 'Express',
+                    rate: 128.45,
+                    deliveryTime: '1-2 business days',
+                    features: ['Tracking included', 'Insurance up to $300', 'Express handling']
+                })">
+                    📧 Email This
+                </button>
+            </div>
+            
+            <div class="rate-card">
+                <div class="rate-service">Overnight Service</div>
+                <div class="rate-price">$189.25</div>
+                <div class="rate-details">
+                    Overnight Carrier<br>
+                    Next business day<br>
+                    Tracking, Insurance up to $500
+                </div>
+                <button class="email-btn" onclick="emailShippingRate({
+                    service: 'Overnight',
+                    carrier: 'Overnight',
+                    rate: 189.25,
+                    deliveryTime: 'Next business day',
+                    features: ['Tracking included', 'Insurance up to $500', 'Overnight delivery']
+                })">
+                    📧 Email This
+                </button>
+            </div>
+        </div>
+        
+        <div id="successMessage" class="success-message">
+            ✅ Email composed successfully! Your email client should open with the shipping quote details.
+        </div>
+    </div>
+
+    <script>
+        // This is the exact same function from the Shipping Calculator app
+        const currentCalculation = {
+            origin: '33309',
+            destination: '11001',
+            billableWeight: 65.00,
+            dimensions: { length: 13, width: 19, height: 10 },
+            packageType: 'Box',
+            zone: 3,
+            value: 150.00,
+            notes: 'Test shipping calculation for email functionality'
+        };
+
+        function emailShippingRate(rate) {
+            const subject = `Shipping Quote - ${rate.service} Service`;
+            const body = `Shipping Quote Details:
+
+Route: ${currentCalculation.origin} → ${currentCalculation.destination}
+Weight: ${currentCalculation.billableWeight.toFixed(2)} lbs
+Dimensions: ${currentCalculation.dimensions.length}×${currentCalculation.dimensions.width}×${currentCalculation.dimensions.height}"
+Package Type: ${currentCalculation.packageType}
+Zone: ${currentCalculation.zone}
+
+Selected Shipping Option:
+Service: ${rate.service}
+Carrier: ${rate.carrier}
+Rate: $${rate.rate.toFixed(2)}
+Delivery Time: ${rate.deliveryTime}
+Features: ${rate.features.join(', ')}
+
+${currentCalculation.notes ? `Notes: ${currentCalculation.notes}` : ''}
+
+Generated by 4S Graphics Shipping Calculator`;
+
+            const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(mailto);
+            
+            // Show success message
+            const successMessage = document.getElementById('successMessage');
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -180,7 +180,7 @@ export default function QuoteCalculator() {
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { data: categories } = useQuery<ProductCategory[]>({
@@ -191,27 +191,27 @@ export default function QuoteCalculator() {
     queryKey: ["/api/product-types", selectedCategory],
     enabled: !!selectedCategory,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const { data: sizes } = useQuery<ProductSize[]>({
     queryKey: ["/api/product-sizes", selectedType],
     enabled: !!selectedType,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const { data: pricingTiers } = useQuery<PricingTier[]>({
     queryKey: ["/api/pricing-tiers"],
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
   const { data: productPricing } = useQuery<ProductPricing[]>({
     queryKey: ["/api/product-pricing", selectedType],
     enabled: !!selectedType,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Get filtered pricing tiers based on user role and hide zero-price tiers
