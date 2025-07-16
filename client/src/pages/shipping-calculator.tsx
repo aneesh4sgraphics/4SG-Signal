@@ -61,21 +61,14 @@ export default function ShippingCalculator() {
   const [currentCalculation, setCurrentCalculation] = useState<ShippingCalculation | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   
-  // Load saved calculations
+  // Clear any existing data on component mount to start fresh
   useEffect(() => {
-    const savedCalculations = localStorage.getItem('shippingCalculations');
-    if (savedCalculations) {
-      const parsed = JSON.parse(savedCalculations).map((calc: any) => ({
-        ...calc,
-        timestamp: new Date(calc.timestamp)
-      }));
-      setCalculations(parsed);
-    }
+    localStorage.removeItem('shippingCalculations');
+    setCalculations([]);
   }, []);
   
-  // Save calculations to localStorage
-  const saveCalculations = (newCalculations: ShippingCalculation[]) => {
-    localStorage.setItem('shippingCalculations', JSON.stringify(newCalculations));
+  // Update calculations in state only (no localStorage persistence)
+  const updateCalculations = (newCalculations: ShippingCalculation[]) => {
     setCalculations(newCalculations);
   };
   
@@ -197,7 +190,7 @@ export default function ShippingCalculator() {
       
       setCurrentCalculation(newCalculation);
       const updatedCalculations = [newCalculation, ...calculations];
-      saveCalculations(updatedCalculations);
+      updateCalculations(updatedCalculations);
       setIsCalculating(false);
       
       toast({
