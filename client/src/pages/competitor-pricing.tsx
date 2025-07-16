@@ -31,10 +31,10 @@ export default function CompetitorPricing() {
   const [filteredData, setFilteredData] = useState<CompetitorData[]>([]);
   
   // Filter states
-  const [supplierFilter, setSupplierFilter] = useState("");
-  const [thicknessFilter, setThicknessFilter] = useState("");
-  const [productKindFilter, setProductKindFilter] = useState("");
-  const [surfaceFinishFilter, setSurfaceFinishFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [thicknessFilter, setThicknessFilter] = useState("all");
+  const [productKindFilter, setProductKindFilter] = useState("all");
+  const [surfaceFinishFilter, setSurfaceFinishFilter] = useState("all");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   
@@ -93,19 +93,19 @@ export default function CompetitorPricing() {
   useEffect(() => {
     let filtered = [...competitorData];
     
-    if (supplierFilter) {
+    if (supplierFilter && supplierFilter !== "all") {
       filtered = filtered.filter(item => item.supplierInfo === supplierFilter);
     }
     
-    if (thicknessFilter) {
+    if (thicknessFilter && thicknessFilter !== "all") {
       filtered = filtered.filter(item => item.thickness === thicknessFilter);
     }
     
-    if (productKindFilter) {
+    if (productKindFilter && productKindFilter !== "all") {
       filtered = filtered.filter(item => item.productKind === productKindFilter);
     }
     
-    if (surfaceFinishFilter) {
+    if (surfaceFinishFilter && surfaceFinishFilter !== "all") {
       filtered = filtered.filter(item => item.surfaceFinish === surfaceFinishFilter);
     }
     
@@ -123,10 +123,10 @@ export default function CompetitorPricing() {
   }, [competitorData, supplierFilter, thicknessFilter, productKindFilter, surfaceFinishFilter, minPrice, maxPrice]);
 
   const resetFilters = () => {
-    setSupplierFilter("");
-    setThicknessFilter("");
-    setProductKindFilter("");
-    setSurfaceFinishFilter("");
+    setSupplierFilter("all");
+    setThicknessFilter("all");
+    setProductKindFilter("all");
+    setSurfaceFinishFilter("all");
     setMinPrice("");
     setMaxPrice("");
   };
@@ -203,7 +203,7 @@ export default function CompetitorPricing() {
                   <SelectValue placeholder="Any Supplier" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Supplier</SelectItem>
+                  <SelectItem value="all">Any Supplier</SelectItem>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier} value={supplier}>
                       {supplier}
@@ -220,7 +220,7 @@ export default function CompetitorPricing() {
                   <SelectValue placeholder="Any Thickness" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Thickness</SelectItem>
+                  <SelectItem value="all">Any Thickness</SelectItem>
                   {thicknesses.map((thickness) => (
                     <SelectItem key={thickness} value={thickness}>
                       {thickness}
@@ -237,7 +237,7 @@ export default function CompetitorPricing() {
                   <SelectValue placeholder="Any Kind" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Kind</SelectItem>
+                  <SelectItem value="all">Any Kind</SelectItem>
                   {productKinds.map((kind) => (
                     <SelectItem key={kind} value={kind}>
                       {kind}
@@ -254,7 +254,7 @@ export default function CompetitorPricing() {
                   <SelectValue placeholder="Any Finish" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any Finish</SelectItem>
+                  <SelectItem value="all">Any Finish</SelectItem>
                   {surfaceFinishes.map((finish) => (
                     <SelectItem key={finish} value={finish}>
                       {finish}
