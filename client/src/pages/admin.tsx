@@ -332,26 +332,58 @@ export default function Admin() {
     }
 
     const parsedData = JSON.parse(competitorData);
-    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
+    
+    // Helper function to parse dimensions into width and height/length
+    const parseDimensions = (item: any) => {
+      // Use stored width/length/unit if available (newer format)
+      if (item.width && item.length && item.unit) {
+        return {
+          width: `${item.width} ${item.unit}`,
+          height: `${item.length} ${item.unit}`
+        };
+      }
+      
+      // Fallback to parsing dimensions string (older format)
+      const match = item.dimensions.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(in|ft)/);
+      if (match) {
+        const [, width, height, unit] = match;
+        return {
+          width: `${width} ${unit}`,
+          height: `${height} ${unit}`
+        };
+      }
+      
+      // Fallback for unparseable dimensions
+      return {
+        width: item.dimensions,
+        height: ""
+      };
+    };
+    
+    const headers = ["Source", "Type", "Width", "Height/Length", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
     const csvContent = [
       headers.join(","),
-      ...parsedData.map((item: any) => [
-        item.source,
-        item.type,
-        item.dimensions,
-        item.packQty,
-        `$${item.inputPrice.toFixed(2)}`,
-        `"${item.thickness}"`,
-        `"${item.productKind}"`,
-        `"${item.surfaceFinish}"`,
-        `"${item.supplierInfo}"`,
-        `"${item.infoReceivedFrom}"`,
-        `$${item.pricePerSqIn.toFixed(4)}`,
-        `$${item.pricePerSqFt.toFixed(4)}`,
-        `$${item.pricePerSqMeter.toFixed(4)}`,
-        `"${item.notes}"`,
-        new Date(item.timestamp).toLocaleDateString()
-      ].join(","))
+      ...parsedData.map((item: any) => {
+        const { width, height } = parseDimensions(item);
+        return [
+          item.source,
+          item.type,
+          width,
+          height,
+          item.packQty,
+          `$${item.inputPrice.toFixed(2)}`,
+          `"${item.thickness}"`,
+          `"${item.productKind}"`,
+          `"${item.surfaceFinish}"`,
+          `"${item.supplierInfo}"`,
+          `"${item.infoReceivedFrom}"`,
+          `$${item.pricePerSqIn.toFixed(4)}`,
+          `$${item.pricePerSqFt.toFixed(4)}`,
+          `$${item.pricePerSqMeter.toFixed(4)}`,
+          `"${item.notes}"`,
+          new Date(item.timestamp).toLocaleDateString()
+        ].join(",");
+      })
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });

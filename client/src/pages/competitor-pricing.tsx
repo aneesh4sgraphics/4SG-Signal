@@ -15,6 +15,9 @@ interface CompetitorData {
   timestamp: Date;
   type: string;
   dimensions: string;
+  width?: number;
+  length?: number;
+  unit?: string;
   packQty: number;
   inputPrice: number;
   thickness: string;
@@ -138,26 +141,57 @@ export default function CompetitorPricing() {
   const exportToExcel = () => {
     if (filteredData.length === 0) return;
 
-    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
+    // Helper function to parse dimensions into width and height/length
+    const parseDimensions = (item: CompetitorData) => {
+      // Use stored width/length/unit if available (newer format)
+      if (item.width && item.length && item.unit) {
+        return {
+          width: `${item.width} ${item.unit}`,
+          height: `${item.length} ${item.unit}`
+        };
+      }
+      
+      // Fallback to parsing dimensions string (older format)
+      const match = item.dimensions.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(in|ft)/);
+      if (match) {
+        const [, width, height, unit] = match;
+        return {
+          width: `${width} ${unit}`,
+          height: `${height} ${unit}`
+        };
+      }
+      
+      // Fallback for unparseable dimensions
+      return {
+        width: item.dimensions,
+        height: ""
+      };
+    };
+
+    const headers = ["Source", "Type", "Width", "Height/Length", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
     const csvContent = [
       headers.join(","),
-      ...filteredData.map(item => [
-        item.source,
-        item.type,
-        item.dimensions,
-        item.packQty,
-        `$${item.inputPrice.toFixed(2)}`,
-        `"${item.thickness}"`,
-        `"${item.productKind}"`,
-        `"${item.surfaceFinish}"`,
-        `"${item.supplierInfo}"`,
-        `"${item.infoReceivedFrom}"`,
-        `$${item.pricePerSqIn.toFixed(4)}`,
-        `$${item.pricePerSqFt.toFixed(4)}`,
-        `$${item.pricePerSqMeter.toFixed(4)}`,
-        `"${item.notes}"`,
-        item.timestamp.toLocaleDateString()
-      ].join(","))
+      ...filteredData.map(item => {
+        const { width, height } = parseDimensions(item);
+        return [
+          item.source,
+          item.type,
+          width,
+          height,
+          item.packQty,
+          `$${item.inputPrice.toFixed(2)}`,
+          `"${item.thickness}"`,
+          `"${item.productKind}"`,
+          `"${item.surfaceFinish}"`,
+          `"${item.supplierInfo}"`,
+          `"${item.infoReceivedFrom}"`,
+          `$${item.pricePerSqIn.toFixed(4)}`,
+          `$${item.pricePerSqFt.toFixed(4)}`,
+          `$${item.pricePerSqMeter.toFixed(4)}`,
+          `"${item.notes}"`,
+          item.timestamp.toLocaleDateString()
+        ].join(",");
+      })
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });

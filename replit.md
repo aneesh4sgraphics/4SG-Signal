@@ -6,6 +6,7 @@ This is a full-stack TypeScript application that provides a quote calculator for
 
 ## Recent Changes
 
+- **Dimensions CSV Export Fix (2025-07-16)**: Updated competitor pricing database CSV export to separate dimensions into two columns (Width and Height/Length) instead of single combined cell. Enhanced data structure to store width, length, and unit separately for better parsing accuracy
 - **Code Cleanup (2025-07-16)**: Removed unused DatabaseStorage class, mock data, and unnecessary imports. Cleaned up user initialization to rely only on authenticated users with proper pre-approval system
 - **Dashboard Redesign (2025-07-15)**: Redesigned dashboard with all apps in one horizontal line and separate admin section with download functionality for all databases
 - **Email Product Name Fix (2025-07-15)**: Fixed product name duplication in email composition to show only product type instead of brand + type combination
