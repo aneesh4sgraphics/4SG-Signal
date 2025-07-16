@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Calculator, Download, Plus } from "lucide-react";
@@ -16,6 +17,11 @@ interface CalculationResult {
   height: number;
   packQty: number;
   inputPrice: number;
+  thickness: string;
+  productKind: string;
+  surfaceFinish: string;
+  supplierInfo: string;
+  infoReceivedFrom: string;
   pricePerSqIn: number;
   pricePerSqFt: number;
   pricePerSqMeter: number;
@@ -32,10 +38,27 @@ export default function AreaPricer() {
   const [height, setHeight] = useState("");
   const [sheetsPerPack, setSheetsPerPack] = useState("");
   const [pricePerPack, setPricePerPack] = useState("");
+  const [thickness, setThickness] = useState("");
+  const [productKind, setProductKind] = useState("");
+  const [surfaceFinish, setSurfaceFinish] = useState("");
+  const [supplierInfo, setSupplierInfo] = useState("");
+  const [infoReceivedFrom, setInfoReceivedFrom] = useState("");
 
   const [calculations, setCalculations] = useState<CalculationResult[]>([]);
   const [currentResult, setCurrentResult] = useState<CalculationResult | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
+
+  // Custom option management
+  const [customProductKind, setCustomProductKind] = useState("");
+  const [customSurfaceFinish, setCustomSurfaceFinish] = useState("");
+  const [customSupplierInfo, setCustomSupplierInfo] = useState("");
+  const [customInfoReceivedFrom, setCustomInfoReceivedFrom] = useState("");
+
+  // Dynamic option lists
+  const [productKindOptions, setProductKindOptions] = useState(["Adhesive", "Non Adhesive", "Other"]);
+  const [surfaceFinishOptions, setSurfaceFinishOptions] = useState(["Gloss", "Matte", "Satin", "Lustre", "Coated", "Uncoated", "Any Finish", "Other"]);
+  const [supplierInfoOptions, setSupplierInfoOptions] = useState(["GPA", "Kernow", "Neekoosa", "MGX", "Announcement Convertors", "Grimco", "Sihl", "Other"]);
+  const [infoReceivedFromOptions, setInfoReceivedFromOptions] = useState(["Steadfast", "End User", "Other"]);
 
   const calculatePricing = () => {
     const w = parseFloat(width);
@@ -79,6 +102,11 @@ export default function AreaPricer() {
       height: 0, // Not needed for 2D calculations
       packQty: qty,
       inputPrice: price,
+      thickness,
+      productKind,
+      surfaceFinish,
+      supplierInfo,
+      infoReceivedFrom,
       pricePerSqIn,
       pricePerSqFt,
       pricePerSqMeter,
@@ -100,7 +128,50 @@ export default function AreaPricer() {
       setHeight("");
       setSheetsPerPack("");
       setPricePerPack("");
+      setThickness("");
+      setProductKind("");
+      setSurfaceFinish("");
+      setSupplierInfo("");
+      setInfoReceivedFrom("");
       setCurrentResult(null);
+    }
+  };
+
+  const handleCustomOption = (type: string, value: string, customValue: string) => {
+    if (value === "Other" && customValue.trim()) {
+      let newOptions: string[] = [];
+      let setOptions: (options: string[]) => void;
+      
+      switch (type) {
+        case "productKind":
+          newOptions = [...productKindOptions.filter(opt => opt !== "Other"), customValue.trim(), "Other"];
+          setOptions = setProductKindOptions;
+          setProductKind(customValue.trim());
+          setCustomProductKind("");
+          break;
+        case "surfaceFinish":
+          newOptions = [...surfaceFinishOptions.filter(opt => opt !== "Other"), customValue.trim(), "Other"];
+          setOptions = setSurfaceFinishOptions;
+          setSurfaceFinish(customValue.trim());
+          setCustomSurfaceFinish("");
+          break;
+        case "supplierInfo":
+          newOptions = [...supplierInfoOptions.filter(opt => opt !== "Other"), customValue.trim(), "Other"];
+          setOptions = setSupplierInfoOptions;
+          setSupplierInfo(customValue.trim());
+          setCustomSupplierInfo("");
+          break;
+        case "infoReceivedFrom":
+          newOptions = [...infoReceivedFromOptions.filter(opt => opt !== "Other"), customValue.trim(), "Other"];
+          setOptions = setInfoReceivedFromOptions;
+          setInfoReceivedFrom(customValue.trim());
+          setCustomInfoReceivedFrom("");
+          break;
+        default:
+          return;
+      }
+      
+      setOptions(newOptions);
     }
   };
 
@@ -114,7 +185,7 @@ export default function AreaPricer() {
   const exportToExcel = () => {
     if (calculations.length === 0) return;
 
-    const headers = ["Type", "Width", "Length", "Pack Qty", "Input Price", "Price/in²", "Price/ft²", "Price/m²", "Notes"];
+    const headers = ["Type", "Width", "Length", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier Info", "Info Received From", "Price/in²", "Price/ft²", "Price/m²", "Notes"];
     const csvContent = [
       headers.join(","),
       ...calculations.map(calc => [
@@ -123,6 +194,11 @@ export default function AreaPricer() {
         `${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
         calc.packQty,
         `$${calc.inputPrice.toFixed(2)}`,
+        `"${calc.thickness}"`,
+        `"${calc.productKind}"`,
+        `"${calc.surfaceFinish}"`,
+        `"${calc.supplierInfo}"`,
+        `"${calc.infoReceivedFrom}"`,
         `$${calc.pricePerSqIn.toFixed(4)}`,
         `$${calc.pricePerSqFt.toFixed(4)}`,
         `$${calc.pricePerSqMeter.toFixed(4)}`,
@@ -230,6 +306,148 @@ export default function AreaPricer() {
                     placeholder="44.50"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="thickness">Thickness</Label>
+                  <Input
+                    id="thickness"
+                    type="text"
+                    value={thickness}
+                    onChange={(e) => setThickness(e.target.value)}
+                    placeholder="0.5mm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="productKind">Product Kind</Label>
+                  <Select value={productKind} onValueChange={(value) => setProductKind(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product kind" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productKindOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {productKind === "Other" && (
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        type="text"
+                        value={customProductKind}
+                        onChange={(e) => setCustomProductKind(e.target.value)}
+                        placeholder="Enter custom product kind"
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleCustomOption("productKind", "Other", customProductKind)}
+                        disabled={!customProductKind.trim()}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="surfaceFinish">Surface Finish</Label>
+                  <Select value={surfaceFinish} onValueChange={(value) => setSurfaceFinish(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select surface finish" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {surfaceFinishOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {surfaceFinish === "Other" && (
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        type="text"
+                        value={customSurfaceFinish}
+                        onChange={(e) => setCustomSurfaceFinish(e.target.value)}
+                        placeholder="Enter custom surface finish"
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleCustomOption("surfaceFinish", "Other", customSurfaceFinish)}
+                        disabled={!customSurfaceFinish.trim()}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="supplierInfo">Supplier Info</Label>
+                  <Select value={supplierInfo} onValueChange={(value) => setSupplierInfo(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supplierInfoOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {supplierInfo === "Other" && (
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        type="text"
+                        value={customSupplierInfo}
+                        onChange={(e) => setCustomSupplierInfo(e.target.value)}
+                        placeholder="Enter custom supplier"
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleCustomOption("supplierInfo", "Other", customSupplierInfo)}
+                        disabled={!customSupplierInfo.trim()}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="infoReceivedFrom">Info Received From</Label>
+                  <Select value={infoReceivedFrom} onValueChange={(value) => setInfoReceivedFrom(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select info source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {infoReceivedFromOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {infoReceivedFrom === "Other" && (
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        type="text"
+                        value={customInfoReceivedFrom}
+                        onChange={(e) => setCustomInfoReceivedFrom(e.target.value)}
+                        placeholder="Enter custom info source"
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleCustomOption("infoReceivedFrom", "Other", customInfoReceivedFrom)}
+                        disabled={!customInfoReceivedFrom.trim()}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <Button onClick={calculatePricing} className="w-full mt-6" size="lg">
@@ -310,6 +528,11 @@ export default function AreaPricer() {
                     <TableHead>Length</TableHead>
                     <TableHead>Pack Qty</TableHead>
                     <TableHead>Input Price</TableHead>
+                    <TableHead>Thickness</TableHead>
+                    <TableHead>Product Kind</TableHead>
+                    <TableHead>Surface Finish</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Info From</TableHead>
                     <TableHead>Price/in²</TableHead>
                     <TableHead>Price/ft²</TableHead>
                     <TableHead>Price/m²</TableHead>
@@ -324,6 +547,11 @@ export default function AreaPricer() {
                       <TableCell>{calc.length} {calc.type === "roll" ? "ft" : "in"}</TableCell>
                       <TableCell>{calc.packQty}</TableCell>
                       <TableCell>${calc.inputPrice.toFixed(2)}</TableCell>
+                      <TableCell>{calc.thickness}</TableCell>
+                      <TableCell>{calc.productKind}</TableCell>
+                      <TableCell>{calc.surfaceFinish}</TableCell>
+                      <TableCell>{calc.supplierInfo}</TableCell>
+                      <TableCell>{calc.infoReceivedFrom}</TableCell>
                       <TableCell>${calc.pricePerSqIn.toFixed(4)}</TableCell>
                       <TableCell>${calc.pricePerSqFt.toFixed(4)}</TableCell>
                       <TableCell>${calc.pricePerSqMeter.toFixed(4)}</TableCell>
