@@ -135,6 +135,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all product types
+  app.get("/api/product-types", async (req, res) => {
+    try {
+      const cacheKey = "product-types";
+      const cachedData = getCachedData(cacheKey);
+      
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+      
+      const types = await storage.getProductTypes();
+      setCachedData(cacheKey, types);
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch product types" });
+    }
+  });
+
   // Get product types by category
   app.get("/api/product-types/:categoryId", async (req, res) => {
     try {
@@ -155,6 +173,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(types);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product types" });
+    }
+  });
+
+  // Get all product sizes
+  app.get("/api/product-sizes", async (req, res) => {
+    try {
+      const cacheKey = "product-sizes";
+      const cachedData = getCachedData(cacheKey);
+      
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+      
+      const sizes = await storage.getProductSizes();
+      setCachedData(cacheKey, sizes);
+      res.json(sizes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch product sizes" });
     }
   });
 
@@ -196,6 +232,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(tiers);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch pricing tiers" });
+    }
+  });
+
+  // Get all product pricing
+  app.get("/api/product-pricing", async (req, res) => {
+    try {
+      const cacheKey = "product-pricing";
+      const cachedData = getCachedData(cacheKey);
+      
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+      
+      const pricing = await storage.getProductPricing();
+      setCachedData(cacheKey, pricing);
+      res.json(pricing);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch product pricing" });
     }
   });
 
