@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Calculator, Download, Plus } from "lucide-react";
+import { Calculator, Download, Plus, Sheet } from "lucide-react";
 
 interface CalculationResult {
   id: string;
@@ -647,7 +647,7 @@ export default function AreaPricer() {
                 onClick={exportToExcel}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Sheet className="w-4 h-4 mr-2" />
                 Export Excel
               </Button>
               <Button

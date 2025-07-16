@@ -14,6 +14,41 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 
+// Utility function to apply brand-specific fonts to individual words
+const applyBrandFonts = (text: string): JSX.Element => {
+  const words = text.split(' ');
+  
+  return (
+    <>
+      {words.map((word, index) => {
+        const lowerWord = word.toLowerCase();
+        let className = '';
+        
+        if (lowerWord.includes('graffiti')) {
+          className = 'font-graffiti';
+        } else if (lowerWord.includes('solvit')) {
+          className = 'font-solvit';
+        } else if (lowerWord.includes('cliq')) {
+          className = 'font-cliq';
+        } else if (lowerWord.includes('rang')) {
+          className = 'font-rang';
+        } else if (lowerWord.includes('ele') || lowerWord.includes('eie')) {
+          className = 'font-ele';
+        } else if (lowerWord.includes('polyester') || lowerWord.includes('paper') || lowerWord.includes('blended') || lowerWord.includes('poly') || lowerWord.includes('stick')) {
+          className = 'font-ele';
+        }
+        
+        return (
+          <span key={index} className={className}>
+            {word}
+            {index < words.length - 1 ? ' ' : ''}
+          </span>
+        );
+      })}
+    </>
+  );
+};
+
 interface ProductCategory {
   id: number;
   name: string;
@@ -1089,11 +1124,11 @@ Look forward for your order!`;
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-start">
                   <span className="font-medium text-gray-700 flex-shrink-0">Product Brand:</span>
-                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{getSelectedCategoryName()}</span>
+                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{applyBrandFonts(getSelectedCategoryName())}</span>
                 </div>
                 <div className="flex justify-between items-start">
                   <span className="font-medium text-gray-700 flex-shrink-0">Product Type:</span>
-                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{getSelectedTypeName()}</span>
+                  <span className="text-blue-600 font-medium text-right ml-2 break-words">{applyBrandFonts(getSelectedTypeName())}</span>
                 </div>
                 <div className="flex justify-between items-start">
                   <span className="font-medium text-gray-700 flex-shrink-0">Product Size:</span>
@@ -1182,10 +1217,10 @@ Look forward for your order!`;
                       return (
                         <div key={item.id} className={`grid gap-4 p-4 text-sm items-center ${hasMinOrderQtyDisplay() ? 'grid-cols-8' : 'grid-cols-7'}`}>
                           <div className="font-medium">
-                            {item.productBrand}
+                            {applyBrandFonts(item.productBrand)}
                           </div>
                           <div className="text-muted-foreground">
-                            <div>Type: {item.productType}</div>
+                            <div>Type: {applyBrandFonts(item.productType)}</div>
                             <div>Size: {item.productSize}</div>
                             <div>Added as: {item.tierName}</div>
                           </div>

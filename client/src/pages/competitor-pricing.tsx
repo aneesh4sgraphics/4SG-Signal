@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Filter, Plus, Download, RotateCcw } from "lucide-react";
+import { TrendingUp, Filter, Plus, Download, RotateCcw, Sheet } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { toast } from "@/hooks/use-toast";
@@ -346,7 +346,7 @@ export default function CompetitorPricing() {
           <div className="flex justify-between items-center">
             <CardTitle>Pricing Data ({filteredData.length} entries)</CardTitle>
             <Button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700 text-white">
-              <Download className="w-4 h-4 mr-2" />
+              <Sheet className="w-4 h-4 mr-2" />
               Export Excel
             </Button>
           </div>

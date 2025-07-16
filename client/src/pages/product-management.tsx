@@ -13,6 +13,41 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
+// Utility function to apply brand-specific fonts to individual words
+const applyBrandFonts = (text: string): JSX.Element => {
+  const words = text.split(' ');
+  
+  return (
+    <>
+      {words.map((word, index) => {
+        const lowerWord = word.toLowerCase();
+        let className = '';
+        
+        if (lowerWord.includes('graffiti')) {
+          className = 'font-graffiti';
+        } else if (lowerWord.includes('solvit')) {
+          className = 'font-solvit';
+        } else if (lowerWord.includes('cliq')) {
+          className = 'font-cliq';
+        } else if (lowerWord.includes('rang')) {
+          className = 'font-rang';
+        } else if (lowerWord.includes('ele') || lowerWord.includes('eie')) {
+          className = 'font-ele';
+        } else if (lowerWord.includes('polyester') || lowerWord.includes('paper') || lowerWord.includes('blended') || lowerWord.includes('poly') || lowerWord.includes('stick')) {
+          className = 'font-ele';
+        }
+        
+        return (
+          <span key={index} className={className}>
+            {word}
+            {index < words.length - 1 ? ' ' : ''}
+          </span>
+        );
+      })}
+    </>
+  );
+};
+
 interface ProductCategory {
   id: number;
   name: string;
@@ -234,7 +269,7 @@ export default function ProductManagement() {
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((category: ProductCategory) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
+                        {applyBrandFonts(category.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -244,7 +279,7 @@ export default function ProductManagement() {
                 <label className="text-sm font-medium">Filter Info</label>
                 <div className="p-2 bg-gray-100 rounded-md text-sm">
                   {selectedCategory && selectedCategory !== "all" ? (
-                    <span>Showing products for: <Badge variant="secondary">{selectedCategoryData?.name}</Badge></span>
+                    <span>Showing products for: <Badge variant="secondary">{applyBrandFonts(selectedCategoryData?.name || '')}</Badge></span>
                   ) : (
                     <span>Showing all products</span>
                   )}
@@ -296,8 +331,8 @@ export default function ProductManagement() {
                   <TableBody>
                     {productData.map((product) => (
                       <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.category}</TableCell>
-                        <TableCell>{product.type}</TableCell>
+                        <TableCell className="font-medium">{applyBrandFonts(product.category)}</TableCell>
+                        <TableCell>{applyBrandFonts(product.type)}</TableCell>
                         <TableCell>{product.size}</TableCell>
                         <TableCell 
                           className={isAdmin ? "cursor-pointer hover:bg-gray-50" : ""}

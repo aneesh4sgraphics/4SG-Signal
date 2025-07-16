@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User, FileX } from "lucide-react";
+import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User, Sheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -723,7 +723,7 @@ export default function PriceList() {
                               </>
                             ) : (
                               <>
-                                <FileX className="h-4 w-4 mr-2" />
+                                <Sheet className="h-4 w-4 mr-2" />
                                 Export CSV
                               </>
                             )}
@@ -739,7 +739,7 @@ export default function PriceList() {
                     }}
                     className="btn-csv flex items-center gap-2"
                   >
-                    <FileX className="h-4 w-4" />
+                    <Sheet className="h-4 w-4" />
                     Export CSV
                   </Button>
                 </div>
