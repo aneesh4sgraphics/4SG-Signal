@@ -8,9 +8,44 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User } from "lucide-react";
+import { ArrowLeft, Download, DollarSign, Package, FileText, ChevronDown, FileDown, User, FileX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+// Utility function to apply brand-specific fonts to individual words
+const applyBrandFonts = (text: string): JSX.Element => {
+  const words = text.split(' ');
+  
+  return (
+    <>
+      {words.map((word, index) => {
+        const lowerWord = word.toLowerCase();
+        let className = '';
+        
+        if (lowerWord.includes('graffiti')) {
+          className = 'font-graffiti';
+        } else if (lowerWord.includes('solvit')) {
+          className = 'font-solvit';
+        } else if (lowerWord.includes('cliq')) {
+          className = 'font-cliq';
+        } else if (lowerWord.includes('rang')) {
+          className = 'font-rang';
+        } else if (lowerWord.includes('ele') || lowerWord.includes('eie')) {
+          className = 'font-ele';
+        } else if (lowerWord.includes('polyester') || lowerWord.includes('paper') || lowerWord.includes('blended') || lowerWord.includes('poly') || lowerWord.includes('stick')) {
+          className = 'font-ele';
+        }
+        
+        return (
+          <span key={index} className={className}>
+            {word}
+            {index < words.length - 1 ? ' ' : ''}
+          </span>
+        );
+      })}
+    </>
+  );
+};
 
 interface ProductCategory {
   id: number;
@@ -466,7 +501,7 @@ export default function PriceList() {
                   <SelectContent>
                     {categories.map((category: ProductCategory) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
+                        {applyBrandFonts(category.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -625,24 +660,16 @@ export default function PriceList() {
                 <div>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Package className="h-5 w-5" />
-                    Price List - {selectedCategoryData.name}
+                    Price List - {applyBrandFonts(selectedCategoryData.name)}
                   </CardTitle>
                   <p className="text-sm text-gray-600 mt-1">
                     Pricing tier: <Badge variant="secondary">{selectedTierData.name}</Badge>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowPriceList(false)}
-                    className="flex items-center gap-2"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                    Configure
-                  </Button>
                   <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
                     <DialogTrigger asChild>
-                      <Button className="flex items-center gap-2">
+                      <Button className="btn-pdf flex items-center gap-2">
                         <FileDown className="h-4 w-4" />
                         Download PDF
                       </Button>
@@ -685,22 +712,34 @@ export default function PriceList() {
                           >
                             Cancel
                           </Button>
-                          <Button onClick={() => handleDownload(downloadType)}>
-                            Download {downloadType.toUpperCase()}
+                          <Button 
+                            onClick={() => handleDownload(downloadType)}
+                            className={downloadType === 'pdf' ? 'btn-pdf' : 'btn-csv'}
+                          >
+                            {downloadType === 'pdf' ? (
+                              <>
+                                <FileDown className="h-4 w-4 mr-2" />
+                                Download PDF
+                              </>
+                            ) : (
+                              <>
+                                <FileX className="h-4 w-4 mr-2" />
+                                Export CSV
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
                   <Button 
-                    variant="outline" 
                     onClick={() => {
                       setDownloadType("csv");
                       setShowDownloadDialog(true);
                     }}
-                    className="flex items-center gap-2"
+                    className="btn-csv flex items-center gap-2"
                   >
-                    <Download className="h-4 w-4" />
+                    <FileX className="h-4 w-4" />
                     Export CSV
                   </Button>
                 </div>
@@ -743,7 +782,7 @@ export default function PriceList() {
                     return (
                       <div key={type.id} className="border rounded-lg overflow-hidden">
                         <div className="bg-gray-50 px-4 py-3 border-b">
-                          <h3 className="font-medium text-gray-900">{type.name}</h3>
+                          <h3 className="font-medium text-gray-900">{applyBrandFonts(type.name)}</h3>
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full">

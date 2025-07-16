@@ -1,3 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Lobster&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Franklin+Gothic+Medium&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -55,5 +60,46 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
   }
+}
+
+/* Brand-specific font classes */
+.font-graffiti {
+  font-family: 'Lobster', cursive;
+  font-weight: 400;
+}
+
+.font-solvit {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+}
+
+.font-cliq {
+  font-family: 'Franklin Gothic Medium', sans-serif;
+  font-weight: 500;
+}
+
+.font-rang {
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+}
+
+.font-ele {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+}
+
+.font-eie {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+}
+
+/* PDF and CSV button styles */
+.btn-pdf {
+  @apply bg-blue-600 hover:bg-blue-700 text-white;
+}
+
+.btn-csv {
+  @apply bg-green-600 hover:bg-green-700 text-white;
 }

@@ -1,6 +1,31 @@
 import fs from 'fs';
 import path from 'path';
 
+// Utility function to apply brand-specific fonts to individual words
+function applyBrandFonts(text: string): string {
+  const words = text.split(' ');
+  
+  return words.map(word => {
+    const lowerWord = word.toLowerCase();
+    
+    if (lowerWord.includes('graffiti')) {
+      return `<span style="font-family: 'Lobster', cursive; font-weight: 400;">${word}</span>`;
+    } else if (lowerWord.includes('solvit')) {
+      return `<span style="font-family: 'Inter', sans-serif; font-weight: 700;">${word}</span>`;
+    } else if (lowerWord.includes('cliq')) {
+      return `<span style="font-family: 'Franklin Gothic Medium', sans-serif; font-weight: 500;">${word}</span>`;
+    } else if (lowerWord.includes('rang')) {
+      return `<span style="font-family: 'Inter', sans-serif; font-weight: 400;">${word}</span>`;
+    } else if (lowerWord.includes('ele') || lowerWord.includes('eie')) {
+      return `<span style="font-family: 'Roboto', sans-serif; font-weight: 400;">${word}</span>`;
+    } else if (lowerWord.includes('polyester') || lowerWord.includes('paper') || lowerWord.includes('blended') || lowerWord.includes('poly') || lowerWord.includes('stick')) {
+      return `<span style="font-family: 'Roboto', sans-serif; font-weight: 400;">${word}</span>`;
+    }
+    
+    return word;
+  }).join(' ');
+}
+
 interface QuoteItem {
   id: string;
   productBrand: string;
@@ -54,8 +79,8 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     
     return `
       <tr>
-        <td>${item.productBrand}</td>
-        <td>${item.productType}</td>
+        <td>${applyBrandFonts(item.productBrand)}</td>
+        <td>${applyBrandFonts(item.productType)}</td>
         <td>${item.productSize}</td>
         <td>${item.quantity}</td>
         ${hasMinOrderQtyDisplay ? `<td>${isMinOrderQtyActive ? minOrderQty : '-'}</td>` : ''}
@@ -74,6 +99,10 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     <head>
       <meta charset="UTF-8">
       <title>Quote ${quoteNumber}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Franklin+Gothic+Medium&display=swap" rel="stylesheet">
       <style>
         * {
           -webkit-print-color-adjust: exact !important;
@@ -81,7 +110,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
         }
         
         body {
-          font-family: Arial, sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 12px;
           margin: 0;
           padding: 30px;
@@ -362,7 +391,7 @@ export function generatePriceListHTML(request: PriceListRequest): string {
 
     return `
       <div class="product-type-section">
-        <h3 class="product-type-name">${typeName}</h3>
+        <h3 class="product-type-name">${applyBrandFonts(typeName)}</h3>
         <table class="items-table">
           <thead>
             <tr>
@@ -391,6 +420,10 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Price List - ${categoryName}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Franklin+Gothic+Medium&display=swap" rel="stylesheet">
       <style>
         @page {
           size: 8.5in 11in;
@@ -399,7 +432,7 @@ export function generatePriceListHTML(request: PriceListRequest): string {
         }
         
         body {
-          font-family: 'Roboto', Arial, sans-serif;
+          font-family: 'Inter', sans-serif;
           margin: 0;
           padding: 0;
           background-color: #ffffff;
