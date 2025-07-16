@@ -529,7 +529,6 @@ export default function PriceList() {
                                 </th>
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Size</th>
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Item Code</th>
-                                <th className="text-left py-3 px-4 font-medium text-gray-700">Dimensions</th>
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Min Qty</th>
                                 <th className="text-right py-3 px-4 font-medium text-gray-700">Price/Sq.M</th>
                                 <th className="text-right py-3 px-4 font-medium text-gray-700">Total Price</th>
@@ -554,9 +553,6 @@ export default function PriceList() {
                                       <Badge variant="secondary" className="text-xs">
                                         {item.size.itemCode}
                                       </Badge>
-                                    </td>
-                                    <td className="py-3 px-4 text-sm">
-                                      {item.size.width} {item.size.widthUnit} × {item.size.height} {item.size.heightUnit}
                                     </td>
                                     <td className="py-3 px-4 text-sm">{item.size.minOrderQty}</td>
                                     <td className="py-3 px-4 text-sm text-right font-medium">

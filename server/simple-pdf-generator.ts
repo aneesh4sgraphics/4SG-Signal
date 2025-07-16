@@ -351,7 +351,6 @@ export function generatePriceListHTML(request: PriceListRequest): string {
         <tr>
           <td>${item.size.name}</td>
           <td>${item.size.itemCode}</td>
-          <td>${item.size.width} ${item.size.widthUnit} × ${item.size.height} ${item.size.heightUnit}</td>
           <td>${item.size.minOrderQty}</td>
           <td>$${totalPrice.toFixed(2)}</td>
         </tr>
@@ -366,7 +365,6 @@ export function generatePriceListHTML(request: PriceListRequest): string {
             <tr>
               <th>Size</th>
               <th>Item Code</th>
-              <th>Dimensions</th>
               <th>Min Qty</th>
               <th>Total Price</th>
             </tr>
@@ -554,14 +552,14 @@ export function generatePriceListCSV(request: PriceListRequest): string {
   // Generate CSV sections for each product type
   Object.entries(itemsByType).forEach(([typeName, typeItems]) => {
     csvContent += `${typeName}\n`;
-    csvContent += `Size,Item Code,Dimensions,Min Qty,Total Price\n`;
+    csvContent += `Size,Item Code,Min Qty,Total Price\n`;
     
     typeItems.forEach((item) => {
       const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
       const totalPrice = pricePerSqm * squareMeters;
       
-      csvContent += `"${item.size.name}","${item.size.itemCode}","${item.size.width} ${item.size.widthUnit} × ${item.size.height} ${item.size.heightUnit}","${item.size.minOrderQty}","$${totalPrice.toFixed(2)}"\n`;
+      csvContent += `"${item.size.name}","${item.size.itemCode}","${item.size.minOrderQty}","$${totalPrice.toFixed(2)}"\n`;
     });
     
     csvContent += `\n`;
