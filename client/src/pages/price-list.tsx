@@ -191,13 +191,20 @@ export default function PriceList() {
       }));
     }) : [];
 
-  // Get price per sheet for selected tier
-  const getPricePerSheet = (item: PriceListItem, tierId: number) => {
+  // Get price per square meter from CSV (original pricing data)
+  const getPricePerSqm = (item: PriceListItem, tierId: number) => {
     const tierPricing = item.pricing.find((p: ProductPricing) => p.tierId === tierId);
     if (tierPricing) {
       return parseFloat(tierPricing.pricePerSquareMeter);
     }
     return 0;
+  };
+
+  // Get actual price per sheet (sq.m price × square meters per sheet)
+  const getPricePerSheet = (item: PriceListItem, tierId: number) => {
+    const pricePerSqm = getPricePerSqm(item, tierId);
+    const squareMeters = parseFloat(item.size.squareMeters);
+    return pricePerSqm * squareMeters;
   };
 
   // Get price per pack (price per sheet × min order quantity) with rounding for retail
@@ -823,12 +830,14 @@ export default function PriceList() {
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Size</th>
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Item Code</th>
                                 <th className="text-left py-3 px-4 font-medium text-gray-700">Min Qty</th>
+                                <th className="text-right py-3 px-4 font-medium text-gray-700">Price/Sq.M</th>
                                 <th className="text-right py-3 px-4 font-medium text-gray-700">Price/Sheet</th>
                                 <th className="text-right py-3 px-4 font-medium text-gray-700">Price Per Pack</th>
                               </tr>
                             </thead>
                             <tbody>
                               {typeItems.map((item, index) => {
+                                const pricePerSqm = getPricePerSqm(item, parseInt(selectedTier));
                                 const pricePerSheet = getPricePerSheet(item, parseInt(selectedTier));
                                 const pricePerPack = getPricePerPack(item, parseInt(selectedTier));
                                 
@@ -849,6 +858,9 @@ export default function PriceList() {
                                       </Badge>
                                     </td>
                                     <td className="py-3 px-4 text-sm">{item.size.minOrderQty}</td>
+                                    <td className="py-3 px-4 text-sm text-right font-medium">
+                                      ${pricePerSqm.toFixed(2)}
+                                    </td>
                                     <td className="py-3 px-4 text-sm text-right font-medium">
                                       ${pricePerSheet.toFixed(2)}
                                     </td>
