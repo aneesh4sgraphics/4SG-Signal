@@ -70,6 +70,50 @@ export default function Dashboard() {
     return "Good Evening";
   };
 
+  // Daily motivational quotes that change each day
+  const dailyMotivationalQuotes = [
+    "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    "The only way to do great work is to love what you do.",
+    "Innovation distinguishes between a leader and a follower.",
+    "Your limitation—it's only your imagination.",
+    "Push yourself, because no one else is going to do it for you.",
+    "Great things never come from comfort zones.",
+    "Dream it. Wish it. Do it.",
+    "Success doesn't just find you. You have to go out and get it.",
+    "The harder you work for something, the greater you'll feel when you achieve it.",
+    "Dream bigger. Do bigger.",
+    "Don't stop when you're tired. Stop when you're done.",
+    "Wake up with determination. Go to bed with satisfaction.",
+    "Do something today that your future self will thank you for.",
+    "Little things make big days.",
+    "It's going to be hard, but hard does not mean impossible.",
+    "Don't wait for opportunity. Create it.",
+    "Sometimes we're tested not to show our weaknesses, but to discover our strengths.",
+    "The key to success is to focus on goals, not obstacles.",
+    "Dream it. Believe it. Build it.",
+    "Your potential is endless.",
+    "Stay focused and never give up.",
+    "Every accomplishment starts with the decision to try.",
+    "Be yourself; everyone else is already taken.",
+    "Turn your wounds into wisdom.",
+    "Believe you can and you're halfway there.",
+    "The future belongs to those who believe in the beauty of their dreams.",
+    "Success is walking from failure to failure with no loss of enthusiasm.",
+    "The only impossible journey is the one you never begin.",
+    "In the middle of difficulty lies opportunity.",
+    "Be the change you wish to see in the world.",
+    "Excellence is not a skill, it's an attitude."
+  ];
+
+  // Get daily quote based on day of year
+  const getDailyQuote = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return dailyMotivationalQuotes[dayOfYear % dailyMotivationalQuotes.length];
+  };
+
   return (
     <>
       {showWelcome && (
@@ -84,7 +128,10 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">{getGreeting()}, {firstName}!</h2>
-          <p className="text-gray-600">Select a tool below to get started.</p>
+          <p className="text-gray-600 mb-3">Select a tool below to get started.</p>
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-4 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 italic">"{getDailyQuote()}"</p>
+          </div>
         </div>
 
         {/* User Tools - Single Row */}

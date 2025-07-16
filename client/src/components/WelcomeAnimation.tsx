@@ -62,11 +62,11 @@ const WelcomeAnimation: React.FC<WelcomeAnimationProps> = ({ userName, onComplet
   const quote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
   useEffect(() => {
-    const timer1 = setTimeout(() => setCurrentStep(1), 500);
-    const timer2 = setTimeout(() => setCurrentStep(2), 1500);
-    const timer3 = setTimeout(() => setShowFireworks(true), 2000);
-    const timer4 = setTimeout(() => setCurrentStep(3), 2500);
-    const timer5 = setTimeout(() => onComplete(), 4000);
+    const timer1 = setTimeout(() => setCurrentStep(1), 800);
+    const timer2 = setTimeout(() => setCurrentStep(2), 3000);
+    const timer3 = setTimeout(() => setShowFireworks(true), 3500);
+    const timer4 = setTimeout(() => setCurrentStep(3), 5000);
+    const timer5 = setTimeout(() => onComplete(), 7000);
 
     return () => {
       clearTimeout(timer1);
