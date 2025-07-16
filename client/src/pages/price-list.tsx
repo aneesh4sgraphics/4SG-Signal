@@ -86,7 +86,6 @@ export default function PriceList() {
   const [showPriceList, setShowPriceList] = useState<boolean>(false);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [clientName, setClientName] = useState<string>("");
   const [showDownloadDialog, setShowDownloadDialog] = useState<boolean>(false);
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState<boolean>(false);
   const [downloadType, setDownloadType] = useState<"pdf" | "csv">("pdf");
@@ -275,10 +274,10 @@ export default function PriceList() {
 
   // Download functions
   const handleDownload = async (type: "pdf" | "csv") => {
-    if (!clientName.trim()) {
+    if (!selectedCustomer) {
       toast({
-        title: "Client Name Required",
-        description: "Please enter a client name before downloading.",
+        title: "Customer Required",
+        description: "Please select a customer before downloading.",
         variant: "destructive",
       });
       return;
@@ -304,7 +303,6 @@ export default function PriceList() {
         await downloadCSV(selectedItems);
       }
       setShowDownloadDialog(false);
-      setClientName("");
     } catch (error) {
       toast({
         title: "Download Failed",
@@ -319,7 +317,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: selectedCustomerData?.company || clientName.trim(),
+        clientName: selectedCustomerData?.company || "Unknown Customer",
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -396,7 +394,7 @@ export default function PriceList() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        clientName: selectedCustomerData?.company || clientName.trim(),
+        clientName: selectedCustomerData?.company || "Unknown Customer",
         categoryName: selectedCategoryData?.name,
         tierName: selectedTierData?.name,
         items: items.map(item => ({
@@ -413,7 +411,7 @@ export default function PriceList() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedCategoryData?.name}_${selectedCustomerData?.company || clientName.trim()}.csv`;
+    a.download = `${selectedCategoryData?.name}_${selectedCustomerData?.company || "Unknown_Customer"}.csv`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

@@ -286,6 +286,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/customers/:id", async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      const customerData = req.body;
+      const customer = await storage.updateCustomer(customerId, customerData);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Clear cache to ensure fresh data
+      setCachedData("customers", null);
+      
+      res.json(customer);
+    } catch (error) {
+      console.error("Error updating customer:", error);
+      res.status(500).json({ error: "Failed to update customer" });
+    }
+  });
+
+  app.delete("/api/customers/:id", async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      const success = await storage.deleteCustomer(customerId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Clear cache to ensure fresh data
+      setCachedData("customers", null);
+      
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      res.status(500).json({ error: "Failed to delete customer" });
+    }
+  });
+
   // Get product pricing by type ID
   app.get("/api/product-pricing/:typeId", async (req, res) => {
     try {

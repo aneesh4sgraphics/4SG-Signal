@@ -119,6 +119,18 @@ export default function Dashboard() {
               </Card>
             </Link>
 
+            {/* Customer Management */}
+            <Link href="/customer-management">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
+                <CardHeader className="text-center pb-3 pt-4">
+                  <div className="w-12 h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-sm">Customer Management</CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
+
             {/* Competitor Prices */}
             <Link href="/competitor-pricing">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
