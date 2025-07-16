@@ -96,14 +96,16 @@ export default function Dashboard() {
             </Link>
 
             {/* Saved Quotes */}
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white opacity-50 h-full">
-              <CardHeader className="text-center pb-3 pt-4">
-                <div className="w-12 h-12 mx-auto mb-2 bg-green-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-green-600" />
-                </div>
-                <CardTitle className="text-sm">Saved Quotes</CardTitle>
-              </CardHeader>
-            </Card>
+            <Link href="/saved-quotes">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
+                <CardHeader className="text-center pb-3 pt-4">
+                  <div className="w-12 h-12 mx-auto mb-2 bg-green-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-green-600" />
+                  </div>
+                  <CardTitle className="text-sm">Saved Quotes</CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
 
             {/* Price Lists */}
             <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white opacity-50 h-full">

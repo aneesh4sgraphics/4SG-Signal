@@ -623,6 +623,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save a new quote
+  app.post("/api/sent-quotes", isAuthenticated, async (req: any, res) => {
+    try {
+      const { quoteNumber, customerName, customerEmail, quoteItems, totalAmount, sentVia } = req.body;
+      
+      if (!quoteNumber || !customerName || !quoteItems || !totalAmount || !sentVia) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const newQuote = await storage.createSentQuote({
+        quoteNumber,
+        customerName,
+        customerEmail: customerEmail || null,
+        quoteItems: JSON.stringify(quoteItems),
+        totalAmount: totalAmount.toString(),
+        createdAt: new Date().toISOString(),
+        sentVia,
+        status: 'sent'
+      });
+      
+      res.json(newQuote);
+    } catch (error) {
+      console.error("Error saving quote:", error);
+      res.status(500).json({ error: "Failed to save quote" });
+    }
+  });
+
   // Download all database files (Admin only)
   app.get("/api/download-data", requireAdmin, async (req, res) => {
     try {

@@ -8,6 +8,7 @@ import AppHeader from "@/components/AppHeader";
 import QuoteCalculator from "@/pages/quote-calculator";
 import AreaPricer from "@/pages/area-pricer";
 import CompetitorPricing from "@/pages/competitor-pricing";
+import SavedQuotes from "@/pages/saved-quotes";
 import Admin from "@/pages/admin";
 import Dashboard from "@/pages/dashboard";
 import Landing from "@/pages/landing";
@@ -53,6 +54,7 @@ function Router() {
             <Route path="/quote-calculator" component={QuoteCalculator} />
             <Route path="/area-pricer" component={AreaPricer} />
             <Route path="/competitor-pricing" component={CompetitorPricing} />
+            <Route path="/saved-quotes" component={SavedQuotes} />
             <Route path="/admin" component={Admin} />
             <Route component={NotFound} />
           </Switch>

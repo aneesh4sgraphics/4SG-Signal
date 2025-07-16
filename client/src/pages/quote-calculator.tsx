@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 
 interface ProductCategory {
   id: number;
@@ -438,6 +439,27 @@ export default function QuoteCalculator() {
 
       const { html, filename } = await response.json();
       
+      // Save quote to database
+      const quoteNumber = `Q${Date.now().toString().slice(-6)}`;
+      const totalAmount = getQuoteTotal();
+      
+      try {
+        await apiRequest("POST", "/api/sent-quotes", {
+          quoteNumber,
+          customerName,
+          customerEmail: customerEmail || null,
+          quoteItems,
+          totalAmount,
+          sentVia: 'pdf'
+        });
+        
+        // Invalidate quotes cache to refresh the admin panel
+        queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes"] });
+      } catch (saveError) {
+        console.error("Error saving quote:", saveError);
+        // Continue with PDF generation even if saving fails
+      }
+      
       // Create a temporary window to generate PDF
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
@@ -455,7 +477,7 @@ export default function QuoteCalculator() {
 
       toast({
         title: "Success",
-        description: "PDF quote generated successfully",
+        description: "PDF quote generated and saved successfully",
       });
 
       setShowPDFDialog(false);
@@ -510,6 +532,24 @@ export default function QuoteCalculator() {
       const totalAmount = getQuoteTotal();
       const quoteDate = new Date().toLocaleDateString();
       
+      // Save quote to database
+      try {
+        await apiRequest("POST", "/api/sent-quotes", {
+          quoteNumber,
+          customerName,
+          customerEmail: customerEmail || null,
+          quoteItems,
+          totalAmount,
+          sentVia: 'email'
+        });
+        
+        // Invalidate quotes cache to refresh the admin panel
+        queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes"] });
+      } catch (saveError) {
+        console.error("Error saving quote:", saveError);
+        // Continue with email generation even if saving fails
+      }
+      
       // Create email content
       const emailSubject = `Quote ${quoteNumber} - ${customerName}`;
       
@@ -546,7 +586,7 @@ Look forward for your order!`;
 
       toast({
         title: "Success",
-        description: "Email client opened with quote details",
+        description: "Email client opened with quote details and saved to database",
       });
 
       setShowEmailDialog(false);
