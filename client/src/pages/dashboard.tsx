@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calculator, FileText, TrendingUp, Users, Database, LogOut, Download, Settings, Shield, Package } from "lucide-react";
+import { Calculator, FileText, TrendingUp, Users, Database, LogOut, Download, Settings, Shield, Package, Truck } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Dashboard() {
@@ -70,7 +70,7 @@ export default function Dashboard() {
         {/* User Tools - Single Row */}
         <div className="mb-12">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Applications</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
             {/* Quote Calculator */}
             <Link href="/quote-calculator">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
@@ -133,6 +133,17 @@ export default function Dashboard() {
               </Card>
             </Link>
 
+            {/* Shipping Calculator */}
+            <Link href="/shipping-calculator">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
+                <CardHeader className="text-center pb-3 pt-4">
+                  <div className="w-12 h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Truck className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-sm">Shipping Calc</CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
 
           </div>
         </div>
