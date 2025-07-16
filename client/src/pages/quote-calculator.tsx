@@ -972,7 +972,7 @@ Look forward for your order!`;
                   <SelectContent>
                     {categories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
-                        {category.name}
+                        {applyBrandFonts(category.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -993,7 +993,7 @@ Look forward for your order!`;
                   <SelectContent>
                     {types?.map((type) => (
                       <SelectItem key={type.id} value={type.id.toString()}>
-                        {type.name}
+                        {applyBrandFonts(type.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
