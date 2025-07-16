@@ -1,11 +1,4 @@
 import { 
-  users, 
-  productCategories,
-  productTypes,
-  productSizes,
-  pricingTiers,
-  productPricing,
-  sentQuotes,
   type User, 
   type InsertUser,
   type UpsertUser,
@@ -23,8 +16,6 @@ import {
   type InsertSentQuote
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
-import { db } from "./db";
-import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for Replit Auth
@@ -72,28 +63,7 @@ export interface IStorage {
   reinitializeData(): Promise<void>;
 }
 
-export class DatabaseStorage implements IStorage {
-  // User operations for Replit Auth
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
-  }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
-  }
-}
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
@@ -103,7 +73,7 @@ export class MemStorage implements IStorage {
   private pricingTiers: Map<number, PricingTier>;
   private productPricing: Map<number, ProductPricing>;
   private sentQuotes: Map<number, SentQuote>;
-  private currentUserId: number;
+
   private currentCategoryId: number;
   private currentTypeId: number;
   private currentSizeId: number;
@@ -119,7 +89,7 @@ export class MemStorage implements IStorage {
     this.pricingTiers = new Map();
     this.productPricing = new Map();
     this.sentQuotes = new Map();
-    this.currentUserId = 1;
+
     this.currentCategoryId = 1;
     this.currentTypeId = 1;
     this.currentSizeId = 1;
@@ -127,59 +97,7 @@ export class MemStorage implements IStorage {
     this.currentPricingId = 1;
     this.currentSentQuoteId = 1;
 
-    // Initialize with admin user
-    this.users.set("admin", {
-      id: "admin",
-      email: "aneesh@4sgraphics.com",
-      firstName: "Aneesh",
-      lastName: "Admin",
-      profileImageUrl: null,
-      role: "admin",
-      status: "approved",
-      approvedBy: "system",
-      approvedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    // Initialize pre-approved users
-    const preApprovedUsers = [
-      {
-        id: "oscar_preapproved",
-        email: "oscar@4sgraphics.com",
-        firstName: "Oscar",
-        lastName: null,
-        role: "user",
-        status: "approved"
-      },
-      {
-        id: "santiago_preapproved",
-        email: "santiago@4sgraphics.com",
-        firstName: "Santiago",
-        lastName: null,
-        role: "user", 
-        status: "approved"
-      },
-      {
-        id: "patricio_preapproved",
-        email: "patricio@4sgraphics.com",
-        firstName: "Patricio",
-        lastName: null,
-        role: "user",
-        status: "approved"
-      }
-    ];
-
-    preApprovedUsers.forEach(userData => {
-      this.users.set(userData.id, {
-        ...userData,
-        profileImageUrl: null,
-        approvedBy: "system",
-        approvedAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    });
+    // No default users - all users come from authentication
     
     this.initializeData();
   }

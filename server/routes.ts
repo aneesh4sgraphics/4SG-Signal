@@ -7,7 +7,7 @@ import archiver from "archiver";
 import { storage } from "./storage";
 import { z } from "zod";
 import { parseProductData } from "./csv-parser";
-import { parseCustomerData } from "./customer-parser";
+
 import { generateQuoteHTMLForDownload, generateQuoteNumber } from "./simple-pdf-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
