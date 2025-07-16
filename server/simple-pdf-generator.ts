@@ -26,6 +26,11 @@ function applyBrandFonts(text: string): string {
   }).join(' ');
 }
 
+// Utility function to round retail prices to .99 cents
+function roundToNinetyNine(price: number): number {
+  return Math.floor(price) + 0.99;
+}
+
 interface QuoteItem {
   id: string;
   productBrand: string;
@@ -372,9 +377,15 @@ export function generatePriceListHTML(request: PriceListRequest): string {
   // Generate table sections for each product type
   const typeSections = Object.entries(itemsByType).map(([typeName, typeItems]) => {
     const itemRows = typeItems.map((item) => {
-      const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
+      const basePricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
-      const pricePerSheet = pricePerSqm * squareMeters;
+      
+      // Apply 99-cent rounding for retail pricing tier
+      const adjustedPricePerSqm = tierName.toLowerCase().includes('retail') 
+        ? roundToNinetyNine(basePricePerSqm) 
+        : basePricePerSqm;
+      
+      const pricePerSheet = adjustedPricePerSqm * squareMeters;
       const minOrderQty = parseInt(item.size.minOrderQty) || 1;
       const minQtyPrice = pricePerSheet * minOrderQty;
       
@@ -635,9 +646,15 @@ export function generatePriceListCSV(request: PriceListRequest): string {
     csvContent += `Size,Item Code,Min Qty,Price per Sheet,Price Per Pack\n`;
     
     typeItems.forEach((item) => {
-      const pricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
+      const basePricePerSqm = parseFloat(item.pricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
-      const pricePerSheet = pricePerSqm * squareMeters;
+      
+      // Apply 99-cent rounding for retail pricing tier
+      const adjustedPricePerSqm = tierName.toLowerCase().includes('retail') 
+        ? roundToNinetyNine(basePricePerSqm) 
+        : basePricePerSqm;
+      
+      const pricePerSheet = adjustedPricePerSqm * squareMeters;
       const minOrderQty = parseInt(item.size.minOrderQty) || 1;
       const minQtyPrice = pricePerSheet * minOrderQty;
       

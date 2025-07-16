@@ -47,6 +47,11 @@ const applyBrandFonts = (text: string): JSX.Element => {
   );
 };
 
+// Utility function to round retail prices to .99 cents
+const roundToNinetyNine = (price: number): number => {
+  return Math.floor(price) + 0.99;
+};
+
 interface ProductCategory {
   id: number;
   name: string;
@@ -192,7 +197,13 @@ export default function PriceList() {
     if (tierPricing) {
       const pricePerSqm = parseFloat(tierPricing.pricePerSquareMeter);
       const squareMeters = parseFloat(item.size.squareMeters);
-      return pricePerSqm * squareMeters;
+      
+      // Apply 99-cent rounding for retail pricing tier
+      const adjustedPricePerSqm = selectedTier?.name.toLowerCase().includes('retail') 
+        ? roundToNinetyNine(pricePerSqm) 
+        : pricePerSqm;
+        
+      return adjustedPricePerSqm * squareMeters;
     }
     return 0;
   };
@@ -813,7 +824,13 @@ export default function PriceList() {
                             <tbody>
                               {typeItems.map((item, index) => {
                                 const price = getPriceForTier(item, parseInt(selectedTier));
-                                const pricePerSqm = item.pricing.find((p: ProductPricing) => p.tierId === parseInt(selectedTier))?.pricePerSquareMeter || "0";
+                                const basePricePerSqm = item.pricing.find((p: ProductPricing) => p.tierId === parseInt(selectedTier))?.pricePerSquareMeter || "0";
+                                
+                                // Apply 99-cent rounding for retail pricing tier display
+                                const adjustedPricePerSqm = selectedTier?.name.toLowerCase().includes('retail') 
+                                  ? roundToNinetyNine(parseFloat(basePricePerSqm)) 
+                                  : parseFloat(basePricePerSqm);
+                                
                                 const rowId = `${item.size.id}-${item.type.id}`;
                                 
                                 return (
@@ -832,7 +849,7 @@ export default function PriceList() {
                                     </td>
                                     <td className="py-3 px-4 text-sm">{item.size.minOrderQty}</td>
                                     <td className="py-3 px-4 text-sm text-right font-medium">
-                                      ${parseFloat(pricePerSqm).toFixed(2)}
+                                      ${adjustedPricePerSqm.toFixed(2)}
                                     </td>
                                     <td className="py-3 px-4 text-sm text-right font-bold text-green-600">
                                       ${price.toFixed(2)}

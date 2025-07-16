@@ -49,6 +49,11 @@ const applyBrandFonts = (text: string): JSX.Element => {
   );
 };
 
+// Utility function to round retail prices to .99 cents
+const roundToNinetyNine = (price: number): number => {
+  return Math.floor(price) + 0.99;
+};
+
 interface ProductCategory {
   id: number;
   name: string;
@@ -1426,11 +1431,17 @@ function PricingTierRow({ tier, selectedType, getCurrentSquareMeters, getMinOrde
     const fetchPrice = async () => {
       if (selectedType) {
         const fetchedPrice = await getPriceForTier(tier.id);
-        setPrice(fetchedPrice);
+        
+        // Apply 99-cent rounding for retail pricing tier
+        const adjustedPrice = tier.name.toLowerCase().includes('retail') 
+          ? roundToNinetyNine(fetchedPrice) 
+          : fetchedPrice;
+        
+        setPrice(adjustedPrice);
         
         const sqm = getCurrentSquareMeters();
-        setPricePerSheet(fetchedPrice * sqm);
-        setMinOrderPrice(fetchedPrice * sqm * getMinOrderQuantity());
+        setPricePerSheet(adjustedPrice * sqm);
+        setMinOrderPrice(adjustedPrice * sqm * getMinOrderQuantity());
       }
     };
     
