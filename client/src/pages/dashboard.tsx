@@ -146,16 +146,16 @@ export default function Dashboard() {
           })()}
         </div>
 
-        {/* User Tools - Single Row */}
+        {/* User Tools - Mobile 2x3 Grid */}
         <div className="mb-8 sm:mb-12">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Applications</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
             {/* Quote Calculator */}
             <Link href="/quote-calculator">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Calculator className="w-6 h-6 sm:w-6 sm:h-6 text-blue-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Quote Calc</CardTitle>
                 </CardHeader>
@@ -165,9 +165,9 @@ export default function Dashboard() {
             {/* Area Pricer */}
             <Link href="/area-pricer">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Calculator className="w-6 h-6 sm:w-6 sm:h-6 text-purple-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Area Pricer</CardTitle>
                 </CardHeader>
@@ -177,9 +177,9 @@ export default function Dashboard() {
             {/* Saved Quotes */}
             <Link href="/saved-quotes">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-green-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-green-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-6 h-6 sm:w-6 sm:h-6 text-green-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Saved Quotes</CardTitle>
                 </CardHeader>
@@ -189,9 +189,9 @@ export default function Dashboard() {
             {/* Price Lists */}
             <Link href="/price-list">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 sm:w-6 sm:h-6 text-purple-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Price Lists</CardTitle>
                 </CardHeader>
@@ -201,9 +201,9 @@ export default function Dashboard() {
             {/* Competitor Prices */}
             <Link href="/competitor-pricing">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 sm:w-6 sm:h-6 text-orange-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Competitor Prices</CardTitle>
                 </CardHeader>
@@ -213,9 +213,9 @@ export default function Dashboard() {
             {/* Shipping Calculator */}
             <Link href="/shipping-calculator">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-3 sm:pt-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
+                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Truck className="w-6 h-6 sm:w-6 sm:h-6 text-blue-600" />
                   </div>
                   <CardTitle className="text-xs sm:text-sm">Shipping Calc</CardTitle>
                 </CardHeader>

@@ -14,7 +14,7 @@ export default function AppHeader() {
       <div className="flex items-center justify-between">
         {/* Logo and Title */}
         <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-          <div className="w-12 h-12 flex items-center justify-center">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
             <img 
               src={logoImage} 
               alt="4S Graphics Logo" 
@@ -22,15 +22,15 @@ export default function AppHeader() {
             />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Employee Portal</h1>
-            <p className="text-sm text-gray-600">Your Gateway to Fast Quotes & Solutions</p>
+            <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Employee Portal</h1>
+            <p className="text-sm text-gray-600 hidden sm:block">Your Gateway to Fast Quotes & Solutions</p>
           </div>
         </Link>
 
         {/* User Info and Navigation */}
         <div className="flex items-center space-x-4">
-          {/* User Info */}
-          <div className="flex items-center space-x-2">
+          {/* User Info - Hidden on mobile */}
+          <div className="hidden sm:flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-700">
               {user?.email || 'Loading...'}
