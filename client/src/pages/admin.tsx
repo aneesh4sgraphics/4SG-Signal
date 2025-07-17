@@ -48,12 +48,15 @@ export default function Admin() {
   const [productFile, setProductFile] = useState<File | null>(null);
   const [pricingFile, setPricingFile] = useState<File | null>(null);
   const [customerFile, setCustomerFile] = useState<File | null>(null);
+  const [competitorFile, setCompetitorFile] = useState<File | null>(null);
   const [productUploading, setProductUploading] = useState(false);
   const [pricingUploading, setPricingUploading] = useState(false);
   const [customerUploading, setCustomerUploading] = useState(false);
+  const [competitorUploading, setCompetitorUploading] = useState(false);
   const [productUploadStatus, setProductUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [pricingUploadStatus, setPricingUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [customerUploadStatus, setCustomerUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [competitorUploadStatus, setCompetitorUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -150,6 +153,20 @@ export default function Admin() {
     if (file && file.type === 'text/csv') {
       setCustomerFile(file);
       setCustomerUploadStatus('idle');
+    } else {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a CSV file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCompetitorFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'text/csv') {
+      setCompetitorFile(file);
+      setCompetitorUploadStatus('idle');
     } else {
       toast({
         title: "Invalid file type",
@@ -291,6 +308,51 @@ export default function Admin() {
       });
     } finally {
       setCustomerUploading(false);
+    }
+  };
+
+  const uploadCompetitorFile = async () => {
+    if (!competitorFile) return;
+
+    setCompetitorUploading(true);
+    setCompetitorUploadStatus('idle');
+
+    const formData = new FormData();
+    formData.append('file', competitorFile);
+
+    try {
+      const response = await fetch('/api/admin/upload-competitor-data', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        setCompetitorUploadStatus('success');
+        toast({
+          title: "Success",
+          description: "Competitor pricing data uploaded successfully. Data is now available for all users.",
+        });
+        // Reset file input
+        setCompetitorFile(null);
+        const fileInput = document.getElementById('competitor-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+      } else {
+        setCompetitorUploadStatus('error');
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload competitor pricing data",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setCompetitorUploadStatus('error');
+      toast({
+        title: "Upload failed",
+        description: "An error occurred while uploading the file",
+        variant: "destructive",
+      });
+    } finally {
+      setCompetitorUploading(false);
     }
   };
 
@@ -806,7 +868,7 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          {/* Competitor Pricing Data Download */}
+          {/* Competitor Pricing Data Upload */}
           <Card className="shadow-lg">
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2">
@@ -818,7 +880,7 @@ export default function Admin() {
               <div className="space-y-4">
                 <div className="text-sm text-muted-foreground">
                   <p className="mb-2">
-                    <strong>Source:</strong> Data collected from Area Pricer calculations
+                    <strong>Source:</strong> Data collected from Area Pricer calculations and uploaded CSV files
                   </p>
                   <p className="mb-2">
                     <strong>Contains:</strong> Pricing information, product details, supplier info, and pricing per unit
@@ -828,6 +890,47 @@ export default function Admin() {
                   </p>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="competitor-file">Upload Competitor Pricing Data</Label>
+                  <Input
+                    id="competitor-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCompetitorFileChange}
+                    disabled={competitorUploading}
+                  />
+                </div>
+
+                {competitorFile && (
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4" />
+                      <span className="font-medium">{competitorFile.name}</span>
+                      <span className="text-muted-foreground">
+                        ({(competitorFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={uploadCompetitorFile}
+                  disabled={!competitorFile || competitorUploading}
+                  className="w-full"
+                >
+                  {competitorUploading ? (
+                    <>
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Competitor Data
+                    </>
+                  )}
+                </Button>
+
                 <Button
                   onClick={downloadCompetitorPricing}
                   variant="outline"
@@ -836,6 +939,15 @@ export default function Admin() {
                   <Download className="h-4 w-4 mr-2" />
                   Download Competitor Pricing Data
                 </Button>
+
+                {competitorUploadStatus !== 'idle' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    {getStatusIcon(competitorUploadStatus)}
+                    <span className={competitorUploadStatus === 'success' ? 'text-green-600' : 'text-red-600'}>
+                      {getStatusMessage(competitorUploadStatus)}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

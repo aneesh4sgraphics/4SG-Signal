@@ -682,6 +682,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload competitor pricing data file
+  app.post("/api/admin/upload-competitor-data", requireAdmin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const filePath = req.file.path;
+      const csvContent = fs.readFileSync(filePath, 'utf-8');
+      
+      // Parse CSV content
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        return res.status(400).json({ error: "CSV file must contain at least a header and one data row" });
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const dataRows = lines.slice(1);
+      
+      let uploadedCount = 0;
+      
+      for (const row of dataRows) {
+        const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length !== headers.length) {
+          console.warn(`Skipping row with incorrect number of columns: ${row}`);
+          continue;
+        }
+        
+        const rowData: any = {};
+        headers.forEach((header, index) => {
+          rowData[header] = values[index];
+        });
+        
+        // Map CSV columns to database fields (flexible header mapping)
+        const competitorData = {
+          type: rowData.type || rowData.Type || rowData.Product_Type || '',
+          dimensions: rowData.dimensions || rowData.Dimensions || rowData.Size || '',
+          width: parseFloat(rowData.width || rowData.Width || '0') || 0,
+          length: parseFloat(rowData.length || rowData.Length || rowData.Height || '0') || 0,
+          unit: rowData.unit || rowData.Unit || 'in',
+          packQty: parseInt(rowData.packQty || rowData.PackQty || rowData.Pack_Qty || '1') || 1,
+          inputPrice: parseFloat(rowData.inputPrice || rowData.InputPrice || rowData.Input_Price || '0') || 0,
+          thickness: rowData.thickness || rowData.Thickness || '',
+          productKind: rowData.productKind || rowData.ProductKind || rowData.Product_Kind || '',
+          surfaceFinish: rowData.surfaceFinish || rowData.SurfaceFinish || rowData.Surface_Finish || '',
+          supplierInfo: rowData.supplierInfo || rowData.SupplierInfo || rowData.Supplier_Info || rowData.Supplier || '',
+          infoReceivedFrom: rowData.infoReceivedFrom || rowData.InfoReceivedFrom || rowData.Info_Received_From || '',
+          pricePerSqIn: parseFloat(rowData.pricePerSqIn || rowData.PricePerSqIn || rowData.Price_Per_SqIn || '0') || 0,
+          pricePerSqFt: parseFloat(rowData.pricePerSqFt || rowData.PricePerSqFt || rowData.Price_Per_SqFt || '0') || 0,
+          pricePerSqMeter: parseFloat(rowData.pricePerSqMeter || rowData.PricePerSqMeter || rowData.Price_Per_SqMeter || '0') || 0,
+          notes: rowData.notes || rowData.Notes || rowData.Comments || '',
+          source: rowData.source || rowData.Source || 'CSV Upload'
+        };
+        
+        try {
+          await storage.createCompetitorPricing(competitorData);
+          uploadedCount++;
+        } catch (error) {
+          console.error(`Error saving competitor pricing data:`, error);
+        }
+      }
+      
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+      
+      res.json({ 
+        message: `Competitor pricing data uploaded successfully. ${uploadedCount} entries added and are now visible to all users.`,
+        count: uploadedCount 
+      });
+    } catch (error) {
+      console.error("Error uploading competitor pricing data:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Failed to upload competitor pricing data file" });
+    }
+  });
+
   // Download product data
   app.get("/api/admin/download-product-data", async (req, res) => {
     try {
