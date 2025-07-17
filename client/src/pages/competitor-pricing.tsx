@@ -37,9 +37,12 @@ interface CompetitorData {
 }
 
 export default function CompetitorPricing() {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [filteredData, setFilteredData] = useState<CompetitorData[]>([]);
+  
+  // Add debugging
+  console.log('CompetitorPricing - Auth state:', { user, isAuthenticated, authLoading });
   
   // Filter states
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -59,13 +62,20 @@ export default function CompetitorPricing() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   // Fetch competitor pricing data from API
-  const { data: competitorData = [], isLoading } = useQuery({
+  const { data: competitorData = [], isLoading, error } = useQuery({
     queryKey: ["/api/competitor-pricing"],
     select: (data) => data.map((item: any) => ({
       ...item,
       timestamp: new Date(item.timestamp),
       createdAt: new Date(item.createdAt)
-    }))
+    })),
+    retry: (failureCount, error) => {
+      // Don't retry on 401 errors
+      if (error.message?.includes('401')) {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 
   // Delete mutation
@@ -368,22 +378,65 @@ export default function CompetitorPricing() {
     }
   };
 
+  // Check authentication first
+  if (authLoading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2">Checking authentication...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center">
+          <div className="text-red-500 text-lg mb-4">Authentication Required</div>
+          <p className="text-gray-600 mb-4">You need to be logged in to access this page.</p>
+          <Button onClick={() => window.location.href = '/api/login'} className="bg-blue-600 hover:bg-blue-700">
+            Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2">Loading data...</span>
         </div>
       </div>
     );
   }
 
   if (error) {
+    // Check if it's an authentication error
+    if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      return (
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="text-center">
+            <div className="text-red-500 text-lg mb-4">Authentication Required</div>
+            <p className="text-gray-600 mb-4">You need to be logged in to access this page. Please log in again.</p>
+            <Button onClick={() => window.location.href = '/api/login'} className="bg-blue-600 hover:bg-blue-700">
+              Login
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="container mx-auto p-6 max-w-7xl">
         <div className="text-center">
           <div className="text-red-500 text-lg mb-4">Error Loading Data</div>
           <p className="text-gray-600 mb-4">Unable to load competitor pricing data. Please try refreshing the page.</p>
+          <p className="text-sm text-gray-500 mb-4">Error: {error.message}</p>
           <Button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700">
             Refresh Page
           </Button>
