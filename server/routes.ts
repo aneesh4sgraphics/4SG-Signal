@@ -1003,6 +1003,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload competitor pricing data directly from competitor pricing page
+  app.post("/api/upload-competitor-pricing", requireAdmin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const filePath = req.file.path;
+      
+      // Read the uploaded CSV file
+      const csvContent = fs.readFileSync(filePath, 'utf-8');
+      
+      // Parse CSV content
+      const lines = csvContent.split('\n').filter(line => line.trim().length > 0);
+      
+      if (lines.length === 0) {
+        return res.status(400).json({ error: "Empty CSV file" });
+      }
+      
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const dataRows = lines.slice(1);
+      
+      let uploadedCount = 0;
+      
+      for (const row of dataRows) {
+        const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length !== headers.length) {
+          console.warn(`Skipping row with incorrect number of columns: ${row}`);
+          continue;
+        }
+        
+        const rowData: any = {};
+        headers.forEach((header, index) => {
+          rowData[header] = values[index];
+        });
+        
+        // Parse dimensions to extract width and length
+        const dimensionsMatch = (rowData.Width && rowData.Length) ? 
+          null : (rowData.dimensions || '').match(/(\d+(?:\.\d+)?)\s*(?:in|inch|inches|ft|feet|"|')\s*[×x]\s*(\d+(?:\.\d+)?)\s*(?:in|inch|inches|ft|feet|"|')/);
+        
+        const width = parseFloat(rowData.Width || rowData.width || (dimensionsMatch ? dimensionsMatch[1] : '0')) || 0;
+        const length = parseFloat(rowData.Length || rowData.length || (dimensionsMatch ? dimensionsMatch[2] : '0')) || 0;
+        
+        // Map CSV columns to database fields (flexible header mapping)
+        const competitorData = {
+          type: rowData.Type || rowData.type || rowData.Product_Type || 'sheets',
+          dimensions: rowData.dimensions || rowData.Dimensions || rowData.Size || `${width} x ${length} in`,
+          width: width,
+          length: length,
+          unit: 'in',
+          packQty: parseInt(rowData['Pack Qty'] || rowData.packQty || rowData.Quantity || '1') || 1,
+          inputPrice: parseFloat(String(rowData['Input Price'] || rowData.inputPrice || rowData.InputPrice || rowData.Input_Price || '0').replace(/[$,]/g, '')) || 0,
+          thickness: rowData.Thickness || rowData.thickness || rowData.Gauge || '',
+          productKind: rowData['Product Kind'] || rowData.productKind || rowData.Product_Kind || rowData.Type || 'Non Adhesive',
+          surfaceFinish: rowData['Surface Finish'] || rowData.surfaceFinish || rowData.Surface_Finish || rowData.Finish || '',
+          supplierInfo: rowData['Supplier Info'] || rowData.supplierInfo || rowData.Supplier_Info || rowData.Supplier || '',
+          infoReceivedFrom: rowData['Info Received From'] || rowData.infoReceivedFrom || rowData.Info_Received_From || rowData.Contact || '',
+          pricePerSqIn: parseFloat(String(rowData['Price/in²'] || rowData.pricePerSqIn || rowData.Price_Per_SqIn || '0').replace(/[$,]/g, '')) || 0,
+          pricePerSqFt: parseFloat(String(rowData['Price/ft²'] || rowData.pricePerSqFt || rowData.Price_Per_SqFt || '0').replace(/[$,]/g, '')) || 0,
+          pricePerSqMeter: parseFloat(String(rowData['Price/m²'] || rowData.pricePerSqMeter || rowData.Price_Per_SqMeter || '0').replace(/[$,]/g, '')) || 0,
+          notes: rowData.Notes || rowData.notes || rowData.Comments || '',
+          source: rowData.source || rowData.Source || 'CSV Upload',
+          addedBy: req.user?.claims?.sub || 'admin' // Use authenticated user ID
+        };
+        
+        try {
+          await storage.createCompetitorPricing(competitorData);
+          uploadedCount++;
+        } catch (error) {
+          console.error(`Error saving competitor pricing data:`, error);
+        }
+      }
+      
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+      
+      res.json({ 
+        message: `Competitor pricing data uploaded successfully. ${uploadedCount} entries added and are now visible to all users.`,
+        count: uploadedCount 
+      });
+    } catch (error) {
+      console.error("Error uploading competitor pricing data:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Failed to upload competitor pricing data file" });
+    }
+  });
+
   // Get sent quote by ID
   app.get("/api/sent-quotes/:id", async (req, res) => {
     try {

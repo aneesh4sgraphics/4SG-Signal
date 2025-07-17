@@ -505,7 +505,7 @@ export default function CompetitorPricing() {
           <div className="flex justify-between items-center">
             <CardTitle>Pricing Data ({filteredData.length} entries)</CardTitle>
             <div className="flex gap-2">
-              {user?.role === 'admin' && (
+              {(user?.role === 'admin' || user?.email === 'aneesh@4sgraphics.com' || user?.email === 'oscar@4sgraphics.com') && (
                 <div className="flex items-center gap-2">
                   <input
                     type="file"
@@ -580,7 +580,7 @@ export default function CompetitorPricing() {
                     <TableHead>Price/m²</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead>Date</TableHead>
-                    {user?.role === 'admin' && <TableHead className="w-[80px]">Actions</TableHead>}
+                    {(user?.role === 'admin' || user?.email === 'aneesh@4sgraphics.com' || user?.email === 'oscar@4sgraphics.com') && <TableHead className="w-[80px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -601,7 +601,7 @@ export default function CompetitorPricing() {
                       <TableCell>${item.pricePerSqMeter.toFixed(4)}</TableCell>
                       <TableCell className="max-w-xs truncate">{item.notes}</TableCell>
                       <TableCell>{item.timestamp.toLocaleDateString()}</TableCell>
-                      {user?.role === 'admin' && (
+                      {(user?.role === 'admin' || user?.email === 'aneesh@4sgraphics.com' || user?.email === 'oscar@4sgraphics.com') && (
                         <TableCell>
                           <Button
                             variant="ghost"
