@@ -716,25 +716,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rowData[header] = values[index];
         });
         
+        // Parse dimensions to extract width and length
+        const dimensionsMatch = (rowData.Width && rowData.Length) ? 
+          null : (rowData.dimensions || '').match(/(\d+(?:\.\d+)?)\s*(?:in|inch|inches|ft|feet|"|')\s*[×x]\s*(\d+(?:\.\d+)?)\s*(?:in|inch|inches|ft|feet|"|')/);
+        
+        const width = parseFloat(rowData.Width || rowData.width || (dimensionsMatch ? dimensionsMatch[1] : '0')) || 0;
+        const length = parseFloat(rowData.Length || rowData.length || (dimensionsMatch ? dimensionsMatch[2] : '0')) || 0;
+        
         // Map CSV columns to database fields (flexible header mapping)
         const competitorData = {
-          type: rowData.type || rowData.Type || rowData.Product_Type || '',
-          dimensions: rowData.dimensions || rowData.Dimensions || rowData.Size || '',
-          width: parseFloat(rowData.width || rowData.Width || '0') || 0,
-          length: parseFloat(rowData.length || rowData.Length || rowData.Height || '0') || 0,
+          type: rowData.Type || rowData.type || rowData.Product_Type || 'sheets',
+          dimensions: rowData.dimensions || rowData.Dimensions || rowData.Size || `${width} x ${length} in`,
+          width: width,
+          length: length,
           unit: rowData.unit || rowData.Unit || 'in',
-          packQty: parseInt(rowData.packQty || rowData.PackQty || rowData.Pack_Qty || '1') || 1,
-          inputPrice: parseFloat(rowData.inputPrice || rowData.InputPrice || rowData.Input_Price || '0') || 0,
-          thickness: rowData.thickness || rowData.Thickness || '',
-          productKind: rowData.productKind || rowData.ProductKind || rowData.Product_Kind || '',
-          surfaceFinish: rowData.surfaceFinish || rowData.SurfaceFinish || rowData.Surface_Finish || '',
-          supplierInfo: rowData.supplierInfo || rowData.SupplierInfo || rowData.Supplier_Info || rowData.Supplier || '',
-          infoReceivedFrom: rowData.infoReceivedFrom || rowData.InfoReceivedFrom || rowData.Info_Received_From || '',
-          pricePerSqIn: parseFloat(rowData.pricePerSqIn || rowData.PricePerSqIn || rowData.Price_Per_SqIn || '0') || 0,
-          pricePerSqFt: parseFloat(rowData.pricePerSqFt || rowData.PricePerSqFt || rowData.Price_Per_SqFt || '0') || 0,
-          pricePerSqMeter: parseFloat(rowData.pricePerSqMeter || rowData.PricePerSqMeter || rowData.Price_Per_SqMeter || '0') || 0,
-          notes: rowData.notes || rowData.Notes || rowData.Comments || '',
-          source: rowData.source || rowData.Source || 'CSV Upload'
+          packQty: parseInt(rowData['Pack Qty'] || rowData.packQty || rowData.PackQty || rowData.Pack_Qty || '1') || 1,
+          inputPrice: parseFloat(String(rowData['Input Price'] || rowData.inputPrice || rowData.InputPrice || rowData.Input_Price || '0').replace(/[$,]/g, '')) || 0,
+          thickness: rowData.Thickness || rowData.thickness || '',
+          productKind: rowData['Product Kind'] || rowData.productKind || rowData.ProductKind || rowData.Product_Kind || '',
+          surfaceFinish: rowData['Surface Finish'] || rowData.surfaceFinish || rowData.SurfaceFinish || rowData.Surface_Finish || '',
+          supplierInfo: rowData['Supplier Info'] || rowData.supplierInfo || rowData.SupplierInfo || rowData.Supplier_Info || rowData.Supplier || '',
+          infoReceivedFrom: rowData['Info Received From'] || rowData.infoReceivedFrom || rowData.InfoReceivedFrom || rowData.Info_Received_From || '',
+          pricePerSqIn: parseFloat(String(rowData['Price/in²'] || rowData.pricePerSqIn || rowData.PricePerSqIn || rowData.Price_Per_SqIn || '0').replace(/[$,]/g, '')) || 0,
+          pricePerSqFt: parseFloat(String(rowData['Price/ft²'] || rowData.pricePerSqFt || rowData.PricePerSqFt || rowData.Price_Per_SqFt || '0').replace(/[$,]/g, '')) || 0,
+          pricePerSqMeter: parseFloat(String(rowData['Price/m²'] || rowData.pricePerSqMeter || rowData.PricePerSqMeter || rowData.Price_Per_SqMeter || '0').replace(/[$,]/g, '')) || 0,
+          notes: rowData.Notes || rowData.notes || rowData.Comments || '',
+          source: rowData.source || rowData.Source || 'Admin CSV Upload',
+          addedBy: 'admin' // Required field for admin uploads
         };
         
         try {

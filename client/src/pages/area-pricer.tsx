@@ -148,9 +148,45 @@ export default function AreaPricer() {
     setCurrentResult(result);
   };
 
-  const addToSheet = () => {
+  const addToSheet = async () => {
     if (currentResult) {
       setCalculations([...calculations, currentResult]);
+      
+      // Automatically save to shared competitor pricing database
+      const competitorEntry = {
+        type: currentResult.type,
+        dimensions: `${currentResult.width} × ${currentResult.length} ${currentResult.type === "roll" ? "ft" : "in"}`,
+        width: currentResult.width,
+        length: currentResult.length,
+        unit: currentResult.type === "roll" ? "ft" : "in",
+        packQty: currentResult.packQty,
+        inputPrice: currentResult.inputPrice,
+        thickness: currentResult.thickness,
+        productKind: currentResult.productKind,
+        surfaceFinish: currentResult.surfaceFinish,
+        supplierInfo: currentResult.supplierInfo,
+        infoReceivedFrom: currentResult.infoReceivedFrom,
+        pricePerSqIn: currentResult.pricePerSqIn,
+        pricePerSqFt: currentResult.pricePerSqFt,
+        pricePerSqMeter: currentResult.pricePerSqMeter,
+        notes: currentResult.notes,
+        source: "Area Pricer Auto-Save"
+      };
+      
+      try {
+        await addCompetitorDataMutation.mutateAsync(competitorEntry);
+        toast({
+          title: "Added to Sheet",
+          description: "Calculation saved and added to shared pricing database for all users",
+        });
+      } catch (error) {
+        toast({
+          title: "Added to Sheet",
+          description: "Calculation saved locally (shared database update failed)",
+          variant: "default",
+        });
+      }
+      
       // Clear form
       setWidth("");
       setHeight("");
