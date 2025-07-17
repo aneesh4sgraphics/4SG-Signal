@@ -763,22 +763,22 @@ Look forward for your order!`;
         />
       )}
       
-      <div className="py-8 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="py-4 sm:py-8 px-3 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
+        <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         
         {/* Header with Back Button */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <Link href="/">
             <Button variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Button>
           </Link>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900">Quote Calculator</h1>
-            <p className="text-gray-600">Calculate accurate quotes for your products</p>
+          <div className="text-center sm:text-center flex-1">
+            <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Quote Calculator</h1>
+            <p className="text-sm sm:text-base text-gray-600">Calculate accurate quotes for your products</p>
           </div>
-          <div className="w-32"></div> {/* Spacer for centering */}
+          <div className="hidden sm:block w-32"></div> {/* Spacer for centering */}
         </div>
         
         {/* Customer Selection Section */}
@@ -793,7 +793,7 @@ Look forward for your order!`;
             </p>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Customer Search */}
               <div className="space-y-2 relative customer-search-container">
                 <Label htmlFor="customer-search">Search Customer</Label>

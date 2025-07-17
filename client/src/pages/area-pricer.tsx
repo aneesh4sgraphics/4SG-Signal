@@ -258,18 +258,18 @@ export default function AreaPricer() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="text-center mb-8">
+    <div className="container mx-auto p-3 sm:p-6 max-w-7xl">
+      <div className="text-center mb-6 sm:mb-8">
         <div className="flex justify-center mb-4">
-          <div className="p-3 bg-purple-100 rounded-lg">
-            <Calculator className="h-8 w-8 text-purple-600" />
+          <div className="p-2 sm:p-3 bg-purple-100 rounded-lg">
+            <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Area Pricing Calculator</h1>
-        <p className="text-gray-600">Calculate unit pricing (in², ft², in³) for rolls or sheets. Log entries and export to Excel.</p>
+        <h1 className="text-xl sm:text-3xl font-bold text-gray-900 mb-2">Area Pricing Calculator</h1>
+        <p className="text-sm sm:text-base text-gray-600">Calculate unit pricing (in², ft², in³) for rolls or sheets. Log entries and export to Excel.</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
         {/* Input Configuration */}
         <Card>
           <CardHeader>
@@ -298,7 +298,7 @@ export default function AreaPricer() {
 
             <div className="border-t pt-6">
               <h3 className="text-lg font-medium mb-4">Enter Details</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="width">
                     {calculationType === "roll" ? "Roll Width (feet)" : "Sheet Width (inches)"}
