@@ -115,6 +115,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Development bypass - return mock user data for development
+      if (process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.get('host')?.includes('localhost') || req.get('host')?.includes('replit.dev'))) {
+        return res.json({
+          id: 'dev-user-123',
+          email: 'aneesh@4sgraphics.com',
+          firstName: 'Aneesh',
+          lastName: 'Dev',
+          profileImageUrl: 'https://via.placeholder.com/150',
+          role: 'admin',
+          status: 'approved',
+          loginCount: 1,
+          lastLoginDate: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+      
       const user = await storage.getUser(userId);
       console.log("User data from storage:", user); // Debug log
       res.json(user);

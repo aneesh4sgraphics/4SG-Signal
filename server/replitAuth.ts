@@ -186,6 +186,21 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Development bypass for local testing
+  if (process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.get('host')?.includes('localhost') || req.get('host')?.includes('replit.dev'))) {
+    // Create a mock user for development
+    req.user = {
+      claims: {
+        sub: 'dev-user-123',
+        email: 'aneesh@4sgraphics.com',
+        first_name: 'Aneesh',
+        last_name: 'Dev',
+        profile_image_url: 'https://via.placeholder.com/150'
+      }
+    };
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
@@ -215,6 +230,21 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const requireApproval: RequestHandler = async (req, res, next) => {
+  // Development bypass for local testing
+  if (process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.get('host')?.includes('localhost') || req.get('host')?.includes('replit.dev'))) {
+    // Create a mock user for development
+    req.user = {
+      claims: {
+        sub: 'dev-user-123',
+        email: 'aneesh@4sgraphics.com',
+        first_name: 'Aneesh',
+        last_name: 'Dev',
+        profile_image_url: 'https://via.placeholder.com/150'
+      }
+    };
+    return next();
+  }
+
   const user = req.user as any;
   if (!user?.claims?.sub) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -229,6 +259,21 @@ export const requireApproval: RequestHandler = async (req, res, next) => {
 };
 
 export const requireAdmin: RequestHandler = async (req, res, next) => {
+  // Development bypass for local testing
+  if (process.env.NODE_ENV === 'development' && (req.hostname === 'localhost' || req.get('host')?.includes('localhost') || req.get('host')?.includes('replit.dev'))) {
+    // Create a mock user for development
+    req.user = {
+      claims: {
+        sub: 'dev-user-123',
+        email: 'aneesh@4sgraphics.com',
+        first_name: 'Aneesh',
+        last_name: 'Dev',
+        profile_image_url: 'https://via.placeholder.com/150'
+      }
+    };
+    return next();
+  }
+
   const user = req.user as any;
   if (!user?.claims?.sub) {
     return res.status(401).json({ message: "Unauthorized" });
