@@ -88,18 +88,15 @@ export default function CompetitorPricing() {
     },
   });
 
-  // Migration function to move localStorage data to server
-  const migrateLocalStorageData = useMutation({
+  // Manual migration function (to be used only when needed)
+  const manualMigration = useMutation({
     mutationFn: async () => {
-      // Check if we're in browser environment
-      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-        return 0;
-      }
-      
       const storedData = localStorage.getItem('competitorData');
       if (!storedData) return 0;
       
       const parsedData = JSON.parse(storedData);
+      if (!Array.isArray(parsedData) || parsedData.length === 0) return 0;
+      
       const migratedCount = parsedData.length;
       
       // Send all data to server
@@ -135,6 +132,7 @@ export default function CompetitorPricing() {
     onSuccess: (migratedCount) => {
       if (migratedCount && migratedCount > 0) {
         queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing"] });
+        setHasLocalData(false); // Hide migration button after successful migration
         toast({
           title: "Data migrated successfully",
           description: `${migratedCount} entries moved from local storage to server`,
@@ -150,23 +148,26 @@ export default function CompetitorPricing() {
     },
   });
 
-  // Check for localStorage data and migrate on component mount
+  // Check for localStorage data and show migration button if needed
+  const [hasLocalData, setHasLocalData] = useState(false);
+  
   useEffect(() => {
-    // Only run migration in browser environment
+    // Only check for localStorage data after component mounts in browser
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-      try {
-        const storedData = localStorage.getItem('competitorData');
-        if (storedData) {
-          const parsedData = JSON.parse(storedData);
-          if (Array.isArray(parsedData) && parsedData.length > 0) {
-            migrateLocalStorageData.mutate();
+      const checkLocalData = () => {
+        try {
+          const storedData = localStorage.getItem('competitorData');
+          if (storedData) {
+            const parsedData = JSON.parse(storedData);
+            setHasLocalData(Array.isArray(parsedData) && parsedData.length > 0);
           }
+        } catch (error) {
+          console.error('Error checking localStorage data:', error);
+          localStorage.removeItem('competitorData');
         }
-      } catch (error) {
-        console.error('Error parsing localStorage data:', error);
-        // Remove corrupted data
-        localStorage.removeItem('competitorData');
-      }
+      };
+      
+      checkLocalData();
     }
   }, []);
 
@@ -322,12 +323,23 @@ export default function CompetitorPricing() {
               <p className="text-sm text-gray-500">Logged in as: {user?.email || 'Loading...'}</p>
             </div>
           </div>
-          <Link href="/area-pricer">
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Entry
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            {hasLocalData && (
+              <Button 
+                onClick={() => manualMigration.mutate()}
+                disabled={manualMigration.isPending}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                {manualMigration.isPending ? 'Migrating...' : 'Migrate Local Data'}
+              </Button>
+            )}
+            <Link href="/area-pricer">
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Entry
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
