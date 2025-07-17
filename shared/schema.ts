@@ -103,6 +103,30 @@ export const sentQuotes = pgTable("sent_quotes", {
   status: varchar("status", { length: 20 }).notNull().default("sent"), // 'sent', 'viewed', 'accepted'
 });
 
+export const competitorPricing = pgTable("competitor_pricing", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  type: varchar("type", { length: 100 }).notNull(),
+  dimensions: varchar("dimensions", { length: 100 }).notNull(),
+  width: decimal("width", { precision: 10, scale: 2 }),
+  length: decimal("length", { precision: 10, scale: 2 }),
+  unit: varchar("unit", { length: 10 }),
+  packQty: integer("pack_qty").notNull(),
+  inputPrice: decimal("input_price", { precision: 10, scale: 2 }).notNull(),
+  thickness: varchar("thickness", { length: 50 }).notNull(),
+  productKind: varchar("product_kind", { length: 100 }).notNull(),
+  surfaceFinish: varchar("surface_finish", { length: 100 }).notNull(),
+  supplierInfo: varchar("supplier_info", { length: 255 }).notNull(),
+  infoReceivedFrom: varchar("info_received_from", { length: 255 }).notNull(),
+  pricePerSqIn: decimal("price_per_sq_in", { precision: 10, scale: 4 }).notNull(),
+  pricePerSqFt: decimal("price_per_sq_ft", { precision: 10, scale: 4 }).notNull(),
+  pricePerSqMeter: decimal("price_per_sq_meter", { precision: 10, scale: 4 }).notNull(),
+  notes: text("notes").notNull(),
+  source: varchar("source", { length: 100 }).notNull(),
+  addedBy: varchar("added_by").notNull(), // User ID who added this entry
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertProductCategorySchema = createInsertSchema(productCategories).omit({
   id: true,
 });
@@ -143,6 +167,12 @@ export const insertSentQuoteSchema = createInsertSchema(sentQuotes).omit({
   id: true,
 });
 
+export const insertCompetitorPricingSchema = createInsertSchema(competitorPricing).omit({
+  id: true,
+  timestamp: true,
+  createdAt: true,
+});
+
 export type ProductCategory = typeof productCategories.$inferSelect;
 export type ProductType = typeof productTypes.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
@@ -151,6 +181,7 @@ export type ProductPricing = typeof productPricing.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type SentQuote = typeof sentQuotes.$inferSelect;
+export type CompetitorPricing = typeof competitorPricing.$inferSelect;
 
 export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
 export type InsertProductType = z.infer<typeof insertProductTypeSchema>;
@@ -161,3 +192,4 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertSentQuote = z.infer<typeof insertSentQuoteSchema>;
+export type InsertCompetitorPricing = z.infer<typeof insertCompetitorPricingSchema>;

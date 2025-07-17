@@ -320,84 +320,96 @@ export default function Admin() {
     }
   };
 
-  const downloadCompetitorPricing = () => {
-    const competitorData = localStorage.getItem('competitorData');
-    if (!competitorData) {
+  const downloadCompetitorPricing = async () => {
+    try {
+      const response = await fetch('/api/competitor-pricing');
+      if (!response.ok) {
+        throw new Error('Failed to fetch competitor pricing data');
+      }
+      
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Data",
+          description: "No competitor pricing data available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Helper function to parse dimensions into width and height/length
+      const parseDimensions = (item: any) => {
+        // Use stored width/length/unit if available (newer format)
+        if (item.width && item.length && item.unit) {
+          return {
+            width: `${item.width} ${item.unit}`,
+            height: `${item.length} ${item.unit}`
+          };
+        }
+        
+        // Fallback to parsing dimensions string (older format)
+        const match = item.dimensions.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(in|ft)/);
+        if (match) {
+          const [, width, height, unit] = match;
+          return {
+            width: `${width} ${unit}`,
+            height: `${height} ${unit}`
+          };
+        }
+        
+        // Fallback for unparseable dimensions
+        return {
+          width: item.dimensions,
+          height: ""
+        };
+      };
+      
+      const headers = ["Source", "Type", "Width", "Height/Length", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
+      const csvContent = [
+        headers.join(","),
+        ...data.map((item: any) => {
+          const { width, height } = parseDimensions(item);
+          return [
+            item.source,
+            item.type,
+            width,
+            height,
+            item.packQty,
+            `$${item.inputPrice.toFixed(2)}`,
+            `"${item.thickness}"`,
+            `"${item.productKind}"`,
+            `"${item.surfaceFinish}"`,
+            `"${item.supplierInfo}"`,
+            `"${item.infoReceivedFrom}"`,
+            `$${item.pricePerSqIn.toFixed(4)}`,
+            `$${item.pricePerSqFt.toFixed(4)}`,
+            `$${item.pricePerSqMeter.toFixed(4)}`,
+            `"${item.notes}"`,
+            new Date(item.timestamp).toLocaleDateString()
+          ].join(",");
+        })
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `competitor-pricing-data-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
       toast({
-        title: "No Data",
-        description: "No competitor pricing data available",
+        title: "Success",
+        description: "Competitor pricing data downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download competitor pricing data",
         variant: "destructive",
       });
-      return;
     }
-
-    const parsedData = JSON.parse(competitorData);
-    
-    // Helper function to parse dimensions into width and height/length
-    const parseDimensions = (item: any) => {
-      // Use stored width/length/unit if available (newer format)
-      if (item.width && item.length && item.unit) {
-        return {
-          width: `${item.width} ${item.unit}`,
-          height: `${item.length} ${item.unit}`
-        };
-      }
-      
-      // Fallback to parsing dimensions string (older format)
-      const match = item.dimensions.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(in|ft)/);
-      if (match) {
-        const [, width, height, unit] = match;
-        return {
-          width: `${width} ${unit}`,
-          height: `${height} ${unit}`
-        };
-      }
-      
-      // Fallback for unparseable dimensions
-      return {
-        width: item.dimensions,
-        height: ""
-      };
-    };
-    
-    const headers = ["Source", "Type", "Width", "Height/Length", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
-    const csvContent = [
-      headers.join(","),
-      ...parsedData.map((item: any) => {
-        const { width, height } = parseDimensions(item);
-        return [
-          item.source,
-          item.type,
-          width,
-          height,
-          item.packQty,
-          `$${item.inputPrice.toFixed(2)}`,
-          `"${item.thickness}"`,
-          `"${item.productKind}"`,
-          `"${item.surfaceFinish}"`,
-          `"${item.supplierInfo}"`,
-          `"${item.infoReceivedFrom}"`,
-          `$${item.pricePerSqIn.toFixed(4)}`,
-          `$${item.pricePerSqFt.toFixed(4)}`,
-          `$${item.pricePerSqMeter.toFixed(4)}`,
-          `"${item.notes}"`,
-          new Date(item.timestamp).toLocaleDateString()
-        ].join(",");
-      })
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `competitor-pricing-data-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Success",
-      description: "Competitor pricing data downloaded successfully",
-    });
   };
 
   const getStatusIcon = (status: 'idle' | 'success' | 'error') => {

@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Calculator, Download, Plus, Sheet } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { toast } from "@/hooks/use-toast";
 
 interface CalculationResult {
   id: string;
@@ -33,6 +36,7 @@ interface CalculationResult {
 }
 
 export default function AreaPricer() {
+  const queryClient = useQueryClient();
   const [calculationType, setCalculationType] = useState<"sheets" | "roll">("sheets");
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
@@ -47,6 +51,30 @@ export default function AreaPricer() {
   const [calculations, setCalculations] = useState<CalculationResult[]>([]);
   const [currentResult, setCurrentResult] = useState<CalculationResult | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
+
+  // Add competitor data mutation
+  const addCompetitorDataMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("/api/competitor-pricing", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing"] });
+      toast({
+        title: "Success",
+        description: "Competitor data added successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add competitor data",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Custom option management
   const [customProductKind, setCustomProductKind] = useState("");
@@ -221,13 +249,11 @@ export default function AreaPricer() {
     URL.revokeObjectURL(url);
   };
 
-  const addToCompInfo = () => {
+  const addToCompInfo = async () => {
     if (calculations.length === 0) return;
 
-    // Store calculations in localStorage for Competitor Info app
-    const compData = calculations.map(calc => ({
-      id: calc.id,
-      timestamp: calc.timestamp,
+    // Convert calculations to competitor pricing format
+    const competitorEntries = calculations.map(calc => ({
       type: calc.type,
       dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
       width: calc.width,
@@ -247,14 +273,23 @@ export default function AreaPricer() {
       source: "Area Pricer"
     }));
 
-    // Get existing competitor data or create new array
-    const existingData = JSON.parse(localStorage.getItem('competitorData') || '[]');
-    const updatedData = [...existingData, ...compData];
-    
-    localStorage.setItem('competitorData', JSON.stringify(updatedData));
-    
-    // Show success message
-    alert(`Successfully added ${calculations.length} calculation(s) to Competitor Info!`);
+    // Add all entries to the server
+    try {
+      for (const entry of competitorEntries) {
+        await addCompetitorDataMutation.mutateAsync(entry);
+      }
+      
+      toast({
+        title: "Success",
+        description: `Successfully added ${calculations.length} calculation(s) to Competitor Info!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add some calculations to Competitor Info",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

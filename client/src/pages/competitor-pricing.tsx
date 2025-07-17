@@ -9,9 +9,11 @@ import { TrendingUp, Filter, Plus, Download, RotateCcw, Sheet, Trash2 } from "lu
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CompetitorData {
-  id: string;
+  id: number;
   timestamp: Date;
   type: string;
   dimensions: string;
@@ -30,11 +32,13 @@ interface CompetitorData {
   pricePerSqMeter: number;
   notes: string;
   source: string;
+  addedBy: string;
+  createdAt: Date;
 }
 
 export default function CompetitorPricing() {
   const { user } = useAuth();
-  const [competitorData, setCompetitorData] = useState<CompetitorData[]>([]);
+  const queryClient = useQueryClient();
   const [filteredData, setFilteredData] = useState<CompetitorData[]>([]);
   
   // Filter states
@@ -51,50 +55,118 @@ export default function CompetitorPricing() {
   const [productKinds, setProductKinds] = useState<string[]>([]);
   const [surfaceFinishes, setSurfaceFinishes] = useState<string[]>([]);
 
-  // Load data from localStorage
-  useEffect(() => {
-    const loadData = () => {
+  // Fetch competitor pricing data from API
+  const { data: competitorData = [], isLoading } = useQuery({
+    queryKey: ["/api/competitor-pricing"],
+    select: (data) => data.map((item: any) => ({
+      ...item,
+      timestamp: new Date(item.timestamp),
+      createdAt: new Date(item.createdAt)
+    }))
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/competitor-pricing/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing"] });
+      toast({
+        title: "Entry deleted",
+        description: "The competitor pricing entry has been removed.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete entry",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Migration function to move localStorage data to server
+  const migrateLocalStorageData = useMutation({
+    mutationFn: async () => {
       const storedData = localStorage.getItem('competitorData');
-      if (storedData) {
-        const parsedData = JSON.parse(storedData).map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        }));
-        setCompetitorData(parsedData);
-        setFilteredData(parsedData);
-        
-        // Extract unique values for filters
-        const uniqueSuppliers = [...new Set(parsedData.map((item: CompetitorData) => item.supplierInfo).filter(Boolean))];
-        const uniqueThicknesses = [...new Set(parsedData.map((item: CompetitorData) => item.thickness).filter(Boolean))];
-        const uniqueProductKinds = [...new Set(parsedData.map((item: CompetitorData) => item.productKind).filter(Boolean))];
-        const uniqueSurfaceFinishes = [...new Set(parsedData.map((item: CompetitorData) => item.surfaceFinish).filter(Boolean))];
-        
-        setSuppliers(uniqueSuppliers);
-        setThicknesses(uniqueThicknesses);
-        setProductKinds(uniqueProductKinds);
-        setSurfaceFinishes(uniqueSurfaceFinishes);
+      if (!storedData) return;
+      
+      const parsedData = JSON.parse(storedData);
+      const migratedCount = parsedData.length;
+      
+      // Send all data to server
+      for (const item of parsedData) {
+        await apiRequest("/api/competitor-pricing", {
+          method: "POST",
+          body: JSON.stringify({
+            type: item.type,
+            dimensions: item.dimensions,
+            width: item.width,
+            length: item.length,
+            unit: item.unit,
+            packQty: item.packQty,
+            inputPrice: item.inputPrice,
+            thickness: item.thickness,
+            productKind: item.productKind,
+            surfaceFinish: item.surfaceFinish,
+            supplierInfo: item.supplierInfo,
+            infoReceivedFrom: item.infoReceivedFrom,
+            pricePerSqIn: item.pricePerSqIn,
+            pricePerSqFt: item.pricePerSqFt,
+            pricePerSqMeter: item.pricePerSqMeter,
+            notes: item.notes,
+            source: item.source
+          })
+        });
       }
-    };
-    
-    loadData();
-    
-    // Listen for storage changes (when data is added from Area Pricer)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'competitorData') {
-        loadData();
+      
+      // Clear localStorage after successful migration
+      localStorage.removeItem('competitorData');
+      return migratedCount;
+    },
+    onSuccess: (migratedCount) => {
+      if (migratedCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing"] });
+        toast({
+          title: "Data migrated successfully",
+          description: `${migratedCount} entries moved from local storage to server`,
+        });
       }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Check for updates every 2 seconds (for same-tab updates)
-    const interval = setInterval(loadData, 2000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
+    },
+    onError: (error) => {
+      toast({
+        title: "Migration failed",
+        description: error.message || "Failed to migrate local data",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Check for localStorage data and migrate on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem('competitorData');
+    if (storedData && JSON.parse(storedData).length > 0) {
+      migrateLocalStorageData.mutate();
+    }
   }, []);
+
+  // Extract unique values for filters when data changes
+  useEffect(() => {
+    if (competitorData.length > 0) {
+      const uniqueSuppliers = [...new Set(competitorData.map((item: CompetitorData) => item.supplierInfo).filter(Boolean))];
+      const uniqueThicknesses = [...new Set(competitorData.map((item: CompetitorData) => item.thickness).filter(Boolean))];
+      const uniqueProductKinds = [...new Set(competitorData.map((item: CompetitorData) => item.productKind).filter(Boolean))];
+      const uniqueSurfaceFinishes = [...new Set(competitorData.map((item: CompetitorData) => item.surfaceFinish).filter(Boolean))];
+      
+      setSuppliers(uniqueSuppliers);
+      setThicknesses(uniqueThicknesses);
+      setProductKinds(uniqueProductKinds);
+      setSurfaceFinishes(uniqueSurfaceFinishes);
+    }
+  }, [competitorData]);
 
   // Filter data based on selected filters
   useEffect(() => {
@@ -203,17 +275,21 @@ export default function CompetitorPricing() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteEntry = (id: string) => {
+  const handleDeleteEntry = (id: number) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
-      const updatedData = competitorData.filter(item => item.id !== id);
-      setCompetitorData(updatedData);
-      localStorage.setItem('competitorData', JSON.stringify(updatedData));
-      toast({
-        title: "Entry deleted",
-        description: "The competitor pricing entry has been removed.",
-      });
+      deleteMutation.mutate(id);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">

@@ -15,7 +15,9 @@ import {
   type Customer,
   type InsertCustomer,
   type SentQuote,
-  type InsertSentQuote
+  type InsertSentQuote,
+  type CompetitorPricing,
+  type InsertCompetitorPricing
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
@@ -72,6 +74,12 @@ export interface IStorage {
   upsertSentQuote(quote: InsertSentQuote): Promise<SentQuote>;
   deleteSentQuote(id: number): Promise<boolean>;
   
+  // Competitor Pricing
+  getCompetitorPricing(): Promise<CompetitorPricing[]>;
+  getCompetitorPricingById(id: number): Promise<CompetitorPricing | undefined>;
+  createCompetitorPricing(pricing: InsertCompetitorPricing): Promise<CompetitorPricing>;
+  deleteCompetitorPricing(id: number): Promise<boolean>;
+  
   // Admin methods
   reinitializeData(): Promise<void>;
 }
@@ -87,6 +95,7 @@ export class MemStorage implements IStorage {
   private productPricing: Map<number, ProductPricing>;
   private customers: Map<string, Customer>;
   private sentQuotes: Map<number, SentQuote>;
+  private competitorPricing: Map<number, CompetitorPricing>;
 
   private currentCategoryId: number;
   private currentTypeId: number;
@@ -94,6 +103,7 @@ export class MemStorage implements IStorage {
   private currentTierId: number;
   private currentPricingId: number;
   private currentSentQuoteId: number;
+  private currentCompetitorPricingId: number;
 
   constructor() {
     this.users = new Map();
@@ -104,6 +114,7 @@ export class MemStorage implements IStorage {
     this.productPricing = new Map();
     this.customers = new Map();
     this.sentQuotes = new Map();
+    this.competitorPricing = new Map();
 
     this.currentCategoryId = 1;
     this.currentTypeId = 1;
@@ -111,6 +122,7 @@ export class MemStorage implements IStorage {
     this.currentTierId = 1;
     this.currentPricingId = 1;
     this.currentSentQuoteId = 1;
+    this.currentCompetitorPricingId = 1;
 
     // No default users - all users come from authentication
     
@@ -417,6 +429,31 @@ export class MemStorage implements IStorage {
 
   async deleteSentQuote(id: number): Promise<boolean> {
     return this.sentQuotes.delete(id);
+  }
+
+  // Competitor Pricing methods
+  async getCompetitorPricing(): Promise<CompetitorPricing[]> {
+    return Array.from(this.competitorPricing.values());
+  }
+
+  async getCompetitorPricingById(id: number): Promise<CompetitorPricing | undefined> {
+    return this.competitorPricing.get(id);
+  }
+
+  async createCompetitorPricing(pricingData: InsertCompetitorPricing): Promise<CompetitorPricing> {
+    const id = this.currentCompetitorPricingId++;
+    const newPricing: CompetitorPricing = {
+      ...pricingData,
+      id,
+      timestamp: new Date(),
+      createdAt: new Date(),
+    };
+    this.competitorPricing.set(id, newPricing);
+    return newPricing;
+  }
+
+  async deleteCompetitorPricing(id: number): Promise<boolean> {
+    return this.competitorPricing.delete(id);
   }
 
   // Customer management methods

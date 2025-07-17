@@ -864,6 +864,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Competitor Pricing endpoints
+  app.get("/api/competitor-pricing", requireApproval, async (req, res) => {
+    try {
+      const pricingData = await storage.getCompetitorPricing();
+      res.json(pricingData);
+    } catch (error) {
+      console.error("Error fetching competitor pricing:", error);
+      res.status(500).json({ error: "Failed to fetch competitor pricing" });
+    }
+  });
+
+  app.post("/api/competitor-pricing", requireApproval, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const pricingData = req.body;
+      
+      // Validate required fields
+      if (!pricingData.type || !pricingData.dimensions || !pricingData.packQty || 
+          !pricingData.inputPrice || !pricingData.thickness || !pricingData.productKind ||
+          !pricingData.surfaceFinish || !pricingData.supplierInfo || !pricingData.infoReceivedFrom ||
+          !pricingData.pricePerSqIn || !pricingData.pricePerSqFt || !pricingData.pricePerSqMeter ||
+          !pricingData.notes || !pricingData.source) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const newEntry = await storage.createCompetitorPricing({
+        ...pricingData,
+        addedBy: userId
+      });
+      
+      res.json(newEntry);
+    } catch (error) {
+      console.error("Error creating competitor pricing:", error);
+      res.status(500).json({ error: "Failed to create competitor pricing" });
+    }
+  });
+
+  app.delete("/api/competitor-pricing/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid pricing ID" });
+      }
+      
+      await storage.deleteCompetitorPricing(id);
+      res.json({ message: "Competitor pricing deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting competitor pricing:", error);
+      res.status(500).json({ error: "Failed to delete competitor pricing" });
+    }
+  });
+
   // Get sent quote by ID
   app.get("/api/sent-quotes/:id", async (req, res) => {
     try {
