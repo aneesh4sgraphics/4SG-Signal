@@ -354,7 +354,7 @@ export default function AreaPricer() {
             <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
           </div>
         </div>
-        <h1 className="text-xl sm:text-3xl font-bold text-gray-900 mb-2">Area Pricing Calculator</h1>
+        <h1 className="text-xl sm:text-3xl font-bold text-gray-900 mb-2">SqM Calculator</h1>
         <p className="text-sm sm:text-base text-gray-600">Calculate unit pricing (in², ft², m²) for rolls or sheets. Log entries and export to Excel.</p>
       </div>
 

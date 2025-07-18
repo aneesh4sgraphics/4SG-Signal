@@ -35,18 +35,18 @@ export default function DashboardSimple() {
           </CardContent>
         </Card>
 
-        {/* Area Pricer */}
+        {/* SqM Calculator */}
         <Card className="hover:shadow-lg transition-shadow cursor-pointer">
           <CardHeader>
             <CardTitle className="flex items-center">
               <FileText className="w-5 h-5 mr-2 text-green-600" />
-              Area Pricer
+              SqM Calculator
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">Calculate material costs per area</p>
             <Link href="/area-pricer">
-              <Button className="w-full">Open Area Pricer</Button>
+              <Button className="w-full">Open SqM Calculator</Button>
             </Link>
           </CardContent>
         </Card>
