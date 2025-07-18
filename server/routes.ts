@@ -988,24 +988,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Received competitor pricing data:", pricingData);
       console.log("User ID:", userId);
       
-      // Validate required fields - allow "Unknown" for optional fields
-      const requiredFields = ['type', 'dimensions', 'source'];
-      const numericFields = ['packQty', 'inputPrice', 'pricePerSqIn', 'pricePerSqFt', 'pricePerSqMeter'];
+      // Enhanced validation to match database schema
+      const requiredStringFields = ['type', 'dimensions', 'thickness', 'productKind', 'surfaceFinish', 'supplierInfo', 'infoReceivedFrom', 'notes', 'source'];
+      const requiredNumericFields = ['packQty', 'inputPrice', 'pricePerSqIn', 'pricePerSqFt', 'pricePerSqMeter'];
+      
+      console.log("=== VALIDATION DETAILS ===");
+      console.log("Received data:", JSON.stringify(pricingData, null, 2));
+      
+      const validationErrors = [];
       
       // Check required string fields
-      for (const field of requiredFields) {
-        if (!pricingData[field]) {
-          console.log(`Missing required field: ${field}`);
-          return res.status(400).json({ error: `Missing required field: ${field}` });
+      for (const field of requiredStringFields) {
+        if (!pricingData[field] || pricingData[field] === '') {
+          validationErrors.push(`Missing or empty string field: ${field} (value: ${pricingData[field]})`);
         }
       }
       
       // Check numeric fields
-      for (const field of numericFields) {
-        if (pricingData[field] === undefined || pricingData[field] === null) {
-          console.log(`Missing numeric field: ${field}`);
-          return res.status(400).json({ error: `Missing numeric field: ${field}` });
+      for (const field of requiredNumericFields) {
+        if (pricingData[field] === undefined || pricingData[field] === null || pricingData[field] === '') {
+          validationErrors.push(`Missing or empty numeric field: ${field} (value: ${pricingData[field]})`);
         }
+      }
+      
+      if (validationErrors.length > 0) {
+        console.log("VALIDATION FAILED:");
+        validationErrors.forEach(error => console.log(`  - ${error}`));
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: validationErrors,
+          receivedData: pricingData 
+        });
       }
       
       console.log("All validation checks passed");

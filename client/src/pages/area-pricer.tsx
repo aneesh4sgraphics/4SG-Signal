@@ -808,25 +808,26 @@ export default function AreaPricer() {
                   console.log("Calculations available:", calculations.length);
                   console.log("Current calculations:", calculations);
                   
-                  // Simple test - just add one item to competitor pricing
+                  // Use actual calculation data if available
                   if (calculations.length > 0) {
+                    const calc = calculations[0]; // Use first calculation
                     const testData = {
-                      type: "sheets",
-                      dimensions: "50 × 100 in",
-                      width: 50,
-                      length: 100,
-                      unit: "in",
-                      packQty: 1,
-                      inputPrice: 100,
-                      thickness: "1mil",
-                      productKind: "Non Adhesive",
-                      surfaceFinish: "Gloss",
-                      supplierInfo: "Test Supplier",
-                      infoReceivedFrom: "Test Source",
-                      pricePerSqIn: 0.0001,
-                      pricePerSqFt: 0.0200,
-                      pricePerSqMeter: 0.2153,
-                      notes: "Test from Area Pricer",
+                      type: calc.type,
+                      dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
+                      width: calc.width,
+                      length: calc.length,
+                      unit: calc.type === "roll" ? "ft" : "in",
+                      packQty: calc.packQty,
+                      inputPrice: calc.inputPrice,
+                      thickness: calc.thickness || "Unknown",
+                      productKind: calc.productKind || "Unknown",
+                      surfaceFinish: calc.surfaceFinish || "Unknown",
+                      supplierInfo: calc.supplierInfo || "Unknown",
+                      infoReceivedFrom: calc.infoReceivedFrom || "Unknown",
+                      pricePerSqIn: calc.pricePerSqIn,
+                      pricePerSqFt: calc.pricePerSqFt,
+                      pricePerSqMeter: calc.pricePerSqMeter,
+                      notes: calc.notes || "Added from Area Pricer",
                       source: "Area Pricer"
                     };
                     
@@ -842,20 +843,41 @@ export default function AreaPricer() {
                     })
                     .then(response => {
                       console.log("Response status:", response.status);
+                      if (!response.ok) {
+                        return response.json().then(errorData => {
+                          console.error("Server error details:", errorData);
+                          throw new Error(`Server error: ${JSON.stringify(errorData)}`);
+                        });
+                      }
                       return response.json();
                     })
                     .then(data => {
                       console.log("Success:", data);
                       toast({
                         title: "Success",
-                        description: "Test data added successfully",
+                        description: "Data added successfully to competitor pricing database",
                       });
                     })
                     .catch(error => {
-                      console.error("Error:", error);
+                      console.error("Detailed error:", error);
+                      console.error("Error message:", error.message);
+                      
+                      // Extract error details if available
+                      let errorMessage = "Failed to add data";
+                      try {
+                        const errorData = JSON.parse(error.message.replace("Server error: ", ""));
+                        if (errorData.details) {
+                          errorMessage = `Validation failed: ${errorData.details.join(", ")}`;
+                        } else if (errorData.error) {
+                          errorMessage = errorData.error;
+                        }
+                      } catch (e) {
+                        errorMessage = error.message;
+                      }
+                      
                       toast({
                         title: "Error",
-                        description: "Failed to add test data",
+                        description: errorMessage,
                         variant: "destructive",
                       });
                     });
