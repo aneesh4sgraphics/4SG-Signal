@@ -792,21 +792,27 @@ export default function AreaPricer() {
           )}
           
           {/* Action Buttons */}
-          {calculations.length > 0 && (
-            <div className="mt-6 flex justify-center space-x-4">
-              <Button
-                onClick={exportToExcel}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Sheet className="w-4 h-4 mr-2" />
-                Export Excel
-              </Button>
-              <Button
-                onClick={() => {
-                  alert("Button clicked! Check console for logs.");
-                  console.log("=== BUTTON CLICKED ===");
-                  console.log("Calculations available:", calculations.length);
-                  console.log("Current calculations:", calculations);
+          <div className="mt-6">
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600">
+                Calculations available: {calculations.length}
+              </p>
+            </div>
+            {calculations.length > 0 && (
+              <div className="flex justify-center space-x-4">
+                <Button
+                  onClick={exportToExcel}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Sheet className="w-4 h-4 mr-2" />
+                  Export Excel
+                </Button>
+                <Button
+                  onClick={() => {
+                    console.log("=== BUTTON CLICKED ===");
+                    console.log("Calculations available:", calculations.length);
+                    console.log("Current calculations:", calculations);
+                    alert(`Button clicked! Calculations: ${calculations.length}`);
                   
                   // Use actual calculation data if available
                   if (calculations.length > 0) {
@@ -888,8 +894,9 @@ export default function AreaPricer() {
                 <Plus className="w-4 h-4 mr-2" />
                 Add to Comp Info (TEST)
               </Button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
