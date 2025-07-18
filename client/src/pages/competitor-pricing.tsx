@@ -42,6 +42,8 @@ export default function CompetitorPricing() {
   const [filteredData, setFilteredData] = useState<CompetitorData[]>([]);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   
+
+  
   // Filter states
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [thicknessFilter, setThicknessFilter] = useState("all");
