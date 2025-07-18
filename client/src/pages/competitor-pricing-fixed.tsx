@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText } from "lucide-react";
+import { RippleButton } from "@/components/ui/micro-interactions";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 import { toast } from "@/hooks/use-toast";
@@ -227,7 +228,7 @@ export default function CompetitorPricing() {
   const exportToCSV = () => {
     if (filteredData.length === 0) return;
 
-    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/in²", "Price/ft²", "Price/m²", "Notes", "Date"];
+    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Input Price", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/m²", "Notes", "Date"];
     const csvContent = [
       headers.join(","),
       ...filteredData.map(item => [
@@ -241,8 +242,6 @@ export default function CompetitorPricing() {
         `"${item.surfaceFinish}"`,
         `"${item.supplierInfo}"`,
         `"${item.infoReceivedFrom}"`,
-        `$${parseFloat(item.pricePerSqIn).toFixed(4)}`,
-        `$${parseFloat(item.pricePerSqFt).toFixed(4)}`,
         `$${parseFloat(item.pricePerSqMeter).toFixed(4)}`,
         `"${item.notes}"`,
         new Date(item.timestamp || item.createdAt).toLocaleDateString()
@@ -476,58 +475,54 @@ export default function CompetitorPricing() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto max-w-full">
+            <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Dimensions</TableHead>
-                  <TableHead>Pack Qty</TableHead>
-                  <TableHead>Input Price</TableHead>
-                  <TableHead>Thickness</TableHead>
-                  <TableHead>Product Kind</TableHead>
-                  <TableHead>Surface Finish</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Info From</TableHead>
-                  <TableHead>Price/in²</TableHead>
-                  <TableHead>Price/ft²</TableHead>
-                  <TableHead>Price/m²</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Date</TableHead>
-                  {isAdmin && <TableHead>Actions</TableHead>}
+                  <TableHead className="whitespace-nowrap">Source</TableHead>
+                  <TableHead className="whitespace-nowrap">Type</TableHead>
+                  <TableHead className="whitespace-nowrap">Dimensions</TableHead>
+                  <TableHead className="whitespace-nowrap">Pack Qty</TableHead>
+                  <TableHead className="whitespace-nowrap">Input Price</TableHead>
+                  <TableHead className="whitespace-nowrap">Thickness</TableHead>
+                  <TableHead className="whitespace-nowrap">Product Kind</TableHead>
+                  <TableHead className="whitespace-nowrap">Surface Finish</TableHead>
+                  <TableHead className="whitespace-nowrap">Supplier</TableHead>
+                  <TableHead className="whitespace-nowrap">Info From</TableHead>
+                  <TableHead className="whitespace-nowrap">Price/m²</TableHead>
+                  <TableHead className="whitespace-nowrap">Notes</TableHead>
+                  <TableHead className="whitespace-nowrap">Date</TableHead>
+                  {isAdmin && <TableHead className="w-20 sticky right-0 bg-white shadow-md whitespace-nowrap">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell>{item.source}</TableCell>
-                    <TableCell>{item.type}</TableCell>
-                    <TableCell>{item.dimensions}</TableCell>
-                    <TableCell>{item.packQty}</TableCell>
-                    <TableCell>${parseFloat(item.inputPrice).toFixed(2)}</TableCell>
-                    <TableCell>{item.thickness}</TableCell>
-                    <TableCell>{item.productKind}</TableCell>
-                    <TableCell>{item.surfaceFinish}</TableCell>
-                    <TableCell>{item.supplierInfo}</TableCell>
-                    <TableCell>{item.infoReceivedFrom}</TableCell>
-                    <TableCell>${parseFloat(item.pricePerSqIn).toFixed(4)}</TableCell>
-                    <TableCell>${parseFloat(item.pricePerSqFt).toFixed(4)}</TableCell>
-                    <TableCell>${parseFloat(item.pricePerSqMeter).toFixed(4)}</TableCell>
-                    <TableCell>{item.notes}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">{item.source}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.type}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.dimensions}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.packQty}</TableCell>
+                    <TableCell className="whitespace-nowrap">${parseFloat(item.inputPrice).toFixed(2)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.thickness}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.productKind}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.surfaceFinish}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.supplierInfo}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.infoReceivedFrom}</TableCell>
+                    <TableCell className="whitespace-nowrap">${parseFloat(item.pricePerSqMeter).toFixed(4)}</TableCell>
+                    <TableCell className="max-w-32 truncate" title={item.notes}>{item.notes}</TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {new Date(item.timestamp || item.createdAt).toLocaleDateString()}
                     </TableCell>
                     {isAdmin && (
-                      <TableCell>
-                        <Button
+                      <TableCell className="w-20 sticky right-0 bg-white shadow-md">
+                        <RippleButton
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteEntry(item.id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </Button>
+                        </RippleButton>
                       </TableCell>
                     )}
                   </TableRow>
