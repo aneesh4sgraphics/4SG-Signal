@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
 import AppHeader from "@/components/AppHeader";
 import QuoteCalculator from "@/pages/quote-calculator";
@@ -131,8 +132,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <MicroFeedbackProvider>
+          <Toaster />
+          <Router />
+        </MicroFeedbackProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
