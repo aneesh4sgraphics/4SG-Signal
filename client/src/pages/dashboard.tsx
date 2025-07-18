@@ -223,14 +223,14 @@ export default function Dashboard() {
               </Card>
             </Link>
 
-            {/* Competitor Prices */}
+            {/* ComIntel */}
             <Link href="/competitor-pricing">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 bg-white h-full">
                 <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
                   <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-orange-100 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-6 h-6 sm:w-6 sm:h-6 text-orange-600" />
                   </div>
-                  <CardTitle className="text-xs sm:text-sm">Competitor Prices</CardTitle>
+                  <CardTitle className="text-xs sm:text-sm">ComIntel</CardTitle>
                 </CardHeader>
               </Card>
             </Link>

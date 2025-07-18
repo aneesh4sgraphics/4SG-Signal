@@ -375,7 +375,7 @@ export default function CompetitorPricing() {
               <TrendingUp className="h-8 w-8 text-orange-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Competitor Pricing Intelligence</h1>
+              <h1 className="text-3xl font-bold text-gray-900">ComIntel</h1>
               <p className="text-gray-600">Track, analyze, and contribute competitor pricing information</p>
             </div>
           </div>
