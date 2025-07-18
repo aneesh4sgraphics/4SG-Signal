@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calculator, Plus, Sheet, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -449,36 +450,69 @@ export default function AreaPricer() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="thickness" className="text-sm sm:text-base font-medium">Thickness</Label>
-                <Input
-                  id="thickness"
-                  value={thickness}
-                  onChange={(e) => setThickness(e.target.value)}
-                  placeholder="3mil"
-                  className="mt-1"
-                />
+                <Select value={thickness} onValueChange={setThickness}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select thickness" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1mil">1mil</SelectItem>
+                    <SelectItem value="2mil">2mil</SelectItem>
+                    <SelectItem value="3mil">3mil</SelectItem>
+                    <SelectItem value="4mil">4mil</SelectItem>
+                    <SelectItem value="5mil">5mil</SelectItem>
+                    <SelectItem value="6mil">6mil</SelectItem>
+                    <SelectItem value="7mil">7mil</SelectItem>
+                    <SelectItem value="8mil">8mil</SelectItem>
+                    <SelectItem value="10mil">10mil</SelectItem>
+                    <SelectItem value="12mil">12mil</SelectItem>
+                    <SelectItem value="15mil">15mil</SelectItem>
+                    <SelectItem value="20mil">20mil</SelectItem>
+                    <SelectItem value="Custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="productKind" className="text-sm sm:text-base font-medium">Product Kind</Label>
-                <Input
-                  id="productKind"
-                  value={productKind}
-                  onChange={(e) => setProductKind(e.target.value)}
-                  placeholder="Vinyl"
-                  className="mt-1"
-                />
+                <Select value={productKind} onValueChange={setProductKind}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select product kind" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Vinyl">Vinyl</SelectItem>
+                    <SelectItem value="Paper">Paper</SelectItem>
+                    <SelectItem value="Fabric">Fabric</SelectItem>
+                    <SelectItem value="Film">Film</SelectItem>
+                    <SelectItem value="Canvas">Canvas</SelectItem>
+                    <SelectItem value="Mesh">Mesh</SelectItem>
+                    <SelectItem value="Banner">Banner</SelectItem>
+                    <SelectItem value="Adhesive">Adhesive</SelectItem>
+                    <SelectItem value="Laminate">Laminate</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="surfaceFinish" className="text-sm sm:text-base font-medium">Surface Finish</Label>
-                <Input
-                  id="surfaceFinish"
-                  value={surfaceFinish}
-                  onChange={(e) => setSurfaceFinish(e.target.value)}
-                  placeholder="Matte"
-                  className="mt-1"
-                />
+                <Select value={surfaceFinish} onValueChange={setSurfaceFinish}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select surface finish" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Matte">Matte</SelectItem>
+                    <SelectItem value="Gloss">Gloss</SelectItem>
+                    <SelectItem value="Satin">Satin</SelectItem>
+                    <SelectItem value="Semi-Gloss">Semi-Gloss</SelectItem>
+                    <SelectItem value="Textured">Textured</SelectItem>
+                    <SelectItem value="Smooth">Smooth</SelectItem>
+                    <SelectItem value="Brushed">Brushed</SelectItem>
+                    <SelectItem value="Metallic">Metallic</SelectItem>
+                    <SelectItem value="Clear">Clear</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="supplierInfo" className="text-sm sm:text-base font-medium">Supplier Info</Label>
