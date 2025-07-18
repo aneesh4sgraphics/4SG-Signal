@@ -129,9 +129,12 @@ export async function setupAuth(app: Express) {
     app.use(passport.initialize());
     app.use(passport.session());
 
-    // In development, skip real auth setup to avoid OIDC errors
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Development mode: Setting up simplified auth routes");
+    // Check if we're in a true development environment (not Replit deployment)
+    const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
+                        process.env.REPLIT_DOMAINS === undefined;
+
+    if (isTrueDevEnv) {
+      console.log("Local development mode: Setting up simplified auth routes");
       
       // Set up simple passport serialization for development
       passport.serializeUser((user: any, cb) => cb(null, user));
@@ -247,15 +250,11 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Development bypass for local testing and Replit environments
-  const isDev = process.env.NODE_ENV === 'development' || 
-                req.get('host')?.includes('localhost') || 
-                req.get('host')?.includes('replit.dev') ||
-                req.get('host')?.includes('replit.app') ||
-                req.hostname === 'localhost' ||
-                !process.env.NODE_ENV;
+  // Only bypass for true local development
+  const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
+                      process.env.REPLIT_DOMAINS === undefined;
 
-  if (isDev) {
+  if (isTrueDevEnv) {
     // Create a mock user for development
     req.user = {
       claims: {
@@ -299,15 +298,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const requireApproval: RequestHandler = async (req, res, next) => {
-  // Development bypass for local testing and Replit environments
-  const isDev = process.env.NODE_ENV === 'development' || 
-                req.get('host')?.includes('localhost') || 
-                req.get('host')?.includes('replit.dev') ||
-                req.get('host')?.includes('replit.app') ||
-                req.hostname === 'localhost' ||
-                !process.env.NODE_ENV;
+  // Only bypass for true local development
+  const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
+                      process.env.REPLIT_DOMAINS === undefined;
 
-  if (isDev) {
+  if (isTrueDevEnv) {
     // Create a mock user for development
     req.user = {
       claims: {
