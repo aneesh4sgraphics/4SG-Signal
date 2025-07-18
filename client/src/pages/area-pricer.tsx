@@ -310,91 +310,7 @@ export default function AreaPricer() {
     URL.revokeObjectURL(url);
   };
 
-  const addToCompInfo = async () => {
-    console.log("=== ADD TO COMP INFO FUNCTION CALLED ===");
-    console.log("Calculations length:", calculations.length);
-    console.log("Calculations data:", calculations);
-    
-    if (calculations.length === 0) {
-      console.log("No calculations to add, returning early");
-      return;
-    }
-
-    // Convert calculations to competitor pricing format
-    const competitorEntries = calculations.map(calc => {
-      const entry = {
-        type: calc.type,
-        dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
-        width: Number(calc.width),
-        length: Number(calc.length),
-        unit: calc.type === "roll" ? "ft" : "in",
-        packQty: Number(calc.packQty),
-        inputPrice: Number(calc.inputPrice),
-        thickness: calc.thickness || "Unknown",
-        productKind: calc.productKind || "Unknown",
-        surfaceFinish: calc.surfaceFinish || "Unknown",
-        supplierInfo: calc.supplierInfo || "Unknown",
-        infoReceivedFrom: calc.infoReceivedFrom || "Unknown",
-        pricePerSqIn: Number(calc.pricePerSqIn),
-        pricePerSqFt: Number(calc.pricePerSqFt),
-        pricePerSqMeter: Number(calc.pricePerSqMeter),
-        notes: calc.notes || "",
-        source: "Area Pricer"
-      };
-      console.log("Converted entry:", entry);
-      
-      // Check for missing required fields
-      const requiredFields = ['type', 'dimensions', 'thickness', 'productKind', 'surfaceFinish', 'supplierInfo', 'infoReceivedFrom'];
-      const missingFields = requiredFields.filter(field => !entry[field] || entry[field] === "");
-      if (missingFields.length > 0) {
-        console.warn("Missing required fields:", missingFields, "in entry:", entry);
-      }
-      
-      return entry;
-    });
-
-    // Add all entries to the server
-    try {
-      console.log("Adding competitor entries:", competitorEntries);
-      
-      let successCount = 0;
-      let errorCount = 0;
-      
-      for (const entry of competitorEntries) {
-        try {
-          console.log("Adding entry:", entry);
-          await addCompetitorDataMutation.mutateAsync(entry);
-          successCount++;
-          console.log(`Successfully added entry ${successCount}`);
-        } catch (error) {
-          errorCount++;
-          console.error(`Error adding entry ${errorCount}:`, error);
-        }
-      }
-      
-      if (successCount > 0) {
-        toast({
-          title: "Success",
-          description: `Successfully added ${successCount} calculation(s) to Competitor Info!`,
-        });
-      }
-      
-      if (errorCount > 0) {
-        toast({
-          title: "Partial Success",
-          description: `Added ${successCount} entries, but ${errorCount} entries failed. Check console for details.`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error adding to competitor info:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add calculations to Competitor Info",
-        variant: "destructive",
-      });
-    }
-  };
+  // Function removed - logic moved directly into button onClick for simplicity
 
   // Show authentication loading state
   if (authLoading) {
@@ -808,92 +724,86 @@ export default function AreaPricer() {
                   Export Excel
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     console.log("=== BUTTON CLICKED ===");
                     console.log("Calculations available:", calculations.length);
-                    console.log("Current calculations:", calculations);
-                    alert(`Button clicked! Calculations: ${calculations.length}`);
-                  
-                  // Use actual calculation data if available
-                  if (calculations.length > 0) {
-                    const calc = calculations[0]; // Use first calculation
-                    const testData = {
-                      type: calc.type,
-                      dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
-                      width: calc.width,
-                      length: calc.length,
-                      unit: calc.type === "roll" ? "ft" : "in",
-                      packQty: calc.packQty,
-                      inputPrice: calc.inputPrice,
-                      thickness: calc.thickness || "Unknown",
-                      productKind: calc.productKind || "Unknown",
-                      surfaceFinish: calc.surfaceFinish || "Unknown",
-                      supplierInfo: calc.supplierInfo || "Unknown",
-                      infoReceivedFrom: calc.infoReceivedFrom || "Unknown",
-                      pricePerSqIn: calc.pricePerSqIn,
-                      pricePerSqFt: calc.pricePerSqFt,
-                      pricePerSqMeter: calc.pricePerSqMeter,
-                      notes: calc.notes || "Added from Area Pricer",
-                      source: "Area Pricer"
-                    };
                     
-                    console.log("Sending test data:", testData);
-                    
-                    // Direct API call
-                    fetch('/api/competitor-pricing', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify(testData)
-                    })
-                    .then(response => {
-                      console.log("Response status:", response.status);
-                      if (!response.ok) {
-                        return response.json().then(errorData => {
-                          console.error("Server error details:", errorData);
-                          throw new Error(`Server error: ${JSON.stringify(errorData)}`);
-                        });
-                      }
-                      return response.json();
-                    })
-                    .then(data => {
-                      console.log("Success:", data);
+                    if (calculations.length === 0) {
                       toast({
-                        title: "Success",
-                        description: "Data added successfully to competitor pricing database",
-                      });
-                    })
-                    .catch(error => {
-                      console.error("Detailed error:", error);
-                      console.error("Error message:", error.message);
-                      
-                      // Extract error details if available
-                      let errorMessage = "Failed to add data";
-                      try {
-                        const errorData = JSON.parse(error.message.replace("Server error: ", ""));
-                        if (errorData.details) {
-                          errorMessage = `Validation failed: ${errorData.details.join(", ")}`;
-                        } else if (errorData.error) {
-                          errorMessage = errorData.error;
-                        }
-                      } catch (e) {
-                        errorMessage = error.message;
-                      }
-                      
-                      toast({
-                        title: "Error",
-                        description: errorMessage,
+                        title: "No Data",
+                        description: "Create calculations first using 'Add to Sheet'",
                         variant: "destructive",
                       });
-                    });
-                  }
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add to Comp Info (TEST)
-              </Button>
+                      return;
+                    }
+                    
+                    try {
+                      let successCount = 0;
+                      
+                      for (const calc of calculations) {
+                        const entry = {
+                          type: calc.type,
+                          dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
+                          width: Number(calc.width),
+                          length: Number(calc.length),
+                          unit: calc.type === "roll" ? "ft" : "in",
+                          packQty: Number(calc.packQty),
+                          inputPrice: Number(calc.inputPrice),
+                          thickness: calc.thickness || "Unknown",
+                          productKind: calc.productKind || "Unknown",
+                          surfaceFinish: calc.surfaceFinish || "Unknown",
+                          supplierInfo: calc.supplierInfo || "Unknown",
+                          infoReceivedFrom: calc.infoReceivedFrom || "Unknown",
+                          pricePerSqIn: Number(calc.pricePerSqIn),
+                          pricePerSqFt: Number(calc.pricePerSqFt),
+                          pricePerSqMeter: Number(calc.pricePerSqMeter),
+                          notes: calc.notes || "Added from Area Pricer",
+                          source: "Area Pricer"
+                        };
+                        
+                        console.log("Sending entry:", entry);
+                        
+                        const response = await fetch('/api/competitor-pricing', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(entry)
+                        });
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          console.error("API Error:", errorData);
+                          throw new Error(`Server returned ${response.status}: ${JSON.stringify(errorData)}`);
+                        }
+                        
+                        const result = await response.json();
+                        console.log("Entry added successfully:", result);
+                        successCount++;
+                      }
+                      
+                      toast({
+                        title: "Success!",
+                        description: `Added ${successCount} calculation(s) to competitor pricing database`,
+                      });
+                      
+                      // Clear calculations
+                      setCalculations([]);
+                      
+                    } catch (error) {
+                      console.error("Error:", error);
+                      toast({
+                        title: "Error",
+                        description: error.message || "Failed to add calculations",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add to Comp Info
+                </Button>
               </div>
             )}
           </div>
