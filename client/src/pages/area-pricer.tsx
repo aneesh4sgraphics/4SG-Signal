@@ -311,7 +311,14 @@ export default function AreaPricer() {
   };
 
   const addToCompInfo = async () => {
-    if (calculations.length === 0) return;
+    console.log("=== ADD TO COMP INFO FUNCTION CALLED ===");
+    console.log("Calculations length:", calculations.length);
+    console.log("Calculations data:", calculations);
+    
+    if (calculations.length === 0) {
+      console.log("No calculations to add, returning early");
+      return;
+    }
 
     // Convert calculations to competitor pricing format
     const competitorEntries = calculations.map(calc => {
@@ -787,7 +794,11 @@ export default function AreaPricer() {
                 Export Excel
               </Button>
               <Button
-                onClick={addToCompInfo}
+                onClick={() => {
+                  console.log("ADD TO COMP INFO button clicked!");
+                  console.log("Calculations available:", calculations.length);
+                  addToCompInfo();
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
