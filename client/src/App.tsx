@@ -14,7 +14,7 @@ import CustomerManagement from "@/pages/customer-management";
 import ProductManagement from "@/pages/product-management";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
-import Dashboard from "@/pages/dashboard-simple";
+import Dashboard from "@/pages/dashboard";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
