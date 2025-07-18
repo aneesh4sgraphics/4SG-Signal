@@ -71,6 +71,10 @@ export default function AreaPricer() {
       });
     },
     onError: (error) => {
+      console.error("Mutation error details:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Authentication Required",
@@ -82,9 +86,16 @@ export default function AreaPricer() {
         }, 1000);
         return;
       }
+      
+      // More detailed error reporting
+      let errorMessage = "Failed to add competitor data";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to add competitor data",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -303,44 +314,68 @@ export default function AreaPricer() {
     if (calculations.length === 0) return;
 
     // Convert calculations to competitor pricing format
-    const competitorEntries = calculations.map(calc => ({
-      type: calc.type,
-      dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
-      width: calc.width,
-      length: calc.length,
-      unit: calc.type === "roll" ? "ft" : "in",
-      packQty: calc.packQty,
-      inputPrice: calc.inputPrice,
-      thickness: calc.thickness,
-      productKind: calc.productKind,
-      surfaceFinish: calc.surfaceFinish,
-      supplierInfo: calc.supplierInfo,
-      infoReceivedFrom: calc.infoReceivedFrom,
-      pricePerSqIn: calc.pricePerSqIn,
-      pricePerSqFt: calc.pricePerSqFt,
-      pricePerSqMeter: calc.pricePerSqMeter,
-      notes: calc.notes || "",
-      source: "Area Pricer"
-    }));
+    const competitorEntries = calculations.map(calc => {
+      const entry = {
+        type: calc.type,
+        dimensions: `${calc.width} × ${calc.length} ${calc.type === "roll" ? "ft" : "in"}`,
+        width: Number(calc.width),
+        length: Number(calc.length),
+        unit: calc.type === "roll" ? "ft" : "in",
+        packQty: Number(calc.packQty),
+        inputPrice: Number(calc.inputPrice),
+        thickness: calc.thickness || "",
+        productKind: calc.productKind || "",
+        surfaceFinish: calc.surfaceFinish || "",
+        supplierInfo: calc.supplierInfo || "",
+        infoReceivedFrom: calc.infoReceivedFrom || "",
+        pricePerSqIn: Number(calc.pricePerSqIn),
+        pricePerSqFt: Number(calc.pricePerSqFt),
+        pricePerSqMeter: Number(calc.pricePerSqMeter),
+        notes: calc.notes || "",
+        source: "Area Pricer"
+      };
+      console.log("Converted entry:", entry);
+      return entry;
+    });
 
     // Add all entries to the server
     try {
       console.log("Adding competitor entries:", competitorEntries);
       
+      let successCount = 0;
+      let errorCount = 0;
+      
       for (const entry of competitorEntries) {
-        console.log("Adding entry:", entry);
-        await addCompetitorDataMutation.mutateAsync(entry);
+        try {
+          console.log("Adding entry:", entry);
+          await addCompetitorDataMutation.mutateAsync(entry);
+          successCount++;
+          console.log(`Successfully added entry ${successCount}`);
+        } catch (error) {
+          errorCount++;
+          console.error(`Error adding entry ${errorCount}:`, error);
+        }
       }
       
-      toast({
-        title: "Success",
-        description: `Successfully added ${calculations.length} calculation(s) to Competitor Info!`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: "Success",
+          description: `Successfully added ${successCount} calculation(s) to Competitor Info!`,
+        });
+      }
+      
+      if (errorCount > 0) {
+        toast({
+          title: "Partial Success",
+          description: `Added ${successCount} entries, but ${errorCount} entries failed. Check console for details.`,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error adding to competitor info:", error);
       toast({
         title: "Error",
-        description: "Failed to add some calculations to Competitor Info",
+        description: "Failed to add calculations to Competitor Info",
         variant: "destructive",
       });
     }
