@@ -14,26 +14,42 @@ import CustomerManagement from "@/pages/customer-management";
 import ProductManagement from "@/pages/product-management";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
-import Dashboard from "@/pages/dashboard";
+import Dashboard from "@/pages/dashboard-simple";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  console.log("Router render - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "user:", user);
+
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="ml-2">Loading...</p>
       </div>
     );
   }
 
-  return (
-    <Switch>
-      {!isAuthenticated ? (
+  // Handle unauthenticated users
+  if (!isAuthenticated || !user) {
+    console.log("Showing landing page - isAuthenticated:", isAuthenticated, "user:", user);
+    return (
+      <Switch>
         <Route path="/" component={Landing} />
-      ) : user?.status === "pending" ? (
+        <Route component={Landing} />
+      </Switch>
+    );
+  }
+
+  console.log("Showing dashboard - isAuthenticated:", isAuthenticated, "user:", user);
+
+  // Handle pending users
+  if (user?.status === "pending") {
+    return (
+      <Switch>
         <Route path="/" component={() => (
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
@@ -44,7 +60,6 @@ function Router() {
               <div className="space-x-4">
                 <button 
                   onClick={() => {
-                    import("@/lib/authHelpers").then(({ refreshAuth }) => refreshAuth());
                     window.location.reload();
                   }}
                   className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -53,35 +68,62 @@ function Router() {
                 </button>
                 <button 
                   onClick={() => {
-                    import("@/lib/authHelpers").then(({ forceLogout }) => forceLogout());
+                    window.location.href = '/api/logout';
                   }}
                   className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                 >
-                  Logout & Clear Cache
+                  Logout
                 </button>
               </div>
             </div>
           </div>
         )} />
-      ) : (
-        <div className="min-h-screen bg-gray-50">
-          <AppHeader />
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/quote-calculator" component={QuoteCalculator} />
-            <Route path="/area-pricer" component={AreaPricer} />
-            <Route path="/competitor-pricing" component={CompetitorPricing} />
-            <Route path="/saved-quotes" component={SavedQuotes} />
-            <Route path="/price-list" component={PriceList} />
-            <Route path="/customer-management" component={CustomerManagement} />
-            <Route path="/product-management" component={ProductManagement} />
-            <Route path="/shipping-calculator" component={ShippingCalculator} />
-            <Route path="/admin" component={Admin} />
-            <Route component={NotFound} />
-          </Switch>
-        </div>
-      )}
-    </Switch>
+        <Route component={() => (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-4">Account Pending Approval</h1>
+              <p className="text-gray-600 mb-4">
+                Your account is waiting for admin approval. Please contact aneesh@4sgraphics.com
+              </p>
+              <div className="space-x-4">
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Check Status
+                </button>
+                <button 
+                  onClick={() => window.location.href = '/api/logout'}
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )} />
+      </Switch>
+    );
+  }
+
+  // Handle authenticated users
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader />
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/quote-calculator" component={QuoteCalculator} />
+        <Route path="/area-pricer" component={AreaPricer} />
+        <Route path="/competitor-pricing" component={CompetitorPricing} />
+        <Route path="/saved-quotes" component={SavedQuotes} />
+        <Route path="/price-list" component={PriceList} />
+        <Route path="/customer-management" component={CustomerManagement} />
+        <Route path="/product-management" component={ProductManagement} />
+        <Route path="/shipping-calculator" component={ShippingCalculator} />
+        <Route path="/admin" component={Admin} />
+        <Route component={NotFound} />
+      </Switch>
+    </div>
   );
 }
 
