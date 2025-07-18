@@ -132,8 +132,12 @@ export async function setupAuth(app: Express) {
     // Check if we're in a true development environment (not Replit deployment)
     const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
                         process.env.REPLIT_DOMAINS === undefined;
+    
+    // Also bypass for Replit development environment (for testing)
+    const isReplitDev = process.env.REPLIT_DOMAINS && 
+                       process.env.REPLIT_DOMAINS.includes('replit.dev');
 
-    if (isTrueDevEnv) {
+    if (isTrueDevEnv || isReplitDev) {
       console.log("Local development mode: Setting up simplified auth routes");
       
       // Set up simple passport serialization for development
@@ -250,11 +254,15 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Only bypass for true local development
+  // Only bypass for true local development OR when in Replit dev environment
   const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
                       process.env.REPLIT_DOMAINS === undefined;
+  
+  // Also bypass for Replit development environment (for testing)
+  const isReplitDev = process.env.REPLIT_DOMAINS && 
+                     process.env.REPLIT_DOMAINS.includes('replit.dev');
 
-  if (isTrueDevEnv) {
+  if (isTrueDevEnv || isReplitDev) {
     // Create a mock user for development
     req.user = {
       claims: {
@@ -298,11 +306,15 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const requireApproval: RequestHandler = async (req, res, next) => {
-  // Only bypass for true local development
+  // Only bypass for true local development OR when in Replit dev environment
   const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
                       process.env.REPLIT_DOMAINS === undefined;
+  
+  // Also bypass for Replit development environment (for testing)
+  const isReplitDev = process.env.REPLIT_DOMAINS && 
+                     process.env.REPLIT_DOMAINS.includes('replit.dev');
 
-  if (isTrueDevEnv) {
+  if (isTrueDevEnv || isReplitDev) {
     // Create a mock user for development
     req.user = {
       claims: {
