@@ -1,0 +1,263 @@
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+(anonymous) @ content.js:6900
+domManip @ content.js:6736
+append @ content.js:6897
+jQuery.fn.<computed> @ content.js:7031
+(anonymous) @ content.js:20273
+fire @ content.js:4147
+fireWith @ content.js:4277
+done @ content.js:10443
+(anonymous) @ content.js:10704
+XMLHttpRequest.send
+send @ content.js:10756
+ajax @ content.js:10337
+jQuery.<computed> @ content.js:10493
+(anonymous) @ content.js:20270
+_callee$ @ content.js:20269
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+initIframe @ content.js:20298
+(anonymous) @ content.js:20406
+mightThrow @ content.js:4413
+process @ content.js:4481
+setTimeout
+(anonymous) @ content.js:4519
+fire @ content.js:4147
+add @ content.js:4206
+(anonymous) @ content.js:4539
+Deferred @ content.js:4630
+then @ content.js:4524
+jQuery.fn.ready @ content.js:4719
+(anonymous) @ content.js:20405
+_callee3$ @ content.js:20404
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+Promise.then
+asyncGeneratorStep @ content.js:367
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+render @ content.js:20431
+_callee3$ @ content.js:27699
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+Promise.then
+asyncGeneratorStep @ content.js:367
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+(anonymous) @ content.js:27717
+Promise.then
+AppFrame @ content.js:27664
+(anonymous) @ content.js:27980
+__webpack_require__ @ content.js:20
+(anonymous) @ content.js:84
+(anonymous) @ content.js:87Understand this warning
+content.js:10756 XHR finished loading: GET "chrome-extension://mcebeofpilippmndlpcghpmghcljajna/frame.html".
+send @ content.js:10756
+ajax @ content.js:10337
+jQuery.<computed> @ content.js:10493
+(anonymous) @ content.js:20270
+_callee$ @ content.js:20269
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+initIframe @ content.js:20298
+(anonymous) @ content.js:20406
+mightThrow @ content.js:4413
+process @ content.js:4481
+setTimeout
+(anonymous) @ content.js:4519
+fire @ content.js:4147
+add @ content.js:4206
+(anonymous) @ content.js:4539
+Deferred @ content.js:4630
+then @ content.js:4524
+jQuery.fn.ready @ content.js:4719
+(anonymous) @ content.js:20405
+_callee3$ @ content.js:20404
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+Promise.then
+asyncGeneratorStep @ content.js:367
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+render @ content.js:20431
+_callee3$ @ content.js:27699
+tryCatch @ content.js:13491
+(anonymous) @ content.js:13579
+(anonymous) @ content.js:13520
+asyncGeneratorStep @ content.js:358
+_next @ content.js:377
+Promise.then
+asyncGeneratorStep @ content.js:367
+_next @ content.js:377
+(anonymous) @ content.js:382
+(anonymous) @ content.js:374
+(anonymous) @ content.js:27717
+Promise.then
+AppFrame @ content.js:27664
+(anonymous) @ content.js:27980
+__webpack_require__ @ content.js:20
+(anonymous) @ content.js:84
+(anonymous) @ content.js:87
+index-B8CNsTuC.js:48 Fetch finished loading: GET "https://4sgraphics.replit.app/api/auth/user".
+(anonymous) @ index-B8CNsTuC.js:48
+o @ index-B8CNsTuC.js:48
+w @ index-B8CNsTuC.js:48
+start @ index-B8CNsTuC.js:48
+fetch @ index-B8CNsTuC.js:48
+Go @ index-B8CNsTuC.js:48
+onSubscribe @ index-B8CNsTuC.js:48
+subscribe @ index-B8CNsTuC.js:48
+(anonymous) @ index-B8CNsTuC.js:48
+xw @ index-B8CNsTuC.js:38
+uu @ index-B8CNsTuC.js:40
+zi @ index-B8CNsTuC.js:40
+Sv @ index-B8CNsTuC.js:40
+Ss @ index-B8CNsTuC.js:38
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Yw @ index-B8CNsTuC.js:40
+C @ index-B8CNsTuC.js:25
+_ @ index-B8CNsTuC.js:25
+index-B8CNsTuC.js:48 Fetch finished loading: GET "https://4sgraphics.replit.app/api/auth/user".
+(anonymous) @ index-B8CNsTuC.js:48
+o @ index-B8CNsTuC.js:48
+w @ index-B8CNsTuC.js:48
+start @ index-B8CNsTuC.js:48
+fetch @ index-B8CNsTuC.js:48
+Go @ index-B8CNsTuC.js:48
+onSubscribe @ index-B8CNsTuC.js:48
+subscribe @ index-B8CNsTuC.js:48
+(anonymous) @ index-B8CNsTuC.js:48
+xw @ index-B8CNsTuC.js:38
+uu @ index-B8CNsTuC.js:40
+zi @ index-B8CNsTuC.js:40
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Sv @ index-B8CNsTuC.js:40
+Ss @ index-B8CNsTuC.js:38
+(anonymous) @ index-B8CNsTuC.js:40
+setTimeout
+s @ index-B8CNsTuC.js:48
+a @ index-B8CNsTuC.js:48
+batch @ index-B8CNsTuC.js:48
+Jn @ index-B8CNsTuC.js:48
+setData @ index-B8CNsTuC.js:48
+onSuccess @ index-B8CNsTuC.js:48
+f @ index-B8CNsTuC.js:48
+Promise.then
+w @ index-B8CNsTuC.js:48
+start @ index-B8CNsTuC.js:48
+fetch @ index-B8CNsTuC.js:48
+Go @ index-B8CNsTuC.js:48
+onSubscribe @ index-B8CNsTuC.js:48
+subscribe @ index-B8CNsTuC.js:48
+(anonymous) @ index-B8CNsTuC.js:48
+xw @ index-B8CNsTuC.js:38
+uu @ index-B8CNsTuC.js:40
+zi @ index-B8CNsTuC.js:40
+Sv @ index-B8CNsTuC.js:40
+Ss @ index-B8CNsTuC.js:38
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Yw @ index-B8CNsTuC.js:40
+C @ index-B8CNsTuC.js:25
+_ @ index-B8CNsTuC.js:25
+index-B8CNsTuC.js:48 Fetch finished loading: GET "https://4sgraphics.replit.app/api/competitor-pricing".
+(anonymous) @ index-B8CNsTuC.js:48
+o @ index-B8CNsTuC.js:48
+w @ index-B8CNsTuC.js:48
+start @ index-B8CNsTuC.js:48
+fetch @ index-B8CNsTuC.js:48
+Go @ index-B8CNsTuC.js:48
+onSubscribe @ index-B8CNsTuC.js:48
+subscribe @ index-B8CNsTuC.js:48
+(anonymous) @ index-B8CNsTuC.js:48
+xw @ index-B8CNsTuC.js:38
+uu @ index-B8CNsTuC.js:40
+zi @ index-B8CNsTuC.js:40
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Sv @ index-B8CNsTuC.js:40
+Ss @ index-B8CNsTuC.js:38
+(anonymous) @ index-B8CNsTuC.js:40
+setTimeout
+s @ index-B8CNsTuC.js:48
+a @ index-B8CNsTuC.js:48
+batch @ index-B8CNsTuC.js:48
+Jn @ index-B8CNsTuC.js:48
+setData @ index-B8CNsTuC.js:48
+onSuccess @ index-B8CNsTuC.js:48
+f @ index-B8CNsTuC.js:48
+Promise.then
+w @ index-B8CNsTuC.js:48
+start @ index-B8CNsTuC.js:48
+fetch @ index-B8CNsTuC.js:48
+Go @ index-B8CNsTuC.js:48
+onSubscribe @ index-B8CNsTuC.js:48
+subscribe @ index-B8CNsTuC.js:48
+(anonymous) @ index-B8CNsTuC.js:48
+xw @ index-B8CNsTuC.js:38
+uu @ index-B8CNsTuC.js:40
+zi @ index-B8CNsTuC.js:40
+Sv @ index-B8CNsTuC.js:40
+Ss @ index-B8CNsTuC.js:38
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Yw @ index-B8CNsTuC.js:40
+C @ index-B8CNsTuC.js:25
+_ @ index-B8CNsTuC.js:25
+index-B8CNsTuC.js:40 TypeError: A.inputPrice.toFixed is not a function
+    at index-B8CNsTuC.js:396:6392
+    at Array.map (<anonymous>)
+    at R3 (index-B8CNsTuC.js:396:6180)
+    at Cp (index-B8CNsTuC.js:38:16998)
+    at Af (index-B8CNsTuC.js:40:3139)
+    at n1 (index-B8CNsTuC.js:40:44804)
+    at Jw (index-B8CNsTuC.js:40:39766)
+    at LE (index-B8CNsTuC.js:40:39694)
+    at Dc (index-B8CNsTuC.js:40:39547)
+    at Bf (index-B8CNsTuC.js:40:35914)
+Mf @ index-B8CNsTuC.js:40
+Fw.n.callback @ index-B8CNsTuC.js:40
+rv @ index-B8CNsTuC.js:38
+yv @ index-B8CNsTuC.js:40
+Gw @ index-B8CNsTuC.js:40
+FE @ index-B8CNsTuC.js:40
+$E @ index-B8CNsTuC.js:40
+ks @ index-B8CNsTuC.js:40
+Yw @ index-B8CNsTuC.js:40
+C @ index-B8CNsTuC.js:25
+_ @ index-B8CNsTuC.js:25Understand this error
+index-B8CNsTuC.js:396 Uncaught TypeError: A.inputPrice.toFixed is not a function
+    at index-B8CNsTuC.js:396:6392
+    at Array.map (<anonymous>)
+    at R3 (index-B8CNsTuC.js:396:6180)
+    at Cp (index-B8CNsTuC.js:38:16998)
+    at Af (index-B8CNsTuC.js:40:3139)
+    at n1 (index-B8CNsTuC.js:40:44804)
+    at Jw (index-B8CNsTuC.js:40:39766)
+    at LE (index-B8CNsTuC.js:40:39694)
+    at Dc (index-B8CNsTuC.js:40:39547)
+    at Bf (index-B8CNsTuC.js:40:35914)
