@@ -22,9 +22,9 @@ interface SentQuote {
   customerName: string;
   customerEmail: string | null;
   quoteItems: string;
-  totalAmount: string | null;
+  totalAmount: string;
   createdAt: string;
-  sentVia: string | null;
+  sentVia: string;
   status: string;
 }
 
@@ -33,8 +33,10 @@ export default function SavedQuotes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: sentQuotes, isLoading: quotesLoading } = useQuery({
+  const { data: sentQuotes, isLoading: quotesLoading, error: quotesError } = useQuery({
     queryKey: ["/api/sent-quotes"],
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const deleteQuoteMutation = useMutation({
@@ -100,7 +102,13 @@ export default function SavedQuotes() {
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : sentQuotes && sentQuotes.length > 0 ? (
+            ) : quotesError ? (
+              <div className="text-center py-8 text-red-600">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Error loading quotes. Please refresh the page.</p>
+                <p className="text-sm mt-2">{quotesError.message}</p>
+              </div>
+            ) : sentQuotes && Array.isArray(sentQuotes) && sentQuotes.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -155,7 +163,7 @@ export default function SavedQuotes() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 flex-wrap">
-                            {quote.sentVia && quote.sentVia.split(',').map((method, index) => {
+                            {quote.sentVia && quote.sentVia.trim() && quote.sentVia.split(',').map((method, index) => {
                               const trimmedMethod = method.trim();
                               return (
                                 <Badge key={index} variant={trimmedMethod === 'email' ? 'default' : 'secondary'}>
@@ -167,7 +175,7 @@ export default function SavedQuotes() {
                                 </Badge>
                               );
                             })}
-                            {!quote.sentVia && (
+                            {(!quote.sentVia || !quote.sentVia.trim()) && (
                               <Badge variant="secondary">
                                 <Download className="h-3 w-3 mr-1" />PDF
                               </Badge>
