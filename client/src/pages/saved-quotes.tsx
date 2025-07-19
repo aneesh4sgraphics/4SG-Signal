@@ -150,10 +150,7 @@ export default function SavedQuotes() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                            ${quote.totalAmount && typeof quote.totalAmount === 'string' ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}
-                          </div>
+                          ${quote.totalAmount && typeof quote.totalAmount === 'string' ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
