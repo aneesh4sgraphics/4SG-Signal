@@ -12,6 +12,15 @@ import { parseCustomerData } from "./customer-parser";
 import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generatePriceListCSV } from "./simple-pdf-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
+import { 
+  logFileOperation, 
+  safeFileExists, 
+  safeReadFile, 
+  safeWriteFile, 
+  safeDeleteFile, 
+  logUpload, 
+  logDownload 
+} from "./fileLogger";
 
 // Simple in-memory cache for frequently accessed data
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -549,7 +558,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const filePath = path.join(process.cwd(), 'attached_assets', 'customers_export.csv');
       
-      if (!fs.existsSync(filePath)) {
+      if (!safeFileExists(filePath)) {
+        logFileOperation({
+          type: 'READ',
+          file: filePath,
+          success: false,
+          error: 'Customer file not found'
+        });
         return res.json([]); // Return empty array if no customer file exists
       }
       
@@ -557,6 +572,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
+      logFileOperation({
+        type: 'READ',
+        file: filePath,
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
       res.status(500).json({ error: "Failed to fetch customers" });
     }
   });
@@ -600,8 +621,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Read the uploaded CSV file
-      const newCsvContent = fs.readFileSync(req.file.path, 'utf-8');
+      const newCsvContent = safeReadFile(req.file.path);
+      if (!newCsvContent) {
+        return res.status(400).json({ error: "Failed to read uploaded file" });
+      }
+      
       const targetPath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
+      
+      // Log the upload
+      logUpload(req.file.originalname, targetPath, req.file.size);
       
       let mergedContent = newCsvContent;
       let newCount = 0;
@@ -609,8 +637,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalCount = 0;
       
       // Check if existing product file exists
-      if (fs.existsSync(targetPath)) {
-        const existingContent = fs.readFileSync(targetPath, 'utf-8');
+      if (safeFileExists(targetPath)) {
+        const existingContent = safeReadFile(targetPath);
+        if (!existingContent) {
+          return res.status(500).json({ error: "Failed to read existing product file" });
+        }
         
         // Parse both files
         const parseProductCSV = (content: string) => {
@@ -685,10 +716,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the merged file
-      fs.writeFileSync(targetPath, mergedContent, 'utf-8');
+      if (!safeWriteFile(targetPath, mergedContent)) {
+        return res.status(500).json({ error: "Failed to save product data file" });
+      }
       
       // Clean up the temporary file
-      fs.unlinkSync(req.file.path);
+      safeDeleteFile(req.file.path);
       
       // Clear relevant caches to ensure fresh data is loaded
       cache.delete('product-categories');
@@ -835,10 +868,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the merged file
-      fs.writeFileSync(targetPath, mergedContent, 'utf-8');
+      if (!safeWriteFile(targetPath, mergedContent)) {
+        return res.status(500).json({ error: "Failed to save pricing data file" });
+      }
       
       // Clean up the temporary file
-      fs.unlinkSync(req.file.path);
+      safeDeleteFile(req.file.path);
       
       // Clear pricing-related caches
       cache.delete('pricing-tiers');
@@ -985,10 +1020,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Save the merged file
-      fs.writeFileSync(targetPath, mergedContent, 'utf-8');
+      if (!safeWriteFile(targetPath, mergedContent)) {
+        return res.status(500).json({ error: "Failed to save customer data file" });
+      }
       
       // Clean up the temporary file
-      fs.unlinkSync(req.file.path);
+      safeDeleteFile(req.file.path);
       
       // Clear customer cache to ensure fresh data is loaded
       cache.delete('customers');
@@ -1618,8 +1655,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add only the main files
         mainFiles.forEach(fileName => {
           const filePath = path.join(assetsDir, fileName);
-          if (fs.existsSync(filePath)) {
+          if (safeFileExists(filePath)) {
             archive.file(filePath, { name: fileName });
+            logDownload(filePath, 'admin');
           }
         });
       }
