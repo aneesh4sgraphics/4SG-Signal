@@ -22,9 +22,9 @@ interface SentQuote {
   customerName: string;
   customerEmail: string | null;
   quoteItems: string;
-  totalAmount: string;
+  totalAmount: string | null;
   createdAt: string;
-  sentVia: string;
+  sentVia: string | null;
   status: string;
 }
 

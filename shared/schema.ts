@@ -97,9 +97,9 @@ export const sentQuotes = pgTable("sent_quotes", {
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   customerEmail: varchar("customer_email", { length: 255 }),
   quoteItems: text("quote_items").notNull(), // JSON string of quote items
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   createdAt: varchar("created_at", { length: 50 }).notNull(),
-  sentVia: varchar("sent_via", { length: 20 }).notNull(), // 'email' or 'pdf'
+  sentVia: varchar("sent_via", { length: 20 }), // 'email' or 'pdf'
   status: varchar("status", { length: 20 }).notNull().default("sent"), // 'sent', 'viewed', 'accepted'
 });
 
