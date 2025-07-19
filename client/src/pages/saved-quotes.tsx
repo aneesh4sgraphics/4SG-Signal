@@ -22,9 +22,9 @@ interface SentQuote {
   customerName: string;
   customerEmail: string | null;
   quoteItems: string;
-  totalAmount: string;
+  totalAmount?: string | null;
   createdAt: string;
-  sentVia: string;
+  sentVia?: string | null;
   status: string;
 }
 
@@ -163,7 +163,7 @@ export default function SavedQuotes() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-green-600" />
-                            ${quote.totalAmount ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}
+                            ${quote.totalAmount && typeof quote.totalAmount === 'string' ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}
                           </div>
                         </TableCell>
                         <TableCell>

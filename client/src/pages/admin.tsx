@@ -26,9 +26,9 @@ interface SentQuote {
   customerName: string;
   customerEmail: string | null;
   quoteItems: string;
-  totalAmount: string;
+  totalAmount?: string | null;
   createdAt: string;
-  sentVia: string;
+  sentVia?: string | null;
   status: string;
 }
 
@@ -1040,7 +1040,7 @@ export default function Admin() {
                           <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
                           <TableCell>{quote.customerName}</TableCell>
                           <TableCell>{quote.customerEmail || 'N/A'}</TableCell>
-                          <TableCell>${quote.totalAmount ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}</TableCell>
+                          <TableCell>${quote.totalAmount && typeof quote.totalAmount === 'string' ? parseFloat(quote.totalAmount).toFixed(2) : '0.00'}</TableCell>
                           <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
