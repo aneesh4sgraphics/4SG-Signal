@@ -10,7 +10,7 @@ export default function Dashboard() {
   const { user, isLoading } = useAuth();
   const [showWelcome, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
-  const [hasShownQuote, setHasShownQuote] = useState(false);
+
 
   useEffect(() => {
     // Check if user just logged in (from login flow, not dashboard navigation)
@@ -19,8 +19,6 @@ export default function Dashboard() {
     if (user && !hasShownWelcome && justLoggedIn) {
       setShowWelcome(true);
       setHasShownWelcome(true);
-      // Mark that we haven't shown the quote yet for this session
-      setHasShownQuote(false);
       // Clear the flag after showing animation
       sessionStorage.removeItem('justLoggedIn');
     }
@@ -158,17 +156,9 @@ export default function Dashboard() {
         <div className="mb-6 sm:mb-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{getGreeting()}, {firstName}!</h2>
           <p className="text-sm sm:text-base text-gray-600 mb-3">Select a tool below to get started.</p>
-          {!hasShownQuote && (
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-4 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 italic">"{getDailyQuote()}"</p>
-            </div>
-          )}
-          
-          {/* Auto-hide quote after 5 seconds */}
-          {!hasShownQuote && (() => {
-            setTimeout(() => setHasShownQuote(true), 5000);
-            return null;
-          })()}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-4 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 italic">"{getDailyQuote()}"</p>
+          </div>
         </div>
 
         {/* User Tools - Mobile 2x3 Grid */}
