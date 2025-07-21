@@ -922,6 +922,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up the temporary file
       safeDeleteFile(req.file.path);
       
+      // Copy updated data to the current working file
+      const currentWorkingFile = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
+      if (safeWriteFile(currentWorkingFile, mergedContent)) {
+        console.log('Updated current working CSV file');
+      }
+      
       // Refresh data in storage
       console.log('Refreshing product data in storage...');
       try {
