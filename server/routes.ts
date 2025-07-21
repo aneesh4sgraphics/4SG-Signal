@@ -758,7 +758,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const productId = newRow[0]?.trim();
             
             if (!productId) {
-              parseErrors.push(`Row ${rowIndex + 2}: Missing ProductID`);
+              // Check if this row has meaningful data (not just empty fields)
+              const hasData = newRow.slice(1).some(cell => cell?.trim());
+              if (hasData) {
+                console.log(`Row ${rowIndex + 2}: No ProductID but has data - will look for matching existing row`);
+                
+                // Try to find an existing row with empty ProductID that matches this data pattern
+                let foundMatch = false;
+                for (const [existingId, existingRow] of existingDataMap) {
+                  if (!existingId || existingId === '') {
+                    // Check if this existing empty row matches the new row pattern (same ProductName, ProductType, Size)
+                    const existingName = existingRow[1]?.trim() || '';
+                    const existingType = existingRow[2]?.trim() || '';
+                    const existingSize = existingRow[3]?.trim() || '';
+                    const newName = newRow[1]?.trim() || '';
+                    const newType = newRow[2]?.trim() || '';
+                    const newSize = newRow[3]?.trim() || '';
+                    
+                    if (existingName === newName && existingType === newType && existingSize === newSize) {
+                      console.log(`  Found matching existing row with empty ProductID - updating with new data`);
+                      let hasUpdates = false;
+                      const updatedRow = [...existingRow];
+                      
+                      // Ensure the updated row has the same length as the new header
+                      while (updatedRow.length < header.length) {
+                        updatedRow.push('');
+                      }
+                      
+                      // Update all fields with new data
+                      for (let i = 0; i < newRow.length && i < updatedRow.length; i++) {
+                        const newValue = newRow[i]?.trim() || '';
+                        const existingValue = updatedRow[i]?.trim() || '';
+                        
+                        if (newValue && (existingValue === '' || newValue !== existingValue)) {
+                          const actionType = existingValue === '' ? 'added' : 'updated';
+                          console.log(`    Field ${i} (${header[i] || 'unknown'}): ${actionType} "${existingValue}" → "${newValue}"`);
+                          updatedRow[i] = newValue;
+                          hasUpdates = true;
+                        }
+                      }
+                      
+                      finalData.push(updatedRow);
+                      if (hasUpdates) {
+                        updatedCount++;
+                      } else {
+                        duplicateCount++;
+                      }
+                      foundMatch = true;
+                      existingDataMap.delete(existingId); // Remove from map to avoid duplicate processing
+                      break;
+                    }
+                  }
+                }
+                
+                if (!foundMatch) {
+                  parseErrors.push(`Row ${rowIndex + 2}: Missing ProductID and no matching existing row found`);
+                }
+              } else {
+                parseErrors.push(`Row ${rowIndex + 2}: Missing ProductID and no data`);
+              }
               continue;
             }
             
@@ -808,6 +866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } else {
               // New product - ensure it has the same number of columns as header
+              console.log(`Adding new product: ${productId}`);
               const newProduct = [...newRow];
               while (newProduct.length < header.length) {
                 newProduct.push('');
