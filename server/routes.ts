@@ -863,9 +863,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up the temporary file
       safeDeleteFile(req.file.path);
       
-      // Clear product cache and reinitialize storage
+      // Reinitialize storage to refresh data
       try {
-        storage.clearCache();
         await storage.initializeFromFiles();
         console.log('Product data cache refreshed');
       } catch (error) {

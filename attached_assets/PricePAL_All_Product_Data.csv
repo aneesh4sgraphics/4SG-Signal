@@ -1,202 +1,202 @@
 ProductID,ProductName,ProductType,Size,ItemCode,MinOrderQty,EXPORT_pricePerSqm,MASTER_DISTRIBUTOR_pricePerSqm,DEALER_pricePerSqm,DEALER_2_pricePerSqm,Approval_Retail_pricePerSqm,Stage25_pricePerSqm,Stage2_pricePerSqm,Stage15_pricePerSqm,Stage1_pricePerSqm,Retail_pricePerSqm
-1,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,8.5"x11",GOSF05-08x11,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.70
-2,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,11"x17",GOSF05-11x17,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.70
-3,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,12"x18",GOSF05-12x18,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.70
-4,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,13"x19",GOSF05-13x19,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.70
-5,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,20.9"x29.5",GOSF05-21x30,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.70
-6,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,8.5"x11",GOSF08-08x11,50 Sheets,3.11,3.78,4.20,4.42,5.36,5.74,6.12,6.50,6.89,7.65
-7,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,11"x17",GOSF08-11x17,50 Sheets,3.11,3.78,4.20,4.42,5.36,5.74,6.12,6.50,6.89,7.65
-8,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,12"x18",GOSF08-12x18,50 Sheets,3.11,3.78,4.20,4.42,5.36,5.74,6.12,6.50,6.89,7.65
-9,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,13"x19",GOSF08-13x19,50 Sheets,3.11,3.78,4.20,4.42,5.36,5.74,6.12,6.50,6.89,7.65
-10,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,8.5"x11",GOSF10-08x11,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.30,7.78,8.27,8.76,9.73
-11,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,11"x17",GOSF10-11x17,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.30,7.78,8.27,8.76,9.73
-12,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,12"x18",GOSF10-12x18,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.30,7.78,8.27,8.76,9.73
-13,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,13"x19",GOSF10-13x19,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.30,7.78,8.27,8.76,9.73
-14,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,8.5"x11",GOSF11-08x11,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-15,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,11"x17",GOSF11-11x17,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-16,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,12"x18",GOSF11-12x18,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-17,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,13"x19",GOSF11-13x19,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-18,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,14.33"x20.5",GOSF11-14x20,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-19,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,14.33"x26",GOSF11-14x26,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-20,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,20.9"x29.5",GOSF11-21x30,50 Sheets,4.60,5.58,6.20,6.53,7.81,8.37,8.93,9.49,10.04,11.16
-21,Graffiti Polyester Paper Graffiti BlockOut Polyester 11mil,Graffiti BlockOut Polyester 11mil,13"x19",GOBO11-13x19,50 Sheets,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-22,Graffiti Polyester Paper Graffiti BlockOut Polyester 11mil,Graffiti BlockOut Polyester 11mil,20.9"x29.5",GOBO11-21x30,50 Sheets,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-23,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,11"x17",GOSF14-11x17,25 Sheets,6.14,7.46,8.29,8.73,9.10,9.75,10.40,11.05,11.70,13.00
-24,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,12"x18",GOSF14-12x18,25 Sheets,6.14,7.46,8.29,8.73,9.10,9.75,10.40,11.05,11.70,13.00
-25,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,13"x19",GOSF14-13x19,25 Sheets,6.14,7.46,8.29,8.73,9.10,9.75,10.40,11.05,11.70,13.00
-26,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,14.33"x20.5",GOSF14-14x20,25 Sheets,6.14,7.46,8.29,8.73,9.10,9.75,10.40,11.05,11.70,13.00
-27,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,14.33"x26",GOSF14-14x26,25 Sheets,6.14,7.46,8.29,8.73,9.10,9.75,10.40,11.05,11.70,13.00
-28,Graffiti Polyester Paper Graffiti Metallic Gold 8mil,Graffiti Metallic Gold 8mil,13"x19",GMEG08-13x19,50 Sheets,5.76,7.00,7.78,8.19,9.80,10.50,11.20,11.90,12.60,14.00
-29,Graffiti Polyester Paper Graffiti Metallic Gold 11mil,Graffiti Metallic Gold 11mil,13"x19",GMEG11-13x19,50 Sheets,8.24,10.00,11.11,11.70,14.00,15.00,16.00,17.00,18.00,20.00
-30,Graffiti Polyester Paper Graffiti Metallic Silver 8mil,Graffiti Metallic Silver 8mil,13"x19",GMES08-13x19,50 Sheets,5.76,7.00,7.78,8.19,9.80,10.50,11.20,11.90,12.60,14.00
-31,Graffiti Polyester Paper Graffiti Metallic Silver 11mil,Graffiti Metallic Silver 11mil,13"x19",GMES11-13X19,50 Sheets,8.24,10.00,11.11,11.70,14.00,15.00,16.00,17.00,18.00,20.00
-32,Graffiti Polyester Paper Graffiti Metallic Rose 8mil,Graffiti Metallic Rose 8mil,13"x19",GMER08-13X19,50 Sheets,6.09,7.40,8.22,8.65,10.36,11.10,11.84,12.58,13.32,14.80
-33,Graffiti Polyester Paper Graffiti Metallic Rose 11mil,Graffiti Metallic Rose 11mil,13"x19",GMER11-13X19,50 Sheets,8.24,10.00,11.11,11.70,14.00,15.00,16.00,17.00,18.00,20.00
-34,Graffiti Polyester Paper Graffiti Metallic Mirror 8mil,Graffiti Metallic Mirror 8mil,13"x19",GMEM08-13X19,50 Sheets,5.44,6.60,7.33,7.72,9.24,9.90,10.56,11.22,11.88,13.20
-35,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,13"x19",GBAC08-13X19,50 Sheets,3.62,4.40,4.89,5.15,6.16,6.60,7.04,7.48,7.92,8.80
-36,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,12"x18",GBAC08-12X18,50 Sheets,3.62,4.40,4.89,5.15,6.16,6.60,7.04,7.48,7.92,8.80
-37,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,14.33"x20.5",GBAC08-14X20,50 Sheets,3.62,4.40,4.89,5.15,6.16,6.60,7.04,7.48,7.92,8.80
-38,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,8.5"x11",SFLFS04-08X11,100 Sheets,1.65,2.00,2.22,2.34,2.80,3.00,3.20,3.40,3.60,4.00
-39,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,11"x17",SFLFS04-11X17,100 Sheets,1.65,2.00,2.22,2.34,2.80,3.00,3.20,3.40,3.60,4.00
-40,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,12"x18",SFLFS04-12X18,100 Sheets,1.65,2.00,2.22,2.34,2.80,3.00,3.20,3.40,3.60,4.00
-41,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,13"x19",SFLFS04-13X19,100 Sheets,1.65,2.00,2.22,2.34,2.80,3.00,3.20,3.40,3.60,4.00
-42,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,8.5"x14",SFLFS04-08X14,100 Sheets,1.65,2.00,2.22,2.34,2.80,3.00,3.20,3.40,3.60,4.00
-43,Graffiti Polyester Paper Graffiti Frosted Film 11mil,Graffiti Frosted Film 11mil,13"x19",GFRO11-13X19,50 Sheets,3.95,4.80,5.33,5.61,6.72,7.20,7.68,8.16,8.64,9.60
-44,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,13"x19",SFLCS04-13X19,100 Sheets,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-45,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,8.5"x14",SFLCS04-08X14,100 Sheets,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-46,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,11"x17",SFLCS04-11X17,100 Sheets,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-47,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,12"x18",SFLCS04-12X18,100 Sheets,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-48,Graffiti Polyester Paper Graffiti Clear Film 10mil,Graffiti Clear Film 10mil,13"x19",GCLE10-13X19,50 Sheets,3.95,4.80,5.33,5.61,6.72,7.20,7.68,8.16,8.64,9.60
-49,Graffiti Polyester Paper Graffiti Clear Film 10mil,Graffiti Clear Film 10mil,12"x18",GCLE10-12X18,50 Sheets,3.95,4.80,5.33,5.61,6.72,7.20,7.68,8.16,8.64,9.60
-50,Graffiti Polyester Paper Graffiti AuraBoard - Silver,Graffiti AuraBoard - Silver,13"x19",GAURA301-13X19,100 Sheets,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-51,Graffiti Polyester Paper Graffiti AuraBoard - Holographics,Graffiti AuraBoard - Holographics,13"x19",GAURA301-13X19,100 Sheets,6.92,8.40,9.33,9.82,11.76,12.60,13.44,14.28,15.12,16.80
-52,Graffiti Polyester Paper DIGITAL FABRICS - 12 Oz,DIGITAL FABRICS - 12 Oz,13"x19",GCAN12-13X19,200 Sheets,6.59,8.00,8.89,9.36,11.20,12.00,12.80,13.60,14.40,16.00
-53,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,12"x18",GPOLY081218B,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-54,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,13"x19",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-55,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,20.9"x29.5",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-56,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,28"x40",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-57,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,12"x18",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-58,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,13"x19",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-59,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,20.9"x29.5",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-60,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,28"x40",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-61,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,12"x18",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-62,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,13"x19",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-63,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,20.9"x29.5",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-64,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,28"x40",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-65,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,12"x18",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-66,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,13"x19",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-67,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,20.9"x29.5",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-68,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,28"x40",,500 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-69,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,12"x18",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-70,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,13"x19",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-71,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,20.9"x29.5",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-72,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,28"x40",,500 Sheets,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-73,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,12"x18",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-74,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,13"x19",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-75,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,20.9"x29.5",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-76,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,28"x40",,400 Sheets,3.13,3.80,4.22,4.44,5.32,5.70,6.08,6.46,6.84,7.60
-77,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,8.5"x11",,100 Sheets,1.56,1.90,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.80
-78,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,8.5"x11",,100 Sheets,1.56,1.90,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.80
-79,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,12x18",,100 Sheets,1.56,1.90,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.80
-80,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,13x19",,100 Sheets,1.56,1.90,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.80
-81,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,20.9"x29.5",,100 Sheets,1.56,1.90,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.80
-82,GraffitiSTICK Graffiti CLEARStick - 4mil,Graffiti CLEARStick - 4mil,13"x19",,100 Sheets,2.39,2.90,3.22,3.39,4.06,4.35,4.64,4.93,5.22,5.80
-83,GraffitiSTICK Graffiti SILVERStick - 4mil,Graffiti SILVERStick - 4mil,13"x19",,100 Sheets,2.31,2.80,3.11,3.27,3.92,4.20,4.48,4.76,5.04,5.60
-84,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil,12x18",,100 Sheets,1.32,1.60,1.78,1.87,2.24,2.40,2.56,2.72,2.88,3.20
-85,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil,13x19",,100 Sheets,1.32,1.60,1.78,1.87,2.24,2.40,2.56,2.72,2.88,3.20
-86,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil,20.9"x29.5",,100 Sheets,1.32,1.60,1.78,1.87,2.24,2.40,2.56,2.72,2.88,3.20
-87,GraffitiSTICK Graffiti MAGNETICS - 16mil,Graffiti MAGNETICS - 16mil,13"x19",,100 Sheets,9.77,11.86,13.18,13.87,16.60,17.79,18.98,20.16,21.35,23.72
-88,GraffitiSTICK Graffiti DURAStick - 6mil,Graffiti DURAStick - 6mil,13"x19",,200 Sheets,2.47,3.00,3.33,3.51,4.20,4.50,4.80,5.10,5.40,6.00
-89,GraffitiSTICK Graffiti SlickStick Clear - 6mil,Graffiti SlickStick Clear - 6mil,13"x19",,100 Sheets,8.21,9.96,11.07,11.65,13.95,14.95,15.94,16.94,17.94,19.93
-90,GraffitiSTICK Graffiti SlickStick White - 6mil,Graffiti SlickStick White - 6mil,13"x19",,100 Sheets,8.21,9.96,11.07,11.65,13.95,14.95,15.94,16.94,17.94,19.93
-91,SolviT Sign & Display Media Solvit One Way Vision Film 7mil,Solvit One Way Vision Film 7mil,54"x100',,1 Roll,3.62,4.40,4.89,5.15,6.16,6.60,7.04,7.48,7.92,8.80
-92,SolviT Sign & Display Media Solvit One Way Vision Film 7mil,Solvit One Way Vision Film 7mil,60"x100',,1 Roll,3.62,4.40,4.89,5.15,6.16,6.60,7.04,7.48,7.92,8.80
-93,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,38"x100',,1 Roll,3.21,3.90,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.80
-94,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,38"x165',,1 Roll,3.21,3.90,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.80
-95,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,54"x100',,1 Roll,3.21,3.90,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.80
-96,SolviT Sign & Display Media Solvit Polyester (White Back) Banner 8mil,Solvit Polyester (White Back) Banner 8mil,38"x100',,1 Roll,3.05,3.70,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.40
-97,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 10mil,Solvit Polyester (Grey Back) Banner 10mil,38"x100',,1 Roll,4.04,4.90,5.44,5.73,6.86,7.35,7.84,8.33,8.82,9.80
-98,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840),38"x150',,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
-99,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840),54"x150',,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
-100,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840),63"x140',,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
-101,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,50"x150',,1 Roll,1.07,1.30,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.60
-102,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,54"x150',,1 Roll,1.07,1.30,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.60
-103,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,60"x150',,1 Roll,1.07,1.30,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.60
-104,SolviT Sign & Display Media Solvit Backlit Film 8mil,Solvit Backlit Film 8mil,54"x100',,1 Roll,2.96,3.60,4.00,4.21,5.04,5.40,5.76,6.12,6.48,7.20
-105,SolviT Sign & Display Media Solvit Backlit Film 8mil,Solvit Backlit Film 8mil,60"x100',,1 Roll,2.96,3.60,4.00,4.21,5.04,5.40,5.76,6.12,6.48,7.20
-106,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 4mil (Greyback),Solvit Self Adhesive Vinyl - 4mil (Greyback),54"x150',,1 Roll,1.32,1.60,1.78,1.87,2.24,2.40,2.56,2.72,2.88,3.20
-107,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 4mil (Greyback),Solvit Self Adhesive Vinyl - 4mil (Greyback),60"x150',,1 Roll,1.32,1.60,1.78,1.87,2.24,2.40,2.56,2.72,2.88,3.20
-108,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 6mil (white Back),Solvit Self Adhesive Vinyl - 6mil (white Back),54"x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-109,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 6mil (white Back),Solvit Self Adhesive Vinyl - 6mil (white Back),60"x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-110,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,38"x100',,1 Roll,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-111,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,54"x150',,1 Roll,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-112,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,60"x150',,1 Roll,1.81,2.20,2.44,2.57,3.08,3.30,3.52,3.74,3.96,4.40
-113,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,38"x100',,1 Roll,2.80,3.40,3.78,3.98,4.76,5.10,5.44,5.78,6.12,6.80
-114,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,54"x100',,1 Roll,2.80,3.40,3.78,3.98,4.76,5.10,5.44,5.78,6.12,6.80
-115,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,60"x100',,1 Roll,2.80,3.40,3.78,3.98,4.76,5.10,5.44,5.78,6.12,6.80
-116,SolviT Sign & Display Media Solvit SlickStick 5mil Polyester,Solvit SlickStick 5mil Polyester,54"x100',,1 Roll,5.93,7.20,8.00,8.42,10.08,10.80,11.52,12.24,12.96,14.40
-117,CliQ Aqueous Media CliQ Cold Press Paper 300gsm,CliQ Cold Press Paper 300gsm,44"x60',,1 Roll,11.32,13.74,15.27,16.08,19.24,20.62,21.99,23.37,24.74,27.49
-118,CliQ Aqueous Media CliQ Cold Press Paper 300gsm,CliQ Cold Press Paper 300gsm,44"x40',,1 Roll,11.32,13.74,15.27,16.08,19.24,20.62,21.99,23.37,24.74,27.49
-119,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,24"x40',,1 Roll,15.14,18.38,20.43,21.50,25.74,27.57,29.41,31.25,33.09,36.77
-120,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,36"x40',,1 Roll,15.14,18.38,20.43,21.50,25.74,27.57,29.41,31.25,33.09,36.77
-121,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,44"x40',,1 Roll,15.14,18.38,20.43,21.50,25.74,27.57,29.41,31.25,33.09,36.77
-122,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,24"x40',,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
-123,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,36"x40',,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
-124,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,44"x40',,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
-125,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,44"x60',,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
-126,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,24"x100',,1 Roll,3.11,3.78,4.20,4.42,5.29,5.67,6.05,6.43,6.80,7.56
-127,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,36"x100',,1 Roll,3.11,3.78,4.20,4.42,5.29,5.67,6.05,6.43,6.80,7.56
-128,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,44"x100',,1 Roll,3.11,3.78,4.20,4.42,5.29,5.67,6.05,6.43,6.80,7.56
-129,CliQ Aqueous Media CliQ PETBull 7mil,CliQ PETBull 7mil,36"x100',,1 Roll,3.05,3.70,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.40
-130,CliQ Aqueous Media CliQ PETBull 7mil,CliQ PETBull 7mil,44"x100',,1 Roll,3.05,3.70,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.40
-131,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil,24"x100',,1 Roll,2.77,3.36,3.73,3.93,4.70,5.04,5.38,5.71,6.05,6.72
-132,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil,36"x100',,1 Roll,2.77,3.36,3.73,3.93,4.70,5.04,5.38,5.71,6.05,6.72
-133,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil,44"x100',,1 Roll,2.77,3.36,3.73,3.93,4.70,5.04,5.38,5.71,6.05,6.72
-134,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil,60"x100',,1 Roll,2.77,3.36,3.73,3.93,4.70,5.04,5.38,5.71,6.05,6.72
-135,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,24"x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00
-136,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,36"x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00
-137,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,44"x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00
-138,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,60"x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00
-139,CliQ Aqueous Media CliQ Banner Media - 15mil,CliQ Banner Media - 15mil,36"x50',,1 Roll,8.49,10.31,11.45,12.06,14.43,15.46,16.49,17.52,18.55,20.62
-140,CliQ Aqueous Media CliQ Inkjet Matte Paper 170gsm,CliQ Inkjet Matte Paper 170gsm,8.5"x11",,,1.98,2.41,2.67,2.81,3.37,3.61,3.85,4.09,4.33,4.81
-141,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,24"x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-142,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,36"x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-143,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,44"x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40
-144,CliQ Aqueous Media CliQ Self Adhesive Vinyl - 5mil (PVC),CliQ Self Adhesive Vinyl - 5mil (PVC),36"x60',,1 Roll,6.34,7.70,8.56,9.01,10.78,11.55,12.32,13.09,13.86,15.40
-145,CliQ Aqueous Media CliQ Self Adhesive Vinyl - 5mil (PVC),CliQ Self Adhesive Vinyl - 5mil (PVC),42"x60',,1 Roll,6.34,7.70,8.56,9.01,10.78,11.55,12.32,13.09,13.86,15.40
-146,CliQ Aqueous Media CliQ SlickStick 10.4mil,CliQ SlickStick 10.4mil,13"x19",,,7.78,9.45,10.50,11.05,13.23,14.17,15.12,16.06,17.01,18.90
-147,Rang Print Canvas Rang DL Polyester Canvas 280gsm,Rang DL Polyester Canvas 280gsm,36"x100',,1 Roll,2.57,3.12,3.47,3.65,4.37,4.68,4.99,5.30,5.62,6.24
-148,Rang Print Canvas Rang DL Polyester Canvas 280gsm,Rang DL Polyester Canvas 280gsm,44"x100',,1 Roll,2.57,3.12,3.47,3.65,4.37,4.68,4.99,5.30,5.62,6.24
-149,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,17"x40',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-150,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,24"x40',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-151,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,36"x60',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-152,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,44"x60',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-153,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,44"x75',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-154,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,60"x60',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-155,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,60"x75',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-156,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,24"x60',,1 Roll,7.66,9.30,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.60
-157,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,36"x60',,1 Roll,7.66,9.30,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.60
-158,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,44"x60',,1 Roll,7.66,9.30,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.60
-159,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,60"x60',,1 Roll,7.66,9.30,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.60
-160,Rang Print Canvas Rang Lux PolyCotton Canvas 345gsm,Rang Lux PolyCotton Canvas 345gsm,63"x100',,1 Roll,3.21,3.90,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.80
-161,Rang Print Canvas Rang Lux PolyCotton Canvas 380gsm,Rang Lux PolyCotton Canvas 380gsm,54"x100',,1 Roll,4.69,5.70,6.33,6.67,7.98,8.55,9.12,9.69,10.26,11.40
-162,Rang Print Canvas Rang Lux PolyCotton Canvas 380gsm,Rang Lux PolyCotton Canvas 380gsm,60"x100',,1 Roll,4.69,5.70,6.33,6.67,7.98,8.55,9.12,9.69,10.26,11.40
-163,Rang Print Canvas Rang Lux PolyCotton Canvas 390gsm,Rang Lux PolyCotton Canvas 390gsm,54"x100',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-164,Rang Print Canvas Rang Lux PolyCotton Canvas 390gsm,Rang Lux PolyCotton Canvas 390gsm,60"x100',,1 Roll,4.86,5.90,6.56,6.90,8.26,8.85,9.44,10.03,10.62,11.80
-165,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,8.5"x11",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-166,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,8.5"x14",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-167,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,11"x17",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-168,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,12"x18",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-169,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,13"x19",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-170,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,17"x22",,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-171,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,13"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-172,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,14"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-173,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,24"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-174,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,36"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-175,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,44"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-176,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,50"x100',,1 Roll,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
-177,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,8.5"x11",,100 Sheets,2.22,2.70,3.00,3.16,3.78,4.05,4.32,4.59,4.86,5.40
-178,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,8.5"x14",,100 Sheets,2.22,2.70,3.00,3.16,3.78,4.05,4.32,4.59,4.86,5.40
-179,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,11"x17",,100 Sheets,2.22,2.70,3.00,3.16,3.78,4.05,4.32,4.59,4.86,5.40
-180,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,12"x18",,100 Sheets,2.22,2.70,3.00,3.16,3.78,4.05,4.32,4.59,4.86,5.40
-181,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,13"x19",,100 Sheets,2.22,2.70,3.00,3.16,3.78,4.05,4.32,4.59,4.86,5.40
-182,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,8.5"x11",,100 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-183,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,8.5"x14",,100 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-184,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,11"x17",,100 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-185,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,12"x18",,100 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-186,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,13"x19",,100 Sheets,1.98,2.40,2.67,2.81,3.36,3.60,3.84,4.08,4.32,4.80
-187,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,8.5"x15",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-188,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,8.625"x15",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-189,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,10"x15",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-190,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,10"x15.5",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-191,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,11"x18",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-192,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,11"x18.5",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-193,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,12"x18",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-194,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,12"x18.5",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-195,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,12"x19.375",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-196,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,13"x19.375",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-197,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,13"x19.875",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-198,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,13"x21",,100 Sheets,2.59,3.33,3.70,3.90,4.67,5.00,5.33,5.67,6.00,6.67
-199,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,11.85"x328',,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
-200,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,23.65"x328',,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
-201,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,43.3"x328',,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
+1,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,"8.5""x11""",GOSF05-08x11,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.7
+2,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,"11""x17""",GOSF05-11x17,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.7
+3,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,"12""x18""",GOSF05-12x18,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.7
+4,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,"13""x19""",GOSF05-13x19,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.7
+5,Graffiti Polyester Paper Graffiti Polyester Paper 5mil,Graffiti Polyester Paper 5mil,"20.9""x29.5""",GOSF05-21x30,50 Sheets,2.21,2.68,2.98,3.13,3.42,4.28,4.56,4.85,5.13,5.7
+6,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,"8.5""x11""",GOSF08-08x11,50 Sheets,3.11,3.78,4.2,4.42,5.36,5.74,6.12,6.5,6.89,7.65
+7,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,"11""x17""",GOSF08-11x17,50 Sheets,3.11,3.78,4.2,4.42,5.36,5.74,6.12,6.5,6.89,7.65
+8,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,"12""x18""",GOSF08-12x18,50 Sheets,3.11,3.78,4.2,4.42,5.36,5.74,6.12,6.5,6.89,7.65
+9,Graffiti Polyester Paper Graffiti Polyester Paper 8mil,Graffiti Polyester Paper 8mil,"13""x19""",GOSF08-13x19,50 Sheets,3.11,3.78,4.2,4.42,5.36,5.74,6.12,6.5,6.89,7.65
+10,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,"8.5""x11""",GOSF10-08x11,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.3,7.78,8.27,8.76,9.73
+11,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,"11""x17""",GOSF10-11x17,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.3,7.78,8.27,8.76,9.73
+12,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,"12""x18""",GOSF10-12x18,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.3,7.78,8.27,8.76,9.73
+13,Graffiti Polyester Paper Graffiti Polyester Paper 10mil,Graffiti Polyester Paper 10mil,"13""x19""",GOSF10-13x19,50 Sheets,4.32,5.24,5.82,6.13,6.81,7.3,7.78,8.27,8.76,9.73
+14,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"8.5""x11""",GOSF11-08x11,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+15,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"11""x17""",GOSF11-11x17,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+16,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"12""x18""",GOSF11-12x18,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+17,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"13""x19""",GOSF11-13x19,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+18,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"14.33""x20.5""",GOSF11-14x20,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+19,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"14.33""x26""",GOSF11-14x26,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+20,Graffiti Polyester Paper Graffiti Polyester Paper 11mil,Graffiti Polyester Paper 11mil,"20.9""x29.5""",GOSF11-21x30,50 Sheets,4.6,5.58,6.2,6.53,7.81,8.37,8.93,9.49,10.04,11.16
+21,Graffiti Polyester Paper Graffiti BlockOut Polyester 11mil,Graffiti BlockOut Polyester 11mil,"13""x19""",GOBO11-13x19,50 Sheets,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+22,Graffiti Polyester Paper Graffiti BlockOut Polyester 11mil,Graffiti BlockOut Polyester 11mil,"20.9""x29.5""",GOBO11-21x30,50 Sheets,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+23,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,"11""x17""",GOSF14-11x17,25 Sheets,6.14,7.46,8.29,8.73,9.1,9.75,10.4,11.05,11.7,13
+24,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,"12""x18""",GOSF14-12x18,25 Sheets,6.14,7.46,8.29,8.73,9.1,9.75,10.4,11.05,11.7,13
+25,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,"13""x19""",GOSF14-13x19,25 Sheets,6.14,7.46,8.29,8.73,9.1,9.75,10.4,11.05,11.7,13
+26,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,"14.33""x20.5""",GOSF14-14x20,25 Sheets,6.14,7.46,8.29,8.73,9.1,9.75,10.4,11.05,11.7,13
+27,Graffiti Polyester Paper Graffiti Polyester Paper 14mil,Graffiti Polyester Paper 14mil,"14.33""x26""",GOSF14-14x26,25 Sheets,6.14,7.46,8.29,8.73,9.1,9.75,10.4,11.05,11.7,13
+28,Graffiti Polyester Paper Graffiti Metallic Gold 8mil,Graffiti Metallic Gold 8mil,"13""x19""",GMEG08-13x19,50 Sheets,5.76,7,7.78,8.19,9.8,10.5,11.2,11.9,12.6,14
+29,Graffiti Polyester Paper Graffiti Metallic Gold 11mil,Graffiti Metallic Gold 11mil,"13""x19""",GMEG11-13x19,50 Sheets,8.24,10,11.11,11.7,14,15,16,17,18,20
+30,Graffiti Polyester Paper Graffiti Metallic Silver 8mil,Graffiti Metallic Silver 8mil,"13""x19""",GMES08-13x19,50 Sheets,5.76,7,7.78,8.19,9.8,10.5,11.2,11.9,12.6,14
+31,Graffiti Polyester Paper Graffiti Metallic Silver 11mil,Graffiti Metallic Silver 11mil,"13""x19""",GMES11-13X19,50 Sheets,8.24,10,11.11,11.7,14,15,16,17,18,20
+32,Graffiti Polyester Paper Graffiti Metallic Rose 8mil,Graffiti Metallic Rose 8mil,"13""x19""",GMER08-13X19,50 Sheets,6.09,7.4,8.22,8.65,10.36,11.1,11.84,12.58,13.32,14.8
+33,Graffiti Polyester Paper Graffiti Metallic Rose 11mil,Graffiti Metallic Rose 11mil,"13""x19""",GMER11-13X19,50 Sheets,8.24,10,11.11,11.7,14,15,16,17,18,20
+34,Graffiti Polyester Paper Graffiti Metallic Mirror 8mil,Graffiti Metallic Mirror 8mil,"13""x19""",GMEM08-13X19,50 Sheets,5.44,6.6,7.33,7.72,9.24,9.9,10.56,11.22,11.88,13.2
+35,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,"13""x19""",GBAC08-13X19,50 Sheets,3.62,4.4,4.89,5.15,6.16,6.6,7.04,7.48,7.92,8.8
+36,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,"12""x18""",GBAC08-12X18,50 Sheets,3.62,4.4,4.89,5.15,6.16,6.6,7.04,7.48,7.92,8.8
+37,Graffiti Polyester Paper Graffiti Backlit Film 8mil,Graffiti Backlit Film 8mil,"14.33""x20.5""",GBAC08-14X20,50 Sheets,3.62,4.4,4.89,5.15,6.16,6.6,7.04,7.48,7.92,8.8
+38,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,"8.5""x11""",SFLFS04-08X11,100 Sheets,1.65,2,2.22,2.34,2.8,3,3.2,3.4,3.6,4
+39,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,"11""x17""",SFLFS04-11X17,100 Sheets,1.65,2,2.22,2.34,2.8,3,3.2,3.4,3.6,4
+40,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,"12""x18""",SFLFS04-12X18,100 Sheets,1.65,2,2.22,2.34,2.8,3,3.2,3.4,3.6,4
+41,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,"13""x19""",SFLFS04-13X19,100 Sheets,1.65,2,2.22,2.34,2.8,3,3.2,3.4,3.6,4
+42,Graffiti Polyester Paper Graffiti Frosted Film 4mil,Graffiti Frosted Film 4mil,"8.5""x14""",SFLFS04-08X14,100 Sheets,1.65,2,2.22,2.34,2.8,3,3.2,3.4,3.6,4
+43,Graffiti Polyester Paper Graffiti Frosted Film 11mil,Graffiti Frosted Film 11mil,"13""x19""",GFRO11-13X19,50 Sheets,3.95,4.8,5.33,5.61,6.72,7.2,7.68,8.16,8.64,9.6
+44,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,"13""x19""",SFLCS04-13X19,100 Sheets,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+45,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,"8.5""x14""",SFLCS04-08X14,100 Sheets,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+46,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,"11""x17""",SFLCS04-11X17,100 Sheets,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+47,Graffiti Polyester Paper Graffiti Clear Film - 4mil,Graffiti Clear Film - 4mil,"12""x18""",SFLCS04-12X18,100 Sheets,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+48,Graffiti Polyester Paper Graffiti Clear Film 10mil,Graffiti Clear Film 10mil,"13""x19""",GCLE10-13X19,50 Sheets,3.95,4.8,5.33,5.61,6.72,7.2,7.68,8.16,8.64,9.6
+49,Graffiti Polyester Paper Graffiti Clear Film 10mil,Graffiti Clear Film 10mil,"12""x18""",GCLE10-12X18,50 Sheets,3.95,4.8,5.33,5.61,6.72,7.2,7.68,8.16,8.64,9.6
+50,Graffiti Polyester Paper Graffiti AuraBoard - Silver,Graffiti AuraBoard - Silver,"13""x19""",GAURA301-13X19,100 Sheets,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+51,Graffiti Polyester Paper Graffiti AuraBoard - Holographics,Graffiti AuraBoard - Holographics,"13""x19""",GAURA301-13X19,100 Sheets,6.92,8.4,9.33,9.82,11.76,12.6,13.44,14.28,15.12,16.8
+52,Graffiti Polyester Paper DIGITAL FABRICS - 12 Oz,DIGITAL FABRICS - 12 Oz,"13""x19""",GCAN12-13X19,200 Sheets,6.59,8,8.89,9.36,11.2,12,12.8,13.6,14.4,16
+53,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,"12""x18""",GPOLY081218B,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+54,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,"13""x19""",GPOLY081319B,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+55,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,"20.9""x29.5""",GPOLY082130B,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+56,Graffiti Blended Poly Graffiti Blended Poly 8mil,Graffiti Blended Poly 8mil,"28""x40""",GPOLY082840B,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+57,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,"12""x18""",GPOLY111218B,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+58,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,"13""x19""",GPOLY111319B,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+59,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,"20.9""x29.5""",GPOLY112130B,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+60,Graffiti Blended Poly Graffiti Blended Poly 11mil,Graffiti Blended Poly 11mil,"28""x40""",GPOLY112840B,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+61,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,"12""x18""",GPOLY141218B,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+62,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,"13""x19""",GPOLY141319B,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+63,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,"20.9""x29.5""",GPOLY142130B,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+64,Graffiti Blended Poly Graffiti Blended Poly 14mil,Graffiti Blended Poly 14mil,"28""x40""",GPOLY142840B,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+65,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,"12""x18""",GPOLY081218M,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+66,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,"13""x19""",GPOLY081319M,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+67,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,"20.9""x29.5""",GPOLY082130M,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+68,Graffiti Blended Poly Graffiti SOFT Poly 8mil,Graffiti SOFT Poly 8mil,"28""x40""",GPOLY082840M,500 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+69,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,"12""x18""",GPOLY111218M,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+70,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,"13""x19""",GPOLY111319M,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+71,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,"20.9""x29.5""",GPOLY112130M,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+72,Graffiti Blended Poly Graffiti SOFT Poly 11mil,Graffiti SOFT Poly 11mil,"28""x40""",GPOLY112840M,500 Sheets,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+73,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,"12""x18""",GPOLY141218M,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+74,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,"13""x19""",GPOLY141319M,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+75,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,"20.9""x29.5""",GPOLY142130M,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+76,Graffiti Blended Poly Graffiti SOFT Poly 14mil,Graffiti SOFT Poly 14mil,"28""x40""",GPOLY142840M,400 Sheets,3.13,3.8,4.22,4.44,5.32,5.7,6.08,6.46,6.84,7.6
+77,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil - No Slits,"8.5""x11""",GSCOL040811W,100 Sheets,1.56,1.9,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.8
+78,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil - No Slits,"12x18""",GSCOL041218W,100 Sheets,1.56,1.9,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.8
+79,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil - Slits,"12x18""",GSCOL041218S,100 Sheets,1.56,1.9,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.8
+80,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil - No Slits,"13x19""",GSCOL041319W,100 Sheets,1.56,1.9,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.8
+81,GraffitiSTICK Graffiti COOLStick - 4mil,Graffiti COOLStick - 4mil,"20.9""x29.5""",GSCLR042130C,100 Sheets,1.56,1.9,2.11,2.22,2.66,2.85,3.04,3.23,3.42,3.8
+82,GraffitiSTICK Graffiti CLEARStick - 4mil,Graffiti CLEARStick - 4mil,"13""x19""",GSCLR041319C,100 Sheets,2.39,2.9,3.22,3.39,4.06,4.35,4.64,4.93,5.22,5.8
+83,GraffitiSTICK Graffiti SILVERStick - 4mil,Graffiti SILVERStick - 4mil,"13""x19""",GSSILS041319S,100 Sheets,2.31,2.8,3.11,3.27,3.92,4.2,4.48,4.76,5.04,5.6
+84,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil - Slits,"12x18""",GSPAP041218S,100 Sheets,1.32,1.6,1.78,1.87,2.24,2.4,2.56,2.72,2.88,3.2
+85,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil - No Slits,"13x19""",GSPAP041319W,100 Sheets,1.32,1.6,1.78,1.87,2.24,2.4,2.56,2.72,2.88,3.2
+86,GraffitiSTICK Graffiti PAPERStick - 4mil,Graffiti PAPERStick - 4mil,"20.9""x29.5""",GSPAP042130S,100 Sheets,1.32,1.6,1.78,1.87,2.24,2.4,2.56,2.72,2.88,3.2
+87,GraffitiSTICK Graffiti MAGNETICS - 16mil,Graffiti MAGNETICS - 16mil,"13""x19""",GSMAG1613x19L,100 Sheets,9.77,11.86,13.18,13.87,16.6,17.79,18.98,20.16,21.35,23.72
+88,GraffitiSTICK Graffiti DURAStick - 6mil,Graffiti DURAStick - 6mil,"13""x19""",GSDUR061319W2,200 Sheets,2.47,3,3.33,3.51,4.2,4.5,4.8,5.1,5.4,6
+89,GraffitiSTICK Graffiti SlickStick Clear - 6mil,Graffiti SlickStick Clear - 6mil,"13""x19""",GSSLI061319C,100 Sheets,8.21,9.96,11.07,11.65,13.95,14.95,15.94,16.94,17.94,19.93
+90,GraffitiSTICK Graffiti SlickStick White - 6mil,Graffiti SlickStick White - 6mil,"13""x19""",GSSLI061319W,100 Sheets,8.21,9.96,11.07,11.65,13.95,14.95,15.94,16.94,17.94,19.93
+91,SolviT Sign & Display Media Solvit One Way Vision Film 7mil,Solvit One Way Vision Film 7mil - 60:40,"54""x100'",SOWVB645410S,1 Roll,3.62,4.4,4.89,5.15,6.16,6.6,7.04,7.48,7.92,8.8
+92,SolviT Sign & Display Media Solvit One Way Vision Film 7mil,Solvit One Way Vision Film 7mil - 60:40,"60""x100'",SOWVB646010S,1 Roll,3.62,4.4,4.89,5.15,6.16,6.6,7.04,7.48,7.92,8.8
+93,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,"38""x100'",SPETG083810L,1 Roll,3.21,3.9,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.8
+94,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,"38""x165'",SPETG083816L,1 Roll,3.21,3.9,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.8
+95,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 8mil,Solvit Polyester (Grey Back) Banner 8mil,"54""x100'",SPETG085410L,1 Roll,3.21,3.9,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.8
+96,SolviT Sign & Display Media Solvit Polyester (White Back) Banner 8mil,Solvit Polyester (White Back) Banner 8mil,"38""x100'",SPETW083810M,1 Roll,3.05,3.7,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.4
+97,SolviT Sign & Display Media Solvit Polyester (Grey Back) Banner 10mil,Solvit Polyester (Grey Back) Banner 10mil,"38""x100'",SPETG103810L,1 Roll,4.04,4.9,5.44,5.73,6.86,7.35,7.84,8.33,8.82,9.8
+98,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840) - Gloss,"38""x150'",SPVC8133815G,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
+99,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840) - Gloss,"54""x150'",SPVC8135415G,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
+100,SolviT Sign & Display Media Solvit PVC Banner 13 Oz (840x840),Solvit PVC Banner 13 Oz (840x840) - Gloss,"63""x140'",SPVC8136314G,1 Roll,1.37,1.66,1.84,1.94,2.32,2.49,2.66,2.82,2.99,3.32
+101,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,"50""x150'",SPOP1755015S,1 Roll,1.07,1.3,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.6
+102,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,"54""x150'",SPOP1755415S,1 Roll,1.07,1.3,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.6
+103,SolviT Sign & Display Media Solvit Poster Paper 175gsm,Solvit Poster Paper 175gsm,"60""x150'",SPOP1756015S,1 Roll,1.07,1.3,1.44,1.52,1.82,1.95,2.08,2.21,2.34,2.6
+104,SolviT Sign & Display Media Solvit Backlit Film 8mil,Solvit Backlit Film 8mil,"54""x100'",SBACW085410M,1 Roll,2.96,3.6,4,4.21,5.04,5.4,5.76,6.12,6.48,7.2
+105,SolviT Sign & Display Media Solvit Backlit Film 8mil,Solvit Backlit Film 8mil,"60""x100'",SBACW086010M,1 Roll,2.96,3.6,4,4.21,5.04,5.4,5.76,6.12,6.48,7.2
+106,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 4mil (Greyback),Solvit Self Adhesive Vinyl - 4mil - Gloss,"54""x150'",SSAVG045415G,1 Roll,1.32,1.6,1.78,1.87,2.24,2.4,2.56,2.72,2.88,3.2
+107,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 4mil (Greyback),Solvit Self Adhesive Vinyl - 4mil - Gloss,"60""x150'",SSAVG046015G,1 Roll,1.32,1.6,1.78,1.87,2.24,2.4,2.56,2.72,2.88,3.2
+108,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 6mil (white Back),Solvit Self Adhesive Vinyl - 6mil - Gloss,"54""x100'",SSAVW065410G,1 Roll,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+109,SolviT Sign & Display Media Solvit Self Adhesive Vinyl - 6mil (white Back),Solvit Self Adhesive Vinyl - 6mil - Gloss,"60""x100'",SSAVW066010G,1 Roll,2.64,3.2,3.56,3.74,4.48,4.8,5.12,5.44,5.76,6.4
+110,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,"38""x100'",SPOLY11-3810M,1 Roll,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+111,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,"54""x150'",SPOLY11-5415M,1 Roll,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+112,SolviT Sign & Display Media Solvit PolySign 11mil,Solvit PolySign 11mil,"60""x150'",SPOLY11-6015M,1 Roll,1.81,2.2,2.44,2.57,3.08,3.3,3.52,3.74,3.96,4.4
+113,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,"38""x100'",SPOLY17-3810M,1 Roll,2.8,3.4,3.78,3.98,4.76,5.1,5.44,5.78,6.12,6.8
+114,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,"54""x100'",SPOLY17-5410M,1 Roll,2.8,3.4,3.78,3.98,4.76,5.1,5.44,5.78,6.12,6.8
+115,SolviT Sign & Display Media Solvit PolySign 17mil,Solvit PolySign 17mil,"60""x100'",SPOLY17-6010M,1 Roll,2.8,3.4,3.78,3.98,4.76,5.1,5.44,5.78,6.12,6.8
+116,SolviT Sign & Display Media Solvit SlickStick 5mil Polyester,Solvit SlickStick 5mil Polyester,"54""x100'",SSLIS05-54x100W,1 Roll,5.93,7.2,8,8.42,10.08,10.8,11.52,12.24,12.96,14.4
+117,CliQ Aqueous Media CliQ Cold Press Paper 300gsm,CliQ Cold Press Paper 300gsm,"44""x60'",CCLP3004460T,1 Roll,11.32,13.74,15.27,16.08,19.24,20.62,21.99,23.37,24.74,27.49
+118,CliQ Aqueous Media CliQ Cold Press Paper 300gsm,CliQ Cold Press Paper 300gsm,"44""x40'",CCLP3004440T,1 Roll,11.32,13.74,15.27,16.08,19.24,20.62,21.99,23.37,24.74,27.49
+119,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,"24""x40'",CHOT2702440M,1 Roll,15.14,18.38,20.43,21.5,25.74,27.57,29.41,31.25,33.09,36.77
+120,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,"36""x40'",CHOT2703640M,1 Roll,15.14,18.38,20.43,21.5,25.74,27.57,29.41,31.25,33.09,36.77
+121,CliQ Aqueous Media CliQ Hot Press Paper 270gsm,CliQ Hot Press Paper 270gsm,"44""x40'",CHOT2704440M,1 Roll,15.14,18.38,20.43,21.5,25.74,27.57,29.41,31.25,33.09,36.77
+122,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,"24""x40'",CCOT3002440T,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
+123,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,"36""x40'",CCOT3003640T,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
+124,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,"44""x40'",CCOT3004440T,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
+125,CliQ Aqueous Media CliQ Cotton Rag Paper 300gsm,CliQ Cotton Rag Paper 300gsm,"44""x60'",CCOT3004460T,1 Roll,12.59,15.29,16.99,17.88,21.41,22.94,24.46,25.99,27.52,30.58
+126,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,"24""x100'",CMAT2302410M,1 Roll,3.11,3.78,4.2,4.42,5.29,5.67,6.05,6.43,6.8,7.56
+127,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,"36""x100'",CMAT2303610M,1 Roll,3.11,3.78,4.2,4.42,5.29,5.67,6.05,6.43,6.8,7.56
+128,CliQ Aqueous Media CliQ Inkjet Matte Paper 230gsm,CliQ Inkjet Matte Paper 230gsm,"44""x100'",CMAT2304410M,1 Roll,3.11,3.78,4.2,4.42,5.29,5.67,6.05,6.43,6.8,7.56
+129,CliQ Aqueous Media CliQ PETBull 7mil,CliQ PETBull 7mil - Gloss,"36""x100'",CPET0073610G,1 Roll,3.05,3.7,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.4
+130,CliQ Aqueous Media CliQ PETBull 7mil,CliQ PETBull 7mil - Gloss,"44""x100'",CPET0074410G,1 Roll,3.05,3.7,4.11,4.33,5.18,5.55,5.92,6.29,6.66,7.4
+131,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil - Gloss,"24""x100'",CRCP2422410G,1 Roll,2.77,3.36,3.73,3.93,4.7,5.04,5.38,5.71,6.05,6.72
+132,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil - Gloss,"36""x100'",CRCP2423610G,1 Roll,2.77,3.36,3.73,3.93,4.7,5.04,5.38,5.71,6.05,6.72
+133,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil - Gloss,"44""x100'",CRCP2424410G,1 Roll,2.77,3.36,3.73,3.93,4.7,5.04,5.38,5.71,6.05,6.72
+134,CliQ Aqueous Media CliQ Photo Paper 10.4mil,CliQ Photo Paper 10.4mil - Gloss,"60""x100'",CRCP2426010G,1 Roll,2.77,3.36,3.73,3.93,4.7,5.04,5.38,5.71,6.05,6.72
+144,CliQ Aqueous Media CliQ Self Adhesive Vinyl - 5mil (PVC),CliQ Self Adhesive Vinyl - 5mil (PVC),"36""x60'",CSAV053660M,1 Roll,6.34,7.7,8.56,9.01,10.78,11.55,12.32,13.09,13.86,15.4
+145,CliQ Aqueous Media CliQ Self Adhesive Vinyl - 5mil (PVC),CliQ Self Adhesive Vinyl - 5mil (PVC),"42""x60'",CSAV054260M,1 Roll,6.34,7.7,8.56,9.01,10.78,11.55,12.32,13.09,13.86,15.4
+146,CliQ Aqueous Media CliQ SlickStick 10.4mil,CliQ SlickStick 10.4mil,"13""x19""",CSLS2421319S,,7.78,9.45,10.5,11.05,13.23,14.17,15.12,16.06,17.01,18.9
+147,Rang Print Canvas Rang DL Polyester Canvas 280gsm,Rang DL Polyester Canvas 280gsm,"36""x100'",RDLX2803610M,1 Roll,2.57,3.12,3.47,3.65,4.37,4.68,4.99,5.3,5.62,6.24
+148,Rang Print Canvas Rang DL Polyester Canvas 280gsm,Rang DL Polyester Canvas 280gsm,"44""x100'",RDLX2804410M,1 Roll,2.57,3.12,3.47,3.65,4.37,4.68,4.99,5.3,5.62,6.24
+149,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"17""x40'",RDUO4001740M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+150,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"24""x40'",RDUO4002440M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+151,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"36""x60'",RDUO4003660M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+152,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"44""x60'",RDUO4004460M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+153,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"44""x75'",RDUO4004475M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+154,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"60""x60'",RDUO4006060M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+155,Rang Print Canvas Rang Duo PolyCotton Canvas 400gsm,Rang Duo PolyCotton Canvas 400gsm,"60""x75'",RDUO4006075M,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+156,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,"24""x60'",RDUO4202460S,1 Roll,7.66,9.3,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.6
+157,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,"36""x60'",RDUO4203660S,1 Roll,7.66,9.3,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.6
+158,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,"44""x60'",RDUO4204460S,1 Roll,7.66,9.3,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.6
+159,Rang Print Canvas Rang Duo PolyCotton Canvas 420gsm,Rang Duo PolyCotton Canvas 420gsm,"60""x60'",RDUO4206060S,1 Roll,7.66,9.3,10.33,10.88,13.02,13.95,14.88,15.81,16.74,18.6
+160,Rang Print Canvas Rang Lux PolyCotton Canvas 345gsm,Rang Lux PolyCotton Canvas 345gsm,"63""x100'",RLUX3456310S,1 Roll,3.21,3.9,4.33,4.56,5.46,5.85,6.24,6.63,7.02,7.8
+161,Rang Print Canvas Rang Lux PolyCotton Canvas 380gsm,Rang Lux PolyCotton Canvas 380gsm,"54""x100'",RLUX3805410M,1 Roll,4.69,5.7,6.33,6.67,7.98,8.55,9.12,9.69,10.26,11.4
+162,Rang Print Canvas Rang Lux PolyCotton Canvas 380gsm,Rang Lux PolyCotton Canvas 380gsm,"60""x100'",RLUX3806010M,1 Roll,4.69,5.7,6.33,6.67,7.98,8.55,9.12,9.69,10.26,11.4
+163,Rang Print Canvas Rang Lux PolyCotton Canvas 390gsm,Rang Lux PolyCotton Canvas 390gsm,"54""x100'",RLUX3905410G,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+164,Rang Print Canvas Rang Lux PolyCotton Canvas 390gsm,Rang Lux PolyCotton Canvas 390gsm,"60""x100'",RLUX3906010G,1 Roll,4.86,5.9,6.56,6.9,8.26,8.85,9.44,10.03,10.62,11.8
+165,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,"8.5""x11""",SWPUVSH0811G,100 Sheets,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+166,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,"8.5""x14""",SWPUVSH0814G,100 Sheets,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+167,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,"11""x17""",SWPUVSH1117G,100 Sheets,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+169,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,"13""x19""",SWPUVSH1319G,100 Sheets,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+170,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,"17""x22""",SWPUVSH1722G,100 Sheets,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+171,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","13""x100'",SWPUV2R1310G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+172,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","14""x100'",SWPUV2R1410G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+173,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","24""x100'",SWPUV2R2410G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+174,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","36""x100'",SWPUV2R3610G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+175,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","44""x100'",SWPUV2R4410G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+176,Screen Printing Positives EiE Inkjet Waterproof Film,"EiE Inkjet Waterproof Film - 2"" Core","50""x100'",SWPUV2R5010G,1 Roll,2.06,2.5,2.78,2.92,3.5,3.75,4,4.25,4.5,5
+177,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,"8.5""x11""",SFLFS040811F,100 Sheets,2.22,2.7,3,3.16,3.78,4.05,4.32,4.59,4.86,5.4
+178,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,"8.5""x14""",SFLFS040814F,100 Sheets,2.22,2.7,3,3.16,3.78,4.05,4.32,4.59,4.86,5.4
+179,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,"11""x17""",SFLFS041117F,100 Sheets,2.22,2.7,3,3.16,3.78,4.05,4.32,4.59,4.86,5.4
+180,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,"12""x18""",SFLFS041218F,100 Sheets,2.22,2.7,3,3.16,3.78,4.05,4.32,4.59,4.86,5.4
+181,Screen Printing Positives eLe Frosted Laser Film,eLe Frosted Laser Film,"13""x19""",SFLFS041319F,100 Sheets,2.22,2.7,3,3.16,3.78,4.05,4.32,4.59,4.86,5.4
+182,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,"8.5""x11""",SFLCS040811C,100 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+183,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,"8.5""x14""",SFLCS040814C,100 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+184,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,"11""x17""",SFLCS041117C,100 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+185,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,"12""x18""",SFLCS041218C,100 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+186,Screen Printing Positives eLe Clear Laser Film,eLe Clear Laser Film,"13""x19""",SFLCS041319C,100 Sheets,1.98,2.4,2.67,2.81,3.36,3.6,3.84,4.08,4.32,4.8
+187,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"8.5""x15""",OMXP-216x381,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+188,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"8.625""x15""",OMXP-219x381,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+189,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"10""x15""",OMXP-254x381,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+190,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"10""x15.5""",OMXP-254x394,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+191,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"11""x18""",OMXP-279x457,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+192,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"11""x18.5""",OMXP-279x470,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+193,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"12""x18""",OMXP-305x457,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+194,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"12""x18.5""",OMXP-305x470,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+195,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"12""x19.375""",OMXP-305x492,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+196,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"13""x19.375""",OMXP-330x492,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+197,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"13""x19.875""",OMXP-330x505,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+198,Offset Printing Plates eLe Polyester Laser Plate MXP,eLe Polyester Laser Plate MXP,"13""x21""",OMXP-330x533,100 Sheets,2.59,3.33,3.7,3.9,4.67,5,5.33,5.67,6,6.67
+199,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,"11.85""x328'",SDTFR0312328,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
+200,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,"23.65""x328'",SDTFR0324328,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
+201,DTF Films CoHo DTF Films for Fabrics,CoHo DTF Films for Fabrics,"43.3""x328'",SDTFR0344328,1 Roll,1.19,1.26,0,0,1.77,1.89,2.02,2.14,2.27,2.52
+135,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,"24x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00",,,,,,,,,,,,
+136,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,"36x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00",,,,,,,,,,,,
+137,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,"44x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00",,,,,,,,,,,,
+138,CliQ Aqueous Media CliQ Photo Paper 11.2 mil,CliQ Photo Paper 11.2 mil,"60x100',,1 Roll,2.88,3.50,3.89,4.09,4.90,5.25,5.60,5.95,6.30,7.00",,,,,,,,,,,,
+139,CliQ Aqueous Media CliQ Banner Media - 15mil,CliQ Banner Media - 15mil,"36x50',,1 Roll,8.49,10.31,11.45,12.06,14.43,15.46,16.49,17.52,18.55,20.62",,,,,,,,,,,,
+140,CliQ Aqueous Media CliQ Inkjet Matte Paper 170gsm,CliQ Inkjet Matte Paper 170gsm,8.5x11,,,1.98,2.41,2.67,2.81,3.37,3.61,3.85,4.09,4.33,4.81
+141,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,"24x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40",,,,,,,,,,,,
+142,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,"36x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40",,,,,,,,,,,,
+143,CliQ Aqueous Media CliQ Photo Paper 8.4mil,CliQ Photo Paper 8.4mil,"44x100',,1 Roll,2.64,3.20,3.56,3.74,4.48,4.80,5.12,5.44,5.76,6.40",,,,,,,,,,,,
+168,Screen Printing Positives EiE Inkjet Waterproof Film,EiE Inkjet Waterproof Film,12x18,,100 Sheets,2.06,2.50,2.78,2.92,3.50,3.75,4.00,4.25,4.50,5.00
