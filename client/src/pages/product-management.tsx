@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Package, Edit, Save, X, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Package, Edit, Save, X, Plus, Trash2, Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -100,10 +100,13 @@ export default function ProductManagement() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = (user as any)?.role === "admin";
 
   // Fetch all data
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -130,23 +133,23 @@ export default function ProductManagement() {
 
   // Get filtered data based on selected category
   const categoryTypes = selectedCategory && selectedCategory !== "all"
-    ? types.filter((type: ProductType) => type.categoryId === parseInt(selectedCategory))
-    : types;
+    ? (types as ProductType[]).filter((type: ProductType) => type.categoryId === parseInt(selectedCategory))
+    : (types as ProductType[]);
 
   const categoryTypeIds = categoryTypes.map((type: ProductType) => type.id);
-  const categorySizes = sizes.filter((size: ProductSize) => 
+  const categorySizes = (sizes as ProductSize[]).filter((size: ProductSize) => 
     categoryTypeIds.includes(size.typeId)
   );
 
   const selectedCategoryData = selectedCategory && selectedCategory !== "all" 
-    ? categories.find((c: ProductCategory) => c.id === parseInt(selectedCategory))
+    ? (categories as ProductCategory[]).find((c: ProductCategory) => c.id === parseInt(selectedCategory))
     : null;
 
   // Build product data for table display
   const productData = categorySizes.map((size: ProductSize) => {
-    const type = types.find((t: ProductType) => t.id === size.typeId);
-    const category = categories.find((c: ProductCategory) => c.id === type?.categoryId);
-    const sizePricing = pricing.filter((p: ProductPricing) => p.productTypeId === size.typeId);
+    const type = (types as ProductType[]).find((t: ProductType) => t.id === size.typeId);
+    const category = (categories as ProductCategory[]).find((c: ProductCategory) => c.id === type?.categoryId);
+    const sizePricing = (pricing as ProductPricing[]).filter((p: ProductPricing) => p.productTypeId === size.typeId);
     
     return {
       id: `${size.id}`,
@@ -205,6 +208,81 @@ export default function ProductManagement() {
 
   const handleUpload = () => {
     setShowUploadDialog(true);
+    setSelectedFile(null);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        setSelectedFile(file);
+      } else {
+        toast({
+          title: "Invalid File Type",
+          description: "Please select a CSV file (.csv)",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a CSV file to upload",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/admin/upload-product-data', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      // Show success message with details
+      toast({
+        title: "Upload Successful",
+        description: result.message || "Product data uploaded successfully",
+      });
+
+      // Refresh all data
+      queryClient.invalidateQueries({ queryKey: ["/api/product-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-types"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sizes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pricing-tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-pricing"] });
+
+      // Close dialog and reset
+      setShowUploadDialog(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const getPriceForTier = (productPricing: ProductPricing[], tierId: number) => {
@@ -267,7 +345,7 @@ export default function ProductManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map((category: ProductCategory) => (
+                    {(categories as ProductCategory[]).map((category: ProductCategory) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {applyBrandFonts(category.name)}
                       </SelectItem>
@@ -321,7 +399,7 @@ export default function ProductManagement() {
                       <TableHead className="w-24">Sq Meters</TableHead>
                       <TableHead className="w-24">Item Code</TableHead>
                       <TableHead className="w-24">Min Qty</TableHead>
-                      {tiers.map((tier: PricingTier) => (
+                      {(tiers as PricingTier[]).map((tier: PricingTier) => (
                         <TableHead key={tier.id} className="w-24">
                           {tier.name}
                         </TableHead>
@@ -429,7 +507,7 @@ export default function ProductManagement() {
                             product.minOrderQty
                           )}
                         </TableCell>
-                        {tiers.map((tier: PricingTier) => (
+                        {(tiers as PricingTier[]).map((tier: PricingTier) => (
                           <TableCell key={tier.id} className="text-center">
                             {getPriceForTier(product.pricing, tier.id)}
                           </TableCell>
@@ -445,30 +523,85 @@ export default function ProductManagement() {
 
         {/* Upload Dialog */}
         <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Upload Product Data</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload Product Data
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="text-sm text-gray-600">
                 <p>Upload a CSV file to update the product catalog.</p>
-                <p className="mt-2">The file should contain columns for product information including categories, types, sizes, and pricing.</p>
+                <p className="mt-2">
+                  <strong>File Requirements:</strong>
+                </p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>CSV format (.csv files only)</li>
+                  <li>ProductID column for matching existing products</li>
+                  <li>Supports adding new products and updating existing ones</li>
+                  <li>Handles quoted fields properly (e.g., "12""x18"")</li>
+                </ul>
               </div>
-              <div className="flex gap-2">
+
+              {/* File Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select CSV File</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="csv-upload"
+                  />
+                  <label
+                    htmlFor="csv-upload"
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Choose File
+                  </label>
+                  {selectedFile && (
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {Math.round(selectedFile.size / 1024)} KB
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => setShowUploadDialog(false)}
+                  onClick={() => {
+                    setShowUploadDialog(false);
+                    setSelectedFile(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
+                  disabled={isUploading}
                 >
                   Cancel
                 </Button>
-                <Button onClick={() => {
-                  toast({
-                    title: "Feature Coming Soon",
-                    description: "File upload functionality will be implemented soon.",
-                  });
-                  setShowUploadDialog(false);
-                }}>
-                  Upload File
+                <Button
+                  onClick={handleFileUpload}
+                  disabled={!selectedFile || isUploading}
+                  className="flex items-center gap-2"
+                >
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {isUploading ? "Uploading..." : "Upload File"}
                 </Button>
               </div>
             </div>
