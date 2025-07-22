@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Price Management</title>
+</head>
+<body>
+  <h1>Debug Price Management</h1>
+  <script>
+    // Test the API endpoints
+    async function testAPIs() {
+      console.log('Testing authentication...');
+      try {
+        const authResponse = await fetch('/api/auth/user');
+        const authData = await authResponse.json();
+        console.log('Auth data:', authData);
+        
+        console.log('Testing pricing data...');
+        const pricingResponse = await fetch('/api/pricing-data');
+        const pricingData = await pricingResponse.json();
+        console.log('Pricing data:', pricingData.slice(0, 3)); // Show first 3 items
+        
+        console.log('Testing product types...');
+        const typesResponse = await fetch('/api/product-types-all');
+        const typesData = await typesResponse.json();
+        console.log('Product types:', typesData.slice(0, 3)); // Show first 3 items
+        
+        console.log('Testing pricing tiers...');
+        const tiersResponse = await fetch('/api/pricing-tiers');
+        const tiersData = await tiersResponse.json();
+        console.log('Pricing tiers:', tiersData.slice(0, 3)); // Show first 3 items
+        
+        document.body.innerHTML += '<p>All APIs working! Check console for details.</p>';
+      } catch (error) {
+        console.error('API test error:', error);
+        document.body.innerHTML += '<p style="color: red;">API error: ' + error.message + '</p>';
+      }
+    }
+    
+    testAPIs();
+  </script>
+</body>
+</html>

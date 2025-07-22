@@ -14,6 +14,7 @@ import PriceList from "@/pages/price-list";
 import CustomerManagement from "@/pages/customer-management";
 import ProductManagement from "@/pages/product-management";
 import PriceManagement from "@/pages/price-management";
+import PriceManagementSimple from "@/pages/price-management-simple";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
 import Dashboard from "@/pages/dashboard";
@@ -49,7 +50,7 @@ function Router() {
   console.log("Showing dashboard - isAuthenticated:", isAuthenticated, "user:", user);
 
   // Handle pending users
-  if (user?.status === "pending") {
+  if ((user as any)?.status === "pending") {
     return (
       <Switch>
         <Route path="/" component={() => (
@@ -122,6 +123,7 @@ function Router() {
         <Route path="/customer-management" component={CustomerManagement} />
         <Route path="/product-management" component={ProductManagement} />
         <Route path="/price-management" component={PriceManagement} />
+        <Route path="/price-management-simple" component={PriceManagementSimple} />
         <Route path="/shipping-calculator" component={ShippingCalculator} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

@@ -37,6 +37,7 @@ type SortField = 'categoryName' | 'productTypeName' | 'tierName' | 'pricePerSqua
 type SortDirection = 'asc' | 'desc';
 
 export default function PriceManagement() {
+  console.log("PriceManagement component rendering...");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -147,8 +148,10 @@ export default function PriceManagement() {
     }
   };
 
-  // Get unique categories for filtering
+  // Get unique categories for filtering  
   const uniqueCategories = Array.from(new Set(pricingData.map(item => item.categoryName).filter(Boolean))).sort();
+  
+  console.log("uniqueCategories:", uniqueCategories);
 
   // Filter and sort pricing data
   const filteredAndSortedData = pricingData
@@ -204,6 +207,17 @@ export default function PriceManagement() {
     setFilters({ category: '', tier: '' });
     setSearchTerm('');
   };
+
+  console.log("About to render PriceManagement component with data:", { 
+    pricingDataCount: pricingData.length, 
+    uniqueCategoriesCount: uniqueCategories.length,
+    pricingLoading,
+    pricingError: pricingError?.message
+  });
+
+  if (pricingError) {
+    console.error("Pricing error details:", pricingError);
+  }
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
