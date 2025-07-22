@@ -90,6 +90,20 @@ interface ProductPricing {
   pricePerSquareMeter: string;
 }
 
+interface FileUpload {
+  id: number;
+  fileName: string;
+  originalFileName: string;
+  fileType: string;
+  fileSize: number;
+  uploadedBy: string;
+  uploadedAt: Date;
+  recordsProcessed: number;
+  recordsAdded: number;
+  recordsUpdated: number;
+  isActive: boolean;
+}
+
 interface EditingCell {
   rowId: string;
   field: string;
@@ -127,6 +141,12 @@ export default function ProductManagement() {
 
   const { data: pricing = [], isLoading: pricingLoading } = useQuery({
     queryKey: ["/api/product-pricing"],
+  });
+
+  // Fetch file upload information
+  const { data: fileUploadData, refetch: refetchFileData } = useQuery<FileUpload | null>({
+    queryKey: ["/api/file-uploads/product_data"],
+    staleTime: 30000
   });
 
   const isLoading = categoriesLoading || typesLoading || sizesLoading || tiersLoading || pricingLoading;
@@ -265,6 +285,9 @@ export default function ProductManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/product-sizes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/pricing-tiers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/product-pricing"] });
+      
+      // Refresh file upload data
+      refetchFileData();
 
       // Close dialog and reset
       setShowUploadDialog(false);
@@ -380,13 +403,23 @@ export default function ProductManagement() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">Active File</Badge>
-                  <span className="font-medium">PricePAL_All_Product_Data.csv</span>
+                  <span className="font-medium">
+                    {fileUploadData?.fileName || "PricePAL_All_Product_Data.csv"}
+                  </span>
                 </div>
                 <div className="text-sm text-gray-600">
-                  Last updated: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+                  Last updated: {fileUploadData?.uploadedAt 
+                    ? new Date(fileUploadData.uploadedAt).toLocaleDateString() + " at " + new Date(fileUploadData.uploadedAt).toLocaleTimeString()
+                    : "Default data loaded"}
                 </div>
                 <div className="text-sm text-gray-600">
                   Total products loaded: {productData.length}
+                  {fileUploadData?.recordsAdded && (
+                    <span className="ml-2">• Added: {fileUploadData.recordsAdded}</span>
+                  )}
+                  {fileUploadData?.recordsUpdated && (
+                    <span className="ml-2">• Updated: {fileUploadData.recordsUpdated}</span>
+                  )}
                 </div>
               </div>
               <div className="text-right text-sm text-gray-500">

@@ -621,6 +621,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // File Upload Tracking routes
+  app.get("/api/file-uploads/:fileType", async (req, res) => {
+    try {
+      const fileType = req.params.fileType;
+      const activeFile = await storage.getActiveFileUpload(fileType);
+      res.json(activeFile);
+    } catch (error) {
+      console.error("Error fetching file upload data:", error);
+      res.status(500).json({ error: "Failed to fetch file upload data" });
+    }
+  });
+
   // Upload product data file
   app.post("/api/admin/upload-product-data", upload.single('file'), async (req, res) => {
     try {
