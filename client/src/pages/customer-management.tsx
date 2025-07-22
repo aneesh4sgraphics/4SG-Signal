@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, Users, Plus, Search, Edit, Trash2, Mail, Phone, MapPin, Building, Tag } from "lucide-react";
+import { ArrowLeft, User, Users, Plus, Search, Edit, Trash2, Mail, Phone, MapPin, Building, Tag, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -32,11 +34,27 @@ interface Customer {
   tags: string;
 }
 
+type SortField = 'firstName' | 'company' | 'email' | 'city' | 'province';
+type SortDirection = 'asc' | 'desc';
+
 export default function CustomerManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('firstName');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // Filtering state
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    tags: '',
+    city: '',
+    province: '',
+    email: ''
+  });
   const [newCustomer, setNewCustomer] = useState({
     company: "",
     address1: "",
@@ -56,7 +74,7 @@ export default function CustomerManagement() {
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     staleTime: 2 * 60 * 1000, // 2 minutes
-    cacheTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const createCustomerMutation = useMutation({
@@ -246,16 +264,75 @@ export default function CustomerManagement() {
     }
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const searchLower = searchTerm.toLowerCase();
-    const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
-    const company = customer.company?.toLowerCase() || "";
-    const email = customer.email?.toLowerCase() || "";
+  // Handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      tags: '',
+      city: '',
+      province: '',
+      email: ''
+    });
+    setSearchTerm('');
+  };
+
+  // Get unique values for filter dropdowns
+  const getUniqueValues = (field: keyof Customer) => {
+    if (!customers || customers.length === 0) return [];
     
-    return fullName.includes(searchLower) || 
-           company.includes(searchLower) || 
-           email.includes(searchLower);
-  });
+    const values = customers
+      .map((customer: Customer) => customer[field] as string)
+      .filter((value: string) => value && value.trim() !== '')
+      .map((value: string) => value.trim());
+    return Array.from(new Set(values)).sort();
+  };
+
+  // Filter and sort customers
+  const filteredAndSortedCustomers = (customers || [])
+    .filter((customer: Customer) => {
+      // Search term filter
+      const searchLower = searchTerm.toLowerCase();
+      const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+      const company = customer.company?.toLowerCase() || "";
+      const email = customer.email?.toLowerCase() || "";
+      const searchMatch = fullName.includes(searchLower) || 
+                         company.includes(searchLower) || 
+                         email.includes(searchLower);
+
+      // Advanced filters
+      const tagsMatch = !filters.tags || (customer.tags?.toLowerCase().includes(filters.tags.toLowerCase()));
+      const cityMatch = !filters.city || customer.city === filters.city;
+      const provinceMatch = !filters.province || customer.province === filters.province;
+      const emailMatch = !filters.email || customer.email === filters.email;
+
+      return searchMatch && tagsMatch && cityMatch && provinceMatch && emailMatch;
+    })
+    .sort((a: Customer, b: Customer) => {
+      let aValue = a[sortField] || '';
+      let bValue = b[sortField] || '';
+      
+      // Convert to strings for comparison
+      aValue = aValue.toString().toLowerCase();
+      bValue = bValue.toString().toLowerCase();
+      
+      if (sortDirection === 'asc') {
+        return aValue.localeCompare(bValue);
+      } else {
+        return bValue.localeCompare(aValue);
+      }
+    });
+
+  // Check if any filters are active
+  const hasActiveFilters = filters.tags || filters.city || filters.province || filters.email;
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
@@ -279,13 +356,13 @@ export default function CustomerManagement() {
           <div className="w-32"></div> {/* Spacer for centering */}
         </div>
 
-        {/* Search and Add Customer */}
+        {/* Search, Filter, Sort and Add Customer */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Search className="h-5 w-5" />
-                Customer Search
+                Customer Search & Filters
               </span>
               <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
                 <DialogTrigger asChild>
@@ -426,7 +503,8 @@ export default function CustomerManagement() {
               </Dialog>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -437,6 +515,152 @@ export default function CustomerManagement() {
                 className="pl-10"
               />
             </div>
+
+            {/* Sorting and Filtering Controls */}
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Sort by:</span>
+                <Select value={sortField} onValueChange={(value: SortField) => setSortField(value)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="firstName">Name</SelectItem>
+                    <SelectItem value="company">Company</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="city">City</SelectItem>
+                    <SelectItem value="province">Province</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {/* Filter Toggle */}
+              <Popover open={showFilters} onOpenChange={setShowFilters}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {hasActiveFilters && <span className="w-2 h-2 bg-blue-600 rounded-full"></span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="start">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Filter Customers</h4>
+                      {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters}>
+                          <X className="h-4 w-4" />
+                          Clear All
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Tags Filter */}
+                    <div>
+                      <Label className="text-sm font-medium">Tags</Label>
+                      <Input
+                        placeholder="Filter by tags..."
+                        value={filters.tags}
+                        onChange={(e) => setFilters({...filters, tags: e.target.value})}
+                      />
+                    </div>
+
+                    {/* City Filter */}
+                    <div>
+                      <Label className="text-sm font-medium">City</Label>
+                      <Select value={filters.city} onValueChange={(value) => setFilters({...filters, city: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select city..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">All Cities</SelectItem>
+                          {getUniqueValues('city').map(city => (
+                            <SelectItem key={city} value={city}>{city}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Province Filter */}
+                    <div>
+                      <Label className="text-sm font-medium">Province/State</Label>
+                      <Select value={filters.province} onValueChange={(value) => setFilters({...filters, province: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select province..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">All Provinces</SelectItem>
+                          {getUniqueValues('province').map(province => (
+                            <SelectItem key={province} value={province}>{province}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Email Filter */}
+                    <div>
+                      <Label className="text-sm font-medium">Email</Label>
+                      <Select value={filters.email} onValueChange={(value) => setFilters({...filters, email: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select email..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">All Emails</SelectItem>
+                          {getUniqueValues('email').map(email => (
+                            <SelectItem key={email} value={email}>{email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Results Count */}
+              <div className="text-sm text-gray-600 ml-auto">
+                Showing {filteredAndSortedCustomers.length} of {customers?.length || 0} customers
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap gap-2">
+                <span className="text-sm text-gray-600">Active filters:</span>
+                {filters.tags && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Tags: {filters.tags}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters({...filters, tags: ''})} />
+                  </Badge>
+                )}
+                {filters.city && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    City: {filters.city}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters({...filters, city: ''})} />
+                  </Badge>
+                )}
+                {filters.province && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Province: {filters.province}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters({...filters, province: ''})} />
+                  </Badge>
+                )}
+                {filters.email && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Email: {filters.email}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters({...filters, email: ''})} />
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -446,7 +670,7 @@ export default function CustomerManagement() {
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                All Customers ({filteredCustomers.length})
+                All Customers ({filteredAndSortedCustomers.length})
               </span>
             </CardTitle>
           </CardHeader>
@@ -456,16 +680,16 @@ export default function CustomerManagement() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="mt-2 text-gray-500">Loading customers...</p>
               </div>
-            ) : filteredCustomers.length === 0 ? (
+            ) : filteredAndSortedCustomers.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">
-                  {searchTerm ? "No customers found matching your search." : "No customers yet. Create your first customer!"}
+                  {searchTerm || hasActiveFilters ? "No customers found matching your criteria." : "No customers yet. Create your first customer!"}
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredCustomers.map((customer) => (
+                {filteredAndSortedCustomers.map((customer: Customer) => (
                   <Card key={customer.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
