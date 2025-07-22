@@ -197,7 +197,7 @@ export function parseProductData(): {
   productPricing: ProductPricing[];
 } {
   const productDataPath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
-  const tierPricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template-June10-2025_1752538891954.csv');
+  const tierPricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
   
   const productCsvContent = fs.readFileSync(productDataPath, 'utf-8');
   const tierCsvContent = fs.readFileSync(tierPricingPath, 'utf-8');
