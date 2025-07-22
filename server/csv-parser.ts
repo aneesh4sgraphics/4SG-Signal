@@ -429,13 +429,49 @@ export function parsePricingData(types: ProductType[]): ProductPricing[] {
       // First try exact match
       matchedType = typeMap.get(productTypeFromCsv.toLowerCase());
       
-      // If no exact match, try partial matches
+      // If no exact match, try more precise partial matches
       if (!matchedType) {
+        // Try to extract thickness or key specifications for better matching
+        const csvTypeLower = productTypeFromCsv.toLowerCase();
+        
+        // Extract thickness pattern (e.g., "8mil", "11mil", "14mil")
+        const thicknessMatch = csvTypeLower.match(/(\d+(?:\.\d+)?)\s*mil/);
+        const gsmMatch = csvTypeLower.match(/(\d+)\s*gsm/);
+        
         for (const [typeName, type] of typeMap.entries()) {
-          if (typeName.includes(productTypeFromCsv.toLowerCase()) || 
-              productTypeFromCsv.toLowerCase().includes(typeName)) {
-            matchedType = type;
-            break;
+          // For thickness-based matches, ensure exact thickness match
+          if (thicknessMatch) {
+            const typeThicknessMatch = typeName.match(/(\d+(?:\.\d+)?)\s*mil/);
+            if (typeThicknessMatch && typeThicknessMatch[1] === thicknessMatch[1]) {
+              matchedType = type;
+              break;
+            }
+          }
+          // For GSM-based matches, ensure exact GSM match
+          else if (gsmMatch) {
+            const typeGsmMatch = typeName.match(/(\d+)\s*gsm/);
+            if (typeGsmMatch && typeGsmMatch[1] === gsmMatch[1]) {
+              matchedType = type;
+              break;
+            }
+          }
+          // For other products, try broader keyword matching but more carefully
+          else {
+            // Remove common prefixes and suffixes for comparison
+            const cleanCsvType = csvTypeLower
+              .replace(/^(graffiti|solvit|cliq|rang|eie|ele)\s*/i, '')
+              .replace(/\s*(thickness:|paper|vinyl|film|canvas|media)\s*/gi, ' ')
+              .trim();
+            const cleanTypeName = typeName
+              .replace(/^(graffiti|solvit|cliq|rang|eie|ele)\s*/i, '')
+              .replace(/\s*(thickness:|paper|vinyl|film|canvas|media)\s*/gi, ' ')
+              .trim();
+            
+            if (cleanCsvType && cleanTypeName && 
+                (cleanCsvType.includes(cleanTypeName) || cleanTypeName.includes(cleanCsvType))) {
+              matchedType = type;
+              break;
+            }
           }
         }
       }

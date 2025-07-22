@@ -298,7 +298,7 @@ export default function PriceManagement() {
                   <SelectContent>
                     <SelectItem value="ALL_CATEGORIES">All Categories</SelectItem>
                     {uniqueCategories.map(category => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                      <SelectItem key={category} value={category || 'unknown'}>{category}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
