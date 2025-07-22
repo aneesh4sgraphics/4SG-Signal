@@ -321,40 +321,52 @@ export function parseProductData(): {
     { id: 10, name: 'Retail', description: 'Retail pricing tier' }
   ];
   
-  // Build product pricing
-  const productPricing: ProductPricing[] = [];
-  let pricingId = 1;
+  // Load external pricing data if available
+  let productPricing: ProductPricing[] = [];
   
-  tierPricing.forEach(tier => {
-    // Find the matching type by product type name (exact match)
-    const type = Array.from(typeMap.values()).find(t => t.name === tier.productType);
+  // First try to load from separate pricing file
+  const types = Array.from(typeMap.values());
+  const externalPricing = parsePricingData(types);
+  
+  if (externalPricing.length > 0) {
+    console.log('Using external pricing data from tier_pricing_template.csv');
+    productPricing = externalPricing;
+  } else {
+    // Fallback to embedded pricing data
+    console.log('Using embedded pricing data from product CSV');
+    let pricingId = 1;
     
-    if (type) {
-      const tierPrices = [
-        { tierId: 1, price: cleanPrice(tier.EXPORT_pricePerSqm) },
-        { tierId: 2, price: cleanPrice(tier.MASTER_DISTRIBUTOR_pricePerSqm) },
-        { tierId: 3, price: cleanPrice(tier.DEALER_pricePerSqm) },
-        { tierId: 4, price: cleanPrice(tier.DEALER_2_pricePerSqm) },
-        { tierId: 5, price: cleanPrice(tier.Approval_Retail__pricePerSqm) },
-        { tierId: 6, price: cleanPrice(tier.Stage25_pricePerSqm) },
-        { tierId: 7, price: cleanPrice(tier.Stage2_pricePerSqm) },
-        { tierId: 8, price: cleanPrice(tier.Stage15_pricePerSqm) },
-        { tierId: 9, price: cleanPrice(tier.Stage1_pricePerSqm) },
-        { tierId: 10, price: cleanPrice(tier.Retail_pricePerSqm) }
-      ];
+    tierPricing.forEach(tier => {
+      // Find the matching type by product type name (exact match)
+      const type = Array.from(typeMap.values()).find(t => t.name === tier.productType);
       
-      tierPrices.forEach(tierPrice => {
-        if (!isNaN(tierPrice.price) && tierPrice.price > 0) {
-          productPricing.push({
-            id: pricingId++,
-            productTypeId: type.id,
-            tierId: tierPrice.tierId,
-            pricePerSquareMeter: tierPrice.price.toFixed(2)
-          });
-        }
-      });
-    }
-  });
+      if (type) {
+        const tierPrices = [
+          { tierId: 1, price: cleanPrice(tier.EXPORT_pricePerSqm) },
+          { tierId: 2, price: cleanPrice(tier.MASTER_DISTRIBUTOR_pricePerSqm) },
+          { tierId: 3, price: cleanPrice(tier.DEALER_pricePerSqm) },
+          { tierId: 4, price: cleanPrice(tier.DEALER_2_pricePerSqm) },
+          { tierId: 5, price: cleanPrice(tier.Approval_Retail__pricePerSqm) },
+          { tierId: 6, price: cleanPrice(tier.Stage25_pricePerSqm) },
+          { tierId: 7, price: cleanPrice(tier.Stage2_pricePerSqm) },
+          { tierId: 8, price: cleanPrice(tier.Stage15_pricePerSqm) },
+          { tierId: 9, price: cleanPrice(tier.Stage1_pricePerSqm) },
+          { tierId: 10, price: cleanPrice(tier.Retail_pricePerSqm) }
+        ];
+        
+        tierPrices.forEach(tierPrice => {
+          if (!isNaN(tierPrice.price) && tierPrice.price > 0) {
+            productPricing.push({
+              id: pricingId++,
+              productTypeId: type.id,
+              tierId: tierPrice.tierId,
+              pricePerSquareMeter: tierPrice.price.toFixed(2)
+            });
+          }
+        });
+      }
+    });
+  }
   
   return {
     categories: Array.from(categoryMap.values()),
@@ -363,4 +375,111 @@ export function parseProductData(): {
     pricingTiers,
     productPricing
   };
+}
+
+// Parse separate pricing data file
+export function parsePricingData(types: ProductType[]): ProductPricing[] {
+  const pricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
+  
+  if (!fs.existsSync(pricingPath)) {
+    console.warn('No pricing data file found at:', pricingPath);
+    return [];
+  }
+
+  try {
+    const csvContent = fs.readFileSync(pricingPath, 'utf-8');
+    const rows = parseCSV(csvContent);
+    
+    if (rows.length < 2) {
+      console.warn('Pricing file is empty or has no data rows');
+      return [];
+    }
+
+    const headers = rows[0];
+    const pricingData = rows.slice(1);
+    
+    console.log('Pricing headers:', headers);
+    console.log('First pricing row:', pricingData[0]);
+    
+    const productPricing: ProductPricing[] = [];
+    let pricingId = 1;
+    
+    // Create a map of product types for faster lookup
+    const typeMap = new Map<string, ProductType>();
+    types.forEach(type => {
+      typeMap.set(type.name.toLowerCase(), type);
+      // Also map by partial name matches
+      typeMap.set(type.name.replace(/thickness:\s*/i, '').toLowerCase(), type);
+    });
+    
+    console.log('Available product types:', Array.from(typeMap.keys()));
+
+    pricingData.forEach((row, index) => {
+      const data: any = {};
+      headers.forEach((header, i) => {
+        data[header] = row[i] || '';
+      });
+      
+      const productTypeFromCsv = data.productType || '';
+      console.log(`Row ${index + 1}: Looking for type "${productTypeFromCsv}"`);
+      
+      // Try to find matching product type
+      let matchedType: ProductType | undefined;
+      
+      // First try exact match
+      matchedType = typeMap.get(productTypeFromCsv.toLowerCase());
+      
+      // If no exact match, try partial matches
+      if (!matchedType) {
+        for (const [typeName, type] of typeMap.entries()) {
+          if (typeName.includes(productTypeFromCsv.toLowerCase()) || 
+              productTypeFromCsv.toLowerCase().includes(typeName)) {
+            matchedType = type;
+            break;
+          }
+        }
+      }
+      
+      if (matchedType) {
+        console.log(`Found matching type: ${matchedType.name} for "${productTypeFromCsv}"`);
+        
+        // Create pricing entries for each tier
+        const tierMappings = [
+          { col: 'EXPORT_pricePerSqm', tierId: 1 },
+          { col: 'MASTER_DISTRIBUTOR_pricePerSqm', tierId: 2 },
+          { col: 'DEALER_pricePerSqm', tierId: 3 },
+          { col: 'DEALER_2_pricePerSqm', tierId: 4 },
+          { col: 'Approval_Retail__pricePerSqm', tierId: 5 },
+          { col: 'Stage25_pricePerSqm', tierId: 6 },
+          { col: 'Stage2_pricePerSqm', tierId: 7 },
+          { col: 'Stage15_pricePerSqm', tierId: 8 },
+          { col: 'Stage1_pricePerSqm', tierId: 9 },
+          { col: 'Retail_pricePerSqm', tierId: 10 }
+        ];
+        
+        tierMappings.forEach(({ col, tierId }) => {
+          const priceStr = data[col] || '';
+          const price = cleanPrice(priceStr);
+          
+          if (!isNaN(price) && price > 0) {
+            productPricing.push({
+              id: pricingId++,
+              productTypeId: matchedType!.id,
+              tierId,
+              pricePerSquareMeter: price.toFixed(2)
+            });
+          }
+        });
+      } else {
+        console.warn(`No matching product type found for: "${productTypeFromCsv}"`);
+      }
+    });
+    
+    console.log(`Created ${productPricing.length} pricing entries from external pricing file`);
+    return productPricing;
+    
+  } catch (error) {
+    console.error('Error parsing pricing data file:', error);
+    return [];
+  }
 }
