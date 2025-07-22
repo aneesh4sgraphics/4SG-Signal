@@ -4,14 +4,14 @@ import { PricingTier } from '@shared/schema';
 export const ROLE_TIER_ACCESS = {
   admin: 'all', // Admin sees all tiers
   santiago: [
-    'Approval_Retail_',
+    'Approval_Retail',
     'Stage1',
     'Stage15',
     'Stage2',
     'Stage25'
   ],
   patricio: [
-    'Approval_Retail_',
+    'Approval_Retail',
     'Stage1',
     'Stage15', 
     'Stage2',
@@ -68,8 +68,10 @@ export function getUserRoleFromEmail(email: string): string {
   
   const emailLower = email.toLowerCase();
   
-  // Check for admin emails
-  if (emailLower.includes('aneesh@4sgraphics.com') || emailLower.includes('oscar@4sgraphics.com')) {
+  // Check for admin emails (includes test@4sgraphics.com for development)
+  if (emailLower.includes('aneesh@4sgraphics.com') || 
+      emailLower.includes('oscar@4sgraphics.com') ||
+      emailLower.includes('test@4sgraphics.com')) {
     return 'admin';
   }
   
