@@ -321,7 +321,33 @@ export function parseProductData(): {
   
   // First try to load from separate pricing file
   const types = Array.from(typeMap.values());
-  const externalPricing = parsePricingData(types);
+  
+  // Create a mapping function to match product types between files
+  const createProductTypeMapping = () => {
+    const mapping = new Map<string, string>();
+    
+    // For Graffiti Polyester Paper products
+    mapping.set("graffiti polyester paper 5mil", "thickness: 5mil");
+    mapping.set("graffiti polyester paper 8mil", "thickness: 8mil");
+    mapping.set("graffiti polyester paper 10mil", "thickness: 10mil");
+    mapping.set("graffiti polyester paper 11mil", "thickness: 11mil");
+    mapping.set("graffiti polyester paper 14mil", "thickness: 14mil");
+    mapping.set("graffiti blockout polyester 11mil", "thickness: blockout 11mil");
+    
+    // For Metallic products
+    mapping.set("graffiti metallic gold 8mil", "gold 8mil");
+    mapping.set("graffiti metallic gold 11mil", "gold 11mil");
+    mapping.set("graffiti metallic silver 8mil", "silver 8mil");
+    mapping.set("graffiti metallic silver 11mil", "silver 11mil");
+    mapping.set("graffiti metallic rose 8mil", "rose 8mil");
+    mapping.set("graffiti metallic rose 11mil", "rose 11mil");
+    mapping.set("graffiti metallic mirror 8mil", "mirror 8mil");
+    
+    return mapping;
+  };
+  
+  const pricingToProductMapping = createProductTypeMapping();
+  const externalPricing = parsePricingData(types, pricingToProductMapping);
   
   if (externalPricing.length > 0) {
     console.log('Using external pricing data from tier_pricing_template.csv');
@@ -373,7 +399,7 @@ export function parseProductData(): {
 }
 
 // Parse separate pricing data file
-export function parsePricingData(types: ProductType[]): ProductPricing[] {
+export function parsePricingData(types: ProductType[], pricingToProductMapping: Map<string, string>): ProductPricing[] {
   const pricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
   
   if (!fs.existsSync(pricingPath)) {
@@ -409,6 +435,10 @@ export function parsePricingData(types: ProductType[]): ProductPricing[] {
     
     console.log('Available product types:', Array.from(typeMap.keys()));
     console.log('Sample product types values:', Array.from(typeMap.values()).slice(0, 10).map(t => t.name));
+    
+    // Debug: show some Graffiti types specifically
+    const graffitiTypes = Array.from(typeMap.values()).filter(t => t.name.toLowerCase().includes('graffiti')).slice(0, 5);
+    console.log('Graffiti product types found:', graffitiTypes.map(t => t.name));
 
     pricingData.forEach((row, index) => {
       const data: any = {};
@@ -425,7 +455,16 @@ export function parsePricingData(types: ProductType[]): ProductPricing[] {
       // First try exact match
       matchedType = typeMap.get(productTypeFromCsv.toLowerCase());
       
-      // If no exact match, try direct product type name matching
+      // If no exact match, try mapping through the pricing-to-product mapping
+      if (!matchedType) {
+        const mappedTypeName = pricingToProductMapping.get(productTypeFromCsv.toLowerCase());
+        if (mappedTypeName) {
+          matchedType = typeMap.get(mappedTypeName.toLowerCase());
+          console.log(`  Mapped "${productTypeFromCsv}" to "${mappedTypeName}"`);
+        }
+      }
+      
+      // If still no match, try direct product type name matching
       if (!matchedType) {
         for (const [typeName, type] of typeMap.entries()) {
           if (typeName.toLowerCase() === productTypeFromCsv.toLowerCase()) {
