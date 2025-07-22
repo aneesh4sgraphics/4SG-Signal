@@ -74,6 +74,17 @@ function parseCSV(csvContent: string): string[][] {
     }
     
     row.push(current.trim());
+    
+    // Filter out rows that seem to contain extra CSV data appended to size field
+    if (row.length > 6 && row[3] && row[3].includes(',,')) {
+      // This indicates the size field got corrupted with extra CSV data
+      const sizeField = row[3];
+      const cleanSize = sizeField.split(',,')[0]; // Take only the size part before the corruption
+      row[3] = cleanSize;
+      // Keep only the first 6 columns to avoid malformed data
+      row.splice(6);
+    }
+    
     result.push(row);
   }
   
@@ -81,8 +92,13 @@ function parseCSV(csvContent: string): string[][] {
 }
 
 function parseSize(sizeStr: string): { width: number; height: number; widthUnit: string; heightUnit: string } {
-  // Remove extra spaces and anything in parentheses
-  const cleanSize = sizeStr.trim().replace(/\s*\([^)]*\)\s*/g, '');
+  // Remove extra spaces, anything in parentheses, and handle corrupted CSV data
+  let cleanSize = sizeStr.trim().replace(/\s*\([^)]*\)\s*/g, '');
+  
+  // Handle cases where extra CSV data got appended to size (like "24x100',,1 Roll,2.88...")
+  if (cleanSize.includes(',,') || cleanSize.includes(',1 Roll') || cleanSize.includes(',50 Sheets')) {
+    cleanSize = cleanSize.split(/,,|,\d+\s*(Roll|Sheet)/)[0].trim();
+  }
   
   // Handle common size formats by breaking them down step by step
   const patterns = [
@@ -96,9 +112,11 @@ function parseSize(sizeStr: string): { width: number; height: number; widthUnit:
     /^(\d+(?:\.\d+)?)"[\s]*[x×][\s]*(\d+(?:\.\d+)?)"?$/i,
     // Pattern 5: 12x18" (number x number with ending quote)
     /^(\d+(?:\.\d+)?)[\s]*[x×][\s]*(\d+(?:\.\d+)?)"$/i,
-    // Pattern 6: Double quotes like 12""x18""
+    // Pattern 6: Double quotes like 54""x100' - fixed to properly capture width/height with mixed units
+    /^(\d+(?:\.\d+)?)""[\s]*[x×][\s]*(\d+(?:\.\d+)?)['\u2018\u2019\u201A\u2032]$/i,
+    // Pattern 7: Double quotes both sides like 12""x18""
     /^(\d+(?:\.\d+)?)""[\s]*[x×][\s]*(\d+(?:\.\d+)?)""|""$/i,
-    // Pattern 7: 12x18 (no units, assume inches)
+    // Pattern 8: 12x18 (no units, assume inches)
     /^(\d+(?:\.\d+)?)[\s]*[x×][\s]*(\d+(?:\.\d+)?)$/i
   ];
   
@@ -121,6 +139,11 @@ function parseSize(sizeStr: string): { width: number; height: number; widthUnit:
       // Pattern 3: both feet
       else if (i === 2) {
         widthUnit = 'feet';
+        heightUnit = 'feet';
+      }
+      // Pattern 6: double quotes x feet (54""x100')
+      else if (i === 5) {
+        widthUnit = 'inch';
         heightUnit = 'feet';
       }
       

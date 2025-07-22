@@ -1576,10 +1576,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Check numeric fields
+      // Check numeric fields with enhanced validation
       for (const field of requiredNumericFields) {
-        if (pricingData[field] === undefined || pricingData[field] === null || pricingData[field] === '') {
-          validationErrors.push(`Missing or empty numeric field: ${field} (value: ${pricingData[field]})`);
+        const value = pricingData[field];
+        if (value === undefined || value === null || value === '') {
+          validationErrors.push(`Missing or empty numeric field: ${field} (value: ${value})`);
+        } else {
+          // Validate that numeric fields are actually valid numbers
+          const cleanValue = typeof value === 'string' ? value.replace(/[$,]/g, '') : String(value);
+          const numValue = parseFloat(cleanValue);
+          if (isNaN(numValue) || !isFinite(numValue)) {
+            validationErrors.push(`Invalid numeric value for field: ${field} (value: ${value}, parsed: ${numValue})`);
+          } else if (numValue < 0) {
+            validationErrors.push(`Negative value not allowed for field: ${field} (value: ${numValue})`);
+          }
         }
       }
       

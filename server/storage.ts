@@ -606,9 +606,61 @@ export class DatabaseStorage implements IStorage {
   async createCompetitorPricing(data: InsertCompetitorPricing): Promise<CompetitorPricing> {
     console.log('Storage: Creating competitor pricing entry with data:', JSON.stringify(data, null, 2));
     
-    // Validate required fields
-    if (!data.inputPrice || data.inputPrice === 0) {
-      console.error('Invalid input price:', data.inputPrice);
+    // Enhanced validation for numeric fields - keep as strings for database storage
+    const numericFields = ['inputPrice', 'pricePerSqIn', 'pricePerSqFt', 'pricePerSqMeter'];
+    const integerFields = ['packQty'];
+    const decimalFields = ['width', 'length'];
+    
+    for (const field of numericFields) {
+      const value = data[field];
+      if (value !== undefined && value !== null) {
+        const cleanValue = typeof value === 'string' ? value.replace(/[$,]/g, '') : String(value);
+        const numValue = parseFloat(cleanValue);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+          throw new Error(`Invalid numeric value for field ${field}: ${value} (parsed: ${numValue})`);
+        }
+        if (numValue < 0) {
+          throw new Error(`Negative value not allowed for field ${field}: ${numValue}`);
+        }
+        // Keep as string for database storage
+        (data as any)[field] = numValue.toFixed(2);
+      }
+    }
+    
+    for (const field of integerFields) {
+      const value = data[field];
+      if (value !== undefined && value !== null) {
+        const numValue = typeof value === 'string' ? parseInt(value.replace(/[$,]/g, ''), 10) : Number(value);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+          throw new Error(`Invalid integer value for field ${field}: ${value} (parsed: ${numValue})`);
+        }
+        if (numValue < 0) {
+          throw new Error(`Negative value not allowed for field ${field}: ${numValue}`);
+        }
+        // Keep as number for integer fields
+        (data as any)[field] = numValue;
+      }
+    }
+    
+    for (const field of decimalFields) {
+      const value = data[field];
+      if (value !== undefined && value !== null) {
+        const cleanValue = typeof value === 'string' ? value.replace(/[$,]/g, '') : String(value);
+        const numValue = parseFloat(cleanValue);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+          throw new Error(`Invalid decimal value for field ${field}: ${value} (parsed: ${numValue})`);
+        }
+        if (numValue < 0) {
+          throw new Error(`Negative value not allowed for field ${field}: ${numValue}`);
+        }
+        // Keep as string for decimal database fields
+        (data as any)[field] = numValue.toFixed(2);
+      }
+    }
+    
+    const inputPrice = data.inputPrice ? parseFloat(String(data.inputPrice).replace(/[$,]/g, '')) : 0;
+    if (!inputPrice || inputPrice === 0) {
+      throw new Error(`Invalid input price: ${data.inputPrice}. Must be a positive number.`);
     }
     
     try {

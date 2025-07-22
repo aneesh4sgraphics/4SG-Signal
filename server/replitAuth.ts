@@ -256,15 +256,17 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Only bypass for true local development OR when in Replit dev environment
-  const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
-                      process.env.REPLIT_DOMAINS === undefined;
+  // More secure development bypass conditions
+  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
+                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
+                        !process.env.REPLIT_DOMAINS;
   
-  // Also bypass for Replit development environment (for testing)
+  // Allow Replit dev environment for legitimate development/testing
   const isReplitDev = process.env.REPLIT_DOMAINS && 
-                     process.env.REPLIT_DOMAINS.includes('replit.dev');
+                     process.env.REPLIT_DOMAINS.includes('replit.dev') &&
+                     process.env.NODE_ENV === 'development';
 
-  if (isTrueDevEnv || isReplitDev) {
+  if (isTrueLocalDev || isReplitDev) {
     // Create a mock user for development
     req.user = {
       claims: {
@@ -308,15 +310,17 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const requireApproval: RequestHandler = async (req, res, next) => {
-  // Only bypass for true local development OR when in Replit dev environment
-  const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
-                      process.env.REPLIT_DOMAINS === undefined;
+  // More secure development bypass conditions
+  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
+                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
+                        !process.env.REPLIT_DOMAINS;
   
-  // Also bypass for Replit development environment (for testing)
+  // Allow Replit dev environment for legitimate development/testing
   const isReplitDev = process.env.REPLIT_DOMAINS && 
-                     process.env.REPLIT_DOMAINS.includes('replit.dev');
+                     process.env.REPLIT_DOMAINS.includes('replit.dev') &&
+                     process.env.NODE_ENV === 'development';
 
-  if (isTrueDevEnv || isReplitDev) {
+  if (isTrueLocalDev || isReplitDev) {
     // Create a mock user for development
     req.user = {
       claims: {
@@ -345,16 +349,16 @@ export const requireApproval: RequestHandler = async (req, res, next) => {
 };
 
 export const requireAdmin: RequestHandler = async (req, res, next) => {
-  // Development bypass for local testing and Replit environments
-  const isDev = process.env.NODE_ENV === 'development' || 
-                req.get('host')?.includes('localhost') || 
-                req.get('host')?.includes('replit.dev') ||
-                req.get('host')?.includes('replit.app') ||
-                req.hostname === 'localhost' ||
-                !process.env.NODE_ENV;
+  // More secure development bypass - only for true local development
+  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
+                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
+                        !process.env.REPLIT_DOMAINS;
+  
+  // Allow bypass only in very specific development conditions
+  const isSecureDevMode = process.env.BYPASS_AUTH_FOR_TESTING === 'true' && isTrueLocalDev;
 
-  if (isDev) {
-    // Create a mock user for development
+  if (isSecureDevMode) {
+    // Create a mock user for development only
     req.user = {
       claims: {
         sub: 'dev-user-123',
@@ -364,7 +368,7 @@ export const requireAdmin: RequestHandler = async (req, res, next) => {
         profile_image_url: 'https://via.placeholder.com/150'
       }
     };
-    console.log('Development bypass activated for requireAdmin');
+    console.log('Secure development bypass activated for requireAdmin (local only)');
     return next();
   }
 
