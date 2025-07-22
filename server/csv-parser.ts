@@ -255,7 +255,14 @@ export function parseProductData(): {
     let categoryName = product.ProductName;
     let typeName = product.ProductType;
     
-    // Clean up type name by removing redundant category prefix
+    // For pricing data compatibility, we need to keep the full product type name
+    // that matches what's in the pricing CSV (e.g., "Graffiti SOFT Poly 8mil")
+    // But also create a cleaned version for the product catalog display
+    
+    // Create the full type name that matches pricing data
+    let fullTypeName = `${categoryName} ${typeName}`;
+    
+    // Clean up type name by removing redundant category prefix for display
     if (typeName && typeName.startsWith(product.ProductName)) {
       // Remove the category name from the beginning of the type name
       typeName = typeName.replace(product.ProductName, '').trim();
@@ -263,14 +270,14 @@ export function parseProductData(): {
       typeName = typeName.replace(/^[\s\-_]+/, '');
     }
     
-    const typeKey = `${categoryName}|${typeName}`;
+    const typeKey = `${categoryName}|${product.ProductType}`;
     if (!typeMap.has(typeKey)) {
       const category = categoryMap.get(categoryName);
       if (category) {
         typeMap.set(typeKey, {
           id: typeId++,
           categoryId: category.id,
-          name: typeName,
+          name: fullTypeName, // Use full name for pricing compatibility
           description: null
         });
       }
