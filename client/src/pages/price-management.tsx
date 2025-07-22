@@ -291,14 +291,14 @@ export default function PriceManagement() {
               {/* Category Filter */}
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">Category:</span>
-                <Select value={filters.category} onValueChange={(value) => setFilters({...filters, category: value})}>
+                <Select value={filters.category || "ALL_CATEGORIES"} onValueChange={(value) => setFilters({...filters, category: value === "ALL_CATEGORIES" ? "" : value})}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="ALL_CATEGORIES">All Categories</SelectItem>
                     {uniqueCategories.map(category => (
-                      <SelectItem key={category} value={category || ''}>{category}</SelectItem>
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -307,12 +307,12 @@ export default function PriceManagement() {
               {/* Tier Filter */}
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-700">Tier:</span>
-                <Select value={filters.tier} onValueChange={(value) => setFilters({...filters, tier: value})}>
+                <Select value={filters.tier || "ALL_TIERS"} onValueChange={(value) => setFilters({...filters, tier: value === "ALL_TIERS" ? "" : value})}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Tiers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Tiers</SelectItem>
+                    <SelectItem value="ALL_TIERS">All Tiers</SelectItem>
                     {pricingTiers.map(tier => (
                       <SelectItem key={tier.id} value={tier.name}>{tier.name}</SelectItem>
                     ))}
