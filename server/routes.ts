@@ -1604,6 +1604,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate Price List PDF
+  app.post("/api/generate-price-list-pdf", async (req, res) => {
+    try {
+      const { clientName, categoryName, tierName, quoteNumber, items } = req.body;
+
+      if (!items || items.length === 0) {
+        return res.status(400).json({ error: "No items provided for price list" });
+      }
+
+      // Generate HTML content for price list
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Price List - ${categoryName || 'Products'}</title>
+          <style>
+            body { font-family: 'Roboto', Arial, sans-serif; margin: 20px; font-size: 10px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .company-name { font-size: 15px; font-weight: bold; margin-bottom: 10px; }
+            .title { font-size: 12px; font-weight: bold; margin-bottom: 5px; }
+            .quote-info { font-size: 10px; margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .price { text-align: right; }
+            .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">4S Graphics</div>
+            <div class="title">Price List${categoryName ? ` - ${categoryName}` : ''}</div>
+            ${clientName ? `<div class="quote-info">For: ${clientName}</div>` : ''}
+            ${quoteNumber ? `<div class="quote-info">Quote #: ${quoteNumber}</div>` : ''}
+            ${tierName ? `<div class="quote-info">Pricing Tier: ${tierName}</div>` : ''}
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Size</th>
+                <th>Item Code</th>
+                <th>Min Qty</th>
+                <th>Price/Sq.M</th>
+                <th>Price Per Sheet</th>
+                <th>Price Per Pack</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => {
+                const pricing = item.pricing;
+                const pricePerSqm = pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
+                const squareMeters = parseFloat(item.size.squareMeters);
+                const pricePerSheet = pricePerSqm * squareMeters;
+                const minOrderQty = parseInt(item.size.minOrderQty) || 50;
+                const pricePerPack = pricePerSheet * minOrderQty;
+                
+                return `
+                  <tr>
+                    <td>${item.size.name}</td>
+                    <td>${item.size.itemCode || '-'}</td>
+                    <td>${minOrderQty}</td>
+                    <td class="price">$${pricePerSqm.toFixed(2)}</td>
+                    <td class="price">$${pricePerSheet.toFixed(2)}</td>
+                    <td class="price">$${pricePerPack.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Generated on ${new Date().toLocaleDateString()} | 4S Graphics Price List
+          </div>
+        </body>
+        </html>
+      `;
+
+      const filename = `price-list-${categoryName || 'products'}-${quoteNumber || Date.now()}.html`;
+      
+      res.json({ html, filename });
+    } catch (error) {
+      console.error("Error generating price list PDF:", error);
+      res.status(500).json({ error: "Failed to generate price list PDF" });
+    }
+  });
+
+  // Generate Price List CSV
+  app.post("/api/generate-price-list-csv", async (req, res) => {
+    try {
+      const { clientName, categoryName, tierName, quoteNumber, items } = req.body;
+
+      if (!items || items.length === 0) {
+        return res.status(400).json({ error: "No items provided for price list" });
+      }
+
+      // Generate CSV content
+      const headers = ['Size', 'Item Code', 'Min Qty', 'Price/Sq.M', 'Price Per Sheet', 'Price Per Pack'];
+      const csvRows = [
+        headers.join(','),
+        ...items.map(item => {
+          const pricing = item.pricing;
+          const pricePerSqm = pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
+          const squareMeters = parseFloat(item.size.squareMeters);
+          const pricePerSheet = pricePerSqm * squareMeters;
+          const minOrderQty = parseInt(item.size.minOrderQty) || 50;
+          const pricePerPack = pricePerSheet * minOrderQty;
+          
+          return [
+            `"${item.size.name}"`,
+            `"${item.size.itemCode || '-'}"`,
+            minOrderQty,
+            pricePerSqm.toFixed(2),
+            pricePerSheet.toFixed(2),
+            pricePerPack.toFixed(2)
+          ].join(',');
+        })
+      ];
+
+      const csvContent = csvRows.join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="price-list-${categoryName || 'products'}-${quoteNumber || Date.now()}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating price list CSV:", error);
+      res.status(500).json({ error: "Failed to generate price list CSV" });
+    }
+  });
+
   // Get all sent quotes
   app.get("/api/sent-quotes", async (req, res) => {
     try {
@@ -1981,63 +2112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate price list PDF
-  app.post("/api/generate-price-list-pdf", isAuthenticated, async (req, res) => {
-    try {
-      const { clientName, categoryName, tierName, items } = req.body;
-      
-      if (!categoryName || !tierName || !items || !Array.isArray(items)) {
-        return res.status(400).json({ error: "Category name, tier name, and items are required" });
-      }
 
-      const htmlContent = generatePriceListHTML({
-        clientName,
-        categoryName,
-        tierName,
-        items
-      });
-
-      // Generate filename without saving to quotes
-      const fileName = `${categoryName}_${clientName ? clientName.replace(/[^a-zA-Z0-9]/g, '') : 'PriceList'}.pdf`;
-
-      // Return HTML for PDF conversion
-      res.json({ 
-        html: htmlContent,
-        filename: fileName
-      });
-    } catch (error) {
-      console.error("Error generating price list PDF:", error);
-      res.status(500).json({ error: "Failed to generate price list PDF" });
-    }
-  });
-
-  // Generate price list CSV
-  app.post("/api/generate-price-list-csv", isAuthenticated, async (req, res) => {
-    try {
-      const { clientName, categoryName, tierName, items } = req.body;
-      
-      if (!categoryName || !tierName || !items || !Array.isArray(items)) {
-        return res.status(400).json({ error: "Category name, tier name, and items are required" });
-      }
-
-      const csvContent = generatePriceListCSV({
-        clientName,
-        categoryName,
-        tierName,
-        items
-      });
-
-      // Generate filename without saving to quotes
-      const fileName = `price-list-${categoryName}-${clientName ? clientName.replace(/[^a-zA-Z0-9]/g, '') : 'PriceList'}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.send(csvContent);
-    } catch (error) {
-      console.error("Error generating price list CSV:", error);
-      res.status(500).json({ error: "Failed to generate price list CSV" });
-    }
-  });
 
   // Pricing Management API endpoints
   app.get("/api/pricing-data", isAuthenticated, async (req, res) => {

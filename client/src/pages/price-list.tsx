@@ -202,18 +202,20 @@ export default function PriceList() {
   const selectedTierData = getFilteredPricingTiers().find(t => t.id === parseInt(selectedTier));
   const selectedCustomerData = customers.find((c: Customer) => c.id === selectedCustomer);
 
-  // Create price list items for selected category
+  // Create price list items for selected category with proper filtering
   const priceListItems: PriceListItem[] = selectedCategory && selectedTier ? 
-    categoryTypes.flatMap((type: ProductType) => {
-      const typeSizes = allSizes.filter((size: ProductSize) => size.typeId === type.id);
-      const typePricing = allPricing.filter((p: ProductPricing) => p.productTypeId === type.id);
-      
-      return typeSizes.map((size: ProductSize) => ({
-        size,
-        type,
-        pricing: typePricing
-      }));
-    }) : [];
+    categoryTypes
+      .filter((type: ProductType) => type.categoryId === parseInt(selectedCategory)) // Ensure type matches category
+      .flatMap((type: ProductType) => {
+        const typeSizes = allSizes.filter((size: ProductSize) => size.typeId === type.id);
+        const typePricing = allPricing.filter((p: ProductPricing) => p.productTypeId === type.id);
+        
+        return typeSizes.map((size: ProductSize) => ({
+          size,
+          type,
+          pricing: typePricing
+        }));
+      }) : [];
 
   // Get price per square meter from CSV (original pricing data)
   const getPricePerSqm = (item: PriceListItem, tierId: number) => {
@@ -224,10 +226,16 @@ export default function PriceList() {
     return 0;
   };
 
-  // Get actual price per sheet (sq.m price × square meters per sheet)
+  // Get actual price per sheet (sq.m price × square meters per sheet) with NaN protection
   const getPricePerSheet = (item: PriceListItem, tierId: number) => {
     const pricePerSqm = getPricePerSqm(item, tierId);
     const squareMeters = parseFloat(item.size.squareMeters);
+    
+    // Protect against NaN values
+    if (isNaN(pricePerSqm) || isNaN(squareMeters)) {
+      return 0;
+    }
+    
     return pricePerSqm * squareMeters;
   };
 
@@ -245,7 +253,7 @@ export default function PriceList() {
     return adjustedPackPrice;
   };
 
-  // Generate price list function
+  // Generate price list function with persistent quote number
   const generatePriceList = () => {
     if (!selectedCategory || !selectedTier || !selectedCustomer) {
       toast({
@@ -256,9 +264,12 @@ export default function PriceList() {
       return;
     }
     
-    // Generate a quote number for this price list
-    const quoteNumber = `4SG-${Date.now().toString().slice(-8)}-${Math.random().toString(36).substr(2, 3).toUpperCase()}`;
-    setCurrentQuoteNumber(quoteNumber);
+    // Only generate a new quote number if one doesn't exist
+    if (!currentQuoteNumber) {
+      const quoteNumber = `4SG-${Date.now().toString().slice(-8)}-${Math.random().toString(36).substr(2, 3).toUpperCase()}`;
+      setCurrentQuoteNumber(quoteNumber);
+    }
+    
     setShowPriceList(true);
     setSelectedRows(new Set());
   };
@@ -563,12 +574,6 @@ export default function PriceList() {
                     placeholder="Search and select customer..."
                   />
                   <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="h-12 px-6" style={{ display: 'none' }}>
-                        <User className="h-4 w-4 mr-2" />
-                        New Customer
-                      </Button>
-                    </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle>Create New Customer</DialogTitle>
@@ -849,7 +854,7 @@ export default function PriceList() {
                                 const rowId = `${item.size.id}-${item.type.id}`;
                                 
                                 return (
-                                  <tr key={`${item.size.id}-${index}`} className={`border-b border-gray-100 hover:bg-gray-50 ${selectedRows.has(rowId) ? 'bg-blue-50' : ''}`}>
+                                  <tr key={`${item.size.id}-${item.type.id}-${index}`} className={`border-b border-gray-100 hover:bg-gray-50 ${selectedRows.has(rowId) ? 'bg-blue-50' : ''}`}>
                                     <td className="py-3 px-4">
                                       <Checkbox
                                         checked={selectedRows.has(rowId)}
