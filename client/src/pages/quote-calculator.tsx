@@ -646,24 +646,22 @@ export default function QuoteCalculator() {
       // Invalidate quotes cache to refresh the admin panel
       queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes"] });
       
-      // Create a temporary window to generate PDF
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        throw new Error("Could not open print window");
-      }
-
-      printWindow.document.write(html);
-      printWindow.document.close();
+      // Create blob-based download for true file save
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `quote-${currentQuoteNumber || 'unknown'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       
-      // Wait for content to load then print
-      printWindow.onload = () => {
-        printWindow.print();
-        printWindow.close();
-      };
+      // Clean up the URL object
+      URL.revokeObjectURL(url);
 
       toast({
-        title: "Success",
-        description: "PDF quote generated and saved successfully",
+        title: "Quote Downloaded",
+        description: `Quote ${currentQuoteNumber} has been downloaded successfully as ${filename}`,
       });
 
       setShowPDFDialog(false);

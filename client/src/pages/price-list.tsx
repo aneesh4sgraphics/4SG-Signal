@@ -428,58 +428,23 @@ export default function PriceList() {
     const data = await response.json();
     const { html, filename } = data;
 
-    // Create a new window with the HTML content
-    const newWindow = window.open('', '_blank');
-    if (!newWindow) {
-      toast({
-        title: "Popup blocked",
-        description: "Please allow popups for this site and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Write the HTML content to the new window
-    newWindow.document.write(html);
-    newWindow.document.close();
-
-    // Add a print button and instructions that hide during print
-    const printButton = newWindow.document.createElement('button');
-    printButton.textContent = 'Print to PDF';
-    printButton.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 9999;
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-    `;
-    printButton.onclick = () => {
-      newWindow.print();
-    };
+    // Create blob-based download for true file save
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `price-list-${currentQuoteNumber || 'download'}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     
-    // Add print media query to hide button during print
-    const style = newWindow.document.createElement('style');
-    style.textContent = `
-      @media print {
-        button {
-          display: none !important;
-        }
-      }
-    `;
-    newWindow.document.head.appendChild(style);
-    
-    newWindow.document.body.appendChild(printButton);
+    // Clean up the URL object
+    URL.revokeObjectURL(url);
 
     // Show success toast
     toast({
-      title: "PDF preview opened",
-      description: "Click 'Print to PDF' in the new window to save the PDF file.",
+      title: "Price list downloaded",
+      description: `Price list has been downloaded successfully as ${filename}`,
       duration: 5000,
     });
   };
