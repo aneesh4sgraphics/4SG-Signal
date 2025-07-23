@@ -530,8 +530,7 @@ export default function QuoteCalculator() {
     const squareMeters = getCurrentSquareMeters();
     const pricePerSqm = await getPriceForTier(targetTier.id);
     const pricePerSheet = squareMeters * pricePerSqm;
-    const minOrderQty = selectedSize?.minOrderQty || "50";
-    const minOrderQtyNum = parseInt(minOrderQty) || 50;
+    const minOrderQtyNum = selectedSize?.minOrderQty || 50;
     // Use the higher of user quantity or minimum order quantity for total calculation
     const effectiveQuantity = Math.max(quantity, minOrderQtyNum);
     const total = pricePerSheet * effectiveQuantity;
@@ -547,7 +546,7 @@ export default function QuoteCalculator() {
       total,
       tierId: targetTier.id,
       tierName: targetTier.name,
-      minOrderQty,
+      minOrderQty: minOrderQtyNum.toString(),
       itemCode: selectedSize?.itemCode || "N/A"
     };
 

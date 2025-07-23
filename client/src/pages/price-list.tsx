@@ -147,30 +147,30 @@ export default function PriceList() {
   const { toast } = useToast();
 
   // Fetch all data
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ProductCategory[]>({
     queryKey: ["/api/product-categories"],
   });
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
 
-  const { data: tiers = [], isLoading: tiersLoading } = useQuery({
+  const { data: tiers = [], isLoading: tiersLoading } = useQuery<PricingTier[]>({
     queryKey: ["/api/pricing-tiers"],
   });
 
   // Fetch category-specific data only when category is selected
-  const { data: categoryTypes = [], isLoading: categoryTypesLoading } = useQuery({
+  const { data: categoryTypes = [], isLoading: categoryTypesLoading } = useQuery<ProductType[]>({
     queryKey: ["/api/product-types", selectedCategory],
     enabled: !!selectedCategory,
   });
 
-  const { data: allSizes = [], isLoading: allSizesLoading } = useQuery({
+  const { data: allSizes = [], isLoading: allSizesLoading } = useQuery<ProductSize[]>({
     queryKey: ["/api/product-sizes"],
     enabled: !!selectedCategory,
   });
 
-  const { data: allPricing = [], isLoading: allPricingLoading } = useQuery({
+  const { data: allPricing = [], isLoading: allPricingLoading } = useQuery<ProductPricing[]>({
     queryKey: ["/api/product-pricing"],
     enabled: !!selectedCategory,
   });
@@ -182,7 +182,7 @@ export default function PriceList() {
   const getFilteredPricingTiers = () => {
     if (!tiers || !allPricing || !user) return [];
     
-    const userRole = getUserRoleFromEmail(user.email);
+    const userRole = getUserRoleFromEmail((user as any).email);
     const roleFilteredTiers = filterTiersByRole(tiers, userRole);
     
     // If no category selected, return all role-filtered tiers
@@ -199,7 +199,7 @@ export default function PriceList() {
 
   // Get selected category data
   const selectedCategoryData = categories.find((c: ProductCategory) => c.id === parseInt(selectedCategory));
-  const selectedTierData = getFilteredPricingTiers().find((t: PricingTier) => t.id === parseInt(selectedTier));
+  const selectedTierData = getFilteredPricingTiers().find(t => t.id === parseInt(selectedTier));
   const selectedCustomerData = customers.find((c: Customer) => c.id === selectedCustomer);
 
   // Create price list items for selected category
@@ -234,7 +234,7 @@ export default function PriceList() {
   // Get price per pack (price per sheet × min order quantity) with rounding for retail
   const getPricePerPack = (item: PriceListItem, tierId: number) => {
     const pricePerSheet = getPricePerSheet(item, tierId);
-    const minOrderQty = parseInt(item.size.minOrderQty || "1");
+    const minOrderQty = Number(item.size.minOrderQty) || 50;
     const basePackPrice = pricePerSheet * minOrderQty;
     
     // Apply 99-cent rounding only to pack price for retail pricing tier
@@ -542,7 +542,7 @@ export default function PriceList() {
                     <SelectValue placeholder="Choose a pricing tier..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {getFilteredPricingTiers().map((tier: PricingTier) => (
+                    {getFilteredPricingTiers().map(tier => (
                       <SelectItem key={tier.id} value={tier.id.toString()}>
                         {tier.name}
                       </SelectItem>

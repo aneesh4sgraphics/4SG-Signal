@@ -25,7 +25,7 @@ export const productSizes = pgTable("product_sizes", {
   heightUnit: varchar("height_unit", { length: 10 }).notNull(), // 'inch' or 'feet'
   squareMeters: decimal("square_meters", { precision: 10, scale: 4 }).notNull(),
   itemCode: varchar("item_code", { length: 50 }),
-  minOrderQty: varchar("min_order_qty", { length: 50 }),
+  minOrderQty: integer("min_order_qty").default(50),
 });
 
 export const pricingTiers = pgTable("pricing_tiers", {
