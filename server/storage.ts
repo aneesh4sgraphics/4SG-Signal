@@ -405,15 +405,26 @@ export class MemStorage implements IStorage {
     return Array.from(this.productPricing.values()).filter(pricing => pricing.productTypeId === typeId);
   }
 
-  async getPriceForProductType(typeId: number, tierId: number): Promise<number> {
+  async getPriceForProductType(typeId: number, tierId: number, sizeId?: number): Promise<number> {
+    // First try to find size-specific pricing if sizeId is provided
+    if (sizeId) {
+      const sizeSpecificPricing = Array.from(this.productPricing.values()).find(
+        p => p.productTypeId === typeId && p.tierId === tierId && p.sizeId === sizeId
+      );
+      if (sizeSpecificPricing) {
+        return parseFloat(sizeSpecificPricing.pricePerSquareMeter);
+      }
+    }
+    
+    // Fall back to type-level pricing
     const pricing = Array.from(this.productPricing.values()).find(
-      p => p.productTypeId === typeId && p.tierId === tierId
+      p => p.productTypeId === typeId && p.tierId === tierId && !p.sizeId
     );
     return pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
   }
 
-  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number> {
-    const pricePerSqm = await this.getPriceForProductType(typeId, tierId);
+  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number, sizeId?: number): Promise<number> {
+    const pricePerSqm = await this.getPriceForProductType(typeId, tierId, sizeId);
     return squareMeters * pricePerSqm;
   }
 
@@ -858,12 +869,12 @@ export class DatabaseStorage implements IStorage {
     return this.memStorage.getProductPricingByType(typeId);
   }
 
-  async getPriceForProductType(typeId: number, tierId: number): Promise<number> {
-    return this.memStorage.getPriceForProductType(typeId, tierId);
+  async getPriceForProductType(typeId: number, tierId: number, sizeId?: number): Promise<number> {
+    return this.memStorage.getPriceForProductType(typeId, tierId, sizeId);
   }
 
-  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number> {
-    return this.memStorage.getPriceForSquareMeters(squareMeters, typeId, tierId);
+  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number, sizeId?: number): Promise<number> {
+    return this.memStorage.getPriceForSquareMeters(squareMeters, typeId, tierId, sizeId);
   }
 
   // Customers

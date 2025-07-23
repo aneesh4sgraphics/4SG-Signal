@@ -322,7 +322,8 @@ export default function QuoteCalculator() {
     }
     if (selectedSize && selectedType && selectedTier) {
       try {
-        const response = await fetch(`/api/price/${selectedSize.squareMeters}/${selectedType}/${selectedTier}`);
+        const sizeParam = selectedSize.id ? `?sizeId=${selectedSize.id}` : '';
+        const response = await fetch(`/api/price/${selectedSize.squareMeters}/${selectedType}/${selectedTier}${sizeParam}`);
         if (response.ok) {
           const data = await response.json();
           return data.pricePerSqm;
@@ -588,7 +589,8 @@ export default function QuoteCalculator() {
     
     try {
       const squareMeters = getCurrentSquareMeters();
-      const response = await fetch(`/api/price/${squareMeters}/${selectedType}/${tierId}`);
+      const sizeParam = selectedSize?.id ? `?sizeId=${selectedSize.id}` : '';
+      const response = await fetch(`/api/price/${squareMeters}/${selectedType}/${tierId}${sizeParam}`);
       if (response.ok) {
         const data = await response.json();
         return data.pricePerSqm;

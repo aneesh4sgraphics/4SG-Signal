@@ -495,12 +495,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get price for specific square meters with product type and tier
+  // Get price for specific square meters with product type and tier (with optional size-specific pricing)
   app.get("/api/price/:squareMeters/:typeId/:tierId", async (req, res) => {
     try {
       const squareMeters = parseFloat(req.params.squareMeters);
       const typeId = parseInt(req.params.typeId);
       const tierId = parseInt(req.params.tierId);
+      const { sizeId } = req.query;
+      const size = sizeId ? parseInt(sizeId as string) : undefined;
       
       if (isNaN(squareMeters) || squareMeters <= 0) {
         return res.status(400).json({ error: "Invalid square meters value" });
@@ -510,13 +512,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid type or tier ID" });
       }
       
-      const totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId);
-      const pricePerSqm = await storage.getPriceForProductType(typeId, tierId);
+      const totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId, size);
+      const pricePerSqm = await storage.getPriceForProductType(typeId, tierId, size);
       
       res.json({ 
         totalPrice, 
         pricePerSqm,
-        squareMeters 
+        squareMeters,
+        sizeId: size,
+        hasSizeSpecificPricing: size !== undefined && pricePerSqm > 0
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to calculate price" });

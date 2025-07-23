@@ -39,6 +39,7 @@ export const productPricing = pgTable("product_pricing", {
   productTypeId: integer("product_type_id").notNull(),
   tierId: integer("tier_id").notNull(),
   pricePerSquareMeter: decimal("price_per_square_meter", { precision: 10, scale: 2 }).notNull(),
+  sizeId: integer("size_id"), // Optional size-specific pricing
 });
 
 // Session storage table for authentication
