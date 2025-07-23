@@ -113,7 +113,7 @@ export const sentQuotes = pgTable("sent_quotes", {
   customerEmail: varchar("customer_email", { length: 255 }),
   quoteItems: text("quote_items").notNull(), // JSON string of quote items
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  createdAt: varchar("created_at", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   sentVia: varchar("sent_via", { length: 20 }).notNull(), // 'email' or 'pdf'
   status: varchar("status", { length: 20 }).notNull().default("sent"), // 'sent', 'viewed', 'accepted'
 });

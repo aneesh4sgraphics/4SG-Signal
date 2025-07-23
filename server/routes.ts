@@ -1540,7 +1540,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerEmail: customerEmail || null,
         quoteItems: JSON.stringify(quoteItems),
         totalAmount: totalAmount.toString(),
-        createdAt: new Date().toISOString(),
         sentVia: sentVia || 'pdf',
         status: 'sent'
       });
@@ -1585,7 +1584,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerEmail,
         quoteItems: JSON.stringify(quoteItems),
         totalAmount: totalAmount.toString(),
-        createdAt: new Date().toISOString(),
         sentVia: 'email',
         status: 'sent'
       });
@@ -1895,7 +1893,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerEmail: customerEmail || null,
           quoteItems: JSON.stringify(quoteItems),
           totalAmount: totalAmount.toString(),
-          createdAt: new Date().toISOString(),
           sentVia: finalSentVia,
           status: 'sent'
         });
