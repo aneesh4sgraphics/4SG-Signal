@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2, Search, Eye, FileDown } from "lucide-react";
+import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2, Search, Eye, FileDown, Sheet } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { saveAs } from 'file-saver';
 import { 
   Table, 
   TableBody, 
@@ -208,6 +209,81 @@ export default function SavedQuotes() {
     }
   };
 
+  // Handle export all quotes as CSV
+  const handleExportAll = () => {
+    try {
+      if (!filteredQuotes.length) {
+        toast({
+          title: "No Data",
+          description: "No quotes available to export",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create CSV headers
+      const headers = [
+        'Quote Number',
+        'Customer Name',
+        'Customer Email',
+        'Total Amount',
+        'Date Created',
+        'Status',
+        'Sent Via',
+        'Quote Items'
+      ];
+
+      // Convert quotes to CSV rows
+      const csvRows = filteredQuotes.map((quote: SentQuote) => {
+        // Parse and flatten quote items for better CSV representation
+        let quoteItemsText = '';
+        try {
+          const items = JSON.parse(quote.quoteItems || '[]');
+          quoteItemsText = items.map((item: any) => 
+            `${item.productName || 'Unknown'} (${item.size || 'Unknown size'}) - Qty: ${item.quantity || 0} - Price: $${item.totalPrice || 0}`
+          ).join('; ');
+        } catch {
+          quoteItemsText = 'Invalid quote data';
+        }
+
+        return [
+          quote.quoteNumber || '',
+          quote.customerName || '',
+          quote.customerEmail || '',
+          quote.totalAmount ? `$${parseFloat(quote.totalAmount).toFixed(2)}` : '$0.00',
+          formatDate(quote.createdAt),
+          quote.status || '',
+          quote.sentVia || 'Not Known',
+          `"${quoteItemsText}"` // Wrap in quotes to handle commas in the text
+        ];
+      });
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...csvRows.map(row => row.join(','))
+      ].join('\n');
+
+      // Create and download the CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `saved-quotes-export-${timestamp}.csv`;
+      
+      saveAs(blob, filename);
+      
+      toast({
+        title: "Export Successful",
+        description: `${filteredQuotes.length} quotes exported to ${filename}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export quotes to CSV",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
@@ -224,7 +300,14 @@ export default function SavedQuotes() {
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Saved Quotes</h1>
             <p className="text-sm sm:text-base text-gray-600">View and manage all generated quotes</p>
           </div>
-          <div className="hidden sm:block w-32"></div> {/* Spacer for centering */}
+          <Button 
+            onClick={handleExportAll}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            disabled={filteredQuotes.length === 0}
+          >
+            <Sheet className="h-4 w-4" />
+            Download All CSV
+          </Button>
         </div>
 
         {/* Search and Filter Toolbar */}
