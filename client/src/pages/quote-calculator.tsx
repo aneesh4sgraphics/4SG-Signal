@@ -79,6 +79,13 @@ interface ProductSize {
   widthUnit: string;
   heightUnit: string;
   squareMeters: string;
+  itemCode?: string;
+  minOrderQty?: string;
+  width: string;
+  height: string;
+  widthUnit: string;
+  heightUnit: string;
+  squareMeters: string;
 }
 
 interface PricingTier {
@@ -218,7 +225,7 @@ export default function QuoteCalculator() {
   const getFilteredPricingTiers = () => {
     if (!pricingTiers || !productPricing || !user) return [];
     
-    const userRole = getUserRoleFromEmail(user.email);
+    const userRole = getUserRoleFromEmail((user as any).email);
     const roleFilteredTiers = filterTiersByRole(pricingTiers, userRole);
     
     // Filter out tiers with zero pricing for the selected product type
@@ -342,12 +349,14 @@ export default function QuoteCalculator() {
     return 0;
   };
 
-  const getUnitPrice = () => {
-    return getCurrentSquareMeters() * getCurrentPrice();
+  const getUnitPrice = async () => {
+    const price = await getCurrentPrice();
+    return getCurrentSquareMeters() * price;
   };
 
-  const getTotalPrice = () => {
-    return getUnitPrice() * quantity;
+  const getTotalPrice = async () => {
+    const unitPrice = await getUnitPrice();
+    return unitPrice * quantity;
   };
 
   const getSelectedProductName = () => {
@@ -762,7 +771,6 @@ Look forward for your order!`;
     <>
       {showEmailCelebration && (
         <EmailCelebrationAnimation
-          customerName={emailCelebrationCustomer}
           onComplete={() => setShowEmailCelebration(false)}
         />
       )}
