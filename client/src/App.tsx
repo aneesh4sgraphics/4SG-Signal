@@ -21,6 +21,32 @@ import Dashboard from "@/pages/dashboard";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
+// Extracted component to avoid JSX duplication
+const PendingPage = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold mb-4">Account Pending Approval</h1>
+      <p className="text-gray-600 mb-4">
+        Your account is waiting for admin approval. Please contact aneesh@4sgraphics.com
+      </p>
+      <div className="space-x-4">
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Check Status
+        </button>
+        <button 
+          onClick={() => window.location.href = '/api/logout'}
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -53,58 +79,8 @@ function Router() {
   if ((user as any)?.status === "pending") {
     return (
       <Switch>
-        <Route path="/" component={() => (
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Account Pending Approval</h1>
-              <p className="text-gray-600 mb-4">
-                Your account is waiting for admin approval. Please contact aneesh@4sgraphics.com
-              </p>
-              <div className="space-x-4">
-                <button 
-                  onClick={() => {
-                    window.location.reload();
-                  }}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                  Check Status
-                </button>
-                <button 
-                  onClick={() => {
-                    window.location.href = '/api/logout';
-                  }}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )} />
-        <Route component={() => (
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-4">Account Pending Approval</h1>
-              <p className="text-gray-600 mb-4">
-                Your account is waiting for admin approval. Please contact aneesh@4sgraphics.com
-              </p>
-              <div className="space-x-4">
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                  Check Status
-                </button>
-                <button 
-                  onClick={() => window.location.href = '/api/logout'}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        )} />
+        <Route path="/" component={PendingPage} />
+        <Route component={PendingPage} />
       </Switch>
     );
   }
