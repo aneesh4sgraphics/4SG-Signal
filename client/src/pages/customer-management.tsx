@@ -310,9 +310,9 @@ export default function CustomerManagement() {
 
       // Advanced filters
       const tagsMatch = !filters.tags || (customer.tags?.toLowerCase().includes(filters.tags.toLowerCase()));
-      const cityMatch = !filters.city || customer.city === filters.city;
-      const provinceMatch = !filters.province || customer.province === filters.province;
-      const emailMatch = !filters.email || customer.email === filters.email;
+      const cityMatch = !filters.city || filters.city === 'all-cities' || customer.city === filters.city;
+      const provinceMatch = !filters.province || filters.province === 'all-provinces' || customer.province === filters.province;
+      const emailMatch = !filters.email || filters.email === 'all-emails' || customer.email === filters.email;
 
       return searchMatch && tagsMatch && cityMatch && provinceMatch && emailMatch;
     })
@@ -582,7 +582,7 @@ export default function CustomerManagement() {
                           <SelectValue placeholder="Select city..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Cities</SelectItem>
+                          <SelectItem value="all-cities">All Cities</SelectItem>
                           {getUniqueValues('city').map(city => (
                             <SelectItem key={city} value={city}>{city}</SelectItem>
                           ))}
@@ -598,7 +598,7 @@ export default function CustomerManagement() {
                           <SelectValue placeholder="Select province..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Provinces</SelectItem>
+                          <SelectItem value="all-provinces">All Provinces</SelectItem>
                           {getUniqueValues('province').map(province => (
                             <SelectItem key={province} value={province}>{province}</SelectItem>
                           ))}
@@ -614,7 +614,7 @@ export default function CustomerManagement() {
                           <SelectValue placeholder="Select email..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Emails</SelectItem>
+                          <SelectItem value="all-emails">All Emails</SelectItem>
                           {getUniqueValues('email').map(email => (
                             <SelectItem key={email} value={email}>{email}</SelectItem>
                           ))}
