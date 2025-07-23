@@ -810,7 +810,7 @@ export default function AreaPricer() {
                       console.error("Error:", error);
                       toast({
                         title: "Error",
-                        description: error.message || "Failed to add calculations",
+                        description: error instanceof Error ? error.message : "Failed to add calculations",
                         variant: "destructive",
                       });
                     }
