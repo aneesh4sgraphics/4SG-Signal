@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2, Search, Eye, FileDown } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +38,10 @@ export default function SavedQuotes() {
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<SentQuote | null>(null);
   
   const { data: sentQuotes, isLoading: quotesLoading, error: quotesError } = useQuery({
     queryKey: ["/api/sent-quotes"],
@@ -100,6 +106,108 @@ export default function SavedQuotes() {
     }
   };
 
+  // Filter quotes based on search and status
+  const filteredQuotes = useMemo(() => {
+    if (!sentQuotes || !Array.isArray(sentQuotes)) return [];
+    
+    return sentQuotes.filter((quote: SentQuote) => {
+      const matchesSearch = searchTerm === "" || 
+        quote.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        quote.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (quote.customerEmail && quote.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === "all" || quote.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [sentQuotes, searchTerm, statusFilter]);
+
+  // Get badge variant for status
+  const getStatusVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'sent': return 'default' as const;
+      case 'pending': return 'secondary' as const;
+      case 'failed': return 'destructive' as const;
+      default: return 'outline' as const;
+    }
+  };
+
+  // Handle quote view
+  const handleViewQuote = (quote: SentQuote) => {
+    setSelectedQuote(quote);
+    setViewDialogOpen(true);
+  };
+
+  // Handle CSV/PDF re-download
+  const handleReDownload = async (quote: SentQuote, format: 'csv' | 'pdf') => {
+    try {
+      let quoteItems;
+      try {
+        quoteItems = JSON.parse(quote.quoteItems);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Invalid quote data format",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (format === 'pdf') {
+        const response = await apiRequest("POST", "/api/generate-quote-pdf", {
+          customerName: quote.customerName,
+          customerEmail: quote.customerEmail,
+          items: quoteItems,
+          quoteNumber: quote.quoteNumber
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const blob = new Blob([data.html], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `quote_${quote.quoteNumber}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        const response = await apiRequest("POST", "/api/generate-quote-csv", {
+          customerName: quote.customerName,
+          customerEmail: quote.customerEmail,
+          items: quoteItems,
+          quoteNumber: quote.quoteNumber
+        });
+        
+        if (response.ok) {
+          const csvData = await response.text();
+          const blob = new Blob([csvData], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `quote_${quote.quoteNumber}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: `Quote ${format.toUpperCase()} downloaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to download ${format.toUpperCase()}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
@@ -119,12 +227,43 @@ export default function SavedQuotes() {
           <div className="hidden sm:block w-32"></div> {/* Spacer for centering */}
         </div>
 
+        {/* Search and Filter Toolbar */}
+        <Card className="shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by customer name, quote number, or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Quotes Table */}
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FileText className="h-5 w-5" />
               All Generated Quotes
+              <Badge variant="outline" className="ml-2">
+                {filteredQuotes.length} quotes
+              </Badge>
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               All quotes generated from the Quote Calculator are automatically saved here.
@@ -143,7 +282,7 @@ export default function SavedQuotes() {
                   {quotesError instanceof Error ? quotesError.message : "Unknown error occurred"}
                 </p>
               </div>
-            ) : sentQuotes && Array.isArray(sentQuotes) && sentQuotes.length > 0 ? (
+            ) : filteredQuotes.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -151,7 +290,8 @@ export default function SavedQuotes() {
                       <TableHead className="w-[120px]">Quote #</TableHead>
                       <TableHead className="w-[200px]">Customer</TableHead>
                       <TableHead className="w-[200px]">Email</TableHead>
-                      {(user as any)?.role === 'admin' && <TableHead className="w-[80px]">Actions</TableHead>}
+                      <TableHead className="w-[120px]">Actions</TableHead>
+                      {(user as any)?.role === 'admin' && <TableHead className="w-[80px]">Delete</TableHead>}
                       <TableHead className="w-[120px]">Total Amount</TableHead>
                       <TableHead className="w-[120px]">Date</TableHead>
                       <TableHead className="w-[100px]">Method</TableHead>
@@ -159,7 +299,7 @@ export default function SavedQuotes() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sentQuotes.map((quote: SentQuote) => (
+                    {filteredQuotes.map((quote: SentQuote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
                         <TableCell>
@@ -171,6 +311,37 @@ export default function SavedQuotes() {
                         <TableCell className="text-sm text-gray-600">
                           {quote.customerEmail || 'N/A'}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewQuote(quote)}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReDownload(quote, 'pdf')}
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title="Download PDF"
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReDownload(quote, 'csv')}
+                              className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              title="Download CSV"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
                         {(user as any)?.role === 'admin' && (
                           <TableCell>
                             <Button
@@ -179,6 +350,7 @@ export default function SavedQuotes() {
                               onClick={() => handleDeleteQuote(quote.id)}
                               disabled={deleteQuoteMutation.isPending}
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete Quote"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -223,7 +395,7 @@ export default function SavedQuotes() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={quote.status === 'sent' ? 'default' : 'secondary'}>
+                          <Badge variant={getStatusVariant(quote.status)}>
                             {quote.status}
                           </Badge>
                         </TableCell>
@@ -235,19 +407,99 @@ export default function SavedQuotes() {
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">No quotes generated yet</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'No quotes match your filters' 
+                    : 'No quotes generated yet'}
+                </h3>
                 <p className="text-sm">
-                  Generate quotes from the Quote Calculator to see them here.
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'Try adjusting your search or filter criteria.'
+                    : 'Generate quotes from the Quote Calculator to see them here.'}
                 </p>
-                <Link href="/quote-calculator">
-                  <Button className="mt-4">
-                    Go to Quote Calculator
-                  </Button>
-                </Link>
+                {!searchTerm && statusFilter === 'all' && (
+                  <Link href="/quote-calculator">
+                    <Button className="mt-4">
+                      Go to Quote Calculator
+                    </Button>
+                  </Link>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* View Quote Details Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Quote Details - {selectedQuote?.quoteNumber}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedQuote && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700 mb-2">Customer Information</h4>
+                    <div className="space-y-1 text-sm">
+                      <p><span className="font-medium">Name:</span> {selectedQuote.customerName}</p>
+                      <p><span className="font-medium">Email:</span> {selectedQuote.customerEmail || 'N/A'}</p>
+                      <p><span className="font-medium">Total Amount:</span> ${selectedQuote.totalAmount && typeof selectedQuote.totalAmount === 'string' ? parseFloat(selectedQuote.totalAmount).toFixed(2) : '0.00'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700 mb-2">Quote Information</h4>
+                    <div className="space-y-1 text-sm">
+                      <p><span className="font-medium">Quote Number:</span> {selectedQuote.quoteNumber}</p>
+                      <p><span className="font-medium">Date:</span> {formatDate(selectedQuote.createdAt)}</p>
+                      <p><span className="font-medium">Status:</span> 
+                        <Badge variant={getStatusVariant(selectedQuote.status)} className="ml-2">
+                          {selectedQuote.status}
+                        </Badge>
+                      </p>
+                      <p><span className="font-medium">Sent Via:</span> {selectedQuote.sentVia || 'Not Known'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-sm text-gray-700 mb-2">Quote Items</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap text-gray-700">
+                      {JSON.stringify(JSON.parse(selectedQuote.quoteItems || '[]'), null, 2)}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleReDownload(selectedQuote, 'pdf')}
+                      className="flex items-center gap-2"
+                      variant="outline"
+                    >
+                      <FileDown className="h-4 w-4" />
+                      Download PDF
+                    </Button>
+                    <Button
+                      onClick={() => handleReDownload(selectedQuote, 'csv')}
+                      className="flex items-center gap-2"
+                      variant="outline"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download CSV
+                    </Button>
+                  </div>
+                  <Button onClick={() => setViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
