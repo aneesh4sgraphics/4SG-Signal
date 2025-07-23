@@ -10,6 +10,7 @@ import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
 
 import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generatePriceListCSV } from "./simple-pdf-generator";
+import { generateUniqueQuoteNumber, validateQuoteNumber } from "./quote-number-generator";
 import { insertSentQuoteSchema } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
 import { 
@@ -2077,6 +2078,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating price:", error);
       res.status(500).json({ error: "Failed to update price" });
+    }
+  });
+
+  // Generate unique quote number with customer prefix and backend validation
+  app.post("/api/generate-quote-number", async (req, res) => {
+    try {
+      const { customerName, customerId } = req.body;
+      const quoteNumber = await generateUniqueQuoteNumber(customerName, customerId);
+      res.json({ 
+        quoteNumber,
+        hasCustomerPrefix: !!(customerName || customerId),
+        isValid: validateQuoteNumber(quoteNumber)
+      });
+    } catch (error) {
+      console.error("Error generating unique quote number:", error);
+      res.status(500).json({ error: "Failed to generate unique quote number" });
     }
   });
 

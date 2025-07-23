@@ -17,6 +17,7 @@ import EmailCelebrationAnimation from "@/components/EmailCelebrationAnimation";
 import { useAuth } from "@/hooks/useAuth";
 import { filterTiersByRole, getUserRoleFromEmail } from "@/utils/roleBasedTiers";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useQuoteNumber, quoteNumberUtils } from "@/hooks/useQuoteNumber";
 
 // Utility function to apply brand-specific fonts to individual words
 const applyBrandFonts = (text: string): JSX.Element => {
@@ -176,6 +177,7 @@ export default function QuoteCalculator() {
   const [showEmailCelebration, setShowEmailCelebration] = useState(false);
   const [emailCelebrationCustomer, setEmailCelebrationCustomer] = useState("");
   const { toast } = useToast();
+  const quoteNumberMutation = useQuoteNumber();
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -495,10 +497,27 @@ export default function QuoteCalculator() {
   const addToQuote = async (tierId?: number) => {
     if (!selectedCategory || !selectedType || (!selectedSize && !isCustomSize)) return;
 
-    // Generate quote number if this is the first item being added
+    // Generate unique quote number if this is the first item being added
     if (quoteItems.length === 0 && !currentQuoteNumber) {
-      const newQuoteNumber = generateQuoteNumber();
-      setCurrentQuoteNumber(newQuoteNumber);
+      try {
+        const quoteNumberResult = await quoteNumberMutation.mutateAsync({
+          customerName: selectedCustomer?.company,
+          customerId: selectedCustomer?.id
+        });
+        setCurrentQuoteNumber(quoteNumberResult.quoteNumber);
+        
+        if (quoteNumberResult.hasCustomerPrefix) {
+          toast({
+            title: "Quote Started",
+            description: `Quote ${quoteNumberResult.quoteNumber} created with customer prefix`,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to generate quote number:", error);
+        // Fallback to simple generation
+        const fallbackQuoteNumber = generateQuoteNumber();
+        setCurrentQuoteNumber(fallbackQuoteNumber);
+      }
     }
 
     // Use the provided tierId or default to Retail tier
