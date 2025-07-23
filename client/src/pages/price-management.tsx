@@ -202,8 +202,17 @@ export default function PriceManagement() {
     }
   };
 
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log('Price Management Debug:', {
+      pricingData: pricingData?.length,
+      isLoading,
+      error: error?.message
+    });
+  }
+
   // Filter and sort data
-  const filteredAndSortedData = pricingData ? pricingData
+  const filteredAndSortedData = (pricingData || [])
     .filter(item => {
       const matchesSearch = !debouncedSearchTerm || 
         item.productId.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
@@ -246,7 +255,7 @@ export default function PriceManagement() {
           ? (aValue as number) - (bValue as number)
           : (bValue as number) - (aValue as number);
       }
-    }) : [];
+    });
 
   // Price tiers for display
   const priceTiers = [
@@ -504,16 +513,17 @@ export default function PriceManagement() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 <p className="mt-2 text-sm text-muted-foreground">Loading pricing data...</p>
               </div>
-            ) : filteredAndSortedData.length === 0 ? (
+            ) : (pricingData && pricingData.length === 0) ? (
               <div className="text-center py-12">
                 <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-lg font-medium text-muted-foreground mb-2">No pricing data found</p>
-                <p className="text-sm text-muted-foreground">
-                  {debouncedSearchTerm || filters.productType 
-                    ? "No items match your search criteria"
-                    : "Upload a CSV file to get started"
-                  }
-                </p>
+                <p className="text-sm text-muted-foreground">Upload a CSV file to get started</p>
+              </div>
+            ) : filteredAndSortedData.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg font-medium text-muted-foreground mb-2">No items match your filters</p>
+                <p className="text-sm text-muted-foreground">Try adjusting your search criteria</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
