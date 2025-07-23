@@ -360,7 +360,7 @@ export function parseProductData(): {
   };
   
   const pricingToProductMapping = createProductTypeMapping();
-  const externalPricing = parsePricingDataWithNewLogic(types, pricingToProductMapping);
+  const externalPricing = parsePricingData(types, pricingToProductMapping);
   
   if (externalPricing.length > 0) {
     console.log('Using external pricing data from tier_pricing_template.csv');

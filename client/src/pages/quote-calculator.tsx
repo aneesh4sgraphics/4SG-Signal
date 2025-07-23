@@ -79,8 +79,6 @@ interface ProductSize {
   widthUnit: string;
   heightUnit: string;
   squareMeters: string;
-  itemCode: string | null;
-  minOrderQty: string | null;
 }
 
 interface PricingTier {
@@ -220,7 +218,7 @@ export default function QuoteCalculator() {
   const getFilteredPricingTiers = () => {
     if (!pricingTiers || !productPricing || !user) return [];
     
-    const userRole = getUserRoleFromEmail((user as any)?.email || "");
+    const userRole = getUserRoleFromEmail(user.email);
     const roleFilteredTiers = filterTiersByRole(pricingTiers, userRole);
     
     // Filter out tiers with zero pricing for the selected product type
@@ -344,14 +342,12 @@ export default function QuoteCalculator() {
     return 0;
   };
 
-  const getUnitPrice = async () => {
-    const currentPrice = await getCurrentPrice();
-    return getCurrentSquareMeters() * currentPrice;
+  const getUnitPrice = () => {
+    return getCurrentSquareMeters() * getCurrentPrice();
   };
 
-  const getTotalPrice = async () => {
-    const unitPrice = await getUnitPrice();
-    return unitPrice * quantity;
+  const getTotalPrice = () => {
+    return getUnitPrice() * quantity;
   };
 
   const getSelectedProductName = () => {
@@ -766,9 +762,8 @@ Look forward for your order!`;
     <>
       {showEmailCelebration && (
         <EmailCelebrationAnimation
-          isVisible={showEmailCelebration}
-          onClose={() => setShowEmailCelebration(false)}
-          recipientEmail={emailCelebrationCustomer}
+          customerName={emailCelebrationCustomer}
+          onComplete={() => setShowEmailCelebration(false)}
         />
       )}
       
@@ -1003,17 +998,14 @@ Look forward for your order!`;
               {/* Product */}
               <div className="space-y-2">
                 <Label htmlFor="product">Product</Label>
-                <Select value={selectedCategory || "no-category"} onValueChange={(value) => {
-                  if (value !== "no-category") {
-                    setSelectedCategory(value);
-                    resetSelections();
-                  }
+                <Select value={selectedCategory} onValueChange={(value) => {
+                  setSelectedCategory(value);
+                  resetSelections();
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select product..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="no-category" disabled>Please select a product...</SelectItem>
                     {categories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {applyBrandFonts(category.name)}
@@ -1026,18 +1018,15 @@ Look forward for your order!`;
               {/* Product Type */}
               <div className="space-y-2">
                 <Label htmlFor="product-type">Product Type</Label>
-                <Select value={selectedType || "no-type"} onValueChange={(value) => {
-                  if (value !== "no-type") {
-                    setSelectedType(value);
-                    setSelectedSize(null);
-                    setIsCustomSize(false);
-                  }
+                <Select value={selectedType} onValueChange={(value) => {
+                  setSelectedType(value);
+                  setSelectedSize(null);
+                  setIsCustomSize(false);
                 }} disabled={!selectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select product type..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="no-type" disabled>Please select a product type...</SelectItem>
                     {types?.map((type) => (
                       <SelectItem key={type.id} value={type.id.toString()}>
                         {applyBrandFonts(type.name)}
@@ -1050,30 +1039,25 @@ Look forward for your order!`;
               {/* Predefined Size */}
               <div className="space-y-2">
                 <Label htmlFor="size">Predefined Size</Label>
-                <Select value={selectedSize?.id.toString() || (isCustomSize ? "custom" : "no-selection")} onValueChange={(value) => {
+                <Select value={selectedSize?.id.toString() || (isCustomSize ? "custom" : "")} onValueChange={(value) => {
                   if (value === "custom") {
                     setIsCustomSize(true);
                     setSelectedSize(null);
-                  } else if (value !== "no-selection" && value !== "no-sizes") {
+                  } else {
                     setIsCustomSize(false);
                     const size = sizes?.find(s => s.id.toString() === value);
                     setSelectedSize(size || null);
                   }
                 }} disabled={!selectedType}>
                   <SelectTrigger>
-                    <SelectValue placeholder={sizes && sizes.length > 0 ? "Choose from available sizes" : "Select size..."} />
+                    <SelectValue placeholder="Select size..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="no-selection" disabled>Please select a size...</SelectItem>
-                    {sizes && sizes.length > 0 ? (
-                      sizes.map((size) => (
-                        <SelectItem key={size.id} value={size.id.toString()}>
-                          {size.name} {size.itemCode ? `- ${size.itemCode}` : ''}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-sizes" disabled>No sizes available for this product type</SelectItem>
-                    )}
+                    {sizes?.map((size) => (
+                      <SelectItem key={size.id} value={size.id.toString()}>
+                        {size.name}
+                      </SelectItem>
+                    ))}
                     <SelectItem value="custom">Custom Size</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1215,13 +1199,7 @@ Look forward for your order!`;
                 {getFilteredPricingTiers().map((tier) => (
                   <PricingTierRow 
                     key={tier.id} 
-                    tier={{
-                      ...tier,
-                      description: tier.description || "",
-                      minSquareMeters: "0",
-                      maxSquareMeters: "999999",
-                      pricePerSquareMeter: "0"
-                    }} 
+                    tier={tier} 
                     selectedType={selectedType}
                     getCurrentSquareMeters={getCurrentSquareMeters}
                     getMinOrderQuantity={getMinOrderQuantity}

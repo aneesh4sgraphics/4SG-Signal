@@ -24,7 +24,7 @@ import {
   competitorPricing,
   fileUploads
 } from "@shared/schema";
-import { parseProductDataAndPricing } from "./csv-parser-fixed.js";
+import { parseProductData } from "./csv-parser";
 import { parseCustomerData } from "./customer-parser";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -152,7 +152,7 @@ export class MemStorage implements IStorage {
   private loadDataFromCsv() {
     try {
       console.log('Loading product data from CSV files...');
-      const csvData = parseProductDataAndPricing();
+      const csvData = parseProductData();
       
       // Clear existing data
       this.productCategories.clear();
@@ -181,20 +181,16 @@ export class MemStorage implements IStorage {
       });
       
       // Initialize pricing tiers
-      if (csvData.tiers) {
-        csvData.tiers.forEach(tier => {
-          this.pricingTiers.set(tier.id, tier);
-          this.currentTierId = Math.max(this.currentTierId, tier.id + 1);
-        });
-      }
+      csvData.pricingTiers.forEach(tier => {
+        this.pricingTiers.set(tier.id, tier);
+        this.currentTierId = Math.max(this.currentTierId, tier.id + 1);
+      });
       
       // Initialize product pricing
-      if (csvData.pricing) {
-        csvData.pricing.forEach(pricing => {
-          this.productPricing.set(pricing.id, pricing);
-          this.currentPricingId = Math.max(this.currentPricingId, pricing.id + 1);
-        });
-      }
+      csvData.productPricing.forEach(pricing => {
+        this.productPricing.set(pricing.id, pricing);
+        this.currentPricingId = Math.max(this.currentPricingId, pricing.id + 1);
+      });
 
       // Initialize customers from CSV
       const customerData = parseCustomerData();
