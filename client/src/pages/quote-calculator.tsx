@@ -81,20 +81,12 @@ interface ProductSize {
   squareMeters: string;
   itemCode?: string;
   minOrderQty?: string;
-  width: string;
-  height: string;
-  widthUnit: string;
-  heightUnit: string;
-  squareMeters: string;
 }
 
 interface PricingTier {
   id: number;
   name: string;
-  description: string;
-  minSquareMeters: string;
-  maxSquareMeters: string;
-  pricePerSquareMeter: string;
+  description: string | null;
 }
 
 interface ProductPricing {

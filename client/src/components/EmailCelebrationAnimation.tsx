@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, CheckCircle, Sparkles, Send, Star, Heart } from 'lucide-react';
 
 interface EmailCelebrationAnimationProps {
-  isVisible: boolean;
-  onClose: () => void;
+  onComplete: () => void;
+  isVisible?: boolean;
+  onClose?: () => void;
   emailCount?: number;
   recipientEmail?: string;
 }
@@ -41,7 +42,8 @@ const FloatingIcon = ({ icon: Icon, delay = 0 }: { icon: any; delay?: number }) 
 );
 
 const EmailCelebrationAnimation: React.FC<EmailCelebrationAnimationProps> = ({ 
-  isVisible, 
+  onComplete,
+  isVisible = true, 
   onClose, 
   emailCount = 1, 
   recipientEmail = "customer" 
@@ -54,7 +56,10 @@ const EmailCelebrationAnimation: React.FC<EmailCelebrationAnimationProps> = ({
       const timer1 = setTimeout(() => setCurrentStep(1), 500);
       const timer2 = setTimeout(() => setShowFireworks(true), 1000);
       const timer3 = setTimeout(() => setCurrentStep(2), 1500);
-      const timer4 = setTimeout(() => onClose(), 3000);
+      const timer4 = setTimeout(() => {
+        onComplete();
+        onClose && onClose();
+      }, 3000);
 
       return () => {
         clearTimeout(timer1);
