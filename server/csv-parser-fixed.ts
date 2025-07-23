@@ -173,7 +173,7 @@ function parsePricingDataWithNewLogic(types: ProductType[]): ProductPricing[] {
             id: pricingId++,
             productTypeId: matchedType!.id,
             tierId,
-            pricePerSquareMeter: price
+            pricePerSquareMeter: price.toString()
           });
         }
       });
