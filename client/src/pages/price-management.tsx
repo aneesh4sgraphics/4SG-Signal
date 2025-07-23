@@ -75,6 +75,9 @@ export default function PriceManagement() {
       return response.json();
     },
     onSuccess: (data) => {
+      if (import.meta.env.DEV) {
+        console.log("Upload successful:", data);
+      }
       toast({
         title: "Upload Successful",
         description: `Updated ${data.updated || 0} pricing entries`,
@@ -82,6 +85,9 @@ export default function PriceManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/pricing-data"] });
     },
     onError: (error: Error) => {
+      if (import.meta.env.DEV) {
+        console.error("Upload error:", error);
+      }
       toast({
         title: "Upload Failed",
         description: error.message,
@@ -92,6 +98,10 @@ export default function PriceManagement() {
 
   const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    if (import.meta.env.DEV) {
+      console.log("File selected for upload:", file?.name, file?.size);
+    }
+    
     if (file) {
       if (!file.name.toLowerCase().endsWith('.csv')) {
         toast({
@@ -102,6 +112,9 @@ export default function PriceManagement() {
         return;
       }
       
+      if (import.meta.env.DEV) {
+        console.log("Starting pricing CSV upload...");
+      }
       uploadMutation.mutate(file);
     }
     // Reset the input
