@@ -220,7 +220,7 @@ export default function QuoteCalculator() {
   const getFilteredPricingTiers = () => {
     if (!pricingTiers || !productPricing || !user) return [];
     
-    const userRole = getUserRoleFromEmail(user.email);
+    const userRole = getUserRoleFromEmail((user as any)?.email || "");
     const roleFilteredTiers = filterTiersByRole(pricingTiers, userRole);
     
     // Filter out tiers with zero pricing for the selected product type
@@ -344,12 +344,14 @@ export default function QuoteCalculator() {
     return 0;
   };
 
-  const getUnitPrice = () => {
-    return getCurrentSquareMeters() * getCurrentPrice();
+  const getUnitPrice = async () => {
+    const currentPrice = await getCurrentPrice();
+    return getCurrentSquareMeters() * currentPrice;
   };
 
-  const getTotalPrice = () => {
-    return getUnitPrice() * quantity;
+  const getTotalPrice = async () => {
+    const unitPrice = await getUnitPrice();
+    return unitPrice * quantity;
   };
 
   const getSelectedProductName = () => {
@@ -764,8 +766,9 @@ Look forward for your order!`;
     <>
       {showEmailCelebration && (
         <EmailCelebrationAnimation
-          customerName={emailCelebrationCustomer}
-          onComplete={() => setShowEmailCelebration(false)}
+          isVisible={showEmailCelebration}
+          onClose={() => setShowEmailCelebration(false)}
+          recipientEmail={emailCelebrationCustomer}
         />
       )}
       
@@ -1062,7 +1065,7 @@ Look forward for your order!`;
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>No sizes available for this product type</SelectItem>
+                      <SelectItem value="no-sizes" disabled>No sizes available for this product type</SelectItem>
                     )}
                     <SelectItem value="custom">Custom Size</SelectItem>
                   </SelectContent>
@@ -1205,7 +1208,13 @@ Look forward for your order!`;
                 {getFilteredPricingTiers().map((tier) => (
                   <PricingTierRow 
                     key={tier.id} 
-                    tier={tier} 
+                    tier={{
+                      ...tier,
+                      description: tier.description || "",
+                      minSquareMeters: "0",
+                      maxSquareMeters: "999999",
+                      pricePerSquareMeter: "0"
+                    }} 
                     selectedType={selectedType}
                     getCurrentSquareMeters={getCurrentSquareMeters}
                     getMinOrderQuantity={getMinOrderQuantity}
