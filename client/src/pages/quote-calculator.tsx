@@ -1003,14 +1003,17 @@ Look forward for your order!`;
               {/* Product */}
               <div className="space-y-2">
                 <Label htmlFor="product">Product</Label>
-                <Select value={selectedCategory} onValueChange={(value) => {
-                  setSelectedCategory(value);
-                  resetSelections();
+                <Select value={selectedCategory || "no-category"} onValueChange={(value) => {
+                  if (value !== "no-category") {
+                    setSelectedCategory(value);
+                    resetSelections();
+                  }
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select product..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="no-category" disabled>Please select a product...</SelectItem>
                     {categories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {applyBrandFonts(category.name)}
@@ -1023,15 +1026,18 @@ Look forward for your order!`;
               {/* Product Type */}
               <div className="space-y-2">
                 <Label htmlFor="product-type">Product Type</Label>
-                <Select value={selectedType} onValueChange={(value) => {
-                  setSelectedType(value);
-                  setSelectedSize(null);
-                  setIsCustomSize(false);
+                <Select value={selectedType || "no-type"} onValueChange={(value) => {
+                  if (value !== "no-type") {
+                    setSelectedType(value);
+                    setSelectedSize(null);
+                    setIsCustomSize(false);
+                  }
                 }} disabled={!selectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select product type..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="no-type" disabled>Please select a product type...</SelectItem>
                     {types?.map((type) => (
                       <SelectItem key={type.id} value={type.id.toString()}>
                         {applyBrandFonts(type.name)}
