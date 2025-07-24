@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 
 interface ProductData {
   ItemCode: string;
@@ -28,6 +29,23 @@ interface ProductData {
   TierStage15: number;
   TierStage1: number;
   Retail: number;
+}
+
+interface Customer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  country: string;
+  zip: string;
+  phone: string;
+  note: string;
+  tags: string;
 }
 
 interface QuoteItem {
@@ -59,14 +77,12 @@ const pricingTiers = [
 ];
 
 export default function QuoteCalculator() {
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -148,7 +164,7 @@ export default function QuoteCalculator() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: customerName || "Customer",
+          customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : "Customer",
           quoteNumber,
           quoteItems,
           totalAmount
@@ -194,10 +210,10 @@ export default function QuoteCalculator() {
       return;
     }
 
-    if (!customerEmail || !customerName) {
+    if (!selectedCustomer) {
       toast({
-        title: "Missing Information",
-        description: "Please enter customer name and email",
+        title: "No Customer Selected",
+        description: "Please select a customer before sending email",
         variant: "destructive",
       });
       return;
@@ -213,7 +229,7 @@ export default function QuoteCalculator() {
     });
     
     const emailSubject = `Quote ${quoteNumber} from 4S Graphics`;
-    const emailBody = `Dear Mr. ${customerName}
+    const emailBody = `Dear Mr. ${selectedCustomer.firstName} ${selectedCustomer.lastName}
 
 Thank you for interest in our products, here is the quote you requested:
 
@@ -234,7 +250,7 @@ Yours truly
 4S Graphics Team`;
 
     // Create mailto link
-    const mailtoLink = `mailto:${customerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    const mailtoLink = `mailto:${selectedCustomer.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
     
     // Open default email client
     window.location.href = mailtoLink;
@@ -242,7 +258,7 @@ Yours truly
     // Show success message
     toast({
       title: "Email Client Opened",
-      description: `Comprehensive quote email composed for ${customerName}`,
+      description: `Comprehensive quote email composed for ${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
     });
     
     setIsEmailDialogOpen(false);
@@ -267,6 +283,83 @@ Yours truly
           </p>
         </div>
       </div>
+
+      {/* Customer Selection Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Customer Selection
+          </CardTitle>
+          <CardDescription>
+            Select a customer to generate quotes for
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Customer Search */}
+            <div className="space-y-4">
+              <Label>Select Customer</Label>
+              <SearchableCustomerSelect
+                selectedCustomer={selectedCustomer}
+                onCustomerSelect={setSelectedCustomer}
+                placeholder="Search customers by name, company, or email..."
+                className="w-full"
+              />
+            </div>
+
+            {/* Right Column - Customer Details */}
+            <div className="space-y-4">
+              <Label>Customer Details</Label>
+              {selectedCustomer ? (
+                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">
+                      {selectedCustomer.firstName} {selectedCustomer.lastName}
+                    </span>
+                  </div>
+                  
+                  {selectedCustomer.company && (
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">{selectedCustomer.company}</span>
+                    </div>
+                  )}
+                  
+                  {selectedCustomer.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">{selectedCustomer.email}</span>
+                    </div>
+                  )}
+                  
+                  {selectedCustomer.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">{selectedCustomer.phone}</span>
+                    </div>
+                  )}
+                  
+                  {(selectedCustomer.city || selectedCustomer.province) && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">
+                        {[selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                  <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Select a customer to view details</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel - Configure Product */}
@@ -471,55 +564,21 @@ Yours truly
                   <Button
                     variant="outline"
                     onClick={() => generatePDFMutation.mutate()}
-                    disabled={generatePDFMutation.isPending}
+                    disabled={generatePDFMutation.isPending || !selectedCustomer}
                     className="gap-2"
                   >
                     <Download className="h-4 w-4" />
                     Download PDF
                   </Button>
-                  <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email Quote
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Email Quote</DialogTitle>
-                        <DialogDescription>
-                          Enter customer details to send the quote via email
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="customerName">Customer Name</Label>
-                          <Input
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            placeholder="Enter customer name"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="customerEmail">Customer Email</Label>
-                          <Input
-                            type="email"
-                            value={customerEmail}
-                            onChange={(e) => setCustomerEmail(e.target.value)}
-                            placeholder="Enter customer email"
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button
-                          onClick={handleEmailQuote}
-                          disabled={!customerName || !customerEmail}
-                        >
-                          Compose Email
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <Button
+                    variant="outline"
+                    onClick={handleEmailQuote}
+                    disabled={!selectedCustomer}
+                    className="gap-2"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Email Quote
+                  </Button>
                 </div>
               </div>
             </div>
