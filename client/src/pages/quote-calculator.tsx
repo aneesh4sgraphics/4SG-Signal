@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calculator, ArrowLeft, User } from "lucide-react";
+import { Calculator, ArrowLeft, User, Mail, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -143,8 +143,22 @@ export default function QuoteCalculator() {
     }
 
     try {
+      // Validate square meters
+      const squareMeters = parseFloat(selectedSize.squareMeters);
+      if (isNaN(squareMeters) || squareMeters <= 0) {
+        throw new Error("Invalid product size dimensions. Please contact admin to fix product data.");
+      }
+      
+      // Debug logging
+      console.log("Fetching price for:", {
+        squareMeters: squareMeters,
+        typeId: selectedType,
+        tierId: selectedTier,
+        sizeId: selectedSize.id
+      });
+      
       // Calculate price
-      const response = await fetch(`/api/price/${selectedSize.squareMeters}/${selectedType}/${selectedTier}?sizeId=${selectedSize.id}`);
+      const response = await fetch(`/api/price/${squareMeters}/${selectedType}/${selectedTier}?sizeId=${selectedSize.id}`);
       const priceData = await response.json();
       
       if (!response.ok) {
@@ -203,6 +217,112 @@ export default function QuoteCalculator() {
 
   const getTotalAmount = () => {
     return quoteItems.reduce((sum, item) => sum + item.total, 0);
+  };
+
+  // Generate and download PDF
+  const generateAndDownloadPDF = async () => {
+    if (quoteItems.length === 0) {
+      toast({
+        title: "No Items",
+        description: "Please add items to the quote before generating PDF",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedCustomer) {
+      toast({
+        title: "No Customer Selected",
+        description: "Please select a customer before generating PDF",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const quoteNumber = `QC-${Date.now()}`;
+      const quoteData = {
+        quoteNumber,
+        customerName: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+        customerEmail: selectedCustomer.email,
+        customerCompany: selectedCustomer.company,
+        customerAddress: `${selectedCustomer.address1} ${selectedCustomer.city}, ${selectedCustomer.province} ${selectedCustomer.zip}`,
+        items: quoteItems,
+        totalAmount: getTotalAmount(),
+        createdAt: new Date().toISOString(),
+      };
+
+      const response = await fetch('/api/generate-quote-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(quoteData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `Quote_${quoteNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF Generated",
+        description: "Quote PDF has been downloaded successfully"
+      });
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Email quote
+  const emailQuote = async () => {
+    if (quoteItems.length === 0) {
+      toast({
+        title: "No Items",
+        description: "Please add items to the quote before emailing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedCustomer || !selectedCustomer.email) {
+      toast({
+        title: "No Customer Email",
+        description: "Please select a customer with a valid email address",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const quoteNumber = `QC-${Date.now()}`;
+    const subject = `Quote ${quoteNumber} from 4S Graphics`;
+    const body = `Dear ${selectedCustomer.firstName},\n\nPlease find attached your quote from 4S Graphics.\n\nQuote Details:\n${quoteItems.map(item => 
+      `• ${item.productType} (${item.productSize}) - Qty: ${item.quantity} - $${item.total.toFixed(2)}`
+    ).join('\n')}\n\nTotal: $${getTotalAmount().toFixed(2)}\n\nThank you for your business!\n\nBest regards,\n4S Graphics Team`;
+
+    const mailtoLink = `mailto:${selectedCustomer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+
+    toast({
+      title: "Email Opened",
+      description: "Email client opened with quote details"
+    });
   };
 
   return (
@@ -377,7 +497,19 @@ export default function QuoteCalculator() {
         {quoteItems.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Quote Items</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Quote Items</span>
+                <div className="flex gap-2">
+                  <Button onClick={emailQuote} className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email Quote
+                  </Button>
+                  <Button onClick={generateAndDownloadPDF} className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -388,6 +520,7 @@ export default function QuoteCalculator() {
                       <div className="text-sm text-gray-600">{item.productSize}</div>
                       <div className="text-sm text-gray-500">
                         Quantity: {item.quantity} | Tier: {item.tierName}
+                        {item.itemCode && ` | Code: ${item.itemCode}`}
                       </div>
                     </div>
                     <div className="text-right">
