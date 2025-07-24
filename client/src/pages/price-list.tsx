@@ -582,10 +582,8 @@ export default function PriceList() {
                 <label className="block text-base font-medium text-gray-900">Select Customer</label>
                 <div className="flex gap-2">
                   <SearchableCustomerSelect
-                    customers={customers}
                     selectedCustomer={selectedCustomer}
                     onCustomerSelect={setSelectedCustomer}
-                    onNewCustomer={() => setShowNewCustomerDialog(true)}
                     placeholder="Search and select customer..."
                   />
                   <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
