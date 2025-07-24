@@ -108,7 +108,7 @@ interface Customer {
   firstName: string;
   lastName: string;
   email: string;
-  acceptsEmailMarketing: boolean;
+  acceptsEmailMarketing?: boolean;
   company: string;
   address1: string;
   address2: string;
@@ -117,8 +117,8 @@ interface Customer {
   country: string;
   zip: string;
   phone: string;
-  totalSpent: number;
-  totalOrders: number;
+  totalSpent?: number;
+  totalOrders?: number;
   note: string;
   tags: string;
 }

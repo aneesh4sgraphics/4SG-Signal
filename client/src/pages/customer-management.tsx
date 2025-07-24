@@ -103,9 +103,15 @@ export default function CustomerManagement() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Enhanced feedback with detailed statistics
+      const details = [];
+      if (data.stats?.newCustomers) details.push(`${data.stats.newCustomers} new customers added`);
+      if (data.stats?.updatedCustomers) details.push(`${data.stats.updatedCustomers} customers updated`);
+      if (data.stats?.errors) details.push(`${data.stats.errors} errors encountered`);
+      
       toast({
-        title: "Upload Successful",
-        description: data.message || "Customer data uploaded successfully",
+        title: "Upload Completed",
+        description: data.message || `Successfully processed customer data: ${details.join(', ')}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
@@ -364,7 +370,7 @@ export default function CustomerManagement() {
               <Users className="h-8 w-8" />
               Customer Management
             </h1>
-            <p className="text-gray-600">Manage customer data and upload customer information</p>
+            <p className="text-gray-600">Manage customer data and upload CSV files to add new customers or update existing ones</p>
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="csv-upload-customers">
@@ -393,6 +399,30 @@ export default function CustomerManagement() {
             </Button>
           </div>
         </div>
+
+        {/* CSV Upload Information */}
+        <Card className="shadow-sm border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Upload className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-blue-900 mb-1">CSV Upload Instructions</h3>
+                <p className="text-sm text-blue-700 mb-2">
+                  Upload CSV files to efficiently manage customer data. The system will:
+                </p>
+                <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                  <li><strong>Add new customers</strong> found in the CSV file</li>
+                  <li><strong>Update existing customers</strong> with any new information provided</li>
+                  <li><strong>Skip unchanged data</strong> to avoid unnecessary database operations</li>
+                  <li><strong>Provide detailed feedback</strong> showing what was added, updated, or skipped</li>
+                </ul>
+                <p className="text-xs text-blue-600 mt-2">
+                  Customers are matched by email address. Existing data is only updated when new information is provided.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search and Filters */}
         <Card className="shadow-sm">
