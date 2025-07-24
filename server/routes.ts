@@ -2304,43 +2304,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "CSV file must have header and at least one data row" });
       }
 
+      // Enhanced CSV parsing to handle quoted fields properly
+      const parseCSVLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        let i = 0;
+        
+        while (i < line.length) {
+          const char = line[i];
+          
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              // Escaped quote
+              current += '"';
+              i += 2;
+            } else {
+              // Toggle quote mode
+              inQuotes = !inQuotes;
+              i++;
+            }
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+            i++;
+          } else {
+            current += char;
+            i++;
+          }
+        }
+        
+        result.push(current.trim());
+        return result;
+      };
+
       // Parse CSV data
       let newRecords = 0;
       let updatedRecords = 0;
+
+      console.log(`Processing ${lines.length - 1} data rows from CSV`);
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        const values = line.split(',').map(v => v.trim().replace(/^\$/, ''));
+        const values = parseCSVLine(line).map(v => v.replace(/^\$/, '').trim());
         
-        if (values.length < 2) continue;
+        if (values.length < 2) {
+          console.log(`Row ${i}: Skipping - insufficient columns (${values.length})`);
+          continue;
+        }
 
         const record = {
           productId: values[0] || '',
           productType: values[1] || '',
-          exportPrice: parseFloat(values[2]) || null,
-          masterDistributorPrice: parseFloat(values[3]) || null,
-          dealerPrice: parseFloat(values[4]) || null,
-          dealer2Price: parseFloat(values[5]) || null,
-          approvalRetailPrice: parseFloat(values[6]) || null,
-          stage25Price: parseFloat(values[7]) || null,
-          stage2Price: parseFloat(values[8]) || null,
-          stage15Price: parseFloat(values[9]) || null,
-          stage1Price: parseFloat(values[10]) || null,
-          retailPrice: parseFloat(values[11]) || null,
+          exportPrice: values[2] ? parseFloat(values[2]) || null : null,
+          masterDistributorPrice: values[3] ? parseFloat(values[3]) || null : null,
+          dealerPrice: values[4] ? parseFloat(values[4]) || null : null,
+          dealer2Price: values[5] ? parseFloat(values[5]) || null : null,
+          approvalRetailPrice: values[6] ? parseFloat(values[6]) || null : null,
+          stage25Price: values[7] ? parseFloat(values[7]) || null : null,
+          stage2Price: values[8] ? parseFloat(values[8]) || null : null,
+          stage15Price: values[9] ? parseFloat(values[9]) || null : null,
+          stage1Price: values[10] ? parseFloat(values[10]) || null : null,
+          retailPrice: values[11] ? parseFloat(values[11]) || null : null,
         };
 
+        console.log(`Row ${i}: Processing ${record.productId} - ${record.productType}`);
+
         if (record.productId && record.productType) {
-          // Check if record exists
-          const existing = await storage.getPricingDataByProductId(record.productId);
-          if (existing) {
-            await storage.updatePricingDataByProductId(record.productId, record);
-            updatedRecords++;
-          } else {
-            await storage.createPricingData(record);
-            newRecords++;
+          try {
+            // Check if record exists
+            const existing = await storage.getPricingDataByProductId(record.productId);
+            if (existing) {
+              await storage.updatePricingDataByProductId(record.productId, record);
+              updatedRecords++;
+              console.log(`  Updated existing record: ${record.productId}`);
+            } else {
+              await storage.createPricingData(record);
+              newRecords++;
+              console.log(`  Created new record: ${record.productId}`);
+            }
+          } catch (error) {
+            console.error(`  Error processing ${record.productId}:`, error);
           }
+        } else {
+          console.log(`  Skipping - missing productId or productType`);
         }
       }
 
