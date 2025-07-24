@@ -2589,65 +2589,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoints for PDF and CSV generation
   app.post("/api/generate-pdf-quote", isAuthenticated, async (req, res) => {
     try {
-      const { customerName, quoteItems, quoteNumber } = req.body;
+      const { customerName, quoteItems, quoteNumber, totalAmount } = req.body;
       
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .quote-info { margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .total { font-weight: bold; font-size: 1.2em; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>4S Graphics</h1>
-            <h2>QUOTATION</h2>
-          </div>
-          <div class="quote-info">
-            <p><strong>Quote #:</strong> ${quoteNumber}</p>
-            <p><strong>Customer:</strong> ${customerName}</p>
-            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Size</th>
-                <th>Quantity</th>
-                <th>Price/Sheet</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${quoteItems.map((item: any) => `
-                <tr>
-                  <td>${item.productType}</td>
-                  <td>${item.size}</td>
-                  <td>${item.quantity}</td>
-                  <td>$${item.pricePerSheet.toFixed(2)}</td>
-                  <td>$${item.total.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="total">
-            Total: $${quoteItems.reduce((sum: number, item: any) => sum + item.total, 0).toFixed(2)}
-          </div>
-        </body>
-        </html>
-      `;
+      if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
+        return res.status(400).json({ error: "Customer name and quote items are required" });
+      }
+
+      // Import the function from stub-functions
+      const { generateQuoteHTMLForDownload } = await import('./stub-functions.js');
+      
+      const html = generateQuoteHTMLForDownload({
+        customerName,
+        quoteNumber,
+        quoteItems,
+        totalAmount: totalAmount || quoteItems.reduce((sum: number, item: any) => sum + item.total, 0)
+      });
       
       res.json({ html });
     } catch (error) {
-      console.error("Error generating PDF:", error);
-      res.status(500).json({ error: "Failed to generate PDF" });
+      console.error("Error generating PDF quote:", error);
+      res.status(500).json({ error: "Failed to generate PDF quote" });
     }
   });
 

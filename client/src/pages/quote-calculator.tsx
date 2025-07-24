@@ -137,15 +137,21 @@ export default function QuoteCalculator() {
 
   const generatePDFMutation = useMutation({
     mutationFn: async () => {
+      if (quoteItems.length === 0) {
+        throw new Error('No items in quote to generate PDF');
+      }
+
+      const quoteNumber = `4SG-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
+      
       const response = await fetch('/api/generate-pdf-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: customerName || "Quote",
-          customerEmail: customerEmail,
+          customerName: customerName || "Customer",
+          quoteNumber,
           quoteItems,
-          quoteNumber: `Q${Date.now()}`,
-          sentVia: 'pdf'
+          totalAmount
         })
       });
       
@@ -159,17 +165,20 @@ export default function QuoteCalculator() {
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        printWindow.print();
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
       }
       toast({
         title: "PDF Generated",
         description: "Quote PDF has been generated successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to generate PDF",
+        description: error instanceof Error ? error.message : "Failed to generate PDF",
         variant: "destructive",
       });
     }
