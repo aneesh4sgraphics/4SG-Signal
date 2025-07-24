@@ -227,7 +227,7 @@ export class MemStorage implements IStorage {
         minOrderQty: null
       });
       this.pricingTiers.set(1, { id: 1, name: "Retail", description: "Retail pricing tier" });
-      this.productPricing.set(1, { id: 1, productTypeId: 1, tierId: 1, pricePerSquareMeter: "5.70" });
+      this.productPricing.set(1, { id: 1, productTypeId: 1, tierId: 1, pricePerSquareMeter: "5.70", sizeId: null });
     }
   }
 
@@ -264,6 +264,8 @@ export class MemStorage implements IStorage {
         status: userData.status || "pending",
         approvedBy: userData.approvedBy || null,
         approvedAt: userData.approvedAt || null,
+        loginCount: userData.loginCount || null,
+        lastLoginDate: userData.lastLoginDate || null,
         createdAt: new Date(), 
         updatedAt: new Date() 
       };
@@ -446,7 +448,8 @@ export class MemStorage implements IStorage {
       ...quote, 
       id,
       status: quote.status || "sent",
-      customerEmail: quote.customerEmail || null
+      customerEmail: quote.customerEmail || null,
+      createdAt: new Date()
     };
     this.sentQuotes.set(id, newQuote);
     return newQuote;
@@ -462,7 +465,7 @@ export class MemStorage implements IStorage {
       const newMethod = quote.sentVia;
       
       // Add new method if not already present
-      const allMethods = [...new Set([...existingMethods, newMethod])];
+      const allMethods = Array.from(new Set([...existingMethods, newMethod]));
       const combinedSentVia = allMethods.join(', ');
       
       // Update existing quote with merged delivery methods
@@ -501,6 +504,8 @@ export class MemStorage implements IStorage {
       id,
       timestamp: new Date(),
       createdAt: new Date(),
+      width: pricingData.width?.toString() || null,
+      length: pricingData.length?.toString() || null,
     };
     this.competitorPricing.set(id, newPricing);
     return newPricing;
@@ -555,6 +560,11 @@ export class MemStorage implements IStorage {
   async createCustomer(customerData: InsertCustomer): Promise<Customer> {
     const newCustomer: Customer = {
       ...customerData,
+      email: customerData.email || null,
+      firstName: customerData.firstName || null,
+      lastName: customerData.lastName || null,
+      acceptsEmailMarketing: customerData.acceptsEmailMarketing || null,
+      tags: customerData.tags || null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -633,7 +643,7 @@ export class MemStorage implements IStorage {
   // Pricing Management methods
   async getPricingDataWithDetails(): Promise<any[]> {
     const result = [];
-    for (const pricing of this.productPricing.values()) {
+    for (const pricing of Array.from(this.productPricing.values())) {
       const productType = this.productTypes.get(pricing.productTypeId);
       const tier = this.pricingTiers.get(pricing.tierId);
       const category = productType ? this.productCategories.get(productType.categoryId) : undefined;
@@ -653,7 +663,7 @@ export class MemStorage implements IStorage {
 
   async getProductTypesWithCategories(): Promise<any[]> {
     const result = [];
-    for (const productType of this.productTypes.values()) {
+    for (const productType of Array.from(this.productTypes.values())) {
       const category = this.productCategories.get(productType.categoryId);
       result.push({
         id: productType.id,

@@ -631,13 +631,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]); // Return empty array if no customer file exists
       }
       
-      const customers = parseCustomerData();
+      const customers = parseCustomerCSV();
       res.json(customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
+      const filePathLocal = path.join(process.cwd(), 'attached_assets', 'customers_export.csv');
       logFileOperation({
         type: 'READ',
-        file: filePath,
+        file: filePathLocal,
         success: false,
         error: error instanceof Error ? error.message : String(error)
       });
@@ -648,8 +649,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get customer by ID
   app.get("/api/customers/:id", async (req, res) => {
     try {
-      const customers = parseCustomerData();
-      const customer = customers.find(c => c.id === req.params.id);
+      const customers = parseCustomerCSV();
+      const customer = customers.find((c: any) => c.id === req.params.id);
       
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
@@ -840,7 +841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Try to find an existing row with empty ProductID that matches this data pattern
                 let foundMatch = false;
-                for (const [existingId, existingRow] of existingDataMap) {
+                for (const [existingId, existingRow] of Array.from(existingDataMap.entries())) {
                   if (!existingId || existingId === '') {
                     // Check if this existing empty row matches the new row pattern (same ProductName, ProductType, Size)
                     const existingName = existingRow[1]?.trim() || '';
@@ -952,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Add any remaining existing products that weren't in the new file
-          for (const [productId, existingRow] of existingDataMap) {
+          for (const [productId, existingRow] of Array.from(existingDataMap.entries())) {
             if (!processedIds.has(productId)) {
               // Ensure existing row has the same length as the new header
               const paddedRow = [...existingRow];
@@ -1119,13 +1120,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existingDataMap.has(compositeKey)) {
               // Check if any field has new/different data
               const existingRow = existingDataMap.get(compositeKey);
+              if (!existingRow) continue;
               let hasUpdates = false;
               const updatedRow = [...existingRow];
               
               // Compare each field and update if new data is not empty and different
-              for (let i = 0; i < newRow.length && i < existingRow.length; i++) {
+              for (let i = 0; i < newRow.length && i < existingRow!.length; i++) {
                 const newValue = newRow[i]?.trim() || '';
-                const existingValue = existingRow[i]?.trim() || '';
+                const existingValue = existingRow![i]?.trim() || '';
                 
                 // Update if new value is not empty and different from existing
                 if (newValue && newValue !== existingValue) {
@@ -1527,7 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         try {
-          await storage.createCompetitorPricing(competitorData);
+          await storage.createCompetitorPricing(competitorData as any);
           uploadedCount++;
         } catch (error) {
           console.error(`Error saving competitor pricing data:`, error);
@@ -1757,7 +1759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               </tr>
             </thead>
             <tbody>
-              ${items.map(item => {
+              ${items.map((item: any) => {
                 const pricing = item.pricing;
                 const pricePerSqm = pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
                 const squareMeters = parseFloat(item.size.squareMeters);
@@ -1815,7 +1817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const headers = ['Size', 'Item Code', 'Min Qty', 'Price/Sq.M', 'Price Per Sheet', 'Price Per Pack'];
       const csvRows = [
         headers.join(','),
-        ...items.map(item => {
+        ...items.map((item: any) => {
           const pricing = item.pricing;
           const pricePerSqm = pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
           const squareMeters = parseFloat(item.size.squareMeters);
@@ -2056,13 +2058,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pricePerSqMeter: pricePerSqMeter,
           notes: rowData.Notes || 'N/A',
           source: 'CSV Upload',
-          addedBy: req.user?.claims?.sub || 'admin'
+          addedBy: (req.user as any)?.claims?.sub || 'admin'
         };
         
         console.log('Final competitor data:', JSON.stringify(competitorData, null, 2));
         
         try {
-          const savedEntry = await storage.createCompetitorPricing(competitorData);
+          const savedEntry = await storage.createCompetitorPricing(competitorData as any);
           console.log('Successfully saved entry:', JSON.stringify(savedEntry, null, 2));
           uploadedCount++;
         } catch (error) {
@@ -2189,7 +2191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               path: path.join(assetsDir, file),
               mtime: fs.statSync(path.join(assetsDir, file)).mtime
             }))
-            .sort((a, b) => b.mtime - a.mtime)[0];
+            .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())[0];
           
           mainFiles.push(latestAreaFile.name);
         }
@@ -2349,7 +2351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Batch insert all records at once
       console.log(`Batch inserting ${recordsToInsert.length} records...`);
       if (recordsToInsert.length > 0) {
-        const insertResult = await db.insert(pricingData).values(recordsToInsert).returning();
+        const insertResult = await db.insert(pricingData).values(recordsToInsert as any).returning();
         console.log(`Successfully inserted ${insertResult.length} pricing records (IDs: ${insertResult.map(r => r.id).join(', ')})`);
         newRecords = insertResult.length;
       }
