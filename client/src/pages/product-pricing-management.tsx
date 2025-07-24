@@ -47,10 +47,10 @@ export default function ProductPricingManagement() {
   };
 
   const handleFileUpload = async (file: File) => {
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    if (!file.name.endsWith('.csv')) {
       toast({
         title: "Invalid File Type",
-        description: "Please upload an Excel file (.xlsx or .xls)",
+        description: "Please upload a CSV file (.csv)",
         variant: "destructive",
       });
       return;
@@ -66,7 +66,7 @@ export default function ProductPricingManagement() {
     try {
       setUploadProgress(30);
       
-      const response = await fetch('/api/upload-pricing-excel', {
+      const response = await fetch('/api/upload-pricing-csv', {
         method: 'POST',
         body: formData
       });
@@ -102,7 +102,7 @@ export default function ProductPricingManagement() {
 
       toast({
         title: "Upload Failed",
-        description: "Failed to process the Excel file. Please check the format and try again.",
+        description: "Failed to process the CSV file. Please check the format and try again.",
         variant: "destructive",
       });
     } finally {
@@ -197,7 +197,7 @@ export default function ProductPricingManagement() {
               Upload Pricing Data
             </CardTitle>
             <CardDescription>
-              Upload Excel spreadsheet to update product pricing
+              Upload CSV file to update product pricing
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -208,7 +208,7 @@ export default function ProductPricingManagement() {
             >
               <FileSpreadsheet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-600 mb-4">
-                Drop your Excel file here or click to browse
+                Drop your CSV file here or click to browse
               </p>
               <Button 
                 variant="outline" 
@@ -220,7 +220,7 @@ export default function ProductPricingManagement() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".csv"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -312,9 +312,9 @@ export default function ProductPricingManagement() {
             <div className="flex gap-3">
               <Badge variant="outline" className="w-6 h-6 rounded-full flex items-center justify-center text-xs">1</Badge>
               <div>
-                <h4 className="font-medium mb-1">Prepare Your Excel File</h4>
+                <h4 className="font-medium mb-1">Prepare Your CSV File</h4>
                 <p className="text-gray-600">
-                  Ensure your Excel file contains the required columns: ItemCode, product_name, ProductType, size, total_sqm, min_quantity, Export, M.Distributor, Dealer, Dealer2, ApprovalNeeded, TierStage25, TierStage2, TierStage15, TierStage1, Retail.
+                  Ensure your CSV file contains the required columns: ItemCode, product_name, ProductType, size, total_sqm, min_quantity, Export, M.Distributor, Dealer, Dealer2, ApprovalNeeded, TierStage25, TierStage2, TierStage15, TierStage1, Retail.
                 </p>
               </div>
             </div>
@@ -323,7 +323,7 @@ export default function ProductPricingManagement() {
               <div>
                 <h4 className="font-medium mb-1">Upload the File</h4>
                 <p className="text-gray-600">
-                  Drag and drop your Excel file into the upload area or click "Browse Files" to select it. The system will automatically process and convert the data.
+                  Drag and drop your CSV file into the upload area or click "Browse Files" to select it. The system will automatically process the data.
                 </p>
               </div>
             </div>
