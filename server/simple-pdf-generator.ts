@@ -66,10 +66,18 @@ const companyDetails = {
 function generateQuoteHTML(request: PDFGenerationRequest): string {
   const { customerName, quoteItems, quoteNumber, totalAmount, salesRep = "aneesh@4sgraphics.com" } = request;
   const currentDate = new Date().toLocaleDateString('en-US', {
-    month: 'numeric',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
+
+  // Check if customer name is genuine (not test/placeholder data)
+  const isGenuineCustomer = customerName && 
+    !customerName.toLowerCase().includes('test') && 
+    customerName.trim() !== '-' && 
+    customerName.trim() !== '' &&
+    customerName.toLowerCase() !== 'customer' &&
+    customerName.toLowerCase() !== 'sample';
 
   // Generate filename following the requested format: QuickQuotes_4SGraphics_Date_for_CustomerName.pdf
   const filename = `QuickQuotes_4SGraphics_${currentDate.replace(/\//g, '-')}_for_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
@@ -333,9 +341,10 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
       </div>
       
       <div class="quote-info">
-        <div><strong>Quote Prepared for:</strong> ${customerName}</div>
+        <div><strong>Date:</strong> ${currentDate}</div>
+        <div><strong>Prepared By:</strong> ${salesRep}</div>
+        ${isGenuineCustomer ? `<div><strong>Prepared for:</strong> ${customerName}</div>` : ''}
         <div><strong>Quote Number:</strong> ${quoteNumber}</div>
-        <div><strong>Quote Date:</strong> ${currentDate}</div>
       </div>
       
       <div class="price-quote-title">QUOTATION</div>
@@ -426,10 +435,18 @@ interface PriceListRequest {
 export function generatePriceListHTML(request: PriceListRequest): string {
   const { clientName, categoryName, tierName, items } = request;
   const currentDate = new Date().toLocaleDateString('en-US', {
-    month: 'numeric',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
+
+  // Check if client name is genuine (not test/placeholder data)
+  const isGenuineClient = clientName && 
+    !clientName.toLowerCase().includes('test') && 
+    clientName.trim() !== '-' && 
+    clientName.trim() !== '' &&
+    clientName.toLowerCase() !== 'customer' &&
+    clientName.toLowerCase() !== 'sample';
 
   // Group items by product type
   const itemsByType = items.reduce((acc, item) => {
@@ -644,9 +661,10 @@ export function generatePriceListHTML(request: PriceListRequest): string {
       </div>
       
       <div class="price-list-info">
-        ${clientName ? `<div>Price List for: ${clientName}</div>` : ''}
-        <div>Product Category: ${categoryName}</div>
-        <div>Date: ${currentDate}</div>
+        <div><strong>Date:</strong> ${currentDate}</div>
+        <div><strong>Prepared By:</strong> aneesh@4sgraphics.com</div>
+        ${isGenuineClient ? `<div><strong>Prepared for:</strong> ${clientName}</div>` : ''}
+        <div><strong>Product Category:</strong> ${categoryName}</div>
       </div>
       
       <div class="price-list-title">PRICE LIST</div>
