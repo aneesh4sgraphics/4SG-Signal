@@ -11,8 +11,7 @@ import { z } from "zod";
 import { parseProductData } from "./csv-parser";
 import { parseCustomerCSV } from "./customer-parser";
 
-import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generatePriceListCSV } from "./simple-pdf-generator";
-import { generateUniqueQuoteNumber, validateQuoteNumber } from "./quote-number-generator";
+import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generatePriceListCSV, generateUniqueQuoteNumber, validateQuoteNumber } from "./stub-functions";
 import { insertSentQuoteSchema } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
 import { 

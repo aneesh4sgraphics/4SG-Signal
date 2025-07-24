@@ -6,15 +6,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
 import AppHeader from "@/components/AppHeader";
-import QuoteCalculator from "@/pages/quote-calculator-new";
 import AreaPricer from "@/pages/area-pricer-fixed";
 import CompetitorPricing from "@/pages/competitor-pricing-fixed";
 import SavedQuotes from "@/pages/saved-quotes";
-import PriceList from "@/pages/price-list";
 import CustomerManagement from "@/pages/customer-management";
-import ProductManagement from "@/pages/product-management";
-import PriceManagement from "@/pages/price-management";
-import PriceManagementSimple from "@/pages/price-management-simple";
+import ProductPricingManagement from "@/pages/product-pricing-management";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
 import Dashboard from "@/pages/dashboard";
@@ -105,15 +101,11 @@ function Router() {
       <AppHeader />
       <Switch>
         <Route path="/" component={Dashboard} />
-        <Route path="/quick-quotes" component={QuoteCalculator} />
         <Route path="/area-pricer" component={AreaPricer} />
         <Route path="/competitor-pricing" component={CompetitorPricing} />
         <Route path="/saved-quotes" component={SavedQuotes} />
-        <Route path="/price-list" component={PriceList} />
         <Route path="/customer-management" component={CustomerManagement} />
-        <Route path="/product-management" component={ProductManagement} />
-        <Route path="/price-management" component={PriceManagement} />
-        <Route path="/price-management-simple" component={PriceManagementSimple} />
+        <Route path="/product-pricing-management" component={ProductPricingManagement} />
         <Route path="/shipping-calculator" component={ShippingCalculator} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

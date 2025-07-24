@@ -142,14 +142,16 @@ export default function Dashboard() {
         <div className="mb-8 sm:mb-12">
           <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Applications</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
-            {/* QuickQuotes */}
-            <Link href="/quick-quotes">
+
+
+            {/* ProductPricing Management */}
+            <Link href="/product-pricing-management">
               <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-blue-50 to-indigo-100 border-0 shadow-md h-full">
                 <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
                   <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Zap className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
+                    <Database className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <CardTitle className="text-xs sm:text-sm font-semibold text-blue-800">QuickQuotes</CardTitle>
+                  <CardTitle className="text-xs sm:text-sm font-semibold text-blue-800">ProductPricing Mgmt</CardTitle>
                 </CardHeader>
               </Card>
             </Link>
@@ -178,17 +180,7 @@ export default function Dashboard() {
               </Card>
             </Link>
 
-            {/* Price Lists */}
-            <Link href="/price-list">
-              <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-amber-50 to-orange-100 border-0 shadow-md h-full">
-                <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
-                  <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <PieChart className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <CardTitle className="text-xs sm:text-sm font-semibold text-amber-800">Price Lists</CardTitle>
-                </CardHeader>
-              </Card>
-            </Link>
+
 
             {/* ComIntel */}
             <Link href="/competitor-pricing">
@@ -249,26 +241,14 @@ export default function Dashboard() {
                 </Card>
               </Link>
 
-              {/* Product Management */}
-              <Link href="/product-management">
-                <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-indigo-50 to-purple-100 border-0 shadow-md h-full">
+              {/* ProductPricing Management */}
+              <Link href="/product-pricing-management">
+                <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-violet-50 to-purple-100 border-0 shadow-md h-full">
                   <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
-                    <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <Package className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
+                    <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <Database className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <CardTitle className="text-xs sm:text-sm font-semibold text-indigo-800">Product Management</CardTitle>
-                  </CardHeader>
-                </Card>
-              </Link>
-
-              {/* Price Management */}
-              <Link href="/price-management">
-                <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 bg-gradient-to-br from-yellow-50 to-amber-100 border-0 shadow-md h-full">
-                  <CardHeader className="text-center pb-2 sm:pb-3 pt-4 sm:pt-4">
-                    <div className="w-12 h-12 sm:w-12 sm:h-12 mx-auto mb-2 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
-                      <DollarSign className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <CardTitle className="text-xs sm:text-sm font-semibold text-yellow-800">Price Management</CardTitle>
+                    <CardTitle className="text-xs sm:text-sm font-semibold text-violet-800">ProductPricing Mgmt</CardTitle>
                   </CardHeader>
                 </Card>
               </Link>
