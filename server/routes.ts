@@ -1430,7 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get pricing data for Price Management
-  app.get("/api/pricing-data", isAuthenticated, async (req, res) => {
+  app.get("/api/pricing-data", async (req, res) => {
     try {
       const pricingData = await storage.getAllPricingData();
       res.json(pricingData);
@@ -1441,7 +1441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update pricing data entry
-  app.patch("/api/pricing-data/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/pricing-data/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
