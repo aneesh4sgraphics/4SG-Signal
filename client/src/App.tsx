@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
 import AppHeader from "@/components/AppHeader";
-import QuoteCalculator from "@/pages/quote-calculator";
+import QuoteCalculator from "@/pages/quote-calculator-new";
 import AreaPricer from "@/pages/area-pricer-fixed";
 import CompetitorPricing from "@/pages/competitor-pricing-fixed";
 import SavedQuotes from "@/pages/saved-quotes";
