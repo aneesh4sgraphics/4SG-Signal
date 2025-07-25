@@ -498,9 +498,9 @@ Yours truly
           </CardHeader>
           <CardContent>
             {selectedProduct ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Product Details Summary */}
-                <div className="space-y-3 pb-4 border-b border-gray-200">
+                <div className="space-y-2 pb-3 border-b border-gray-200">
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Product Brand:</span>
                     <span className="flex items-center gap-1">
@@ -569,9 +569,9 @@ Yours truly
                 </div>
 
                 {/* Pricing Table */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {/* Table Header */}
-                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-600 pb-2 border-b border-gray-200">
+                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-600 pb-1 border-b border-gray-200">
                     <div className="pr-1">Pricing Tier</div>
                     <div className="text-center">$/m²</div>
                     <div className="text-center">Price/Sheet</div>
@@ -587,7 +587,7 @@ Yours truly
                     const total = pricePerSheet * useQuantity;
 
                     return (
-                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-2 border-b border-gray-100">
+                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-1 border-b border-gray-100">
                         <div className="font-light text-gray-900 uppercase text-xs pr-1 truncate">
                           {tier.label.replace('Approval Needed', 'Approval (Retail)')}
                         </div>
@@ -597,17 +597,17 @@ Yours truly
                         <div className="text-center font-light text-xs">
                           ${pricePerSheet.toFixed(2)}
                         </div>
-                        <div className="text-center font-medium text-sm">
+                        <div className="text-center font-medium text-xs">
                           ${total.toFixed(2)}
                         </div>
                         <div className="text-center">
                           <Button
                             size="sm"
                             onClick={() => addToQuote(tier.key)}
-                            className="h-6 w-6 rounded-full p-0 bg-gray-100 hover:bg-gray-200 border border-gray-300"
+                            className="h-5 w-5 rounded-full p-0 bg-gray-100 hover:bg-gray-200 border border-gray-300"
                             variant="outline"
                           >
-                            <Plus className="h-3 w-3 text-gray-600" />
+                            <Plus className="h-2 w-2 text-gray-600" />
                           </Button>
                         </div>
                       </div>
