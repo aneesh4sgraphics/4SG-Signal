@@ -71,8 +71,9 @@ export default function PriceList() {
   // Generate price list when category or tier changes
   useEffect(() => {
     if (selectedCategory && selectedTier) {
-      const filteredProducts = productData.filter(item => item.product_name === selectedCategory);
-      
+      const filteredProducts = productData.filter(
+        item => item.product_name.trim().toLowerCase() === selectedCategory.trim().toLowerCase()
+      );
       const items: PriceListItem[] = filteredProducts
       .filter(product => product.total_sqm && product.min_quantity) // Filter out broken rows
       .map(product => {
