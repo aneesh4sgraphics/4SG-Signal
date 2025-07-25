@@ -295,16 +295,16 @@ export function generatePriceListHTML(data: any): string {
     `).join('');
 
     return `
-      <div style="margin-bottom: 30px;">
-        <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">${productType}</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead style="background-color: #f0f0f0;">
+      <div class="product-section">
+        <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #2563eb; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">${productType}</h3>
+        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden;">
+          <thead style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white;">
             <tr>
-              <th style="padding: 8px; border: 1px solid #000;">Size</th>
-              <th style="padding: 8px; border: 1px solid #000;">Item Code</th>
-              <th style="padding: 8px; border: 1px solid #000;">Min Qty</th>
-              <th style="padding: 8px; border: 1px solid #000;">Price Per Sheet</th>
-              <th style="padding: 8px; border: 1px solid #000;">Price Per Pack</th>
+              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: left;">Size</th>
+              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: left;">Item Code</th>
+              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: center;">Min Qty</th>
+              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: right;">Price Per Sheet</th>
+              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: right;">Price Per Pack</th>
             </tr>
           </thead>
           <tbody>${itemRows}</tbody>
@@ -320,6 +320,10 @@ export function generatePriceListHTML(data: any): string {
       <meta charset="utf-8">
       <title>Price List - ${categoryName}</title>
       <style>
+        @media print {
+          body { margin: 0; }
+          .page-break { page-break-before: always; }
+        }
         body {
           font-family: Arial, sans-serif;
           margin: 40px;
@@ -328,7 +332,23 @@ export function generatePriceListHTML(data: any): string {
         }
         .header {
           text-align: center;
-          margin-bottom: 20px;
+          margin-bottom: 30px;
+          padding-bottom: 20px;
+          border-bottom: 2px solid #2563eb;
+        }
+        .logo {
+          width: 200px;
+          height: 80px;
+          margin: 0 auto 20px auto;
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 24px;
+          font-weight: bold;
+          letter-spacing: 2px;
         }
         .main-title {
           font-size: 18px;
@@ -336,24 +356,39 @@ export function generatePriceListHTML(data: any): string {
           text-align: center;
           text-transform: uppercase;
           margin: 30px 0;
+          color: #2563eb;
         }
         .company-info {
           font-size: 13px;
           font-weight: bold;
+          color: #374151;
         }
         .price-list-info {
           margin-bottom: 20px;
+          padding: 15px;
+          background-color: #f8fafc;
+          border-radius: 6px;
+          border-left: 4px solid #2563eb;
+        }
+        .product-section {
+          margin-bottom: 30px;
+        }
+        .product-section:not(:first-child) {
+          page-break-before: always;
         }
         .footer {
           margin-top: 40px;
           font-size: 11px;
           text-align: center;
           color: #666;
+          padding-top: 20px;
+          border-top: 1px solid #e5e7eb;
         }
       </style>
     </head>
     <body>
       <div class="header">
+        <div class="logo">4S GRAPHICS</div>
         <div class="company-info">
           4S Graphics, Inc.<br>
           764 NW 57th Court, Fort Lauderdale, FL 33309<br>
