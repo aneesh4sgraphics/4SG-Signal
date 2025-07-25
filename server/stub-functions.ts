@@ -1,4 +1,4 @@
-// Stub functions for removed PDF generation functionality
+// stub-function.ts
 
 export function generateQuoteNumber(): string {
   return `Q${Date.now()}`;
@@ -13,8 +13,8 @@ export function validateQuoteNumber(quoteNumber: string): boolean {
 }
 
 export function generateQuoteHTMLForDownload(data: any): string {
-  const { customerName, quoteNumber, quoteItems, totalAmount } = data;
-  
+  const { customerName, quoteNumber, quoteItems, totalAmount, title = "Quote" } = data;
+
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -22,13 +22,13 @@ export function generateQuoteHTMLForDownload(data: any): string {
   });
 
   const itemsHTML = quoteItems.map((item: any, index: number) => `
-    <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'}; border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 8px; border-right: 1px solid #e5e7eb; font-size: 11px; text-align: center; font-weight: 500;">${index + 1}</td>
-      <td style="padding: 8px; border-right: 1px solid #e5e7eb; font-size: 11px; font-weight: 600; color: #1f2937;">${item.productType}</td>
-      <td style="padding: 8px; border-right: 1px solid #e5e7eb; font-size: 11px; color: #374151;">${item.size}</td>
-      <td style="padding: 8px; border-right: 1px solid #e5e7eb; text-align: center; font-size: 11px; font-weight: 500;">${item.quantity}</td>
-      <td style="padding: 8px; border-right: 1px solid #e5e7eb; text-align: right; font-size: 11px; font-weight: 500;">$${item.pricePerSheet.toFixed(2)}</td>
-      <td style="padding: 8px; text-align: right; font-weight: 600; font-size: 11px; color: #059669;">$${item.total.toFixed(2)}</td>
+    <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+      <td style="padding: 8px; text-align: center;">${index + 1}</td>
+      <td style="padding: 8px; font-weight: 600;">${item.productType}</td>
+      <td style="padding: 8px;">${item.size}</td>
+      <td style="padding: 8px; text-align: center;">${item.quantity}</td>
+      <td style="padding: 8px; text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
+      <td style="padding: 8px; text-align: right; font-weight: bold;">$${item.total.toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -36,231 +36,119 @@ export function generateQuoteHTMLForDownload(data: any): string {
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
-      <title>Quote ${quoteNumber}</title>
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+      <meta charset="utf-8" />
+      <title>${title} - ${quoteNumber}</title>
       <style>
-        @media print {
-          body { margin: 0; }
-          .no-print { display: none; }
-        }
         body {
-          font-family: 'Inter', 'Roboto', Arial, sans-serif;
-          margin: 0;
-          padding: 40px;
-          color: #1f2937;
-          line-height: 1.4;
+          font-family: Arial, sans-serif;
+          margin: 40px;
           font-size: 12px;
-          background-color: #ffffff;
+          color: #000;
         }
-        .letterhead {
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-          color: white;
-          padding: 30px;
+        .header {
           text-align: center;
-          margin: -40px -40px 40px -40px;
-          border-radius: 0 0 8px 8px;
+          margin-bottom: 20px;
+        }
+        .header img {
+          height: 60px;
         }
         .company-name {
-          font-size: 32px;
+          font-size: 22px;
           font-weight: 700;
-          margin-bottom: 8px;
-          letter-spacing: -0.5px;
-          font-family: 'Inter', sans-serif;
-        }
-        .company-tagline {
-          font-size: 14px;
-          font-weight: 400;
-          margin-bottom: 15px;
-          opacity: 0.9;
+          margin-top: 10px;
         }
         .company-details {
-          font-size: 12px;
-          line-height: 1.6;
-          opacity: 0.95;
+          font-size: 13px;
+          margin-top: 4px;
+          color: #374151;
         }
         .document-title {
-          text-align: center;
-          font-size: 28px;
-          font-weight: 600;
-          color: #1f2937;
-          margin: 30px 0;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-        .quote-header {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 30px;
-          margin: 30px 0;
-          padding: 20px;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 8px;
-          border-left: 4px solid #2563eb;
-        }
-        .quote-field {
-          text-align: center;
-        }
-        .quote-field-label {
-          font-weight: 600;
-          color: #6b7280;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 5px;
-        }
-        .quote-field-value {
-          font-weight: 700;
-          color: #1f2937;
-          font-size: 14px;
-        }
-        .products-section {
-          margin: 30px 0;
-        }
-        .section-title {
           font-size: 18px;
-          font-weight: 600;
+          font-weight: bold;
+          margin: 30px 0 10px;
+          text-transform: uppercase;
           color: #1f2937;
-          margin-bottom: 15px;
-          padding-bottom: 8px;
-          border-bottom: 2px solid #e5e7eb;
+          text-align: center;
+        }
+        .quote-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          border: 1px solid #ccc;
+          padding: 10px;
+          border-radius: 6px;
+        }
+        .quote-info div {
+          font-size: 12px;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin: 15px 0;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+          margin-top: 20px;
+        }
+        th, td {
+          border: 1px solid #ccc;
+          padding: 8px;
         }
         th {
-          background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
-          color: white;
-          padding: 12px 10px;
+          background-color: #f0f4f8;
           text-align: left;
           font-weight: 600;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
         }
-        th:first-child {
-          text-align: center;
-        }
-        th:nth-child(4) {
-          text-align: center;
-        }
-        th:nth-child(5), th:nth-child(6) {
-          text-align: right;
-        }
-        td {
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .total-section {
+        .total {
           margin-top: 20px;
-          padding: 20px;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 8px;
-          border-left: 4px solid #059669;
-        }
-        .total-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .total-label {
-          font-size: 16px;
-          font-weight: 600;
-          color: #374151;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .total-amount {
-          font-size: 20px;
-          font-weight: 700;
-          color: #059669;
+          text-align: right;
+          font-size: 14px;
+          font-weight: bold;
         }
         .footer {
           margin-top: 40px;
-          padding: 20px;
-          background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-          color: white;
           text-align: center;
-          border-radius: 8px;
-          margin-left: -40px;
-          margin-right: -40px;
-        }
-        .footer-title {
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-        .footer-text {
           font-size: 11px;
-          line-height: 1.5;
-          opacity: 0.9;
+          color: #555;
         }
       </style>
     </head>
     <body>
-      <div class="letterhead">
+      <div class="header">
+        <img src="https://cdn.shopify.com/s/files/1/3039/2358/files/4s_logo_square_75x75_71812ee1-54b3-46ab-b989-46554c7fd1e0.jpg?v=1688121438" alt="4S Graphics Logo" />
         <div class="company-name">4S Graphics, Inc.</div>
-        <div class="company-tagline">Professional Printing Solutions</div>
         <div class="company-details">
-          764 NW 57th Court • Fort Lauderdale, FL 33309<br>
-          Phone: (954) 493.6484 • Website: https://www.4sgraphics.com/
+          764 NW 57th Court, Fort Lauderdale, FL 33309<br>
+          Phone: (954) 493.6484 | Website: https://4sgraphics.com/
         </div>
       </div>
 
-      <div class="document-title">QUOTATION</div>
+      <div class="document-title">${title}</div>
 
-      <div class="quote-header">
-        <div class="quote-field">
-          <div class="quote-field-label">Quote Number</div>
-          <div class="quote-field-value">${quoteNumber}</div>
-        </div>
-        <div class="quote-field">
-          <div class="quote-field-label">Date</div>
-          <div class="quote-field-value">${currentDate}</div>
-        </div>
-        <div class="quote-field">
-          <div class="quote-field-label">Prepared For</div>
-          <div class="quote-field-value">${customerName}</div>
-        </div>
+      <div class="quote-info">
+        <div><strong>Quote #:</strong> ${quoteNumber}</div>
+        <div><strong>Date:</strong> ${currentDate}</div>
+        <div><strong>Customer:</strong> ${customerName}</div>
       </div>
 
-      <div class="products-section">
-        <div class="section-title">Products & Services</div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 8%">#</th>
-              <th style="width: 35%">Product</th>
-              <th style="width: 20%">Size</th>
-              <th style="width: 12%">Qty</th>
-              <th style="width: 15%">Unit Price</th>
-              <th style="width: 15%">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHTML}
-          </tbody>
-        </table>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product</th>
+            <th>Size</th>
+            <th>Qty</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHTML}
+        </tbody>
+      </table>
 
-        <div class="total-section">
-          <div class="total-row">
-            <div class="total-label">Total Amount</div>
-            <div class="total-amount">$${totalAmount.toFixed(2)}</div>
-          </div>
-        </div>
+      <div class="total">
+        Total: $${totalAmount.toFixed(2)}
       </div>
 
       <div class="footer">
-        <div class="footer-title">4S Graphics | Professional Printing Solutions</div>
-        <div class="footer-text">
-          Thank you for choosing 4S Graphics. Please contact us if you have any questions about this quote.
-        </div>
+        Thank you for choosing 4S Graphics. Please contact us if you have questions about this quote.
       </div>
     </body>
     </html>
@@ -268,46 +156,50 @@ export function generateQuoteHTMLForDownload(data: any): string {
 }
 
 export function generatePriceListHTML(data: any): string {
-  const { categoryName, tierName, items, customerName } = data;
+  const { categoryName, tierName, items, customerName, title = "PRICE LIST", quoteNumber } = data;
 
   const currentDate = new Date().toLocaleDateString('en-US', {
-    month: 'numeric',
-    day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 
-  const groupedItems = items.reduce((groups: any, item: any) => {
-    const type = item.productType || 'Unknown';
-    if (!groups[type]) groups[type] = [];
-    groups[type].push(item);
-    return groups;
+  // Generate quote number if not provided
+  const listNumber = quoteNumber || `PL-${Date.now().toString().slice(-6)}`;
+
+  const grouped = items.reduce((acc: any, item: any) => {
+    if (!acc[item.productType]) acc[item.productType] = [];
+    acc[item.productType].push(item);
+    return acc;
   }, {});
 
-  const productSections = Object.entries(groupedItems).map(([productType, typeItems]: [string, any]) => {
-    const itemRows = (typeItems as any[]).map(item => `
-      <tr>
-        <td style="padding: 8px; border: 1px solid #ccc;">${item.size || 'N/A'}</td>
-        <td style="padding: 8px; border: 1px solid #ccc;">${item.itemCode || 'N/A'}</td>
-        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${item.minQty || 0} Sheets</td>
-        <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">$${(item.pricePerSheet || 0).toFixed(2)}</td>
-        <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">$${(item.pricePerPack || 0).toFixed(2)}</td>
+  const sections = Object.entries(grouped).map(([type, rows]: [string, any[]]) => {
+    const rowHtml = rows.map((row, index) => `
+      <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+        <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: 500;">${row.size}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-family: monospace;">${row.itemCode}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: 500;">${row.minQty}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 600;">$${row.pricePerSheet.toFixed(2)}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 700; color: #059669;">$${row.pricePerPack.toFixed(2)}</td>
       </tr>
     `).join('');
 
     return `
-      <div class="product-section">
-        <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #2563eb; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;">${productType}</h3>
-        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden;">
-          <thead style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white;">
-            <tr>
-              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: left;">Size</th>
-              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: left;">Item Code</th>
-              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: center;">Min Qty</th>
-              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: right;">Price Per Sheet</th>
-              <th style="padding: 12px 8px; border: none; font-weight: 600; text-align: right;">Price Per Pack</th>
+      <div style="page-break-inside: avoid; margin-bottom: 25px;">
+        <h3 style="margin: 20px 0 12px 0; font-size: 16px; font-weight: bold; color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${type}</h3>
+        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <thead>
+            <tr style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+              <th style="padding: 12px 10px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: left;">Size</th>
+              <th style="padding: 12px 10px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: center;">Item Code</th>
+              <th style="padding: 12px 10px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: center;">Min Qty</th>
+              <th style="padding: 12px 10px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: right;">Price/Sheet</th>
+              <th style="padding: 12px 10px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: right;">Price/Pack</th>
             </tr>
           </thead>
-          <tbody>${itemRows}</tbody>
+          <tbody>
+            ${rowHtml}
+          </tbody>
         </table>
       </div>
     `;
@@ -317,83 +209,145 @@ export function generatePriceListHTML(data: any): string {
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
-      <title>Price List - ${categoryName}</title>
+      <meta charset="utf-8" />
+      <title>${title} - ${categoryName}</title>
       <style>
-        @media print {
-          body { margin: 0; }
-          .page-break { page-break-before: always; }
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+        
         body {
-          font-family: Arial, sans-serif;
-          margin: 40px;
-          font-size: 12px;
-          color: #000;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          margin: 0;
+          padding: 30px;
+          font-size: 11px;
+          color: #1f2937;
+          background: #ffffff;
+          max-width: 8.5in;
+          line-height: 1.4;
         }
+        
         .header {
           text-align: center;
-          margin-bottom: 30px;
-          padding-bottom: 20px;
-          border-bottom: 2px solid #2563eb;
+          margin-bottom: 25px;
+          padding: 20px;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          border-radius: 12px;
+          color: white;
         }
-        .logo {
-          width: 150px;
-          height: 60px;
-          margin: 0 auto 20px auto;
-          display: block;
+        
+        .header img {
+          height: 50px;
+          margin-bottom: 8px;
+          filter: brightness(0) invert(1);
         }
-        .main-title {
-          font-size: 18px;
-          font-weight: bold;
-          text-align: center;
-          text-transform: uppercase;
-          margin: 30px 0;
-          color: #2563eb;
+        
+        .company-name {
+          font-size: 22px;
+          font-weight: 700;
+          margin: 8px 0 4px;
+          font-family: 'Roboto', sans-serif;
         }
-        .company-info {
-          font-size: 13px;
-          font-weight: bold;
-          color: #374151;
+        
+        .company-details {
+          font-size: 12px;
+          opacity: 0.95;
+          line-height: 1.5;
         }
-        .price-list-info {
-          margin-bottom: 20px;
+        
+        .document-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin: 20px 0;
           padding: 15px;
-          background-color: #f8fafc;
-          border-radius: 6px;
-          border-left: 4px solid #2563eb;
+          background: #f8fafc;
+          border-radius: 8px;
+          border-left: 4px solid #3b82f6;
         }
-        .product-section {
-          margin-bottom: 30px;
+        
+        .document-title {
+          font-size: 20px;
+          font-weight: bold;
+          color: #1f2937;
+          margin: 0;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
-        .product-section:not(:first-child) {
-          page-break-before: always;
-        }
-        .footer {
-          margin-top: 40px;
+        
+        .document-meta {
+          text-align: right;
           font-size: 11px;
-          text-align: center;
-          color: #666;
+          color: #6b7280;
+        }
+        
+        .customer-info {
+          margin: 15px 0;
+          padding: 12px;
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+        }
+        
+        .customer-info strong {
+          color: #374151;
+          font-weight: 600;
+        }
+        
+        .footer {
+          margin-top: 30px;
           padding-top: 20px;
-          border-top: 1px solid #e5e7eb;
+          border-top: 2px solid #e5e7eb;
+          text-align: center;
+          font-size: 10px;
+          color: #6b7280;
+          font-style: italic;
+        }
+        
+        @media print {
+          body { 
+            margin: 0; 
+            padding: 20px;
+            max-width: none;
+          }
+          .header { 
+            break-inside: avoid; 
+          }
         }
       </style>
     </head>
     <body>
-
-
-      <div class="price-list-info">
-        ${customerName ? `<strong>Customer:</strong> ${customerName}<br>` : ''}
-        <strong>Category:</strong> ${categoryName}<br>
-        <strong>Date:</strong> ${currentDate}
+      <div class="header">
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiByeD0iOCIgZmlsbD0id2hpdGUiLz4KPHRleHQgeD0iMjUiIHk9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iSW50ZXIsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMzYjgyZjYiPjRTPC90ZXh0Pgo8L3N2Zz4K" alt="4S Graphics Logo" />
+        <div class="company-name">4S Graphics, Inc.</div>
+        <div class="company-details">
+          764 NW 57th Court, Fort Lauderdale, FL 33309<br>
+          Phone: (954) 493-6484 | Website: www.4sgraphics.com
+        </div>
       </div>
 
-      <div class="main-title">Price List - ${categoryName.toUpperCase()}</div>
+      <div class="document-info">
+        <div>
+          <div class="document-title">${title}</div>
+          <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+            Category: <strong>${categoryName}</strong> | Tier: <strong>${tierName}</strong>
+          </div>
+        </div>
+        <div class="document-meta">
+          <div><strong>List #:</strong> ${listNumber}</div>
+          <div><strong>Date:</strong> ${currentDate}</div>
+        </div>
+      </div>
 
-      ${productSections}
+      ${customerName && customerName !== "N/A" ? `
+      <div class="customer-info">
+        <strong>Prepared for:</strong> ${customerName}
+      </div>
+      ` : ''}
+
+      ${sections}
 
       <div class="footer">
-        This price list was generated on ${currentDate}${customerName ? ` for ${customerName}` : ''}.<br>
-        Contact us at (954) 493.6484 or visit www.4sgraphics.com
+        This price list was generated on ${currentDate} by 4S Graphics, Inc.<br>
+        For questions or to place an order, contact us at (954) 493-6484 or visit www.4sgraphics.com
       </div>
     </body>
     </html>
