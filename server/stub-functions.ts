@@ -269,19 +269,16 @@ export function generateQuoteHTMLForDownload(data: any): string {
 
 export function generatePriceListHTML(data: any): string {
   const { categoryName, tierName, items, customerName } = data;
-  
+
   const currentDate = new Date().toLocaleDateString('en-US', {
     month: 'numeric',
     day: 'numeric',
     year: 'numeric'
   });
 
-  // Group items by ProductType
   const groupedItems = items.reduce((groups: any, item: any) => {
     const type = item.productType || 'Unknown';
-    if (!groups[type]) {
-      groups[type] = [];
-    }
+    if (!groups[type]) groups[type] = [];
     groups[type].push(item);
     return groups;
   }, {});
@@ -289,36 +286,32 @@ export function generatePriceListHTML(data: any): string {
   const productSections = Object.entries(groupedItems).map(([productType, typeItems]: [string, any]) => {
     const itemRows = (typeItems as any[]).map(item => `
       <tr>
-        <td style="padding: 8px; border-right: 1px solid #ddd;">${item.size || 'N/A'}</td>
-        <td style="padding: 8px; border-right: 1px solid #ddd;">${item.itemCode || 'N/A'}</td>
-        <td style="padding: 8px; border-right: 1px solid #ddd; text-align: center;">${item.minQty || 0} Sheets</td>
-        <td style="padding: 8px; border-right: 1px solid #ddd; text-align: right;">$${(item.pricePerSheet || 0).toFixed(2)}</td>
-        <td style="padding: 8px; text-align: right;">$${(item.pricePerPack || 0).toFixed(2)}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${item.size || 'N/A'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc;">${item.itemCode || 'N/A'}</td>
+        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${item.minQty || 0} Sheets</td>
+        <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">$${(item.pricePerSheet || 0).toFixed(2)}</td>
+        <td style="padding: 8px; border: 1px solid #ccc; text-align: right;">$${(item.pricePerPack || 0).toFixed(2)}</td>
       </tr>
     `).join('');
 
     return `
       <div style="margin-bottom: 30px;">
-        <h3 style="margin: 20px 0 10px 0; font-size: 14px; font-weight: bold;">${productType}</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #000;">
-          <thead>
-            <tr style="background-color: #f5f5f5;">
-              <th style="padding: 8px; border: 1px solid #000; text-align: left; font-size: 12px;">Size</th>
-              <th style="padding: 8px; border: 1px solid #000; text-align: left; font-size: 12px;">Item Code</th>
-              <th style="padding: 8px; border: 1px solid #000; text-align: center; font-size: 12px;">Min Qty</th>
-              <th style="padding: 8px; border: 1px solid #000; text-align: right; font-size: 12px;">Price per Sheet</th>
-              <th style="padding: 8px; border: 1px solid #000; text-align: right; font-size: 12px;">Price Per Pack</th>
+        <h3 style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">${productType}</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead style="background-color: #f0f0f0;">
+            <tr>
+              <th style="padding: 8px; border: 1px solid #000;">Size</th>
+              <th style="padding: 8px; border: 1px solid #000;">Item Code</th>
+              <th style="padding: 8px; border: 1px solid #000;">Min Qty</th>
+              <th style="padding: 8px; border: 1px solid #000;">Price Per Sheet</th>
+              <th style="padding: 8px; border: 1px solid #000;">Price Per Pack</th>
             </tr>
           </thead>
-          <tbody>
-            ${itemRows}
-          </tbody>
+          <tbody>${itemRows}</tbody>
         </table>
       </div>
     `;
   }).join('');
-
-  const totalPages = Math.ceil(Object.keys(groupedItems).length / 3) || 1;
 
   return `
     <!DOCTYPE html>
@@ -327,51 +320,35 @@ export function generatePriceListHTML(data: any): string {
       <meta charset="utf-8">
       <title>Price List - ${categoryName}</title>
       <style>
-        @media print {
-          body { margin: 0; }
-          .page-break { page-break-before: always; }
-        }
         body {
           font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 40px;
-          color: #000;
-          line-height: 1.3;
+          margin: 40px;
           font-size: 12px;
+          color: #000;
         }
         .header {
           text-align: center;
-          margin-bottom: 40px;
-        }
-        .company-info {
-          font-size: 14px;
-          font-weight: bold;
           margin-bottom: 20px;
         }
-        .price-list-info {
-          margin-bottom: 30px;
-          text-align: left;
-        }
         .main-title {
-          text-align: center;
-          font-size: 16px;
+          font-size: 18px;
           font-weight: bold;
-          margin: 30px 0;
+          text-align: center;
           text-transform: uppercase;
+          margin: 30px 0;
+        }
+        .company-info {
+          font-size: 13px;
+          font-weight: bold;
+        }
+        .price-list-info {
+          margin-bottom: 20px;
         }
         .footer {
-          position: fixed;
-          bottom: 20px;
-          left: 0;
-          right: 0;
+          margin-top: 40px;
+          font-size: 11px;
           text-align: center;
-          font-size: 10px;
           color: #666;
-        }
-        .page-number {
-          text-align: center;
-          margin-top: 30px;
-          font-size: 12px;
         }
       </style>
     </head>
@@ -379,29 +356,24 @@ export function generatePriceListHTML(data: any): string {
       <div class="header">
         <div class="company-info">
           4S Graphics, Inc.<br>
-          764 NW 57th Court<br>
-          Fort Lauderdale, FL 33309<br>
-          Phone: (954) 493.6484 | Website: https://www.4sgraphics.com/
+          764 NW 57th Court, Fort Lauderdale, FL 33309<br>
+          (954) 493.6484 • www.4sgraphics.com
         </div>
       </div>
 
       <div class="price-list-info">
-        ${customerName ? `Price List for: ${customerName}<br>` : ''}
-        Product Category: ${categoryName}<br>
-        Date: ${currentDate}
+        ${customerName ? `<strong>Customer:</strong> ${customerName}<br>` : ''}
+        <strong>Category:</strong> ${categoryName}<br>
+        <strong>Date:</strong> ${currentDate}
       </div>
 
-      <div class="main-title">PRICE LIST - ${categoryName.toUpperCase()}</div>
+      <div class="main-title">Price List - ${categoryName.toUpperCase()}</div>
 
       ${productSections}
 
-      <div class="page-number">
-        Page 1 of ${totalPages}
-      </div>
-
       <div class="footer">
-        <p>This price list was generated on ${currentDate}${customerName ? ` for ${customerName}` : ''}</p>
-        <p>Contact us at (954) 493.6484 or visit https://www.4sgraphics.com/ for more information</p>
+        This price list was generated on ${currentDate}${customerName ? ` for ${customerName}` : ''}.<br>
+        Contact us at (954) 493.6484 or visit www.4sgraphics.com
       </div>
     </body>
     </html>
