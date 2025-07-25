@@ -238,14 +238,14 @@ export default function ProductPricingManagementNew() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+          <h1 className="section-title text-4xl">
             ProductPricing Management
           </h1>
-          <p className="text-gray-600 mt-2">Database-backed pricing data management with synchronization</p>
+          <p className="text-gray-500 font-light mt-3">Database-backed pricing data management with synchronization</p>
         </div>
-        <Badge className="bg-green-100 text-green-800 border-green-200">
+        <Badge className="bg-green-50 text-green-700 border-green-200 font-light">
           <Database className="h-4 w-4 mr-1" />
           Database Mode
         </Badge>
@@ -253,49 +253,49 @@ export default function ProductPricingManagementNew() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="soft-card border-none">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+              <FileSpreadsheet className="h-5 w-5 text-blue-500" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.totalProducts}</p>
+                <p className="text-sm font-normal text-gray-600">Total Products</p>
+                <p className="text-2xl font-normal text-blue-600">{stats.totalProducts}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="soft-card border-none">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Database className="h-5 w-5 text-green-600" />
+              <Database className="h-5 w-5 text-green-500" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Categories</p>
-                <p className="text-2xl font-bold text-green-600">{stats.uniqueCategories}</p>
+                <p className="text-sm font-normal text-gray-600">Categories</p>
+                <p className="text-2xl font-normal text-green-600">{stats.uniqueCategories}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="soft-card border-none">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <RefreshCw className="h-5 w-5 text-purple-600" />
+              <RefreshCw className="h-5 w-5 text-purple-500" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Product Types</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.uniqueTypes}</p>
+                <p className="text-sm font-normal text-gray-600">Product Types</p>
+                <p className="text-2xl font-normal text-purple-600">{stats.uniqueTypes}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="soft-card border-none">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-orange-600" />
+              <CheckCircle className="h-5 w-5 text-orange-500" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Last Updated</p>
-                <p className="text-sm font-bold text-orange-600">{stats.lastUpdated}</p>
+                <p className="text-sm font-normal text-gray-600">Last Updated</p>
+                <p className="text-sm font-normal text-orange-600">{stats.lastUpdated}</p>
               </div>
             </div>
           </CardContent>
@@ -303,13 +303,13 @@ export default function ProductPricingManagementNew() {
       </div>
 
       {/* Upload Section */}
-      <Card>
+      <Card className="soft-card border-none">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
+          <CardTitle className="section-title text-2xl flex items-center gap-2">
+            <Upload className="h-5 w-5 text-gray-500" />
             Upload Pricing Data
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-gray-500 font-light">
             Upload CSV file to update product pricing database with smart synchronization
           </CardDescription>
         </CardHeader>

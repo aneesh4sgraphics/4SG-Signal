@@ -8,13 +8,13 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 98%);
+  --background: hsl(240, 8%, 97%); /* #f7f7f7 */
   --foreground: hsl(240, 10%, 3.9%);
   --muted: hsl(210, 40%, 96%);
   --muted-foreground: hsl(215, 16%, 47%);
-  --popover: hsl(0, 0%, 100%);
+  --popover: hsl(240, 8%, 97%);
   --popover-foreground: hsl(240, 10%, 3.9%);
-  --card: hsl(0, 0%, 100%);
+  --card: hsl(240, 8%, 97%);
   --card-foreground: hsl(240, 10%, 3.9%);
   --border: hsl(214, 32%, 91%);
   --input: hsl(214, 32%, 91%);
@@ -27,7 +27,7 @@
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 98%);
   --ring: hsl(210, 100%, 50%);
-  --radius: 0.5rem;
+  --radius: 1rem; /* 16px rounded corners */
 }
 
 .dark {
@@ -61,17 +61,115 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
     font-family: 'Inter', sans-serif;
-    font-weight: 500;
+    font-weight: 400;
+    line-height: 1.6;
   }
 }
 
 
 
-/* PDF and CSV button styles */
-.btn-pdf {
-  @apply bg-blue-600 hover:bg-blue-700 text-white;
-}
+@layer components {
+  /* Soft UI Card Component */
+  .soft-card {
+    background: hsl(var(--card));
+    border-radius: 16px;
+    box-shadow: 4px 4px 12px #ccc, -4px -4px 12px #fff;
+    border: none;
+    transition: all 0.3s ease;
+  }
 
-.btn-csv {
-  @apply bg-green-600 hover:bg-green-700 text-white;
+  .soft-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 6px 16px #ccc, -6px -6px 16px #fff;
+  }
+
+  /* Soft UI Input Component */
+  .soft-input {
+    background: hsl(var(--background));
+    border-radius: 16px;
+    border: 1px solid #e0e0e0;
+    box-shadow: inset 2px 2px 6px #ccc, inset -2px -2px 6px #fff;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    padding: 12px 16px;
+  }
+
+  .soft-input:focus {
+    box-shadow: inset 4px 4px 8px #ccc, inset -4px -4px 8px #fff;
+    border-color: #a0a0a0;
+    outline: none;
+  }
+
+  /* Soft UI Button Component */
+  .soft-button {
+    background: hsl(var(--background));
+    border-radius: 16px;
+    box-shadow: 4px 4px 12px #ccc, -4px -4px 12px #fff;
+    border: none;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    padding: 12px 24px;
+    cursor: pointer;
+  }
+
+  .soft-button:hover {
+    transform: scale(1.02);
+    box-shadow: 6px 6px 16px #ccc, -6px -6px 16px #fff;
+  }
+
+  .soft-button:active {
+    transform: scale(0.98);
+    box-shadow: inset 2px 2px 6px #ccc, inset -2px -2px 6px #fff;
+  }
+
+  /* Ghost/Pill Button */
+  .ghost-button {
+    background: transparent;
+    border: 1px solid #e0e0e0;
+    border-radius: 24px;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+
+  .ghost-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.02);
+  }
+
+  /* Section Titles */
+  .section-title {
+    font-weight: 400;
+    color: #666;
+    text-align: left;
+    margin-bottom: 1rem;
+    letter-spacing: 0.025em;
+    font-size: 1.125rem;
+  }
+
+  /* Icon Spacing */
+  .icon-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .icon-text svg {
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+  }
+
+  .icon-text:hover svg {
+    opacity: 1;
+  }
+
+  /* PDF and CSV button styles with soft UI */
+  .btn-pdf {
+    @apply soft-button text-blue-600;
+  }
+
+  .btn-csv {
+    @apply soft-button text-green-600;
+  }
 }

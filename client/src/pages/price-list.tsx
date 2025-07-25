@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
+import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
+import { useAuth } from "@/hooks/useAuth";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 
 interface ProductData {
@@ -62,7 +63,7 @@ interface Customer {
   tags: string;
 }
 
-const pricingTiers = [
+const allPricingTiers = [
   { key: 'Export', label: 'Export' },
   { key: 'M.Distributor', label: 'Master Distributor' },
   { key: 'Dealer', label: 'Dealer' },
@@ -82,6 +83,11 @@ export default function PriceList() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Get user role and filter pricing tiers accordingly
+  const userRole = getUserRoleFromEmail(user?.claims?.email || '');
+  const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
 
   // Fetch product pricing data from new database
   const { data: productData = [], isLoading } = useQuery<ProductData[]>({
@@ -164,30 +170,30 @@ export default function PriceList() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Price List</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="section-title text-4xl">Price List</h1>
+          <p className="text-gray-500 font-light mt-3">
             Generate comprehensive price lists for your products
           </p>
         </div>
       </div>
 
       {/* Configuration */}
-      <Card>
+      <Card className="soft-card border-none">
         <CardHeader>
-          <CardTitle>Price List Configuration</CardTitle>
-          <CardDescription>
+          <CardTitle className="section-title text-2xl">Price List Configuration</CardTitle>
+          <CardDescription className="text-gray-500 font-light">
             Select product category and pricing tier to generate your price list
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Product Category */}
-            <div className="space-y-2">
-              <Label htmlFor="category">Product Category</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Product Category</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
+                <SelectTrigger className="ghost-dropdown">
                   <SelectValue placeholder="Select product category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,10 +207,10 @@ export default function PriceList() {
             </div>
 
             {/* Pricing Tier */}
-            <div className="space-y-2">
-              <Label htmlFor="tier">Pricing Tier</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Pricing Tier</Label>
               <Select value={selectedTier} onValueChange={setSelectedTier}>
-                <SelectTrigger>
+                <SelectTrigger className="ghost-dropdown">
                   <SelectValue placeholder="Select pricing tier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,8 +224,8 @@ export default function PriceList() {
             </div>
 
             {/* Customer Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="customer">Customer (Optional)</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Customer (Optional)</Label>
               <SearchableCustomerSelect
                 selectedCustomer={selectedCustomer}
                 onCustomerSelect={setSelectedCustomer}
@@ -234,15 +240,15 @@ export default function PriceList() {
 
       {/* Price List Table */}
       {priceListItems.length > 0 ? (
-        <Card>
+        <Card className="soft-card border-none">
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="section-title text-2xl">
               Price List - {selectedCategory}
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="secondary" className="ml-3 font-light">
                 {pricingTiers.find(t => t.key === selectedTier)?.label}
               </Badge>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-500 font-light">
               {priceListItems.length} products found
             </CardDescription>
           </CardHeader>
@@ -263,17 +269,17 @@ export default function PriceList() {
                 <TableBody>
                   {priceListItems.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-sm text-gray-600">
                         {item.itemCode}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-normal">
                         {item.productType}
                       </TableCell>
-                      <TableCell>{item.size}</TableCell>
-                      <TableCell>{item.minQty}</TableCell>
-                      <TableCell>${item.pricePerSqM.toFixed(2)}</TableCell>
-                      <TableCell>${item.pricePerSheet.toFixed(2)}</TableCell>
-                      <TableCell className="font-semibold text-green-600">
+                      <TableCell className="font-light">{item.size}</TableCell>
+                      <TableCell className="font-light">{item.minQty}</TableCell>
+                      <TableCell className="font-light">${item.pricePerSqM.toFixed(2)}</TableCell>
+                      <TableCell className="font-light">${item.pricePerSheet.toFixed(2)}</TableCell>
+                      <TableCell className="font-normal text-green-600">
                         ${item.pricePerPack.toFixed(2)}
                       </TableCell>
                     </TableRow>
@@ -284,12 +290,12 @@ export default function PriceList() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card className="soft-card border-none">
           <CardContent className="text-center py-12">
             <div className="text-gray-500 mb-4">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">No price list generated</p>
-              <p className="text-sm">Select a product category to get started</p>
+              <p className="text-lg font-light">No price list generated</p>
+              <p className="text-sm font-light">Select a product category to get started</p>
             </div>
           </CardContent>
         </Card>

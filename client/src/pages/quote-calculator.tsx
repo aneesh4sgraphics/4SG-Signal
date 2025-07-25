@@ -333,23 +333,23 @@ Yours truly
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">QuickQuotes</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="section-title text-4xl">QuickQuotes</h1>
+          <p className="text-gray-500 mt-2 font-light">
             Generate instant quotes for your products
           </p>
         </div>
       </div>
 
       {/* Customer Selection Section */}
-      <Card>
+      <Card className="soft-card border-none">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+          <CardTitle className="icon-text section-title">
+            <User className="h-5 w-5 opacity-70" />
             Customer Selection
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-gray-500 font-light">
             Select a customer to generate quotes for
           </CardDescription>
         </CardHeader>
@@ -357,61 +357,61 @@ Yours truly
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Customer Search */}
             <div className="space-y-4">
-              <Label>Select Customer</Label>
+              <Label className="text-gray-600 font-normal">Select Customer</Label>
               <SearchableCustomerSelect
                 selectedCustomer={selectedCustomer}
                 onCustomerSelect={setSelectedCustomer}
                 placeholder="Search customers by name, company, or email..."
-                className="w-full"
+                className="w-full soft-input"
               />
             </div>
 
             {/* Right Column - Customer Details */}
             <div className="space-y-4">
-              <Label>Customer Details</Label>
+              <Label className="text-gray-600 font-normal">Customer Details</Label>
               {selectedCustomer ? (
-                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium">
+                <div className="soft-card p-6 space-y-4">
+                  <div className="icon-text">
+                    <User className="h-4 w-4 text-blue-500" />
+                    <span className="font-normal">
                       {selectedCustomer.firstName} {selectedCustomer.lastName}
                     </span>
                   </div>
                   
                   {selectedCustomer.company && (
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm">{selectedCustomer.company}</span>
+                    <div className="icon-text">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-light">{selectedCustomer.company}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm">{selectedCustomer.email}</span>
+                    <div className="icon-text">
+                      <Mail className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-light">{selectedCustomer.email}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm">{selectedCustomer.phone}</span>
+                    <div className="icon-text">
+                      <Phone className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-light">{selectedCustomer.phone}</span>
                     </div>
                   )}
                   
                   {(selectedCustomer.city || selectedCustomer.province) && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm">
+                    <div className="icon-text">
+                      <MapPin className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-light">
                         {[selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
                       </span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                <div className="soft-card p-6 text-center text-gray-500">
                   <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">Select a customer to view details</p>
+                  <p className="text-sm font-light">Select a customer to view details</p>
                 </div>
               )}
             </div>
@@ -421,19 +421,19 @@ Yours truly
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Configure Product */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 soft-card border-none">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Calculator className="h-5 w-5 text-purple-600" />
+            <CardTitle className="icon-text section-title text-xl">
+              <Calculator className="h-5 w-5 text-purple-500" />
               Configure Product
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Product Category */}
-            <div className="space-y-2">
-              <Label className="text-base font-medium text-gray-900">Product</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Product</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="h-12 text-base border-2 border-purple-200 rounded-lg">
+                <SelectTrigger className="soft-button h-12 text-base border-none">
                   <SelectValue placeholder="Select product category">
                     {selectedCategory && (() => {
                       const IconComponent = getProductIcon(selectedCategory);
@@ -485,14 +485,14 @@ Yours truly
             </div>
 
             {/* Product Type */}
-            <div className="space-y-2">
-              <Label className="text-base font-medium text-red-600">Product Type</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Product Type</Label>
               <Select 
                 value={selectedType} 
                 onValueChange={setSelectedType}
                 disabled={!selectedCategory}
               >
-                <SelectTrigger className="h-12 text-base border-2 border-gray-200 rounded-lg bg-gray-50">
+                <SelectTrigger className="soft-button h-12 text-base border-none">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -504,16 +504,16 @@ Yours truly
                 </SelectContent>
               </Select>
               {selectedCategory && !selectedType && (
-                <p className="text-sm text-red-600 font-medium">Product type is required</p>
+                <p className="text-sm text-red-500 font-light">Product type is required</p>
               )}
             </div>
 
             {/* Size Selection */}
             {selectedType && (
-              <div className="space-y-2">
-                <Label className="text-base font-medium text-gray-900">Size</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-normal text-gray-600">Size</Label>
                 <Select value={selectedSize} onValueChange={setSelectedSize}>
-                  <SelectTrigger className="h-12 text-base border-2 border-gray-200 rounded-lg bg-gray-50">
+                  <SelectTrigger className="soft-button h-12 text-base border-none">
                     <SelectValue placeholder="Select size" />
                   </SelectTrigger>
                   <SelectContent>
@@ -528,18 +528,18 @@ Yours truly
             )}
 
             {/* Quantity */}
-            <div className="space-y-2">
-              <Label className="text-base font-medium text-gray-900">Quantity</Label>
+            <div className="space-y-3">
+              <Label className="text-base font-normal text-gray-600">Quantity</Label>
               <Input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                 min={selectedProduct?.minQuantity || 1}
-                className="h-12 text-base border-2 border-gray-200 rounded-lg bg-gray-50"
+                className="soft-input h-12 text-base border-none"
                 disabled={!selectedSize}
               />
               {selectedProduct && quantity < selectedProduct.minQuantity && (
-                <p className="text-sm text-red-600 font-medium">
+                <p className="text-sm text-red-500 font-light">
                   Minimum order quantity: {selectedProduct.minQuantity}
                 </p>
               )}
@@ -548,10 +548,10 @@ Yours truly
         </Card>
 
         {/* Right Panel - Quote Summary */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 soft-card border-none">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">QUOTE SUMMARY</CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardTitle className="section-title text-2xl">Quote Summary</CardTitle>
+            <CardDescription className="text-gray-500 font-light">
               Using default pricing.
             </CardDescription>
           </CardHeader>
@@ -559,9 +559,9 @@ Yours truly
             {selectedProduct ? (
               <div className="space-y-4">
                 {/* Product Details Summary */}
-                <div className="space-y-2 pb-3 border-b border-gray-200">
+                <div className="space-y-3 pb-4 border-b border-gray-200">
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Product Brand:</span>
+                    <span className="font-normal text-gray-600">Product Brand:</span>
                     <span className="flex items-center gap-1">
                       {selectedCategory && (() => {
                         const IconComponent = getProductIcon(selectedCategory);
@@ -583,7 +583,7 @@ Yours truly
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Product Type:</span>
+                    <span className="font-normal text-gray-600">Product Type:</span>
                     <span>
                       {selectedType ? (
                         selectedType.includes('Graffiti') ? (
@@ -601,12 +601,12 @@ Yours truly
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Product Size:</span>
+                    <span className="font-normal text-gray-600">Product Size:</span>
                     <span>{selectedSize || 'Not Selected'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Total Sqm:</span>
-                    <span>
+                    <span className="font-normal text-gray-600">Total Sqm:</span>
+                    <span className="font-light">
                       {selectedProduct ? 
                         `${parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(4)} sqm` : 
                         'Not Calculated'
@@ -614,16 +614,16 @@ Yours truly
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Total Quantity:</span>
+                    <span className="font-normal text-gray-600">Total Quantity:</span>
                     <span className="flex items-center gap-2">
-                      <span className="inline-flex items-center justify-center w-6 h-6 text-sm font-bold text-red-600 border border-red-600 rounded">
+                      <span className="inline-flex items-center justify-center w-6 h-6 text-sm font-normal text-red-500 border border-red-300 rounded-lg">
                         {selectedProduct ? Math.max(quantity, selectedProduct.minQuantity) : quantity}
                       </span>
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium text-gray-900">Min. Order Qty:</span>
-                    <span>
+                    <span className="font-normal text-gray-600">Min. Order Qty:</span>
+                    <span className="font-light">
                       {selectedProduct ? 
                         `${selectedProduct.minQuantity} Sheets` : 
                         'Not Available'
@@ -633,9 +633,9 @@ Yours truly
                 </div>
 
                 {/* Pricing Table */}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {/* Table Header */}
-                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-600 pb-1 border-b border-gray-200">
+                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-500 pb-2 border-b border-gray-200">
                     <div className="pr-1">Pricing Tier</div>
                     <div className="text-center">$/m²</div>
                     <div className="text-center">Price/Sheet</div>
@@ -651,27 +651,27 @@ Yours truly
                     const total = pricePerSheet * useQuantity;
 
                     return (
-                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-1 border-b border-gray-100">
-                        <div className="font-light text-gray-900 uppercase text-xs pr-1 truncate">
+                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-2 border-b border-gray-100">
+                        <div className="font-light text-gray-700 uppercase text-xs pr-1 truncate">
                           {tier.label.replace('Approval Needed', 'Approval (Retail)')}
                         </div>
-                        <div className="text-center font-light text-xs">
+                        <div className="text-center font-light text-xs text-gray-600">
                           ${price.toFixed(2)}
                         </div>
-                        <div className="text-center font-light text-xs">
+                        <div className="text-center font-light text-xs text-gray-600">
                           ${pricePerSheet.toFixed(2)}
                         </div>
-                        <div className="text-center font-medium text-xs">
+                        <div className="text-center font-normal text-xs">
                           ${total.toFixed(2)}
                         </div>
                         <div className="text-center">
                           <Button
                             size="sm"
                             onClick={() => addToQuote(tier.key)}
-                            className="h-5 w-5 rounded-full p-0 bg-gray-100 hover:bg-gray-200 border border-gray-300"
-                            variant="outline"
+                            className="soft-button h-6 w-6 rounded-full p-0"
+                            variant="ghost"
                           >
-                            <Plus className="h-2 w-2 text-gray-600" />
+                            <Plus className="h-3 w-3 text-gray-500" />
                           </Button>
                         </div>
                       </div>
@@ -691,10 +691,10 @@ Yours truly
 
       {/* Quote Items */}
       {quoteItems.length > 0 && (
-        <Card>
+        <Card className="soft-card border-none">
           <CardHeader>
-            <CardTitle>Quote Items</CardTitle>
-            <CardDescription>
+            <CardTitle className="section-title">Quote Items</CardTitle>
+            <CardDescription className="text-gray-500 font-light">
               Items added to your current quote
             </CardDescription>
           </CardHeader>
@@ -718,9 +718,9 @@ Yours truly
                     <TableRow key={item.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{item.productName}</div>
-                          <div className="text-sm text-gray-600">{item.productType}</div>
-                          <div className="text-xs text-gray-500">{item.itemCode}</div>
+                          <div className="font-normal">{item.productName}</div>
+                          <div className="text-sm text-gray-600 font-light">{item.productType}</div>
+                          <div className="text-xs text-gray-500 font-light">{item.itemCode}</div>
                         </div>
                       </TableCell>
                       <TableCell>{item.size}</TableCell>
@@ -730,14 +730,15 @@ Yours truly
                       <TableCell>{item.quantity}</TableCell>
                       <TableCell>${item.pricePerSqM.toFixed(2)}</TableCell>
                       <TableCell>${item.pricePerSheet.toFixed(2)}</TableCell>
-                      <TableCell className="font-medium">${item.total.toFixed(2)}</TableCell>
+                      <TableCell className="font-normal">${item.total.toFixed(2)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => removeFromQuote(item.id)}
+                          className="soft-button h-8 w-8 rounded-full p-0"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-gray-500" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -745,25 +746,22 @@ Yours truly
                 </TableBody>
               </Table>
 
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="text-lg font-semibold">
+              <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+                <div className="text-lg font-normal">
                   Total: ${totalAmount.toFixed(2)}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button
-                    variant="outline"
                     onClick={() => generatePDFMutation.mutate()}
                     disabled={generatePDFMutation.isPending}
-                    className="gap-2"
+                    className="soft-button icon-text"
                   >
                     <Download className="h-4 w-4" />
                     Download PDF
                   </Button>
                   <Button
-                    variant="outline"
                     onClick={handleEmailQuote}
-                    disabled={false}
-                    className="gap-2"
+                    className="soft-button icon-text"
                   >
                     <Mail className="h-4 w-4" />
                     Email Quote
