@@ -17,6 +17,13 @@ export default {
         blended: ['Roboto', 'sans-serif'],
         poly: ['Roboto', 'sans-serif'],
         stick: ['Roboto', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+      },
+      fontWeight: {
+        normal: '500',
+        medium: '500',
+        semibold: '700',
+        bold: '700',
       },
       borderRadius: {
         lg: "var(--radius)",
