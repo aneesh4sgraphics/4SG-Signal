@@ -93,12 +93,15 @@ export default function ProductPricingManagement() {
         count: result.recordsProcessed
       });
 
-      // Refresh the data
-      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-data'] });
+      // Refresh the data - this should remove deleted products
+      await queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-data'] });
+      
+      // Also refetch immediately to ensure fresh data
+      await queryClient.refetchQueries({ queryKey: ['/api/product-pricing-data'] });
 
       toast({
         title: "Upload Successful",
-        description: `Processed ${result.recordsProcessed || 0} products from ${file.name}`,
+        description: `Processed ${result.recordsProcessed || 0} products from ${file.name}. Deleted products have been removed.`,
       });
 
     } catch (error) {

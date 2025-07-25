@@ -80,7 +80,7 @@ export function addPricingRoutes(app: any, isAuthenticated: any, requireAdmin: a
       
       res.json({
         success: true,
-        message: "CSV file processed successfully",
+        message: `CSV file processed successfully. ${recordsProcessed} products are now available. Previous data has been completely replaced.`,
         recordsProcessed: recordsProcessed,
         filename: 'converted_pricing_data.csv'
       });
