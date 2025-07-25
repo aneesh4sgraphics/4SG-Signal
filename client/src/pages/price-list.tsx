@@ -73,22 +73,30 @@ export default function PriceList() {
     if (selectedCategory && selectedTier) {
       const filteredProducts = productData.filter(item => item.product_name === selectedCategory);
       
-      const items: PriceListItem[] = filteredProducts.map(product => {
-        const pricePerSqM = product[selectedTier as keyof ProductData] as number;
-        const pricePerSheet = pricePerSqM * product.total_sqm;
-        const pricePerPack = pricePerSheet * product.min_quantity;
+      const items: PriceListItem[] = filteredProducts
+      .filter(product => product.total_sqm && product.min_quantity) // Filter out broken rows
+      .map(product => {
+        const pricePerSqM = Number(product[selectedTier as keyof ProductData]) || 0;
+        const sqm = Number(product.total_sqm) || 0;
+        const minQty = Number(product.min_quantity) || 0;
+
+        const pricePerSheet = pricePerSqM * sqm;
+        const pricePerPack = pricePerSheet * minQty;
 
         return {
-          itemCode: product.ItemCode,
-          productName: product.product_name,
-          productType: product.ProductType,
-          size: product.size,
-          minQty: product.min_quantity,
+          itemCode: product.ItemCode || "-",
+          productName: product.product_name || "Unnamed Product",
+          productType: product.ProductType || "Unknown Type",
+          size: product.size || "Unknown Size",
+          minQty: minQty,
           pricePerSqM: pricePerSqM,
-          pricePerSheet: pricePerSheet,
-          pricePerPack: selectedTier === 'Retail' ? 
-            Math.floor(pricePerPack) + 0.99 : pricePerPack,
-          squareMeters: product.total_sqm
+          pricePerSheet: isNaN(pricePerSheet) ? 0 : pricePerSheet,
+          pricePerPack: isNaN(pricePerPack)
+            ? 0
+            : selectedTier === 'Retail'
+            ? Math.floor(pricePerPack) + 0.99
+            : pricePerPack,
+          squareMeters: sqm
         };
       });
 
