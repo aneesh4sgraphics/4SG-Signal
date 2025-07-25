@@ -3,22 +3,23 @@ import { PricingTier } from '@shared/schema';
 // Role-based tier visibility configuration
 export const ROLE_TIER_ACCESS = {
   admin: 'all', // Admin sees all tiers
-  santiago: [
-    'Approval_Retail',
-    'Stage1',
-    'Stage15',
-    'Stage2',
-    'Stage25'
+  user: [
+    'Stage 2.5',
+    'Stage 2', 
+    'Stage 1.5',
+    'Stage 1',
+    'Retail'
   ],
-  patricio: [
-    'Approval_Retail',
-    'Stage1',
-    'Stage15', 
-    'Stage2',
-    'Stage25',
-    'DEALER',
-    'DEALER_2',
-    'MASTER_DISTRIBUTOR'
+  manager: [
+    'Stage 2.5',
+    'Stage 2',
+    'Stage 1.5', 
+    'Stage 1',
+    'Retail',
+    'Approval Needed',
+    'Dealer',
+    'Dealer 2',
+    'Master Distributor'
   ]
 } as const;
 
@@ -36,26 +37,30 @@ export function filterTiersByRole(tiers: PricingTier[], userRole: string): Prici
     return tiers;
   }
   
-  // Santiago sees specific tiers
-  if (userRole === 'santiago') {
+  // Manager sees user tiers plus additional ones
+  if (userRole === 'manager') {
     return tiers.filter(tier => 
-      ROLE_TIER_ACCESS.santiago.some(allowedTier => 
+      ROLE_TIER_ACCESS.manager.some(allowedTier => 
         tier.name.includes(allowedTier) || tier.name.toLowerCase().includes(allowedTier.toLowerCase())
       )
     );
   }
   
-  // Patricio sees Santiago's tiers plus additional ones
-  if (userRole === 'patricio') {
+  // Regular users see limited tiers
+  if (userRole === 'user') {
     return tiers.filter(tier => 
-      ROLE_TIER_ACCESS.patricio.some(allowedTier => 
+      ROLE_TIER_ACCESS.user.some(allowedTier => 
         tier.name.includes(allowedTier) || tier.name.toLowerCase().includes(allowedTier.toLowerCase())
       )
     );
   }
   
-  // Default users see all tiers (fallback for other roles)
-  return tiers;
+  // Default fallback - show user tiers
+  return tiers.filter(tier => 
+    ROLE_TIER_ACCESS.user.some(allowedTier => 
+      tier.name.includes(allowedTier) || tier.name.toLowerCase().includes(allowedTier.toLowerCase())
+    )
+  );
 }
 
 /**
@@ -68,24 +73,25 @@ export function getUserRoleFromEmail(email: string): string {
   
   const emailLower = email.toLowerCase();
   
-  // Check for admin emails (includes test@4sgraphics.com for development)
-  if (emailLower.includes('aneesh@4sgraphics.com') || 
-      emailLower.includes('oscar@4sgraphics.com') ||
-      emailLower.includes('test@4sgraphics.com')) {
+  // Check for admin emails
+  if (emailLower === 'aneesh@4sgraphics.com' || 
+      emailLower === 'oscar@4sgraphics.com' ||
+      emailLower === 'test@4sgraphics.com') {
     return 'admin';
   }
   
-  // Check for Santiago
-  if (emailLower.includes('santiago@4sgraphics.com')) {
-    return 'santiago';
+  // Check for manager (Patricio)
+  if (emailLower === 'patricio@4sgraphics.com') {
+    return 'manager';
   }
   
-  // Check for Patricio
-  if (emailLower.includes('patricio@4sgraphics.com')) {
-    return 'patricio';
+  // Check for users (Remy and Santiago)
+  if (emailLower === 'remy@4sgraphics.com' || 
+      emailLower === 'santiago@4sgraphics.com') {
+    return 'user';
   }
   
-  // Default role
+  // Default role for other emails
   return 'user';
 }
 
@@ -98,17 +104,20 @@ export function getUserRoleFromEmail(email: string): string {
 export function canAccessTier(tierName: string, userRole: string): boolean {
   if (userRole === 'admin') return true;
   
-  if (userRole === 'santiago') {
-    return ROLE_TIER_ACCESS.santiago.some(allowedTier => 
+  if (userRole === 'manager') {
+    return ROLE_TIER_ACCESS.manager.some(allowedTier => 
       tierName.includes(allowedTier) || tierName.toLowerCase().includes(allowedTier.toLowerCase())
     );
   }
   
-  if (userRole === 'patricio') {
-    return ROLE_TIER_ACCESS.patricio.some(allowedTier => 
+  if (userRole === 'user') {
+    return ROLE_TIER_ACCESS.user.some(allowedTier => 
       tierName.includes(allowedTier) || tierName.toLowerCase().includes(allowedTier.toLowerCase())
     );
   }
   
-  return true; // Default users can access all tiers
+  // Default fallback - only allow user tiers
+  return ROLE_TIER_ACCESS.user.some(allowedTier => 
+    tierName.includes(allowedTier) || tierName.toLowerCase().includes(allowedTier.toLowerCase())
+  );
 }

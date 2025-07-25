@@ -11,6 +11,8 @@ import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
+import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ProductData {
   id: number;
@@ -64,7 +66,7 @@ interface QuoteItem {
   minOrderQty: number;
 }
 
-const pricingTiers = [
+const allPricingTiers = [
   { key: 'exportPrice', label: 'Export' },
   { key: 'masterDistributorPrice', label: 'Master Distributor' },
   { key: 'dealerPrice', label: 'Dealer' },
@@ -87,6 +89,11 @@ export default function QuoteCalculator() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Get user role and filter pricing tiers accordingly
+  const userRole = getUserRoleFromEmail(user?.claims?.email || '');
+  const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
 
   // Product category icon mapping with colors
   const getProductIcon = (productName: string) => {
