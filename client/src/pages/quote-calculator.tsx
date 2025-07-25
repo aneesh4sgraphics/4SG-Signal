@@ -504,38 +504,66 @@ Yours truly
                     <span className="font-medium text-gray-900">Product Brand:</span>
                     <span className="flex items-center gap-1">
                       <FileText className="h-4 w-4 text-gray-600" />
-                      <span className="font-graffiti">Graffiti</span>
-                      <sup className="text-xs">™</sup>
-                      <span>Polyester Paper</span>
+                      <span>
+                        {selectedCategory?.includes('Graffiti') ? (
+                          <>
+                            <span className="font-graffiti">Graffiti</span>
+                            <sup className="text-xs">™</sup>
+                            <span>{selectedCategory.replace('Graffiti', '')}</span>
+                          </>
+                        ) : (
+                          selectedCategory || 'Not Selected'
+                        )}
+                      </span>
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Product Type:</span>
                     <span>
-                      <span className="font-graffiti">Graffiti</span>
-                      <sup className="text-xs">™</sup>
-                      <span> {selectedProduct.productType}</span>
+                      {selectedType ? (
+                        selectedType.includes('Graffiti') ? (
+                          <>
+                            <span className="font-graffiti">Graffiti</span>
+                            <sup className="text-xs">™</sup>
+                            <span> {selectedType.replace('Graffiti', '').trim()}</span>
+                          </>
+                        ) : (
+                          selectedType
+                        )
+                      ) : (
+                        'Not Selected'
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Product Size:</span>
-                    <span>{selectedProduct.size}</span>
+                    <span>{selectedSize || 'Not Selected'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Total Sqm:</span>
-                    <span>{parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(3)} sqm</span>
+                    <span>
+                      {selectedProduct ? 
+                        `${parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(4)} sqm` : 
+                        'Not Calculated'
+                      }
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Total Quantity:</span>
                     <span className="flex items-center gap-2">
                       <span className="inline-flex items-center justify-center w-6 h-6 text-sm font-bold text-red-600 border border-red-600 rounded">
-                        {Math.max(quantity, selectedProduct.minQuantity)}
+                        {selectedProduct ? Math.max(quantity, selectedProduct.minQuantity) : quantity}
                       </span>
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Min. Order Qty:</span>
-                    <span>{selectedProduct.minQuantity} Sheets</span>
+                    <span>
+                      {selectedProduct ? 
+                        `${selectedProduct.minQuantity} Sheets` : 
+                        'Not Available'
+                      }
+                    </span>
                   </div>
                 </div>
 
