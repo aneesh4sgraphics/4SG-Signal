@@ -97,34 +97,46 @@ export default function PriceList() {
         (item) => item.product_name === selectedCategory
       );
 
-      const items: PriceListItem[] = filteredProducts
-        .filter((product) => product.total_sqm && product.min_quantity)
-        .map((product) => {
-          const rawPrice = Number(product[selectedTier]) || 0;
-          const sqm = Number(product.total_sqm) || 0;
-          const minQty = Number(product.min_quantity) || 0;
+      console.log('Filtered products for category:', selectedCategory, filteredProducts.length);
+      console.log('Selected tier:', selectedTier);
+      console.log('Sample product data:', filteredProducts[0]);
+      console.log('Available fields in product data:', filteredProducts[0] ? Object.keys(filteredProducts[0]) : 'No products found');
 
-          const pricePerSheet = rawPrice * sqm;
-          const pricePerPack =
-            selectedTier === "Retail"
-              ? Math.floor(pricePerSheet * minQty) + 0.99
-              : pricePerSheet * minQty;
+      const calculatedItems = filteredProducts.map((product) => {
+        const pricePerSqM = Number(product[selectedTier]) || 0;
+        const sqm = Number(product.total_sqm) || 0;
+        const pricePerSheet = +(pricePerSqM * sqm).toFixed(2);
+        const minQty = Number(product.min_quantity) || 1;
+        const pricePerPack = +(pricePerSheet * minQty).toFixed(2);
 
-          return {
-            itemCode: product.ItemCode || "-",
-            productName: product.product_name || "Unnamed Product",
-            productType: product.ProductType || "Unknown Type",
-            size: product.size || "Unknown Size",
-            minQty: minQty,
-            pricePerSqM: rawPrice,
-            pricePerSheet: isNaN(pricePerSheet) ? 0 : pricePerSheet,
-            pricePerPack: isNaN(pricePerPack) ? 0 : pricePerPack,
-            squareMeters: sqm,
-          };
+        console.log('Processing product:', {
+          rawProduct: product,
+          productType: product.ProductType,
+          size: product.size,
+          itemCode: product.ItemCode,
+          selectedTierValue: product[selectedTier],
+          pricePerSqM,
+          sqm,
+          pricePerSheet,
+          minQty,
+          pricePerPack
         });
 
+        return {
+          productType: product.ProductType || 'Unknown',
+          productName: product.product_name || selectedCategory,
+          size: product.size || 'N/A',
+          itemCode: product.ItemCode || '-',
+          minQty,
+          pricePerSqM,
+          pricePerSheet,
+          pricePerPack,
+          squareMeters: sqm,
+        };
+      });
+
       setPriceListItems(
-        items.sort((a, b) => a.productType.localeCompare(b.productType))
+        calculatedItems.sort((a, b) => a.productType.localeCompare(b.productType))
       );
     } else {
       setPriceListItems([]);
