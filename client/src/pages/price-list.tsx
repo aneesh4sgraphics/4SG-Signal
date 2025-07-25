@@ -169,31 +169,32 @@ export default function PriceList() {
   }
 
   return (
-    <div className="max-w-screen-lg mx-auto px-6 py-6">
-      {/* Header */}
-      <div className="mb-6 relative">
-        <FloatingElements />
-        <h1 className="text-xl font-medium text-gray-800 mb-2">Price List</h1>
-        <p className="text-sm text-gray-500">
-          Generate comprehensive price lists for your products
-        </p>
-        <HeaderDivider />
-      </div>
+    <div className="min-h-screen" style={{ backgroundColor: '#fafafa' }}>
+      <div className="max-w-screen-lg mx-auto px-6 py-6">
+        {/* Header */}
+        <div className="mb-6 relative">
+          <FloatingElements />
+          <h1 className="text-xl font-normal text-gray-800 mb-2">Price List</h1>
+          <p className="text-sm text-gray-500">
+            Generate comprehensive price lists for your products
+          </p>
+          <HeaderDivider />
+        </div>
 
-      {/* Configuration */}
-      <SimpleCardFrame className="p-6 mb-6">
-        <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-          <IconBadge icon={FileText} label="Configuration" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">Select product category and pricing tier to generate your price list</p>
+        {/* Configuration */}
+        <SimpleCardFrame className="p-6 mb-6" style={{ backgroundColor: 'white', border: '1px solid #f3f4f6' }}>
+          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+            <IconBadge icon={FileText} label="Configuration" className="px-0 py-0 bg-transparent border-none text-lg font-normal text-gray-800" />
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">Select product category and pricing tier to generate your price list</p>
         <SectionDivider />
         <div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Product Category */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-800">Product Category</label>
+              <label className="block text-sm font-normal text-gray-800">Product Category</label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <SelectTrigger className="w-full rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" style={{ border: '1px solid #f3f4f6' }}>
                   <SelectValue placeholder="Select product category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -283,6 +284,7 @@ export default function PriceList() {
           <p className="text-sm text-gray-500">Select a product category to get started</p>
         </div>
       )}
+      </div>
     </div>
   );
 }

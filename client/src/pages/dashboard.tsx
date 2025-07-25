@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#fafafa' }}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
       </div>
     );
@@ -55,12 +55,12 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#fafafa' }}>
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-4">Authentication Required</h1>
+          <h1 className="text-2xl font-normal text-gray-800 mb-4">Authentication Required</h1>
           <Button 
             onClick={() => window.location.href = "/api/login"}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-medium"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-normal focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Login with Replit
           </Button>
@@ -74,19 +74,19 @@ export default function Dashboard() {
     .charAt(0).toUpperCase() + ((user as any)?.firstName || (user as any)?.email?.split('@')[0] || "User").slice(1);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: '#fafafa' }}>
       {/* Notion-style Top Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white" style={{ borderBottom: '1px solid #f3f4f6' }}>
         <div className="max-w-screen-lg mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 bg-blue-600 rounded-sm flex items-center justify-center">
-              <span className="text-white text-xs font-bold">4S</span>
+            <div className="w-6 h-6 bg-blue-500 rounded-sm flex items-center justify-center">
+              <span className="text-white text-xs font-medium">4S</span>
             </div>
-            <span className="text-sm font-medium text-gray-800">4S Graphics Employee Portal</span>
+            <span className="text-sm font-normal text-gray-800">4S Graphics Employee Portal</span>
           </div>
           <Button
             onClick={() => window.location.href = '/api/logout'}
-            className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-md text-sm font-medium bg-transparent border-none shadow-none"
+            className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-md text-sm font-normal bg-transparent border-none shadow-none"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -98,14 +98,14 @@ export default function Dashboard() {
       <div className="max-w-screen-lg mx-auto px-6 py-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-4">Dashboard</h1>
+          <h1 className="text-2xl font-normal text-gray-800 mb-4">Dashboard</h1>
           <p className="text-sm text-gray-500 mb-6">Welcome back, {firstName}! Here's a summary of your tools and activity.</p>
         </div>
 
         {/* Applications Block */}
-        <div className="border border-gray-200 bg-white rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-gray-600" />
+        <div style={{ border: '1px solid #f3f4f6', backgroundColor: 'white' }} className="rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-gray-500" />
             Applications
           </h2>
           <p className="text-sm text-gray-500 mb-4">Your core business tools</p>
@@ -113,10 +113,10 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* QuickQuotes */}
             <Link href="/quote-calculator">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <Calculator className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium text-gray-800">QuickQuotes</span>
+                  <Calculator className="h-5 w-5 text-blue-500" />
+                  <span className="font-normal text-gray-800">QuickQuotes</span>
                 </div>
                 <p className="text-sm text-gray-500">Generate product quotes quickly</p>
               </div>
@@ -124,10 +124,10 @@ export default function Dashboard() {
 
             {/* Price List */}
             <Link href="/price-list">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <FileText className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-gray-800">Price List</span>
+                  <FileText className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">Price List</span>
                 </div>
                 <p className="text-sm text-gray-500">View product pricing tiers</p>
               </div>
@@ -135,10 +135,10 @@ export default function Dashboard() {
 
             {/* SqM Calculator */}
             <Link href="/area-pricer">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <BarChart3 className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium text-gray-800">SqM Calculator</span>
+                  <BarChart3 className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">SqM Calculator</span>
                 </div>
                 <p className="text-sm text-gray-500">Calculate area-based pricing</p>
               </div>
@@ -146,10 +146,10 @@ export default function Dashboard() {
 
             {/* Saved Quotes */}
             <Link href="/saved-quotes">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <Package className="h-5 w-5 text-emerald-600" />
-                  <span className="font-medium text-gray-800">Saved Quotes</span>
+                  <Package className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">Saved Quotes</span>
                 </div>
                 <p className="text-sm text-gray-500">View and manage saved quotes</p>
               </div>
@@ -157,10 +157,10 @@ export default function Dashboard() {
 
             {/* ComIntel */}
             <Link href="/competitor-pricing">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <BarChart3 className="h-5 w-5 text-red-600" />
-                  <span className="font-medium text-gray-800">ComIntel</span>
+                  <BarChart3 className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">ComIntel</span>
                 </div>
                 <p className="text-sm text-gray-500">Competitor pricing intelligence</p>
               </div>
@@ -168,10 +168,10 @@ export default function Dashboard() {
 
             {/* Shipping Calculator */}
             <Link href="/shipping-calculator">
-              <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
-                  <Truck className="h-5 w-5 text-cyan-600" />
-                  <span className="font-medium text-gray-800">Shipping Calculator</span>
+                  <Truck className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">Shipping Calculator</span>
                 </div>
                 <p className="text-sm text-gray-500">Calculate shipping costs</p>
               </div>
@@ -181,9 +181,9 @@ export default function Dashboard() {
 
         {/* Admin Tools Block - Only for admin users */}
         {(user as any)?.role === 'admin' && (
-          <div className="border border-gray-200 bg-white rounded-lg p-6 mb-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-600" />
+          <div style={{ border: '1px solid #f3f4f6', backgroundColor: 'white' }} className="rounded-lg p-6 mb-6">
+            <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+              <Shield className="h-5 w-5 text-gray-500" />
               Admin Tools
             </h2>
             <p className="text-sm text-gray-500 mb-4">Administrative functions and data management</p>
@@ -191,10 +191,10 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Admin Panel */}
               <Link href="/admin">
-                <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3 mb-2">
-                    <Settings className="h-5 w-5 text-gray-600" />
-                    <span className="font-medium text-gray-800">Admin Panel</span>
+                    <Settings className="h-5 w-5 text-gray-500" />
+                    <span className="font-normal text-gray-800">Admin Panel</span>
                   </div>
                   <p className="text-sm text-gray-500">User management and settings</p>
                 </div>
@@ -202,10 +202,10 @@ export default function Dashboard() {
 
               {/* Customer Management */}
               <Link href="/customer-management">
-                <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3 mb-2">
-                    <Users className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium text-gray-800">Customer Management</span>
+                    <Users className="h-5 w-5 text-gray-500" />
+                    <span className="font-normal text-gray-800">Customer Management</span>
                   </div>
                   <p className="text-sm text-gray-500">Manage customer database</p>
                 </div>
@@ -213,10 +213,10 @@ export default function Dashboard() {
 
               {/* ProductPricing Management */}
               <Link href="/product-pricing-management">
-                <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3 mb-2">
-                    <Database className="h-5 w-5 text-purple-600" />
-                    <span className="font-medium text-gray-800">ProductPricing Management</span>
+                    <Database className="h-5 w-5 text-gray-500" />
+                    <span className="font-normal text-gray-800">ProductPricing Management</span>
                   </div>
                   <p className="text-sm text-gray-500">Manage product pricing data</p>
                 </div>
@@ -225,11 +225,12 @@ export default function Dashboard() {
               {/* Download Data */}
               <div 
                 onClick={handleDownloadData}
-                className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                style={{ border: '1px solid #f3f4f6' }}
+                className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <Download className="h-5 w-5 text-emerald-600" />
-                  <span className="font-medium text-gray-800">Download Data</span>
+                  <Download className="h-5 w-5 text-gray-500" />
+                  <span className="font-normal text-gray-800">Download Data</span>
                 </div>
                 <p className="text-sm text-gray-500">Export all database files</p>
               </div>
@@ -238,24 +239,24 @@ export default function Dashboard() {
         )}
 
         {/* Quick Stats Block */}
-        <div className="border border-gray-200 bg-white rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-gray-600" />
+        <div style={{ border: '1px solid #f3f4f6', backgroundColor: 'white' }} className="rounded-lg p-6">
+          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-gray-500" />
             Quick Stats
           </h2>
           <p className="text-sm text-gray-500 mb-4">System status and recent activity</p>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-md">
-              <div className="text-2xl font-semibold text-gray-800 mb-1">Active</div>
+            <div className="text-center p-4 rounded-md" style={{ backgroundColor: '#f3f4f6' }}>
+              <div className="text-2xl font-normal text-gray-800 mb-1">Active</div>
               <div className="text-sm text-gray-500">System Status</div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-md">
-              <div className="text-2xl font-semibold text-gray-800 mb-1">6</div>
+            <div className="text-center p-4 rounded-md" style={{ backgroundColor: '#f3f4f6' }}>
+              <div className="text-2xl font-normal text-gray-800 mb-1">6</div>
               <div className="text-sm text-gray-500">Available Tools</div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-md">
-              <div className="text-2xl font-semibold text-gray-800 mb-1">Ready</div>
+            <div className="text-center p-4 rounded-md" style={{ backgroundColor: '#f3f4f6' }}>
+              <div className="text-2xl font-normal text-gray-800 mb-1">Ready</div>
               <div className="text-sm text-gray-500">Database</div>
             </div>
           </div>

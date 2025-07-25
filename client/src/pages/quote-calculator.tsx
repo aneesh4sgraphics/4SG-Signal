@@ -332,23 +332,24 @@ Yours truly
   }
 
   return (
-    <div className="max-w-screen-lg mx-auto px-6 py-6">
-      {/* Header */}
-      <div className="mb-6 relative">
-        <FloatingElements />
-        <h1 className="text-xl font-medium text-gray-800 mb-2">QuickQuotes</h1>
-        <p className="text-sm text-gray-500">
-          Generate instant quotes for your products
-        </p>
-        <HeaderDivider />
-      </div>
+    <div className="min-h-screen" style={{ backgroundColor: '#fafafa' }}>
+      <div className="max-w-screen-lg mx-auto px-6 py-6">
+        {/* Header */}
+        <div className="mb-6 relative">
+          <FloatingElements />
+          <h1 className="text-xl font-normal text-gray-800 mb-2">QuickQuotes</h1>
+          <p className="text-sm text-gray-500">
+            Generate instant quotes for your products
+          </p>
+          <HeaderDivider />
+        </div>
 
-      {/* Customer Selection Section */}
-      <SimpleCardFrame className="p-6 mb-6">
-        <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-          <IconBadge icon={User} label="Customer Selection" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
-        </h2>
-        <p className="text-sm text-gray-500 mb-4">Select a customer to generate quotes for</p>
+        {/* Customer Selection Section */}
+        <SimpleCardFrame className="p-6 mb-6" style={{ backgroundColor: 'white', border: '1px solid #f3f4f6' }}>
+          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+            <IconBadge icon={User} label="Customer Selection" className="px-0 py-0 bg-transparent border-none text-lg font-normal text-gray-800" />
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">Select a customer to generate quotes for</p>
         <div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Customer Search */}
@@ -364,11 +365,11 @@ Yours truly
 
             {/* Right Column - Customer Details */}
             <div>
-              <label className="block text-sm font-medium text-gray-800 mb-2">Customer Details</label>
+              <label className="block text-sm font-normal text-gray-800 mb-2">Customer Details</label>
               {selectedCustomer ? (
-                <div className="border border-gray-200 rounded-md p-4 bg-gray-50 space-y-3">
+                <div className="rounded-md p-4 space-y-3" style={{ border: '1px solid #f3f4f6', backgroundColor: '#f3f4f6' }}>
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-600" />
+                    <User className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-800">
                       {selectedCustomer.firstName} {selectedCustomer.lastName}
                     </span>
@@ -376,21 +377,21 @@ Yours truly
                   
                   {selectedCustomer.company && (
                     <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-gray-600" />
+                      <Building className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-500">{selectedCustomer.company}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.email && (
                     <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-gray-600" />
+                      <Mail className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-500">{selectedCustomer.email}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.phone && (
                     <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-600" />
+                      <Phone className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-500">{selectedCustomer.phone}</span>
                     </div>
                   )}
@@ -757,6 +758,7 @@ Yours truly
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
