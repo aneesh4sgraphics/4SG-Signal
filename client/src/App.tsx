@@ -89,7 +89,7 @@ function Router() {
             <img 
               src="/company-logo.jpg" 
               alt="4S Graphics Logo" 
-              className="w-32 h-32 mx-auto object-contain rounded-full shadow-lg border-4 border-white"
+              className="w-40 h-40 mx-auto object-contain rounded-full shadow-lg border-4 border-white"
             />
           </div>
           
