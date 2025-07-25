@@ -227,15 +227,26 @@ export function generatePriceListHTML(data: any): string {
   }, {});
 
   const sections = Object.entries(grouped).map(([type, rows]) => {
-    const rowHtml = (rows as any[]).map((row: any, index: number) => `
+    const rowHtml = (rows as any[]).map((row: any, index: number) => {
+      // Debug logging for each row
+      console.log('Processing PDF row:', {
+        size: row.size,
+        itemCode: row.itemCode,
+        minQty: row.minQty,
+        pricePerSheet: row.pricePerSheet,
+        pricePerPack: row.pricePerPack
+      });
+      
+      return `
       <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-        <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: 500;">${row.size}</td>
-        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-family: monospace;">${row.itemCode}</td>
-        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: 500;">${row.minQty}</td>
-        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 600;">$${row.pricePerSheet.toFixed(2)}</td>
-        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 700; color: #059669;">$${row.pricePerPack.toFixed(2)}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: 500;">${row.size || 'N/A'}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-family: monospace;">${row.itemCode || '-'}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: center; font-weight: 500;">${row.minQty || 0}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 600;">$${(row.pricePerSheet || 0).toFixed(2)}</td>
+        <td style="padding: 10px; border: 1px solid #dee2e6; text-align: right; font-weight: 700; color: #059669;">$${(row.pricePerPack || 0).toFixed(2)}</td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
 
     // Extract category from the first row to display category + product type
     const firstRow = (rows as any[])[0];

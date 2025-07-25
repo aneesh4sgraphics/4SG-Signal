@@ -153,11 +153,13 @@ export default function PriceList() {
         customerName: selectedCustomer?.company || `${selectedCustomer?.firstName} ${selectedCustomer?.lastName}`
       });
       
-      // Add category information to each item for better display
-      const enhancedItems = priceListItems.map(item => ({
+      // Use the properly calculated items directly
+      const calculatedItems = priceListItems.map(item => ({
         ...item,
-        productCategory: selectedCategory  // Add category information to each item
+        productCategory: selectedCategory
       }));
+      
+      console.log('Sending calculatedItems to PDF generator:', calculatedItems.slice(0, 2));
       
       const response = await fetch('/api/generate-price-list-pdf', {
         method: 'POST',
@@ -166,7 +168,7 @@ export default function PriceList() {
           categoryName: selectedCategory,
           tierName: selectedTier,
           quoteNumber: `PL-${Date.now().toString().slice(-6)}`,
-          items: enhancedItems,
+          items: calculatedItems,
           customerName: selectedCustomer?.company || `${selectedCustomer?.firstName} ${selectedCustomer?.lastName}` || null
         })
       });
