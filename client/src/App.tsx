@@ -108,7 +108,7 @@ function Router() {
             onClick={() => window.location.href = "/api/login"}
             className="bg-green-800 hover:bg-green-900 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
-            Login with Replit
+            Login
           </button>
         </div>
       </div>
