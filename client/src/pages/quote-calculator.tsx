@@ -196,7 +196,6 @@ export default function QuoteCalculator() {
         throw new Error('No items in quote to generate PDF');
       }
 
-      const quoteNumber = `4SG-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
       const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
       
       const response = await fetch('/api/generate-pdf-quote', {
@@ -205,7 +204,6 @@ export default function QuoteCalculator() {
         body: JSON.stringify({
           customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : "Customer",
           customerEmail: selectedCustomer?.email || null,
-          quoteNumber,
           quoteItems,
           totalAmount
         })
@@ -251,8 +249,16 @@ export default function QuoteCalculator() {
     }
 
     // Generate email content
-    const quoteNumber = `4SG-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
     const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
+    
+    // Generate quote number on server side to ensure uniqueness
+    const quoteNumberResponse = await fetch('/api/generate-quote-number', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    
+    const { quoteNumber } = await quoteNumberResponse.json();
     const currentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',

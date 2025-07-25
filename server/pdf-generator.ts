@@ -283,11 +283,38 @@ export async function generateQuotePDF(request: PDFGenerationRequest): Promise<B
 }
 
 export function generateQuoteNumber(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  // Generate 6-digit alphanumeric (mix of numbers and uppercase letters)
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+// Function to generate unique quote number with database checking
+export async function generateUniqueQuoteNumber(storage: any): Promise<string> {
+  let attempts = 0;
+  const maxAttempts = 10;
   
-  return `4SG-${year}${month}${day}-${random}`;
+  while (attempts < maxAttempts) {
+    const quoteNumber = generateQuoteNumber();
+    
+    try {
+      // Check if quote number already exists in database
+      const existingQuote = await storage.getSentQuoteByNumber(quoteNumber);
+      if (!existingQuote) {
+        return quoteNumber;
+      }
+    } catch (error) {
+      console.error('Error checking quote number uniqueness:', error);
+    }
+    
+    attempts++;
+  }
+  
+  // Fallback: add timestamp suffix if can't generate unique number
+  const fallbackNumber = generateQuoteNumber();
+  const timestamp = Date.now().toString().slice(-3);
+  return `${fallbackNumber.slice(0, 3)}${timestamp}`;
 }

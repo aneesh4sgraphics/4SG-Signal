@@ -80,6 +80,7 @@ export interface IStorage {
   // Sent Quotes
   getSentQuotes(): Promise<SentQuote[]>;
   getSentQuote(id: number): Promise<SentQuote | undefined>;
+  getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined>;
   createSentQuote(quote: InsertSentQuote): Promise<SentQuote>;
   upsertSentQuote(quote: InsertSentQuote): Promise<SentQuote>;
   deleteSentQuote(id: number): Promise<boolean>;
