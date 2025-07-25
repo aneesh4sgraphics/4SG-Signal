@@ -24,7 +24,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { pricingData } from "@shared/schema";
+// Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
 import pricingDatabaseRoutes from "./routes-pricing-database";
 

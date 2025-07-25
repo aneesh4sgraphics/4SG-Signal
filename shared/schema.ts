@@ -34,13 +34,7 @@ export const pricingTiers = pgTable("pricing_tiers", {
   description: text("description"),
 });
 
-export const productPricing = pgTable("product_pricing", {
-  id: serial("id").primaryKey(),
-  productTypeId: integer("product_type_id").notNull(),
-  tierId: integer("tier_id").notNull(),
-  pricePerSquareMeter: decimal("price_per_square_meter", { precision: 10, scale: 2 }).notNull(),
-  sizeId: integer("size_id"), // Optional size-specific pricing
-});
+// Removed: productPricing table - replaced by productPricingMaster for consolidated pricing data
 
 // Product pricing master table - replaces file-based system
 export const productPricingMaster = pgTable("product_pricing_master", {
@@ -69,24 +63,7 @@ export const productPricingMaster = pgTable("product_pricing_master", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Pricing data table for CSV uploads and management (legacy)
-export const pricingData = pgTable("pricing_data", {
-  id: serial("id").primaryKey(),
-  productId: varchar("product_id", { length: 255 }).notNull(),
-  productType: varchar("product_type", { length: 255 }).notNull(),
-  exportPrice: decimal("export_price", { precision: 10, scale: 2 }),
-  masterDistributorPrice: decimal("master_distributor_price", { precision: 10, scale: 2 }),
-  dealerPrice: decimal("dealer_price", { precision: 10, scale: 2 }),
-  dealer2Price: decimal("dealer2_price", { precision: 10, scale: 2 }),
-  approvalRetailPrice: decimal("approval_retail_price", { precision: 10, scale: 2 }),
-  stage25Price: decimal("stage25_price", { precision: 10, scale: 2 }),
-  stage2Price: decimal("stage2_price", { precision: 10, scale: 2 }),
-  stage15Price: decimal("stage15_price", { precision: 10, scale: 2 }),
-  stage1Price: decimal("stage1_price", { precision: 10, scale: 2 }),
-  retailPrice: decimal("retail_price", { precision: 10, scale: 2 }),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+// Removed: pricingData table - legacy table replaced by productPricingMaster
 
 // Session storage table for authentication
 export const sessions = pgTable(
@@ -212,15 +189,7 @@ export const insertPricingTierSchema = createInsertSchema(pricingTiers).omit({
   id: true,
 });
 
-export const insertProductPricingSchema = createInsertSchema(productPricing).omit({
-  id: true,
-});
-
-export const insertPricingDataSchema = createInsertSchema(pricingData).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+// Removed: insertProductPricingSchema and insertPricingDataSchema - legacy schemas replaced by productPricingMaster
 
 export const insertProductPricingMasterSchema = createInsertSchema(productPricingMaster).omit({
   id: true,
@@ -258,9 +227,7 @@ export type ProductCategory = typeof productCategories.$inferSelect;
 export type ProductType = typeof productTypes.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
 export type PricingTier = typeof pricingTiers.$inferSelect;
-export type ProductPricing = typeof productPricing.$inferSelect;
 export type ProductPricingMaster = typeof productPricingMaster.$inferSelect;
-export type PricingData = typeof pricingData.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type SentQuote = typeof sentQuotes.$inferSelect;
@@ -270,9 +237,7 @@ export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
 export type InsertProductType = z.infer<typeof insertProductTypeSchema>;
 export type InsertProductSize = z.infer<typeof insertProductSizeSchema>;
 export type InsertPricingTier = z.infer<typeof insertPricingTierSchema>;
-export type InsertProductPricing = z.infer<typeof insertProductPricingSchema>;
 export type InsertProductPricingMaster = z.infer<typeof insertProductPricingMasterSchema>;
-export type InsertPricingData = z.infer<typeof insertPricingDataSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;

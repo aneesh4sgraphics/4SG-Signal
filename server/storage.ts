@@ -10,10 +10,7 @@ import {
   type InsertProductSize,
   type PricingTier,
   type InsertPricingTier,
-  type ProductPricing,
-  type InsertProductPricing,
-  type PricingData,
-  type InsertPricingData,
+  // Removed: ProductPricing and PricingData types - legacy tables removed
   type Customer,
   type InsertCustomer,
   type SentQuote,
@@ -25,7 +22,6 @@ import {
   users,
   competitorPricing,
   fileUploads,
-  pricingData,
   productPricingMaster,
   type ProductPricingMaster,
   type InsertProductPricingMaster
@@ -67,15 +63,7 @@ export interface IStorage {
   getPricingTier(id: number): Promise<PricingTier | undefined>;
   createPricingTier(tier: InsertPricingTier): Promise<PricingTier>;
   
-  // Product Pricing
-  getProductPricing(): Promise<ProductPricing[]>;
-  getProductPricingByType(typeId: number): Promise<ProductPricing[]>;
-  getPriceForProductType(typeId: number, tierId: number): Promise<number>;
-  getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number): Promise<number>;
-  getPricingDataWithDetails(): Promise<any[]>;
-  getProductTypesWithCategories(): Promise<any[]>;
-  updateProductPricing(id: number, pricePerSquareMeter: number): Promise<boolean>;
-  upsertProductPricing(pricing: { productTypeId: number; tierId: number; pricePerSquareMeter: number; sizeId?: number | null }): Promise<ProductPricing>;
+  // Removed: legacy product pricing methods - replaced by productPricingMaster
   
   // Customers
   getCustomers(): Promise<Customer[]>;
@@ -103,13 +91,7 @@ export interface IStorage {
   createFileUpload(upload: InsertFileUpload): Promise<FileUpload>;
   setActiveFileUpload(id: number, fileType: string): Promise<void>;
   
-  // Pricing Data
-  getAllPricingData(): Promise<PricingData[]>;
-  getPricingDataByProductId(productId: string): Promise<PricingData | undefined>;
-  getPricingDataByCompositeKey(productId: string, productType: string): Promise<PricingData | undefined>;
-  createPricingData(pricingData: InsertPricingData): Promise<PricingData>;
-  updatePricingData(id: number, updates: Partial<InsertPricingData>): Promise<PricingData | undefined>;
-  updatePricingDataByProductId(productId: string, updates: Partial<InsertPricingData>): Promise<PricingData | undefined>;
+  // Removed: legacy pricing data methods - replaced by productPricingMaster
 
   // Product Pricing Master operations (database-backed)
   getAllProductPricingMaster(): Promise<ProductPricingMaster[]>;
@@ -602,35 +584,7 @@ export class MemStorage implements IStorage {
     return this.customers.delete(id);
   }
 
-  // Pricing Data operations (stub implementations for MemStorage)
-  async getAllPricingData(): Promise<PricingData[]> {
-    return [];
-  }
-
-  async getPricingDataByProductId(productId: string): Promise<PricingData | undefined> {
-    return undefined;
-  }
-
-  async getPricingDataByCompositeKey(productId: string, productType: string): Promise<PricingData | undefined> {
-    return undefined;
-  }
-
-  async createPricingData(data: InsertPricingData): Promise<PricingData> {
-    return {
-      id: 1,
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    } as PricingData;
-  }
-
-  async updatePricingData(id: number, updates: Partial<InsertPricingData>): Promise<PricingData | undefined> {
-    return undefined;
-  }
-
-  async updatePricingDataByProductId(productId: string, updates: Partial<InsertPricingData>): Promise<PricingData | undefined> {
-    return undefined;
-  }
+  // Removed: legacy pricing data methods - replaced by productPricingMaster
 
   async reinitializeData(): Promise<void> {
     // Clear existing data
@@ -651,84 +605,7 @@ export class MemStorage implements IStorage {
     this.initializeData();
   }
 
-  // Pricing Management methods
-  async getPricingDataWithDetails(): Promise<any[]> {
-    const result = [];
-    for (const pricing of Array.from(this.productPricing.values())) {
-      const productType = this.productTypes.get(pricing.productTypeId);
-      const tier = this.pricingTiers.get(pricing.tierId);
-      const category = productType ? this.productCategories.get(productType.categoryId) : undefined;
-      
-      result.push({
-        id: pricing.id,
-        productTypeId: pricing.productTypeId,
-        tierId: pricing.tierId,
-        pricePerSquareMeter: pricing.pricePerSquareMeter,
-        categoryName: category?.name,
-        productTypeName: productType?.name,
-        tierName: tier?.name,
-      });
-    }
-    return result;
-  }
-
-  async getProductTypesWithCategories(): Promise<any[]> {
-    const result = [];
-    for (const productType of Array.from(this.productTypes.values())) {
-      const category = this.productCategories.get(productType.categoryId);
-      result.push({
-        id: productType.id,
-        name: productType.name,
-        categoryName: category?.name || 'Unknown',
-      });
-    }
-    return result;
-  }
-
-  async updateProductPricing(id: number, pricePerSquareMeter: number): Promise<boolean> {
-    const pricing = this.productPricing.get(id);
-    if (!pricing) {
-      return false;
-    }
-    
-    const updatedPricing = {
-      ...pricing,
-      pricePerSquareMeter: pricePerSquareMeter.toString(),
-    };
-    
-    this.productPricing.set(id, updatedPricing);
-    return true;
-  }
-
-  async upsertProductPricing(pricing: { productTypeId: number; tierId: number; pricePerSquareMeter: number; sizeId?: number | null }): Promise<ProductPricing> {
-    // Find existing pricing entry
-    const existingEntry = Array.from(this.productPricing.values()).find(p => 
-      p.productTypeId === pricing.productTypeId && 
-      p.tierId === pricing.tierId &&
-      p.sizeId === (pricing.sizeId || null)
-    );
-    
-    if (existingEntry) {
-      // Update existing
-      const updated = {
-        ...existingEntry,
-        pricePerSquareMeter: pricing.pricePerSquareMeter.toString()
-      };
-      this.productPricing.set(existingEntry.id, updated);
-      return updated;
-    } else {
-      // Create new
-      const newPricing = {
-        id: this.currentPricingId++,
-        productTypeId: pricing.productTypeId,
-        tierId: pricing.tierId,
-        pricePerSquareMeter: pricing.pricePerSquareMeter.toString(),
-        sizeId: pricing.sizeId || null
-      };
-      this.productPricing.set(newPricing.id, newPricing);
-      return newPricing;
-    }
-  }
+  // Removed: legacy pricing management methods - replaced by productPricingMaster
 
 
 }
@@ -1049,78 +926,7 @@ export class DatabaseStorage implements IStorage {
     return this.memStorage.reinitializeData();
   }
 
-  // Pricing Management methods
-  async getPricingDataWithDetails(): Promise<any[]> {
-    return this.memStorage.getPricingDataWithDetails();
-  }
-
-  async getProductTypesWithCategories(): Promise<any[]> {
-    return this.memStorage.getProductTypesWithCategories();
-  }
-
-  async updateProductPricing(id: number, pricePerSquareMeter: number): Promise<boolean> {
-    return this.memStorage.updateProductPricing(id, pricePerSquareMeter);
-  }
-
-  async upsertProductPricing(pricing: { productTypeId: number; tierId: number; pricePerSquareMeter: number; sizeId?: number | null }): Promise<ProductPricing> {
-    return this.memStorage.upsertProductPricing(pricing);
-  }
-
-  // Pricing Data operations
-  async getAllPricingData(): Promise<PricingData[]> {
-    return await db.select().from(pricingData).orderBy(pricingData.productId);
-  }
-
-  async getPricingDataByProductId(productId: string): Promise<PricingData | undefined> {
-    const [data] = await db.select().from(pricingData).where(eq(pricingData.productId, productId));
-    return data;
-  }
-
-  async getPricingDataByCompositeKey(productId: string, productType: string): Promise<PricingData | undefined> {
-    const [data] = await db.select().from(pricingData).where(
-      and(
-        eq(pricingData.productId, productId),
-        eq(pricingData.productType, productType)
-      )
-    );
-    return data;
-  }
-
-  async createPricingData(data: InsertPricingData): Promise<PricingData> {
-    const [result] = await db
-      .insert(pricingData)
-      .values({
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return result;
-  }
-
-  async updatePricingData(id: number, updates: Partial<InsertPricingData>): Promise<PricingData | undefined> {
-    const [result] = await db
-      .update(pricingData)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(pricingData.id, id))
-      .returning();
-    return result;
-  }
-
-  async updatePricingDataByProductId(productId: string, updates: Partial<InsertPricingData>): Promise<PricingData | undefined> {
-    const [result] = await db
-      .update(pricingData)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(pricingData.productId, productId))
-      .returning();
-    return result;
-  }
+  // Removed: legacy pricing methods - all replaced by productPricingMaster database operations
 
   // Product Pricing Master operations (database-backed)
   async getAllProductPricingMaster(): Promise<ProductPricingMaster[]> {
