@@ -337,18 +337,10 @@ export function generatePriceListHTML(data: any): string {
           border-bottom: 2px solid #2563eb;
         }
         .logo {
-          width: 200px;
-          height: 80px;
+          width: 150px;
+          height: 60px;
           margin: 0 auto 20px auto;
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 24px;
-          font-weight: bold;
-          letter-spacing: 2px;
+          display: block;
         }
         .main-title {
           font-size: 18px;
@@ -387,14 +379,7 @@ export function generatePriceListHTML(data: any): string {
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="logo">4S GRAPHICS</div>
-        <div class="company-info">
-          4S Graphics, Inc.<br>
-          764 NW 57th Court, Fort Lauderdale, FL 33309<br>
-          (954) 493.6484 • www.4sgraphics.com
-        </div>
-      </div>
+
 
       <div class="price-list-info">
         ${customerName ? `<strong>Customer:</strong> ${customerName}<br>` : ''}
