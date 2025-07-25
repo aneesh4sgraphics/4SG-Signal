@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, FileSpreadsheet } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+// Removed Download icon as PDF/CSV export functionality has been removed
+
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 
 interface ProductData {
@@ -143,116 +143,9 @@ export default function PriceList() {
     }
   }, [selectedCategory, selectedTier, productData]);
 
-  const generatePDFMutation = useMutation({
-    mutationFn: async () => {
-      console.log('Enhanced PDF Generation Request:', {
-        categoryName: selectedCategory,
-        tierName: selectedTier,
-        items: priceListItems.slice(0, 3), // Log first 3 items for debugging
-        itemCount: priceListItems.length,
-        customerName: selectedCustomer?.company || `${selectedCustomer?.firstName} ${selectedCustomer?.lastName}`
-      });
-      
-      // Use the properly calculated items directly
-      const calculatedItems = priceListItems.map(item => ({
-        ...item,
-        productCategory: selectedCategory
-      }));
-      
-      console.log('Sending calculatedItems to PDF generator:', calculatedItems.slice(0, 2));
-      
-      const response = await fetch('/api/generate-price-list-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoryName: selectedCategory,
-          tierName: selectedTier,
-          quoteNumber: `PL-${Date.now().toString().slice(-6)}`,
-          items: calculatedItems,
-          customerName: selectedCustomer?.company || `${selectedCustomer?.firstName} ${selectedCustomer?.lastName}` || null
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Enhanced PDF generation with proper styling and download
-      const html = data.html;
-      const filename = data.filename || `PriceList-${selectedCategory}-${Date.now()}.pdf`;
-      
-      // Create blob for proper PDF download
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        
-        // Add print event listener for better UX
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-          }, 250);
-        };
-      }
-      
-      toast({
-        title: "Professional PDF Generated",
-        description: `Price list PDF created with enhanced 4S Graphics branding (${filename})`,
-        duration: 4000,
-      });
-    },
-    onError: (error) => {
-      console.error('PDF Generation Error:', error);
-      toast({
-        title: "PDF Generation Failed",
-        description: "Unable to generate price list PDF. Please try again.",
-        variant: "destructive",
-        duration: 4000,
-      });
-    }
-  });
 
-  const generateCSVMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/generate-price-list-csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoryName: selectedCategory,
-          tierName: selectedTier,
-          quoteNumber: `PL${Date.now()}`,
-          items: priceListItems
-        })
-      });
-      
-      if (!response.ok) throw new Error('Failed to generate CSV');
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Download CSV
-      const blob = new Blob([data.csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({
-        title: "CSV Downloaded",
-        description: "Price list CSV has been downloaded successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to generate CSV",
-        variant: "destructive",
-      });
-    }
-  });
+
+
 
   if (isLoading) {
     return (
@@ -329,29 +222,7 @@ export default function PriceList() {
             </div>
           </div>
 
-          {/* Download buttons */}
-          {priceListItems.length > 0 && (
-            <div className="flex gap-2 mt-4">
-              <Button
-                onClick={() => generatePDFMutation.mutate()}
-                disabled={generatePDFMutation.isPending}
-                className="gap-2"
-                variant="default"
-              >
-                <FileText className="h-4 w-4" />
-                Download PDF
-              </Button>
-              <Button
-                onClick={() => generateCSVMutation.mutate()}
-                disabled={generateCSVMutation.isPending}
-                className="gap-2"
-                variant="secondary"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                Export CSV
-              </Button>
-            </div>
-          )}
+
         </CardContent>
       </Card>
 

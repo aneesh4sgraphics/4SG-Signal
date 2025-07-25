@@ -427,7 +427,3 @@ export function generatePriceListHTML(data: any): string {
     </html>
   `;
 }
-
-export function generatePriceListCSV(data: any): string {
-  return 'Product,Price\nSample Product,$10.00';
-}
