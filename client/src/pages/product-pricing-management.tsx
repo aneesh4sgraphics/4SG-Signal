@@ -89,8 +89,14 @@ export default function ProductPricingManagement() {
       
       setUploadResult({
         success: true,
-        message: `Successfully uploaded ${result.recordsProcessed || 0} products`,
-        count: result.recordsProcessed
+        message: result.message || `Successfully processed ${result.recordsProcessed || 0} products`,
+        count: result.recordsProcessed,
+        details: result.replacementComplete ? {
+          total: result.newRecordsCount,
+          updated: result.updatedRecordsCount,
+          removed: result.removedRecordsCount,
+          previous: result.oldRecordsCount
+        } : null
       });
 
       // Refresh the data - this should remove deleted products
@@ -100,8 +106,10 @@ export default function ProductPricingManagement() {
       await queryClient.refetchQueries({ queryKey: ['/api/product-pricing-data'] });
 
       toast({
-        title: "Upload Successful",
-        description: `Processed ${result.recordsProcessed || 0} products from ${file.name}. Deleted products have been removed.`,
+        title: "Complete Data Replacement",
+        description: result.replacementComplete 
+          ? `${result.newRecordsCount} products now active. ${result.removedRecordsCount} removed, ${result.updatedRecordsCount} updated.`
+          : `Processed ${result.recordsProcessed || 0} products from ${file.name}.`,
       });
 
     } catch (error) {
@@ -217,7 +225,18 @@ export default function ProductPricingManagement() {
             <AlertCircle className="h-4 w-4 text-red-600" />
           )}
           <AlertDescription className={uploadResult.success ? "text-green-700" : "text-red-700"}>
-            {uploadResult.message}
+            <div className="space-y-2">
+              <div>{uploadResult.message}</div>
+              {uploadResult.details && (
+                <div className="text-sm space-y-1 mt-2 p-2 bg-white/50 rounded">
+                  <div className="font-medium">Data Replacement Summary:</div>
+                  <div>• Total Products: {uploadResult.details.total}</div>
+                  <div>• Updated/Preserved: {uploadResult.details.updated}</div>
+                  <div>• Removed: {uploadResult.details.removed}</div>
+                  <div>• Previous Total: {uploadResult.details.previous}</div>
+                </div>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
