@@ -42,7 +42,33 @@ export const productPricing = pgTable("product_pricing", {
   sizeId: integer("size_id"), // Optional size-specific pricing
 });
 
-// Pricing data table for CSV uploads and management
+// Product pricing master table - replaces file-based system
+export const productPricingMaster = pgTable("product_pricing_master", {
+  id: serial("id").primaryKey(),
+  itemCode: varchar("item_code", { length: 100 }).notNull().unique(),
+  productName: varchar("product_name", { length: 255 }).notNull(),
+  productType: varchar("product_type", { length: 255 }).notNull(),
+  size: varchar("size", { length: 100 }).notNull(),
+  totalSqm: decimal("total_sqm", { precision: 10, scale: 6 }).notNull(),
+  minQuantity: integer("min_quantity").notNull().default(50),
+  // Pricing tiers
+  exportPrice: decimal("export_price", { precision: 10, scale: 2 }),
+  masterDistributorPrice: decimal("master_distributor_price", { precision: 10, scale: 2 }),
+  dealerPrice: decimal("dealer_price", { precision: 10, scale: 2 }),
+  dealer2Price: decimal("dealer2_price", { precision: 10, scale: 2 }),
+  approvalNeededPrice: decimal("approval_needed_price", { precision: 10, scale: 2 }),
+  tierStage25Price: decimal("tier_stage25_price", { precision: 10, scale: 2 }),
+  tierStage2Price: decimal("tier_stage2_price", { precision: 10, scale: 2 }),
+  tierStage15Price: decimal("tier_stage15_price", { precision: 10, scale: 2 }),
+  tierStage1Price: decimal("tier_stage1_price", { precision: 10, scale: 2 }),
+  retailPrice: decimal("retail_price", { precision: 10, scale: 2 }),
+  // Metadata
+  uploadBatch: varchar("upload_batch", { length: 100 }), // Track which upload this came from
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Pricing data table for CSV uploads and management (legacy)
 export const pricingData = pgTable("pricing_data", {
   id: serial("id").primaryKey(),
   productId: varchar("product_id", { length: 255 }).notNull(),
@@ -195,6 +221,12 @@ export const insertPricingDataSchema = createInsertSchema(pricingData).omit({
   updatedAt: true,
 });
 
+export const insertProductPricingMasterSchema = createInsertSchema(productPricingMaster).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const upsertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   updatedAt: true,
@@ -226,6 +258,7 @@ export type ProductType = typeof productTypes.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
 export type PricingTier = typeof pricingTiers.$inferSelect;
 export type ProductPricing = typeof productPricing.$inferSelect;
+export type ProductPricingMaster = typeof productPricingMaster.$inferSelect;
 export type PricingData = typeof pricingData.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
@@ -237,6 +270,7 @@ export type InsertProductType = z.infer<typeof insertProductTypeSchema>;
 export type InsertProductSize = z.infer<typeof insertProductSizeSchema>;
 export type InsertPricingTier = z.infer<typeof insertPricingTierSchema>;
 export type InsertProductPricing = z.infer<typeof insertProductPricingSchema>;
+export type InsertProductPricingMaster = z.infer<typeof insertProductPricingMasterSchema>;
 export type InsertPricingData = z.infer<typeof insertPricingDataSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;

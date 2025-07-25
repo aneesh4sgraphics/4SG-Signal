@@ -26,6 +26,7 @@ import {
 import { db } from "./db";
 import { pricingData } from "@shared/schema";
 import { addPricingRoutes } from "./routes-pricing";
+import pricingDatabaseRoutes from "./routes-pricing-database";
 
 // Simple in-memory cache for frequently accessed data
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -2590,6 +2591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add pricing management routes
   addPricingRoutes(app, isAuthenticated, requireAdmin);
+  
+  // Add database-backed pricing routes
+  app.use("/api", pricingDatabaseRoutes);
 
   // API endpoints for PDF and CSV generation
   app.post("/api/generate-pdf-quote", isAuthenticated, async (req, res) => {

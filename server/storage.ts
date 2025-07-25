@@ -25,7 +25,10 @@ import {
   users,
   competitorPricing,
   fileUploads,
-  pricingData
+  pricingData,
+  productPricingMaster,
+  type ProductPricingMaster,
+  type InsertProductPricingMaster
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
 import { parseCustomerCSV } from "./customer-parser";
@@ -107,6 +110,14 @@ export interface IStorage {
   createPricingData(pricingData: InsertPricingData): Promise<PricingData>;
   updatePricingData(id: number, updates: Partial<InsertPricingData>): Promise<PricingData | undefined>;
   updatePricingDataByProductId(productId: string, updates: Partial<InsertPricingData>): Promise<PricingData | undefined>;
+
+  // Product Pricing Master operations (database-backed)
+  getAllProductPricingMaster(): Promise<ProductPricingMaster[]>;
+  getProductPricingMaster(id: number): Promise<ProductPricingMaster | undefined>;
+  createProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster>;
+  upsertProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster>;
+  clearAllProductPricingMaster(): Promise<number>; // Returns count of deleted records
+  bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]>;
 
   // Admin methods
   reinitializeData(): Promise<void>;
@@ -1109,6 +1120,70 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pricingData.productId, productId))
       .returning();
     return result;
+  }
+
+  // Product Pricing Master operations (database-backed)
+  async getAllProductPricingMaster(): Promise<ProductPricingMaster[]> {
+    return await db.select().from(productPricingMaster);
+  }
+
+  async getProductPricingMaster(id: number): Promise<ProductPricingMaster | undefined> {
+    const [result] = await db.select().from(productPricingMaster).where(eq(productPricingMaster.id, id));
+    return result;
+  }
+
+  async createProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
+    const [result] = await db
+      .insert(productPricingMaster)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return result;
+  }
+
+  async upsertProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
+    // Try to find existing record by itemCode
+    const existing = await db.select()
+      .from(productPricingMaster)
+      .where(eq(productPricingMaster.itemCode, data.itemCode));
+
+    if (existing.length > 0) {
+      // Update existing record
+      const [result] = await db
+        .update(productPricingMaster)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(productPricingMaster.itemCode, data.itemCode))
+        .returning();
+      return result;
+    } else {
+      // Create new record
+      return await this.createProductPricingMaster(data);
+    }
+  }
+
+  async clearAllProductPricingMaster(): Promise<number> {
+    const result = await db.delete(productPricingMaster);
+    return result.rowCount || 0;
+  }
+
+  async bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]> {
+    if (data.length === 0) return [];
+    
+    const results = await db
+      .insert(productPricingMaster)
+      .values(data.map(item => ({
+        ...item,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })))
+      .returning();
+    return results;
   }
 }
 

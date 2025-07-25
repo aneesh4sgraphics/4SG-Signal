@@ -10,7 +10,7 @@ import AreaPricer from "@/pages/area-pricer-fixed";
 import CompetitorPricing from "@/pages/competitor-pricing-fixed";
 import SavedQuotes from "@/pages/saved-quotes";
 import CustomerManagement from "@/pages/customer-management";
-import ProductPricingManagement from "@/pages/product-pricing-management";
+import ProductPricingManagement from "@/pages/product-pricing-management-new";
 import QuoteCalculator from "@/pages/quote-calculator";
 import PriceList from "@/pages/price-list";
 import ShippingCalculator from "@/pages/shipping-calculator";
