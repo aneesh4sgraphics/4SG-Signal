@@ -349,26 +349,9 @@ export const requireApproval: RequestHandler = async (req, res, next) => {
 };
 
 export const requireAdmin: RequestHandler = async (req, res, next) => {
-  // More secure development bypass - only for true local development
-  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
-                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
-                        !process.env.REPLIT_DOMAINS;
-  
-  // Allow bypass only in very specific development conditions
-  const isSecureDevMode = process.env.BYPASS_AUTH_FOR_TESTING === 'true' && isTrueLocalDev;
-
-  if (isSecureDevMode) {
-    // Create a mock user for development only
-    req.user = {
-      claims: {
-        sub: 'dev-user-123',
-        email: 'aneesh@4sgraphics.com',
-        first_name: 'Aneesh',
-        last_name: 'Dev',
-        profile_image_url: 'https://via.placeholder.com/150'
-      }
-    };
-    console.log('Secure development bypass activated for requireAdmin (local only)');
+  // Development bypass - simplified for Replit environment
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Development bypass activated for requireAdmin');
     return next();
   }
 

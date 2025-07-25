@@ -121,15 +121,16 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       });
 
       // Try to find matching product type ID
-      let productTypeId: number | undefined;
+      let productTypeId: number | null = null;
       if (rowData.ProductType) {
         const matchingType = productTypes.find(type => 
           type.name.toLowerCase() === rowData.ProductType.toLowerCase()
         );
-        productTypeId = matchingType?.id;
-        
-        if (!productTypeId) {
-          console.warn(`No matching product type found for: "${rowData.ProductType}"`);
+        if (matchingType) {
+          productTypeId = matchingType.id;
+        } else {
+          console.warn(`No matching product type found for: "${rowData.ProductType}" - setting productTypeId to null`);
+          productTypeId = null;
         }
       }
 
@@ -138,7 +139,7 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
         itemCode: rowData.ItemCode || '',
         productName: rowData.product_name || '',
         productType: rowData.ProductType || '',
-        productTypeId: productTypeId || null,
+        productTypeId: productTypeId,
         size: rowData.size || '',
         totalSqm: cleanNumeric(rowData.total_sqm).toString(),
         minQuantity: parseInt(rowData.min_quantity) || 50,
@@ -164,11 +165,33 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       };
 
       if (pricingRecord.itemCode) {
-        newData.push(pricingRecord);
+        // Only add records with valid or null productTypeId to prevent foreign key violations
+        if (pricingRecord.productTypeId === null || productTypes.some(type => type.id === pricingRecord.productTypeId)) {
+          newData.push(pricingRecord);
+        } else {
+          console.warn(`Skipping record with invalid productTypeId ${pricingRecord.productTypeId} for item: ${pricingRecord.itemCode}`);
+        }
       }
     }
 
     console.log(`Parsed ${newData.length} records from CSV`);
+    console.log(`Valid productType IDs in database: ${productTypes.map(t => t.id).join(', ')}`);
+    
+    // Check for any problematic records that slipped through
+    const problematicRecords = newData.filter(record => 
+      record.productTypeId !== null && !productTypes.some(type => type.id === record.productTypeId)
+    );
+    
+    if (problematicRecords.length > 0) {
+      console.error(`Found ${problematicRecords.length} records with invalid productTypeId values:`);
+      problematicRecords.forEach(record => {
+        console.error(`  - Item: ${record.itemCode}, productTypeId: ${record.productTypeId}, productType: ${record.productType}`);
+      });
+      return res.status(400).json({ 
+        error: "Invalid productTypeId values found in data", 
+        details: `${problematicRecords.length} records have productTypeId values that don't exist in the database`
+      });
+    }
 
     let addedCount = 0;
     let updatedCount = 0;

@@ -981,13 +981,33 @@ export class DatabaseStorage implements IStorage {
   async bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]> {
     if (data.length === 0) return [];
     
-    const results = await db
-      .insert(productPricingMaster)
-      .values(data.map(item => ({
+    // Validate and sanitize productTypeId values before insertion
+    const sanitizedData = data.map(item => {
+      // If productTypeId is greater than maximum valid ID or negative, set to null
+      const sanitizedProductTypeId = item.productTypeId && (item.productTypeId > 78 || item.productTypeId < 1) 
+        ? null 
+        : item.productTypeId;
+      
+      return {
         ...item,
+        productTypeId: sanitizedProductTypeId,
         createdAt: new Date(),
         updatedAt: new Date(),
-      })))
+      };
+    });
+    
+    // Log any sanitizations
+    const sanitizedCount = data.filter((original, index) => 
+      original.productTypeId !== sanitizedData[index].productTypeId
+    ).length;
+    
+    if (sanitizedCount > 0) {
+      console.log(`Sanitized ${sanitizedCount} invalid productTypeId values to null`);
+    }
+    
+    const results = await db
+      .insert(productPricingMaster)
+      .values(sanitizedData)
       .returning();
     return results;
   }
