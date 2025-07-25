@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
+import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 
 interface ProductData {
   [key: string]: string | number;
@@ -168,32 +169,31 @@ export default function PriceList() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="max-w-screen-lg mx-auto px-6 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="section-title text-4xl">Price List</h1>
-          <p className="text-gray-500 font-light mt-3">
-            Generate comprehensive price lists for your products
-          </p>
-        </div>
+      <div className="mb-6 relative">
+        <FloatingElements />
+        <h1 className="text-xl font-medium text-gray-800 mb-2">Price List</h1>
+        <p className="text-sm text-gray-500">
+          Generate comprehensive price lists for your products
+        </p>
+        <HeaderDivider />
       </div>
 
       {/* Configuration */}
-      <Card className="soft-card border-none">
-        <CardHeader>
-          <CardTitle className="section-title text-2xl">Price List Configuration</CardTitle>
-          <CardDescription className="text-gray-500 font-light">
-            Select product category and pricing tier to generate your price list
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <SimpleCardFrame className="p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+          <IconBadge icon={FileText} label="Configuration" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">Select product category and pricing tier to generate your price list</p>
+        <SectionDivider />
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Product Category */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Product Category</Label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-800">Product Category</label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="ghost-dropdown">
+                <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                   <SelectValue placeholder="Select product category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -207,10 +207,10 @@ export default function PriceList() {
             </div>
 
             {/* Pricing Tier */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Pricing Tier</Label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-800">Pricing Tier</label>
               <Select value={selectedTier} onValueChange={setSelectedTier}>
-                <SelectTrigger className="ghost-dropdown">
+                <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                   <SelectValue placeholder="Select pricing tier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,81 +224,64 @@ export default function PriceList() {
             </div>
 
             {/* Customer Selection */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Customer (Optional)</Label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-800">Customer (Optional)</label>
               <SearchableCustomerSelect
                 selectedCustomer={selectedCustomer}
                 onCustomerSelect={setSelectedCustomer}
                 placeholder="Search customers..."
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               />
             </div>
           </div>
-
-
-        </CardContent>
-      </Card>
+        </div>
+      </SimpleCardFrame>
 
       {/* Price List Table */}
       {priceListItems.length > 0 ? (
-        <Card className="soft-card border-none">
-          <CardHeader>
-            <CardTitle className="section-title text-2xl">
-              Price List - {selectedCategory}
-              <Badge variant="secondary" className="ml-3 font-light">
-                {pricingTiers.find(t => t.key === selectedTier)?.label}
-              </Badge>
-            </CardTitle>
-            <CardDescription className="text-gray-500 font-light">
-              {priceListItems.length} products found
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item Code</TableHead>
-                    <TableHead>Product Type</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Min Qty</TableHead>
-                    <TableHead>Price/Sq.M</TableHead>
-                    <TableHead>Price/Sheet</TableHead>
-                    <TableHead>Price Per Pack</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {priceListItems.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-mono text-sm text-gray-600">
-                        {item.itemCode}
-                      </TableCell>
-                      <TableCell className="font-normal">
-                        {item.productType}
-                      </TableCell>
-                      <TableCell className="font-light">{item.size}</TableCell>
-                      <TableCell className="font-light">{item.minQty}</TableCell>
-                      <TableCell className="font-light">${item.pricePerSqM.toFixed(2)}</TableCell>
-                      <TableCell className="font-light">${item.pricePerSheet.toFixed(2)}</TableCell>
-                      <TableCell className="font-normal text-green-600">
-                        ${item.pricePerPack.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <SimpleCardFrame className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-lg font-medium text-gray-800">Price List - {selectedCategory}</h2>
+            <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-800 border border-gray-200">
+              {pricingTiers.find(t => t.key === selectedTier)?.label}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">{priceListItems.length} products found</p>
+          <div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-7 gap-2 p-3">
+                <div className="text-sm font-medium text-gray-800">Item Code</div>
+                <div className="text-sm font-medium text-gray-800">Product Type</div>
+                <div className="text-sm font-medium text-gray-800">Size</div>
+                <div className="text-sm font-medium text-gray-800">Min Qty</div>
+                <div className="text-sm font-medium text-gray-800">Price/Sq.M</div>
+                <div className="text-sm font-medium text-gray-800">Price/Sheet</div>
+                <div className="text-sm font-medium text-gray-800">Price Per Pack</div>
+              </div>
+              <div>
+                {priceListItems.map((item, index) => (
+                  <div key={index} className="grid grid-cols-7 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
+                    <div className="font-mono text-sm text-gray-600">{item.itemCode}</div>
+                    <div className="text-sm text-gray-800">{item.productType}</div>
+                    <div className="text-sm text-gray-600">{item.size}</div>
+                    <div className="text-sm text-gray-600">{item.minQty}</div>
+                    <div className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</div>
+                    <div className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</div>
+                    <div className="text-sm text-gray-800 font-medium text-green-600">
+                      ${item.pricePerPack.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
-        <Card className="soft-card border-none">
-          <CardContent className="text-center py-12">
-            <div className="text-gray-500 mb-4">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-light">No price list generated</p>
-              <p className="text-sm font-light">Select a product category to get started</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="border border-gray-200 rounded-lg p-6 bg-white text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-base font-medium text-gray-800 mb-2">No price list generated</p>
+          <p className="text-sm text-gray-500">Select a product category to get started</p>
+        </div>
       )}
     </div>
   );

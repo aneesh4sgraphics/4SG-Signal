@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 
 interface ProductPricingMaster {
   id: number;
@@ -237,90 +238,79 @@ export default function ProductPricingManagementNew() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-screen-lg mx-auto px-6 py-6">
+      <div className="flex items-center justify-between mb-6 relative">
+        <FloatingElements />
         <div>
-          <h1 className="section-title text-4xl">
+          <h1 className="text-xl font-medium text-gray-800 mb-2">
             ProductPricing Management
           </h1>
-          <p className="text-gray-500 font-light mt-3">Database-backed pricing data management with synchronization</p>
+          <p className="text-sm text-gray-500">Database-backed pricing data management with synchronization</p>
         </div>
-        <Badge className="bg-green-50 text-green-700 border-green-200 font-light">
-          <Database className="h-4 w-4 mr-1" />
-          Database Mode
-        </Badge>
+        <IconBadge icon={Database} label="Database Mode" className="bg-green-100 text-green-800 border-green-200" />
       </div>
+      <HeaderDivider />
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="soft-card border-none">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-500" />
-              <div>
-                <p className="text-sm font-normal text-gray-600">Total Products</p>
-                <p className="text-2xl font-normal text-blue-600">{stats.totalProducts}</p>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <SimpleCardFrame className="p-4">
+          <div className="flex items-center space-x-2">
+            <FileSpreadsheet className="h-4 w-4 text-blue-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Total Products</p>
+              <p className="text-lg font-medium text-blue-600">{stats.totalProducts}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SimpleCardFrame>
 
-        <Card className="soft-card border-none">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Database className="h-5 w-5 text-green-500" />
-              <div>
-                <p className="text-sm font-normal text-gray-600">Categories</p>
-                <p className="text-2xl font-normal text-green-600">{stats.uniqueCategories}</p>
-              </div>
+        <SimpleCardFrame className="p-4">
+          <div className="flex items-center space-x-2">
+            <Database className="h-4 w-4 text-green-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Categories</p>
+              <p className="text-lg font-medium text-green-600">{stats.uniqueCategories}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SimpleCardFrame>
 
-        <Card className="soft-card border-none">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <RefreshCw className="h-5 w-5 text-purple-500" />
-              <div>
-                <p className="text-sm font-normal text-gray-600">Product Types</p>
-                <p className="text-2xl font-normal text-purple-600">{stats.uniqueTypes}</p>
-              </div>
+        <SimpleCardFrame className="p-4">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 text-purple-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Product Types</p>
+              <p className="text-lg font-medium text-purple-600">{stats.uniqueTypes}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SimpleCardFrame>
 
-        <Card className="soft-card border-none">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-orange-500" />
-              <div>
-                <p className="text-sm font-normal text-gray-600">Last Updated</p>
-                <p className="text-sm font-normal text-orange-600">{stats.lastUpdated}</p>
-              </div>
+        <SimpleCardFrame className="p-4">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-4 w-4 text-orange-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">Last Updated</p>
+              <p className="text-xs font-medium text-orange-600">{stats.lastUpdated}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SimpleCardFrame>
       </div>
 
       {/* Upload Section */}
-      <Card className="soft-card border-none">
-        <CardHeader>
-          <CardTitle className="section-title text-2xl flex items-center gap-2">
-            <Upload className="h-5 w-5 text-gray-500" />
-            Upload Pricing Data
-          </CardTitle>
-          <CardDescription className="text-gray-500 font-light">
-            Upload CSV file to update product pricing database with smart synchronization
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SimpleCardFrame className="p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+          <IconBadge icon={Upload} label="Upload Pricing Data" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Upload CSV file to update product pricing database with smart synchronization
+        </p>
+        <SectionDivider />
+        <div className="space-y-4">
           {/* Clear Database Toggle */}
           <div className="flex items-center space-x-2 p-4 border rounded-lg bg-amber-50 border-amber-200">
-            <Trash2 className="h-5 w-5 text-amber-600" />
+            <Trash2 className="h-4 w-4 text-amber-600" />
             <div className="flex-1">
-              <Label htmlFor="clear-database" className="text-sm font-medium text-amber-800">
+              <label htmlFor="clear-database" className="text-sm font-medium text-amber-800">
                 Clear and Replace Database
-              </Label>
+              </label>
               <p className="text-xs text-amber-600 mt-1">
                 When enabled, completely replaces all existing data. When disabled, performs smart synchronization.
               </p>
@@ -333,23 +323,22 @@ export default function ProductPricingManagementNew() {
           </div>
 
           <div className="flex gap-4">
-            <Button
+            <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="h-4 w-4" />
               {isUploading ? 'Uploading...' : 'Upload CSV File'}
-            </Button>
+            </button>
             
-            <Button
-              variant="outline"
+            <button
               onClick={downloadTemplate}
-              className="border-green-200 text-green-700 hover:bg-green-50"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-green-300 bg-white text-sm font-medium text-green-700 hover:bg-green-50 transition-colors"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4" />
               Download Current Data
-            </Button>
+            </button>
           </div>
 
           <input
@@ -406,45 +395,42 @@ export default function ProductPricingManagementNew() {
               </div>
             </Alert>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </SimpleCardFrame>
 
       {/* Data Preview */}
       {pricingData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Preview</CardTitle>
-            <CardDescription>Current pricing data in database (showing first 5 records)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse border border-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 px-3 py-2 text-left">Item Code</th>
-                    <th className="border border-gray-200 px-3 py-2 text-left">Product Name</th>
-                    <th className="border border-gray-200 px-3 py-2 text-left">Size</th>
-                    <th className="border border-gray-200 px-3 py-2 text-left">Export</th>
-                    <th className="border border-gray-200 px-3 py-2 text-left">Dealer</th>
-                    <th className="border border-gray-200 px-3 py-2 text-left">Retail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricingData.slice(0, 5).map((item, index) => (
-                    <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="border border-gray-200 px-3 py-2">{item.itemCode}</td>
-                      <td className="border border-gray-200 px-3 py-2">{item.productName}</td>
-                      <td className="border border-gray-200 px-3 py-2">{item.size}</td>
-                      <td className="border border-gray-200 px-3 py-2">${item.exportPrice}</td>
-                      <td className="border border-gray-200 px-3 py-2">${item.dealerPrice}</td>
-                      <td className="border border-gray-200 px-3 py-2">${item.retailPrice}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <SimpleCardFrame className="p-6">
+          <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+            <IconBadge icon={Database} label="Data Preview" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">Current pricing data in database (showing first 5 records)</p>
+          <SectionDivider />
+          <div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-6 gap-2 p-3">
+                <div className="text-sm font-medium text-gray-800">Item Code</div>
+                <div className="text-sm font-medium text-gray-800">Product Name</div>
+                <div className="text-sm font-medium text-gray-800">Size</div>
+                <div className="text-sm font-medium text-gray-800">Export</div>
+                <div className="text-sm font-medium text-gray-800">Dealer</div>
+                <div className="text-sm font-medium text-gray-800">Retail</div>
+              </div>
+              <div>
+                {pricingData.slice(0, 5).map((item, index) => (
+                  <div key={item.id} className="grid grid-cols-6 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
+                    <div className="font-mono text-sm text-gray-600">{item.itemCode}</div>
+                    <div className="text-sm text-gray-800">{item.productName}</div>
+                    <div className="text-sm text-gray-600">{item.size}</div>
+                    <div className="text-sm text-gray-600">${item.exportPrice}</div>
+                    <div className="text-sm text-gray-600">${item.dealerPrice}</div>
+                    <div className="text-sm text-gray-600">${item.retailPrice}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SimpleCardFrame>
       )}
 
       {/* Confirmation Dialog */}

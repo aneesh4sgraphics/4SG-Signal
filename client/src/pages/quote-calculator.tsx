@@ -11,6 +11,7 @@ import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
+import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge } from "@/components/NotionLineArt";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -331,109 +332,104 @@ Yours truly
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="max-w-screen-lg mx-auto px-6 py-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="section-title text-4xl">QuickQuotes</h1>
-          <p className="text-gray-500 mt-2 font-light">
-            Generate instant quotes for your products
-          </p>
-        </div>
+      <div className="mb-6 relative">
+        <FloatingElements />
+        <h1 className="text-xl font-medium text-gray-800 mb-2">QuickQuotes</h1>
+        <p className="text-sm text-gray-500">
+          Generate instant quotes for your products
+        </p>
+        <HeaderDivider />
       </div>
 
       {/* Customer Selection Section */}
-      <Card className="soft-card border-none">
-        <CardHeader>
-          <CardTitle className="icon-text section-title">
-            <User className="h-5 w-5 opacity-70" />
-            Customer Selection
-          </CardTitle>
-          <CardDescription className="text-gray-500 font-light">
-            Select a customer to generate quotes for
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <SimpleCardFrame className="p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+          <IconBadge icon={User} label="Customer Selection" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">Select a customer to generate quotes for</p>
+        <div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - Customer Search */}
-            <div className="space-y-4">
-              <Label className="text-gray-600 font-normal">Select Customer</Label>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">Select Customer</label>
               <SearchableCustomerSelect
                 selectedCustomer={selectedCustomer}
                 onCustomerSelect={setSelectedCustomer}
-                placeholder="Search customers by name, company, or email..."
-                className="w-full soft-input"
+                placeholder="Search by name, company, or email"
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Right Column - Customer Details */}
-            <div className="space-y-4">
-              <Label className="text-gray-600 font-normal">Customer Details</Label>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-2">Customer Details</label>
               {selectedCustomer ? (
-                <div className="soft-card p-6 space-y-4">
-                  <div className="icon-text">
-                    <User className="h-4 w-4 text-blue-500" />
-                    <span className="font-normal">
+                <div className="border border-gray-200 rounded-md p-4 bg-gray-50 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm text-gray-800">
                       {selectedCustomer.firstName} {selectedCustomer.lastName}
                     </span>
                   </div>
                   
                   {selectedCustomer.company && (
-                    <div className="icon-text">
-                      <Building className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-light">{selectedCustomer.company}</span>
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm text-gray-500">{selectedCustomer.company}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.email && (
-                    <div className="icon-text">
-                      <Mail className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-light">{selectedCustomer.email}</span>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm text-gray-500">{selectedCustomer.email}</span>
                     </div>
                   )}
                   
                   {selectedCustomer.phone && (
-                    <div className="icon-text">
-                      <Phone className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-light">{selectedCustomer.phone}</span>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm text-gray-500">{selectedCustomer.phone}</span>
                     </div>
                   )}
                   
                   {(selectedCustomer.city || selectedCustomer.province) && (
-                    <div className="icon-text">
-                      <MapPin className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm font-light">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-gray-600" />
+                      <span className="text-sm text-gray-500">
                         {[selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
                       </span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="soft-card p-6 text-center text-gray-500">
-                  <User className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm font-light">Select a customer to view details</p>
+                <div className="border border-gray-200 rounded-md p-4 bg-gray-50 text-center">
+                  <User className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm text-gray-500">Select a customer to view details</p>
                 </div>
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Configure Product */}
-        <Card className="lg:col-span-1 soft-card border-none">
-          <CardHeader>
-            <CardTitle className="icon-text section-title text-xl">
-              <Calculator className="h-5 w-5 text-purple-500" />
-              Configure Product
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Product Category */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Product</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="soft-button h-12 text-base border-none">
+        <div className="lg:col-span-1">
+          <SimpleCardFrame className="p-6 mb-6">
+            <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+              <IconBadge icon={Calculator} label="Configure Product" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">Select your product specifications</p>
+            <SectionDivider />
+            <div className="space-y-6">
+              {/* Product Category */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-800">Product</label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                   <SelectValue placeholder="Select product category">
                     {selectedCategory && (() => {
                       const IconComponent = getProductIcon(selectedCategory);
@@ -484,15 +480,15 @@ Yours truly
               </Select>
             </div>
 
-            {/* Product Type */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Product Type</Label>
-              <Select 
-                value={selectedType} 
-                onValueChange={setSelectedType}
-                disabled={!selectedCategory}
-              >
-                <SelectTrigger className="soft-button h-12 text-base border-none">
+              {/* Product Type */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-800">Product Type</label>
+                <Select 
+                  value={selectedType} 
+                  onValueChange={setSelectedType}
+                  disabled={!selectedCategory}
+                >
+                  <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,60 +504,58 @@ Yours truly
               )}
             </div>
 
-            {/* Size Selection */}
-            {selectedType && (
-              <div className="space-y-3">
-                <Label className="text-base font-normal text-gray-600">Size</Label>
-                <Select value={selectedSize} onValueChange={setSelectedSize}>
-                  <SelectTrigger className="soft-button h-12 text-base border-none">
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSizes.map(product => (
-                      <SelectItem key={product.size} value={product.size}>
-                        {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Quantity */}
-            <div className="space-y-3">
-              <Label className="text-base font-normal text-gray-600">Quantity</Label>
-              <Input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                min={selectedProduct?.minQuantity || 1}
-                className="soft-input h-12 text-base border-none"
-                disabled={!selectedSize}
-              />
-              {selectedProduct && quantity < selectedProduct.minQuantity && (
-                <p className="text-sm text-red-500 font-light">
-                  Minimum order quantity: {selectedProduct.minQuantity}
-                </p>
+              {/* Size Selection */}
+              {selectedType && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-800">Size</label>
+                  <Select value={selectedSize} onValueChange={setSelectedSize}>
+                    <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSizes.map(product => (
+                        <SelectItem key={product.size} value={product.size}>
+                          {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
+
+              {/* Quantity */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-800">Quantity</label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={selectedProduct?.minQuantity || 1}
+                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
+                  disabled={!selectedSize}
+                />
+                {selectedProduct && quantity < selectedProduct.minQuantity && (
+                  <p className="text-sm text-red-500">
+                    Minimum order quantity: {selectedProduct.minQuantity}
+                  </p>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Right Panel - Quote Summary */}
-        <Card className="lg:col-span-2 soft-card border-none">
-          <CardHeader>
-            <CardTitle className="section-title text-2xl">Quote Summary</CardTitle>
-            <CardDescription className="text-gray-500 font-light">
-              Using default pricing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="lg:col-span-2">
+          <div className="border border-gray-200 rounded-lg p-6 bg-white mb-6">
+            <h2 className="text-lg font-medium text-gray-800 mb-2">Quote Summary</h2>
+            <p className="text-sm text-gray-500 mb-6">Using default pricing</p>
+            <div>
             {selectedProduct ? (
               <div className="space-y-4">
                 {/* Product Details Summary */}
-                <div className="space-y-3 pb-4 border-b border-gray-200">
-                  <div className="flex justify-between">
-                    <span className="font-normal text-gray-600">Product Brand:</span>
+                <div className="space-y-2 pb-4 border-b border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Product Brand:</span>
                     <span className="flex items-center gap-1">
                       {selectedCategory && (() => {
                         const IconComponent = getProductIcon(selectedCategory);
@@ -569,7 +563,7 @@ Yours truly
                         return <IconComponent className={`h-4 w-4 ${iconColor}`} />;
                       })()}
                       {!selectedCategory && <FileText className="h-4 w-4 text-gray-600" />}
-                      <span>
+                      <span className="text-sm text-gray-800">
                         {selectedCategory?.includes('Graffiti') ? (
                           <>
                             <span className="font-graffiti">Graffiti</span>
@@ -633,144 +627,135 @@ Yours truly
                 </div>
 
                 {/* Pricing Table */}
-                <div className="space-y-2">
-                  {/* Table Header */}
-                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-500 pb-2 border-b border-gray-200">
-                    <div className="pr-1">Pricing Tier</div>
-                    <div className="text-center">$/m²</div>
-                    <div className="text-center">Price/Sheet</div>
-                    <div className="text-center">Min. Order Qty Price</div>
-                    <div className="text-center">Add</div>
+                <div className="mt-6">
+                  <h3 className="text-base font-medium text-gray-800 mb-4">Available Pricing Tiers</h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-5 gap-2 p-3">
+                      <div className="text-sm font-medium text-gray-800">Pricing Tier</div>
+                      <div className="text-center text-sm font-medium text-gray-800">$/m²</div>
+                      <div className="text-center text-sm font-medium text-gray-800">Price/Sheet</div>
+                      <div className="text-center text-sm font-medium text-gray-800">Min Order Qty Price</div>
+                      <div className="text-center text-sm font-medium text-gray-800">Add</div>
+                    </div>
+
+                    {/* Pricing Rows */}
+                    {pricingTiers.map(tier => {
+                      const price = selectedProduct[tier.key as keyof ProductData] as number;
+                      const pricePerSheet = price * parseFloat(String(selectedProduct.totalSqm || 0));
+                      const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
+                      const total = pricePerSheet * useQuantity;
+
+                      return (
+                        <div key={tier.key} className="grid grid-cols-5 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
+                          <div className="text-sm text-gray-800 uppercase truncate">
+                            {tier.label.replace('Approval Needed', 'Approval (Retail)')}
+                          </div>
+                          <div className="text-center text-sm text-gray-600">
+                            ${price.toFixed(2)}
+                          </div>
+                          <div className="text-center text-sm text-gray-600">
+                            ${pricePerSheet.toFixed(2)}
+                          </div>
+                          <div className="text-center text-sm text-gray-800 font-medium">
+                            ${total.toFixed(2)}
+                          </div>
+                          <div className="text-center">
+                            <button
+                              onClick={() => addToQuote(tier.key)}
+                              className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors"
+                            >
+                              <Plus className="h-3 w-3 text-gray-600" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  {/* Pricing Rows */}
-                  {pricingTiers.map(tier => {
-                    const price = selectedProduct[tier.key as keyof ProductData] as number;
-                    const pricePerSheet = price * parseFloat(String(selectedProduct.totalSqm || 0));
-                    const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
-                    const total = pricePerSheet * useQuantity;
-
-                    return (
-                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-2 border-b border-gray-100">
-                        <div className="font-light text-gray-700 uppercase text-xs pr-1 truncate">
-                          {tier.label.replace('Approval Needed', 'Approval (Retail)')}
-                        </div>
-                        <div className="text-center font-light text-xs text-gray-600">
-                          ${price.toFixed(2)}
-                        </div>
-                        <div className="text-center font-light text-xs text-gray-600">
-                          ${pricePerSheet.toFixed(2)}
-                        </div>
-                        <div className="text-center font-normal text-xs">
-                          ${total.toFixed(2)}
-                        </div>
-                        <div className="text-center">
-                          <Button
-                            size="sm"
-                            onClick={() => addToQuote(tier.key)}
-                            className="soft-button h-6 w-6 rounded-full p-0"
-                            variant="ghost"
-                          >
-                            <Plus className="h-3 w-3 text-gray-500" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                <Calculator className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg">Select a product to see pricing options</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="text-center py-12">
+                  <Calculator className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm text-gray-500">Select a product to see pricing options</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quote Items */}
       {quoteItems.length > 0 && (
-        <Card className="soft-card border-none">
-          <CardHeader>
-            <CardTitle className="section-title">Quote Items</CardTitle>
-            <CardDescription className="text-gray-500 font-light">
-              Items added to your current quote
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Tier</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Price/m²</TableHead>
-                    <TableHead>Price/Sheet</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quoteItems.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-normal">{item.productName}</div>
-                          <div className="text-sm text-gray-600 font-light">{item.productType}</div>
-                          <div className="text-xs text-gray-500 font-light">{item.itemCode}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{item.size}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.tier}</Badge>
-                      </TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>${item.pricePerSqM.toFixed(2)}</TableCell>
-                      <TableCell>${item.pricePerSheet.toFixed(2)}</TableCell>
-                      <TableCell className="font-normal">${item.total.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFromQuote(item.id)}
-                          className="soft-button h-8 w-8 rounded-full p-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-gray-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-                <div className="text-lg font-normal">
-                  Total: ${totalAmount.toFixed(2)}
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={() => generatePDFMutation.mutate()}
-                    disabled={generatePDFMutation.isPending}
-                    className="soft-button icon-text"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download PDF
-                  </Button>
-                  <Button
-                    onClick={handleEmailQuote}
-                    className="soft-button icon-text"
-                  >
-                    <Mail className="h-4 w-4" />
-                    Email Quote
-                  </Button>
-                </div>
+        <div className="border border-gray-200 rounded-lg p-6 bg-white mb-6">
+          <h2 className="text-lg font-medium text-gray-800 mb-2">Quote Items</h2>
+          <p className="text-sm text-gray-500 mb-6">Items added to your current quote</p>
+          <div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-8 gap-2 p-3">
+                <div className="text-sm font-medium text-gray-800">Product</div>
+                <div className="text-sm font-medium text-gray-800">Size</div>
+                <div className="text-sm font-medium text-gray-800">Tier</div>
+                <div className="text-sm font-medium text-gray-800">Qty</div>
+                <div className="text-sm font-medium text-gray-800">Price/m²</div>
+                <div className="text-sm font-medium text-gray-800">Price/Sheet</div>
+                <div className="text-sm font-medium text-gray-800">Total</div>
+                <div className="text-sm font-medium text-gray-800"></div>
+              </div>
+              <div>
+                {quoteItems.map(item => (
+                  <div key={item.id} className="grid grid-cols-8 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
+                    <div>
+                      <div className="text-sm text-gray-800">{item.productName}</div>
+                      <div className="text-xs text-gray-500">{item.productType}</div>
+                      <div className="text-xs text-gray-400">{item.itemCode}</div>
+                    </div>
+                    <div className="text-sm text-gray-600">{item.size}</div>
+                    <div>
+                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-800 border border-gray-200">
+                        {item.tier}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600">{item.quantity}</div>
+                    <div className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</div>
+                    <div className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</div>
+                    <div className="text-sm text-gray-800 font-medium">${item.total.toFixed(2)}</div>
+                    <div>
+                      <button
+                        onClick={() => removeFromQuote(item.id)}
+                        className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+              <div className="text-base font-medium text-gray-800">
+                Total: ${totalAmount.toFixed(2)}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => generatePDFMutation.mutate()}
+                  disabled={generatePDFMutation.isPending}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </button>
+                <button
+                  onClick={handleEmailQuote}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Mail className="h-4 w-4" />
+                  Email Quote
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
