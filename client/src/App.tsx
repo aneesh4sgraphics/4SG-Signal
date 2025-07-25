@@ -5,7 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
+import FirecrackerAnimation from "@/components/FirecrackerAnimation";
 import AreaPricer from "@/pages/area-pricer-fixed";
 import CompetitorPricing from "@/pages/competitor-pricing-fixed";
 import SavedQuotes from "@/pages/saved-quotes";
@@ -47,6 +49,18 @@ const PendingPage = () => (
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [showFirecrackers, setShowFirecrackers] = useState(false);
+  const [previousAuthState, setPreviousAuthState] = useState(isAuthenticated);
+
+  // Trigger firecracker animation when user successfully logs in
+  useEffect(() => {
+    if (!previousAuthState && isAuthenticated && user) {
+      setShowFirecrackers(true);
+      // Auto-hide after 3 seconds
+      setTimeout(() => setShowFirecrackers(false), 3000);
+    }
+    setPreviousAuthState(isAuthenticated);
+  }, [isAuthenticated, user, previousAuthState]);
 
   if (import.meta.env.DEV) {
     console.log("Router render - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "user:", user);
@@ -68,15 +82,33 @@ function Router() {
       console.log("Showing login redirect - isAuthenticated:", isAuthenticated, "user:", user);
     }
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">4S Graphics Employee Portal</h1>
-          <p className="text-gray-600 mb-4">Please log in to access your tools</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center max-w-md mx-auto p-8">
+          {/* 4S Graphics Logo */}
+          <div className="mb-8">
+            <img 
+              src="/company-logo.jpg" 
+              alt="4S Graphics Logo" 
+              className="w-32 h-32 mx-auto object-contain rounded-full shadow-lg border-4 border-white"
+            />
+          </div>
+          
+          {/* Company Name and Portal Title */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">4S Graphics, Inc</h1>
+            <h2 className="text-lg font-normal text-gray-600 mb-4">Employee Portal</h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              This portal is exclusively for 4S Graphics employees.<br />
+              Please log in to access your tools and resources.
+            </p>
+          </div>
+          
+          {/* Login Button */}
           <button 
             onClick={() => window.location.href = "/api/login"}
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+            className="bg-green-800 hover:bg-green-900 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
-            Login
+            Login with Replit
           </button>
         </div>
       </div>
@@ -100,6 +132,7 @@ function Router() {
   // Handle authenticated users
   return (
     <div className="min-h-screen bg-gray-50">
+      <FirecrackerAnimation isVisible={showFirecrackers} />
       <AppHeader />
       <Switch>
         <Route path="/" component={Dashboard} />
