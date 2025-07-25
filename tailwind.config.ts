@@ -20,6 +20,8 @@ export default {
         sans: ['Inter', 'sans-serif'],
       },
       fontWeight: {
+        extralight: '200',
+        light: '200', 
         normal: '500',
         medium: '500',
         semibold: '700',

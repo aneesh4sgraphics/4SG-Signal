@@ -368,19 +368,19 @@ Yours truly
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Configure Product */}
-        <Card>
+        <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Calculator className="h-6 w-6 text-purple-600" />
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Calculator className="h-5 w-5 text-purple-600" />
               Configure Product
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Product Category */}
-            <div className="space-y-3">
-              <Label className="text-lg font-medium text-gray-900">Product</Label>
+            <div className="space-y-2">
+              <Label className="text-base font-medium text-gray-900">Product</Label>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="h-12 text-base border-2 border-purple-200 rounded-lg">
                   <SelectValue placeholder="Select product category">
@@ -425,8 +425,8 @@ Yours truly
             </div>
 
             {/* Product Type */}
-            <div className="space-y-3">
-              <Label className="text-lg font-medium text-red-600">Product Type</Label>
+            <div className="space-y-2">
+              <Label className="text-base font-medium text-red-600">Product Type</Label>
               <Select 
                 value={selectedType} 
                 onValueChange={setSelectedType}
@@ -450,8 +450,8 @@ Yours truly
 
             {/* Size Selection */}
             {selectedType && (
-              <div className="space-y-3">
-                <Label className="text-lg font-medium text-gray-900">Size</Label>
+              <div className="space-y-2">
+                <Label className="text-base font-medium text-gray-900">Size</Label>
                 <Select value={selectedSize} onValueChange={setSelectedSize}>
                   <SelectTrigger className="h-12 text-base border-2 border-gray-200 rounded-lg bg-gray-50">
                     <SelectValue placeholder="Select size" />
@@ -468,8 +468,8 @@ Yours truly
             )}
 
             {/* Quantity */}
-            <div className="space-y-3">
-              <Label className="text-lg font-medium text-gray-900">Quantity</Label>
+            <div className="space-y-2">
+              <Label className="text-base font-medium text-gray-900">Quantity</Label>
               <Input
                 type="number"
                 value={quantity}
@@ -488,7 +488,7 @@ Yours truly
         </Card>
 
         {/* Right Panel - Quote Summary */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-gray-900">QUOTE SUMMARY</CardTitle>
             <CardDescription className="text-gray-600">
@@ -540,10 +540,10 @@ Yours truly
                 </div>
 
                 {/* Pricing Table */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {/* Table Header */}
-                  <div className="grid grid-cols-4 gap-4 text-sm font-medium text-gray-600 pb-2 border-b border-gray-200">
-                    <div>Pricing Tier</div>
+                  <div className="grid grid-cols-5 gap-2 text-xs font-light text-gray-600 pb-2 border-b border-gray-200">
+                    <div className="pr-1">Pricing Tier</div>
                     <div className="text-center">$/m²</div>
                     <div className="text-center">Price/Sheet</div>
                     <div className="text-center">Min. Order Qty Price</div>
@@ -558,27 +558,27 @@ Yours truly
                     const total = pricePerSheet * useQuantity;
 
                     return (
-                      <div key={tier.key} className="grid grid-cols-5 gap-4 items-center py-3 border-b border-gray-100">
-                        <div className="font-medium text-gray-900 uppercase text-sm">
+                      <div key={tier.key} className="grid grid-cols-5 gap-2 items-center py-2 border-b border-gray-100">
+                        <div className="font-light text-gray-900 uppercase text-xs pr-1 truncate">
                           {tier.label.replace('Approval Needed', 'Approval (Retail)')}
                         </div>
-                        <div className="text-center font-medium">
+                        <div className="text-center font-light text-xs">
                           ${price.toFixed(2)}
                         </div>
-                        <div className="text-center font-medium">
+                        <div className="text-center font-light text-xs">
                           ${pricePerSheet.toFixed(2)}
                         </div>
-                        <div className="text-center font-bold text-lg">
+                        <div className="text-center font-medium text-sm">
                           ${total.toFixed(2)}
                         </div>
                         <div className="text-center">
                           <Button
                             size="sm"
                             onClick={() => addToQuote(tier.key)}
-                            className="h-8 w-8 rounded-full p-0 bg-gray-100 hover:bg-gray-200 border border-gray-300"
+                            className="h-6 w-6 rounded-full p-0 bg-gray-100 hover:bg-gray-200 border border-gray-300"
                             variant="outline"
                           >
-                            <Plus className="h-4 w-4 text-gray-600" />
+                            <Plus className="h-3 w-3 text-gray-600" />
                           </Button>
                         </div>
                       </div>
