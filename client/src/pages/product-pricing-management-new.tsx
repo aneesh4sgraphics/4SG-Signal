@@ -44,6 +44,7 @@ interface UploadResult {
   removedRecordsCount: number;
   clearDatabase: boolean;
   batchId: string;
+  uploadBatch: string;
   changeLog: {
     added: number;
     updated: number;
@@ -205,7 +206,13 @@ export default function ProductPricingManagementNew() {
         updatedRecordsCount: 0,
         removedRecordsCount: 0,
         clearDatabase: false,
+        batchId: '',
         uploadBatch: '',
+        changeLog: {
+          added: 0,
+          updated: 0,
+          deleted: 0
+        },
         timestamp: new Date().toISOString()
       });
       

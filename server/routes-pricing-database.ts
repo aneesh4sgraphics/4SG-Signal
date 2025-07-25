@@ -255,8 +255,8 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
             ];
             
             for (const field of fieldsToCompare) {
-              const oldValue = existing[field as keyof ProductPricingMaster];
-              const newValue = newItem[field as keyof InsertProductPricingMaster];
+              const oldValue = (existing as any)[field];
+              const newValue = (newItem as any)[field];
               
               if (oldValue !== newValue) {
                 changes[field] = { old: oldValue, new: newValue };
@@ -407,7 +407,11 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
     }
 
     // Clean up uploaded file
-    fs.unlinkSync(filePath);
+    try {
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      console.warn('File cleanup error (file may have been already deleted):', error);
+    }
     const totalRecords = await storage.getAllProductPricingMaster();
 
     console.log(`\n✅ CSV upload completed successfully:`);
@@ -419,8 +423,8 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
     // Create upload batch history record
     console.log(`\n📝 Saving upload batch history...`);
     const batchRecord = await storage.createUploadBatch({
-      batchId,
-      filename: file.originalname,
+      batchId: uploadBatch,
+      filename: req.file.originalname,
       recordsProcessed: newData.length,
       recordsAdded: addedCount,
       recordsUpdated: updatedCount,
@@ -447,7 +451,8 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       updatedRecordsCount: updatedCount,
       removedRecordsCount: removedCount,
       clearDatabase: clearDatabase,
-      batchId: batchId,
+      batchId: uploadBatch,
+      uploadBatch: uploadBatch,
       changeLog: {
         added: preview.toAdd.length,
         updated: preview.toUpdate.length,
