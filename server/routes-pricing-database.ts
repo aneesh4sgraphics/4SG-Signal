@@ -193,6 +193,132 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       });
     }
 
+    // Dry run preview - analyze changes without committing
+    const existingData = await storage.getAllProductPricingMaster();
+    const existingMap = new Map(existingData.map(item => [item.itemCode, item]));
+    const newMap = new Map(newData.map(item => [item.itemCode, item]));
+    
+    const preview = {
+      toAdd: [] as Array<{ itemCode: string; productName: string; productType: string }>,
+      toUpdate: [] as Array<{ itemCode: string; productName: string; changes: Record<string, { old: any; new: any }> }>,
+      toDelete: [] as Array<{ itemCode: string; productName: string; productType: string }>
+    };
+
+    if (clearDatabase) {
+      // For clear database mode, everything is "added"
+      preview.toAdd = newData.map(item => ({
+        itemCode: item.itemCode,
+        productName: item.productName,
+        productType: item.productType
+      }));
+      preview.toDelete = existingData.map(item => ({
+        itemCode: item.itemCode,
+        productName: item.productName,
+        productType: item.productType
+      }));
+    } else {
+      // Smart sync mode - detailed change analysis
+      
+      // Items to delete (exist in DB but not in CSV)
+      for (const existing of existingData) {
+        if (!newMap.has(existing.itemCode)) {
+          preview.toDelete.push({
+            itemCode: existing.itemCode,
+            productName: existing.productName,
+            productType: existing.productType
+          });
+        }
+      }
+      
+      // Items to add or update
+      for (const newItem of newData) {
+        const existing = existingMap.get(newItem.itemCode);
+        
+        if (!existing) {
+          // New item to add
+          preview.toAdd.push({
+            itemCode: newItem.itemCode,
+            productName: newItem.productName,
+            productType: newItem.productType
+          });
+        } else {
+          // Check for changes using hash comparison
+          if (existing.rowHash !== newItem.rowHash) {
+            const changes: Record<string, { old: any; new: any }> = {};
+            
+            // Compare key fields for detailed change log
+            const fieldsToCompare = [
+              'productName', 'productType', 'size', 'totalSqm', 'minQuantity',
+              'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
+              'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 
+              'tierStage15Price', 'tierStage1Price', 'retailPrice'
+            ];
+            
+            for (const field of fieldsToCompare) {
+              const oldValue = existing[field as keyof ProductPricingMaster];
+              const newValue = newItem[field as keyof InsertProductPricingMaster];
+              
+              if (oldValue !== newValue) {
+                changes[field] = { old: oldValue, new: newValue };
+              }
+            }
+            
+            if (Object.keys(changes).length > 0) {
+              preview.toUpdate.push({
+                itemCode: newItem.itemCode,
+                productName: newItem.productName,
+                changes
+              });
+            }
+          }
+        }
+      }
+    }
+
+    console.log("\n=== DRY RUN PREVIEW ===");
+    console.log(`Records to ADD: ${preview.toAdd.length}`);
+    console.log(`Records to UPDATE: ${preview.toUpdate.length}`);  
+    console.log(`Records to DELETE: ${preview.toDelete.length}`);
+    
+    if (preview.toAdd.length > 0) {
+      console.log("\nNEW RECORDS:");
+      preview.toAdd.slice(0, 5).forEach(item => {
+        console.log(`  + ${item.itemCode}: ${item.productName} (${item.productType})`);
+      });
+      if (preview.toAdd.length > 5) {
+        console.log(`  ... and ${preview.toAdd.length - 5} more`);
+      }
+    }
+    
+    if (preview.toUpdate.length > 0) {
+      console.log("\nUPDATED RECORDS:");
+      preview.toUpdate.slice(0, 3).forEach(item => {
+        console.log(`  ~ ${item.itemCode}: ${item.productName}`);
+        Object.entries(item.changes).slice(0, 3).forEach(([field, change]) => {
+          console.log(`    ${field}: "${change.old}" → "${change.new}"`);
+        });
+      });
+      if (preview.toUpdate.length > 3) {
+        console.log(`  ... and ${preview.toUpdate.length - 3} more updated records`);
+      }
+    }
+    
+    if (preview.toDelete.length > 0) {
+      console.log("\nRECORDS TO DELETE:");
+      preview.toDelete.slice(0, 5).forEach(item => {
+        console.log(`  - ${item.itemCode}: ${item.productName} (${item.productType})`);
+      });
+      if (preview.toDelete.length > 5) {
+        console.log(`  ... and ${preview.toDelete.length - 5} more`);
+      }
+    }
+    
+    console.log("=======================\n");
+
+    // Generate unique batch ID for this upload
+    const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`\n📦 Creating upload batch: ${batchId}`);
+
     let addedCount = 0;
     let updatedCount = 0;
     let removedCount = 0;
@@ -203,7 +329,11 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       removedCount = await storage.clearAllProductPricingMaster();
       
       console.log(`Inserting ${newData.length} new records...`);
-      await storage.bulkCreateProductPricingMaster(newData);
+      const recordsWithBatch = newData.map(record => ({
+        ...record,
+        uploadBatch: batchId
+      }));
+      await storage.bulkCreateProductPricingMaster(recordsWithBatch);
       addedCount = newData.length;
       
       console.log("✓ Complete database replacement completed");
@@ -246,11 +376,17 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
             console.log(`Skipping ${newRecord.itemCode}: no changes detected`);
           } else {
             // Hash changed → update
-            toUpdate.push(newRecord);
+            toUpdate.push({
+              ...newRecord,
+              uploadBatch: batchId
+            });
           }
         } else {
           // ItemCode not found → insert
-          toAdd.push(newRecord);
+          toAdd.push({
+            ...newRecord,
+            uploadBatch: batchId
+          });
         }
       }
       
@@ -272,8 +408,33 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
-    
     const totalRecords = await storage.getAllProductPricingMaster();
+
+    console.log(`\n✅ CSV upload completed successfully:`);
+    console.log(`   - Records added: ${addedCount}`);
+    console.log(`   - Records updated: ${updatedCount}`);
+    console.log(`   - Records removed: ${removedCount}`);
+    console.log(`   - Total records in database: ${totalRecords.length}`);
+    
+    // Create upload batch history record
+    console.log(`\n📝 Saving upload batch history...`);
+    const batchRecord = await storage.createUploadBatch({
+      batchId,
+      filename: file.originalname,
+      recordsProcessed: newData.length,
+      recordsAdded: addedCount,
+      recordsUpdated: updatedCount,
+      recordsDeleted: removedCount,
+      clearDatabase: clearDatabase,
+      changeLog: {
+        added: preview.toAdd,
+        updated: preview.toUpdate,
+        deleted: preview.toDelete
+      },
+      isActive: true
+    });
+    
+    console.log(`✓ Batch history saved with ID: ${batchRecord.id}`);
     
     res.json({
       success: true,
@@ -286,7 +447,12 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       updatedRecordsCount: updatedCount,
       removedRecordsCount: removedCount,
       clearDatabase: clearDatabase,
-      uploadBatch: uploadBatch,
+      batchId: batchId,
+      changeLog: {
+        added: preview.toAdd.length,
+        updated: preview.toUpdate.length,
+        deleted: preview.toDelete.length
+      },
       timestamp: new Date().toISOString()
     });
 
@@ -372,6 +538,80 @@ router.get("/download-pricing-database", isAuthenticated, requireAdmin, async (r
   } catch (error) {
     console.error("Error downloading pricing database:", error);
     res.status(500).json({ error: "Failed to download pricing database" });
+  }
+});
+
+// Get upload batch history
+router.get("/upload-batches", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    console.log("Fetching upload batch history...");
+    const batches = await storage.getUploadBatches();
+    
+    res.json({
+      success: true,
+      batches: batches,
+      count: batches.length
+    });
+  } catch (error) {
+    console.error("Error fetching upload batches:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch upload batch history", 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get specific batch details
+router.get("/upload-batches/:batchId", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    console.log(`Fetching batch details for: ${batchId}`);
+    
+    const batch = await storage.getUploadBatch(batchId);
+    if (!batch) {
+      return res.status(404).json({ error: "Batch not found" });
+    }
+    
+    res.json({
+      success: true,
+      batch: batch
+    });
+  } catch (error) {
+    console.error("Error fetching batch details:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch batch details", 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Rollback to specific batch
+router.post("/rollback-batch/:batchId", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    console.log(`Starting rollback to batch: ${batchId}`);
+    
+    const result = await storage.rollbackToUploadBatch(batchId);
+    
+    if (result.success) {
+      console.log(`✅ Rollback successful: ${result.message}`);
+      res.json({
+        success: true,
+        message: result.message
+      });
+    } else {
+      console.log(`❌ Rollback failed: ${result.message}`);
+      res.status(400).json({
+        success: false,
+        error: result.message
+      });
+    }
+  } catch (error) {
+    console.error("Error during batch rollback:", error);
+    res.status(500).json({ 
+      error: "Failed to rollback to batch", 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

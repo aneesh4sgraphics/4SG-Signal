@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,8 +43,32 @@ interface UploadResult {
   updatedRecordsCount: number;
   removedRecordsCount: number;
   clearDatabase: boolean;
-  uploadBatch: string;
+  batchId: string;
+  changeLog: {
+    added: number;
+    updated: number;
+    deleted: number;
+  };
   timestamp: string;
+}
+
+interface UploadBatch {
+  id: number;
+  batchId: string;
+  filename: string;
+  uploadDate: string;
+  recordsProcessed: number;
+  recordsAdded: number;
+  recordsUpdated: number;
+  recordsDeleted: number;
+  clearDatabase: boolean;
+  changeLog: {
+    added: Array<{ itemCode: string; productName: string; productType: string }>;
+    updated: Array<{ itemCode: string; productName: string; changes: Record<string, { old: any; new: any }> }>;
+    deleted: Array<{ itemCode: string; productName: string; productType: string }>;
+  };
+  isActive: boolean;
+  createdAt: string;
 }
 
 export default function ProductPricingManagementNew() {
@@ -53,6 +77,9 @@ export default function ProductPricingManagementNew() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [showBatchHistory, setShowBatchHistory] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState<UploadBatch | null>(null);
+  const [showBatchDetails, setShowBatchDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -66,6 +93,48 @@ export default function ProductPricingManagementNew() {
         throw new Error('Failed to fetch pricing data');
       }
       return response.json();
+    },
+  });
+
+  // Fetch upload batch history
+  const { data: batchHistory = [], isLoading: batchHistoryLoading } = useQuery<{ batches: UploadBatch[] }>({
+    queryKey: ['/api/upload-batches'],
+    queryFn: async () => {
+      const response = await fetch('/api/upload-batches');
+      if (!response.ok) {
+        throw new Error('Failed to fetch batch history');
+      }
+      return response.json();
+    },
+    enabled: showBatchHistory,
+  });
+
+  // Rollback mutation
+  const rollbackMutation = useMutation({
+    mutationFn: async (batchId: string) => {
+      const response = await fetch(`/api/rollback-batch/${batchId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to rollback');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Rollback Successful",
+        description: data.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      setShowBatchHistory(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Rollback Failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 

@@ -23,8 +23,11 @@ import {
   competitorPricing,
   fileUploads,
   productPricingMaster,
+  uploadBatches,
   type ProductPricingMaster,
-  type InsertProductPricingMaster
+  type InsertProductPricingMaster,
+  type UploadBatch,
+  type InsertUploadBatch
 } from "@shared/schema";
 import { parseProductData } from "./csv-parser";
 import { parseCustomerCSV } from "./customer-parser";
@@ -1034,6 +1037,91 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error updating pricing record:', error);
       throw error;
+    }
+  }
+
+  // Upload Batch History Methods
+  async createUploadBatch(batch: InsertUploadBatch): Promise<UploadBatch> {
+    const [result] = await db
+      .insert(uploadBatches)
+      .values(batch)
+      .returning();
+    return result;
+  }
+
+  async getUploadBatches(): Promise<UploadBatch[]> {
+    return await db
+      .select()
+      .from(uploadBatches)
+      .orderBy(desc(uploadBatches.uploadDate));
+  }
+
+  async getUploadBatch(batchId: string): Promise<UploadBatch | undefined> {
+    const [result] = await db
+      .select()
+      .from(uploadBatches)
+      .where(eq(uploadBatches.batchId, batchId));
+    return result || undefined;
+  }
+
+  async getActiveUploadBatches(): Promise<UploadBatch[]> {
+    return await db
+      .select()
+      .from(uploadBatches)
+      .where(eq(uploadBatches.isActive, true))
+      .orderBy(desc(uploadBatches.uploadDate));
+  }
+
+  async rollbackToUploadBatch(batchId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const targetBatch = await this.getUploadBatch(batchId);
+      if (!targetBatch) {
+        return { success: false, message: "Batch not found" };
+      }
+
+      // Get all records from the target batch
+      const batchRecords = await db
+        .select()
+        .from(productPricingMaster)
+        .where(eq(productPricingMaster.uploadBatch, batchId));
+
+      if (batchRecords.length === 0) {
+        return { success: false, message: "No records found for this batch" };
+      }
+
+      // Clear current data and restore from target batch
+      await this.clearAllProductPricingMaster();
+      await this.bulkCreateProductPricingMaster(
+        batchRecords.map(record => ({
+          itemCode: record.itemCode,
+          productName: record.productName,
+          productType: record.productType,
+          productTypeId: record.productTypeId,
+          size: record.size,
+          totalSqm: record.totalSqm,
+          minQuantity: record.minQuantity,
+          exportPrice: record.exportPrice,
+          masterDistributorPrice: record.masterDistributorPrice,
+          dealerPrice: record.dealerPrice,
+          dealer2Price: record.dealer2Price,
+          approvalNeededPrice: record.approvalNeededPrice,
+          tierStage25Price: record.tierStage25Price,
+          tierStage2Price: record.tierStage2Price,
+          tierStage15Price: record.tierStage15Price,
+          tierStage1Price: record.tierStage1Price,
+          retailPrice: record.retailPrice,
+          rowHash: record.rowHash,
+          uploadBatch: record.uploadBatch
+        }))
+      );
+
+      return { 
+        success: true, 
+        message: `Successfully rolled back to batch ${batchId} with ${batchRecords.length} records` 
+      };
+    } catch (error) {
+      console.error('Error during rollback:', error);
+      return { success: false, message: "Rollback failed due to database error" };
     }
   }
 }

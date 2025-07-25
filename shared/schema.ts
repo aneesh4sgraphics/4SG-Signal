@@ -245,7 +245,34 @@ export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertSentQuote = z.infer<typeof insertSentQuoteSchema>;
 export type InsertCompetitorPricing = z.infer<typeof insertCompetitorPricingSchema>;
 
+// Upload batch history for rollback and comparison
+export const uploadBatches = pgTable("upload_batches", {
+  id: serial("id").primaryKey(),
+  batchId: text("batch_id").notNull().unique(),
+  filename: text("filename").notNull(),
+  uploadDate: timestamp("upload_date").defaultNow().notNull(),
+  recordsProcessed: integer("records_processed").default(0),
+  recordsAdded: integer("records_added").default(0),
+  recordsUpdated: integer("records_updated").default(0),
+  recordsDeleted: integer("records_deleted").default(0),
+  clearDatabase: boolean("clear_database").default(false),
+  changeLog: jsonb("change_log").$type<{
+    added: Array<{ itemCode: string; productName: string; productType: string }>;
+    updated: Array<{ itemCode: string; productName: string; changes: Record<string, { old: any; new: any }> }>;
+    deleted: Array<{ itemCode: string; productName: string; productType: string }>;
+  }>(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // File upload types
 export const insertFileUploadSchema = createInsertSchema(fileUploads);
 export type FileUpload = typeof fileUploads.$inferSelect;
 export type InsertFileUpload = z.infer<typeof insertFileUploadSchema>;
+
+export const insertUploadBatchSchema = createInsertSchema(uploadBatches).omit({
+  id: true,
+  createdAt: true,
+});
+export type UploadBatch = typeof uploadBatches.$inferSelect;
+export type InsertUploadBatch = z.infer<typeof insertUploadBatchSchema>;
