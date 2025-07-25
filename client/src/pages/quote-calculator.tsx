@@ -238,7 +238,7 @@ export default function QuoteCalculator() {
     }
   });
 
-  const handleEmailQuote = () => {
+  const handleEmailQuote = async () => {
     if (quoteItems.length === 0) {
       toast({
         title: "No Items in Quote",
@@ -248,17 +248,18 @@ export default function QuoteCalculator() {
       return;
     }
 
-    // Generate email content
-    const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
-    
-    // Generate quote number on server side to ensure uniqueness
-    const quoteNumberResponse = await fetch('/api/generate-quote-number', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    
-    const { quoteNumber } = await quoteNumberResponse.json();
+    try {
+      // Generate email content
+      const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
+      
+      // Generate quote number on server side to ensure uniqueness
+      const quoteNumberResponse = await fetch('/api/generate-quote-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      
+      const { quoteNumber } = await quoteNumberResponse.json();
     const currentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -304,6 +305,14 @@ Yours truly
         `Comprehensive quote email composed for ${customerName}` :
         "Quote email composed - please add recipient email address",
     });
+    
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate quote number for email",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {

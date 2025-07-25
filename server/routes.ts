@@ -1613,10 +1613,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate unique quote number
+  app.post("/api/generate-quote-number", isAuthenticated, async (req: any, res) => {
+    try {
+      const { generateUniqueQuoteNumber } = await import('./pdf-generator');
+      const quoteNumber = await generateUniqueQuoteNumber(storage);
+      res.json({ quoteNumber });
+    } catch (error) {
+      console.error("Error generating quote number:", error);
+      res.status(500).json({ error: "Failed to generate quote number" });
+    }
+  });
+
   // Generate PDF quote as actual PDF file
   app.post("/api/generate-pdf-quote", isAuthenticated, async (req: any, res) => {
     try {
-      const { customerName, customerEmail, quoteItems, quoteNumber, sentVia } = req.body;
+      const { customerName, customerEmail, quoteItems, sentVia } = req.body;
       
       if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
         return res.status(400).json({ error: "Customer name and quote items are required" });
@@ -1625,8 +1637,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get current user's email from authenticated session
       const currentUserEmail = req.user?.claims?.email || "sales@4sgraphics.com";
 
-      // Use provided quote number or generate new one
-      const finalQuoteNumber = quoteNumber || generateQuoteNumber();
+      // Generate unique quote number
+      const { generateUniqueQuoteNumber } = await import('./pdf-generator');
+      const finalQuoteNumber = await generateUniqueQuoteNumber(storage);
       
       // Calculate total
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);

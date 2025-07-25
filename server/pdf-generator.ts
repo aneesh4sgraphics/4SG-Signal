@@ -41,6 +41,9 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     month: 'long',
     day: 'numeric'
   });
+  
+  // Get the logo as base64
+  const logoBase64 = getLogoBase64();
 
   // Group items by product type
   const itemsByType: { [key: string]: QuoteItem[] } = {};
@@ -193,6 +196,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     <body>
       <div class="header">
         <div class="logo-section">
+          ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" alt="4S Graphics Logo" style="max-height: 60px; max-width: 150px; margin-bottom: 10px;" />` : ''}
           <div class="company-name">${companyDetails.name}</div>
           <div class="company-details">
             ${companyDetails.address}, ${companyDetails.city}<br>

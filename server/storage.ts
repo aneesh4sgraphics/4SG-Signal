@@ -441,6 +441,10 @@ export class MemStorage implements IStorage {
     return this.sentQuotes.get(id);
   }
 
+  async getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined> {
+    return Array.from(this.sentQuotes.values()).find(q => q.quoteNumber === quoteNumber);
+  }
+
   async createSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
     const id = this.currentSentQuoteId++;
     const newQuote: SentQuote = { 
@@ -893,6 +897,10 @@ export class DatabaseStorage implements IStorage {
 
   async getSentQuote(id: number): Promise<SentQuote | undefined> {
     return this.memStorage.getSentQuote(id);
+  }
+
+  async getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined> {
+    return this.memStorage.getSentQuoteByNumber(quoteNumber);
   }
 
   async createSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
