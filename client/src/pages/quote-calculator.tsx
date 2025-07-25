@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
@@ -87,6 +87,36 @@ export default function QuoteCalculator() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Product category icon mapping with colors
+  const getProductIcon = (productName: string) => {
+    if (productName.includes('CliQ')) return Monitor;
+    if (productName.includes('DTF') || productName.includes('Film')) return Film;
+    if (productName.includes('Graffiti Blended Poly')) return Palette;
+    if (productName.includes('Graffiti Polyester Paper')) return FileText;
+    if (productName.includes('Graffiti SOFT Poly')) return Layers;
+    if (productName.includes('Graffiti STICK')) return Zap;
+    if (productName.includes('Offset Printing Plates')) return Printer;
+    if (productName.includes('Rang Print Canvas')) return Frame;
+    if (productName.includes('Screen Printing Positives')) return Image;
+    if (productName.includes('Solvit')) return Paintbrush;
+    return FileText; // Default icon
+  };
+
+  // Product category color mapping
+  const getProductIconColor = (productName: string) => {
+    if (productName.includes('CliQ')) return 'text-blue-600';
+    if (productName.includes('DTF') || productName.includes('Film')) return 'text-purple-600';
+    if (productName.includes('Graffiti Blended Poly')) return 'text-pink-600';
+    if (productName.includes('Graffiti Polyester Paper')) return 'text-green-600';
+    if (productName.includes('Graffiti SOFT Poly')) return 'text-indigo-600';
+    if (productName.includes('Graffiti STICK')) return 'text-yellow-600';
+    if (productName.includes('Offset Printing Plates')) return 'text-gray-600';
+    if (productName.includes('Rang Print Canvas')) return 'text-orange-600';
+    if (productName.includes('Screen Printing Positives')) return 'text-red-600';
+    if (productName.includes('Solvit')) return 'text-teal-600';
+    return 'text-gray-600'; // Default color
+  };
 
   // Fetch product pricing data from new database
   const { data: productData = [], isLoading } = useQuery<ProductData[]>({
@@ -384,43 +414,51 @@ Yours truly
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="h-12 text-base border-2 border-purple-200 rounded-lg">
                   <SelectValue placeholder="Select product category">
-                    {selectedCategory && (
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-gray-600" />
-                        <span className="font-medium">
-                          {selectedCategory.includes('Graffiti') ? (
-                            <>
-                              <span className="font-graffiti">Graffiti</span>
-                              <sup className="text-xs">™</sup>
-                              <span>{selectedCategory.replace('Graffiti', '').trim()}</span>
-                            </>
-                          ) : (
-                            selectedCategory
-                          )}
-                        </span>
-                      </div>
-                    )}
+                    {selectedCategory && (() => {
+                      const IconComponent = getProductIcon(selectedCategory);
+                      const iconColor = getProductIconColor(selectedCategory);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <IconComponent className={`h-5 w-5 ${iconColor}`} />
+                          <span className="font-medium">
+                            {selectedCategory.includes('Graffiti') ? (
+                              <>
+                                <span className="font-graffiti">Graffiti</span>
+                                <sup className="text-xs">™</sup>
+                                <span>{selectedCategory.replace('Graffiti', '').trim()}</span>
+                              </>
+                            ) : (
+                              selectedCategory
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-600" />
-                        <span>
-                          {category.includes('Graffiti') ? (
-                            <>
-                              <span className="font-graffiti">Graffiti</span>
-                              <sup className="text-xs">™</sup>
-                              <span>{category.replace('Graffiti', '').trim()}</span>
-                            </>
-                          ) : (
-                            category
-                          )}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {categories.map(category => {
+                    const IconComponent = getProductIcon(category);
+                    const iconColor = getProductIconColor(category);
+                    return (
+                      <SelectItem key={category} value={category}>
+                        <div className="flex items-center gap-2">
+                          <IconComponent className={`h-4 w-4 ${iconColor}`} />
+                          <span>
+                            {category.includes('Graffiti') ? (
+                              <>
+                                <span className="font-graffiti">Graffiti</span>
+                                <sup className="text-xs">™</sup>
+                                <span>{category.replace('Graffiti', '').trim()}</span>
+                              </>
+                            ) : (
+                              category
+                            )}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -504,7 +542,12 @@ Yours truly
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-900">Product Brand:</span>
                     <span className="flex items-center gap-1">
-                      <FileText className="h-4 w-4 text-gray-600" />
+                      {selectedCategory && (() => {
+                        const IconComponent = getProductIcon(selectedCategory);
+                        const iconColor = getProductIconColor(selectedCategory);
+                        return <IconComponent className={`h-4 w-4 ${iconColor}`} />;
+                      })()}
+                      {!selectedCategory && <FileText className="h-4 w-4 text-gray-600" />}
                       <span>
                         {selectedCategory?.includes('Graffiti') ? (
                           <>
