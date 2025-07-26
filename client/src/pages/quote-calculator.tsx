@@ -163,12 +163,25 @@ export default function QuoteCalculator() {
     item.size === selectedSize
   );
 
+  // Utility function for retail pricing rounding (99-cent rounding)
+  const applyRetailRounding = (price: number, isRetail: boolean): number => {
+    if (!isRetail) return price;
+    
+    // Round to 99 cents: floor the dollar amount and add 0.99
+    const floorPrice = Math.floor(price);
+    return floorPrice + 0.99;
+  };
+
   const addToQuote = (tier: string) => {
     if (!selectedProduct) return;
 
     const tierPrice = selectedProduct[tier as keyof ProductData] as number;
-    const pricePerSheet = tierPrice * parseFloat(String(selectedProduct.totalSqm || 0));
+    let pricePerSheet = tierPrice * parseFloat(String(selectedProduct.totalSqm || 0));
     const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
+    
+    // Apply retail rounding for RETAIL tier
+    const isRetailTier = tier === 'retailPrice';
+    pricePerSheet = applyRetailRounding(pricePerSheet, isRetailTier);
     const total = pricePerSheet * useQuantity;
 
     const quoteItem: QuoteItem = {
@@ -642,8 +655,12 @@ Yours truly
                     ]}
                     data={pricingTiers.map(tier => {
                       const price = selectedProduct[tier.key as keyof ProductData] as number;
-                      const pricePerSheet = price * parseFloat(String(selectedProduct.totalSqm || 0));
+                      let pricePerSheet = price * parseFloat(String(selectedProduct.totalSqm || 0));
                       const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
+                      
+                      // Apply retail rounding for RETAIL tier
+                      const isRetailTier = tier.key === 'retailPrice';
+                      pricePerSheet = applyRetailRounding(pricePerSheet, isRetailTier);
                       const total = pricePerSheet * useQuantity;
                       
                       return {
