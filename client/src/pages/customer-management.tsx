@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface CustomerData {
   "Customer ID": string;
@@ -323,8 +324,16 @@ export default function CustomerManagement() {
           </CardContent>
         </Card>
 
-        {/* Back to Dashboard */}
-        <div className="text-center">
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-4">
+          <Link href="/customer-table">
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            >
+              <Users className="h-4 w-4" />
+              View Customer Table
+            </Button>
+          </Link>
           <Button 
             onClick={() => window.history.back()}
             variant="outline" 

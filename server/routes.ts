@@ -762,6 +762,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new customer (Admin only)
+  app.post("/api/customers", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      const customer = req.body;
+      
+      if (!customer.id || !customer.id.trim()) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
+
+      // Check if customer already exists
+      const existingCustomer = await storage.getCustomer(customer.id);
+      if (existingCustomer) {
+        return res.status(409).json({ error: "Customer with this ID already exists" });
+      }
+
+      const createdCustomer = await storage.createCustomer(customer);
+      res.status(201).json(createdCustomer);
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  // Update customer (Admin only)
+  app.put("/api/customers/:id", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      const customerData = req.body;
+      
+      // Check if customer exists
+      const existingCustomer = await storage.getCustomer(customerId);
+      if (!existingCustomer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const updatedCustomer = await storage.updateCustomer(customerId, customerData);
+      res.json(updatedCustomer);
+    } catch (error) {
+      console.error("Error updating customer:", error);
+      res.status(500).json({ error: "Failed to update customer" });
+    }
+  });
+
+  // Delete customer (Admin only)
+  app.delete("/api/customers/:id", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      // Check if customer exists
+      const existingCustomer = await storage.getCustomer(customerId);
+      if (!existingCustomer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      await storage.deleteCustomer(customerId);
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      res.status(500).json({ error: "Failed to delete customer" });
+    }
+  });
+
   // Configure multer for file uploads
   const upload = multer({
     dest: 'uploads/',
