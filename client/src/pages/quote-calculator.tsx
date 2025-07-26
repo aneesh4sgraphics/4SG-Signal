@@ -694,7 +694,7 @@ Yours truly
                           return null;
                       }
                     }}
-                    maxHeight="400px"
+                    maxHeight="600px"
                   />
                 </div>
               </div>
