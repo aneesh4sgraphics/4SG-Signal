@@ -1,5 +1,30 @@
 // stub-function.ts
 
+import fs from "fs";
+import path from "path";
+
+function getLogoBase64(): string {
+  // Use the new high-resolution 4S Graphics logo
+  const logoPath = path.join(process.cwd(), "client", "public", "4s-logo-high-res.png");
+  
+  if (fs.existsSync(logoPath)) {
+    console.log(`Using 4S Graphics high-res logo from: ${logoPath}`);
+    const buffer = fs.readFileSync(logoPath);
+    return buffer.toString("base64");
+  }
+  
+  // Fallback to old logo if new one isn't found
+  const fallbackLogoPath = path.join(process.cwd(), "client", "public", "company-logo.jpg");
+  if (fs.existsSync(fallbackLogoPath)) {
+    console.log(`Using fallback logo from: ${fallbackLogoPath}`);
+    const buffer = fs.readFileSync(fallbackLogoPath);
+    return buffer.toString("base64");
+  }
+  
+  console.warn("No logo found at expected locations");
+  return "";
+}
+
 export function generateQuoteNumber(): string {
   return `Q${Date.now()}`;
 }
@@ -14,6 +39,7 @@ export function validateQuoteNumber(quoteNumber: string): boolean {
 
 export function generateQuoteHTMLForDownload(data: any): string {
   const { customerName, quoteNumber, quoteItems, totalAmount, title = "QUICK QUOTE" } = data;
+  const logo = getLogoBase64();
 
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -346,6 +372,7 @@ function getCategoryDisplayName(productName: string, productType: string): strin
 
 export function generatePriceListHTML(data: any): string {
   const { categoryName, tierName, items, customerName, title = "PRICE LIST", quoteNumber } = data;
+  const logo = getLogoBase64();
 
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -526,7 +553,7 @@ export function generatePriceListHTML(data: any): string {
     </head>
     <body>
       <div class="header">
-        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiByeD0iOCIgZmlsbD0id2hpdGUiLz4KPHRleHQgeD0iMjUiIHk9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iSW50ZXIsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMzYjgyZjYiPjRTPC90ZXh0Pgo8L3N2Zz4K" alt="4S Graphics Logo" />
+        ${logo ? `<img src="data:image/png;base64,${logo}" alt="4S Graphics Logo" style="height: 60px; margin-bottom: 10px;" />` : ""}
         <div class="company-name">4S Graphics, Inc.</div>
         <div class="company-details">
           764 NW 57th Court, Fort Lauderdale, FL 33309<br>
