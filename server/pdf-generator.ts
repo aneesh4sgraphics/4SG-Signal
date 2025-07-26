@@ -50,6 +50,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     const categoryMappings: { [key: string]: string } = {
       // CLiQ products
       'CliQ Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
+      'Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
       'CliQ Hot Press Paper 270gsm': 'CLiQ Aqueous Media',
       'CliQ Cotton Rag Paper 300gsm': 'CLiQ Aqueous Media',
       'CliQ Inkjet Matte Paper 230gsm': 'CLiQ Aqueous Media',
@@ -86,7 +87,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
       'eLe Polyester Laser Plate MXP': 'MXP Media'
     };
 
-    return categoryMappings[productType] || 'Product Media';
+    return categoryMappings[productType] || productType;
   }
 
   // Group items by product type
@@ -402,7 +403,7 @@ export async function generateQuotePDF(request: PDFGenerationRequest): Promise<B
 
   try {
     const pdfBuffer = await pdf.generatePdf({ content: html }, options);
-    return pdfBuffer;
+    return pdfBuffer as Buffer;
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw new Error('Failed to generate PDF');

@@ -35,6 +35,7 @@ export function generateQuoteHTMLForDownload(data: any): string {
     const categoryMappings: { [key: string]: string } = {
       // CLiQ products
       'CliQ Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
+      'Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
       'CliQ Hot Press Paper 270gsm': 'CLiQ Aqueous Media',
       'CliQ Cotton Rag Paper 300gsm': 'CLiQ Aqueous Media',
       'CliQ Inkjet Matte Paper 230gsm': 'CLiQ Aqueous Media',
@@ -71,7 +72,7 @@ export function generateQuoteHTMLForDownload(data: any): string {
       'eLe Polyester Laser Plate MXP': 'MXP Media'
     };
 
-    return categoryMappings[productType] || 'Product Media';
+    return categoryMappings[productType] || productType;
   }
 
   // Generate separate tables for each product type
