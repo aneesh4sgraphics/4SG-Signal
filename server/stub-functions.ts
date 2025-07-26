@@ -236,6 +236,7 @@ function getCategoryDisplayName(productName: string, productType: string): strin
   const categoryMappings: { [key: string]: string } = {
     // Graffiti Polyester Paper products
     'Graffiti Polyester Paper': 'Graffiti Polyester Paper',
+    'AuraBoard - Holographics': 'Graffiti Polyester Paper',
     // Solvit products
     'Solvit Poster Paper 175gsm': 'Solvit Sign & Display Media',
     'Solvit Backlit Film 8mil': 'Solvit Sign & Display Media',
@@ -246,6 +247,7 @@ function getCategoryDisplayName(productName: string, productType: string): strin
     'Solvit SlickStick 5mil Polyester': 'Solvit Sign & Display Media',
     // CLiQ products
     'CliQ Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
+    'Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
     'CliQ Hot Press Paper 270gsm': 'CLiQ Aqueous Media',
     'CliQ Cotton Rag Paper 300gsm': 'CLiQ Aqueous Media',
     'CliQ Inkjet Matte Paper 230gsm': 'CLiQ Aqueous Media',

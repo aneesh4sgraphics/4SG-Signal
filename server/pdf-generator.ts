@@ -53,6 +53,42 @@ function numberToWords(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+// Category mapping function to get proper category display names
+function getCategoryDisplayName(productType: string): string {
+  // Category mappings based on product types
+  const categoryMappings: { [key: string]: string } = {
+    // Graffiti Polyester Paper products
+    'Graffiti Polyester Paper': 'Graffiti Polyester Paper',
+    'AuraBoard - Holographics': 'Graffiti Polyester Paper',
+    // Solvit products
+    'Solvit Poster Paper 175gsm': 'Solvit Sign & Display Media',
+    'Solvit Backlit Film 8mil': 'Solvit Sign & Display Media',
+    'Solvit Self Adhesive Vinyl - 4mil (Greyback)': 'Solvit Sign & Display Media',
+    'Solvit Self Adhesive Vinyl - 6mil (white Back)': 'Solvit Sign & Display Media',
+    'Solvit PolySign 11mil': 'Solvit Sign & Display Media',
+    'Solvit PolySign 17mil': 'Solvit Sign & Display Media',
+    'Solvit SlickStick 5mil Polyester': 'Solvit Sign & Display Media',
+    // CLiQ products  
+    'CliQ Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
+    'Cold Press Paper 300gsm': 'CLiQ Aqueous Media',
+    'CliQ Hot Press Paper 270gsm': 'CLiQ Aqueous Media',
+    'CliQ Cotton Rag Paper 300gsm': 'CLiQ Aqueous Media',
+    'CliQ Inkjet Matte Paper 230gsm': 'CLiQ Aqueous Media',
+    'CliQ PETBull 7mil': 'CLiQ Aqueous Media',
+    'CliQ Photo Paper 10.4mil': 'CLiQ Aqueous Media',
+    'CliQ Photo Paper 11.2 mil': 'CLiQ Aqueous Media',
+    'CliQ Banner Media - 15mil': 'CLiQ Aqueous Media',
+    'CliQ Inkjet Matte Paper 170gsm': 'CLiQ Aqueous Media',
+    'CliQ Photo Paper 8.4mil': 'CLiQ Aqueous Media',
+    'CliQ Self Adhesive Vinyl - 5mil (PVC)': 'CLiQ Aqueous Media',
+    'CliQ SlickStick 10.4mil': 'CLiQ Aqueous Media',
+    // Default fallback
+    default: 'Product Media'
+  };
+
+  return categoryMappings[productType] || categoryMappings.default;
+}
+
 function generateQuoteHTML(data: PDFGenerationRequest): string {
   const { customerName, quoteNumber, quoteItems, totalAmount } = data;
   const logo = getLogoBase64();
@@ -84,21 +120,29 @@ function generateQuoteHTML(data: PDFGenerationRequest): string {
         )
         .join("");
 
+      // Get the proper category display name for this product type
+      const categoryDisplayName = getCategoryDisplayName(type);
+
       return `
-      <h3>${type}</h3>
-      <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
-        <thead>
-          <tr style="background:#374151;color:white;">
-            <th style="padding:8px;text-align:left;">Size</th>
-            <th style="padding:8px;text-align:center;">Min Order Qty</th>
-            <th style="padding:8px;text-align:right;">Price/Sheet</th>
-            <th style="padding:8px;text-align:right;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
+      <div style="margin-bottom: 25px;">
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 14px; font-weight: 600; color: #3b82f6; margin-bottom: 2px;">${categoryDisplayName}</div>
+          <div style="font-size: 16px; font-weight: bold; color: #1f2937;">${type}</div>
+        </div>
+        <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
+          <thead>
+            <tr style="background:#374151;color:white;">
+              <th style="padding:8px;text-align:left;">Size</th>
+              <th style="padding:8px;text-align:center;">Min Order Qty</th>
+              <th style="padding:8px;text-align:right;">Price/Sheet</th>
+              <th style="padding:8px;text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
     `;
     })
     .join("");
