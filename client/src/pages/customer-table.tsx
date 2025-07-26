@@ -90,10 +90,41 @@ export default function CustomerTable() {
   }, [logPageView]);
 
   // Fetch customers
-  const { data: customers = [], isLoading, refetch } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading, error, refetch } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     staleTime: 1 * 60 * 1000, // 1 minute
   });
+
+  // Early return for loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-lg">Loading customer data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return for error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <X className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-lg font-semibold">Error loading customers</p>
+            <p className="text-sm">{error instanceof Error ? error.message : 'Unknown error occurred'}</p>
+          </div>
+          <Button onClick={() => refetch()} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Filter and search customers
   const filteredCustomers = customers.filter((customer) => {
