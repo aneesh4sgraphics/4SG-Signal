@@ -107,6 +107,15 @@ export default function PriceList() {
   // Get unique categories
   const categories = Array.from(new Set(productData.map(item => item.productName))).sort();
 
+  // Utility function for retail pricing rounding (99-cent rounding)
+  const applyRetailRounding = (price: number, isRetail: boolean): number => {
+    if (!isRetail) return price;
+    
+    // Round to 99 cents: floor the dollar amount and add 0.99
+    const floorPrice = Math.floor(price);
+    return floorPrice + 0.99;
+  };
+
   // Generate price list when category or tier changes
   useEffect(() => {
     if (selectedCategory && selectedTier) {
@@ -132,8 +141,12 @@ export default function PriceList() {
         const tierField = tierMapping[selectedTier];
         const pricePerSqM = Number(product[tierField]) || 0;
         const sqm = parseFloat(String(product.totalSqm || 0));
-        const pricePerSheet = +(pricePerSqM * sqm).toFixed(2);
+        let pricePerSheet = +(pricePerSqM * sqm).toFixed(2);
         const minQty = Number(product.minQuantity) || 1;
+        
+        // Apply retail rounding for RETAIL tier
+        const isRetailTier = selectedTier === 'Retail';
+        pricePerSheet = applyRetailRounding(pricePerSheet, isRetailTier);
         const pricePerPack = +(pricePerSheet * minQty).toFixed(2);
 
         return {
