@@ -404,24 +404,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Product Pricing - Legacy methods replaced by productPricingMaster
-  // These methods are deprecated and should use productPricingMaster instead
+  /**
+   * @deprecated Use getProductPricingMaster instead
+   */
   async getProductPricing(): Promise<any[]> {
-    // Return empty array - legacy method, use getProductPricingMaster instead
+    console.warn('getProductPricing is deprecated. Use getProductPricingMaster instead.');
     return [];
   }
 
+  /**
+   * @deprecated Use getProductPricingMaster instead
+   */
   async getProductPricingByType(typeId: number): Promise<any[]> {
-    // Return empty array - legacy method, use getProductPricingMaster instead
+    console.warn('getProductPricingByType is deprecated. Use getProductPricingMaster instead.');
     return [];
   }
 
+  /**
+   * @deprecated Use productPricingMaster pricing instead
+   */
   async getPriceForProductType(typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    // Return 0 - legacy method, use productPricingMaster pricing instead
+    console.warn('getPriceForProductType is deprecated. Use productPricingMaster pricing instead.');
     return 0;
   }
 
+  /**
+   * @deprecated Use productPricingMaster pricing instead
+   */
   async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    // Return 0 - legacy method, use productPricingMaster pricing instead
+    console.warn('getPriceForSquareMeters is deprecated. Use productPricingMaster pricing instead.');
     return 0;
   }
 
