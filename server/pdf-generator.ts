@@ -375,32 +375,35 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
 }
 
 function getLogoBase64(): string {
-  try {
-    // Try the attached assets directory first
-    const logoPath = path.join(process.cwd(), 'attached_assets', '4s logo Clean 150x_1753410902611.png');
-    console.log('Attempting to read logo from:', logoPath);
-    
-    // Check if file exists
-    if (!fs.existsSync(logoPath)) {
-      console.error('Logo file does not exist at path:', logoPath);
-      // Try alternative path
-      const altLogoPath = path.join(process.cwd(), 'client', 'public', 'company-logo.png');
-      if (fs.existsSync(altLogoPath)) {
-        const logoBuffer = fs.readFileSync(altLogoPath);
-        return logoBuffer.toString('base64');
+  const logoPaths = [
+    path.join(process.cwd(), 'client', 'public', 'company-logo.png'),
+    path.join(process.cwd(), 'attached_assets', '4s logo Clean 150x_1753410902611.png'),
+    path.join(process.cwd(), 'public', 'company-logo.png')
+  ];
+
+  console.log('Searching for logo in paths:', logoPaths);
+
+  for (const logoPath of logoPaths) {
+    try {
+      console.log(`Checking logo path: ${logoPath}`);
+      
+      if (fs.existsSync(logoPath)) {
+        console.log(`✓ Logo file found at: ${logoPath}`);
+        const logoBuffer = fs.readFileSync(logoPath);
+        console.log(`✓ Logo file read successfully, size: ${logoBuffer.length} bytes`);
+        const base64 = logoBuffer.toString('base64');
+        console.log(`✓ Base64 conversion successful, length: ${base64.length}`);
+        return base64;
+      } else {
+        console.log(`✗ Logo file not found at: ${logoPath}`);
       }
-      return '';
+    } catch (error) {
+      console.error(`Error accessing logo at ${logoPath}:`, error);
     }
-    
-    const logoBuffer = fs.readFileSync(logoPath);
-    console.log('Logo file read successfully, size:', logoBuffer.length, 'bytes');
-    const base64 = logoBuffer.toString('base64');
-    console.log('Base64 conversion successful, length:', base64.length);
-    return base64;
-  } catch (error) {
-    console.error('Error reading logo file:', error);
-    return '';
   }
+
+  console.warn('No logo file found in any of the search paths');
+  return '';
 }
 
 export async function generateQuotePDF(request: PDFGenerationRequest): Promise<Buffer> {
