@@ -7,7 +7,7 @@ import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
-import FirecrackerAnimation from "@/components/FirecrackerAnimation";
+// Removed: FirecrackerAnimation import - animation removed per user request
 import OdooLayout from "@/components/OdooLayout";
 import AreaPricer from "@/pages/area-pricer-fixed";
 import CompetitorPricing from "@/pages/competitor-pricing-fixed";
@@ -51,18 +51,7 @@ const PendingPage = () => (
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [showFirecrackers, setShowFirecrackers] = useState(false);
-  const [previousAuthState, setPreviousAuthState] = useState(isAuthenticated);
-
-  // Trigger firecracker animation when user successfully logs in
-  useEffect(() => {
-    if (!previousAuthState && isAuthenticated && user) {
-      setShowFirecrackers(true);
-      // Auto-hide after 3 seconds
-      setTimeout(() => setShowFirecrackers(false), 3000);
-    }
-    setPreviousAuthState(isAuthenticated);
-  }, [isAuthenticated, user, previousAuthState]);
+  // Removed: firecracker animation state and logic per user request
 
   if (import.meta.env.DEV) {
     console.log("Router render - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "user:", user);
@@ -134,7 +123,6 @@ function Router() {
   // Handle authenticated users with Odoo layout
   return (
     <OdooLayout>
-      <FirecrackerAnimation isVisible={showFirecrackers} />
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/quick-quotes" component={QuoteCalculator} />

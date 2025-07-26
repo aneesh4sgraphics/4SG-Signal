@@ -97,14 +97,14 @@ const EmailCelebrationAnimation: React.FC<EmailCelebrationAnimationProps> = ({
             exit={{ scale: 0.8, opacity: 0, y: -20 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
           >
-            {/* Fireworks Effect */}
+            {/* Simple Success Icons */}
             {showFireworks && (
               <div className="absolute inset-0 pointer-events-none">
-                {[...Array(6)].map((_, i) => (
+                {[...Array(3)].map((_, i) => (
                   <FloatingIcon
                     key={i}
-                    icon={[Mail, CheckCircle, Sparkles, Send, Star, Heart][i]}
-                    delay={i * 0.2}
+                    icon={[Mail, CheckCircle, Send][i]}
+                    delay={i * 0.3}
                   />
                 ))}
               </div>
