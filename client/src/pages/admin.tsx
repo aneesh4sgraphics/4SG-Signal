@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,26 @@ export default function Admin() {
     onError: (error) => {
       toast({
         title: "Error rejecting user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+      return await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/role`, "PATCH", { role: newRole });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Role updated",
+        description: "User role has been updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating role",
         description: error.message,
         variant: "destructive",
       });
@@ -172,9 +192,22 @@ export default function Admin() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                            {user.role}
-                          </Badge>
+                          {user.status === 'approved' ? (
+                            <select 
+                              value={user.role} 
+                              onChange={(e) => changeRoleMutation.mutate({ userId: user.id, newRole: e.target.value })}
+                              className="px-2 py-1 border border-gray-300 rounded text-sm"
+                              disabled={changeRoleMutation.isPending}
+                            >
+                              <option value="user">User</option>
+                              <option value="manager">Manager</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          ) : (
+                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                              {user.role}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge 

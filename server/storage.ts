@@ -43,6 +43,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   approveUser(userId: string, adminId: string): Promise<User | undefined>;
   rejectUser(userId: string, adminId: string): Promise<User | undefined>;
+  changeUserRole(userId: string, role: string): Promise<User | undefined>;
 
   
   // Product Categories
@@ -671,6 +672,15 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async changeUserRole(userId: string, role: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user;

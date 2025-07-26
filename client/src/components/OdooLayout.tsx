@@ -29,9 +29,9 @@ const mainItems = [
 ];
 
 const adminItems = [
-  { path: '/customers', icon: Users, label: 'Customers' },
+  { path: '/admin', icon: Users, label: 'User Management' },
+  { path: '/customers', icon: Building2, label: 'Customers' },
   { path: '/product-pricing-management', icon: Database, label: 'Product Pricing' },
-  { path: '/admin', icon: Settings, label: 'Administration' },
 ];
 
 export default function OdooLayout({ children }: OdooLayoutProps) {
