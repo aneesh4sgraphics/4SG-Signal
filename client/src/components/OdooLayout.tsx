@@ -11,7 +11,10 @@ import {
   Menu,
   X,
   Building2,
-  Activity
+  Activity,
+  Calculator,
+  TrendingUp,
+  Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +30,9 @@ const mainItems = [
   { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes' },
   { path: '/price-list', icon: DollarSign, label: 'Price List' },
   { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes' },
+  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator' },
+  { path: '/competitor-pricing', icon: TrendingUp, label: 'ComIntel' },
+  { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator' },
 ];
 
 const adminItems = [
