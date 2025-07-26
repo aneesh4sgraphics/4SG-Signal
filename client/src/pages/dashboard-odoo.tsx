@@ -158,39 +158,39 @@ export default function Dashboard() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <OdooCard>
-          <div className="flex items-start justify-between h-20">
-            <div className="flex flex-col justify-between h-full">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium text-gray-600">Active Quotes</p>
               <p className="text-3xl font-bold text-gray-900">12</p>
               <p className="text-xs text-green-600">↑ 8% from last week</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-xl">
+            <div className="p-3 bg-blue-100 rounded-xl flex-shrink-0">
               <FileText className="h-8 w-8 text-blue-600" />
             </div>
           </div>
         </OdooCard>
 
         <OdooCard>
-          <div className="flex items-start justify-between h-20">
-            <div className="flex flex-col justify-between h-full">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium text-gray-600">This Month</p>
               <p className="text-3xl font-bold text-gray-900">$45.2K</p>
               <p className="text-xs text-green-600">↑ 12% from last month</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-xl">
+            <div className="p-3 bg-green-100 rounded-xl flex-shrink-0">
               <TrendingUp className="h-8 w-8 text-green-600" />
             </div>
           </div>
         </OdooCard>
 
         <OdooCard>
-          <div className="flex items-start justify-between h-20">
-            <div className="flex flex-col justify-between h-full">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium text-gray-600">Success Rate</p>
               <p className="text-3xl font-bold text-gray-900">94%</p>
               <p className="text-xs text-green-600">Excellent performance</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-xl">
+            <div className="p-3 bg-purple-100 rounded-xl flex-shrink-0">
               <CheckCircle className="h-8 w-8 text-purple-600" />
             </div>
           </div>
