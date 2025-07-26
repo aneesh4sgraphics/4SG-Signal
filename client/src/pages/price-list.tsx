@@ -279,13 +279,14 @@ export default function PriceList() {
                 minWidth: 70,
                 align: 'center' 
               },
-              { 
+              // Only show Price/Sq.M column for admin users
+              ...((user as any)?.role === 'admin' ? [{ 
                 key: 'pricePerSqM', 
                 title: 'Price/Sq.M', 
                 weight: 1,
                 minWidth: 90,
-                align: 'right' 
-              },
+                align: 'right' as const
+              }] : []),
               { 
                 key: 'pricePerSheet', 
                 title: 'Price/Sheet', 
