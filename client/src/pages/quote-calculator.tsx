@@ -328,7 +328,7 @@ Total Amount: $${calculatedTotalAmount.toFixed(2)}
 We eagerly look forward for your business.
 
 Yours truly
-${user?.email || '4S Graphics Team'}`;
+${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : '4S Graphics Team'}`;
 
     // Create mailto link
     const mailtoLink = `mailto:${customerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
