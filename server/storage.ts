@@ -50,6 +50,7 @@ export interface IStorage {
   approveUser(userId: string, adminId: string): Promise<User | undefined>;
   rejectUser(userId: string, adminId: string): Promise<User | undefined>;
   changeUserRole(userId: string, role: string): Promise<User | undefined>;
+  updateUserRole(userId: string, role: string): Promise<User | undefined>;
 
   
   // Product Categories
@@ -200,6 +201,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User | undefined> {
+    // Alias for changeUserRole to maintain compatibility
+    return this.changeUserRole(userId, role);
   }
 
   // Competitor Pricing operations
