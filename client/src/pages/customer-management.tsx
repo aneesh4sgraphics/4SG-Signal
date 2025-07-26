@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, Building } from "lucide-react";
+import { Users, Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CustomerData {
@@ -45,9 +45,7 @@ export default function CustomerManagement() {
   });
 
   const stats = {
-    totalCustomers: customerData.length,
-    companies: Array.from(new Set(customerData.map(item => item["Default Address Company"]).filter(Boolean))).length,
-    lastUpdated: new Date().toLocaleDateString()
+    totalCustomers: customerData.length
   };
 
   const handleFileUpload = async (file: File) => {
@@ -195,7 +193,7 @@ export default function CustomerManagement() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
           <Card className="bg-white shadow-lg border-0">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-blue-900 flex items-center gap-2">
@@ -206,34 +204,6 @@ export default function CustomerManagement() {
             <CardContent>
               <div className="text-3xl font-bold text-blue-600">
                 {isLoading ? "..." : stats.totalCustomers.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-blue-900 flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Companies
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {isLoading ? "..." : stats.companies.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white shadow-lg border-0">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-blue-900 flex items-center gap-2">
-                <RefreshCw className="h-5 w-5" />
-                Last Updated
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold text-blue-600">
-                {stats.lastUpdated}
               </div>
             </CardContent>
           </Card>
@@ -327,17 +297,11 @@ export default function CustomerManagement() {
             {/* Current Data Info */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <h3 className="font-semibold text-blue-900 mb-2">Current Data</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="text-sm">
                 <div>
                   <span className="text-blue-600">Total Records:</span>
                   <span className="ml-2 font-semibold text-blue-800">
                     {stats.totalCustomers.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-blue-600">Companies:</span>
-                  <span className="ml-2 font-semibold text-blue-800">
-                    {stats.companies.toLocaleString()}
                   </span>
                 </div>
               </div>
