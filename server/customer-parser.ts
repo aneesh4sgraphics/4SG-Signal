@@ -184,6 +184,7 @@ export async function parseCustomerCSV(csvContent: string): Promise<{
 
   // Parse all customers first
   const parsedCustomers: Array<{ customerData: InsertCustomer; lineNumber: number }> = [];
+  const seenIds = new Set<string>();
   
   // Skip the header row and parse all data
   for (let i = 1; i < csvRows.length; i++) {
@@ -196,6 +197,15 @@ export async function parseCustomerCSV(csvContent: string): Promise<{
       if (!parsedCustomer) {
         continue;
       }
+
+      // Check for duplicate customer IDs within the CSV file
+      if (seenIds.has(parsedCustomer.customerId)) {
+        const errorMsg = `Duplicate customer ID '${parsedCustomer.customerId}' found at row ${i + 1}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+        continue;
+      }
+      seenIds.add(parsedCustomer.customerId);
 
       const customerData: InsertCustomer = {
         id: parsedCustomer.customerId,
