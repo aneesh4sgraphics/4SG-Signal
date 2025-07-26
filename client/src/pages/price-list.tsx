@@ -261,8 +261,8 @@ export default function PriceList() {
               { 
                 key: 'productType', 
                 title: 'Product Type', 
-                weight: 3,
-                minWidth: 160,
+                weight: 4,
+                minWidth: 200,
                 align: 'left' 
               },
               { 

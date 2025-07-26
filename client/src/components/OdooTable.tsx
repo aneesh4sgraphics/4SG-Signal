@@ -61,7 +61,9 @@ export function AdaptiveTable({
         const minWidth = column.minWidth || 80;
         const maxWidth = column.maxWidth || Infinity;
         
-        const finalWidth = Math.max(minWidth, Math.min(maxWidth, baseWidth));
+        // Add extra width for columns that might contain long text
+        const extraWidth = column.key === 'productType' ? 50 : 0;
+        const finalWidth = Math.max(minWidth, Math.min(maxWidth, baseWidth + extraWidth));
         return `${Math.floor(finalWidth)}px`;
       });
 
@@ -140,7 +142,7 @@ export function AdaptiveTable({
                       maxWidth: column.maxWidth
                     }}
                   >
-                    <div className="truncate" title={typeof renderCell(item, column, rowIndex) === 'string' ? renderCell(item, column, rowIndex) as string : undefined}>
+                    <div className="whitespace-nowrap overflow-hidden text-ellipsis" title={typeof renderCell(item, column, rowIndex) === 'string' ? renderCell(item, column, rowIndex) as string : undefined}>
                       {renderCell(item, column, rowIndex)}
                     </div>
                   </TableCell>

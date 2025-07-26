@@ -435,12 +435,12 @@ Yours truly
                   disabled={!selectedCategory}
                 >
                   <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100">
-                  <SelectValue placeholder="Select a type" />
+                  <SelectValue placeholder="Select a type" className="truncate" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-none w-auto min-w-[250px]">
                   {productTypes.map(type => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                    <SelectItem key={type} value={type} className="max-w-none whitespace-nowrap">
+                      <span className="whitespace-nowrap">{type}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -456,12 +456,12 @@ Yours truly
                   <label className="block text-sm font-medium text-gray-800">Size</label>
                   <Select value={selectedSize} onValueChange={setSelectedSize}>
                     <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                      <SelectValue placeholder="Select size" />
+                      <SelectValue placeholder="Select size" className="truncate" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-w-none w-auto min-w-[200px]">
                       {availableSizes.map(product => (
-                        <SelectItem key={product.size} value={product.size}>
-                          {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
+                        <SelectItem key={product.size} value={product.size} className="max-w-none whitespace-nowrap">
+                          <span className="whitespace-nowrap">{product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)</span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -766,8 +766,8 @@ Yours truly
                 { 
                   key: 'product', 
                   title: 'Product', 
-                  weight: 3,
-                  minWidth: 180,
+                  weight: 4,
+                  minWidth: 220,
                   align: 'left' 
                 },
                 { 
@@ -827,10 +827,10 @@ Yours truly
                 switch (column.key) {
                   case 'product':
                     return (
-                      <div>
-                        <div className="text-sm text-gray-800 font-medium">{item.productName}</div>
-                        <div className="text-xs text-gray-500">{item.productType}</div>
-                        <div className="text-xs text-gray-400">{item.itemCode}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis" title={item.productName}>{item.productName}</div>
+                        <div className="text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis" title={item.productType}>{item.productType}</div>
+                        <div className="text-xs text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis" title={item.itemCode}>{item.itemCode}</div>
                       </div>
                     );
                   case 'size':
