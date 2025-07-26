@@ -554,7 +554,7 @@ export class DatabaseStorage implements IStorage {
       // Update existing quote
       const [updatedQuote] = await db
         .update(sentQuotes)
-        .set({ ...quote, updatedAt: new Date() })
+        .set(quote)
         .where(eq(sentQuotes.quoteNumber, quote.quoteNumber))
         .returning();
       return updatedQuote;
@@ -746,7 +746,7 @@ export class DatabaseStorage implements IStorage {
   async createUploadBatch(batch: InsertUploadBatch): Promise<UploadBatch> {
     const [result] = await db
       .insert(uploadBatches)
-      .values(batch)
+      .values(batch as any)
       .returning();
     return result;
   }
@@ -837,13 +837,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActivityLogs(userId?: string, limit: number = 50): Promise<ActivityLog[]> {
-    let query = db.select().from(activityLogs);
-    
     if (userId) {
-      query = query.where(eq(activityLogs.userId, userId));
+      return await db
+        .select()
+        .from(activityLogs)
+        .where(eq(activityLogs.userId, userId))
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(limit);
     }
     
-    return await query
+    return await db
+      .select()
+      .from(activityLogs)
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
   }

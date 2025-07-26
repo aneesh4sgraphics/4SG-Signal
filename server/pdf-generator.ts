@@ -444,9 +444,9 @@ export async function generateQuotePDF(request: PDFGenerationRequest): Promise<B
 
   try {
     console.log('Starting PDF generation with Chromium path:', process.env.PUPPETEER_EXECUTABLE_PATH);
-    const pdfBuffer = await pdf.generatePdf({ content: html }, options);
-    console.log('PDF generation successful, buffer size:', (pdfBuffer as Buffer).length);
-    return pdfBuffer as Buffer;
+    const pdfBuffer = await pdf.generatePdf({ content: html }, options) as unknown as Buffer;
+    console.log('PDF generation successful, buffer size:', pdfBuffer ? pdfBuffer.length : 0);
+    return pdfBuffer;
   } catch (error) {
     console.error('Error generating PDF:', error);
     console.error('Error details:', {
@@ -455,7 +455,6 @@ export async function generateQuotePDF(request: PDFGenerationRequest): Promise<B
       chromiumPath: process.env.PUPPETEER_EXECUTABLE_PATH
     });
     throw new Error('Failed to generate PDF');
-  } Error('Failed to generate PDF');
   }
 }
 
