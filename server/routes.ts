@@ -1786,8 +1786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate unique quote number
   app.post("/api/generate-quote-number", isAuthenticated, async (req: any, res) => {
     try {
-      const { generateUniqueQuoteNumber } = await import('./pdf-generator');
-      const quoteNumber = await generateUniqueQuoteNumber(storage);
+      const quoteNumber = generateUniqueQuoteNumber();
       res.json({ quoteNumber });
     } catch (error) {
       console.error("Error generating quote number:", error);
@@ -1808,8 +1807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUserEmail = req.user?.claims?.email || "sales@4sgraphics.com";
 
       // Generate unique quote number
-      const { generateUniqueQuoteNumber } = await import('./pdf-generator');
-      const finalQuoteNumber = await generateUniqueQuoteNumber(storage);
+      const finalQuoteNumber = generateUniqueQuoteNumber();
       
       // Calculate total
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
@@ -2713,21 +2711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate unique quote number with customer prefix and backend validation
-  app.post("/api/generate-quote-number", async (req, res) => {
-    try {
-      const { customerName, customerId } = req.body;
-      const quoteNumber = await generateUniqueQuoteNumber(customerName, customerId);
-      res.json({ 
-        quoteNumber,
-        hasCustomerPrefix: !!(customerName || customerId),
-        isValid: validateQuoteNumber(quoteNumber)
-      });
-    } catch (error) {
-      console.error("Error generating unique quote number:", error);
-      res.status(500).json({ error: "Failed to generate unique quote number" });
-    }
-  });
+
 
   // Activity logging API routes
   app.post("/api/log-activity", isAuthenticated, async (req, res) => {

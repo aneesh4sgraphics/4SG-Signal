@@ -159,9 +159,7 @@ export async function generateQuotePDF(
   
   try {
     const pdfBuffer = await pdf.generatePdf(file, pdfOptions);
-    if (!pdfBuffer) {
-      throw new Error('PDF generation failed - no buffer returned');
-    }
+    // html-pdf-node returns a Buffer directly
     return pdfBuffer as Buffer;
   } catch (error) {
     console.error('PDF generation error:', error);
