@@ -81,10 +81,8 @@ function parseCSVWithQuotes(csvContent: string): string[][] {
   return rows;
 }
 
-function normalizeBoolean(value: string | undefined): boolean {
-  if (!value) return false;
-  const normalized = value.trim().toLowerCase();
-  return normalized === 'yes' || normalized === 'true' || normalized === '1' || normalized === 'y';
+function parseBoolean(value: string | undefined): boolean {
+  return ['yes', 'true', '1'].includes(value?.trim().toLowerCase() || '');
 }
 
 function parseCustomerRow(row: string[]): ParsedCustomerRow | null {
@@ -104,7 +102,7 @@ function parseCustomerRow(row: string[]): ParsedCustomerRow | null {
   const firstName = row[1]?.trim() || '';
   const lastName = row[2]?.trim() || '';
   const email = row[3]?.trim() || '';
-  const acceptsEmailMarketing = normalizeBoolean(row[4]);
+  const acceptsEmailMarketing = parseBoolean(row[4]);
   const company = row[5]?.trim() || '';
   const address1 = row[6]?.trim() || '';
   const address2 = row[7]?.trim() || '';
@@ -114,11 +112,11 @@ function parseCustomerRow(row: string[]): ParsedCustomerRow | null {
   const zip = row[11]?.trim() || '';
   const defaultAddressPhone = row[12]?.replace(/^'/, '').trim() || '';
   const phone = row[13]?.replace(/^'/, '').trim() || '';
-  const acceptsSmsMarketing = normalizeBoolean(row[14]);
+  const acceptsSmsMarketing = parseBoolean(row[14]);
   const totalSpent = parseFloat(row[15]) || 0;
   const totalOrders = parseInt(row[16]) || 0;
   const note = row[17]?.trim() || '';
-  const taxExempt = normalizeBoolean(row[18]);
+  const taxExempt = parseBoolean(row[18]);
   const tags = row[19]?.trim() || '';
 
   return {
