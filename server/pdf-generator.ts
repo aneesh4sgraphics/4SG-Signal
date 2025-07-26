@@ -36,25 +36,16 @@ const companyDetails = {
 };
 
 function getLogoBase64(): string {
-  // Try multiple possible logo locations
-  const possiblePaths = [
-    path.join(process.cwd(), "client", "public", "company-logo.png"),
-    path.join(process.cwd(), "client", "public", "company-logo.jpg"),
-    path.join(process.cwd(), "dist", "public", "company-logo.png"),
-    path.join(process.cwd(), "dist", "public", "company-logo.jpg"),
-    path.join(process.cwd(), "public", "company-logo.png"), // Original fallback
-    path.join(process.cwd(), "attached_assets", "4s logo Clean 150x_1753410902611.png")
-  ];
+  // Use the specific 4S Graphics logo from attached_assets
+  const logoPath = path.join(process.cwd(), "attached_assets", "4s logo Clean 150x_1753410902611.png");
   
-  for (const logoPath of possiblePaths) {
-    if (fs.existsSync(logoPath)) {
-      console.log(`Found logo at: ${logoPath}`);
-      const buffer = fs.readFileSync(logoPath);
-      return buffer.toString("base64");
-    }
+  if (fs.existsSync(logoPath)) {
+    console.log(`Using 4S Graphics logo from: ${logoPath}`);
+    const buffer = fs.readFileSync(logoPath);
+    return buffer.toString("base64");
   }
   
-  console.warn("No logo file found in any of the expected locations");
+  console.warn("4S Graphics logo not found at expected location:", logoPath);
   return "";
 }
 
