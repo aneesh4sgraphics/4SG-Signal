@@ -127,7 +127,6 @@ export default function Dashboard() {
             <Badge variant="outline" className="text-purple-700 border-purple-200 px-3 py-1">
               {(user as any)?.role === 'admin' ? 'Administrator' : 'Employee'}
             </Badge>
-            <Calendar className="h-6 w-6 text-purple-400" />
           </div>
         </div>
       </div>
