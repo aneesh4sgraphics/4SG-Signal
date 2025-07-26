@@ -169,14 +169,18 @@ export default function CustomerTable() {
     mutationFn: async (customerId: string) => {
       return await apiRequest("DELETE", `/api/customers/${customerId}`);
     },
-    onSuccess: (_, customerId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    onSuccess: async (_, customerId) => {
       const customer = customers.find(c => c.id === customerId);
       logUserAction("DELETED CUSTOMER", `${customer?.firstName} ${customer?.lastName} (${customer?.email})`);
       toast({
         title: "Customer deleted",
         description: "Customer has been deleted successfully",
       });
+      
+      // Small delay before invalidating to ensure deletion is complete
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      }, 100);
     },
     onError: (error: any) => {
       toast({

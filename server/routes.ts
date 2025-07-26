@@ -873,7 +873,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Customer not found" });
       }
 
-      await storage.deleteCustomer(customerId);
+      const deleteResult = await storage.deleteCustomer(customerId);
+      if (!deleteResult) {
+        return res.status(500).json({ error: "Failed to delete customer from database" });
+      }
+
+      // Clear cache to ensure fresh data on next fetch
+      setCachedData("customers", null);
+      
       res.json({ message: "Customer deleted successfully" });
     } catch (error) {
       console.error("Error deleting customer:", error);
