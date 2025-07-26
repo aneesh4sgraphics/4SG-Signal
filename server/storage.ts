@@ -204,8 +204,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserRole(userId: string, role: string): Promise<User | undefined> {
-    // Alias for changeUserRole to maintain compatibility
-    return this.changeUserRole(userId, role);
+    const [user] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
   }
 
   // Competitor Pricing operations
@@ -926,3 +930,13 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+// Standalone function for user role updates
+export async function updateUserRole(userId: string, newRole: string) {
+  return await db
+    .update(users)
+    .set({ role: newRole })
+    .where(eq(users.id, userId))
+    .returning()
+    .then((res) => res[0]);
+}
