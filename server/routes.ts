@@ -8,7 +8,7 @@ import pdf from 'html-pdf-node';
 import puppeteer from 'puppeteer';
 import { storage } from "./storage";
 import { z } from "zod";
-import { parseProductData } from "./csv-parser";
+// Removed: parseProductData import - legacy CSV parser no longer used
 import { parseCustomerCSV } from "./customer-parser";
 
 import { generateQuoteHTMLForDownload, generateQuoteNumber, generatePriceListHTML, generateUniqueQuoteNumber, validateQuoteNumber } from "./stub-functions";
@@ -70,7 +70,7 @@ async function saveProductDataToFile() {
     const types = await storage.getProductTypes();
     const sizes = await storage.getProductSizes();
     const tiers = await storage.getPricingTiers();
-    const pricing = await storage.getProductPricing();
+    const pricing = await storage.getProductPricing(); // Legacy method returns empty array
 
     // Build CSV data similar to the original format
     const csvData = [];
@@ -470,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const productPricing = [];
       
-      // Map pricing data to ProductPricing format
+      // Map pricing data to legacy ProductPricing format (for backward compatibility)
       for (const data of pricingData) {
         // Find matching product type by name/pattern
         const matchingType = productTypes.find(type => 
@@ -657,7 +657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid type ID" });
       }
       
-      const pricing = await storage.getProductPricingByType(typeId);
+      const pricing = await storage.getProductPricingByType(typeId); // Legacy method returns empty array
       res.json(pricing);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product pricing" });

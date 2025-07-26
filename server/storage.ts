@@ -38,7 +38,6 @@ import {
   type UploadBatch,
   type InsertUploadBatch
 } from "@shared/schema";
-import { parseProductData } from "./csv-parser";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -133,622 +132,8 @@ export interface IStorage {
   getProductsCount(): Promise<number>;
 }
 
-
-
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private productCategories: Map<number, ProductCategory>;
-  private productTypes: Map<number, ProductType>;
-  private productSizes: Map<number, ProductSize>;
-  private pricingTiers: Map<number, PricingTier>;
-  private productPricing: Map<number, ProductPricing>;
-  private customers: Map<string, Customer>;
-  private sentQuotes: Map<number, SentQuote>;
-  private competitorPricing: Map<number, CompetitorPricing>;
-
-  private currentCategoryId: number;
-  private currentTypeId: number;
-  private currentSizeId: number;
-  private currentTierId: number;
-  private currentPricingId: number;
-  private currentSentQuoteId: number;
-  private currentCompetitorPricingId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.productCategories = new Map();
-    this.productTypes = new Map();
-    this.productSizes = new Map();
-    this.pricingTiers = new Map();
-    this.productPricing = new Map();
-    this.customers = new Map();
-    this.sentQuotes = new Map();
-    this.competitorPricing = new Map();
-
-    this.currentCategoryId = 1;
-    this.currentTypeId = 1;
-    this.currentSizeId = 1;
-    this.currentTierId = 1;
-    this.currentPricingId = 1;
-    this.currentSentQuoteId = 1;
-    this.currentCompetitorPricingId = 1;
-
-    // No default users - all users come from authentication
-    
-    this.initializeData();
-  }
-
-  private initializeData() {
-    this.loadDataFromCsv();
-  }
-
-  private loadDataFromCsv() {
-    try {
-      console.log('Loading product data from CSV files...');
-      const csvData = parseProductData();
-      
-      // Clear existing data
-      this.productCategories.clear();
-      this.productTypes.clear();
-      this.productSizes.clear();
-      this.pricingTiers.clear();
-      this.productPricing.clear();
-      this.customers.clear();
-      
-      // Initialize categories
-      csvData.categories.forEach(category => {
-        this.productCategories.set(category.id, category);
-        this.currentCategoryId = Math.max(this.currentCategoryId, category.id + 1);
-      });
-      
-      // Initialize types
-      csvData.types.forEach(type => {
-        this.productTypes.set(type.id, type);
-        this.currentTypeId = Math.max(this.currentTypeId, type.id + 1);
-      });
-      
-      // Initialize sizes
-      csvData.sizes.forEach(size => {
-        this.productSizes.set(size.id, size);
-        this.currentSizeId = Math.max(this.currentSizeId, size.id + 1);
-      });
-      
-      // Initialize pricing tiers
-      csvData.pricingTiers.forEach(tier => {
-        this.pricingTiers.set(tier.id, tier);
-        this.currentTierId = Math.max(this.currentTierId, tier.id + 1);
-      });
-      
-      // Initialize product pricing
-      csvData.productPricing.forEach(pricing => {
-        this.productPricing.set(pricing.id, pricing);
-        this.currentPricingId = Math.max(this.currentPricingId, pricing.id + 1);
-      });
-
-      // Initialize customers (now handled via database, skip CSV initialization)
-      
-      console.log(`Loaded ${this.productSizes.size} product sizes from CSV`);
-      
-    } catch (error) {
-      console.error('Error initializing CSV data:', error);
-      
-      // Fallback to basic data if CSV parsing fails
-      this.productCategories.set(1, { id: 1, name: "Graffiti Polyester Paper", description: null });
-      this.productTypes.set(1, { id: 1, categoryId: 1, name: "Graffiti Polyester Paper 5mil", description: null });
-      this.productSizes.set(1, { 
-        id: 1, 
-        typeId: 1, 
-        name: '12" × 18"', 
-        width: "12", 
-        height: "18", 
-        widthUnit: "inch", 
-        heightUnit: "inch", 
-        squareMeters: "0.1394",
-        itemCode: null,
-        minOrderQty: null
-      });
-      this.pricingTiers.set(1, { id: 1, name: "Retail", description: "Retail pricing tier" });
-      this.productPricing.set(1, { id: 1, productTypeId: 1, tierId: 1, pricePerSquareMeter: "5.70", sizeId: null });
-    }
-  }
-
-  private calculateSquareMeters(width: number, height: number, widthUnit: string, heightUnit: string): number {
-    const widthInches = widthUnit === 'feet' ? width * 12 : width;
-    const heightInches = heightUnit === 'feet' ? height * 12 : height;
-    return (widthInches * heightInches) * (0.0254 * 0.0254);
-  }
-
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const existingUser = this.users.get(userData.id);
-    if (existingUser) {
-      // Always update role and status for admins to ensure they get correct permissions
-      const updatedUser = { 
-        ...existingUser, 
-        ...userData, 
-        role: userData.role || existingUser.role,
-        status: userData.status || existingUser.status,
-        updatedAt: new Date() 
-      };
-      this.users.set(userData.id, updatedUser);
-      return updatedUser;
-    } else {
-      const newUser: User = { 
-        ...userData,
-        firstName: userData.firstName || null,
-        lastName: userData.lastName || null,
-        profileImageUrl: userData.profileImageUrl || null,
-        role: userData.role || "user",
-        status: userData.status || "pending",
-        approvedBy: userData.approvedBy || null,
-        approvedAt: userData.approvedAt || null,
-        loginCount: userData.loginCount || null,
-        lastLoginDate: userData.lastLoginDate || null,
-        createdAt: new Date(), 
-        updatedAt: new Date() 
-      };
-      this.users.set(userData.id, newUser);
-      return newUser;
-    }
-  }
-
-  async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
-  }
-
-  async approveUser(userId: string, adminId: string): Promise<User | undefined> {
-    const user = this.users.get(userId);
-    if (!user) {
-      return undefined;
-    }
-    
-    const updatedUser = {
-      ...user,
-      status: "approved" as const,
-      approvedBy: adminId,
-      approvedAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    this.users.set(userId, updatedUser);
-    return updatedUser;
-  }
-
-  async rejectUser(userId: string, adminId: string): Promise<User | undefined> {
-    const user = this.users.get(userId);
-    if (!user) {
-      return undefined;
-    }
-    
-    const updatedUser = {
-      ...user,
-      status: "rejected" as const,
-      approvedBy: adminId,
-      approvedAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    this.users.set(userId, updatedUser);
-    return updatedUser;
-  }
-
-
-
-  async getProductCategories(): Promise<ProductCategory[]> {
-    return Array.from(this.productCategories.values());
-  }
-
-  async getProductCategory(id: number): Promise<ProductCategory | undefined> {
-    return this.productCategories.get(id);
-  }
-
-  async createProductCategory(category: InsertProductCategory): Promise<ProductCategory> {
-    const id = this.currentCategoryId++;
-    const newCategory: ProductCategory = { ...category, id, description: category.description || null };
-    this.productCategories.set(id, newCategory);
-    return newCategory;
-  }
-
-  async getProductTypes(): Promise<ProductType[]> {
-    return Array.from(this.productTypes.values());
-  }
-
-  async getProductTypesByCategory(categoryId: number): Promise<ProductType[]> {
-    return Array.from(this.productTypes.values()).filter(type => type.categoryId === categoryId);
-  }
-
-  async getProductType(id: number): Promise<ProductType | undefined> {
-    return this.productTypes.get(id);
-  }
-
-  async createProductType(type: InsertProductType): Promise<ProductType> {
-    const id = this.currentTypeId++;
-    const newType: ProductType = { ...type, id, description: type.description || null };
-    this.productTypes.set(id, newType);
-    return newType;
-  }
-
-  async getProductSizes(): Promise<ProductSize[]> {
-    return Array.from(this.productSizes.values());
-  }
-
-  async getProductSizesByType(typeId: number): Promise<ProductSize[]> {
-    return Array.from(this.productSizes.values()).filter(size => size.typeId === typeId);
-  }
-
-  async getProductSize(id: number): Promise<ProductSize | undefined> {
-    return this.productSizes.get(id);
-  }
-
-  async createProductSize(size: InsertProductSize): Promise<ProductSize> {
-    const id = this.currentSizeId++;
-    const newSize: ProductSize = { 
-      ...size, 
-      id, 
-      itemCode: size.itemCode || null,
-      minOrderQty: size.minOrderQty || null
-    };
-    this.productSizes.set(id, newSize);
-    return newSize;
-  }
-
-  async updateProductSize(id: number, sizeData: Partial<InsertProductSize>): Promise<ProductSize | undefined> {
-    const existingSize = this.productSizes.get(id);
-    if (!existingSize) {
-      return undefined;
-    }
-    
-    const updatedSize: ProductSize = {
-      ...existingSize,
-      ...sizeData
-    };
-    this.productSizes.set(id, updatedSize);
-    return updatedSize;
-  }
-
-  async getPricingTiers(): Promise<PricingTier[]> {
-    return Array.from(this.pricingTiers.values());
-  }
-
-  async getPricingTier(id: number): Promise<PricingTier | undefined> {
-    return this.pricingTiers.get(id);
-  }
-
-  async createPricingTier(tier: InsertPricingTier): Promise<PricingTier> {
-    const id = this.currentTierId++;
-    const newTier: PricingTier = { ...tier, id, description: tier.description || null };
-    this.pricingTiers.set(id, newTier);
-    return newTier;
-  }
-
-  async getProductPricing(): Promise<ProductPricing[]> {
-    return Array.from(this.productPricing.values());
-  }
-
-  async getProductPricingByType(typeId: number): Promise<ProductPricing[]> {
-    return Array.from(this.productPricing.values()).filter(pricing => pricing.productTypeId === typeId);
-  }
-
-  async getPriceForProductType(typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    // First try to find size-specific pricing if sizeId is provided
-    if (sizeId) {
-      const sizeSpecificPricing = Array.from(this.productPricing.values()).find(
-        p => p.productTypeId === typeId && p.tierId === tierId && p.sizeId === sizeId
-      );
-      if (sizeSpecificPricing) {
-        return parseFloat(sizeSpecificPricing.pricePerSquareMeter);
-      }
-    }
-    
-    // Fall back to type-level pricing
-    const pricing = Array.from(this.productPricing.values()).find(
-      p => p.productTypeId === typeId && p.tierId === tierId && !p.sizeId
-    );
-    return pricing ? parseFloat(pricing.pricePerSquareMeter) : 0;
-  }
-
-  async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    const pricePerSqm = await this.getPriceForProductType(typeId, tierId, sizeId);
-    return squareMeters * pricePerSqm;
-  }
-
-  async getSentQuotes(): Promise<SentQuote[]> {
-    return Array.from(this.sentQuotes.values());
-  }
-
-  async getSentQuote(id: number): Promise<SentQuote | undefined> {
-    return this.sentQuotes.get(id);
-  }
-
-  async getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined> {
-    return Array.from(this.sentQuotes.values()).find(q => q.quoteNumber === quoteNumber);
-  }
-
-  async createSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
-    const id = this.currentSentQuoteId++;
-    const newQuote: SentQuote = { 
-      ...quote, 
-      id,
-      status: quote.status || "sent",
-      customerEmail: quote.customerEmail || null,
-      createdAt: new Date()
-    };
-    this.sentQuotes.set(id, newQuote);
-    return newQuote;
-  }
-
-  async upsertSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
-    // Check if quote with same quote number already exists
-    const existingQuote = Array.from(this.sentQuotes.values()).find(q => q.quoteNumber === quote.quoteNumber);
-    
-    if (existingQuote) {
-      // Merge delivery methods
-      const existingMethods = existingQuote.sentVia.split(',').map(m => m.trim());
-      const newMethod = quote.sentVia;
-      
-      // Add new method if not already present
-      const allMethods = Array.from(new Set([...existingMethods, newMethod]));
-      const combinedSentVia = allMethods.join(', ');
-      
-      // Update existing quote with merged delivery methods
-      const updatedQuote: SentQuote = {
-        ...existingQuote,
-        ...quote,
-        sentVia: combinedSentVia,
-        createdAt: existingQuote.createdAt, // Keep original creation date
-        status: quote.status || existingQuote.status
-      };
-      this.sentQuotes.set(existingQuote.id, updatedQuote);
-      return updatedQuote;
-    } else {
-      // Create new quote
-      return await this.createSentQuote(quote);
-    }
-  }
-
-  async deleteSentQuote(id: number): Promise<boolean> {
-    return this.sentQuotes.delete(id);
-  }
-
-  // Competitor Pricing methods
-  async getCompetitorPricing(): Promise<CompetitorPricing[]> {
-    return Array.from(this.competitorPricing.values());
-  }
-
-  async getCompetitorPricingById(id: number): Promise<CompetitorPricing | undefined> {
-    return this.competitorPricing.get(id);
-  }
-
-  async createCompetitorPricing(pricingData: InsertCompetitorPricing): Promise<CompetitorPricing> {
-    const id = this.currentCompetitorPricingId++;
-    const newPricing: CompetitorPricing = {
-      ...pricingData,
-      id,
-      timestamp: new Date(),
-      createdAt: new Date(),
-      width: pricingData.width?.toString() || null,
-      length: pricingData.length?.toString() || null,
-    };
-    this.competitorPricing.set(id, newPricing);
-    return newPricing;
-  }
-
-  async deleteCompetitorPricing(id: number): Promise<boolean> {
-    return this.competitorPricing.delete(id);
-  }
-
-  // File Upload Tracking methods
-  async getFileUploads(): Promise<FileUpload[]> {
-    // For MemStorage, return empty array since we don't persist file tracking
-    return [];
-  }
-
-  async getActiveFileUpload(fileType: string): Promise<FileUpload | undefined> {
-    // For MemStorage, return undefined since we don't persist file tracking
-    return undefined;
-  }
-
-  async createFileUpload(upload: InsertFileUpload): Promise<FileUpload> {
-    // For MemStorage, return a mock upload since we don't persist file tracking
-    return {
-      id: 1,
-      fileName: upload.fileName,
-      originalFileName: upload.originalFileName,
-      fileType: upload.fileType,
-      fileSize: upload.fileSize,
-      uploadedBy: upload.uploadedBy,
-      uploadedAt: new Date(),
-      recordsProcessed: upload.recordsProcessed || 0,
-      recordsAdded: upload.recordsAdded || 0,
-      recordsUpdated: upload.recordsUpdated || 0,
-      isActive: upload.isActive || true
-    };
-  }
-
-  async setActiveFileUpload(id: number, fileType: string): Promise<void> {
-    // For MemStorage, no persistence needed
-    return;
-  }
-
-  // Customer management methods
-  async getCustomers(): Promise<Customer[]> {
-    return Array.from(this.customers.values());
-  }
-
-  async getCustomer(id: string): Promise<Customer | undefined> {
-    return this.customers.get(id);
-  }
-
-  async createCustomer(customerData: InsertCustomer): Promise<Customer> {
-    const newCustomer: Customer = {
-      ...customerData,
-      email: customerData.email || null,
-      firstName: customerData.firstName || null,
-      lastName: customerData.lastName || null,
-      acceptsEmailMarketing: customerData.acceptsEmailMarketing || null,
-      tags: customerData.tags || null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.customers.set(customerData.id, newCustomer);
-    return newCustomer;
-  }
-
-  async updateCustomer(id: string, customerData: Partial<InsertCustomer>): Promise<Customer | undefined> {
-    const existingCustomer = this.customers.get(id);
-    if (!existingCustomer) {
-      return undefined;
-    }
-    
-    const updatedCustomer: Customer = {
-      ...existingCustomer,
-      ...customerData,
-      updatedAt: new Date()
-    };
-    this.customers.set(id, updatedCustomer);
-    return updatedCustomer;
-  }
-
-  async deleteCustomer(id: string): Promise<boolean> {
-    return this.customers.delete(id);
-  }
-
-  // Removed: legacy pricing data methods - replaced by productPricingMaster
-
-  async reinitializeData(): Promise<void> {
-    // Clear existing data
-    this.productCategories.clear();
-    this.productTypes.clear();
-    this.productSizes.clear();
-    this.pricingTiers.clear();
-    this.productPricing.clear();
-    
-    // Reset counters
-    this.currentCategoryId = 1;
-    this.currentTypeId = 1;
-    this.currentSizeId = 1;
-    this.currentTierId = 1;
-    this.currentPricingId = 1;
-    
-    // Reinitialize with fresh data
-    this.initializeData();
-  }
-
-  // Removed: legacy pricing management methods - replaced by productPricingMaster
-
-  // Activity logging methods (for MemStorage, we'll just return empty arrays since it's not persistent)
-  async logActivity(activity: InsertActivityLog): Promise<ActivityLog> {
-    // For MemStorage, return a mock activity log since we don't persist it
-    return {
-      id: 1,
-      action: activity.action,
-      description: activity.description,
-      userId: activity.userId,
-      ipAddress: activity.ipAddress || null,
-      userAgent: activity.userAgent || null,
-      createdAt: new Date()
-    };
-  }
-
-  async getActivityLogs(userId?: string, limit: number = 50): Promise<ActivityLog[]> {
-    // For MemStorage, return empty array since we don't persist activity logs
-    return [];
-  }
-
-  async getUserActivityLogs(userId: string, limit: number = 50): Promise<ActivityLog[]> {
-    // For MemStorage, return empty array since we don't persist activity logs
-    return [];
-  }
-
-  async getActivityLogsSince(date: Date): Promise<ActivityLog[]> {
-    // For MemStorage, return empty array since we don't persist activity logs
-    return [];
-  }
-
-  // Dashboard Statistics methods (using MemStorage data)
-  async getSentQuotesCount(): Promise<number> {
-    return this.sentQuotes.size;
-  }
-
-  async getSentQuotesCountSince(date: Date): Promise<number> {
-    const quotes = Array.from(this.sentQuotes.values());
-    return quotes.filter(quote => 
-      new Date(quote.createdAt || '').getTime() >= date.getTime()
-    ).length;
-  }
-
-  async getSentQuotesSince(date: Date): Promise<SentQuote[]> {
-    const quotes = Array.from(this.sentQuotes.values());
-    return quotes.filter(quote => 
-      new Date(quote.createdAt || '').getTime() >= date.getTime()
-    );
-  }
-
-  async getCustomersCount(): Promise<number> {
-    return this.customers.size;
-  }
-
-  async getProductsCount(): Promise<number> {
-    return this.productSizes.size;
-  }
-
-  // Product Pricing Master operations (delegate to database for testing)
-  async getAllProductPricingMaster(): Promise<ProductPricingMaster[]> {
-    return [];
-  }
-
-  async getProductPricingMaster(): Promise<ProductPricingMaster[]> {
-    return [];
-  }
-
-  async getProductPricingMasterById(id: number): Promise<ProductPricingMaster | undefined> {
-    return undefined;
-  }
-
-  async createProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
-    // Mock implementation for testing
-    return {
-      id: 1,
-      itemCode: data.itemCode,
-      productName: data.productName,
-      productType: data.productType,
-      productTypeId: data.productTypeId,
-      size: data.size,
-      totalSqm: data.totalSqm,
-      minQuantity: data.minQuantity,
-      exportPrice: data.exportPrice,
-      masterDistributorPrice: data.masterDistributorPrice,
-      dealerPrice: data.dealerPrice,
-      dealer2Price: data.dealer2Price,
-      approvalNeededPrice: data.approvalNeededPrice,
-      tierStage25Price: data.tierStage25Price,
-      tierStage2Price: data.tierStage2Price,
-      tierStage15Price: data.tierStage15Price,
-      tierStage1Price: data.tierStage1Price,
-      retailPrice: data.retailPrice,
-      rowHash: data.rowHash,
-      uploadBatch: data.uploadBatch,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
-  async upsertProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
-    return this.createProductPricingMaster(data);
-  }
-
-  async clearAllProductPricingMaster(): Promise<number> {
-    return 0;
-  }
-
-  async bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]> {
-    return data.map(item => this.createProductPricingMaster(item));
-  }
-
-}
+// Removed: MemStorage class - Legacy in-memory storage implementation
+// All functionality now uses DatabaseStorage with PostgreSQL persistence
 
 // Database Storage Implementation
 export class DatabaseStorage implements IStorage {
@@ -904,8 +289,7 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  // For now, other methods will delegate to MemStorage
-  private memStorage = new MemStorage();
+  // All methods now use database operations directly
 
   // Product Categories - Database implementation
   async getProductCategories(): Promise<ProductCategory[]> {
@@ -957,55 +341,85 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Product Sizes
+  // Product Sizes - Database implementation
   async getProductSizes(): Promise<ProductSize[]> {
-    return this.memStorage.getProductSizes();
+    return await db.select().from(productSizes).orderBy(productSizes.id);
   }
 
   async getProductSizesByType(typeId: number): Promise<ProductSize[]> {
-    return this.memStorage.getProductSizesByType(typeId);
+    return await db
+      .select()
+      .from(productSizes)
+      .where(eq(productSizes.typeId, typeId))
+      .orderBy(productSizes.id);
   }
 
   async getProductSize(id: number): Promise<ProductSize | undefined> {
-    return this.memStorage.getProductSize(id);
+    const [result] = await db
+      .select()
+      .from(productSizes)
+      .where(eq(productSizes.id, id));
+    return result || undefined;
   }
 
   async createProductSize(size: InsertProductSize): Promise<ProductSize> {
-    return this.memStorage.createProductSize(size);
+    const [result] = await db
+      .insert(productSizes)
+      .values(size)
+      .returning();
+    return result;
   }
 
   async updateProductSize(id: number, size: Partial<InsertProductSize>): Promise<ProductSize | undefined> {
-    return this.memStorage.updateProductSize(id, size);
+    const [result] = await db
+      .update(productSizes)
+      .set(size)
+      .where(eq(productSizes.id, id))
+      .returning();
+    return result || undefined;
   }
 
-  // Pricing Tiers
+  // Pricing Tiers - Database implementation
   async getPricingTiers(): Promise<PricingTier[]> {
-    return this.memStorage.getPricingTiers();
+    return await db.select().from(pricingTiers).orderBy(pricingTiers.id);
   }
 
   async getPricingTier(id: number): Promise<PricingTier | undefined> {
-    return this.memStorage.getPricingTier(id);
+    const [result] = await db
+      .select()
+      .from(pricingTiers)
+      .where(eq(pricingTiers.id, id));
+    return result || undefined;
   }
 
   async createPricingTier(tier: InsertPricingTier): Promise<PricingTier> {
-    return this.memStorage.createPricingTier(tier);
+    const [result] = await db
+      .insert(pricingTiers)
+      .values(tier)
+      .returning();
+    return result;
   }
 
-  // Product Pricing
+  // Product Pricing - Legacy methods replaced by productPricingMaster
+  // These methods are deprecated and should use productPricingMaster instead
   async getProductPricing(): Promise<ProductPricing[]> {
-    return this.memStorage.getProductPricing();
+    // Return empty array - legacy method, use getProductPricingMaster instead
+    return [];
   }
 
   async getProductPricingByType(typeId: number): Promise<ProductPricing[]> {
-    return this.memStorage.getProductPricingByType(typeId);
+    // Return empty array - legacy method, use getProductPricingMaster instead
+    return [];
   }
 
   async getPriceForProductType(typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    return this.memStorage.getPriceForProductType(typeId, tierId, sizeId);
+    // Return 0 - legacy method, use productPricingMaster pricing instead
+    return 0;
   }
 
   async getPriceForSquareMeters(squareMeters: number, typeId: number, tierId: number, sizeId?: number): Promise<number> {
-    return this.memStorage.getPriceForSquareMeters(squareMeters, typeId, tierId, sizeId);
+    // Return 0 - legacy method, use productPricingMaster pricing instead
+    return 0;
   }
 
   // Customers
@@ -1050,29 +464,63 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Sent Quotes
+  // Sent Quotes - Database implementation
   async getSentQuotes(): Promise<SentQuote[]> {
-    return this.memStorage.getSentQuotes();
+    return await db.select().from(sentQuotes).orderBy(desc(sentQuotes.createdAt));
   }
 
   async getSentQuote(id: number): Promise<SentQuote | undefined> {
-    return this.memStorage.getSentQuote(id);
+    const [quote] = await db
+      .select()
+      .from(sentQuotes)
+      .where(eq(sentQuotes.id, id));
+    return quote || undefined;
   }
 
   async getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined> {
-    return this.memStorage.getSentQuoteByNumber(quoteNumber);
+    const [quote] = await db
+      .select()
+      .from(sentQuotes)
+      .where(eq(sentQuotes.quoteNumber, quoteNumber));
+    return quote || undefined;
   }
 
   async createSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
-    return this.memStorage.createSentQuote(quote);
+    const [newQuote] = await db
+      .insert(sentQuotes)
+      .values(quote)
+      .returning();
+    return newQuote;
   }
 
   async upsertSentQuote(quote: InsertSentQuote): Promise<SentQuote> {
-    return this.memStorage.upsertSentQuote(quote);
+    // Check if quote exists by quote number
+    const existing = await this.getSentQuoteByNumber(quote.quoteNumber);
+    
+    if (existing) {
+      // Update existing quote
+      const [updatedQuote] = await db
+        .update(sentQuotes)
+        .set({ ...quote, updatedAt: new Date() })
+        .where(eq(sentQuotes.quoteNumber, quote.quoteNumber))
+        .returning();
+      return updatedQuote;
+    } else {
+      // Create new quote
+      return this.createSentQuote(quote);
+    }
   }
 
   async deleteSentQuote(id: number): Promise<boolean> {
-    return this.memStorage.deleteSentQuote(id);
+    try {
+      const result = await db
+        .delete(sentQuotes)
+        .where(eq(sentQuotes.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error('Error deleting sent quote:', error);
+      return false;
+    }
   }
 
   // File Upload Tracking methods
@@ -1117,7 +565,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async reinitializeData(): Promise<void> {
-    return this.memStorage.reinitializeData();
+    // Database reinitialization is handled through migrations and CSV uploads
+    // No action needed - data persistence is managed by PostgreSQL
+    console.log('Database reinitialization not needed - using persistent PostgreSQL storage');
   }
 
   // Removed: legacy pricing methods - all replaced by productPricingMaster database operations
