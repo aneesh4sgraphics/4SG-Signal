@@ -12,6 +12,7 @@ import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
+import { AdaptiveTable } from "@/components/OdooTable";
 
 interface ProductData {
   [key: string]: string | number;
@@ -248,36 +249,81 @@ export default function PriceList() {
             </span>
           </div>
           <p className="text-sm text-gray-500 mb-6">{priceListItems.length} products found</p>
-          <div>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 p-3" style={{ display: 'grid', gridTemplateColumns: '140px 200px 100px 80px 100px 100px 120px', gap: '12px' }}>
-                <div className="text-sm font-medium text-gray-800">Item Code</div>
-                <div className="text-sm font-medium text-gray-800">Product Type</div>
-                <div className="text-sm font-medium text-gray-800">Size</div>
-                <div className="text-sm font-medium text-gray-800">Min Qty</div>
-                <div className="text-sm font-medium text-gray-800">Price/Sq.M</div>
-                <div className="text-sm font-medium text-gray-800">Price/Sheet</div>
-                <div className="text-sm font-medium text-gray-800">Price Per Pack</div>
-              </div>
-              <div>
-                {priceListItems.map((item, index) => (
-                  <div key={index} className="p-3 border-b border-gray-100 hover:bg-gray-50" style={{ display: 'grid', gridTemplateColumns: '140px 200px 100px 80px 100px 100px 120px', gap: '12px', alignItems: 'center', minHeight: '50px' }}>
-                    <div className="font-mono text-sm text-gray-600 truncate" title={item.itemCode}>{item.itemCode}</div>
-                    <div className="text-sm text-gray-800 leading-tight" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.productType}>
-                      {item.productType}
-                    </div>
-                    <div className="text-sm text-gray-600 text-center">{item.size}</div>
-                    <div className="text-sm text-gray-600 text-center">{item.minQty}</div>
-                    <div className="text-sm text-gray-600 text-right">${item.pricePerSqM.toFixed(2)}</div>
-                    <div className="text-sm text-gray-600 text-right">${item.pricePerSheet.toFixed(2)}</div>
-                    <div className="text-sm text-gray-800 font-medium text-green-600 text-right">
-                      ${item.pricePerPack.toFixed(2)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <AdaptiveTable
+            columns={[
+              { 
+                key: 'itemCode', 
+                title: 'Item Code', 
+                weight: 1.5,
+                minWidth: 120,
+                align: 'left' 
+              },
+              { 
+                key: 'productType', 
+                title: 'Product Type', 
+                weight: 3,
+                minWidth: 160,
+                align: 'left' 
+              },
+              { 
+                key: 'size', 
+                title: 'Size', 
+                weight: 1.2,
+                minWidth: 80,
+                align: 'center' 
+              },
+              { 
+                key: 'minQty', 
+                title: 'Min Qty', 
+                weight: 0.8,
+                minWidth: 70,
+                align: 'center' 
+              },
+              { 
+                key: 'pricePerSqM', 
+                title: 'Price/Sq.M', 
+                weight: 1,
+                minWidth: 90,
+                align: 'right' 
+              },
+              { 
+                key: 'pricePerSheet', 
+                title: 'Price/Sheet', 
+                weight: 1.2,
+                minWidth: 100,
+                align: 'right' 
+              },
+              { 
+                key: 'pricePerPack', 
+                title: 'Price Per Pack', 
+                weight: 1.3,
+                minWidth: 110,
+                align: 'right' 
+              }
+            ]}
+            data={priceListItems}
+            renderCell={(item, column) => {
+              switch (column.key) {
+                case 'itemCode':
+                  return <span className="font-mono text-sm text-gray-600">{item.itemCode}</span>;
+                case 'productType':
+                  return <span className="text-sm text-gray-800 leading-tight">{item.productType}</span>;
+                case 'size':
+                  return <span className="text-sm text-gray-600">{item.size}</span>;
+                case 'minQty':
+                  return <span className="text-sm text-gray-600">{item.minQty}</span>;
+                case 'pricePerSqM':
+                  return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
+                case 'pricePerSheet':
+                  return <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>;
+                case 'pricePerPack':
+                  return <span className="text-sm text-gray-800 font-medium text-green-600">${item.pricePerPack.toFixed(2)}</span>;
+                default:
+                  return null;
+              }
+            }}
+            maxHeight="500px"
+          />
         </SimpleCardFrame>
       ) : (
         <div className="border border-gray-200 rounded-lg p-6 bg-white text-center">

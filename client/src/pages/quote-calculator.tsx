@@ -14,6 +14,7 @@ import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
+import { AdaptiveTable } from "@/components/OdooTable";
 
 interface ProductData {
   id: number;
@@ -574,48 +575,101 @@ Yours truly
                 {/* Pricing Table */}
                 <div className="mt-6">
                   <h3 className="text-base font-medium text-gray-800 mb-4">Available Pricing Tiers</h3>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-5 gap-2 p-3">
-                      <div className="text-sm font-medium text-gray-800">Pricing Tier</div>
-                      <div className="text-center text-sm font-medium text-gray-800">$/m²</div>
-                      <div className="text-center text-sm font-medium text-gray-800">Price/Sheet</div>
-                      <div className="text-center text-sm font-medium text-gray-800">Min Order Qty Price</div>
-                      <div className="text-center text-sm font-medium text-gray-800">Add</div>
-                    </div>
-
-                    {/* Pricing Rows */}
-                    {pricingTiers.map(tier => {
+                  <AdaptiveTable
+                    columns={[
+                      { 
+                        key: 'tier', 
+                        title: 'Pricing Tier', 
+                        weight: 2,
+                        minWidth: 120,
+                        align: 'left' 
+                      },
+                      { 
+                        key: 'pricePerSqM', 
+                        title: '$/m²', 
+                        weight: 1,
+                        minWidth: 80,
+                        align: 'center' 
+                      },
+                      { 
+                        key: 'pricePerSheet', 
+                        title: 'Price/Sheet', 
+                        weight: 1.2,
+                        minWidth: 100,
+                        align: 'center' 
+                      },
+                      { 
+                        key: 'minOrderQtyPrice', 
+                        title: 'Min Order Qty Price', 
+                        weight: 1.5,
+                        minWidth: 130,
+                        align: 'center' 
+                      },
+                      { 
+                        key: 'add', 
+                        title: 'Add', 
+                        weight: 0.5,
+                        minWidth: 60,
+                        maxWidth: 80,
+                        align: 'center',
+                        fixed: true 
+                      }
+                    ]}
+                    data={pricingTiers.map(tier => {
                       const price = selectedProduct[tier.key as keyof ProductData] as number;
                       const pricePerSheet = price * parseFloat(String(selectedProduct.totalSqm || 0));
                       const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
                       const total = pricePerSheet * useQuantity;
-
-                      return (
-                        <div key={tier.key} className="grid grid-cols-5 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
-                          <div className="text-sm text-gray-800 uppercase truncate">
-                            {tier.label.replace('Approval Needed', 'Approval (Retail)')}
-                          </div>
-                          <div className="text-center text-sm text-gray-600">
-                            ${price.toFixed(2)}
-                          </div>
-                          <div className="text-center text-sm text-gray-600">
-                            ${pricePerSheet.toFixed(2)}
-                          </div>
-                          <div className="text-center text-sm text-gray-800 font-medium">
-                            ${total.toFixed(2)}
-                          </div>
-                          <div className="text-center">
+                      
+                      return {
+                        tier: tier,
+                        price: price,
+                        pricePerSheet: pricePerSheet,
+                        total: total,
+                        tierKey: tier.key
+                      };
+                    })}
+                    renderCell={(item, column) => {
+                      switch (column.key) {
+                        case 'tier':
+                          return (
+                            <span className="text-sm text-gray-800 uppercase font-medium">
+                              {item.tier.label.replace('Approval Needed', 'Approval (Retail)')}
+                            </span>
+                          );
+                        case 'pricePerSqM':
+                          return (
+                            <span className="text-sm text-gray-600">
+                              ${item.price.toFixed(2)}
+                            </span>
+                          );
+                        case 'pricePerSheet':
+                          return (
+                            <span className="text-sm text-gray-600">
+                              ${item.pricePerSheet.toFixed(2)}
+                            </span>
+                          );
+                        case 'minOrderQtyPrice':
+                          return (
+                            <span className="text-sm text-gray-800 font-medium">
+                              ${item.total.toFixed(2)}
+                            </span>
+                          );
+                        case 'add':
+                          return (
                             <button
-                              onClick={() => addToQuote(tier.key)}
-                              className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors"
+                              onClick={() => addToQuote(item.tierKey)}
+                              className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center justify-center transition-colors mx-auto"
                             >
                               <Plus className="h-3 w-3 text-gray-600" />
                             </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          );
+                        default:
+                          return null;
+                      }
+                    }}
+                    maxHeight="400px"
+                  />
                 </div>
               </div>
               ) : (
@@ -707,47 +761,109 @@ Yours truly
           <h2 className="text-lg font-medium text-gray-800 mb-2">Quote Items</h2>
           <p className="text-sm text-gray-500 mb-6">Items added to your current quote</p>
           <div>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-8 gap-2 p-3">
-                <div className="text-sm font-medium text-gray-800">Product</div>
-                <div className="text-sm font-medium text-gray-800">Size</div>
-                <div className="text-sm font-medium text-gray-800">Tier</div>
-                <div className="text-sm font-medium text-gray-800">Qty</div>
-                <div className="text-sm font-medium text-gray-800">Price/m²</div>
-                <div className="text-sm font-medium text-gray-800">Price/Sheet</div>
-                <div className="text-sm font-medium text-gray-800">Total</div>
-                <div className="text-sm font-medium text-gray-800"></div>
-              </div>
-              <div>
-                {quoteItems.map(item => (
-                  <div key={item.id} className="grid grid-cols-8 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
-                    <div>
-                      <div className="text-sm text-gray-800">{item.productName}</div>
-                      <div className="text-xs text-gray-500">{item.productType}</div>
-                      <div className="text-xs text-gray-400">{item.itemCode}</div>
-                    </div>
-                    <div className="text-sm text-gray-600">{item.size}</div>
-                    <div>
+            <AdaptiveTable
+              columns={[
+                { 
+                  key: 'product', 
+                  title: 'Product', 
+                  weight: 3,
+                  minWidth: 180,
+                  align: 'left' 
+                },
+                { 
+                  key: 'size', 
+                  title: 'Size', 
+                  weight: 1.2,
+                  minWidth: 80,
+                  align: 'left' 
+                },
+                { 
+                  key: 'tier', 
+                  title: 'Tier', 
+                  weight: 1,
+                  minWidth: 80,
+                  align: 'center' 
+                },
+                { 
+                  key: 'qty', 
+                  title: 'Qty', 
+                  weight: 0.8,
+                  minWidth: 60,
+                  align: 'center' 
+                },
+                { 
+                  key: 'pricePerSqM', 
+                  title: 'Price/m²', 
+                  weight: 1,
+                  minWidth: 80,
+                  align: 'right' 
+                },
+                { 
+                  key: 'pricePerSheet', 
+                  title: 'Price/Sheet', 
+                  weight: 1.2,
+                  minWidth: 90,
+                  align: 'right' 
+                },
+                { 
+                  key: 'total', 
+                  title: 'Total', 
+                  weight: 1,
+                  minWidth: 80,
+                  align: 'right' 
+                },
+                { 
+                  key: 'actions', 
+                  title: '', 
+                  weight: 0.5,
+                  minWidth: 50,
+                  maxWidth: 60,
+                  align: 'center',
+                  fixed: true 
+                }
+              ]}
+              data={quoteItems}
+              renderCell={(item, column) => {
+                switch (column.key) {
+                  case 'product':
+                    return (
+                      <div>
+                        <div className="text-sm text-gray-800 font-medium">{item.productName}</div>
+                        <div className="text-xs text-gray-500">{item.productType}</div>
+                        <div className="text-xs text-gray-400">{item.itemCode}</div>
+                      </div>
+                    );
+                  case 'size':
+                    return <span className="text-sm text-gray-600">{item.size}</span>;
+                  case 'tier':
+                    return (
                       <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs text-gray-800 border border-gray-200">
                         {item.tier}
                       </span>
-                    </div>
-                    <div className="text-sm text-gray-600">{item.quantity}</div>
-                    <div className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</div>
-                    <div className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</div>
-                    <div className="text-sm text-gray-800 font-medium">${item.total.toFixed(2)}</div>
-                    <div>
+                    );
+                  case 'qty':
+                    return <span className="text-sm text-gray-600">{item.quantity}</span>;
+                  case 'pricePerSqM':
+                    return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
+                  case 'pricePerSheet':
+                    return <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>;
+                  case 'total':
+                    return <span className="text-sm text-gray-800 font-medium">${item.total.toFixed(2)}</span>;
+                  case 'actions':
+                    return (
                       <button
                         onClick={() => removeFromQuote(item.id)}
-                        className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-colors"
+                        className="w-6 h-6 rounded-md border border-gray-300 bg-white hover:bg-red-50 hover:border-red-300 flex items-center justify-center transition-colors mx-auto"
                       >
                         <Trash2 className="h-3 w-3 text-red-500" />
                       </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                    );
+                  default:
+                    return null;
+                }
+              }}
+              maxHeight="300px"
+            />
 
             <div className="flex items-center justify-between pt-6 border-t border-gray-200">
               <div className="text-base font-medium text-gray-800">
