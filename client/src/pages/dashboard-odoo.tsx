@@ -190,9 +190,10 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <OdooCard>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-1">
+        {/* Stats cards with consistent height and alignment */}
+        <OdooCard className="h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex flex-col justify-center space-y-2 flex-1">
               <p className="text-sm font-medium text-gray-600">Total Quotes</p>
               {statsLoading ? (
                 <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
@@ -209,9 +210,9 @@ export default function Dashboard() {
           </div>
         </OdooCard>
 
-        <OdooCard>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-1">
+        <OdooCard className="h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex flex-col justify-center space-y-2 flex-1">
               <p className="text-sm font-medium text-gray-600">Quotes Worth</p>
               {statsLoading ? (
                 <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
@@ -230,21 +231,21 @@ export default function Dashboard() {
           </div>
         </OdooCard>
 
-        <OdooCard>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium text-gray-600">Total Products</p>
+        <OdooCard className="h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex flex-col justify-center space-y-2 flex-1">
+              <p className="text-sm font-medium text-gray-600">Total Customers</p>
               {statsLoading ? (
                 <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
               ) : (
-                <p className="text-3xl font-bold text-gray-900">{stats?.totalProducts || 0}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats?.totalCustomers || 0}</p>
               )}
-              <p className="text-3xl font-bold text-purple-600">
-                {statsLoading ? "Loading..." : `${stats?.totalCustomers || 0} customers`}
+              <p className="text-xs text-purple-600">
+                {statsLoading ? "Loading..." : `${stats?.totalProducts || 0} products available`}
               </p>
             </div>
             <div className="p-3 bg-purple-100 rounded-xl flex-shrink-0">
-              <Package className="h-8 w-8 text-purple-600" />
+              <Users className="h-8 w-8 text-purple-600" />
             </div>
           </div>
         </OdooCard>
