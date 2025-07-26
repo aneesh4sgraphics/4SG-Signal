@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Building, Mail, Phone } from 'lucide-react';
+import { Plus, Search, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -200,10 +200,10 @@ export default function SearchableCustomerSelect({
                   <div
                     key={customer.id}
                     onClick={() => handleCustomerSelect(customer)}
-                    className="p-3 hover:bg-gray-50 cursor-pointer rounded-lg border border-transparent hover:border-blue-200 transition-colors"
+                    className="p-2 hover:bg-gray-50 cursor-pointer rounded-lg border border-transparent hover:border-blue-200 transition-colors"
                   >
-                    <div className="flex items-start space-x-3">
-                      <Building className="h-4 w-4 text-blue-500 mt-1 flex-shrink-0" />
+                    <div className="flex items-center space-x-3">
+                      <Building className="h-4 w-4 text-blue-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm text-gray-900">
                           {customer.firstName} {customer.lastName}
@@ -211,25 +211,6 @@ export default function SearchableCustomerSelect({
                         <div className="text-sm text-blue-600 font-medium">
                           {customer.company}
                         </div>
-                        <div className="flex items-center space-x-4 mt-1">
-                          {customer.email && (
-                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                              <Mail className="h-3 w-3" />
-                              <span className="truncate">{customer.email}</span>
-                            </div>
-                          )}
-                          {customer.phone && (
-                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                              <Phone className="h-3 w-3" />
-                              <span>{customer.phone}</span>
-                            </div>
-                          )}
-                        </div>
-                        {customer.city && customer.province && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {customer.city}, {customer.province}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
