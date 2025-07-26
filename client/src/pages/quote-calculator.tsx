@@ -884,11 +884,12 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
                   case 'pricePerSqM':
                     return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
                   case 'pricePerSheet':
-                    const unitLabel = getPriceColumnHeader(item.size).replace('Price/', '');
+                    // Determine unit based on minimum order quantity
+                    const unitLabel = item.minOrderQty === 1 ? 'roll' : 'sheet';
                     return (
                       <div className="text-right">
                         <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>
-                        <div className="text-xs text-gray-400">/{unitLabel.toLowerCase()}</div>
+                        <div className="text-xs text-gray-400">/{unitLabel}</div>
                       </div>
                     );
                   case 'total':
