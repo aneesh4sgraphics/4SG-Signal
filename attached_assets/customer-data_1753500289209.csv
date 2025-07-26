@@ -1,3 +1,0 @@
-id,first_name,last_name,email,company,address1,city,province,country,zip,phone
-cust001,John,Smith,john@testcompany.com,Test Company Inc,123 Main St,New York,NY,USA,10001,555-0001
-cust002,Jane,Doe,jane@anothercompany.com,Another Company LLC,456 Oak Ave,Los Angeles,CA,USA,90210,555-0002

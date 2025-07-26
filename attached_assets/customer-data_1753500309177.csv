@@ -1,3 +1,0 @@
-Customer ID,First Name,Last Name,Email,Accepts Email Marketing,Default Address Company,Default Address Address1,Default Address Address2,Default Address City,Default Address Province Code,Default Address Country Code,Default Address Zip,Default Address Phone,Phone,Accepts SMS Marketing,Total Spent,Total Orders,Note,Tax Exempt,Tags
-'TEST001,John,Smith,john@testcompany.com,yes,Test Company Inc,123 Main St,,New York,NY,US,10001,'(555) 000-0001,+15550000001,no,0.00,0,Test customer for system verification,no,#test-customer
-'TEST002,Jane,Doe,jane@anothercompany.com,yes,Another Company LLC,456 Oak Ave,,Los Angeles,CA,US,90210,'(555) 000-0002,+15550000002,no,0.00,0,Another test customer,no,#test-customer
