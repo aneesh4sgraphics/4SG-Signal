@@ -159,13 +159,7 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
               </nav>
             </div>
             <div className="flex items-center space-x-3">
-              <Button variant="outline" size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                Create New
-              </Button>
+              {/* Action buttons removed - they were non-functional placeholders causing user confusion */}
             </div>
           </div>
         </header>
