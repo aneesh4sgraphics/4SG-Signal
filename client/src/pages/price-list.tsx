@@ -79,6 +79,15 @@ const allPricingTiers = [
   { key: 'Retail', label: 'Retail' }
 ];
 
+// Utility function for retail pricing rounding (99-cent rounding)
+const applyRetailRounding = (price: number, isRetail: boolean): number => {
+  if (!isRetail) return price;
+  
+  // Round to 99 cents: floor the dollar amount and add 0.99
+  const floorPrice = Math.floor(price);
+  return floorPrice + 0.99;
+};
+
 export default function PriceList() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedTier, setSelectedTier] = useState<string>("");
@@ -88,21 +97,13 @@ export default function PriceList() {
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Get user role and filter pricing tiers accordingly
-  const userRole = getUserRoleFromEmail((user as any)?.email || '');
-  const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
+  // Get user role and filter pricing tiers accordingly - memoize to prevent re-renders
+  const pricingTiers = useMemo(() => {
+    const userRole = getUserRoleFromEmail((user as any)?.email || '');
+    return allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
+  }, [(user as any)?.email]);
 
-  // Memoize the Price/Unit column title based on priceListItems
-  const priceUnitColumnTitle = useMemo(() => {
-    if (priceListItems.length === 0) return 'Price/Unit';
-    
-    const allMinQtyOne = priceListItems.every(item => item.minQty === 1);
-    const allMinQtyGreaterThanOne = priceListItems.every(item => item.minQty > 1);
-    
-    if (allMinQtyOne) return 'Price/Roll';
-    if (allMinQtyGreaterThanOne) return 'Price/Sheet';
-    return 'Price/Unit';
-  }, [priceListItems]);
+
 
   // Fetch product pricing data from new database
   const { data: productData = [], isLoading } = useQuery<ProductData[]>({
@@ -117,70 +118,67 @@ export default function PriceList() {
     },
   });
 
-  // Get unique categories
-  const categories = Array.from(new Set(productData.map(item => item.productName))).sort();
-
-  // Utility function for retail pricing rounding (99-cent rounding)
-  const applyRetailRounding = (price: number, isRetail: boolean): number => {
-    if (!isRetail) return price;
-    
-    // Round to 99 cents: floor the dollar amount and add 0.99
-    const floorPrice = Math.floor(price);
-    return floorPrice + 0.99;
-  };
+  // Get unique categories - memoize to prevent re-renders
+  const categories = useMemo(() => 
+    Array.from(new Set(productData.map(item => item.productName))).sort(),
+    [productData]
+  );
 
   // Generate price list when category or tier changes
   useEffect(() => {
-    if (selectedCategory && selectedTier) {
-      const filteredProducts = productData.filter(
-        (item) => item.productName === selectedCategory
-      );
-
-      const calculatedItems = filteredProducts.map((product) => {
-        // Map tier names to new database field names
-        const tierMapping: Record<string, keyof ProductData> = {
-          'Export': 'exportPrice',
-          'M.Distributor': 'masterDistributorPrice', 
-          'Dealer': 'dealerPrice',
-          'Dealer2': 'dealer2Price',
-          'ApprovalNeeded': 'approvalNeededPrice',
-          'TierStage25': 'tierStage25Price',
-          'TierStage2': 'tierStage2Price',
-          'TierStage15': 'tierStage15Price',
-          'TierStage1': 'tierStage1Price',
-          'Retail': 'retailPrice'
-        };
-        
-        const tierField = tierMapping[selectedTier];
-        const pricePerSqM = Number(product[tierField]) || 0;
-        const sqm = parseFloat(String(product.totalSqm || 0));
-        const pricePerSheet = +(pricePerSqM * sqm).toFixed(2);
-        const minQty = Number(product.minQuantity) || 1;
-        
-        // Apply retail rounding for RETAIL tier only to Price Per Pack
-        const isRetailTier = selectedTier === 'Retail';
-        const rawPricePerPack = pricePerSheet * minQty;
-        const pricePerPack = +applyRetailRounding(rawPricePerPack, isRetailTier).toFixed(2);
-
-        return {
-          productType: String(product.productType || 'Unknown'),
-          productName: String(product.productName || selectedCategory),
-          size: String(product.size || 'N/A'),
-          itemCode: String(product.itemCode || '-'),
-          minQty,
-          pricePerSqM,
-          pricePerSheet,
-          pricePerPack,
-          squareMeters: sqm,
-        };
-      });
-
-      setPriceListItems(
-        calculatedItems.sort((a, b) => String(a.productType).localeCompare(String(b.productType)))
-      );
-    } else {
+    if (!selectedCategory || !selectedTier || !productData.length) {
       setPriceListItems([]);
+      return;
     }
+
+    const filteredProducts = productData.filter(
+      (item) => item.productName === selectedCategory
+    );
+
+    const calculatedItems = filteredProducts.map((product) => {
+      // Map tier names to new database field names
+      const tierMapping: Record<string, keyof ProductData> = {
+        'Export': 'exportPrice',
+        'M.Distributor': 'masterDistributorPrice', 
+        'Dealer': 'dealerPrice',
+        'Dealer2': 'dealer2Price',
+        'ApprovalNeeded': 'approvalNeededPrice',
+        'TierStage25': 'tierStage25Price',
+        'TierStage2': 'tierStage2Price',
+        'TierStage15': 'tierStage15Price',
+        'TierStage1': 'tierStage1Price',
+        'Retail': 'retailPrice'
+      };
+      
+      const tierField = tierMapping[selectedTier];
+      const pricePerSqM = Number(product[tierField]) || 0;
+      const sqm = parseFloat(String(product.totalSqm || 0));
+      const pricePerSheet = +(pricePerSqM * sqm).toFixed(2);
+      const minQty = Number(product.minQuantity) || 1;
+      
+      // Apply retail rounding for RETAIL tier only to Price Per Pack
+      const isRetailTier = selectedTier === 'Retail';
+      const rawPricePerPack = pricePerSheet * minQty;
+      const pricePerPack = +applyRetailRounding(rawPricePerPack, isRetailTier).toFixed(2);
+
+      return {
+        productType: String(product.productType || 'Unknown'),
+        productName: String(product.productName || selectedCategory),
+        size: String(product.size || 'N/A'),
+        itemCode: String(product.itemCode || '-'),
+        minQty,
+        pricePerSqM,
+        pricePerSheet,
+        pricePerPack,
+        squareMeters: sqm,
+      };
+    });
+
+    const sortedItems = calculatedItems.sort((a, b) => 
+      String(a.productType).localeCompare(String(b.productType))
+    );
+    
+    setPriceListItems(sortedItems);
   }, [selectedCategory, selectedTier, productData]);
 
 
@@ -310,7 +308,7 @@ export default function PriceList() {
               }] : []),
               { 
                 key: 'pricePerSheet', 
-                title: priceUnitColumnTitle, 
+                title: 'Price/Unit', 
                 weight: 1.2,
                 minWidth: 100,
                 align: 'right' 
@@ -337,11 +335,11 @@ export default function PriceList() {
                 case 'pricePerSqM':
                   return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
                 case 'pricePerSheet':
-                  const unitLabel = item.minQty === 1 ? 'Roll' : 'Sheet';
+                  const unitLabel = item.minQty === 1 ? 'roll' : 'sheet';
                   return (
                     <div className="text-right">
                       <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>
-                      <div className="text-xs text-gray-400">/{unitLabel.toLowerCase()}</div>
+                      <div className="text-xs text-gray-400">/{unitLabel}</div>
                     </div>
                   );
                 case 'pricePerPack':
