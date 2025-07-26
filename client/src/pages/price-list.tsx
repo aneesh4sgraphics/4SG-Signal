@@ -195,7 +195,26 @@ export default function PriceList() {
           <HeaderDivider />
         </div>
 
-
+        {/* Simple Customer Selection */}
+        <SimpleCardFrame className="p-4 mb-6 bg-white border border-gray-100">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-800 mb-2">Customer (Optional)</label>
+              <SearchableCustomerSelect
+                selectedCustomer={selectedCustomer}
+                onCustomerSelect={setSelectedCustomer}
+                placeholder="Search by name, company, or email"
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {selectedCustomer && (
+              <div className="text-sm text-gray-600">
+                <div className="font-medium">{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+                {selectedCustomer.company && <div className="text-gray-500">{selectedCustomer.company}</div>}
+              </div>
+            )}
+          </div>
+        </SimpleCardFrame>
 
       {/* Price List Table */}
       {priceListItems.length > 0 ? (
