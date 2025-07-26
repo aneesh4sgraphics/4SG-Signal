@@ -152,6 +152,22 @@ export async function parseCustomerCSV(csvContent: string): Promise<{
   const csvRows = parseCSVWithQuotes(csvContent);
   console.log(`Processing ${csvRows.length} rows from customer CSV (including header)`);
 
+  // Header validation
+  const expectedHeaders = [
+    "Customer ID", "First Name", "Last Name", "Email", "Accepts Email Marketing",
+    "Default Address Company", "Default Address Address1", "Default Address Address2", 
+    "Default Address City", "Default Address Province Code", "Default Address Country Code",
+    "Default Address Zip", "Default Address Phone", "Phone", "Accepts SMS Marketing",
+    "Total Spent", "Total Orders", "Note", "Tax Exempt", "Tags"
+  ];
+  
+  const headerRow = csvRows[0];
+  if (!headerRow || headerRow.length < expectedHeaders.length) {
+    throw new Error(`CSV header does not match expected format. Expected ${expectedHeaders.length} columns, got ${headerRow?.length || 0}. Expected headers: ${expectedHeaders.join(', ')}`);
+  }
+  
+  console.log(`Header validation passed: ${headerRow.length} columns found`);
+
   // Parse all customers first
   const parsedCustomers: Array<{ customerData: InsertCustomer; lineNumber: number }> = [];
   
