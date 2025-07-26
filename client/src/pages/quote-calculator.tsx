@@ -15,6 +15,7 @@ import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDiv
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
 import { AdaptiveTable } from "@/components/OdooTable";
+import { getPriceColumnHeader } from "@/utils/sizeUtils";
 
 interface ProductData {
   id: number;
@@ -310,12 +311,13 @@ ${quoteItems.map((item) => {
   const orderQty = Math.max(item.minOrderQty || 0, item.quantity);
   const itemTotal = orderQty * item.pricePerSheet;
   
+  const priceLabel = getPriceColumnHeader(item.size).replace('Price/', '').toLowerCase();
   return `Product Name: ${item.productName}
 Product Type: ${item.productType}
 Size: ${item.size}
 Item Code: ${item.itemCode}
 Minimum Order Quantity: ${item.minOrderQty}
-Price/Sheet: $${item.pricePerSheet.toFixed(2)}
+Price per ${priceLabel}: $${item.pricePerSheet.toFixed(2)}
 Total: $${itemTotal.toFixed(2)}
 
 —————————————`;
@@ -624,7 +626,7 @@ Yours truly
                       }] : []),
                       { 
                         key: 'pricePerSheet', 
-                        title: 'Price/Sheet', 
+                        title: selectedProduct ? getPriceColumnHeader(selectedProduct.size) : 'Price/Sheet', 
                         weight: 1.2,
                         minWidth: 100,
                         align: 'center' 
@@ -836,7 +838,7 @@ Yours truly
                 },
                 { 
                   key: 'pricePerSheet', 
-                  title: 'Price/Sheet', 
+                  title: 'Price/Unit', 
                   weight: 1.2,
                   minWidth: 90,
                   align: 'right' 
@@ -882,7 +884,13 @@ Yours truly
                   case 'pricePerSqM':
                     return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
                   case 'pricePerSheet':
-                    return <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>;
+                    const unitLabel = getPriceColumnHeader(item.size).replace('Price/', '');
+                    return (
+                      <div className="text-right">
+                        <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>
+                        <div className="text-xs text-gray-400">/{unitLabel.toLowerCase()}</div>
+                      </div>
+                    );
                   case 'total':
                     return <span className="text-sm text-gray-800 font-medium">${item.total.toFixed(2)}</span>;
                   case 'actions':

@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 import { AdaptiveTable } from "@/components/OdooTable";
+import { getPriceColumnHeader } from "@/utils/sizeUtils";
 
 interface ProductData {
   [key: string]: string | number;
@@ -297,7 +298,7 @@ export default function PriceList() {
               }] : []),
               { 
                 key: 'pricePerSheet', 
-                title: 'Price/Sheet', 
+                title: 'Price/Unit', 
                 weight: 1.2,
                 minWidth: 100,
                 align: 'right' 
@@ -324,7 +325,13 @@ export default function PriceList() {
                 case 'pricePerSqM':
                   return <span className="text-sm text-gray-600">${item.pricePerSqM.toFixed(2)}</span>;
                 case 'pricePerSheet':
-                  return <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>;
+                  const unitLabel = getPriceColumnHeader(item.size).replace('Price/', '');
+                  return (
+                    <div className="text-right">
+                      <span className="text-sm text-gray-600">${item.pricePerSheet.toFixed(2)}</span>
+                      <div className="text-xs text-gray-400">/{unitLabel.toLowerCase()}</div>
+                    </div>
+                  );
                 case 'pricePerPack':
                   return <span className="text-sm text-gray-800 font-medium text-green-600">${item.pricePerPack.toFixed(2)}</span>;
                 default:
