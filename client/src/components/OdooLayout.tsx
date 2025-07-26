@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   X,
-  Building2
+  Building2,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -30,6 +31,7 @@ const mainItems = [
 
 const adminItems = [
   { path: '/admin', icon: Users, label: 'User Management' },
+  { path: '/activity-logs', icon: Activity, label: 'Activity Logs' },
   { path: '/customers', icon: Building2, label: 'Customers' },
   { path: '/product-pricing-management', icon: Database, label: 'Product Pricing' },
 ];

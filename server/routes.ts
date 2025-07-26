@@ -2589,6 +2589,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Activity logging API routes
+  app.post("/api/log-activity", isAuthenticated, async (req, res) => {
+    try {
+      const { action, description } = req.body;
+      const userId = req.user?.id;
+      
+      if (!action || !description || !userId) {
+        return res.status(400).json({ error: "Action, description, and user ID are required" });
+      }
+
+      const ipAddress = req.ip || req.connection.remoteAddress || null;
+      const userAgent = req.get('User-Agent') || null;
+
+      const activity = await storage.logActivity({
+        action,
+        description,
+        userId,
+        ipAddress,
+        userAgent
+      });
+
+      res.json({ success: true, activity });
+    } catch (error) {
+      console.error("Error logging activity:", error);
+      res.status(500).json({ error: "Failed to log activity" });
+    }
+  });
+
+  app.get("/api/activity-logs", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const isAdmin = req.user?.role === 'admin';
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      let activities;
+      if (isAdmin) {
+        // Admins see all activities
+        activities = await storage.getActivityLogs(undefined, limit);
+      } else {
+        // Users see only their own activities
+        activities = await storage.getUserActivityLogs(userId!, limit);
+      }
+
+      res.json({ activities });
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ error: "Failed to fetch activity logs" });
+    }
+  });
+
+  app.get("/api/activity-logs/user/:userId", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      const activities = await storage.getUserActivityLogs(userId, limit);
+      res.json({ activities });
+    } catch (error) {
+      console.error("Error fetching user activity logs:", error);
+      res.status(500).json({ error: "Failed to fetch user activity logs" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

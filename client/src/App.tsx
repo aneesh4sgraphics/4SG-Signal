@@ -18,6 +18,7 @@ import QuoteCalculator from "@/pages/quote-calculator";
 import PriceList from "@/pages/price-list";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
+import ActivityLogsPage from "@/pages/activity-logs";
 import Dashboard from "@/pages/dashboard-odoo";
 
 import NotFound from "@/pages/not-found";
@@ -145,6 +146,7 @@ function Router() {
         <Route path="/customer-management" component={CustomerManagement} />
         <Route path="/customers" component={CustomerManagement} />
         <Route path="/product-pricing-management" component={ProductPricingManagement} />
+        <Route path="/activity-logs" component={ActivityLogsPage} />
         <Route path="/shipping-calculator" component={ShippingCalculator} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

@@ -174,6 +174,23 @@ export const competitorPricing = pgTable("competitor_pricing", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Activity tracking for user and admin actions
+export const activityLogs = pgTable("activity_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  userEmail: varchar("user_email", { length: 255 }).notNull(),
+  userName: varchar("user_name", { length: 255 }),
+  userRole: varchar("user_role", { length: 20 }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(), // 'quote_sent', 'price_list_updated', 'user_approved', etc.
+  actionType: varchar("action_type", { length: 50 }).notNull(), // 'quote', 'admin', 'pricing', 'customer', etc.
+  description: text("description").notNull(),
+  metadata: jsonb("metadata"), // Additional data like quote amount, affected records, etc.
+  targetId: varchar("target_id"), // ID of affected resource (quote ID, customer ID, etc.)
+  targetType: varchar("target_type", { length: 50 }), // 'quote', 'customer', 'user', 'pricing', etc.
+  status: varchar("status", { length: 20 }).default("completed"), // 'completed', 'failed', 'pending'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertProductCategorySchema = createInsertSchema(productCategories).omit({
   id: true,
 });
@@ -224,6 +241,11 @@ export const insertCompetitorPricingSchema = createInsertSchema(competitorPricin
   createdAt: true,
 });
 
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type ProductCategory = typeof productCategories.$inferSelect;
 export type ProductType = typeof productTypes.$inferSelect;
 export type ProductSize = typeof productSizes.$inferSelect;
@@ -233,6 +255,7 @@ export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type SentQuote = typeof sentQuotes.$inferSelect;
 export type CompetitorPricing = typeof competitorPricing.$inferSelect;
+export type ActivityLog = typeof activityLogs.$inferSelect;
 
 export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
 export type InsertProductType = z.infer<typeof insertProductTypeSchema>;
@@ -244,6 +267,7 @@ export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertSentQuote = z.infer<typeof insertSentQuoteSchema>;
 export type InsertCompetitorPricing = z.infer<typeof insertCompetitorPricingSchema>;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 
 // Upload batch history for rollback and comparison
 export const uploadBatches = pgTable("upload_batches", {

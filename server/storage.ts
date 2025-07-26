@@ -19,6 +19,8 @@ import {
   type InsertCompetitorPricing,
   type FileUpload,
   type InsertFileUpload,
+  type ActivityLog,
+  type InsertActivityLog,
   users,
   competitorPricing,
   fileUploads,
@@ -26,6 +28,7 @@ import {
   uploadBatches,
   productCategories,
   productTypes,
+  activityLogs,
   type ProductPricingMaster,
   type InsertProductPricingMaster,
   type UploadBatch,
@@ -111,6 +114,11 @@ export interface IStorage {
 
   // Admin methods
   reinitializeData(): Promise<void>;
+
+  // Activity logging
+  logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogs(userId?: string, limit?: number): Promise<ActivityLog[]>;
+  getUserActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
 }
 
 
@@ -619,6 +627,82 @@ export class MemStorage implements IStorage {
 
   // Removed: legacy pricing management methods - replaced by productPricingMaster
 
+  // Activity logging methods (for MemStorage, we'll just return empty arrays since it's not persistent)
+  async logActivity(activity: InsertActivityLog): Promise<ActivityLog> {
+    // For MemStorage, return a mock activity log since we don't persist it
+    return {
+      id: 1,
+      action: activity.action,
+      description: activity.description,
+      userId: activity.userId,
+      ipAddress: activity.ipAddress || null,
+      userAgent: activity.userAgent || null,
+      createdAt: new Date()
+    };
+  }
+
+  async getActivityLogs(userId?: string, limit: number = 50): Promise<ActivityLog[]> {
+    // For MemStorage, return empty array since we don't persist activity logs
+    return [];
+  }
+
+  async getUserActivityLogs(userId: string, limit: number = 50): Promise<ActivityLog[]> {
+    // For MemStorage, return empty array since we don't persist activity logs
+    return [];
+  }
+
+  // Product Pricing Master operations (delegate to database for testing)
+  async getAllProductPricingMaster(): Promise<ProductPricingMaster[]> {
+    return [];
+  }
+
+  async getProductPricingMaster(): Promise<ProductPricingMaster[]> {
+    return [];
+  }
+
+  async getProductPricingMasterById(id: number): Promise<ProductPricingMaster | undefined> {
+    return undefined;
+  }
+
+  async createProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
+    // Mock implementation for testing
+    return {
+      id: 1,
+      itemCode: data.itemCode,
+      productName: data.productName,
+      productType: data.productType,
+      productTypeId: data.productTypeId,
+      size: data.size,
+      totalSqm: data.totalSqm,
+      minQuantity: data.minQuantity,
+      exportPrice: data.exportPrice,
+      masterDistributorPrice: data.masterDistributorPrice,
+      dealerPrice: data.dealerPrice,
+      dealer2Price: data.dealer2Price,
+      approvalNeededPrice: data.approvalNeededPrice,
+      tierStage25Price: data.tierStage25Price,
+      tierStage2Price: data.tierStage2Price,
+      tierStage15Price: data.tierStage15Price,
+      tierStage1Price: data.tierStage1Price,
+      retailPrice: data.retailPrice,
+      rowHash: data.rowHash,
+      uploadBatch: data.uploadBatch,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async upsertProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster> {
+    return this.createProductPricingMaster(data);
+  }
+
+  async clearAllProductPricingMaster(): Promise<number> {
+    return 0;
+  }
+
+  async bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]> {
+    return data.map(item => this.createProductPricingMaster(item));
+  }
 
 }
 
@@ -1173,6 +1257,36 @@ export class DatabaseStorage implements IStorage {
       console.error('Error during rollback:', error);
       return { success: false, message: "Rollback failed due to database error" };
     }
+  }
+
+  // Activity logging methods
+  async logActivity(activity: InsertActivityLog): Promise<ActivityLog> {
+    const [result] = await db
+      .insert(activityLogs)
+      .values(activity)
+      .returning();
+    return result;
+  }
+
+  async getActivityLogs(userId?: string, limit: number = 50): Promise<ActivityLog[]> {
+    let query = db.select().from(activityLogs);
+    
+    if (userId) {
+      query = query.where(eq(activityLogs.userId, userId));
+    }
+    
+    return await query
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+  }
+
+  async getUserActivityLogs(userId: string, limit: number = 50): Promise<ActivityLog[]> {
+    return await db
+      .select()
+      .from(activityLogs)
+      .where(eq(activityLogs.userId, userId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
   }
 }
 

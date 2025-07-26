@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 import { 
   Table, 
@@ -31,6 +32,7 @@ interface User {
 export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logUserAction, logPageView, logDataExport } = useActivityLogger();
 
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
@@ -42,8 +44,10 @@ export default function Admin() {
     mutationFn: async (userId: string) => {
       return await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/approve`, "POST");
     },
-    onSuccess: () => {
+    onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      const user = users?.find(u => u.id === userId);
+      logUserAction("APPROVED USER", user?.email || userId);
       toast({
         title: "User approved",
         description: "User has been approved and can now access the system",
@@ -62,8 +66,10 @@ export default function Admin() {
     mutationFn: async (userId: string) => {
       return await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/reject`, "POST");
     },
-    onSuccess: () => {
+    onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      const user = users?.find(u => u.id === userId);
+      logUserAction("REJECTED USER", user?.email || userId);
       toast({
         title: "User rejected",
         description: "User has been rejected and cannot access the system",
@@ -82,8 +88,10 @@ export default function Admin() {
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       return await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}/role`, "PATCH", { role: newRole });
     },
-    onSuccess: () => {
+    onSuccess: (_, { userId, newRole }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      const user = users?.find(u => u.id === userId);
+      logUserAction("CHANGED USER ROLE", `${user?.email || userId} to ${newRole}`);
       toast({
         title: "Role updated",
         description: "User role has been updated successfully",
@@ -119,6 +127,7 @@ export default function Admin() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
+      logDataExport("Database Backup", "ZIP");
       toast({
         title: "Success", 
         description: "All database files downloaded successfully",
