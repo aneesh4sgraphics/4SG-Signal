@@ -246,7 +246,7 @@ function generateQuoteHTML(data: PDFGenerationRequest): string {
       </head>
       <body>
         <div class="header">
-          ${logo ? `<img src="data:image/png;base64,${logo}" alt="4S Graphics Logo" />` : ""}
+          ${logo ? `<img src="data:image/png;base64,${logo}" alt="4S Graphics Logo" style="display: block; margin: 0 auto 15px auto; height: 60px;" />` : ""}
           <h2>${companyDetails.name}</h2>
           <p>${companyDetails.address}, ${companyDetails.city}</p>
           <p>Phone: ${companyDetails.phone} | Website: ${companyDetails.website}</p>

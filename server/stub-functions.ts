@@ -553,7 +553,7 @@ export function generatePriceListHTML(data: any): string {
     </head>
     <body>
       <div class="header">
-        ${logo ? `<img src="data:image/png;base64,${logo}" alt="4S Graphics Logo" style="height: 60px; margin-bottom: 10px;" />` : ""}
+        ${logo ? `<img src="data:image/png;base64,${logo}" alt="4S Graphics Logo" style="display: block; margin: 0 auto 15px auto; height: 60px;" />` : ""}
         <div class="company-name">4S Graphics, Inc.</div>
         <div class="company-details">
           764 NW 57th Court, Fort Lauderdale, FL 33309<br>
