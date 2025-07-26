@@ -87,7 +87,7 @@ export default function PriceList() {
   const { user } = useAuth();
   
   // Get user role and filter pricing tiers accordingly
-  const userRole = getUserRoleFromEmail(user?.claims?.email || '');
+  const userRole = getUserRoleFromEmail((user as any)?.email || '');
   const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
 
   // Fetch product pricing data from new database
@@ -182,7 +182,7 @@ export default function PriceList() {
         </div>
 
         {/* Configuration */}
-        <SimpleCardFrame className="p-6 mb-6" style={{ backgroundColor: 'white', border: '1px solid #f3f4f6' }}>
+        <SimpleCardFrame className="p-6 mb-6 bg-white border border-gray-100">
           <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
             <IconBadge icon={FileText} label="Configuration" className="px-0 py-0 bg-transparent border-none text-lg font-normal text-gray-800" />
           </h2>
@@ -199,8 +199,8 @@ export default function PriceList() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={String(category)} value={String(category)}>
+                      {String(category)}
                     </SelectItem>
                   ))}
                 </SelectContent>
