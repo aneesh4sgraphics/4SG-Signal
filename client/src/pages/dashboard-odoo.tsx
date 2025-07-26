@@ -239,7 +239,7 @@ export default function Dashboard() {
               ) : (
                 <p className="text-3xl font-bold text-gray-900">{stats?.totalProducts || 0}</p>
               )}
-              <p className="text-xs text-purple-600">
+              <p className="text-3xl font-bold text-purple-600">
                 {statsLoading ? "Loading..." : `${stats?.totalCustomers || 0} customers`}
               </p>
             </div>
