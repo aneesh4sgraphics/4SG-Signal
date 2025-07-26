@@ -344,78 +344,6 @@ Yours truly
           <HeaderDivider />
         </div>
 
-        {/* Customer Selection Section */}
-        <SimpleCardFrame className="p-6 mb-6 bg-white border border-gray-100">
-          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
-            <IconBadge icon={User} label="Customer Selection" className="px-0 py-0 bg-transparent border-none text-lg font-normal text-gray-800" />
-          </h2>
-          <p className="text-sm text-gray-500 mb-4">Select a customer to generate quotes for</p>
-        <div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Customer Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-800 mb-2">Select Customer</label>
-              <SearchableCustomerSelect
-                selectedCustomer={selectedCustomer}
-                onCustomerSelect={setSelectedCustomer}
-                placeholder="Search by name, company, or email"
-                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Right Column - Customer Details */}
-            <div>
-              <label className="block text-sm font-normal text-gray-800 mb-2">Customer Details</label>
-              {selectedCustomer ? (
-                <div className="rounded-md p-4 space-y-3" style={{ border: '1px solid #f3f4f6', backgroundColor: '#f3f4f6' }}>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-800">
-                      {selectedCustomer.firstName} {selectedCustomer.lastName}
-                    </span>
-                  </div>
-                  
-                  {selectedCustomer.company && (
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-500">{selectedCustomer.company}</span>
-                    </div>
-                  )}
-                  
-                  {selectedCustomer.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-500">{selectedCustomer.email}</span>
-                    </div>
-                  )}
-                  
-                  {selectedCustomer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-500">{selectedCustomer.phone}</span>
-                    </div>
-                  )}
-                  
-                  {(selectedCustomer.city || selectedCustomer.province) && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-gray-600" />
-                      <span className="text-sm text-gray-500">
-                        {[selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="border border-gray-200 rounded-md p-4 bg-gray-50 text-center">
-                  <User className="h-6 w-6 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500">Select a customer to view details</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </SimpleCardFrame>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Configure Product */}
         <div className="lg:col-span-1">
@@ -684,6 +612,78 @@ Yours truly
           </div>
         </div>
       </div>
+
+      {/* Customer Selection Section - Single Column */}
+      <SimpleCardFrame className="p-6 mb-6 bg-white border border-gray-100">
+        <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+          <IconBadge icon={User} label="Customer Selection" className="px-0 py-0 bg-transparent border-none text-lg font-normal text-gray-800" />
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">Select a customer to generate quotes for</p>
+        <SectionDivider />
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Customer Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-800 mb-2">Select Customer</label>
+            <SearchableCustomerSelect
+              selectedCustomer={selectedCustomer}
+              onCustomerSelect={setSelectedCustomer}
+              placeholder="Search by name, company, or email"
+              className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Customer Details */}
+          <div>
+            <label className="block text-sm font-normal text-gray-800 mb-2">Customer Details</label>
+            {selectedCustomer ? (
+              <div className="rounded-md p-4 space-y-3 border border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-800">
+                    {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  </span>
+                </div>
+                
+                {selectedCustomer.company && (
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-500">{selectedCustomer.company}</span>
+                  </div>
+                )}
+                
+                {selectedCustomer.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-500">{selectedCustomer.email}</span>
+                  </div>
+                )}
+                
+                {selectedCustomer.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-500">{selectedCustomer.phone}</span>
+                  </div>
+                )}
+                
+                {(selectedCustomer.city || selectedCustomer.province) && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm text-gray-500">
+                      {[selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-md p-4 bg-gray-50 text-center">
+                <User className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500">Select a customer to view details</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </SimpleCardFrame>
 
       {/* Quote Items */}
       {quoteItems.length > 0 && (
