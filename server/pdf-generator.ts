@@ -90,13 +90,13 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     return categoryMappings[productType] || productType;
   }
 
-  // Group items by product type
-  const itemsByType: { [key: string]: QuoteItem[] } = {};
+  // Group items by product name
+  const itemsByProductName: { [key: string]: QuoteItem[] } = {};
   quoteItems.forEach(item => {
-    if (!itemsByType[item.productType]) {
-      itemsByType[item.productType] = [];
+    if (!itemsByProductName[item.productName]) {
+      itemsByProductName[item.productName] = [];
     }
-    itemsByType[item.productType].push(item);
+    itemsByProductName[item.productName].push(item);
   });
 
   // Calculate total amount based on Min Order Qty × Price/Sheet
@@ -155,34 +155,39 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     return result || 'zero dollars';
   }
 
-  // Generate separate tables for each product type
-  const productTables = Object.entries(itemsByType).map(([productType, items]) => {
-    const categoryName = getCategoryDisplayName(productType);
+  // Generate separate tables for each product name
+  const productTables = Object.entries(itemsByProductName).map(([productName, items]: [string, QuoteItem[]]) => {
+    // Group items by product type within this product name
+    const itemsByType = items.reduce((acc: Record<string, QuoteItem[]>, item: QuoteItem) => {
+      if (!acc[item.productType]) acc[item.productType] = [];
+      acc[item.productType].push(item);
+      return acc;
+    }, {});
     
-    const productRows = items.map((item, index) => {
-      const orderQty = Math.max(item.minOrderQty || 0, item.quantity);
-      const itemTotal = orderQty * item.pricePerSheet;
-      
-      return `
-        <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${item.size}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.minOrderQty || 0}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: bold;">$${itemTotal.toFixed(2)}</td>
-        </tr>
-      `;
-    }).join('');
+    const typeTables = Object.entries(itemsByType).map(([productType, typeItems]: [string, QuoteItem[]]) => {
+      const productRows = typeItems.map((item: QuoteItem, index: number) => {
+        const orderQty = Math.max(item.minOrderQty || 0, item.quantity);
+        const itemTotal = orderQty * item.pricePerSheet;
+        
+        return `
+          <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${item.itemCode || '-'}</td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${productType}</td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${item.size}</td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.minOrderQty || 0}</td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: bold;">$${itemTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
 
-    return `
-      <div style="margin-bottom: 25px;">
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 14px; font-weight: 600; color: #3b82f6; margin-bottom: 2px;">${categoryName}</div>
-          <div style="font-size: 16px; font-weight: bold; color: #1f2937;">${productType}</div>
-        </div>
+      return `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background-color: white; border: 1px solid #ddd;">
           <thead>
             <tr style="background-color: #374151;">
-              <th style="padding: 10px 12px; color: white; text-align: left; font-weight: bold; font-size: 11px;">Size</th>
+              <th style="padding: 10px 12px; color: white; text-align: left; font-weight: bold; font-size: 11px;">Item Code</th>
+              <th style="padding: 10px 12px; color: white; text-align: left; font-weight: bold; font-size: 11px;">Product Type</th>
+              <th style="padding: 8px 12px; color: white; text-align: left; font-weight: bold; font-size: 11px;">Size</th>
               <th style="padding: 10px 12px; color: white; text-align: center; font-weight: bold; font-size: 11px;">Min Order Qty</th>
               <th style="padding: 10px 12px; color: white; text-align: right; font-weight: bold; font-size: 11px;">Price/Sheet</th>
               <th style="padding: 10px 12px; color: white; text-align: right; font-weight: bold; font-size: 11px;">Total</th>
@@ -192,6 +197,15 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
             ${productRows}
           </tbody>
         </table>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom: 25px;">
+        <div style="margin-bottom: 15px;">
+          <h3 style="font-size: 18px; font-weight: bold; color: #1f2937; margin: 0; padding: 10px; background-color: #f3f4f6; border-left: 4px solid #3b82f6;">${productName}</h3>
+        </div>
+        ${typeTables}
       </div>
     `;
   }).join('');
@@ -305,7 +319,7 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
     <body>
       <div class="header">
         <div class="logo-section">
-          ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" alt="4S Graphics Logo" style="max-height: 60px; max-width: 150px; margin-bottom: 10px;" />` : ''}
+          ${logoBase64 ? `<img src="data:image/png;base64,${logoBase64}" alt="4S Graphics Logo" style="max-height: 60px; max-width: 150px; margin-bottom: 10px;" />` : ''}
           <div class="company-name">${companyDetails.name}</div>
           <div class="company-details">
             ${companyDetails.address}, ${companyDetails.city}<br>
@@ -362,12 +376,19 @@ function generateQuoteHTML(request: PDFGenerationRequest): string {
 
 function getLogoBase64(): string {
   try {
-    const logoPath = path.join(process.cwd(), 'client', 'public', 'company-logo.jpg');
+    // Try the attached assets directory first
+    const logoPath = path.join(process.cwd(), 'attached_assets', '4s logo Clean 150x_1753410902611.png');
     console.log('Attempting to read logo from:', logoPath);
     
     // Check if file exists
     if (!fs.existsSync(logoPath)) {
       console.error('Logo file does not exist at path:', logoPath);
+      // Try alternative path
+      const altLogoPath = path.join(process.cwd(), 'client', 'public', 'company-logo.png');
+      if (fs.existsSync(altLogoPath)) {
+        const logoBuffer = fs.readFileSync(altLogoPath);
+        return logoBuffer.toString('base64');
+      }
       return '';
     }
     
@@ -414,7 +435,7 @@ export async function generateQuotePDF(request: PDFGenerationRequest): Promise<B
 
   try {
     const pdfBuffer = await pdf.generatePdf({ content: html }, options);
-    return pdfBuffer as Buffer;
+    return pdfBuffer as any;
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw new Error('Failed to generate PDF');
