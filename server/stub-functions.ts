@@ -82,13 +82,16 @@ export function generateQuoteHTMLForDownload(data: any): string {
     const productRows = items.map((item: any, index: number) => {
       const orderQty = Math.max(item.minOrderQty || 0, item.quantity);
       const itemTotal = orderQty * item.pricePerSheet;
+      // Determine unit based on minimum order quantity
+      const unitLabel = (item.minOrderQty === 1) ? 'roll' : 'sheet';
       
       return `
         <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5;">${item.size}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.minOrderQty || 0}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">$${item.pricePerSheet.toFixed(2)}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: bold;">$${itemTotal.toFixed(2)}</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6; font-family: monospace; color: #000;">${item.itemCode || '-'}</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6; color: #000;">${item.size}</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6; text-align: center; color: #000;">${item.minOrderQty || 0}</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6; text-align: right; color: #000;">$${item.pricePerSheet.toFixed(2)}/${unitLabel}</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6; text-align: right; font-weight: bold; color: #000;">$${itemTotal.toFixed(2)}</td>
         </tr>
       `;
     }).join('');
@@ -101,11 +104,12 @@ export function generateQuoteHTMLForDownload(data: any): string {
         </div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background-color: white; border: 1px solid #ddd;">
           <thead>
-            <tr style="background-color: #374151;">
-              <th style="padding: 10px 12px; color: white; text-align: left; font-weight: bold; font-size: 11px;">Size</th>
-              <th style="padding: 10px 12px; color: white; text-align: center; font-weight: bold; font-size: 11px;">Min Order Qty</th>
-              <th style="padding: 10px 12px; color: white; text-align: right; font-weight: bold; font-size: 11px;">Price/Sheet</th>
-              <th style="padding: 10px 12px; color: white; text-align: right; font-weight: bold; font-size: 11px;">Total</th>
+            <tr style="background-color: #bfdbfe;">
+              <th style="padding: 10px 12px; color: #000; text-align: left; font-weight: bold; font-size: 11px; border: 1px solid #dee2e6;">Item Code</th>
+              <th style="padding: 10px 12px; color: #000; text-align: left; font-weight: bold; font-size: 11px; border: 1px solid #dee2e6;">Size</th>
+              <th style="padding: 10px 12px; color: #000; text-align: center; font-weight: bold; font-size: 11px; border: 1px solid #dee2e6;">Min Order Qty</th>
+              <th style="padding: 10px 12px; color: #000; text-align: right; font-weight: bold; font-size: 11px; border: 1px solid #dee2e6;">Price/Unit</th>
+              <th style="padding: 10px 12px; color: #000; text-align: right; font-weight: bold; font-size: 11px; border: 1px solid #dee2e6;">Total</th>
             </tr>
           </thead>
           <tbody>
