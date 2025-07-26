@@ -232,23 +232,24 @@ export default function QuoteCalculator() {
       });
       
       if (!response.ok) throw new Error('Failed to generate PDF');
-      return response.json();
+      
+      // Handle direct file download
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `QuickQuote_${new Date().toLocaleDateString().replace(/\//g, '-')}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      return { success: true };
     },
-    onSuccess: (data) => {
-      // Create and download the PDF
-      const html = data.html;
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      }
+    onSuccess: () => {
       toast({
-        title: "PDF Generated",
-        description: "Quote PDF has been generated successfully",
+        title: "PDF Downloaded",
+        description: "Quote HTML file has been downloaded - open it and print to PDF",
       });
     },
     onError: (error) => {

@@ -1838,15 +1838,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sanitizedCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
       const filename = `QuickQuotes_4SGraphics_${currentDate}_for_${sanitizedCustomerName}.pdf`;
       
-      // Return HTML with proper print styles for browser-based PDF generation
-      // This approach works better in constrained environments
-      res.json({
-        html: htmlContent,
-        filename,
-        quoteNumber: finalQuoteNumber,
-        totalAmount,
-        downloadType: 'pdf'
+      // Return HTML for direct download as HTML file (user can print to PDF)
+      res.set({
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${filename.replace('.pdf', '.html')}"`
       });
+      res.send(htmlContent);
     } catch (error) {
       console.error("Error generating PDF quote:", error);
       res.status(500).json({ error: "Failed to generate PDF quote" });
