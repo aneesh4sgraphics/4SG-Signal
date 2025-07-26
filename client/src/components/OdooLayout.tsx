@@ -21,15 +21,17 @@ interface OdooLayoutProps {
   children: React.ReactNode;
 }
 
-const sidebarItems = [
-  { path: '/', icon: Home, label: 'Dashboard', adminOnly: false },
-  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', adminOnly: false },
-  { path: '/price-list', icon: DollarSign, label: 'Price List', adminOnly: false },
-  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', adminOnly: false },
-  // Admin-only items
-  { path: '/customers', icon: Users, label: 'Customers', adminOnly: true },
-  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', adminOnly: true },
-  { path: '/admin', icon: Settings, label: 'Administration', adminOnly: true },
+const mainItems = [
+  { path: '/', icon: Home, label: 'Dashboard' },
+  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes' },
+  { path: '/price-list', icon: DollarSign, label: 'Price List' },
+  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes' },
+];
+
+const adminItems = [
+  { path: '/customers', icon: Users, label: 'Customers' },
+  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing' },
+  { path: '/admin', icon: Settings, label: 'Administration' },
 ];
 
 export default function OdooLayout({ children }: OdooLayoutProps) {
@@ -45,8 +47,6 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
   };
 
   const isAdmin = (user as any)?.role === 'admin';
-
-  const filteredItems = sidebarItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -78,36 +78,57 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
-          {filteredItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.path;
-            const isAdminItem = item.adminOnly;
-            
-            return (
-              <Link key={item.path} href={item.path}>
-                <div className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-                  isActive 
-                    ? isAdminItem 
-                      ? 'bg-orange-100 text-orange-700 border border-orange-200' 
-                      : 'bg-purple-100 text-purple-700 border border-purple-200'
-                    : isAdminItem
-                      ? 'text-orange-700 hover:bg-orange-50'
+        <nav className="flex-1 p-4 space-y-4">
+          {/* Main Items */}
+          <div className="space-y-2">
+            {mainItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.path;
+              
+              return (
+                <Link key={item.path} href={item.path}>
+                  <div className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                    isActive 
+                      ? 'bg-purple-100 text-purple-700 border border-purple-200'
                       : 'text-gray-700 hover:bg-gray-100'
-                }`}>
-                  <Icon className="h-5 w-5" />
-                  {sidebarOpen && (
-                    <span className="flex items-center gap-2">
-                      {item.label}
-                      {isAdminItem && (
-                        <span className="text-xs bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded-full">Admin</span>
-                      )}
-                    </span>
-                  )}
+                  }`}>
+                    <Icon className="h-5 w-5" />
+                    {sidebarOpen && <span>{item.label}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Admin Section */}
+          {isAdmin && (
+            <div className="space-y-2">
+              {sidebarOpen && (
+                <div className="px-3 py-2">
+                  <h3 className="text-xs font-semibold text-orange-600 uppercase tracking-wider">
+                    Administration
+                  </h3>
                 </div>
-              </Link>
-            );
-          })}
+              )}
+              {adminItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.path;
+                
+                return (
+                  <Link key={item.path} href={item.path}>
+                    <div className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                      isActive 
+                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                        : 'text-orange-700 hover:bg-orange-50'
+                    }`}>
+                      <Icon className="h-5 w-5" />
+                      {sidebarOpen && <span>{item.label}</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {/* User section */}
@@ -148,13 +169,13 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {filteredItems.find(item => item.path === location)?.label || 'Dashboard'}
+                {[...mainItems, ...adminItems].find(item => item.path === location)?.label || 'Dashboard'}
               </h2>
               <nav className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
                 <span>Home</span>
                 <span>/</span>
                 <span className="text-gray-900">
-                  {filteredItems.find(item => item.path === location)?.label || 'Dashboard'}
+                  {[...mainItems, ...adminItems].find(item => item.path === location)?.label || 'Dashboard'}
                 </span>
               </nav>
             </div>
