@@ -147,7 +147,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Database test error:", error);
-      res.status(500).json({ error: error.message });
+      const errorMessage = error instanceof Error ? error.message : "Unknown database error";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
@@ -168,21 +169,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalQuotes = await storage.getSentQuotesCount();
         console.log("✓ Total quotes:", totalQuotes);
       } catch (e) {
-        console.warn("Failed to get quotes count:", e.message);
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.warn("Failed to get quotes count:", errorMessage);
       }
 
       try {
         totalCustomers = await storage.getCustomersCount();
         console.log("✓ Total customers:", totalCustomers);
       } catch (e) {
-        console.warn("Failed to get customers count:", e.message);
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.warn("Failed to get customers count:", errorMessage);
       }
 
       try {
         totalProducts = await storage.getProductsCount();
         console.log("✓ Total products:", totalProducts);
       } catch (e) {
-        console.warn("Failed to get products count:", e.message);
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.warn("Failed to get products count:", errorMessage);
       }
 
       try {
@@ -200,7 +204,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, 0);
         console.log("✓ Monthly revenue:", monthlyRevenue);
       } catch (e) {
-        console.warn("Failed to get monthly stats:", e.message);
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.warn("Failed to get monthly stats:", errorMessage);
       }
 
       const stats = {
@@ -216,7 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       console.error("Dashboard stats error:", error);
-      res.status(500).json({ error: "Failed to fetch dashboard statistics", details: error.message });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch dashboard statistics", details: errorMessage });
     }
   });
 
@@ -534,11 +540,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'Master Distributor': data.masterDistributorPrice,
             'Dealer': data.dealerPrice,
             'Dealer2': data.dealer2Price,
-            'Approval (Retail)': data.approvalRetailPrice,
-            'Stage25': data.stage25Price,
-            'Stage2': data.stage2Price,
-            'Stage15': data.stage15Price,
-            'Stage1': data.stage1Price,
+            'Approval (Retail)': data.approvalNeededPrice,
+            'Stage25': data.tierStage25Price,
+            'Stage2': data.tierStage2Price,
+            'Stage15': data.tierStage15Price,
+            'Stage1': data.tierStage1Price,
             'Retail': data.retailPrice
           };
           
