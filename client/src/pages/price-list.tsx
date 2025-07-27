@@ -195,9 +195,9 @@ export default function PriceList() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#fafafa' }}>
-      <div className="w-full px-8 py-6">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Header */}
-        <div className="mb-6 relative max-w-4xl">
+        <div className="mb-6 relative">
           <FloatingElements />
           <h1 className="text-xl font-normal text-gray-800 mb-2">Price List</h1>
           <p className="text-sm text-gray-500">
@@ -206,20 +206,20 @@ export default function PriceList() {
           <HeaderDivider />
         </div>
 
-        {/* Configuration - Full Width */}
-        <SimpleCardFrame className="p-8 mb-6 bg-white border border-gray-100 w-full">
-          <div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-none">
+        {/* Configuration - Optimized Layout */}
+        <SimpleCardFrame className="p-6 mb-6 bg-white border border-gray-100">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Product Category */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-800">Product Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-full h-12 rounded-md px-6 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border-2 border-gray-200 hover:border-gray-300 transition-colors">
+                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
                     <SelectValue placeholder="Select product category" />
                   </SelectTrigger>
-                  <SelectContent className="max-w-none min-w-full">
+                  <SelectContent className="w-full">
                     {categories.map(category => (
-                      <SelectItem key={String(category)} value={String(category)} className="text-base py-3">
+                      <SelectItem key={String(category)} value={String(category)} className="text-sm">
                         {String(category)}
                       </SelectItem>
                     ))}
@@ -228,15 +228,15 @@ export default function PriceList() {
               </div>
 
               {/* Pricing Tier */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-800">Pricing Tier</label>
                 <Select value={selectedTier} onValueChange={setSelectedTier}>
-                  <SelectTrigger className="w-full h-12 rounded-md px-6 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border-2 border-gray-200 hover:border-gray-300 transition-colors">
+                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
                     <SelectValue placeholder="Select pricing tier" />
                   </SelectTrigger>
-                  <SelectContent className="max-w-none min-w-full">
+                  <SelectContent className="w-full">
                     {pricingTiers.map(tier => (
-                      <SelectItem key={tier.key} value={tier.key} className="text-base py-3">
+                      <SelectItem key={tier.key} value={tier.key} className="text-sm">
                         {tier.label}
                       </SelectItem>
                     ))}
@@ -245,22 +245,22 @@ export default function PriceList() {
               </div>
 
               {/* Customer Selection */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-800">Customer (Optional)</label>
                 <SearchableCustomerSelect
                   selectedCustomer={selectedCustomer}
                   onCustomerSelect={setSelectedCustomer}
                   placeholder="Search customers..."
-                  className="w-full h-12 rounded-md px-6 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border-2 border-gray-200 hover:border-gray-300 transition-colors"
+                  className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors"
                 />
               </div>
             </div>
           </div>
         </SimpleCardFrame>
 
-      {/* Price List Table - Full Width */}
+      {/* Price List Table */}
       {priceListItems.length > 0 ? (
-        <SimpleCardFrame className="p-8 w-full">
+        <SimpleCardFrame className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-lg font-medium text-gray-800">Price List - {selectedCategory}</h2>
             <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-sm text-gray-800 border border-gray-200">
@@ -352,7 +352,7 @@ export default function PriceList() {
           />
         </SimpleCardFrame>
       ) : (
-        <div className="border border-gray-200 rounded-lg p-8 bg-white text-center w-full">
+        <div className="border border-gray-200 rounded-lg p-6 bg-white text-center">
           <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
           <p className="text-base font-medium text-gray-800 mb-2">No price list generated</p>
           <p className="text-sm text-gray-500">Select a product category and pricing tier to get started</p>
