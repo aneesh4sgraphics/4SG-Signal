@@ -2776,8 +2776,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Category and tier selection are required" });
       }
 
-      // Generate a quote number for the price list
-      const quoteNumber = generateQuoteNumber();
+      // Generate a 7-digit alphanumeric quote number for the price list
+      const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const quoteNumber = Array.from(
+        { length: 7 },
+        () => chars[Math.floor(Math.random() * chars.length)]
+      ).join("");
 
       // Generate HTML using the price list function
       const html = await generatePriceListHTML({
@@ -2842,6 +2846,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="PriceList_${selectedCategory}_${selectedTier}_${new Date().toISOString().split('T')[0]}.pdf"`);
       res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Calculate total amount from price list items
+      const totalAmount = priceListItems.reduce((sum: number, item: any) => {
+        const price = parseFloat(item.pricePerPack || item.total || 0);
+        return sum + price;
+      }, 0);
+
+      // Save to Saved Quotes table
+      try {
+        await storage.createSentQuote({
+          quoteNumber,
+          customerName: customerName || 'Customer',
+          customerEmail: '',
+          quoteItems: JSON.stringify(priceListItems.map((item: any) => ({
+            itemCode: item.itemCode,
+            productType: item.productType,
+            size: item.size,
+            quantity: item.minOrderQty || item.minQty || 1,
+            pricePerSheet: item.pricePerSheet,
+            total: item.pricePerPack || item.total
+          }))),
+          totalAmount: totalAmount.toString(),
+          sentVia: 'pdf',
+          status: 'sent'
+        });
+        
+        debugLog('Price List PDF generation', 'Price list saved to Saved Quotes with number:', quoteNumber);
+      } catch (saveError) {
+        console.error('Error saving price list to Saved Quotes:', saveError);
+        // Don't fail the PDF generation if saving fails
+      }
 
       // Send the PDF
       res.end(pdfBuffer);
