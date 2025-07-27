@@ -425,12 +425,15 @@ export async function generatePriceListHTML(data: any): Promise<string> {
       // Try multiple field names for minimum quantity - minOrderQty is the correct field from frontend
       const minQtyValue = row.minOrderQty || row.minQty || row.minQuantity || row.min_quantity || 1;
       
+      // Determine unit based on minimum order quantity: 1 = roll, >1 = sheet
+      const unitLabel = minQtyValue === 1 ? 'roll' : 'sheet';
+      
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
         <td style="padding: 4px 6px; border: 1px solid #ccc; font-size: 10px;">${row.size || 'N/A'}</td>
         <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: center; font-size: 10px;">${row.itemCode || '-'}</td>
         <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: center; font-size: 10px;">${minQtyValue}</td>
-        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: right; font-size: 10px;">$${(row.pricePerSheet || 0).toFixed(2)}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: right; font-size: 10px;">$${(row.pricePerSheet || 0).toFixed(2)}/${unitLabel}</td>
         <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: right; font-size: 10px; font-weight: bold;">$${(row.total || row.pricePerPack || 0).toFixed(2)}</td>
       </tr>
       `;
@@ -455,7 +458,7 @@ export async function generatePriceListHTML(data: any): Promise<string> {
               <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: left; font-size: 11px;">Size</th>
               <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: center; font-size: 11px;">Item Code</th>
               <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: center; font-size: 11px;">Min Qty</th>
-              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Sheet</th>
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Unit</th>
               <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Pack</th>
             </tr>
           </thead>
