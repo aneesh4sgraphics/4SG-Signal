@@ -2755,6 +2755,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate Price List PDF
+  app.post("/api/generate-price-list-pdf", isAuthenticated, async (req, res) => {
+    try {
+      const { customerName, selectedCategory, selectedTier, priceListItems } = req.body;
+
+      // Validate required data
+      if (!priceListItems || !Array.isArray(priceListItems) || priceListItems.length === 0) {
+        return res.status(400).json({ error: "Price list items are required" });
+      }
+
+      if (!selectedCategory || !selectedTier) {
+        return res.status(400).json({ error: "Category and tier selection are required" });
+      }
+
+      // Generate a quote number for the price list
+      const quoteNumber = generateQuoteNumber();
+
+      // Generate HTML using the price list function
+      const html = generatePriceListHTML({
+        categoryName: selectedCategory,
+        tierName: selectedTier,
+        items: priceListItems,
+        customerName: customerName || 'Customer',
+        quoteNumber,
+        title: "PRICE LIST"
+      });
+
+      // Configure html-pdf-node for Replit environment
+      const options = {
+        format: 'A4',
+        margin: { top: "20px", right: "20px", bottom: "20px", left: "20px" },
+        printBackground: true,
+        preferCSSPageSize: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+      };
+
+      debugLog('Price List PDF generation', 'Starting PDF generation with Chromium path:', process.env.PUPPETEER_EXECUTABLE_PATH);
+
+      // Generate PDF
+      const file = { content: html };
+      const pdfBuffer = await pdf.generatePdf(file, options);
+
+      debugLog('Price List PDF generation', 'PDF generated successfully, size:', pdfBuffer.length);
+
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="PriceList_${selectedCategory}_${selectedTier}_${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Send the PDF
+      res.end(pdfBuffer);
+
+      logDownload(`PriceList_${selectedCategory}_${selectedTier}.pdf`, 'PDF price list generation');
+
+    } catch (error) {
+      console.error("Price List PDF generation error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      res.status(500).json({ 
+        error: "Failed to generate Price List PDF", 
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
 
 
   app.post("/api/generate-price-list-csv", isAuthenticated, async (req, res) => {

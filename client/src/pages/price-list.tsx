@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText } from "lucide-react";
+import { FileText, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,6 +103,73 @@ export default function PriceList() {
     const userRole = getUserRoleFromEmail((user as any)?.email || '');
     return allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
   }, [(user as any)?.email]);
+
+  // PDF Download Mutation
+  const downloadPDFMutation = useMutation({
+    mutationFn: async () => {
+      const customerName = selectedCustomer 
+        ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
+        : 'Customer';
+
+      const response = await fetch('/api/generate-price-list-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName,
+          selectedCategory,
+          selectedTier,
+          priceListItems: priceListItems.map(item => ({
+            itemCode: item.itemCode,
+            productType: item.productType,
+            size: item.size,
+            minOrderQty: item.minQty,
+            pricePerSheet: item.pricePerSheet,
+            total: item.pricePerPack
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      return response.blob();
+    },
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PriceList_${selectedCategory}_${pricingTiers.find(t => t.key === selectedTier)?.label}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "Price list PDF downloaded successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDownloadPDF = () => {
+    if (priceListItems.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please select a category and tier to generate PDF",
+        variant: "destructive"
+      });
+      return;
+    }
+    downloadPDFMutation.mutate();
+  };
 
 
 
@@ -261,11 +329,21 @@ export default function PriceList() {
       {/* Price List Table */}
       {priceListItems.length > 0 ? (
         <SimpleCardFrame className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-medium text-gray-800">Price List - {selectedCategory}</h2>
-            <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-sm text-gray-800 border border-gray-200">
-              {pricingTiers.find(t => t.key === selectedTier)?.label}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-medium text-gray-800">Price List - {selectedCategory}</h2>
+              <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-sm text-gray-800 border border-gray-200">
+                {pricingTiers.find(t => t.key === selectedTier)?.label}
+              </span>
+            </div>
+            <Button
+              onClick={handleDownloadPDF}
+              disabled={downloadPDFMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm"
+            >
+              <Download className="h-4 w-4" />
+              {downloadPDFMutation.isPending ? 'Generating...' : 'Download PDF'}
+            </Button>
           </div>
           <p className="text-sm text-gray-500 mb-6">{priceListItems.length} products found</p>
           <AdaptiveTable
