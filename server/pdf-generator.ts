@@ -210,7 +210,6 @@ function generateQuoteHTML(data: PDFGenerationRequest): string {
       return `
       <div style="margin-bottom: 25px;">
         <div style="margin-bottom: 10px;">
-          <div style="font-size: 14px; font-weight: 600; color: #3b82f6; margin-bottom: 2px;">${categoryDisplayName}</div>
           <div style="font-size: 16px; font-weight: bold; color: #1f2937;">${type}</div>
         </div>
         <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">

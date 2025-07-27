@@ -127,7 +127,6 @@ export function generateQuoteHTMLForDownload(data: any): string {
     return `
       <div style="margin-bottom: 25px;">
         <div style="margin-bottom: 10px;">
-          <div style="font-size: 14px; font-weight: 600; color: #3b82f6; margin-bottom: 2px;">${categoryName}</div>
           <div style="font-size: 16px; font-weight: bold; color: #1f2937;">${productType}</div>
         </div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background-color: white; border: 1px solid #ddd;">
