@@ -45,40 +45,19 @@ async function getLogoBase64FromURL(): Promise<string> {
     return logoCache;
   }
   
-  try {
-    const imageUrl = "https://cdn.shopify.com/s/files/1/3039/2358/files/4s-logo-high-res.png?v=1688121438";
-    const response = await axios.get(imageUrl, { 
-      responseType: "arraybuffer",
-      headers: {
-        'Accept': 'image/png,image/*,*/*'
-      }
-    });
-    
-    // Check if we actually got an image (not an HTML 404 page)
-    if (response.status === 200 && response.headers['content-type']?.startsWith('image/')) {
-      const buffer = Buffer.from(response.data, "binary");
-      logoCache = buffer.toString("base64");
-      console.log("✓ Successfully fetched 4S Graphics logo from CDN");
-      return logoCache;
-    } else {
-      throw new Error(`Invalid response: ${response.status} - ${response.headers['content-type']}`);
-    }
-  } catch (error) {
-    console.error("❌ Failed to fetch logo from CDN, falling back to local file:", error);
-    
-    // Fallback to local file
-    const logoPath = path.join(process.cwd(), "client", "public", "4s-logo-high-res.png");
-    if (fs.existsSync(logoPath)) {
-      const buffer = fs.readFileSync(logoPath);
-      logoCache = buffer.toString("base64");
-      console.log("✓ Using local 4S Graphics logo as fallback");
-      return logoCache;
-    }
-    
-    console.error("❌ No logo available - both CDN and local fallback failed");
-    logoCache = "";
+  // Use the logo from attached assets
+  const logoPath = path.join(process.cwd(), "attached_assets", "4s logo Clean High res_1753549110142.png");
+  
+  if (fs.existsSync(logoPath)) {
+    const buffer = fs.readFileSync(logoPath);
+    logoCache = buffer.toString("base64");
+    console.log("✓ Using 4S Graphics logo from attached assets");
     return logoCache;
   }
+  
+  console.error("❌ 4S Graphics logo not found in attached assets");
+  logoCache = "";
+  return logoCache;
 }
 
 function numberToWords(amount: number): string {
