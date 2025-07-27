@@ -3,6 +3,7 @@
 import pdf from "html-pdf-node";
 import fs from "fs";
 import path from "path";
+import axios from "axios";
 import { generatePaymentInstructionsHTML } from "./config/paymentInstructions";
 
 interface QuoteItem {
@@ -35,28 +36,49 @@ const companyDetails = {
   website: "https://4sgraphics.com",
 };
 
-// Cache for logo to avoid repeated file system reads
+// Cache for logo to avoid repeated network requests
 let logoCache: string | null = null;
 
-function getLogoBase64(): string {
+async function getLogoBase64FromURL(): Promise<string> {
   // Return cached logo if available
   if (logoCache !== null) {
     return logoCache;
   }
   
-  // Use the official 4S Graphics high-resolution logo
-  const logoPath = path.join(process.cwd(), "client", "public", "4s-logo-high-res.png");
-  
-  if (fs.existsSync(logoPath)) {
-    console.log(`✓ Using official 4S Graphics logo from: ${logoPath}`);
-    const buffer = fs.readFileSync(logoPath);
-    logoCache = buffer.toString("base64");
+  try {
+    const imageUrl = "https://cdn.shopify.com/s/files/1/3039/2358/files/4s-logo-high-res.png?v=1688121438";
+    const response = await axios.get(imageUrl, { 
+      responseType: "arraybuffer",
+      headers: {
+        'Accept': 'image/png,image/*,*/*'
+      }
+    });
+    
+    // Check if we actually got an image (not an HTML 404 page)
+    if (response.status === 200 && response.headers['content-type']?.startsWith('image/')) {
+      const buffer = Buffer.from(response.data, "binary");
+      logoCache = buffer.toString("base64");
+      console.log("✓ Successfully fetched 4S Graphics logo from CDN");
+      return logoCache;
+    } else {
+      throw new Error(`Invalid response: ${response.status} - ${response.headers['content-type']}`);
+    }
+  } catch (error) {
+    console.error("❌ Failed to fetch logo from CDN, falling back to local file:", error);
+    
+    // Fallback to local file
+    const logoPath = path.join(process.cwd(), "client", "public", "4s-logo-high-res.png");
+    if (fs.existsSync(logoPath)) {
+      const buffer = fs.readFileSync(logoPath);
+      logoCache = buffer.toString("base64");
+      console.log("✓ Using local 4S Graphics logo as fallback");
+      return logoCache;
+    }
+    
+    console.error("❌ No logo available - both CDN and local fallback failed");
+    logoCache = "";
     return logoCache;
   }
-  
-  console.error("❌ 4S Graphics logo not found at expected location!");
-  logoCache = "";
-  return logoCache;
 }
 
 function numberToWords(amount: number): string {
@@ -174,9 +196,9 @@ function getCategoryDisplayName(productType: string): string {
   return categoryMappings.default;
 }
 
-function generateQuoteHTML(data: PDFGenerationRequest): string {
+async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
   const { customerName, quoteNumber, quoteItems, totalAmount } = data;
-  const logo = getLogoBase64();
+  const logo = await getLogoBase64FromURL();
   const date = new Date().toLocaleDateString();
 
   // Group by productType
@@ -278,7 +300,7 @@ function generateQuoteHTML(data: PDFGenerationRequest): string {
 export async function generateQuotePDF(
   request: PDFGenerationRequest,
 ): Promise<Buffer> {
-  const html = generateQuoteHTML(request);
+  const html = await generateQuoteHTML(request);
 
   const pdfOptions = {
     format: "A4" as const,

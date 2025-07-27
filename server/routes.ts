@@ -2780,7 +2780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quoteNumber = generateQuoteNumber();
 
       // Generate HTML using the price list function
-      const html = generatePriceListHTML({
+      const html = await generatePriceListHTML({
         categoryName: selectedCategory,
         tierName: selectedTier,
         items: priceListItems,
