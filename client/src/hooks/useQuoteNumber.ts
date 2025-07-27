@@ -38,45 +38,30 @@ export function useQuoteNumber() {
  */
 export const quoteNumberUtils = {
   /**
-   * Extract customer prefix from quote number
+   * Generate a new 7-digit alphanumeric quote number
    */
-  extractCustomerPrefix: (quoteNumber: string): string | null => {
-    const match = quoteNumber.match(/^4SG-([A-Z]{3})-\d{6}-\d{4}$/);
-    return match ? match[1] : null;
-  },
-
-  /**
-   * Extract date from quote number
-   */
-  extractQuoteDate: (quoteNumber: string): Date | null => {
-    const match = quoteNumber.match(/\d{6}/);
-    if (!match) return null;
-    
-    const dateStr = match[0];
-    const year = parseInt(`20${dateStr.slice(0, 2)}`);
-    const month = parseInt(dateStr.slice(2, 4)) - 1; // Month is 0-indexed
-    const day = parseInt(dateStr.slice(4, 6));
-    
-    return new Date(year, month, day);
+  generate: (): string => {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    return Array.from(
+      { length: 7 },
+      () => chars[Math.floor(Math.random() * chars.length)]
+    ).join("");
   },
 
   /**
    * Validate quote number format
    */
   isValid: (quoteNumber: string): boolean => {
-    const patterns = [
-      /^4SG-\d{6}-\d{4}$/, // 4SG-YYMMDD-XXXX
-      /^4SG-[A-Z]{3}-\d{6}-\d{4}$/, // 4SG-CUS-YYMMDD-XXXX
-    ];
-    
-    return patterns.some(pattern => pattern.test(quoteNumber));
+    // 7-digit alphanumeric format
+    const pattern = /^[0-9A-Z]{7}$/;
+    return pattern.test(quoteNumber);
   },
 
   /**
    * Format examples for user reference
    */
   examples: {
-    standard: "4SG-250723-1234",
-    withCustomer: "4SG-ABC-250723-1234"
+    standard: "AB1C2D3",
+    sevenDigit: "XY4Z567"
   }
 };

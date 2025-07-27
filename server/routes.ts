@@ -1857,10 +1857,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate unique quote number
   app.post("/api/generate-quote-number", isAuthenticated, async (req: any, res) => {
     try {
-      // Generate 6-digit alphanumeric quote number
+      // Generate 7-digit alphanumeric quote number
       const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const quoteNumber = Array.from(
-        { length: 6 },
+        { length: 7 },
         () => chars[Math.floor(Math.random() * chars.length)]
       ).join("");
       res.json({ quoteNumber });
@@ -1883,10 +1883,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUserEmail = req.user?.claims?.email || "sales@4sgraphics.com";
 
       // Generate unique quote number
-      // Generate 6-digit alphanumeric quote number
+      // Generate 7-digit alphanumeric quote number
       const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const finalQuoteNumber = Array.from(
-        { length: 6 },
+        { length: 7 },
         () => chars[Math.floor(Math.random() * chars.length)]
       ).join("");
       

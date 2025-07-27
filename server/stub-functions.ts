@@ -34,7 +34,12 @@ export function generateQuoteNumber(): string {
 }
 
 export function generateUniqueQuoteNumber(): string {
-  return `Q${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Generate 7-digit alphanumeric quote number
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return Array.from(
+    { length: 7 },
+    () => chars[Math.floor(Math.random() * chars.length)]
+  ).join("");
 }
 
 export function validateQuoteNumber(quoteNumber: string): boolean {
