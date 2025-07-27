@@ -309,9 +309,9 @@ export default function PriceList() {
     },
   });
 
-  // Get unique categories - memoize to prevent re-renders
+  // Get unique categories - memoize to prevent re-renders and filter out empty values
   const categories = useMemo(() => 
-    Array.from(new Set(productData.map(item => item.productName))).sort(),
+    Array.from(new Set(productData.map(item => item.product_name).filter(Boolean))).sort(),
     [productData]
   );
 
@@ -323,22 +323,22 @@ export default function PriceList() {
     }
 
     const filteredProducts = productData.filter(
-      (item) => item.productName === selectedCategory
+      (item) => item.product_name === selectedCategory
     );
 
     const calculatedItems = filteredProducts.map((product) => {
-      // Map tier names to new database field names
+      // Map tier names to database field names - use the exact field names from ProductData interface
       const tierMapping: Record<string, keyof ProductData> = {
-        'Export': 'exportPrice',
-        'M.Distributor': 'masterDistributorPrice', 
-        'Dealer': 'dealerPrice',
-        'Dealer2': 'dealer2Price',
-        'ApprovalNeeded': 'approvalNeededPrice',
-        'TierStage25': 'tierStage25Price',
-        'TierStage2': 'tierStage2Price',
-        'TierStage15': 'tierStage15Price',
-        'TierStage1': 'tierStage1Price',
-        'Retail': 'retailPrice'
+        'Export': 'Export',
+        'M.Distributor': 'M.Distributor', 
+        'Dealer': 'Dealer',
+        'Dealer2': 'Dealer2',
+        'ApprovalNeeded': 'ApprovalNeeded',
+        'TierStage25': 'TierStage25',
+        'TierStage2': 'TierStage2',
+        'TierStage15': 'TierStage15',
+        'TierStage1': 'TierStage1',
+        'Retail': 'Retail'
       };
       
       const tierField = tierMapping[selectedTier];
@@ -353,10 +353,10 @@ export default function PriceList() {
       const pricePerPack = +applyRetailRounding(rawPricePerPack, isRetailTier).toFixed(2);
 
       return {
-        productType: String(product.productType || 'Unknown'),
-        productName: String(product.productName || selectedCategory),
+        productType: String(product.ProductType || 'Unknown'),
+        productName: String(product.product_name || selectedCategory),
         size: String(product.size || 'N/A'),
-        itemCode: String(product.itemCode || '-'),
+        itemCode: String(product.ItemCode || '-'),
         minQty,
         pricePerSqM,
         pricePerSheet,
@@ -409,7 +409,7 @@ export default function PriceList() {
                     <SelectValue placeholder="Select product category" />
                   </SelectTrigger>
                   <SelectContent className="w-full">
-                    {categories.map(category => (
+                    {categories.filter(Boolean).map(category => (
                       <SelectItem key={String(category)} value={String(category)} className="text-sm">
                         {String(category)}
                       </SelectItem>
