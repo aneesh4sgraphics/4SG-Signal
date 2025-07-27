@@ -57,10 +57,10 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#fafafa' }}>
         <div className="text-center">
-          <h1 className="text-2xl font-normal text-gray-800 mb-4">Authentication Required</h1>
+          <h1 className="heading-primary text-gray-800 mb-4">Authentication Required</h1>
           <Button 
             onClick={() => window.location.href = "/api/login"}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-normal focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md label-medium focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             Login with Replit
           </Button>
@@ -82,11 +82,11 @@ export default function Dashboard() {
             <div className="w-6 h-6 bg-blue-500 rounded-sm flex items-center justify-center">
               <span className="text-white text-xs font-medium">4S</span>
             </div>
-            <span className="text-sm font-normal text-gray-800">4S Graphics Employee Portal</span>
+            <span className="body-small text-gray-800">4S Graphics Employee Portal</span>
           </div>
           <Button
             onClick={() => window.location.href = '/api/logout'}
-            className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-md text-sm font-normal bg-transparent border-none shadow-none"
+            className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-md body-small bg-transparent border-none shadow-none"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
@@ -98,17 +98,17 @@ export default function Dashboard() {
       <div className="max-w-screen-lg mx-auto px-6 py-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-normal text-gray-800 mb-4">Dashboard</h1>
-          <p className="text-sm text-gray-500 mb-6">Welcome back, {firstName}! Here's a summary of your tools and activity.</p>
+          <h1 className="heading-primary text-gray-800 mb-4">Dashboard</h1>
+          <p className="body-small text-gray-500 mb-6">Welcome back, {firstName}! Here's a summary of your tools and activity.</p>
         </div>
 
         {/* Applications Block */}
         <div style={{ border: '1px solid #f3f4f6', backgroundColor: 'white' }} className="rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-normal text-gray-800 mb-2 flex items-center gap-2">
+          <h2 className="heading-secondary text-gray-800 mb-2 flex items-center gap-2">
             <Activity className="h-5 w-5 text-gray-500" />
             Applications
           </h2>
-          <p className="text-sm text-gray-500 mb-4">Your core business tools</p>
+          <p className="body-small text-gray-500 mb-4">Your core business tools</p>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* QuickQuotes */}
@@ -116,9 +116,9 @@ export default function Dashboard() {
               <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
                   <Calculator className="h-5 w-5 text-blue-500" />
-                  <span className="font-normal text-gray-800">QuickQuotes</span>
+                  <span className="label-large text-gray-800">QuickQuotes</span>
                 </div>
-                <p className="text-sm text-gray-500">Generate product quotes quickly</p>
+                <p className="body-small text-gray-500">Generate product quotes quickly</p>
               </div>
             </Link>
 
@@ -127,9 +127,9 @@ export default function Dashboard() {
               <div style={{ border: '1px solid #f3f4f6' }} className="rounded-md p-4 hover:bg-gray-50 transition-colors cursor-pointer">
                 <div className="flex items-center gap-3 mb-2">
                   <FileText className="h-5 w-5 text-gray-500" />
-                  <span className="font-normal text-gray-800">Price List</span>
+                  <span className="label-large text-gray-800">Price List</span>
                 </div>
-                <p className="text-sm text-gray-500">View product pricing tiers</p>
+                <p className="body-small text-gray-500">View product pricing tiers</p>
               </div>
             </Link>
 

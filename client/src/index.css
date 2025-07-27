@@ -60,10 +60,31 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Roboto', 'Inter', sans-serif;
     font-weight: 400;
     line-height: 1.6;
   }
+
+  /* Roboto Font Utility Classes */
+  .font-roboto-thin { font-family: 'Roboto', sans-serif; font-weight: 100; }
+  .font-roboto-light { font-family: 'Roboto', sans-serif; font-weight: 300; }
+  .font-roboto-regular { font-family: 'Roboto', sans-serif; font-weight: 400; }
+  .font-roboto-medium { font-family: 'Roboto', sans-serif; font-weight: 500; }
+  .font-roboto-bold { font-family: 'Roboto', sans-serif; font-weight: 700; }
+  .font-roboto-black { font-family: 'Roboto', sans-serif; font-weight: 900; }
+
+  /* Text placement specific classes */
+  .heading-primary { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 1.875rem; line-height: 2.25rem; }
+  .heading-secondary { font-family: 'Roboto', sans-serif; font-weight: 600; font-size: 1.5rem; line-height: 2rem; }
+  .heading-tertiary { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 1.25rem; line-height: 1.75rem; }
+  .body-large { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 1.125rem; line-height: 1.75rem; }
+  .body-regular { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 1rem; line-height: 1.5rem; }
+  .body-small { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 0.875rem; line-height: 1.25rem; }
+  .label-large { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 1rem; line-height: 1.5rem; }
+  .label-medium { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.875rem; line-height: 1.25rem; }
+  .label-small { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.75rem; line-height: 1rem; }
+  .caption { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 0.75rem; line-height: 1rem; }
+  .overline { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.75rem; line-height: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
 }
 
 

@@ -401,11 +401,11 @@ export default function PriceList() {
           <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
             <div className="text-gray-600 mb-4">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium mb-2">No Product Data Available</h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <h3 className="heading-tertiary mb-2">No Product Data Available</h3>
+              <p className="body-small text-gray-500 mb-4">
                 No product pricing data found in the database. Please upload product data through the ProductPricing Management app.
               </p>
-              <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded border">
+              <div className="caption text-gray-400 bg-gray-50 p-2 rounded border">
                 Debug: Found {productData?.length || 0} records in database
               </div>
             </div>
@@ -421,8 +421,8 @@ export default function PriceList() {
         {/* Header */}
         <div className="mb-6 relative">
           <FloatingElements />
-          <h1 className="text-xl font-normal text-gray-800 mb-2">Price List</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="heading-primary text-gray-800 mb-2">Price List</h1>
+          <p className="body-small text-gray-500">
             Generate comprehensive price lists for your products
           </p>
           <HeaderDivider />
@@ -434,7 +434,7 @@ export default function PriceList() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Product Category */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Product Category</label>
+                <label className="block label-medium text-gray-800">Product Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
                     <SelectValue placeholder="Select product category" />
@@ -457,7 +457,7 @@ export default function PriceList() {
 
               {/* Pricing Tier */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Pricing Tier</label>
+                <label className="block label-medium text-gray-800">Pricing Tier</label>
                 <Select value={selectedTier} onValueChange={setSelectedTier}>
                   <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
                     <SelectValue placeholder="Select pricing tier" />
@@ -474,7 +474,7 @@ export default function PriceList() {
 
               {/* Customer Selection */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Customer (Optional)</label>
+                <label className="block label-medium text-gray-800">Customer (Optional)</label>
                 <SearchableCustomerSelect
                   selectedCustomer={selectedCustomer}
                   onCustomerSelect={setSelectedCustomer}
@@ -491,8 +491,8 @@ export default function PriceList() {
         <SimpleCardFrame className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-medium text-gray-800">Price List - {selectedCategory}</h2>
-              <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 text-sm text-gray-800 border border-gray-200">
+              <h2 className="heading-secondary text-gray-800">Price List - {selectedCategory}</h2>
+              <span className="inline-flex items-center px-3 py-1 rounded-md bg-gray-100 label-small text-gray-800 border border-gray-200">
                 {pricingTiers.find(t => t.key === selectedTier)?.label}
               </span>
             </div>
@@ -500,7 +500,7 @@ export default function PriceList() {
               <Button
                 onClick={handleDownloadCSV}
                 disabled={downloadCSVMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm"
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center gap-2 label-small"
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 {downloadCSVMutation.isPending ? 'Generating...' : 'CSV Download - ODOO'}
@@ -508,7 +508,7 @@ export default function PriceList() {
               <Button
                 onClick={handleDownloadExcel}
                 disabled={downloadExcelMutation.isPending}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm"
+                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md flex items-center gap-2 label-small"
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 {downloadExcelMutation.isPending ? 'Generating...' : 'Excel Download'}
@@ -516,14 +516,14 @@ export default function PriceList() {
               <Button
                 onClick={handleDownloadPDF}
                 disabled={downloadPDFMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 label-small"
               >
                 <Download className="h-4 w-4" />
                 {downloadPDFMutation.isPending ? 'Generating...' : 'Download PDF'}
               </Button>
             </div>
           </div>
-          <p className="text-sm text-gray-500 mb-6">{priceListItems.length} products found</p>
+          <p className="body-small text-gray-500 mb-6">{priceListItems.length} products found</p>
           <AdaptiveTable
             columns={[
               { 

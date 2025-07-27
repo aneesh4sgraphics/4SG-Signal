@@ -373,9 +373,9 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <Calculator className="h-6 w-6 text-[#7E57C2]" />
-            <h1 className="text-3xl font-semibold text-gray-800">Configure Product</h1>
+            <h1 className="heading-primary text-gray-800">Configure Product</h1>
           </div>
-          <p className="text-lg text-gray-600 mb-6">Select your product specifications</p>
+          <p className="body-regular text-gray-600 mb-6">Select your product specifications</p>
         </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 lg:grid-cols-4 gap-6">
@@ -385,7 +385,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
             <div className="space-y-6">
               {/* Product Category */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Product</label>
+                <label className="block label-medium text-gray-800">Product</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                   <SelectValue placeholder="Select product category">
@@ -440,7 +440,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
 
               {/* Product Type */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Product Type</label>
+                <label className="block label-medium text-gray-800">Product Type</label>
                 <Select 
                   value={selectedType} 
                   onValueChange={setSelectedType}
@@ -465,7 +465,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
               {/* Size Selection */}
               {selectedType && (
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-800">Size</label>
+                  <label className="block label-medium text-gray-800">Size</label>
                   <Select value={selectedSize} onValueChange={setSelectedSize}>
                     <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                       <SelectValue placeholder="Select size" className="truncate" />
@@ -483,7 +483,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
 
               {/* Quantity */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-800">Quantity</label>
+                <label className="block label-medium text-gray-800">Quantity</label>
                 <input
                   type="number"
                   value={quantity}
@@ -507,15 +507,15 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
         {/* Right Panel - Quote Summary */}
         <div className="xl:col-span-3 lg:col-span-3">
           <div className="border border-gray-200 rounded-lg p-6 bg-white mb-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-2">Quote Summary</h2>
-            <p className="text-sm text-gray-500 mb-6">Using default pricing</p>
+            <h2 className="heading-secondary text-gray-800 mb-2">Quote Summary</h2>
+            <p className="body-small text-gray-500 mb-6">Using default pricing</p>
             <div>
             {selectedProduct ? (
               <div className="space-y-4">
                 {/* Product Details Summary */}
                 <div className="space-y-2 pb-4 border-b border-gray-200">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Product Brand:</span>
+                    <span className="body-small text-gray-600">Product Brand:</span>
                     <span className="flex items-center gap-1">
                       {selectedCategory && (() => {
                         const IconComponent = getProductIcon(selectedCategory);
@@ -523,7 +523,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
                         return <IconComponent className={`h-4 w-4 ${iconColor}`} />;
                       })()}
                       {!selectedCategory && <FileText className="h-4 w-4 text-gray-600" />}
-                      <span className="text-sm text-gray-800">
+                      <span className="body-small text-gray-800">
                         {selectedCategory?.includes('Graffiti') ? (
                           <>
                             <span className="font-graffiti">Graffiti</span>
@@ -537,7 +537,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Product Type:</span>
+                    <span className="body-small text-gray-600">Product Type:</span>
                     <span className="text-sm text-gray-800">
                       {selectedType ? (
                         selectedType.includes('Graffiti') ? (
