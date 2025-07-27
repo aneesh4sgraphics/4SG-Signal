@@ -2789,14 +2789,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: "PRICE LIST"
       });
 
-      // Configure html-pdf-node for Replit environment
+      // Configure html-pdf-node for MAXIMUM SPEED in Replit environment
       const options = {
         format: 'A4',
-        margin: { top: "20px", right: "20px", bottom: "20px", left: "20px" },
+        margin: { top: "15px", right: "15px", bottom: "15px", left: "15px" },
         printBackground: true,
         preferCSSPageSize: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox', 
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection',
+          '--disable-default-apps',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--mute-audio',
+          '--no-first-run',
+          '--disable-infobars',
+          '--disable-breakpad',
+          '--disable-canvas-aa',
+          '--disable-2d-canvas-clip-aa',
+          '--disable-gl-drawing-for-tests',
+          '--disable-threaded-animation',
+          '--disable-threaded-scrolling',
+          '--disable-in-process-stack-traces',
+          '--disable-histogram-customizer',
+          '--disable-gl-extensions',
+          '--disable-composited-antialiasing'
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        timeout: 15000 // 15 second timeout instead of default 30s
       };
 
       debugLog('Price List PDF generation', 'Starting PDF generation with Chromium path:', process.env.PUPPETEER_EXECUTABLE_PATH);

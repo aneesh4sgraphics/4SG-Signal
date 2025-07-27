@@ -3,14 +3,23 @@
 import fs from "fs";
 import path from "path";
 
+// Cache for logo to avoid repeated file system reads
+let logoCache: string | null = null;
+
 function getLogoBase64(): string {
+  // Return cached logo if available
+  if (logoCache !== null) {
+    return logoCache;
+  }
+  
   // Try the newest high-resolution 4S Graphics logo first
   const newestLogoPath = path.join(process.cwd(), "client", "public", "4s-logo-newest.png");
   
   if (fs.existsSync(newestLogoPath)) {
     console.log(`✓ Using newest 4S Graphics logo from: ${newestLogoPath}`);
     const buffer = fs.readFileSync(newestLogoPath);
-    return buffer.toString("base64");
+    logoCache = buffer.toString("base64");
+    return logoCache;
   }
   
   // Fallback to existing high-res logo
@@ -19,7 +28,8 @@ function getLogoBase64(): string {
   if (fs.existsSync(logoPath)) {
     console.log(`✓ Using 4S Graphics high-res logo from: ${logoPath}`);
     const buffer = fs.readFileSync(logoPath);
-    return buffer.toString("base64");
+    logoCache = buffer.toString("base64");
+    return logoCache;
   }
   
   // Final fallback to old logo
@@ -27,11 +37,13 @@ function getLogoBase64(): string {
   if (fs.existsSync(fallbackLogoPath)) {
     console.log(`⚠ Using fallback logo from: ${fallbackLogoPath}`);
     const buffer = fs.readFileSync(fallbackLogoPath);
-    return buffer.toString("base64");
+    logoCache = buffer.toString("base64");
+    return logoCache;
   }
   
   console.error("❌ No logo found at any expected locations!");
-  return "";
+  logoCache = "";
+  return logoCache;
 }
 
 export function generateQuoteNumber(): string {
@@ -417,11 +429,11 @@ export function generatePriceListHTML(data: any): string {
       
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
-        <td style="padding: 4px 6px; border: 1px solid #dee2e6; font-weight: 500; font-size: 10px;">${row.size || 'N/A'}</td>
-        <td style="padding: 4px 6px; border: 1px solid #dee2e6; text-align: center; font-family: monospace; font-size: 10px;">${row.itemCode || '-'}</td>
-        <td style="padding: 4px 6px; border: 1px solid #dee2e6; text-align: center; font-weight: 500; font-size: 10px;">${minQtyValue}</td>
-        <td style="padding: 4px 6px; border: 1px solid #dee2e6; text-align: right; font-weight: 600; font-size: 10px;">$${(row.pricePerSheet || 0).toFixed(2)}</td>
-        <td style="padding: 4px 6px; border: 1px solid #dee2e6; text-align: right; font-weight: 700; color: #059669; font-size: 10px;">$${(row.total || row.pricePerPack || 0).toFixed(2)}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; font-size: 10px;">${row.size || 'N/A'}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: center; font-size: 10px;">${row.itemCode || '-'}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: center; font-size: 10px;">${minQtyValue}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: right; font-size: 10px;">$${(row.pricePerSheet || 0).toFixed(2)}</td>
+        <td style="padding: 4px 6px; border: 1px solid #ccc; text-align: right; font-size: 10px; font-weight: bold;">$${(row.total || row.pricePerPack || 0).toFixed(2)}</td>
       </tr>
       `;
     }).join('');
@@ -439,14 +451,14 @@ export function generatePriceListHTML(data: any): string {
           <div style="font-size: 12px; font-weight: 600; color: #3b82f6; margin-bottom: 1px;">${productCategory}</div>
           <div style="font-size: 13px; font-weight: bold; color: #1f2937;">${type}</div>
         </div>
-        <table style="width: 100%; border-collapse: collapse; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-              <th style="padding: 6px 8px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: left; font-size: 11px;">Size</th>
-              <th style="padding: 6px 8px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: center; font-size: 11px;">Item Code</th>
-              <th style="padding: 6px 8px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: center; font-size: 11px;">Min Qty</th>
-              <th style="padding: 6px 8px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Sheet</th>
-              <th style="padding: 6px 8px; border: 1px solid #1d4ed8; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Pack</th>
+            <tr style="background: #3b82f6;">
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: left; font-size: 11px;">Size</th>
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: center; font-size: 11px;">Item Code</th>
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: center; font-size: 11px;">Min Qty</th>
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Sheet</th>
+              <th style="padding: 6px 8px; border: 1px solid #ccc; color: white; font-weight: bold; text-align: right; font-size: 11px;">Price/Pack</th>
             </tr>
           </thead>
           <tbody>
@@ -464,10 +476,10 @@ export function generatePriceListHTML(data: any): string {
       <meta charset="utf-8" />
       <title>${title} - ${categoryName}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+        /* Removed Google Fonts import for faster PDF generation - using system fonts */
         
         body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
           margin: 0;
           padding: 15px;
           font-size: 10px;
@@ -482,8 +494,7 @@ export function generatePriceListHTML(data: any): string {
           margin-bottom: 15px;
           padding: 12px;
           background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
+          border: 1px solid #ccc;
           color: #1f2937;
         }
         
@@ -499,7 +510,7 @@ export function generatePriceListHTML(data: any): string {
           font-size: 22px;
           font-weight: 700;
           margin: 8px 0 4px;
-          font-family: 'Roboto', sans-serif;
+          font-family: Arial, sans-serif;
         }
         
         .company-details {
@@ -514,8 +525,7 @@ export function generatePriceListHTML(data: any): string {
           align-items: flex-start;
           margin: 10px 0;
           padding: 8px;
-          background: #f8fafc;
-          border-radius: 6px;
+          background: #f5f5f5;
           border-left: 3px solid #3b82f6;
         }
         
