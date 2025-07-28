@@ -50,7 +50,7 @@ function cleanNumeric(value: string | undefined): number {
 }
 
 // Helper function to generate row hash for change detection
-function generateRowHash(record: Omit<InsertProductPricingMaster, 'uploadBatch' | 'rowHash'>): string {
+function generateRowHash(record: Omit<InsertProductPricingMaster, 'uploadBatch' | 'rowHash' | 'sortOrder'>): string {
   // Create a stable string representation of the row data (excluding metadata)
   const hashData = [
     record.itemCode || '',
@@ -204,7 +204,8 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       const pricingRecord: InsertProductPricingMaster = {
         ...recordData,
         rowHash: existingHash || generateRowHash(recordData),
-        uploadBatch: uploadBatch
+        uploadBatch: uploadBatch,
+        sortOrder: i // Preserve CSV row order (1-based index)
       };
 
       if (pricingRecord.itemCode) {

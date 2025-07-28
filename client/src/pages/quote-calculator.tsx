@@ -36,6 +36,7 @@ interface ProductData {
   tierStage15Price: number;
   tierStage1Price: number;
   retailPrice: number;
+  sortOrder?: number;
 }
 
 interface Customer {
@@ -68,6 +69,7 @@ interface QuoteItem {
   tier: string;
   squareMeters: number;
   minOrderQty: number;
+  sortOrder?: number;
 }
 
 const allPricingTiers = [
@@ -199,7 +201,8 @@ export default function QuoteCalculator() {
       total: total,
       tier: tier,
       squareMeters: parseFloat(String(selectedProduct.totalSqm || 0)),
-      minOrderQty: selectedProduct.minQuantity
+      minOrderQty: selectedProduct.minQuantity,
+      sortOrder: selectedProduct.sortOrder
     };
 
     setQuoteItems(prev => [...prev, quoteItem]);

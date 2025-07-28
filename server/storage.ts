@@ -607,7 +607,7 @@ export class DatabaseStorage implements IStorage {
 
   // Product Pricing Master operations (database-backed)
   async getAllProductPricingMaster(): Promise<ProductPricingMaster[]> {
-    return await db.select().from(productPricingMaster);
+    return await db.select().from(productPricingMaster).orderBy(productPricingMaster.sortOrder, productPricingMaster.id);
   }
 
   async getProductPricingMaster(): Promise<ProductPricingMaster[]> {

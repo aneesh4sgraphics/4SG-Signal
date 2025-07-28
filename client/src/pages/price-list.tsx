@@ -35,6 +35,7 @@ interface ProductData {
   tierStage15Price: number;
   tierStage1Price: number;
   retailPrice: number;
+  sortOrder?: number;
   // Legacy fields for backward compatibility
   product_name: string;
   ProductType: string;
@@ -51,6 +52,7 @@ interface PriceListItem {
   pricePerSheet: number;
   pricePerPack: number;
   squareMeters: number;
+  sortOrder?: number;
 }
 
 interface Customer {
@@ -130,7 +132,8 @@ export default function PriceList() {
             size: item.size,
             minOrderQty: item.minQty,
             pricePerSheet: item.pricePerSheet,
-            total: item.pricePerPack
+            total: item.pricePerPack,
+            sortOrder: item.sortOrder
           }))
         })
       });
@@ -385,12 +388,19 @@ export default function PriceList() {
         pricePerSheet,
         pricePerPack,
         squareMeters: sqm,
+        sortOrder: product.sortOrder,
       };
     });
 
-    const sortedItems = calculatedItems.sort((a, b) => 
-      String(a.productType).localeCompare(String(b.productType))
-    );
+    // Sort by sortOrder to preserve CSV file order, fallback to alphabetical
+    const sortedItems = calculatedItems.sort((a, b) => {
+      const aSortOrder = a.sortOrder || 999999;
+      const bSortOrder = b.sortOrder || 999999;
+      if (aSortOrder !== bSortOrder) {
+        return aSortOrder - bSortOrder;
+      }
+      return String(a.productType).localeCompare(String(b.productType));
+    });
     
     setPriceListItems(sortedItems);
   }, [selectedCategory, selectedTier, productData]);

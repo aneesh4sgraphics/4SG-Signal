@@ -417,7 +417,17 @@ export async function generatePriceListHTML(data: any): Promise<string> {
     return acc;
   }, {});
 
-  const sections = Object.entries(grouped).map(([type, rows]) => {
+  // Sort by the first item's sortOrder to preserve CSV file order
+  const sortedProductTypes = Object.keys(grouped).sort((a, b) => {
+    const aFirstItem = grouped[a][0];
+    const bFirstItem = grouped[b][0];
+    const aSortOrder = aFirstItem?.sortOrder || 999999;
+    const bSortOrder = bFirstItem?.sortOrder || 999999;
+    return aSortOrder - bSortOrder;
+  });
+
+  const sections = sortedProductTypes.map((type) => {
+    const rows = grouped[type];
     const rowHtml = (rows as any[]).map((row: any, index: number) => {
       // Debug logging for each row - check all possible min qty field names
       console.log('Processing PDF row:', {

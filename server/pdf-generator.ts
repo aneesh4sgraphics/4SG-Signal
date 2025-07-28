@@ -19,6 +19,7 @@ interface QuoteItem {
   tier: string;
   squareMeters: number;
   minOrderQty: number;
+  sortOrder?: number;
 }
 
 interface PDFGenerationRequest {
@@ -191,8 +192,18 @@ async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
     {} as Record<string, QuoteItem[]>,
   );
 
-  const tables = Object.entries(grouped)
-    .map(([type, items]) => {
+  // Sort by the first item's sortOrder to preserve CSV file order
+  const sortedProductTypes = Object.keys(grouped).sort((a, b) => {
+    const aFirstItem = grouped[a][0];
+    const bFirstItem = grouped[b][0];
+    const aSortOrder = (aFirstItem as any)?.sortOrder || 999999;
+    const bSortOrder = (bFirstItem as any)?.sortOrder || 999999;
+    return aSortOrder - bSortOrder;
+  });
+
+  const tables = sortedProductTypes
+    .map((type) => {
+      const items = grouped[type];
       const rows = items
         .map(
           (item, idx) => `
