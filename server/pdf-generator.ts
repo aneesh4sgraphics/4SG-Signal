@@ -346,8 +346,8 @@ export async function generateQuotePDF(
   
   try {
     const pdfBuffer = await pdf.generatePdf(file, pdfOptions);
-    // html-pdf-node returns a Buffer directly - no need for type casting
-    return pdfBuffer;
+    // Ensure we return a Buffer - cast if necessary for type safety
+    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer as any);
   } catch (error) {
     console.error('PDF generation error:', error);
     throw new Error('Failed to generate PDF');

@@ -46,9 +46,9 @@ export function validateQuoteNumber(quoteNumber: string): boolean {
   return typeof quoteNumber === 'string' && quoteNumber.length > 0;
 }
 
-export function generateQuoteHTMLForDownload(data: any): string {
+export async function generateQuoteHTMLForDownload(data: any): Promise<string> {
   const { customerName, quoteNumber, quoteItems, totalAmount, title = "QUICK QUOTE" } = data;
-  const logo = getLogoBase64();
+  const logo = await getLogoBase64FromURL();
 
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',

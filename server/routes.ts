@@ -1899,7 +1899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       perf.checkpoint('Validation & Setup');
       
       // Generate HTML
-      const htmlContent = generateQuoteHTMLForDownload({
+      const htmlContent = await generateQuoteHTMLForDownload({
         customerName,
         customerEmail,
         quoteItems,
@@ -2761,7 +2761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import the function from stub-functions
       const { generateQuoteHTMLForDownload } = await import('./stub-functions.js');
       
-      const html = generateQuoteHTMLForDownload({
+      const html = await generateQuoteHTMLForDownload({
         customerName,
         quoteNumber,
         quoteItems,
