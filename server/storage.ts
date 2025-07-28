@@ -124,8 +124,8 @@ export interface IStorage {
 
   // Activity logging
   logActivity(activity: InsertActivityLog): Promise<ActivityLog>;
-  getActivityLogs(userId?: string, limit?: number): Promise<ActivityLog[]>;
-  getUserActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
+  getActivityLogs(userId?: string, limit?: number): Promise<any[]>;
+  getUserActivityLogs(userId: string, limit?: number): Promise<any[]>;
   getActivityLogsSince(date: Date): Promise<ActivityLog[]>;
   
   // Dashboard Statistics
@@ -816,27 +816,72 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getActivityLogs(userId?: string, limit: number = 50): Promise<ActivityLog[]> {
+  async getActivityLogs(userId?: string, limit: number = 50): Promise<any[]> {
     if (userId) {
       return await db
-        .select()
+        .select({
+          id: activityLogs.id,
+          action: activityLogs.action,
+          description: activityLogs.description,
+          userId: activityLogs.userId,
+          userEmail: activityLogs.userEmail,
+          userName: activityLogs.userName,
+          userRole: activityLogs.userRole,
+          createdAt: activityLogs.createdAt,
+          user: {
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName
+          }
+        })
         .from(activityLogs)
+        .leftJoin(users, eq(activityLogs.userId, users.id))
         .where(eq(activityLogs.userId, userId))
         .orderBy(desc(activityLogs.createdAt))
         .limit(limit);
     }
     
     return await db
-      .select()
+      .select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        description: activityLogs.description,
+        userId: activityLogs.userId,
+        userEmail: activityLogs.userEmail,
+        userName: activityLogs.userName,
+        userRole: activityLogs.userRole,
+        createdAt: activityLogs.createdAt,
+        user: {
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName
+        }
+      })
       .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
   }
 
-  async getUserActivityLogs(userId: string, limit: number = 50): Promise<ActivityLog[]> {
+  async getUserActivityLogs(userId: string, limit: number = 50): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        id: activityLogs.id,
+        action: activityLogs.action,
+        description: activityLogs.description,
+        userId: activityLogs.userId,
+        userEmail: activityLogs.userEmail,
+        userName: activityLogs.userName,
+        userRole: activityLogs.userRole,
+        createdAt: activityLogs.createdAt,
+        user: {
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName
+        }
+      })
       .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
       .where(eq(activityLogs.userId, userId))
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);

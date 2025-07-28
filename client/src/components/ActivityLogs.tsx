@@ -19,8 +19,9 @@ interface ActivityLog {
   action: string;
   description: string;
   userId: string;
-  ipAddress: string | null;
-  userAgent: string | null;
+  userEmail: string;
+  userName: string | null;
+  userRole: string;
   createdAt: string;
   user?: {
     email: string;
@@ -135,8 +136,7 @@ export default function ActivityLogs({ userId, showAllUsers = false }: ActivityL
                   <TableHead>Action</TableHead>
                   <TableHead>Description</TableHead>
                   {showAllUsers && isAdmin && <TableHead>User</TableHead>}
-                  <TableHead>IP Address</TableHead>
-                  <TableHead>Browser</TableHead>
+                  <TableHead>Role</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -166,15 +166,10 @@ export default function ActivityLogs({ userId, showAllUsers = false }: ActivityL
                         </div>
                       </TableCell>
                     )}
-                    <TableCell className="font-mono text-xs">
-                      {activity.ipAddress || '-'}
-                    </TableCell>
-                    <TableCell className="text-xs max-w-xs">
-                      <div className="truncate" title={activity.userAgent || ''}>
-                        {activity.userAgent ? 
-                          activity.userAgent.split(' ')[0] : '-'
-                        }
-                      </div>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {activity.userRole}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
