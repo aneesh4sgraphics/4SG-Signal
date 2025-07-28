@@ -240,13 +240,7 @@ export default function AreaPricer() {
     // Alert to confirm button click registration
     alert("ADD TO COMP INFO button clicked! Function is working.");
     
-    console.log("=== BUTTON CLICK DETECTED ===");
-    console.log("Function called successfully");
-    console.log("Current calculations:", calculations);
-    console.log("Calculations length:", calculations.length);
-    
     if (calculations.length === 0) {
-      console.log("No calculations available");
       toast({
         title: "No Data",
         description: "Create calculations first using 'Add to Sheet'",
@@ -256,7 +250,7 @@ export default function AreaPricer() {
     }
 
     setIsAddingToCompInfo(true);
-    console.log("=== Starting ADD TO COMP INFO ===");
+
 
     try {
       let successCount = 0;
@@ -282,8 +276,6 @@ export default function AreaPricer() {
           source: "Area Pricer"
         };
         
-        console.log("Sending entry:", entry);
-        
         const response = await fetch('/api/competitor-pricing', {
           method: 'POST',
           headers: {
@@ -292,21 +284,15 @@ export default function AreaPricer() {
           body: JSON.stringify(entry)
         });
         
-        console.log("Response status:", response.status);
-        console.log("Response OK:", response.ok);
-        
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("API Error Response:", errorText);
           throw new Error(`Server error ${response.status}: ${errorText}`);
         }
         
         const result = await response.json();
-        console.log("Entry added successfully:", result);
         successCount++;
       }
       
-      console.log("All entries processed successfully");
       toast({
         title: "Success!",
         description: `Added ${successCount} entries to competitor pricing database`,
@@ -316,7 +302,6 @@ export default function AreaPricer() {
       setCalculations([]);
       
     } catch (error) {
-      console.error("ADD TO COMP INFO Error:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add calculations",

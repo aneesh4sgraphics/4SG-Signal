@@ -116,7 +116,7 @@ async function saveProductDataToFile() {
     const filePath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
     fs.writeFileSync(filePath, csvString);
     
-    console.log("Product data saved to file successfully");
+    debugLog("Product data saved to file successfully");
   } catch (error) {
     console.error("Error saving product data to file:", error);
     throw error;
@@ -128,17 +128,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test database connection (no auth required for debugging)
   app.get("/api/test-db", async (req: any, res) => {
     try {
-      console.log("Testing database connection...");
+      debugLog("Testing database connection...");
       
       // Test basic queries one by one
       const customersCount = await storage.getCustomersCount();
-      console.log("Customers count:", customersCount);
+      debugLog("Customers count:", customersCount);
       
       const productsCount = await storage.getProductsCount();
-      console.log("Products count:", productsCount);
+      debugLog("Products count:", productsCount);
       
       const quotesCount = await storage.getSentQuotesCount();
-      console.log("Quotes count:", quotesCount);
+      debugLog("Quotes count:", quotesCount);
       
       res.json({
         database: "connected",
@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard statistics endpoint (with relaxed auth for now)
   app.get("/api/dashboard/stats", async (req: any, res) => {
     try {
-      console.log("=== Dashboard Stats Request ===");
+      debugLog("=== Dashboard Stats Request ===");
       
       // Use simpler approach - test each query individually
       let totalQuotes = 0;
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         totalQuotes = await storage.getSentQuotesCount();
-        console.log("✓ Total quotes:", totalQuotes);
+        debugLog("✓ Total quotes:", totalQuotes);
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.warn("Failed to get quotes count:", errorMessage);
@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         totalCustomers = await storage.getCustomersCount();
-        console.log("✓ Total customers:", totalCustomers);
+        debugLog("✓ Total customers:", totalCustomers);
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.warn("Failed to get customers count:", errorMessage);
@@ -184,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         totalProducts = await storage.getProductsCount();
-        console.log("✓ Total products:", totalProducts);
+        debugLog("✓ Total products:", totalProducts);
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.warn("Failed to get products count:", errorMessage);
@@ -196,14 +196,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         thisMonth.setHours(0, 0, 0, 0);
         
         quotesThisMonth = await storage.getSentQuotesCountSince(thisMonth);
-        console.log("✓ Quotes this month:", quotesThisMonth);
+        debugLog("✓ Quotes this month:", quotesThisMonth);
         
         const monthlyQuotes = await storage.getSentQuotesSince(thisMonth);
         monthlyRevenue = monthlyQuotes.reduce((sum, quote) => {
           const amount = parseFloat(quote.totalAmount?.toString() || '0');
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0);
-        console.log("✓ Monthly revenue:", monthlyRevenue);
+        debugLog("✓ Monthly revenue:", monthlyRevenue);
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.warn("Failed to get monthly stats:", errorMessage);
@@ -218,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activityCount
       };
       
-      console.log("=== Final Dashboard Stats ===", stats);
+      debugLog("=== Final Dashboard Stats ===", stats);
       res.json(stats);
     } catch (error) {
       console.error("Dashboard stats error:", error);
@@ -287,15 +287,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = decodeURIComponent(originalUserId);
       const adminId = 'dev-admin-123'; // Development fallback
       
-      console.log('Approve user request:', { originalUserId, userId, adminId });
+      debugLog('Approve user request:', { originalUserId, userId, adminId });
       
       const user = await storage.approveUser(userId, adminId);
       if (!user) {
-        console.log('User not found for approval:', userId);
+        debugLog('User not found for approval:', userId);
         return res.status(404).json({ message: "User not found" });
       }
       
-      console.log('User approval successful:', user);
+      debugLog('User approval successful:', user);
       res.json(user);
     } catch (error) {
       console.error("Error approving user:", error);
@@ -323,11 +323,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Support both :userId and :id patterns for compatibility
   app.patch('/api/admin/users/:userId/role', requireAdmin, async (req: any, res) => {
     try {
-      console.log('=== SERVER ROLE CHANGE REQUEST (userId pattern) ===');
-      console.log('userId:', req.params.userId);
-      console.log('decoded userId:', decodeURIComponent(req.params.userId));
-      console.log('role from body:', req.body.role);
-      console.log('request body:', req.body);
+      debugLog('=== SERVER ROLE CHANGE REQUEST (userId pattern) ===');
+      debugLog('userId:', req.params.userId);
+      debugLog('decoded userId:', decodeURIComponent(req.params.userId));
+      debugLog('role from body:', req.body.role);
+      debugLog('request body:', req.body);
       
       const userId = decodeURIComponent(req.params.userId);
       const { role } = req.body;
@@ -686,7 +686,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get price for specific square meters with product type and tier (with optional size-specific pricing)
+  // DEPRECATED: Get price for specific square meters with product type and tier 
+  // This endpoint is no longer used - pricing is now handled through productPricingMaster
   app.get("/api/price/:squareMeters/:typeId/:tierId", async (req, res) => {
     try {
       const squareMeters = parseFloat(req.params.squareMeters);
@@ -703,9 +704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid type or tier ID" });
       }
       
-      // Legacy methods removed, need to calculate from productPricingMaster
-      const totalPrice = 0; // TODO: Calculate from productPricingMaster
-      const pricePerSqm = 0; // TODO: Calculate from productPricingMaster
+      // Return zero values for deprecated endpoint
+      const totalPrice = 0;
+      const pricePerSqm = 0;
       
       res.json({ 
         totalPrice, 
@@ -719,7 +720,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Calculate custom size square meters with pricing
+  // DEPRECATED: Calculate custom size square meters with pricing
+  // This endpoint is no longer used - pricing is now handled through productPricingMaster
   app.post("/api/calculate-square-meters", async (req, res) => {
     try {
       const schema = z.object({
@@ -741,9 +743,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalPrice = 0;
       
       if (typeId && tierId) {
-        // Legacy methods removed, need to calculate from productPricingMaster
-        pricePerSqm = 0; // TODO: Calculate from productPricingMaster
-        totalPrice = 0; // TODO: Calculate from productPricingMaster
+        // Return zero values for deprecated endpoint
+        pricePerSqm = 0;
+        totalPrice = 0;
       }
       
       res.json({ 

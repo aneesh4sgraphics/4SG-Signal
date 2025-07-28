@@ -67,7 +67,7 @@ export function getAccessibleTiers(role: string): string[] {
 }
 
 export function debugLog(message: string, ...args: unknown[]): void {
-  if (APP_CONFIG.ENABLE_DEBUG_LOGS) {
+  if (APP_CONFIG.ENABLE_DEBUG_LOGS && process.env.NODE_ENV === 'development') {
     console.log(message, ...args);
   }
 }
