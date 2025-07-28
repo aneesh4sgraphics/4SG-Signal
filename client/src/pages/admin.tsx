@@ -98,7 +98,21 @@ export default function Admin() {
       console.log('URL:', `/api/admin/users/${encodeURIComponent(userId)}/role`);
       console.log('Body:', { role: newRole });
       
-      const response = await apiRequest("PATCH", `/api/admin/users/${encodeURIComponent(userId)}/role`, { role: newRole });
+      // Make the request directly with fetch to avoid double JSON parsing
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ role: newRole }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update role');
+      }
+
       const result = await response.json();
       console.log('Response:', result);
       return result;
