@@ -18,7 +18,7 @@ import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
 
 interface ProductData {
-  [key: string]: string | number;
+  [key: string]: string | number | undefined;
   itemCode: string;
   productName: string;
   productType: string;

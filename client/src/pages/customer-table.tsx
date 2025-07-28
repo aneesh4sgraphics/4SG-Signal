@@ -457,7 +457,7 @@ export default function CustomerTable() {
                         </div>
                       </TableCell>
                       <TableCell className="w-20 text-center">{customer.totalOrders}</TableCell>
-                      <TableCell className="w-28 text-right">${(parseFloat(customer.totalSpent) || 0).toFixed(2)}</TableCell>
+                      <TableCell className="w-28 text-right">${(parseFloat(String(customer.totalSpent)) || 0).toFixed(2)}</TableCell>
                       <TableCell className="w-24">
                         <div className="flex flex-col gap-1">
                           {customer.taxExempt && (

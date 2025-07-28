@@ -5,12 +5,11 @@ import type {
   ProductType, 
   ProductSize, 
   PricingTier, 
-  ProductPricing,
   InsertProductCategory,
   InsertProductType,
   InsertProductSize,
   InsertPricingTier,
-  InsertProductPricing
+  InsertProductPricingMaster
 } from '@shared/schema';
 
 interface CSVProduct {
@@ -194,7 +193,7 @@ export function parseProductData(): {
   types: ProductType[];
   sizes: ProductSize[];
   pricingTiers: PricingTier[];
-  productPricing: ProductPricing[];
+  productPricing: any[];
 } {
   const productDataPath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
   const tierPricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
@@ -294,9 +293,9 @@ export function parseProductData(): {
           height: height.toString(),
           widthUnit,
           heightUnit,
-          squareMeters: squareMeters.toFixed(4),
+          squareMeters: squareMeters.toString(),
           itemCode: product.ItemCode || null,
-          minOrderQty: product.MinOrderQty || null
+          minOrderQty: parseInt(product.MinOrderQty) || null
         });
       }
     }
@@ -317,7 +316,7 @@ export function parseProductData(): {
   ];
   
   // Load external pricing data if available
-  let productPricing: ProductPricing[] = [];
+  let productPricing: any[] = [];
   
   // First try to load from separate pricing file
   const types = Array.from(typeMap.values());
@@ -360,7 +359,7 @@ export function parseProductData(): {
   };
   
   const pricingToProductMapping = createProductTypeMapping();
-  const externalPricing = parsePricingData(types, pricingToProductMapping);
+  const externalPricing = parsePricingData(types, pricingToProductMapping as any);
   
   if (externalPricing.length > 0) {
     console.log('Using external pricing data from tier_pricing_template.csv');
@@ -412,7 +411,7 @@ export function parseProductData(): {
 }
 
 // Parse separate pricing data file
-export function parsePricingData(types: ProductType[], pricingToProductMapping: Map<string, string>): ProductPricing[] {
+export function parsePricingData(types: ProductType[], pricingToProductMapping: Map<string, string>): any[] {
   const pricingPath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
   
   if (!fs.existsSync(pricingPath)) {
@@ -435,7 +434,7 @@ export function parsePricingData(types: ProductType[], pricingToProductMapping: 
     console.log('Pricing headers:', headers);
     console.log('First pricing row:', pricingData[0]);
     
-    const productPricing: ProductPricing[] = [];
+    const productPricing: any[] = [];
     let pricingId = 1;
     
     // Create a map of product types for faster lookup
@@ -474,12 +473,12 @@ export function parsePricingData(types: ProductType[], pricingToProductMapping: 
         if (mappingResult) {
           // Find the type that matches both name and category
           const candidateType = Array.from(typeMap.values()).find(type => 
-            type.name.toLowerCase() === mappingResult.typeName.toLowerCase() && 
-            type.categoryId === mappingResult.categoryId
+            type.name.toLowerCase() === (mappingResult as any).typeName.toLowerCase() && 
+            type.categoryId === (mappingResult as any).categoryId
           );
           if (candidateType) {
             matchedType = candidateType;
-            console.log(`  Mapped "${productTypeFromCsv}" to "${mappingResult.typeName}" in category ${mappingResult.categoryId}`);
+            console.log(`  Mapped "${productTypeFromCsv}" to "${(mappingResult as any).typeName}" in category ${(mappingResult as any).categoryId}`);
           }
         }
       }

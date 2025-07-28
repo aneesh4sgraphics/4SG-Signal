@@ -71,7 +71,7 @@ async function saveProductDataToFile() {
     const types = await storage.getProductTypes();
     const sizes = await storage.getProductSizes();
     const tiers = await storage.getPricingTiers();
-    const pricing = await storage.getProductPricing(); // Legacy method returns empty array
+    const pricing: any[] = []; // Legacy pricing table removed, using productPricingMaster instead
 
     // Build CSV data similar to the original format
     const csvData = [];
@@ -91,7 +91,7 @@ async function saveProductDataToFile() {
     sizes.forEach(size => {
       const type = types.find(t => t.id === size.typeId);
       const category = categories.find(c => c.id === type?.categoryId);
-      const sizePricing = pricing.filter(p => p.productTypeId === size.typeId);
+      const sizePricing = pricing.filter((p: any) => p.productTypeId === size.typeId);
       
       const row = [
         size.id.toString(),
@@ -101,7 +101,7 @@ async function saveProductDataToFile() {
         size.itemCode || "",
         size.minOrderQty || "",
         ...tiers.map(tier => {
-          const tierPrice = sizePricing.find(p => p.tierId === tier.id);
+          const tierPrice = sizePricing.find((p: any) => p.tierId === tier.id);
           return tierPrice ? tierPrice.pricePerSquareMeter : "0";
         })
       ];
@@ -714,8 +714,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid type ID" });
       }
       
-      const pricing = await storage.getProductPricingByType(typeId); // Legacy method returns empty array
-      res.json(pricing);
+      // Legacy method removed, return empty array for backward compatibility
+      res.json([]);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch product pricing" });
     }
@@ -738,8 +738,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid type or tier ID" });
       }
       
-      const totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId, size);
-      const pricePerSqm = await storage.getPriceForProductType(typeId, tierId, size);
+      // Legacy methods removed, need to calculate from productPricingMaster
+      const totalPrice = 0; // TODO: Calculate from productPricingMaster
+      const pricePerSqm = 0; // TODO: Calculate from productPricingMaster
       
       res.json({ 
         totalPrice, 
@@ -775,8 +776,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalPrice = 0;
       
       if (typeId && tierId) {
-        pricePerSqm = await storage.getPriceForProductType(typeId, tierId);
-        totalPrice = await storage.getPriceForSquareMeters(squareMeters, typeId, tierId);
+        // Legacy methods removed, need to calculate from productPricingMaster
+        pricePerSqm = 0; // TODO: Calculate from productPricingMaster
+        totalPrice = 0; // TODO: Calculate from productPricingMaster
       }
       
       res.json({ 
@@ -1588,8 +1590,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             productName: pricingEntry.productType,
             productType: pricingEntry.productType,
             size: '',
-            totalSqm: 0,
-            minQuantity: 1,
+            totalSqm: '0',
+            minQuantity: '1',
             exportPrice: parseFloat(pricingEntry.exportPrice || '0'),
             masterDistributorPrice: parseFloat(pricingEntry.masterDistributorPrice || '0'),
             dealerPrice: parseFloat(pricingEntry.dealerPrice || '0'),

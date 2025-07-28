@@ -168,7 +168,7 @@ export const useAsyncOperation = () => {
 
 // Hook for form submission feedback
 export const useFormFeedback = () => {
-  const microInteractions = useMicroInteractions();
+  const asyncOperations = useAsyncOperation();
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
   const setFieldError = useCallback((fieldName: string, hasError: boolean) => {
@@ -196,7 +196,7 @@ export const useFormFeedback = () => {
 
     clearFieldErrors();
     
-    return microInteractions.executeAsync(
+    return asyncOperations.executeAsync(
       () => submitFunction(formData),
       { 
         loadingMessage: 'Submitting...',
@@ -205,10 +205,10 @@ export const useFormFeedback = () => {
         showParticles
       }
     );
-  }, [microInteractions, clearFieldErrors]);
+  }, [asyncOperations, clearFieldErrors]);
 
   return {
-    ...microInteractions,
+    ...asyncOperations,
     fieldErrors,
     setFieldError,
     clearFieldErrors,
@@ -218,13 +218,13 @@ export const useFormFeedback = () => {
 
 // Hook for data operations (CRUD)
 export const useDataOperations = () => {
-  const microInteractions = useMicroInteractions();
+  const asyncOperations = useAsyncOperation();
 
   const create = useCallback(async <T>(
     createFunction: () => Promise<T>,
     itemName: string = 'item'
   ): Promise<T | null> => {
-    return microInteractions.executeAsync(
+    return asyncOperations.executeAsync(
       createFunction,
       {
         loadingMessage: `Creating ${itemName}...`,
@@ -233,13 +233,13 @@ export const useDataOperations = () => {
         showParticles: true
       }
     );
-  }, [microInteractions]);
+  }, [asyncOperations]);
 
   const update = useCallback(async <T>(
     updateFunction: () => Promise<T>,
     itemName: string = 'item'
   ): Promise<T | null> => {
-    return microInteractions.executeAsync(
+    return asyncOperations.executeAsync(
       updateFunction,
       {
         loadingMessage: `Updating ${itemName}...`,
@@ -248,13 +248,13 @@ export const useDataOperations = () => {
         showParticles: false
       }
     );
-  }, [microInteractions]);
+  }, [asyncOperations]);
 
   const remove = useCallback(async <T>(
     deleteFunction: () => Promise<T>,
     itemName: string = 'item'
   ): Promise<T | null> => {
-    return microInteractions.executeAsync(
+    return asyncOperations.executeAsync(
       deleteFunction,
       {
         loadingMessage: `Deleting ${itemName}...`,
@@ -263,10 +263,10 @@ export const useDataOperations = () => {
         showParticles: false
       }
     );
-  }, [microInteractions]);
+  }, [asyncOperations]);
 
   return {
-    ...microInteractions,
+    ...asyncOperations,
     create,
     update,
     remove

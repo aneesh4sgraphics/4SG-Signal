@@ -8,6 +8,7 @@ const logoImage = "/company-logo.jpg";
 
 export default function AppHeader() {
   const { user } = useAuth();
+  const typedUser = user as { email?: string; role?: string } | null;
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-3">
@@ -33,8 +34,8 @@ export default function AppHeader() {
           <div className="hidden sm:flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-700">
-              {user?.email || 'Loading...'}
-              {user?.role === 'admin' && (
+              {typedUser?.email || 'Loading...'}
+              {typedUser?.role === 'admin' && (
                 <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                   (admin)
                 </span>
@@ -43,7 +44,7 @@ export default function AppHeader() {
           </div>
 
           {/* Admin Dropdown */}
-          {user?.role === 'admin' && (
+          {typedUser?.role === 'admin' && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">

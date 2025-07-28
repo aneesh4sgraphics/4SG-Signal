@@ -350,7 +350,7 @@ Total Amount: $${calculatedTotalAmount.toFixed(2)}
 We eagerly look forward for your business.
 
 Yours truly
-${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : '4S Graphics Team'}`;
+${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase() + (user as any).email.split('@')[0].slice(1) : '4S Graphics Team'}`;
 
     // Create mailto link
     const mailtoLink = `mailto:${customerEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
@@ -511,7 +511,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                   onFocus={(e) => e.target.select()}
-                  onClick={(e) => e.target.select()}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
                   min={selectedProduct?.minQuantity || 1}
                   className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
                   disabled={!selectedSize}
@@ -639,7 +639,7 @@ ${user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.sp
                         align: 'left' 
                       },
                       // Only show $/m² column for admin users
-                      ...(user?.role === 'admin' ? [{ 
+                      ...((user as any)?.role === 'admin' ? [{ 
                         key: 'pricePerSqM', 
                         title: '$/m²', 
                         weight: 1,

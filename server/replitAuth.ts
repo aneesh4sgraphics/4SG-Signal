@@ -217,7 +217,7 @@ export async function setupAuth(app: Express) {
     });
 
     app.get("/api/callback", (req, res, next) => {
-      passport.authenticate(`replitauth:${req.hostname}`, (err, user, info) => {
+      passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
         if (err) {
           return next(err);
         }
