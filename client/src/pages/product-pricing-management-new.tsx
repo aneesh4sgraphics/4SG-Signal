@@ -427,34 +427,52 @@ export default function ProductPricingManagementNew() {
 
       {/* Data Preview */}
       {pricingData.length > 0 && (
-        <SimpleCardFrame className="p-6">
-          <h2 className="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-            <IconBadge icon={Database} label="Data Preview" className="px-0 py-0 bg-transparent border-none text-lg font-medium text-gray-800" />
+        <SimpleCardFrame className="p-4">
+          <h2 className="text-base font-medium text-gray-800 mb-1 flex items-center gap-2">
+            <IconBadge icon={Database} label="Data Preview" className="px-0 py-0 bg-transparent border-none text-base font-medium text-gray-800" />
           </h2>
-          <p className="text-sm text-gray-500 mb-6">Current pricing data in database (showing first 5 records)</p>
+          <p className="text-xs text-gray-500 mb-3">Current pricing data in database (showing all {pricingData.length} products)</p>
           <SectionDivider />
-          <div>
+          <div className="overflow-x-auto">
             <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-6 gap-2 p-3">
-                <div className="text-sm font-medium text-gray-800">Item Code</div>
-                <div className="text-sm font-medium text-gray-800">Product Name</div>
-                <div className="text-sm font-medium text-gray-800">Size</div>
-                <div className="text-sm font-medium text-gray-800">Export</div>
-                <div className="text-sm font-medium text-gray-800">Dealer</div>
-                <div className="text-sm font-medium text-gray-800">Retail</div>
-              </div>
-              <div>
-                {pricingData.slice(0, 5).map((item, index) => (
-                  <div key={item.id} className="grid grid-cols-6 gap-2 items-center p-3 border-b border-gray-100 hover:bg-gray-50">
-                    <div className="font-mono text-sm text-gray-600">{item.itemCode}</div>
-                    <div className="text-sm text-gray-800">{item.productName}</div>
-                    <div className="text-sm text-gray-600">{item.size}</div>
-                    <div className="text-sm text-gray-600">${item.exportPrice}</div>
-                    <div className="text-sm text-gray-600">${item.dealerPrice}</div>
-                    <div className="text-sm text-gray-600">${item.retailPrice}</div>
-                  </div>
-                ))}
-              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Item Code</th>
+                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Product Name</th>
+                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Size</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Export</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Master Dist</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Dealer</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Dealer 2</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Approval</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Stage 2.5</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Stage 2</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Stage 1.5</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Stage 1</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Retail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pricingData.map((item, index) => (
+                    <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className="font-mono text-xs text-gray-600 py-1 px-2 whitespace-nowrap">{item.itemCode}</td>
+                      <td className="text-xs text-gray-800 py-1 px-2 truncate max-w-[150px]" title={item.productName}>{item.productName}</td>
+                      <td className="text-xs text-gray-600 py-1 px-2 whitespace-nowrap">{item.size}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.exportPrice}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.masterDistributorPrice}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealerPrice}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealer2Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.approvalNeededPrice}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage25Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage2Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage15Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage1Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.retailPrice}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </SimpleCardFrame>
