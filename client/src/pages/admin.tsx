@@ -34,6 +34,7 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { logUserAction, logPageView, logDataExport } = useActivityLogger();
+  const [optimisticRoles, setOptimisticRoles] = React.useState<Record<string, string>>({});
 
   // Log page view when component mounts
   React.useEffect(() => {
@@ -93,6 +94,7 @@ export default function Admin() {
   const changeRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       // Role change request
+      console.log('Frontend: Changing role for user', userId, 'to', newRole);
       
       // Make the request directly with fetch to avoid double JSON parsing
       const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
@@ -110,9 +112,30 @@ export default function Admin() {
       }
 
       const result = await response.json();
+      console.log('Frontend: Role change response:', result);
       return result;
     },
+    onMutate: async ({ userId, newRole }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/users"] });
+      
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData(["/api/admin/users"]);
+      
+      // Optimistically update to the new value
+      setOptimisticRoles(prev => ({ ...prev, [userId]: newRole }));
+      
+      // Return a context object with the snapshotted value
+      return { previousUsers };
+    },
     onSuccess: (data, { userId, newRole }) => {
+      console.log('Frontend: Role change successful, invalidating queries');
+      // Remove optimistic update
+      setOptimisticRoles(prev => {
+        const updated = { ...prev };
+        delete updated[userId];
+        return updated;
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       const user = users?.find(u => u.id === userId);
       logUserAction("CHANGED USER ROLE", `${user?.email || userId} to ${newRole}`);
@@ -121,7 +144,20 @@ export default function Admin() {
         description: "User role has been updated successfully",
       });
     },
-    onError: (error) => {
+    onError: (error, { userId }, context) => {
+      console.error('Frontend: Role change error:', error);
+      // Remove optimistic update on error
+      setOptimisticRoles(prev => {
+        const updated = { ...prev };
+        delete updated[userId];
+        return updated;
+      });
+      
+      // Revert to previous state if available
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["/api/admin/users"], context.previousUsers);
+      }
+      
       // Extract error message more carefully
       let errorMessage = "Failed to update user role";
       if (error instanceof Error) {
@@ -235,7 +271,7 @@ export default function Admin() {
                         <TableCell>
                           {user.status === 'approved' ? (
                             <select 
-                              value={user.role} 
+                              value={optimisticRoles[user.id] || user.role} 
                               onChange={(e) => changeRoleMutation.mutate({ userId: user.id, newRole: e.target.value })}
                               className="px-2 py-1 border border-gray-300 rounded text-sm"
                               disabled={changeRoleMutation.isPending}
