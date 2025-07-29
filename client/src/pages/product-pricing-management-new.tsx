@@ -177,7 +177,15 @@ export default function ProductPricingManagementNew() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        // Create a comprehensive error message
+        let errorMessage = errorData.error || 'Upload failed';
+        if (errorData.details && errorData.details !== errorMessage) {
+          errorMessage += `: ${errorData.details}`;
+        }
+        if (errorData.suggestion) {
+          errorMessage += `\n\nSuggestion: ${errorData.suggestion}`;
+        }
+        throw new Error(errorMessage);
       }
 
       return response.json();
@@ -218,9 +226,14 @@ export default function ProductPricingManagementNew() {
         timestamp: new Date().toISOString()
       });
       
+      // Split error message to show title and description separately
+      const errorLines = error.message.split('\n\n');
+      const title = errorLines[0] || "Upload Failed";
+      const description = errorLines.slice(1).join('\n') || undefined;
+      
       toast({
-        title: "Upload Failed",
-        description: error.message,
+        title: title,
+        description: description,
         variant: "destructive",
       });
     }
@@ -376,7 +389,21 @@ export default function ProductPricingManagementNew() {
                 )}
                 <div className="flex-1">
                   <AlertDescription className={uploadResult.success ? "text-green-800" : "text-red-800"}>
-                    <div className="font-medium mb-2">{uploadResult.message}</div>
+                    <div className="font-medium mb-2">
+                      {uploadResult.message.split(':')[0]}
+                    </div>
+                    {!uploadResult.success && uploadResult.message.includes(':') && (
+                      <div className="text-sm space-y-2 mt-2">
+                        <div className="font-normal">
+                          {uploadResult.message.split(':').slice(1).join(':').split('\n\n')[0]}
+                        </div>
+                        {uploadResult.message.includes('Suggestion:') && (
+                          <div className="mt-3 p-2 bg-amber-100 border border-amber-200 rounded text-amber-800 text-xs">
+                            {uploadResult.message.split('Suggestion:')[1].trim()}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {uploadResult.success && (
                       <div className="text-sm space-y-1">
                         <div>Records processed: {uploadResult.recordsProcessed}</div>

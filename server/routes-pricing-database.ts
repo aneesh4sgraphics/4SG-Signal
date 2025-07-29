@@ -101,6 +101,28 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
 
     const headers = parseCSVLine(lines[0]);
     console.log(`CSV headers: ${headers.join(', ')}`);
+    
+    // Validate required headers
+    const requiredHeaders = [
+      'ItemCode', 'product_name', 'ProductType', 'size', 'total_sqm', 'min_quantity',
+      'Export', 'Dealer', 'Dealer2', 'ApprovalNeeded', 'TierStage25', 
+      'TierStage2', 'TierStage15', 'TierStage1', 'Retail'
+    ];
+    
+    const missingHeaders = requiredHeaders.filter(header => 
+      !headers.some(h => h === header || h === header.replace('.', '_'))
+    );
+    
+    if (missingHeaders.length > 0) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({
+        error: "Missing required columns in CSV",
+        details: `The following columns are missing: ${missingHeaders.join(', ')}`,
+        suggestion: "Please ensure your CSV has all required columns. You can download a template for reference.",
+        foundHeaders: headers,
+        requiredHeaders: requiredHeaders
+      });
+    }
 
     // Preload product types for faster lookups
     let productTypes = await storage.getProductTypes();
@@ -162,6 +184,12 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
         const value = values[index];
         rowData[header] = value;
       });
+      
+      // Validate ItemCode is present
+      if (!rowData.ItemCode || rowData.ItemCode.trim() === '') {
+        console.warn(`Row ${i + 1}: Skipping row with empty ItemCode`);
+        continue;
+      }
 
       // Try to find matching product type ID
       let productTypeId: number | null = null;
@@ -197,6 +225,17 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
         tierStage1Price: cleanPrice(rowData.TierStage1).toString(),
         retailPrice: cleanPrice(rowData.Retail).toString()
       };
+      
+      // Validate numeric fields
+      const numericFields = ['totalSqm', 'exportPrice', 'dealerPrice', 'retailPrice'];
+      const invalidNumericField = numericFields.find(field => {
+        const value = parseFloat((recordData as any)[field]);
+        return isNaN(value) || value < 0;
+      });
+      
+      if (invalidNumericField) {
+        console.warn(`Row ${i + 1}: Invalid numeric value in field ${invalidNumericField} for item ${recordData.itemCode}`);
+      }
 
       // Generate hash and create final record
       // Use existing hash from CSV if available, otherwise generate new one
@@ -517,9 +556,35 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
       }
     }
     
+    // Provide detailed error information
+    let errorMessage = "Failed to process pricing database upload";
+    let errorDetails = "Unknown error occurred";
+    let suggestion = "Please check your CSV file format and try again";
+    
+    if (error instanceof Error) {
+      errorDetails = error.message;
+      
+      // Provide specific suggestions based on error type
+      if (error.message.includes('duplicate key')) {
+        errorMessage = "Duplicate item codes found";
+        suggestion = "Check your CSV for duplicate ItemCode values";
+      } else if (error.message.includes('foreign key') || error.message.includes('productTypeId')) {
+        errorMessage = "Invalid product type reference";
+        suggestion = "Some products reference product types that don't exist in the database";
+      } else if (error.message.includes('parse') || error.message.includes('CSV')) {
+        errorMessage = "CSV parsing error";
+        suggestion = "Ensure your CSV is properly formatted with correct column headers";
+      } else if (error.message.includes('column') || error.message.includes('header')) {
+        errorMessage = "Invalid CSV structure";
+        suggestion = "Check that your CSV has all required columns: ItemCode, product_name, ProductType, size, etc.";
+      }
+    }
+    
     res.status(500).json({ 
-      error: "Failed to process pricing database upload", 
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMessage,
+      details: errorDetails,
+      suggestion: suggestion,
+      timestamp: new Date().toISOString()
     });
   }
 });
