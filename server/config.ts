@@ -3,15 +3,16 @@ export const APP_CONFIG = {
   // Admin emails - move these to environment variables in production
   ADMIN_EMAILS: [
     process.env.ADMIN_EMAIL_1 || "aneesh@4sgraphics.com",
-    process.env.ADMIN_EMAIL_2 || "oscar@4sgraphics.com",
-    process.env.ADMIN_EMAIL_3 || "shiva@4sgraphics.com"
+    process.env.ADMIN_EMAIL_2 || "shiva@4sgraphics.com"
   ],
 
   // Pre-approved user emails
   PRE_APPROVED_EMAILS: [
     process.env.USER_EMAIL_1 || "santiago@4sgraphics.com",
     process.env.USER_EMAIL_2 || "patricio@4sgraphics.com", 
-    process.env.USER_EMAIL_3 || "remy@4sgraphics.com"
+    process.env.USER_EMAIL_3 || "remy@4sgraphics.com",
+    process.env.USER_EMAIL_4 || "oscar@4sgraphics.com",
+    process.env.USER_EMAIL_5 || "info@4sgraphics.com"
   ],
 
   // Role-based pricing tier access
@@ -30,11 +31,15 @@ export const APP_CONFIG = {
     ]
   },
 
-  // Email-specific role mappings for backward compatibility
+  // Email-specific role mappings for automatic role assignment
   EMAIL_ROLE_MAP: {
     "santiago@4sgraphics.com": "user",
+    "oscar@4sgraphics.com": "manager",
     "patricio@4sgraphics.com": "manager", 
-    "remy@4sgraphics.com": "user"
+    "remy@4sgraphics.com": "user",
+    "info@4sgraphics.com": "user",
+    "aneesh@4sgraphics.com": "admin",
+    "shiva@4sgraphics.com": "admin"
   } as Record<string, string>,
 
   // Development settings
