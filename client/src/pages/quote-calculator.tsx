@@ -100,6 +100,21 @@ export default function QuoteCalculator() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Reset all selections
+  const resetSelections = () => {
+    setSelectedCategory("");
+    setSelectedType("");
+    setSelectedSize("");
+    setQuantity(1);
+    setIsCustomSize(false);
+    setCustomWidth("");
+    setCustomHeight("");
+    toast({
+      title: "Selections Reset",
+      description: "All product selections have been cleared",
+    });
+  };
   
   // Get user role and filter pricing tiers accordingly
   const userRole = getUserRoleFromEmail((user as any)?.email || '');
@@ -673,16 +688,25 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               {/* Quantity */}
               <div className="space-y-2">
                 <label className="block label-medium text-gray-800">Quantity</label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  onFocus={(e) => e.target.select()}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                  min={isCustomSize ? 1 : (selectedProduct?.minQuantity || 1)}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
-                  disabled={!selectedSize && !isCustomSize}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    onFocus={(e) => e.target.select()}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    min={isCustomSize ? 1 : (selectedProduct?.minQuantity || 1)}
+                    className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
+                    disabled={!selectedSize && !isCustomSize}
+                  />
+                  <button
+                    onClick={resetSelections}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md border border-gray-300 transition-colors"
+                    type="button"
+                  >
+                    RESET
+                  </button>
+                </div>
                 {selectedProduct && quantity < selectedProduct.minQuantity && !isCustomSize && (
                   <p className="text-sm text-red-500">
                     Minimum order quantity: {selectedProduct.minQuantity}
