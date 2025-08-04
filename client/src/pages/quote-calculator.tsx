@@ -186,6 +186,11 @@ export default function QuoteCalculator() {
            category.includes('Graffiti STICK');
   };
 
+  // Check if product size is in roll format (inch x feet)
+  const isRollFormat = (size: string): boolean => {
+    return size.includes("'") || size.toLowerCase().includes("feet") || /\d+x\d+\'/.test(size);
+  };
+
   // Get selected product details
   const selectedProduct = productData.find(item =>
     item.productName === selectedCategory &&
@@ -216,6 +221,7 @@ export default function QuoteCalculator() {
 
   const addToQuote = (tier: string) => {
     if (!selectedProduct && !isCustomSize) return;
+    if (!isCustomSize && !selectedProduct) return;
 
     // For custom sizes
     if (isCustomSize && customWidth && customHeight) {
@@ -273,6 +279,8 @@ export default function QuoteCalculator() {
       });
       return;
     }
+
+    if (!selectedProduct) return; // Additional safety check
 
     const tierPrice = selectedProduct[tier as keyof ProductData] as number;
     const pricePerSheet = tierPrice * parseFloat(String(selectedProduct.totalSqm || 0));
@@ -816,7 +824,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     <span className="text-sm text-gray-800">
                       {isCustomSize ? '1 Sheet' : 
                         (selectedProduct ? 
-                          `${selectedProduct.minQuantity} Sheets` : 
+                          `${selectedProduct.minQuantity} ${isRollFormat(selectedProduct.size) ? 'Roll' : 'Sheets'}` : 
                           'Not Available'
                         )
                       }
