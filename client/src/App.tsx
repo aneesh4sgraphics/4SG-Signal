@@ -7,6 +7,7 @@ import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { FloatingCalculator } from "@/components/FloatingCalculator";
+import { AIChatbot, ChatbotToggle } from "@/components/AIChatbot";
 import AppHeader from "@/components/AppHeader";
 // Removed: FirecrackerAnimation import - animation removed per user request
 import OdooLayout from "@/components/OdooLayout";
@@ -150,6 +151,8 @@ function Router() {
 }
 
 function App() {
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -157,6 +160,14 @@ function App() {
           <Toaster />
           <Router />
           <FloatingCalculator />
+          <ChatbotToggle 
+            onClick={() => setIsChatbotOpen(!isChatbotOpen)} 
+            isOpen={isChatbotOpen} 
+          />
+          <AIChatbot 
+            isOpen={isChatbotOpen} 
+            onToggle={() => setIsChatbotOpen(!isChatbotOpen)} 
+          />
         </MicroFeedbackProvider>
       </TooltipProvider>
     </QueryClientProvider>

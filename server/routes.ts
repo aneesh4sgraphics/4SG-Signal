@@ -6,6 +6,7 @@ import fs from "fs";
 import archiver from "archiver";
 import pdf from 'html-pdf-node';
 import puppeteer from 'puppeteer';
+import OpenAI from 'openai';
 import { storage } from "./storage";
 import { z } from "zod";
 // Removed: parseProductData import - legacy CSV parser no longer used
@@ -3135,6 +3136,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user activity logs:", error);
       res.status(500).json({ error: "Failed to fetch user activity logs" });
+    }
+  });
+
+  // AI Chat endpoint
+  app.post("/api/chat", isAuthenticated, async (req, res) => {
+    try {
+      const { message, conversationHistory } = req.body;
+
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables." 
+        });
+      }
+
+      // Initialize OpenAI client only when needed
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Get some context about the app for the AI
+      const categories = await storage.getProductCategories();
+      const categoryNames = categories.map(c => c.name).join(', ');
+
+      // Build conversation context
+      const systemMessage = `You are an AI assistant for the 4S Graphics employee portal, a comprehensive quote and pricing management system. 
+
+Key features of the app:
+- QuickQuotes: Generate product quotes with tiered pricing (Export, Master Distributor, Dealer, Dealer 2, Approval Needed, Stage 2.5, Stage 2, Stage 1.5, Stage 1, Retail)
+- Price List: Generate customer price lists for specific categories and tiers
+- Customer Management: Manage customer database with 1900+ customers
+- Product Pricing: Manage pricing for different product categories
+- Custom Sizes: Available for Graffiti products (Polyester Paper, Blended Poly, STICK) - input dimensions in inches
+- Area Calculator: Built-in calculator for square meter calculations
+- PDF Generation: Create professional PDFs for quotes and price lists
+
+Available product categories: ${categoryNames}
+
+When users ask about pricing, ask clarifying questions like:
+- Which product category are they interested in?
+- What pricing tier do they need?
+- Are they looking for standard sizes or custom dimensions?
+- Do they need a quote or a price list?
+
+Always be helpful and guide users through the features step by step. If you need specific pricing data, ask them to use the relevant sections of the app.`;
+
+      // Build messages array
+      const messages = [
+        { role: "system", content: systemMessage },
+        // Include recent conversation history
+        ...(conversationHistory || []).slice(-6).map((msg: any) => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        { role: "user", content: message }
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const assistantMessage = response.choices[0].message.content;
+
+      res.json({ message: assistantMessage });
+    } catch (error) {
+      console.error("Error in chat endpoint:", error);
+      
+      if (error instanceof Error && error.message.includes('API key')) {
+        return res.status(500).json({ 
+          error: "OpenAI API key is invalid or missing. Please check your configuration." 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Sorry, I encountered an error. Please try again or contact support if the problem persists." 
+      });
     }
   });
 
