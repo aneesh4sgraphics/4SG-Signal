@@ -112,7 +112,7 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
   if (!isOpen) return null;
 
   return (
-    <Card className="fixed bottom-20 right-20 w-96 h-[500px] flex flex-col shadow-2xl border-2 border-purple-200 bg-white z-50">
+    <Card className="fixed bottom-44 right-6 w-96 h-[500px] flex flex-col shadow-2xl border-2 border-purple-200 bg-white z-50">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-t-lg">
         <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ export function ChatbotToggle({ onClick, isOpen }: { onClick: () => void; isOpen
   return (
     <Button
       onClick={onClick}
-      className={`fixed bottom-6 right-20 w-14 h-14 rounded-full shadow-lg z-40 transition-all duration-200 ${
+      className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-lg z-40 transition-all duration-200 ${
         isOpen 
           ? 'bg-gray-600 hover:bg-gray-700' 
           : 'bg-purple-600 hover:bg-purple-700 hover:scale-110'
