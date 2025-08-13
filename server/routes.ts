@@ -3174,12 +3174,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { message, conversationHistory } = req.body;
 
       if (!message || typeof message !== 'string') {
-        return res.status(400).json({ error: "Message is required" });
+        return res.status(400).json({ message: "Message is required" });
       }
 
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ 
-          error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables." 
+          message: "⚠️ OpenAI API key not configured. Please contact your administrator to add the OPENAI_API_KEY.\n\nIn the meantime, you can use:\n• Price List to view products\n• Quote Calculator for pricing" 
         });
       }
 
@@ -3318,17 +3318,26 @@ Remember: Do not guess. Do not use outside knowledge. Only use the context provi
       const assistantMessage = response.choices[0].message.content;
 
       res.json({ message: assistantMessage });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in chat endpoint:", error);
       
-      if (error instanceof Error && error.message.includes('API key')) {
-        return res.status(500).json({ 
-          error: "OpenAI API key is invalid or missing. Please check your configuration." 
+      // Handle OpenAI quota exceeded error
+      if (error.code === 'insufficient_quota' || error.status === 429) {
+        return res.status(503).json({ 
+          message: "⚠️ The OpenAI API quota has been exceeded. Please contact your administrator to add more credits to the OpenAI account.\n\nIn the meantime, you can:\n• Use the Price List to view all products\n• Use the Quote Calculator for pricing\n• Check Product Pricing Management for details" 
         });
       }
       
+      // Handle API key issues
+      if (error instanceof Error && error.message.includes('API key')) {
+        return res.status(503).json({ 
+          message: "⚠️ There's an issue with the OpenAI API configuration. Please contact your administrator to check the API key.\n\nYou can still use:\n• Price List for product information\n• Quote Calculator for generating quotes" 
+        });
+      }
+      
+      // Generic error fallback - but still use 'message' field consistently
       res.status(500).json({ 
-        error: "Sorry, I encountered an error. Please try again or contact support if the problem persists." 
+        message: "Sorry, I encountered an error processing your request. Please try again or use the Price List and Quote Calculator directly." 
       });
     }
   });

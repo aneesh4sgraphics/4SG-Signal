@@ -64,16 +64,15 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
       const data = await response.json();
+      
+      // Handle both success and error responses from the backend
+      const responseContent = data.message || data.error || 'Sorry, I couldn\'t process your request.';
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.message,
+        content: responseContent,
         timestamp: new Date()
       };
 
@@ -82,7 +81,7 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure the OpenAI API key is configured and try again.',
+        content: '⚠️ Unable to connect to the AI service. Please check your connection and try again, or use the Price List and Quote Calculator directly.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
