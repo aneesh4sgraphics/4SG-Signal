@@ -25,6 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Session Management**: PostgreSQL session store (connect-pg-simple)
 - **Development**: tsx for TypeScript execution
 - **Technical Implementations**: Server-side PDF generation using html-pdf-node configured for system Chromium, robust authentication system with role-based access control, comprehensive CSV upload and synchronization logic with hash-based change detection, and dynamic logo fetching with fallback mechanisms.
+- **AI Chatbot**: Context-only answering system using OpenAI GPT-4o with similarity scoring (threshold 0.25), retrieves relevant products from database before responding, enforces strict "no guessing" policy, guides users to appropriate app sections when lacking data.
 
 ### Database Architecture
 - **ORM**: Drizzle ORM with PostgreSQL dialect

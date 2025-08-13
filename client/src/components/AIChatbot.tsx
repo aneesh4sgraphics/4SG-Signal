@@ -190,6 +190,9 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
 
       {/* Input */}
       <div className="p-4 border-t bg-gray-50">
+        <div className="text-xs text-gray-500 mb-2 bg-blue-50 p-2 rounded border border-blue-200">
+          💡 Answers come only from our internal product database. If it's not in our system, the bot will guide you to the right section.
+        </div>
         <div className="flex gap-2">
           <Input
             value={inputMessage}
