@@ -1,0 +1,16 @@
+{
+  "docs": [
+    {
+      "file": "maintenance-guide.pdf",
+      "bytes": 42505,
+      "chunkCount": 1
+    },
+    {
+      "file": "printing-troubleshooting-guide.pdf",
+      "bytes": 60878,
+      "chunkCount": 2
+    }
+  ],
+  "createdAt": "2025-08-13T20:19:19.615Z",
+  "totalChunks": 3
+}

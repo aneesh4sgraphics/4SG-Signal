@@ -59,21 +59,21 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: inputMessage.trim(),
-          conversationHistory: messages.slice(-6) // Send last 6 messages for context
+          question: inputMessage.trim(),
+          conversationHistory: messages.slice(-6)
         })
       });
 
       const data = await response.json();
       
-      // Handle both success and error responses from the backend
-      let responseContent = data.message || data.error || 'Sorry, I couldn\'t process your request.';
+      // Always expect { message, sources } structure
+      let responseContent = data.message || 'Sorry, I couldn\'t process your request.';
       
-      // Add source information if available
+      // Append sources if available
       if (data.sources && data.sources.length > 0) {
         responseContent += '\n\n📚 Sources:';
-        data.sources.forEach((source: any, i: number) => {
-          responseContent += `\n${i + 1}. ${source.file}${source.page ? ` (page ${source.page})` : ''}`;
+        data.sources.slice(0, 5).forEach((source: any, i: number) => {
+          responseContent += `\n• ${source.file}${source.page ? ` (p${source.page})` : ''}`;
         });
       }
 
@@ -198,7 +198,7 @@ export function AIChatbot({ isOpen, onToggle }: AIChatbotProps) {
       {/* Input */}
       <div className="p-4 border-t bg-gray-50">
         <div className="text-xs text-gray-500 mb-2 bg-blue-50 p-2 rounded border border-blue-200">
-          💡 Answers come only from our internal product database. If it's not in our system, the bot will guide you to the right section.
+          💡 Answers come from our internal troubleshooting PDFs and product database. If OpenAI credits are exhausted, I'll use local search.
         </div>
         <div className="flex gap-2">
           <Input

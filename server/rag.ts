@@ -14,7 +14,7 @@ let bm25: any = null;
 let isIndexLoaded = false;
 
 // Load the search index
-function loadIndex() {
+async function loadIndex() {
   if (isIndexLoaded) return true;
   
   try {
@@ -29,8 +29,19 @@ function loadIndex() {
     chunks = JSON.parse(fs.readFileSync(chunksPath, "utf-8"));
     const bm25Json = JSON.parse(fs.readFileSync(bm25Path, "utf-8"));
     
-    const bm25Lib = require("wink-bm25-text-search");
+    // Dynamic import for ES modules
+    const { default: bm25Lib } = await import("wink-bm25-text-search");
+    const winkUtils = await import("wink-nlp-utils");
+    
     bm25 = bm25Lib();
+    bm25.defineConfig({ fldWeights: { text: 1 } });
+    bm25.definePrepTasks([
+      winkUtils.default.string.lowerCase,
+      winkUtils.default.string.removePunctuations,
+      winkUtils.default.string.tokenize0,
+      winkUtils.default.tokens.stem,
+      winkUtils.default.tokens.removeWords
+    ]);
     bm25.importJSON(bm25Json);
     
     isIndexLoaded = true;
@@ -42,9 +53,48 @@ function loadIndex() {
   }
 }
 
-export function localSearch(query: string, k = 5): (Chunk & { score: number })[] {
-  if (!loadIndex()) {
-    return [];
+export async function localSearch(query: string, k = 5): Promise<(Chunk & { score: number })[]> {
+  // Simple fallback search when BM25 fails
+  const simpleSearch = () => {
+    if (!chunks || chunks.length === 0) {
+      // Try loading chunks directly
+      try {
+        const chunksPath = path.join(process.cwd(), "data/index/chunks.json");
+        if (fs.existsSync(chunksPath)) {
+          chunks = JSON.parse(fs.readFileSync(chunksPath, "utf-8"));
+        }
+      } catch (e) {
+        console.error("Failed to load chunks:", e);
+        return [];
+      }
+    }
+    
+    const queryLower = query.toLowerCase();
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+    
+    // Score each chunk based on word matches
+    const scored = chunks.map(chunk => {
+      const textLower = chunk.text.toLowerCase();
+      let score = 0;
+      
+      queryWords.forEach(word => {
+        const matches = (textLower.match(new RegExp(word, 'g')) || []).length;
+        score += matches;
+      });
+      
+      return { ...chunk, score };
+    });
+    
+    // Sort by score and return top k
+    return scored
+      .filter(c => c.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k);
+  };
+  
+  if (!(await loadIndex())) {
+    // If index loading fails, use simple search
+    return simpleSearch();
   }
   
   try {
@@ -56,14 +106,14 @@ export function localSearch(query: string, k = 5): (Chunk & { score: number })[]
       return c ? { ...c, score: h[1] } : null;
     }).filter(Boolean) as (Chunk & { score: number })[];
   } catch (error) {
-    console.error("Error in local search:", error);
-    return [];
+    console.error("BM25 search failed, using simple search:", error.message);
+    return simpleSearch();
   }
 }
 
 // Build a local answer without OpenAI
-export function buildLocalAnswer(query: string) {
-  const top = localSearch(query, 5);
+export async function buildLocalAnswer(query: string) {
+  const top = await localSearch(query, 5);
   
   if (!top.length) {
     return {
@@ -96,14 +146,14 @@ export async function hybridRAG(
   openaiApiKey?: string
 ): Promise<{ message: string; sources: any[] }> {
   
-  // First, always do local search to get context
-  const searchResults = localSearch(query, 5);
+  // Always do local search first to get context
+  const searchResults = await localSearch(query, 5);
   const hasLocalResults = searchResults.length > 0;
   
   // Build context from search results
   let contextData = "";
   if (hasLocalResults) {
-    contextData = "\n\nRelevant Troubleshooting Documentation:\n";
+    contextData = "\n\nRelevant Documentation:\n";
     searchResults.forEach((result, i) => {
       contextData += `\n${i + 1}. From "${result.file}" (page ${result.pageHint ?? "?"}):`;
       contextData += `\n   ${result.text.slice(0, 500).replace(/\s+/g, " ")}...\n`;
@@ -115,17 +165,16 @@ export async function hybridRAG(
     try {
       const openai = new OpenAI({ apiKey: openaiApiKey });
       
-      const systemMessage = `You are a helpful assistant for 4S Graphics. You answer questions based on the provided troubleshooting documentation context.
+      const systemMessage = `You are a helpful assistant for 4S Graphics. Answer based on the provided context.
       
 ${contextData}
 
-Important rules:
-1. Answer ONLY based on the provided context
-2. If the context doesn't contain the answer, say so clearly
-3. Be concise and helpful
-4. Reference the source document when possible`;
+Rules:
+1. Answer ONLY from the provided context
+2. If no answer in context, say "I don't have that information in our documentation"
+3. Be concise and reference sources`;
 
-      const userPrompt = `User Question: ${query}\n\nProvide a helpful answer based only on the context above.`;
+      const userPrompt = `Question: ${query}`;
       
       const messages = [
         { role: "system" as const, content: systemMessage },
@@ -137,31 +186,30 @@ Important rules:
       ];
       
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+        model: "gpt-4o",
         messages: messages,
         max_tokens: 500,
         temperature: 0.2,
       });
       
-      const answer = response.choices[0].message.content || "I couldn't generate a response.";
+      const answer = response.choices[0].message.content || "Unable to generate response.";
       
       return {
         message: answer,
-        sources: searchResults.map(r => ({
+        sources: searchResults.slice(0, 3).map(r => ({
           file: r.file,
-          page: r.pageHint,
-          relevance: Math.round(r.score * 100)
+          page: r.pageHint || null
         }))
       };
       
     } catch (error: any) {
-      console.log("OpenAI API failed, falling back to local search:", error.code || error.message);
+      console.log(`OpenAI unavailable (${error.code || 'error'}), using local search`);
       // Fall through to local answer
     }
   }
   
   // Fallback to local answer
-  return buildLocalAnswer(query);
+  return await buildLocalAnswer(query);
 }
 
 // Check if troubleshooting PDFs are available

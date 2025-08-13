@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cPmaUVB9_wGdSJCiDsl8C",
+    "file": "maintenance-guide.pdf",
+    "pageHint": 2,
+    "text": "MACHINE MAINTENANCE GUIDE DAILY MAINTENANCE Clean print heads with isopropyl alcohol Check and refill ink levels Inspect for paper debris in feed path Wipe down exterior surfaces Run nozzle check pattern WEEKLY MAINTENANCE Deep clean all rollers with lint-free cloth Calibrate color profiles Check belt tension and alignment Clean encoder strips Test all safety sensors MONTHLY MAINTENANCE Replace air filters Lubricate moving parts Update printer firmware Full system diagnostic test Clean ventilation system TROUBLESHOOTING TIPS Poor Print Quality: Check nozzles, clean heads, verify media settings Paper Jams: Clear path, check humidity, verify paper weight Color Issues: Recalibrate, check profiles, verify ink quality Slow Performance: Clear print queue, check network, update drivers CLEANING SOLUTIONS Use only 99% isopropyl alcohol for print heads Mild soap solution for exterior cleaning Compressed air for dust removal Anti-static cleaner for rollers SAFETY GUIDELINES Always power off before maintenance Use proper grounding equipment Wear protective gloves when handling ink Ensure proper ventilation Contact 4S Graphics support for advanced maintenance procedures."
+  },
+  {
+    "id": "P5_GuIMxkHrAHwzxHTtj0",
+    "file": "printing-troubleshooting-guide.pdf",
+    "pageHint": 2,
+    "text": "TROUBLESHOOTING GUIDE FOR 4S GRAPHICS PRINTING 1. STATIC ISSUES Problem: Static electricity affecting print quality Solution: Ensure humidity levels are between 40-60% Use anti-static bars or ionizers Ground all equipment properly Clean rollers regularly with anti-static cleaner 2. CLEANING PROCEDURES Problem: Dirty print heads or rollers Solution: Clean print heads daily with isopropyl alcohol Use lint-free cloths for cleaning Replace worn rollers every 6 months Run cleaning cycle after every 1000 prints 3. COLOR CALIBRATION Problem: Colors not matching expectations Solution: Calibrate monitors monthly Use color profiles specific to your printer Check ink levels and replace if low Perform nozzle check and alignment 4. PAPER JAM ISSUES Problem: Frequent paper jams Solution: Check paper alignment in tray Ensure paper is not damp or curled Clean paper path with compressed air Verify paper weight matches printer specifications 5. PRINT QUALITY PROBLEMS Problem: Blurry or streaky prints Solution: Check print head alignment Replace clogged nozzles Verify media settings match actual media Clean encoder strip 6. MACHINE SETTINGS Problem: Incorrect printer settings Solution: Set correct DPI for job type (300 DPI for photos, 150 DPI for drafts) Match color space to design file (RGB vs CMYK) Select appropriate print quality mode Configure correct paper size and orientation 7. INK ISSUES Problem: Ink not adhering properly Solution: Check substrate compatibility Ensure proper curing temperature Verify ink expiration date Pre-treat materials if necessary 8. MAINTENANCE SCHEDULE Daily: Clean print heads Check ink levels Inspect for debris Weekly: Clean rollers Calibrate colors Check alignment Monthly: Deep clean entire system Replace filters Update firmware For additional support, contact 4S Graphics technical team."
+  },
+  {
+    "id": "yD5brX7sAsOF3E9LRA8h-",
+    "file": "printing-troubleshooting-guide.pdf",
+    "pageHint": 3,
+    "text": "Deep clean entire system Replace filters Update firmware For additional support, contact 4S Graphics technical team."
+  }
+]

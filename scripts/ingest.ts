@@ -2,16 +2,16 @@ import fs from "fs";
 import path from "path";
 import fg from "fast-glob";
 import pdfParse from "pdf-parse";
-import { string as stringUtils, tokens as tokenUtils } from "wink-nlp-utils";
+import winkUtils from "wink-nlp-utils";
 import { nanoid } from "nanoid";
 
-// Simple chunker for text
-function chunkText(text: string, tokensPerChunk = 900, overlap = 120) {
+// Simple chunker for text - creates smaller chunks to ensure we have enough for BM25
+function chunkText(text: string, tokensPerChunk = 300, overlap = 50) {
   const words = text.split(/\s+/);
   const chunks: { id: string; text: string }[] = [];
   for (let i = 0; i < words.length; i += (tokensPerChunk - overlap)) {
     const slice = words.slice(i, i + tokensPerChunk).join(" ").trim();
-    if (slice.length > 200) chunks.push({ id: nanoid(), text: slice });
+    if (slice.length > 100) chunks.push({ id: nanoid(), text: slice });
   }
   return chunks;
 }
@@ -68,21 +68,37 @@ function chunkText(text: string, tokensPerChunk = 900, overlap = 120) {
   }
 
   // Build BM25 index
-  const bm25 = require("wink-bm25-text-search");
-  const model = bm25();
+  const bm25 = await import("wink-bm25-text-search");
+  const model = bm25.default();
 
   model.defineConfig({ fldWeights: { text: 1 } });
   model.definePrepTasks([
-    stringUtils.lowerCase,
-    stringUtils.removePunctuations,
-    tokenUtils.stem,
-    tokenUtils.propagateNegations
+    winkUtils.string.lowerCase,
+    winkUtils.string.removePunctuations,
+    winkUtils.string.tokenize0,
+    winkUtils.tokens.stem,
+    winkUtils.tokens.removeWords
   ]);
 
   chunks.forEach((ch) => {
     model.addDoc({ text: ch.text, id: ch.id, file: ch.file }, ch.id);
   });
-  model.consolidate();
+  
+  // Consolidate the index - BM25 requires at least 2 documents
+  try {
+    if (chunks.length >= 2) {
+      model.consolidate();
+    } else {
+      console.log("Note: Too few documents for BM25 consolidation, skipping optimization.");
+      // For single document, add a dummy doc to enable consolidation
+      if (chunks.length === 1) {
+        model.addDoc({ text: "dummy document for consolidation", id: "dummy", file: "dummy" }, "dummy");
+        model.consolidate();
+      }
+    }
+  } catch (e) {
+    console.log("Warning: Could not consolidate BM25 index:", e.message);
+  }
 
   // Save the index
   fs.mkdirSync("data/index", { recursive: true });
