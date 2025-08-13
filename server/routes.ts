@@ -2948,7 +2948,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Price list items are required" });
       }
 
-      // Create Excel-compatible CSV content with all visible columns
+      // Import xlsx library for proper Excel generation
+      const XLSX = await import('xlsx');
+
+      // Create worksheet data
+      const worksheetData = [];
+      
+      // Add headers
       const headers = ['Item Code', 'Product Type', 'Size', 'Min Qty'];
       
       // Only add Price/Sq.M column for admin users
@@ -2957,14 +2963,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       headers.push('Price/Unit', 'Price Per Pack');
+      worksheetData.push(headers);
 
-      const csvRows = [headers.join(',')];
-
+      // Add data rows
       priceListItems.forEach(item => {
         const row = [
           item.itemCode || '',
-          `"${item.productType || ''}"`, // Quote to handle commas
-          `"${item.size || ''}"`,
+          item.productType || '',
+          item.size || '',
           item.minQty || 0
         ];
 
@@ -2978,17 +2984,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           item.pricePerPack || 0
         );
 
-        csvRows.push(row.join(','));
+        worksheetData.push(row);
       });
 
-      const csvContent = csvRows.join('\n');
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      
+      // Auto-fit column widths
+      const colWidths = headers.map((header, i) => {
+        const maxLength = Math.max(
+          header.length,
+          ...worksheetData.slice(1).map(row => String(row[i]).length)
+        );
+        return { wch: Math.min(maxLength + 2, 50) };
+      });
+      worksheet['!cols'] = colWidths;
 
-      // Set headers for Excel download (use .xlsx extension but CSV content)
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Price List');
+
+      // Generate Excel buffer
+      const excelBuffer = XLSX.write(workbook, { 
+        type: 'buffer', 
+        bookType: 'xlsx',
+        compression: true 
+      });
+
+      // Set headers for Excel download
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="PriceList_Full_${selectedCategory}_${selectedTier}_${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.setHeader('Content-Length', excelBuffer.length.toString());
 
-      // Send the CSV content (Excel will open it correctly)
-      res.send(csvContent);
+      // Send the Excel buffer
+      res.send(excelBuffer);
 
       logDownload(`PriceList_Full_${selectedCategory}_${selectedTier}.xlsx`, 'Excel format generation');
 
