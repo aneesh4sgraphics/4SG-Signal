@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, FileSpreadsheet, ArrowUpDown } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
@@ -306,7 +306,7 @@ export default function PriceList() {
 
 
   // Fetch product pricing data from new database
-  const { data: productData = [], isLoading } = useQuery<ProductData[]>({
+  const { data: productData = [], isLoading, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database'],
     queryFn: async () => {
       const response = await fetch('/api/product-pricing-database');
@@ -316,6 +316,10 @@ export default function PriceList() {
       const result = await response.json();
       return result.data || []; // Extract data from response wrapper
     },
+    staleTime: 0, // Consider data stale immediately
+    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   // Get unique categories - memoize to prevent re-renders and filter out empty values
@@ -438,9 +442,26 @@ export default function PriceList() {
               <p className="body-small text-gray-500 mb-4">
                 No product pricing data found in the database. Please upload product data through the ProductPricing Management app.
               </p>
-              <div className="caption text-gray-400 bg-gray-50 p-2 rounded border">
-                Debug: Found {productData?.length || 0} records in database
-              </div>
+              {isLoading ? (
+                <div className="caption text-gray-400 bg-gray-50 p-2 rounded border">
+                  Loading product data...
+                </div>
+              ) : (
+                <>
+                  <div className="caption text-gray-400 bg-gray-50 p-2 rounded border mb-4">
+                    Debug: Found {productData?.length || 0} records in database
+                  </div>
+                  <button
+                    onClick={() => refetch()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Refresh Data
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    If you're experiencing issues, try refreshing the data or clearing your browser cache.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -454,10 +475,22 @@ export default function PriceList() {
         {/* Header */}
         <div className="mb-6 relative">
           <FloatingElements />
-          <h1 className="heading-primary text-gray-800 mb-2">Price List</h1>
-          <p className="body-small text-gray-500">
-            Generate comprehensive price lists for your products
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="heading-primary text-gray-800 mb-2">Price List</h1>
+              <p className="body-small text-gray-500">
+                Generate comprehensive price lists for your products
+              </p>
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </button>
+          </div>
           <HeaderDivider />
         </div>
 
