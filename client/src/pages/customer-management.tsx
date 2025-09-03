@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 
 interface CustomerData {
@@ -39,10 +40,11 @@ export default function CustomerManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch current customer data stats  
   const { data: customerData = [], isLoading } = useQuery<CustomerData[]>({
-    queryKey: ['/api/customers'],
+    queryKey: ['/api/customers', (user as any)?.id],
   });
 
   const stats = {

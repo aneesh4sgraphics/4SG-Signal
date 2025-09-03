@@ -323,7 +323,7 @@ export default function PriceList() {
 
   // Fetch product pricing data from new database
   const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
-    queryKey: ['/api/product-pricing-database'],
+    queryKey: ['/api/product-pricing-database', (user as any)?.id],
     queryFn: async () => {
       const response = await fetch('/api/product-pricing-database');
       if (!response.ok) {

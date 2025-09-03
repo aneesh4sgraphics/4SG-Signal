@@ -45,7 +45,7 @@ export default function SavedQuotes() {
   const [selectedQuote, setSelectedQuote] = useState<SentQuote | null>(null);
   
   const { data: sentQuotes, isLoading: quotesLoading, error: quotesError } = useQuery({
-    queryKey: ["/api/sent-quotes"],
+    queryKey: ["/api/sent-quotes", (user as any)?.id],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/sent-quotes");
       if (!response.ok) {
@@ -66,7 +66,7 @@ export default function SavedQuotes() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes", (user as any)?.id] });
       toast({
         title: "Success",
         description: "Quote deleted successfully",

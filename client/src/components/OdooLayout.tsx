@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { resetAppData } from '@/lib/cache';
+import { queryClient } from '@/lib/queryClient';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +112,13 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
   const { user } = useAuth();
   
   const logout = () => {
+    // Invalidate all user-specific queries
+    queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/sent-quotes'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/upload-batches'] });
+    queryClient.clear(); // Clear all cache
+    
     // Clear any local storage first
     localStorage.clear();
     sessionStorage.clear();

@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
 
 // Enhanced error class with more details
 export class ApiError extends Error {
@@ -111,6 +112,33 @@ export const getQueryFn: <T>(options: {
         return null;
       }
 
+      // Handle 401/403 with toast notification
+      if (res.status === 401 || res.status === 403) {
+        const message = res.status === 401 
+          ? "Session expired. Please log in again."
+          : "You don't have permission to access this resource.";
+        
+        // Show toast notification
+        toast({
+          title: res.status === 401 ? "Session Expired" : "Access Denied",
+          description: message,
+          variant: "destructive",
+        });
+        
+        // Trigger re-auth by redirecting to login after a delay
+        if (res.status === 401) {
+          setTimeout(() => {
+            window.location.href = '/api/login';
+          }, 2000);
+        }
+        
+        throw new ApiError(message, {
+          status: res.status,
+          statusText: res.statusText,
+          url: res.url
+        });
+      }
+      
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {

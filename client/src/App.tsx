@@ -10,6 +10,7 @@ import { FloatingCalculator } from "@/components/FloatingCalculator";
 import { AIChatbot, ChatbotToggle } from "@/components/AIChatbot";
 import AppHeader from "@/components/AppHeader";
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
+import { AuthWatcher } from "@/components/AuthWatcher";
 // Removed: FirecrackerAnimation import - animation removed per user request
 import OdooLayout from "@/components/OdooLayout";
 import AreaPricer from "@/pages/area-pricer-fixed";
@@ -161,6 +162,7 @@ function App() {
       <TooltipProvider>
         <MicroFeedbackProvider>
           <Toaster />
+          <AuthWatcher />
           <Router />
           <FloatingCalculator />
           <ServiceWorkerUpdater />

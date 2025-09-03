@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 
 interface ProductPricingMaster {
@@ -85,10 +86,11 @@ export default function ProductPricingManagementNew() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch current product pricing data from database
   const { data: pricingData = [], isLoading, error } = useQuery<ProductPricingMaster[]>({
-    queryKey: ['/api/product-pricing-database'],
+    queryKey: ['/api/product-pricing-database', (user as any)?.id],
     queryFn: async () => {
       const response = await fetch('/api/product-pricing-database');
       if (!response.ok) {
@@ -101,7 +103,7 @@ export default function ProductPricingManagementNew() {
 
   // Fetch upload batch history
   const { data: batchHistory = [], isLoading: batchHistoryLoading } = useQuery<{ batches: UploadBatch[] }>({
-    queryKey: ['/api/upload-batches'],
+    queryKey: ['/api/upload-batches', (user as any)?.id],
     queryFn: async () => {
       const response = await fetch('/api/upload-batches');
       if (!response.ok) {
@@ -129,7 +131,7 @@ export default function ProductPricingManagementNew() {
         title: "Rollback Successful",
         description: data.message,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database', (user as any)?.id] });
       setShowBatchHistory(false);
     },
     onError: (error) => {
@@ -197,7 +199,7 @@ export default function ProductPricingManagementNew() {
       setPendingFile(null);
       
       // Invalidate and refetch pricing data
-      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database', (user as any)?.id] });
       
       toast({
         title: "Upload Successful",
@@ -464,10 +466,10 @@ export default function ProductPricingManagementNew() {
                       <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealerPrice}</td>
                       <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealer2Price}</td>
                       <td className="text-xs text-gray-600 text-right py-1 px-2">${item.approvalNeededPrice}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage25Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage2Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage15Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.stage1Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage25Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage2Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage15Price}</td>
+                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage1Price}</td>
                       <td className="text-xs text-gray-600 text-right py-1 px-2">${item.retailPrice}</td>
                     </tr>
                   ))}
