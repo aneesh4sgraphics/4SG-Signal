@@ -1,0 +1,84 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// Paste→Parse Contacts (single-file React component)
+// - Paste freeform text or a website URL
+// - Auto-detect name/address/city/state/zip/country/phone/email/website
+// - If a URL is pasted, fetch the page (optionally via CORS proxy) and parse JSON‑LD, microdata, and visible text
+// - Select text in Preview and assign it to a field; the app learns (exact+regex) for future pastes
+// - Add to in-memory DB, export CSV
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Constants & helpers
+const STATE_ABBR = new Set([
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"
+]);
+
+const COUNTRY_WORDS = [
+  "USA","U.S.A.","United States","United States of America","US","U.S.",
+  "Canada","Mexico","India","United Kingdom","UK","U.K.","Australia"
+];
+
+const FIELD_ORDER = [
+  "name","address","city","state","zip","country","phone","email","website"
+];
+
+const emptyRecord = () => ({
+  name: "",
+  address: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "",
+  phone: "",
+  email: "",
+  website: "",
+});
+
+function useSelectionIn(nodeRef){
+  const [selection, setSelection] = useState("");
+  useEffect(()=>{
+    const el = nodeRef.current; if(!el) return;
+    function handleMouseUp(){
+      const sel = window.getSelection(); if(!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if(!el.contains(range.commonAncestorContainer)) return;
+      setSelection(sel.toString().trim());
+    }
+    el.addEventListener("mouseup", handleMouseUp);
+    el.addEventListener("keyup", handleMouseUp);
+    return ()=>{ el.removeEventListener("mouseup", handleMouseUp); el.removeEventListener("keyup", handleMouseUp); };
+  }, [nodeRef]);
+  return [selection, setSelection];
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Parsers
+function detectEmail(text){
+  const m = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i); return m ? m[0] : "";
+}
+function detectWebsite(text){
+  const urlPattern = /(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?/i; const m = text.match(urlPattern);
+  if(!m) return ""; let url = m[0]; if(!/^https?:\/\//i.test(url)) url = "https://" + url; return url;
+}
+function detectPhone(text){
+  const m = text.match(/(\+?1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/); return m ? m[0] : "";
+}
+function detectCityStateZip(lines){
+  for(const line of lines){
+    const m = line.match(/^(.*?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/);
+    if(m && STATE_ABBR.has(m[2])){
+      const before = m[1].trim(); const parts = before.split(',');
+      const cityOnly = (parts.pop()||'').trim();
+      return { city: cityOnly, state: m[2], zip: m[3] };
+    }
+  }
+  return { city: "", state: "", zip: "" };
+}
+function detectCountry(lines){
+  for(const line of lines){ for(const c of COUNTRY_WORDS){ if(line.toLowerCase().includes(c.toLowerCase())) return c.replace(/\.$/,""); } }
+  return "";
+}
+function detectAddress(lines, city, state, zip, phone, email){
+  // Robustly pull address without dragging in phone/email
+  const isContact = (t) => /@/.test(t) || /(https?:\/\/|www\.)/i.test(t) || /(\+?1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}/.test(t);
+  const looksStreet = (t) => /^\d{1,6}\s/.test(t) || /(\b(ave|avenue|st|street|rd|road|

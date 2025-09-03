@@ -23,6 +23,7 @@ import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
 import ActivityLogsPage from "@/pages/activity-logs";
 import Dashboard from "@/pages/dashboard-odoo";
+import TextParser from "@/pages/text-parser";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -143,6 +144,7 @@ function Router() {
         <Route path="/product-pricing-management" component={ProductPricingManagement} />
         <Route path="/activity-logs" component={ActivityLogsPage} />
         <Route path="/shipping-calculator" component={ShippingCalculator} />
+        <Route path="/text-parser" component={TextParser} />
         <Route path="/admin" component={Admin} />
         <Route><Redirect to="/" /></Route>
       </Switch>

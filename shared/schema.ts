@@ -301,3 +301,28 @@ export const insertUploadBatchSchema = createInsertSchema(uploadBatches).omit({
 });
 export type UploadBatch = typeof uploadBatches.$inferSelect;
 export type InsertUploadBatch = z.infer<typeof insertUploadBatchSchema>;
+
+// Parsed Contacts table for text parsing feature
+export const parsedContacts = pgTable("parsed_contacts", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").default(""),
+  city: text("city").default(""),
+  state: varchar("state", { length: 2 }).default(""),
+  zip: varchar("zip", { length: 10 }).default(""),
+  country: text("country").default("USA"),
+  phone: varchar("phone", { length: 20 }).default(""),
+  email: text("email").default(""),
+  website: text("website").default(""),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Parsed Contacts schemas
+export const insertParsedContactSchema = createInsertSchema(parsedContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ParsedContact = typeof parsedContacts.$inferSelect;
+export type InsertParsedContact = z.infer<typeof insertParsedContactSchema>;

@@ -21,6 +21,8 @@ import {
   type InsertFileUpload,
   type ActivityLog,
   type InsertActivityLog,
+  type ParsedContact,
+  type InsertParsedContact,
   users,
   customers,
   sentQuotes,
@@ -33,6 +35,7 @@ import {
   productSizes,
   pricingTiers,
   activityLogs,
+  parsedContacts,
   type ProductPricingMaster,
   type InsertProductPricingMaster,
   type UploadBatch,
@@ -134,6 +137,13 @@ export interface IStorage {
   getSentQuotesSince(date: Date): Promise<SentQuote[]>;
   getCustomersCount(): Promise<number>;
   getProductsCount(): Promise<number>;
+  
+  // Parsed Contacts methods
+  getParsedContacts(): Promise<ParsedContact[]>;
+  getParsedContact(id: number): Promise<ParsedContact | undefined>;
+  createParsedContact(contact: InsertParsedContact): Promise<ParsedContact>;
+  updateParsedContact(id: number, contact: InsertParsedContact): Promise<ParsedContact>;
+  deleteParsedContact(id: number): Promise<void>;
 }
 
 // Removed: MemStorage class - Legacy in-memory storage implementation
@@ -997,6 +1007,43 @@ export class DatabaseStorage implements IStorage {
       .select({ count: sql<number>`count(*)` })
       .from(productPricingMaster);
     return result.count || 0;
+  }
+  
+  // Parsed Contacts implementation
+  async getParsedContacts(): Promise<ParsedContact[]> {
+    return await db
+      .select()
+      .from(parsedContacts)
+      .orderBy(desc(parsedContacts.createdAt));
+  }
+  
+  async getParsedContact(id: number): Promise<ParsedContact | undefined> {
+    const [contact] = await db
+      .select()
+      .from(parsedContacts)
+      .where(eq(parsedContacts.id, id));
+    return contact;
+  }
+  
+  async createParsedContact(contact: InsertParsedContact): Promise<ParsedContact> {
+    const [newContact] = await db
+      .insert(parsedContacts)
+      .values(contact)
+      .returning();
+    return newContact;
+  }
+  
+  async updateParsedContact(id: number, contact: InsertParsedContact): Promise<ParsedContact> {
+    const [updatedContact] = await db
+      .update(parsedContacts)
+      .set({ ...contact, updatedAt: new Date() })
+      .where(eq(parsedContacts.id, id))
+      .returning();
+    return updatedContact;
+  }
+  
+  async deleteParsedContact(id: number): Promise<void> {
+    await db.delete(parsedContacts).where(eq(parsedContacts.id, id));
   }
 }
 

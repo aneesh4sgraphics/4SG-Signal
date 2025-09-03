@@ -14,7 +14,8 @@ import {
   Activity,
   Calculator,
   TrendingUp,
-  Truck
+  Truck,
+  ScanText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -33,6 +34,7 @@ const mainItems = [
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator' },
   { path: '/competitor-pricing', icon: TrendingUp, label: 'ComIntel' },
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator' },
+  { path: '/text-parser', icon: ScanText, label: 'Text Parser' },
 ];
 
 const adminItems = [

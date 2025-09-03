@@ -3169,6 +3169,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Parsed Contacts endpoints
+  app.get("/api/parsed-contacts", async (req, res) => {
+    try {
+      const contacts = await storage.getParsedContacts();
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching parsed contacts:", error);
+      res.status(500).json({ error: "Failed to fetch parsed contacts" });
+    }
+  });
+
+  app.get("/api/parsed-contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const contact = await storage.getParsedContact(id);
+      if (!contact) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+      res.json(contact);
+    } catch (error) {
+      console.error("Error fetching parsed contact:", error);
+      res.status(500).json({ error: "Failed to fetch parsed contact" });
+    }
+  });
+
+  app.post("/api/parsed-contacts", async (req, res) => {
+    try {
+      const { insertParsedContactSchema } = await import("@shared/schema");
+      const validatedData = insertParsedContactSchema.parse(req.body);
+      const contact = await storage.createParsedContact(validatedData);
+      res.json(contact);
+    } catch (error) {
+      console.error("Error creating parsed contact:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid contact data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create parsed contact" });
+    }
+  });
+
+  app.put("/api/parsed-contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { insertParsedContactSchema } = await import("@shared/schema");
+      const validatedData = insertParsedContactSchema.parse(req.body);
+      const contact = await storage.updateParsedContact(id, validatedData);
+      res.json(contact);
+    } catch (error) {
+      console.error("Error updating parsed contact:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid contact data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update parsed contact" });
+    }
+  });
+
+  app.delete("/api/parsed-contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteParsedContact(id);
+      res.json({ message: "Contact deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting parsed contact:", error);
+      res.status(500).json({ error: "Failed to delete parsed contact" });
+    }
+  });
+  
+  // URL fetching endpoint for the text parser
+  app.post("/api/fetch-url", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: "URL is required" });
+      }
+      
+      // Validate URL
+      try {
+        new URL(url);
+      } catch {
+        return res.status(400).json({ error: "Invalid URL format" });
+      }
+      
+      // Fetch the URL content
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch URL: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      
+      // Extract text content from HTML (simple approach)
+      // Remove script and style tags
+      let text = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
+      text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+      
+      // Extract text from remaining HTML
+      text = text.replace(/<[^>]+>/g, ' ');
+      
+      // Clean up whitespace
+      text = text.replace(/\s+/g, ' ').trim();
+      
+      // Limit to reasonable size
+      if (text.length > 10000) {
+        text = text.substring(0, 10000);
+      }
+      
+      res.json({ text });
+    } catch (error) {
+      console.error("Error fetching URL:", error);
+      res.status(500).json({ error: "Failed to fetch URL content" });
+    }
+  });
+
   // Chat endpoint moved to chat.ts and imported as chatRouter
   // The old implementation has been removed for cleaner architecture
 
