@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { AdaptiveTable } from "@/components/OdooTable";
 import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { ApiError } from "@/lib/queryClient";
 
 interface ProductData {
   id: number;
@@ -154,7 +156,7 @@ export default function QuoteCalculator() {
   };
 
   // Fetch product pricing data from new database
-  const { data: productData = [], isLoading } = useQuery<ProductData[]>({
+  const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database'],
     queryFn: async () => {
       const response = await fetch('/api/product-pricing-database');
@@ -591,7 +593,57 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center">Loading product data...</div>
+        <EmptyState type="loading" />
+      </div>
+    );
+  }
+
+  // Handle errors
+  if (error) {
+    let errorType: 'network' | 'auth' | 'error' = 'error';
+    let errorDetails = '';
+    
+    if (error instanceof ApiError) {
+      if (error.isNetworkError) {
+        errorType = 'network';
+      } else if (error.isAuthError) {
+        errorType = 'auth';
+      }
+      errorDetails = `Status: ${error.status || 'N/A'}\nURL: ${error.url || 'N/A'}\nDetails: ${error.responseText || error.message}`;
+    } else if (error instanceof Error) {
+      errorDetails = error.message;
+    }
+    
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Quote Calculator</h1>
+          <p className="text-gray-600">Configure products and generate quotes</p>
+        </div>
+        <EmptyState 
+          type={errorType}
+          title={error instanceof ApiError ? error.message : undefined}
+          details={errorDetails}
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  // Handle empty data
+  if (!productData || productData.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Quote Calculator</h1>
+          <p className="text-gray-600">Configure products and generate quotes</p>
+        </div>
+        <EmptyState 
+          type="no-data"
+          title="No Products Available"
+          message="No product data is available. Please contact your administrator to upload product pricing data."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

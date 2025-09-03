@@ -16,6 +16,8 @@ import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDiv
 import { AdaptiveTable } from "@/components/OdooTable";
 import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
+import { EmptyState } from "@/components/EmptyState";
+import { ApiError } from "@/lib/queryClient";
 
 interface ProductData {
   [key: string]: string | number | undefined;
@@ -320,7 +322,7 @@ export default function PriceList() {
 
 
   // Fetch product pricing data from new database
-  const { data: productData = [], isLoading, refetch } = useQuery<ProductData[]>({
+  const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database'],
     queryFn: async () => {
       const response = await fetch('/api/product-pricing-database');
@@ -478,7 +480,43 @@ export default function PriceList() {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center">Loading product data...</div>
+        <EmptyState type="loading" />
+      </div>
+    );
+  }
+
+  // Handle errors
+  if (error) {
+    let errorType: 'network' | 'auth' | 'error' = 'error';
+    let errorDetails = '';
+    
+    if (error instanceof ApiError) {
+      if (error.isNetworkError) {
+        errorType = 'network';
+      } else if (error.isAuthError) {
+        errorType = 'auth';
+      }
+      errorDetails = `Status: ${error.status || 'N/A'}\nURL: ${error.url || 'N/A'}\nDetails: ${error.responseText || error.message}`;
+    } else if (error instanceof Error) {
+      errorDetails = error.message;
+    }
+    
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: '#fafafa' }}>
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="mb-6">
+            <h1 className="text-xl font-normal text-gray-800 mb-2">Price List</h1>
+            <p className="text-sm text-gray-500 mb-4">
+              Generate comprehensive price lists for your products
+            </p>
+          </div>
+          <EmptyState 
+            type={errorType}
+            title={error instanceof ApiError ? error.message : undefined}
+            details={errorDetails}
+            onRetry={() => refetch()}
+          />
+        </div>
       </div>
     );
   }
@@ -495,35 +533,13 @@ export default function PriceList() {
             </p>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-            <div className="text-gray-600 mb-4">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="heading-tertiary mb-2">No Product Data Available</h3>
-              <p className="body-small text-gray-500 mb-4">
-                No product pricing data found in the database. Please upload product data through the ProductPricing Management app.
-              </p>
-              {isLoading ? (
-                <div className="caption text-gray-400 bg-gray-50 p-2 rounded border">
-                  Loading product data...
-                </div>
-              ) : (
-                <>
-                  <div className="caption text-gray-400 bg-gray-50 p-2 rounded border mb-4">
-                    Debug: Found {productData?.length || 0} records in database
-                  </div>
-                  <button
-                    onClick={() => refetch()}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Refresh Data
-                  </button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    If you're experiencing issues, try refreshing the data or clearing your browser cache.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+          <EmptyState 
+            type="no-data"
+            title="No Product Data Available"
+            message="No product pricing data found in the database. Please upload product data through the ProductPricing Management app."
+            details={`Found ${productData?.length || 0} records in database`}
+            onRetry={() => refetch()}
+          />
         </div>
       </div>
     );
