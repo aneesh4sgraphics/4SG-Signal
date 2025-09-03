@@ -22,7 +22,23 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { User } from '@shared/schema';
 import { useAuth } from '@/hooks/useAuth';
-import { ResetAppDataButton } from '@/components/ResetAppDataModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { resetAppData } from '@/lib/cache';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface OdooLayoutProps {
   children: React.ReactNode;
@@ -45,6 +61,49 @@ const adminItems = [
   { path: '/customers', icon: Building2, label: 'Customers' },
   { path: '/product-pricing-management', icon: Database, label: 'Product Pricing' },
 ];
+
+function SettingsMenu() {
+  const [showResetDialog, setShowResetDialog] = React.useState(false);
+  
+  const handleReset = () => {
+    resetAppData({ whitelistKeys: ['theme'] });
+  };
+  
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="p-2">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setShowResetDialog(true)}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reset App Data
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset App Data</AlertDialogTitle>
+            <AlertDialogDescription>
+              This clears local filters/cache only. Saved quotes on the server are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReset}>
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 
 export default function OdooLayout({ children }: OdooLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -161,22 +220,15 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
             )}
           </div>
           {sidebarOpen && (
-            <div className="space-y-2 mt-3">
-              <ResetAppDataButton
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-gray-600 hover:text-gray-900"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="w-full justify-start text-gray-600 hover:text-gray-900"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="w-full mt-3 justify-start text-gray-600 hover:text-gray-900"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
           )}
         </div>
       </aside>
@@ -199,7 +251,7 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
               </nav>
             </div>
             <div className="flex items-center space-x-3">
-              {/* Action buttons removed - they were non-functional placeholders causing user confusion */}
+              <SettingsMenu />
             </div>
           </div>
         </header>
