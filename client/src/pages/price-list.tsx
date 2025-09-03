@@ -102,6 +102,7 @@ export default function PriceList() {
   const [priceListItems, setPriceListItems] = useState<PriceListItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [orderedItems, setOrderedItems] = useState<PriceListItem[]>([]);
+  const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -111,6 +112,19 @@ export default function PriceList() {
     const userRole = getUserRoleFromEmail((user as any)?.email || '');
     return allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
   }, [(user as any)?.email]);
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSelectedCategory("");
+    setSelectedTier("");
+    setPriceListItems([]);
+    setOrderedItems([]);
+    localStorage.removeItem("priceListFilters");
+    toast({
+      title: "Filters Reset",
+      description: "All filters have been cleared",
+    });
+  };
 
   // PDF Download Mutation
   const downloadPDFMutation = useMutation({
@@ -317,7 +331,7 @@ export default function PriceList() {
       return result.data || []; // Extract data from response wrapper
     },
     staleTime: 0, // Consider data stale immediately
-    cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (gcTime replaces cacheTime in React Query v5)
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
@@ -345,6 +359,52 @@ export default function PriceList() {
       description: "Product order updated successfully for PDF generation"
     });
   };
+
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    if (!productData.length || filtersInitialized) return;
+    
+    const storedFilters = localStorage.getItem("priceListFilters");
+    if (storedFilters) {
+      try {
+        const filters = JSON.parse(storedFilters);
+        
+        // Validate and set category
+        if (filters.category && categories.includes(filters.category)) {
+          setSelectedCategory(filters.category);
+        } else if (filters.category) {
+          // Category no longer exists, reset
+          setSelectedCategory("");
+        }
+        
+        // Validate and set tier
+        if (filters.tier && pricingTiers.some(t => t.key === filters.tier)) {
+          setSelectedTier(filters.tier);
+        } else if (filters.tier) {
+          // Tier no longer accessible, reset
+          setSelectedTier("");
+        }
+      } catch (error) {
+        console.error("Failed to load filters from storage:", error);
+        localStorage.removeItem("priceListFilters");
+      }
+    }
+    setFiltersInitialized(true);
+  }, [productData, categories, pricingTiers, filtersInitialized]);
+
+  // Save filters to localStorage when they change
+  useEffect(() => {
+    if (!filtersInitialized) return;
+    
+    const filters = {
+      category: selectedCategory,
+      tier: selectedTier
+    };
+    
+    if (selectedCategory || selectedTier) {
+      localStorage.setItem("priceListFilters", JSON.stringify(filters));
+    }
+  }, [selectedCategory, selectedTier, filtersInitialized]);
 
   // Generate price list when category or tier changes
   useEffect(() => {
@@ -493,6 +553,29 @@ export default function PriceList() {
           </div>
           <HeaderDivider />
         </div>
+
+        {/* No Results Banner */}
+        {selectedCategory && selectedTier && priceListItems.length === 0 && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm font-medium text-amber-800">No results with your current filters</span>
+              </div>
+              <button
+                onClick={resetFilters}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition-colors"
+              >
+                Reset Filters
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-amber-700">
+              The selected combination of category and tier doesn't match any products. Try resetting the filters or selecting different options.
+            </p>
+          </div>
+        )}
 
         {/* Configuration - Optimized Layout */}
         <SimpleCardFrame className="p-6 mb-6 bg-white border border-gray-100">

@@ -96,6 +96,7 @@ export default function QuoteCalculator() {
   const [isCustomSize, setIsCustomSize] = useState<boolean>(false);
   const [customWidth, setCustomWidth] = useState<string>("");
   const [customHeight, setCustomHeight] = useState<string>("");
+  const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -110,9 +111,11 @@ export default function QuoteCalculator() {
     setIsCustomSize(false);
     setCustomWidth("");
     setCustomHeight("");
+    // Clear stored filters
+    localStorage.removeItem("quoteCalculatorFilters");
     toast({
-      title: "Selections Reset",
-      description: "All product selections have been cleared",
+      title: "Filters Reset",
+      description: "All filters have been cleared",
     });
   };
   
@@ -178,6 +181,9 @@ export default function QuoteCalculator() {
         item.productType === selectedType
       ).sort((a, b) => parseFloat(String(a.totalSqm || 0)) - parseFloat(String(b.totalSqm || 0)))
     : [];
+
+  // Check if current filters produce no results
+  const hasNoResults = selectedCategory && selectedType && selectedSize && availableSizes.length === 0;
 
   // Check if category supports custom sizes
   const supportsCustomSize = (category: string): boolean => {
@@ -516,6 +522,72 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
     }
   };
 
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    if (!productData.length || filtersInitialized) return;
+    
+    const storedFilters = localStorage.getItem("quoteCalculatorFilters");
+    if (storedFilters) {
+      try {
+        const filters = JSON.parse(storedFilters);
+        
+        // Validate and set category
+        if (filters.category && categories.includes(filters.category)) {
+          setSelectedCategory(filters.category);
+        } else if (filters.category) {
+          // Category no longer exists, reset
+          setSelectedCategory("");
+        }
+        
+        // Validate and set type  
+        if (filters.type && filters.category) {
+          const validTypes = productData
+            .filter(item => item.productName === filters.category)
+            .map(item => item.productType);
+          if (validTypes.includes(filters.type)) {
+            setSelectedType(filters.type);
+          } else {
+            setSelectedType("");
+          }
+        }
+        
+        // Validate and set size
+        if (filters.size && filters.category && filters.type) {
+          const validSizes = productData
+            .filter(item => 
+              item.productName === filters.category && 
+              item.productType === filters.type
+            )
+            .map(item => item.size);
+          if (validSizes.includes(filters.size)) {
+            setSelectedSize(filters.size);
+          } else {
+            setSelectedSize("");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load filters from storage:", error);
+        localStorage.removeItem("quoteCalculatorFilters");
+      }
+    }
+    setFiltersInitialized(true);
+  }, [productData, categories, filtersInitialized]);
+
+  // Save filters to localStorage when they change
+  useEffect(() => {
+    if (!filtersInitialized) return;
+    
+    const filters = {
+      category: selectedCategory,
+      type: selectedType,
+      size: selectedSize
+    };
+    
+    if (selectedCategory || selectedType || selectedSize) {
+      localStorage.setItem("quoteCalculatorFilters", JSON.stringify(filters));
+    }
+  }, [selectedCategory, selectedType, selectedSize, filtersInitialized]);
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -540,6 +612,29 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           </div>
           <p className="body-regular text-gray-600 mb-6">Select your product specifications</p>
         </div>
+
+        {/* No Results Banner */}
+        {hasNoResults && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm font-medium text-amber-800">No results with your current filters</span>
+              </div>
+              <button
+                onClick={resetSelections}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition-colors"
+              >
+                Reset Filters
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-amber-700">
+              The selected combination of filters doesn't match any products. Try resetting the filters or selecting different options.
+            </p>
+          </div>
+        )}
 
       <div className="grid grid-cols-1 xl:grid-cols-5 lg:grid-cols-4 gap-6">
         {/* Left Panel - Product Selection */}
