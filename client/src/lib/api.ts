@@ -22,7 +22,10 @@ export async function fetchAndExtract(url: string): Promise<{
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
-  if (!f.ok) throw new Error("Fetch failed");
+  if (!f.ok) {
+    const errorText = await f.text();
+    throw new Error(`Fetch failed: ${f.status} ${f.statusText} - ${errorText}`);
+  }
   const data = await f.json();
   const baseUrl = data?.main?.finalUrl || url;
 
@@ -35,7 +38,10 @@ export async function fetchAndExtract(url: string): Promise<{
       baseUrl,
     }),
   });
-  if (!e.ok) throw new Error("Extract failed");
+  if (!e.ok) {
+    const errorText = await e.text();
+    throw new Error(`Extract failed: ${e.status} ${e.statusText} - ${errorText}`);
+  }
   const parsed = await e.json();
 
   return { primary: parsed.primary, alternatives: parsed.alternatives, finalUrl: baseUrl };
