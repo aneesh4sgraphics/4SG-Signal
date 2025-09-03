@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
@@ -185,7 +185,10 @@ export default function QuoteCalculator() {
     : [];
 
   // Check if current filters produce no results
-  const hasNoResults = selectedCategory && selectedType && selectedSize && availableSizes.length === 0;
+  const hasNoResults = (
+    (selectedCategory && productTypes.length === 0) ||
+    (selectedCategory && selectedType && availableSizes.length === 0)
+  );
 
   // Check if category supports custom sizes
   const supportsCustomSize = (category: string): boolean => {
@@ -532,48 +535,79 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
     if (storedFilters) {
       try {
         const filters = JSON.parse(storedFilters);
+        let validCategory = "";
+        let validType = "";
+        let validSize = "";
         
         // Validate and set category
         if (filters.category && categories.includes(filters.category)) {
+          validCategory = filters.category;
           setSelectedCategory(filters.category);
         } else if (filters.category) {
-          // Category no longer exists, reset
+          // Category no longer exists, reset all dependent filters
+          console.log(`[Filter Validation] Category '${filters.category}' no longer exists, resetting filters`);
           setSelectedCategory("");
+          setSelectedType("");
+          setSelectedSize("");
+          localStorage.removeItem("quoteCalculatorFilters");
         }
         
-        // Validate and set type  
-        if (filters.type && filters.category) {
+        // Validate and set type only if category is valid
+        if (validCategory && filters.type) {
           const validTypes = productData
-            .filter(item => item.productName === filters.category)
+            .filter(item => item.productName === validCategory)
             .map(item => item.productType);
           if (validTypes.includes(filters.type)) {
+            validType = filters.type;
             setSelectedType(filters.type);
           } else {
+            // Type no longer exists for this category, reset
+            console.log(`[Filter Validation] Type '${filters.type}' invalid for category, resetting`);
             setSelectedType("");
+            setSelectedSize("");
           }
         }
         
-        // Validate and set size
-        if (filters.size && filters.category && filters.type) {
+        // Validate and set size only if category and type are valid
+        if (validCategory && validType && filters.size) {
           const validSizes = productData
             .filter(item => 
-              item.productName === filters.category && 
-              item.productType === filters.type
+              item.productName === validCategory && 
+              item.productType === validType
             )
             .map(item => item.size);
           if (validSizes.includes(filters.size)) {
+            validSize = filters.size;
             setSelectedSize(filters.size);
           } else {
+            // Size no longer exists, reset
+            console.log(`[Filter Validation] Size '${filters.size}' invalid, resetting`);
             setSelectedSize("");
           }
+        }
+        
+        // Update stored filters with valid values only
+        if (validCategory || validType || validSize) {
+          const validFilters = {
+            category: validCategory,
+            type: validType,
+            size: validSize
+          };
+          localStorage.setItem("quoteCalculatorFilters", JSON.stringify(validFilters));
+        } else {
+          // No valid filters, remove from storage
+          localStorage.removeItem("quoteCalculatorFilters");
         }
       } catch (error) {
         console.error("Failed to load filters from storage:", error);
         localStorage.removeItem("quoteCalculatorFilters");
+        setSelectedCategory("");
+        setSelectedType("");
+        setSelectedSize("");
       }
     }
     setFiltersInitialized(true);
-  }, [productData, categories, filtersInitialized]);
+  }, [productData, filtersInitialized]);
 
   // Save filters to localStorage when they change
   useEffect(() => {
@@ -868,6 +902,26 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                   </p>
                 )}
               </div>
+              
+              {/* No Results Banner */}
+              {hasNoResults && (
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-900">No results with current filters</p>
+                      <p className="text-sm text-amber-700 mt-1">The selected filters don't match any available products.</p>
+                      <button
+                        onClick={resetSelections}
+                        className="mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition-colors"
+                        type="button"
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </SimpleCardFrame>
         </div>

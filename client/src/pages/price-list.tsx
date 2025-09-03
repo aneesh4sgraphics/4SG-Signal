@@ -370,25 +370,47 @@ export default function PriceList() {
     if (storedFilters) {
       try {
         const filters = JSON.parse(storedFilters);
+        let validCategory = "";
+        let validTier = "";
         
         // Validate and set category
         if (filters.category && categories.includes(filters.category)) {
+          validCategory = filters.category;
           setSelectedCategory(filters.category);
         } else if (filters.category) {
-          // Category no longer exists, reset
+          // Category no longer exists, reset all filters
+          console.log(`[Filter Validation] Category '${filters.category}' no longer exists, resetting filters`);
           setSelectedCategory("");
+          setSelectedTier("");
+          localStorage.removeItem("priceListFilters");
         }
         
-        // Validate and set tier
+        // Validate and set tier only if valid
         if (filters.tier && pricingTiers.some(t => t.key === filters.tier)) {
+          validTier = filters.tier;
           setSelectedTier(filters.tier);
         } else if (filters.tier) {
           // Tier no longer accessible, reset
+          console.log(`[Filter Validation] Tier '${filters.tier}' no longer accessible, resetting`);
           setSelectedTier("");
+        }
+        
+        // Update stored filters with valid values only
+        if (validCategory || validTier) {
+          const validFilters = {
+            category: validCategory,
+            tier: validTier
+          };
+          localStorage.setItem("priceListFilters", JSON.stringify(validFilters));
+        } else {
+          // No valid filters, remove from storage
+          localStorage.removeItem("priceListFilters");
         }
       } catch (error) {
         console.error("Failed to load filters from storage:", error);
         localStorage.removeItem("priceListFilters");
+        setSelectedCategory("");
+        setSelectedTier("");
       }
     }
     setFiltersInitialized(true);
@@ -571,14 +593,19 @@ export default function PriceList() {
         </div>
 
         {/* No Results Banner */}
-        {selectedCategory && selectedTier && priceListItems.length === 0 && (
+        {((selectedCategory && categories.length === 0) || 
+          (selectedCategory && selectedTier && priceListItems.length === 0)) && (
           <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <span className="text-sm font-medium text-amber-800">No results with your current filters</span>
+                <span className="text-sm font-medium text-amber-800">
+                  {categories.length === 0 
+                    ? "No categories available with current data" 
+                    : "No results with your current filters"}
+                </span>
               </div>
               <button
                 onClick={resetFilters}
@@ -588,7 +615,9 @@ export default function PriceList() {
               </button>
             </div>
             <p className="mt-2 text-sm text-amber-700">
-              The selected combination of category and tier doesn't match any products. Try resetting the filters or selecting different options.
+              {categories.length === 0 
+                ? "The data doesn't contain any valid categories. Please check your data source or reset filters."
+                : "The selected combination of category and tier doesn't match any products. Try resetting the filters or selecting different options."}
             </p>
           </div>
         )}
