@@ -1,6 +1,8 @@
 import { queryClient } from '@/lib/queryClient';
 
-export async function resetAppData({ whitelistKeys = [] }: { whitelistKeys?: string[] } = {}) {
+export const APP_CACHE_VERSION = 'v1.0.1';
+
+export async function resetAppData({ whitelistKeys = [], skipReload = false }: { whitelistKeys?: string[], skipReload?: boolean } = {}) {
   console.log('[Reset] Starting app data reset...');
   
   // Step 1: Copy whitelisted keys from localStorage
@@ -62,7 +64,33 @@ export async function resetAppData({ whitelistKeys = [] }: { whitelistKeys?: str
     }
   }
   
-  // Step 7: Reload the page
-  console.log('[Reset] Reloading page...');
-  location.reload();
+  // Step 7: Reload the page (unless skipped)
+  if (!skipReload) {
+    console.log('[Reset] Reloading page...');
+    location.reload();
+  }
+}
+
+export async function checkAndUpdateVersion() {
+  const storedVersion = localStorage.getItem('APP_CACHE_VERSION');
+  
+  if (storedVersion !== APP_CACHE_VERSION) {
+    console.log(`[Cache Version] Version mismatch: stored=${storedVersion}, current=${APP_CACHE_VERSION}`);
+    console.log('[Cache Version] Running automatic cache clear...');
+    
+    // Clear caches but preserve theme and set new version
+    await resetAppData({ 
+      whitelistKeys: ['theme', 'APP_CACHE_VERSION'],
+      skipReload: true 
+    });
+    
+    // Set the new version
+    localStorage.setItem('APP_CACHE_VERSION', APP_CACHE_VERSION);
+    console.log(`[Cache Version] Updated to version ${APP_CACHE_VERSION}`);
+    
+    // Reload to apply changes
+    location.reload();
+  } else {
+    console.log(`[Cache Version] Version is current: ${APP_CACHE_VERSION}`);
+  }
 }

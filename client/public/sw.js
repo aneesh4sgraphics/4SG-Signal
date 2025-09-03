@@ -1,6 +1,6 @@
 // Service Worker with cache versioning and quick activation
-// Update this version when deploying new changes
-const CACHE_VERSION = 'v1.0.2';
+// Update this version when deploying new changes (keep in sync with APP_CACHE_VERSION in cache.ts)
+const CACHE_VERSION = 'v1.0.1';
 const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
 
 // Assets to cache on install
