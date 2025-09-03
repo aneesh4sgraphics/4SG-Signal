@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AdaptiveTable } from "@/components/OdooTable";
 import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
-import { EmptyState } from "@/components/EmptyState";
+import { EmptyState, getErrorType, getErrorMessage, getErrorDetails } from "@/components/EmptyState";
 import { ApiError } from "@/lib/queryClient";
 
 interface ProductData {
@@ -632,20 +632,19 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
     );
   }
 
-  // Handle errors
+  // Handle errors with enhanced diagnostics
   if (error) {
-    let errorType: 'network' | 'auth' | 'error' = 'error';
-    let errorDetails = '';
+    const errorType = getErrorType(error);
+    const errorMessage = getErrorMessage(error);
+    const errorDetails = getErrorDetails(error);
     
-    if (error instanceof ApiError) {
-      if (error.isNetworkError) {
-        errorType = 'network';
-      } else if (error.isAuthError) {
-        errorType = 'auth';
-      }
-      errorDetails = `Status: ${error.status || 'N/A'}\nURL: ${error.url || 'N/A'}\nDetails: ${error.responseText || error.message}`;
-    } else if (error instanceof Error) {
-      errorDetails = error.message;
+    // Log detailed error info in development
+    if (process.env.NODE_ENV === 'development') {
+      console.group('%c[Quote Calculator Error]', 'color: #ff6b6b; font-weight: bold');
+      console.log('Error Type:', errorType);
+      console.log('Error Object:', error);
+      console.log('Details:', errorDetails);
+      console.groupEnd();
     }
     
     return (
@@ -656,9 +655,11 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         </div>
         <EmptyState 
           type={errorType}
-          title={error instanceof ApiError ? error.message : undefined}
+          message={errorMessage}
           details={errorDetails}
           onRetry={() => refetch()}
+          actionLabel={errorType === 'auth' ? 'Login' : undefined}
+          onAction={errorType === 'auth' ? () => window.location.href = '/login' : undefined}
         />
       </div>
     );
