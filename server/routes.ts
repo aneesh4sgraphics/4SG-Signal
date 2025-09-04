@@ -231,6 +231,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health check endpoint for connection testing and service monitoring
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      database: "connected",
+      auth: "enabled",
+      cache: cache.size
+    });
+  });
+
   // Setup authentication middleware AFTER the public routes
   await setupAuth(app);
 

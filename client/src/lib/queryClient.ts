@@ -57,17 +57,38 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Cache version for preventing stale data issues
+const CACHE_VERSION = Date.now().toString(36);
+
+// Enhanced fetch with cache busting and service worker protection
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    const res = await fetch(url, {
+    // Add cache busting for GET requests and health checks
+    const urlWithCache = method === 'GET' || url.includes('/health')
+      ? `${url}${url.includes('?') ? '&' : '?'}_v=${CACHE_VERSION}&_t=${Date.now()}`
+      : url;
+
+    const headers: Record<string, string> = {
+      // Force fresh response, prevent service worker cache
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    };
+
+    if (data) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const res = await fetch(urlWithCache, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
+      cache: 'no-store', // Force bypass cache
     });
 
     await throwIfResNotOk(res);
@@ -104,8 +125,17 @@ export const getQueryFn: <T>(options: {
     const url = queryKey.join("/") as string;
     
     try {
-      const res = await fetch(url, {
+      // Enhanced fetch with cache busting for query requests
+      const urlWithCache = `${url}${url.includes('?') ? '&' : '?'}_v=${CACHE_VERSION}&_t=${Date.now()}`;
+      
+      const res = await fetch(urlWithCache, {
         credentials: "include",
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+        cache: 'no-store',
       });
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {

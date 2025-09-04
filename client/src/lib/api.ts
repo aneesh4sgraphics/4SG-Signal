@@ -12,12 +12,29 @@ export type Contact = {
   rawSnippet?: string;
 };
 
+// Enhanced fetch function with cache busting
+async function enhancedFetch(url: string, options: RequestInit): Promise<Response> {
+  const headers = {
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    ...options.headers,
+  };
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+    cache: 'no-store',
+  });
+}
+
 export async function fetchAndExtract(url: string): Promise<{
   primary: Contact;
   alternatives: Contact[];
   finalUrl: string;
 }> {
-  const f = await fetch("/api/fetch-url", {
+  const f = await enhancedFetch("/api/fetch-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
@@ -29,7 +46,7 @@ export async function fetchAndExtract(url: string): Promise<{
   const data = await f.json();
   const baseUrl = data?.main?.finalUrl || url;
 
-  const e = await fetch("/api/extract-contacts", {
+  const e = await enhancedFetch("/api/extract-contacts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
