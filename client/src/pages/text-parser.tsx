@@ -20,6 +20,7 @@ export default function TextParserPage() {
       setAlternatives(out.alternatives);
       setFinalUrl(out.finalUrl);
     } catch (e: any) {
+      console.error("Text parser error:", e);
       setError(e?.message || "Failed to parse");
     } finally {
       setLoading(false);
