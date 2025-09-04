@@ -12,54 +12,47 @@ export type Contact = {
   rawSnippet?: string;
 };
 
-// Enhanced fetch function with cache busting
-async function enhancedFetch(url: string, options: RequestInit): Promise<Response> {
-  const headers = {
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    ...options.headers,
-  };
-
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: "include",
-    cache: 'no-store',
-  });
-}
+import { api } from "@/api/fetcher";
 
 export async function fetchAndExtract(url: string): Promise<{
   primary: Contact;
   alternatives: Contact[];
   finalUrl: string;
 }> {
-  const f = await enhancedFetch("/api/fetch-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  });
-  if (!f.ok) {
-    const errorText = await f.text();
-    throw new Error(`Fetch failed: ${f.status} ${f.statusText} - ${errorText}`);
-  }
-  const data = await f.json();
-  const baseUrl = data?.main?.finalUrl || url;
+  try {
+    const data = await api<{
+      main: { finalUrl: string; html: string };
+      contact?: { finalUrl: string; html: string };
+    }>("/api/fetch-url", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
 
-  const e = await enhancedFetch("/api/extract-contacts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      mainHtml: data?.main?.html,
-      contactHtml: data?.contact?.html,
-      baseUrl,
-    }),
-  });
-  if (!e.ok) {
-    const errorText = await e.text();
-    throw new Error(`Extract failed: ${e.status} ${e.statusText} - ${errorText}`);
-  }
-  const parsed = await e.json();
+    const baseUrl = data?.main?.finalUrl || url;
 
-  return { primary: parsed.primary, alternatives: parsed.alternatives, finalUrl: baseUrl };
+    const parsed = await api<{
+      primary: Contact;
+      alternatives: Contact[];
+    }>("/api/extract-contacts", {
+      method: "POST",
+      body: JSON.stringify({
+        mainHtml: data?.main?.html,
+        contactHtml: data?.contact?.html,
+        baseUrl,
+      }),
+    });
+
+    return { primary: parsed.primary, alternatives: parsed.alternatives, finalUrl: baseUrl };
+  } catch (error: any) {
+    // Enhance error message for better user experience
+    const message = error.message || 'Failed to parse website';
+    if (error.status === 404) {
+      throw new Error('Website not found or unavailable');
+    } else if (error.status >= 500) {
+      throw new Error('Server error while processing website');
+    } else if (error.status === 400) {
+      throw new Error('Invalid website URL provided');
+    }
+    throw new Error(message);
+  }
 }
