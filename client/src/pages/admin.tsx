@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useUsers } from "@/features/admin/useUsers";
 
 import { 
   Table, 
@@ -18,17 +19,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 
-interface User {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  role: string;
-  status: string;
-  createdAt: string;
-  approvedBy: string | null;
-  approvedAt: string | null;
-}
+import type { User } from '@shared/schema';
 
 interface RoleSelectProps {
   user: User;
@@ -75,13 +66,7 @@ export default function Admin() {
 
 
 
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ["/api/admin/users"],
-    staleTime: 1 * 60 * 1000, // 1 minute
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: false,
-    refetchOnWindowFocus: false,
-  });
+  const { data: users, isLoading: usersLoading } = useUsers();
 
   const approveUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -302,7 +287,7 @@ export default function Admin() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {new Date(user.createdAt).toLocaleDateString()}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                         </TableCell>
                         <TableCell>
                           {user.status === 'pending' && (

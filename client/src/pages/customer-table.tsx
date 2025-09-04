@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCustomers } from "@/features/customers/useCustomers";
 import {
   Table,
   TableBody,
@@ -46,30 +47,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 
-interface Customer {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  acceptsEmailMarketing: boolean;
-  company: string | null;
-  address1: string | null;
-  address2: string | null;
-  city: string | null;
-  province: string | null;
-  country: string | null;
-  zip: string | null;
-  phone: string | null;
-  defaultAddressPhone: string | null;
-  acceptsSmsMarketing: boolean;
-  totalSpent: number;
-  totalOrders: number;
-  note: string | null;
-  taxExempt: boolean;
-  tags: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Customer } from '@shared/schema';
 
 export default function CustomerTable() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,10 +94,7 @@ export default function CustomerTable() {
   }, [logPageView]);
 
   // Fetch customers
-  const { data: customers = [], isLoading, error, refetch } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    staleTime: 1 * 60 * 1000, // 1 minute
-  });
+  const { data: customers = [], isLoading, error, refetch } = useCustomers();
 
   // Filter and search customers
   const filteredCustomers = customers.filter((customer) => {
