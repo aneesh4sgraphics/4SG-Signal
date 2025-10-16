@@ -195,7 +195,7 @@
   /* Modern Input - Clean and minimal */
   .modern-input {
     @apply bg-white border border-gray-300 rounded-lg px-4 py-3 text-base transition-all duration-200;
-    @apply focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none;
+    @apply focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none;
   }
 
   /* Bold Button - Strong presence */
@@ -207,7 +207,7 @@
   /* Primary Button - Electric accent */
   .primary-button {
     @apply bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold transition-all duration-200;
-    @apply hover:bg-primary/90 active:scale-95 shadow-sm;
+    @apply hover:opacity-90 active:scale-95 shadow-sm;
   }
 
   /* Ghost Button - Minimal outline */
@@ -222,7 +222,7 @@
   }
 
   .badge-primary {
-    @apply bg-primary/10 text-primary border border-primary/20;
+    @apply bg-blue-50 text-primary border border-blue-200;
   }
 
   .badge-success {
@@ -265,7 +265,7 @@
   }
 
   .icon-container-primary {
-    @apply bg-primary/10 text-primary;
+    @apply bg-blue-50 text-primary;
   }
 
   .icon-container-secondary {
@@ -287,7 +287,7 @@
 
   /* Link Hover Effect */
   .link-modern {
-    @apply text-primary font-medium hover:text-primary/80 transition-colors duration-200;
+    @apply text-primary font-medium hover:opacity-80 transition-colors duration-200;
   }
 
   /* Focus Ring - Consistent focus states */

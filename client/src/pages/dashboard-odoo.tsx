@@ -7,18 +7,18 @@ import {
   Database, 
   Users, 
   BarChart3, 
-  Package,
-  Truck,
-  Settings,
-  Download,
   TrendingUp,
-  Calendar,
+  Settings,
   AlertCircle,
-  CheckCircle
+  ArrowRight,
+  Zap,
+  Activity,
+  Building2,
+  DollarSign,
+  Package
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import OdooCard from "@/components/OdooCard";
 
 interface DashboardStats {
   totalQuotes: number;
@@ -95,23 +95,28 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-sm text-gray-600">Loading...</span>
+        <div className="flex items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-black border-t-transparent"></div>
+          <span className="body-base font-medium">Loading...</span>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <OdooCard title="Authentication Required">
+      <div className="modern-card max-w-md mx-auto mt-20">
         <div className="text-center py-8">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">Please log in to access your dashboard</p>
-          <Button onClick={() => window.location.href = "/api/login"}>
+          <div className="icon-container icon-container-secondary mx-auto mb-4">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="heading-sm mb-2">Authentication Required</h3>
+          <p className="body-base text-gray-600 mb-6">Please log in to access your dashboard</p>
+          <Button onClick={() => window.location.href = "/api/login"} className="primary-button">
             Login with Replit
           </Button>
         </div>
-      </OdooCard>
+      </div>
     );
   }
 
@@ -123,203 +128,181 @@ export default function Dashboard() {
   // Fetch dashboard statistics
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 2,
   });
 
-  // Calculate percentage changes (using simple month-over-month simulation for now)
-  const getPercentageChange = (current: number) => {
-    // Simple simulation - in a real app, you'd compare with previous period
-    const variation = Math.floor(Math.random() * 20) - 10; // -10% to +10%
-    return variation;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   return (
-    <div className="space-y-8">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-100">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-              Welcome back, {firstName}!
-            </h1>
-            <p className="text-gray-600 text-lg">
-              Ready to create quotes and manage pricing? Start with the applications below.
-            </p>
+    <div className="space-y-12">
+      {/* Hero Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="icon-container icon-container-primary">
+            <Zap className="h-6 w-6" />
           </div>
-          <div className="flex items-center space-x-3">
-            <Badge variant="outline" className="text-purple-700 border-purple-200 px-3 py-1">
-              {(user as any)?.role === 'admin' ? 'Administrator' : 'Employee'}
-            </Badge>
+          <div>
+            <h1 className="heading-lg">Welcome back, {firstName}</h1>
+            <p className="body-lg text-gray-600">Here's what's happening with your workspace today</p>
           </div>
         </div>
       </div>
 
-      {/* Main Applications - Featured at Top */}
-      <OdooCard title="📋 Main Applications" description="Click on any application below to get started">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Stats Grid */}
+      {!statsLoading && stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="stat-card group hover:border-black hover:shadow-sm transition-all duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div className="icon-container bg-blue-50 text-blue-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <Activity className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="stat-value text-black">{stats.totalQuotes}</div>
+            <div className="stat-label">Total Quotes</div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-green-600 body-sm font-medium">
+                <TrendingUp className="h-4 w-4" />
+                {stats.quotesThisMonth} this month
+              </div>
+            </div>
+          </div>
+
+          <div className="stat-card group hover:border-black hover:shadow-sm transition-all duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div className="icon-container bg-green-50 text-green-600">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <Activity className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="stat-value text-black">${stats.monthlyRevenue.toLocaleString()}</div>
+            <div className="stat-label">Monthly Revenue</div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="body-sm text-gray-500">From {stats.quotesThisMonth} quotes</div>
+            </div>
+          </div>
+
+          <div className="stat-card group hover:border-black hover:shadow-sm transition-all duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div className="icon-container bg-purple-50 text-purple-600">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <Activity className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="stat-value text-black">{stats.totalCustomers}</div>
+            <div className="stat-label">Total Customers</div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="body-sm text-gray-500">In your database</div>
+            </div>
+          </div>
+
+          <div className="stat-card group hover:border-black hover:shadow-sm transition-all duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div className="icon-container bg-amber-50 text-amber-600">
+                <Package className="h-5 w-5" />
+              </div>
+              <Activity className="h-4 w-4 text-gray-400" />
+            </div>
+            <div className="stat-value text-black">{stats.totalProducts}</div>
+            <div className="stat-label">Products</div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="body-sm text-gray-500">Available items</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="heading-md">Quick Actions</h2>
+            <p className="body-base text-gray-600 mt-1">Your most-used tools and features</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {mainApps.map((app) => {
             const Icon = app.icon;
             return (
               <Link key={app.path} href={app.path}>
-                <div className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-lg transition-all cursor-pointer group bg-white">
-                  <div className="text-center">
-                    <div className={`w-16 h-16 ${app.color} rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
-                      <Icon className="h-8 w-8 text-white" />
+                <a className="group modern-card hover:border-black hover:shadow-md cursor-pointer transition-all duration-200 block">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`icon-container ${app.color} text-white`}>
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 group-hover:text-purple-700 mb-2">
-                      {app.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">{app.description}</p>
+                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-200" />
                   </div>
-                </div>
+                  <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
+                  <p className="body-sm text-gray-600">{app.description}</p>
+                </a>
               </Link>
             );
           })}
         </div>
-      </OdooCard>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Stats cards with consistent height and alignment */}
-        <OdooCard className="h-full">
-          <div className="flex items-center justify-between h-full">
-            <div className="flex flex-col justify-center space-y-2 flex-1">
-              <p className="text-sm font-medium text-gray-600">Total Quotes</p>
-              {statsLoading ? (
-                <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <p className="text-3xl font-bold text-gray-900">{stats?.totalQuotes || 0}</p>
-              )}
-              <p className="text-xs text-blue-600">
-                {statsLoading ? "Loading..." : `${stats?.quotesThisMonth || 0} this month`}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-xl flex-shrink-0">
-              <FileText className="h-8 w-8 text-blue-600" />
-            </div>
-          </div>
-        </OdooCard>
-
-        <OdooCard className="h-full">
-          <div className="flex items-center justify-between h-full">
-            <div className="flex flex-col justify-center space-y-2 flex-1">
-              <p className="text-sm font-medium text-gray-600">Quotes Worth</p>
-              {statsLoading ? (
-                <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <p className="text-3xl font-bold text-gray-900">
-                  {formatCurrency(stats?.monthlyRevenue || 0)}
-                </p>
-              )}
-              <p className="text-xs text-green-600">
-                {statsLoading ? "Loading..." : "submitted this month"}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-xl flex-shrink-0">
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-          </div>
-        </OdooCard>
-
-        <OdooCard className="h-full">
-          <div className="flex items-center justify-between h-full">
-            <div className="flex flex-col justify-center space-y-2 flex-1">
-              <p className="text-sm font-medium text-gray-600">Total Customers</p>
-              {statsLoading ? (
-                <div className="h-9 w-16 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <p className="text-3xl font-bold text-gray-900">{stats?.totalCustomers || 0}</p>
-              )}
-              <p className="text-xs text-purple-600">
-                {statsLoading ? "Loading..." : `${stats?.totalProducts || 0} products available`}
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-xl flex-shrink-0">
-              <Users className="h-8 w-8 text-purple-600" />
-            </div>
-          </div>
-        </OdooCard>
       </div>
 
-      {/* Admin Tools */}
+      {/* Admin Section */}
       {isAdmin && (
-        <OdooCard title="🔧 Administration Tools" description="System management and configuration - Admin access required">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="icon-container bg-primary text-white">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="heading-md">Admin Tools</h2>
+              <p className="body-base text-gray-600">Manage system settings and data</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {adminApps.map((app) => {
               const Icon = app.icon;
               return (
                 <Link key={app.path} href={app.path}>
-                  <div className="p-4 border border-orange-200 rounded-lg hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group bg-orange-50">
-                    <div className="flex items-center mb-3">
-                      <div className={`p-2 ${app.color} rounded-lg`}>
-                        <Icon className="h-5 w-5 text-white" />
+                  <a className="group bold-card hover:shadow-lg cursor-pointer transition-all duration-200 block">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`icon-container ${app.color} text-white`}>
+                        <Icon className="h-6 w-6" />
                       </div>
-                      <h3 className="ml-3 font-medium text-gray-900 group-hover:text-orange-700">
-                        {app.title}
-                      </h3>
+                      <Badge className="badge-modern badge-primary">Admin</Badge>
                     </div>
-                    <p className="text-sm text-gray-600">{app.description}</p>
-                  </div>
+                    <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
+                    <p className="body-sm text-gray-600">{app.description}</p>
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center text-primary font-medium body-sm group-hover:gap-2 transition-all duration-200">
+                      <span>Open</span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </a>
                 </Link>
               );
             })}
           </div>
-        </OdooCard>
+        </div>
       )}
 
-      {/* Recent Activity */}
-      <OdooCard title="📈 Recent Activity" description="Latest system updates and changes">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-500 rounded-full">
-                <CheckCircle className="h-5 w-5 text-white" />
+      {/* Quick Stats Banner */}
+      {stats && (
+        <div className="accent-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="heading-sm text-white mb-2">You're doing great!</h3>
+              <p className="body-base text-white/90">
+                {stats.activityCount} actions logged this session. Keep up the momentum!
+              </p>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white">{stats.quotesThisMonth}</div>
+                <div className="text-sm text-white/80">Quotes</div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-gray-900">Quote #A1B2C3 sent to ABC Corp</p>
-                <p className="text-xs text-gray-600">2 hours ago • $2,450 total value</p>
+              <div className="w-px h-12 bg-white/20"></div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white">{stats.totalCustomers}</div>
+                <div className="text-sm text-white/80">Customers</div>
               </div>
             </div>
-            <Badge variant="outline" className="text-green-700 border-green-300 bg-white">Completed</Badge>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-500 rounded-full">
-                <Database className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-gray-900">Price list updated for Graffiti products</p>
-                <p className="text-xs text-gray-600">5 hours ago • 45 products affected</p>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-blue-700 border-blue-300 bg-white">Updated</Badge>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-500 rounded-full">
-                <Users className="h-5 w-5 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-semibold text-gray-900">New customer added: XYZ Industries</p>
-                <p className="text-xs text-gray-600">1 day ago • Manufacturing company</p>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-purple-700 border-purple-300 bg-white">New</Badge>
           </div>
         </div>
-      </OdooCard>
+      )}
     </div>
   );
 }
