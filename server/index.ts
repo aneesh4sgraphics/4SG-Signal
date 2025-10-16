@@ -20,6 +20,7 @@ const allowedOrigins = [
   process.env.FRONTEND_ORIGIN || '',
   'http://localhost:5173',
   'http://localhost:5000',
+  'http://127.0.0.1:5000',
   // Support both old and new Replit URL formats
   process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : '',
   process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : '',
