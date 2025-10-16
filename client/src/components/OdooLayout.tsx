@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Truck,
   ScanText,
-  RefreshCw
+  RefreshCw,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -74,12 +75,12 @@ function SettingsMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="p-2">
-            <Settings className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="p-2 hover:bg-gray-100">
+            <Settings className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setShowResetDialog(true)}>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => setShowResetDialog(true)} className="cursor-pointer">
             <RefreshCw className="h-4 w-4 mr-2" />
             Reset App Data
           </DropdownMenuItem>
@@ -89,14 +90,14 @@ function SettingsMenu() {
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset App Data</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="heading-sm">Reset App Data</AlertDialogTitle>
+            <AlertDialogDescription className="body-base text-gray-600">
               This clears local filters/cache only. Saved quotes on the server are not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset}>
+            <AlertDialogCancel className="ghost-button">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReset} className="primary-button">
               Reset
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -112,82 +113,80 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
   const { user } = useAuth();
   
   const logout = () => {
-    // Invalidate all user-specific queries
     queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
     queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
     queryClient.invalidateQueries({ queryKey: ['/api/sent-quotes'] });
     queryClient.invalidateQueries({ queryKey: ['/api/upload-batches'] });
-    queryClient.clear(); // Clear all cache
+    queryClient.clear();
     
-    // Clear any local storage first
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = '/api/logout';
   };
 
   const isAdmin = (user as any)?.role === 'admin';
+  const userInitials = (user as any)?.email?.slice(0, 2).toUpperCase() || 'U';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} bg-white h-screen border-r border-gray-200 transition-all duration-300 flex flex-col`}>
+    <div className="min-h-screen bg-white flex">
+      {/* Modern Sidebar */}
+      <aside className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-gray-50 border-r border-gray-200 h-screen transition-all duration-300 flex flex-col`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/company-logo.jpg" 
-              alt="4S Graphics Logo" 
-              className="h-8 w-8 object-contain flex-shrink-0"
-            />
-            {sidebarOpen && (
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">4S Graphics</h1>
-                <p className="text-xs text-gray-500">Employee Portal</p>
-              </div>
-            )}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-gray-200 rounded-lg"
+            >
+              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+            {sidebarOpen && <SettingsMenu />}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2"
-          >
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
+          
+          {sidebarOpen && (
+            <div className="space-y-1">
+              <h1 className="heading-sm text-black">4S Graphics</h1>
+              <p className="body-sm text-gray-500">Employee Portal</p>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-4">
+        <nav className="flex-1 p-4 space-y-8 overflow-y-auto">
           {/* Main Items */}
-          <div className="space-y-2">
+          <div className="space-y-1">
+            {sidebarOpen && (
+              <p className="label-caps text-gray-500 px-3 mb-3">Main</p>
+            )}
             {mainItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
               
               return (
                 <Link key={item.path} href={item.path}>
-                  <a className={`flex items-center ${sidebarOpen ? 'space-x-3 px-3 py-2' : 'justify-center px-2 py-3'} rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                  <a className={`group flex items-center ${sidebarOpen ? 'justify-between px-4 py-3' : 'justify-center px-3 py-4'} rounded-lg transition-all duration-200 cursor-pointer ${
                     isActive 
-                      ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-black text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-200'
                   }`}>
-                    <Icon className={`${sidebarOpen ? 'h-5 w-5' : 'h-7 w-7'} transition-all duration-300`} />
-                    {sidebarOpen && <span>{item.label}</span>}
+                    <div className="flex items-center gap-3">
+                      <Icon className={`${sidebarOpen ? 'h-5 w-5' : 'h-6 w-6'} transition-all duration-200 ${isActive ? 'text-white' : 'text-gray-600'}`} />
+                      {sidebarOpen && <span className="font-medium body-sm">{item.label}</span>}
+                    </div>
+                    {sidebarOpen && isActive && <ChevronRight className="h-4 w-4" />}
                   </a>
                 </Link>
               );
             })}
           </div>
 
-          {/* Admin Section */}
+          {/* Admin Items */}
           {isAdmin && (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {sidebarOpen && (
-                <div className="px-3 py-2">
-                  <h3 className="text-xs font-semibold text-orange-600 uppercase tracking-wider">
-                    Administration
-                  </h3>
-                </div>
+                <p className="label-caps text-gray-500 px-3 mb-3">Admin</p>
               )}
               {adminItems.map((item) => {
                 const Icon = item.icon;
@@ -195,13 +194,16 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
                 
                 return (
                   <Link key={item.path} href={item.path}>
-                    <a className={`flex items-center ${sidebarOpen ? 'space-x-3 px-3 py-2' : 'justify-center px-2 py-3'} rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                    <a className={`group flex items-center ${sidebarOpen ? 'justify-between px-4 py-3' : 'justify-center px-3 py-4'} rounded-lg transition-all duration-200 cursor-pointer ${
                       isActive 
-                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
-                        : 'text-orange-700 hover:bg-orange-50'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-200'
                     }`}>
-                      <Icon className={`${sidebarOpen ? 'h-5 w-5' : 'h-7 w-7'} transition-all duration-300`} />
-                      {sidebarOpen && <span>{item.label}</span>}
+                      <div className="flex items-center gap-3">
+                        <Icon className={`${sidebarOpen ? 'h-5 w-5' : 'h-6 w-6'} transition-all duration-200 ${isActive ? 'text-white' : 'text-gray-600'}`} />
+                        {sidebarOpen && <span className="font-medium body-sm">{item.label}</span>}
+                      </div>
+                      {sidebarOpen && isActive && <ChevronRight className="h-4 w-4" />}
                     </a>
                   </Link>
                 );
@@ -210,62 +212,57 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
           )}
         </nav>
 
-        {/* User section */}
+        {/* User Profile */}
         <div className="p-4 border-t border-gray-200">
-          <div className={`flex items-center ${sidebarOpen ? 'space-x-3' : 'justify-center'}`}>
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">
-                {(user as any)?.email?.charAt(0).toUpperCase() || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            {sidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {(user as any)?.email?.split('@')[0] || 'User'}
-                </p>
-                <p className="text-xs text-gray-500 capitalize">{(user as any)?.role || 'employee'}</p>
+          {sidebarOpen ? (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-200">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10 bg-black">
+                  <AvatarFallback className="bg-black text-white font-semibold">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-black truncate">
+                    {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{(user as any)?.email}</p>
+                </div>
               </div>
-            )}
-          </div>
-          {sidebarOpen && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="w-full mt-3 justify-start text-gray-600 hover:text-gray-900"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <Avatar className="h-10 w-10 bg-black">
+                <AvatarFallback className="bg-black text-white font-semibold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {[...mainItems, ...adminItems].find(item => item.path === location)?.label || 'Dashboard'}
-              </h2>
-              <nav className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-                <span>Home</span>
-                <span>/</span>
-                <span className="text-gray-900">
-                  {[...mainItems, ...adminItems].find(item => item.path === location)?.label || 'Dashboard'}
-                </span>
-              </nav>
-            </div>
-            <div className="flex items-center space-x-3">
-              <SettingsMenu />
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <div className="flex-1 overflow-auto p-6 space-y-6">
+      <main className="flex-1 overflow-auto bg-white">
+        <div className="p-8 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>
