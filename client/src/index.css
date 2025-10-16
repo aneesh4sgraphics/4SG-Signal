@@ -1,56 +1,70 @@
-@import url('https://fonts.googleapis.com/css2?family=Lobster&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Franklin+Gothic+Medium&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 98%); /* #fafafa - Odoo clean white */
-  --foreground: hsl(240, 10%, 3.9%);
-  --muted: hsl(210, 17%, 94%); /* #f0f0f0 - light gray dividers */
-  --muted-foreground: hsl(215, 16%, 47%);
+  /* Modern Bold Color System */
+  --background: hsl(0, 0%, 100%); /* Pure white */
+  --foreground: hsl(0, 0%, 5%); /* Near black */
+  
+  --muted: hsl(0, 0%, 96%); /* Very light gray */
+  --muted-foreground: hsl(0, 0%, 40%);
+  
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 5%);
+  
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(240, 10%, 3.9%);
-  --border: hsl(220, 13%, 91%); /* #e5e7eb */
-  --input: hsl(220, 13%, 91%);
-  --primary: hsl(260, 22%, 56%); /* #7E57C2 - Odoo purple */
-  --primary-foreground: hsl(0, 0%, 98%);
-  --secondary: hsl(210, 40%, 20%);
+  --card-foreground: hsl(0, 0%, 5%);
+  
+  --border: hsl(0, 0%, 90%); /* Light gray border */
+  --input: hsl(0, 0%, 90%);
+  
+  /* Bold Electric Blue Accent */
+  --primary: hsl(217, 100%, 50%); /* Electric Blue #0066FF */
+  --primary-foreground: hsl(0, 0%, 100%);
+  
+  --secondary: hsl(0, 0%, 8%); /* Deep charcoal */
   --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(210, 40%, 96%);
-  --accent-foreground: hsl(240, 10%, 3.9%);
-  --destructive: hsl(0, 84%, 60%);
+  
+  --accent: hsl(217, 100%, 95%); /* Light blue tint */
+  --accent-foreground: hsl(217, 100%, 30%);
+  
+  --destructive: hsl(0, 85%, 55%); /* Vibrant red */
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(210, 100%, 50%);
-  --radius: 1rem; /* 16px rounded corners */
+  
+  --success: hsl(142, 76%, 45%); /* Vibrant green */
+  --success-foreground: hsl(0, 0%, 100%);
+  
+  --warning: hsl(38, 92%, 50%); /* Vibrant orange */
+  --warning-foreground: hsl(0, 0%, 100%);
+  
+  --ring: hsl(217, 100%, 50%);
+  --radius: 0.5rem; /* Subtle 8px radius for modern look */
 }
 
 .dark {
-  --background: hsl(240, 10%, 3.9%);
+  --background: hsl(0, 0%, 5%);
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
+  --muted: hsl(0, 0%, 12%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --popover: hsl(0, 0%, 8%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(0, 0%, 8%);
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(210, 100%, 50%);
-  --primary-foreground: hsl(0, 0%, 98%);
-  --secondary: hsl(240, 3.7%, 15.9%);
+  --border: hsl(0, 0%, 18%);
+  --input: hsl(0, 0%, 18%);
+  --primary: hsl(217, 100%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(0, 0%, 15%);
   --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
+  --accent: hsl(217, 50%, 20%);
+  --accent-foreground: hsl(217, 100%, 70%);
+  --destructive: hsl(0, 85%, 55%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
-  --radius: 0.5rem;
+  --ring: hsl(217, 100%, 60%);
 }
 
 @layer base {
@@ -60,137 +74,254 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Roboto', 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-weight: 400;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Roboto Font Utility Classes */
-  .font-roboto-thin { font-family: 'Roboto', sans-serif; font-weight: 100; }
-  .font-roboto-light { font-family: 'Roboto', sans-serif; font-weight: 300; }
-  .font-roboto-regular { font-family: 'Roboto', sans-serif; font-weight: 400; }
-  .font-roboto-medium { font-family: 'Roboto', sans-serif; font-weight: 500; }
-  .font-roboto-bold { font-family: 'Roboto', sans-serif; font-weight: 700; }
-  .font-roboto-black { font-family: 'Roboto', sans-serif; font-weight: 900; }
+  /* Modern Typography System */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
 
-  /* Text placement specific classes */
-  .heading-primary { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 1.875rem; line-height: 2.25rem; }
-  .heading-secondary { font-family: 'Roboto', sans-serif; font-weight: 600; font-size: 1.5rem; line-height: 2rem; }
-  .heading-tertiary { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 1.25rem; line-height: 1.75rem; }
-  .body-large { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 1.125rem; line-height: 1.75rem; }
-  .body-regular { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 1rem; line-height: 1.5rem; }
-  .body-small { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 0.875rem; line-height: 1.25rem; }
-  .label-large { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 1rem; line-height: 1.5rem; }
-  .label-medium { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.875rem; line-height: 1.25rem; }
-  .label-small { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.75rem; line-height: 1rem; }
-  .caption { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 0.75rem; line-height: 1rem; }
-  .overline { font-family: 'Roboto', sans-serif; font-weight: 500; font-size: 0.75rem; line-height: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  h1 { 
+    font-size: 3.5rem; 
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  
+  h2 { 
+    font-size: 2.5rem; 
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  
+  h3 { 
+    font-size: 1.875rem; 
+    font-weight: 700;
+  }
+  
+  h4 { 
+    font-size: 1.5rem; 
+    font-weight: 600;
+  }
+
+  /* Font Weight Utilities */
+  .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 700; }
+  .font-bold-extra { font-weight: 800; }
+  .font-bold { font-weight: 700; }
+  .font-semibold { font-weight: 600; }
+  .font-medium { font-weight: 500; }
+  .font-regular { font-weight: 400; }
+  .font-light { font-weight: 300; }
+
+  /* Heading Utilities */
+  .heading-xl { 
+    font-family: 'Space Grotesk', sans-serif; 
+    font-weight: 800; 
+    font-size: 3.5rem; 
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+  
+  .heading-lg { 
+    font-family: 'Space Grotesk', sans-serif; 
+    font-weight: 700; 
+    font-size: 2.5rem; 
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+  
+  .heading-md { 
+    font-family: 'Space Grotesk', sans-serif; 
+    font-weight: 700; 
+    font-size: 1.875rem; 
+    line-height: 1.3;
+  }
+  
+  .heading-sm { 
+    font-family: 'Space Grotesk', sans-serif; 
+    font-weight: 600; 
+    font-size: 1.25rem; 
+    line-height: 1.4;
+  }
+
+  /* Body Text */
+  .body-xl { font-size: 1.25rem; line-height: 1.8; }
+  .body-lg { font-size: 1.125rem; line-height: 1.7; }
+  .body-base { font-size: 1rem; line-height: 1.6; }
+  .body-sm { font-size: 0.875rem; line-height: 1.5; }
+  .body-xs { font-size: 0.75rem; line-height: 1.4; }
+
+  /* Caption & Labels */
+  .label-bold { font-weight: 600; font-size: 0.875rem; letter-spacing: 0.03em; }
+  .label-caps { 
+    font-weight: 600; 
+    font-size: 0.75rem; 
+    text-transform: uppercase; 
+    letter-spacing: 0.08em;
+  }
 }
 
-
-
 @layer components {
-  /* Soft UI Card Component */
-  .soft-card {
-    background: hsl(var(--card));
-    border-radius: 16px;
-    box-shadow: 4px 4px 12px #ccc, -4px -4px 12px #fff;
-    border: none;
-    transition: all 0.3s ease;
+  /* Modern Card - Minimal with subtle border */
+  .modern-card {
+    @apply bg-white border border-gray-200 rounded-lg p-6 transition-all duration-200;
   }
 
-  .soft-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 6px 6px 16px #ccc, -6px -6px 16px #fff;
+  .modern-card:hover {
+    @apply border-gray-300 shadow-sm;
   }
 
-  /* Soft UI Input Component */
-  .soft-input {
-    background: hsl(var(--background));
-    border-radius: 16px;
-    border: 1px solid #e0e0e0;
-    box-shadow: inset 2px 2px 6px #ccc, inset -2px -2px 6px #fff;
-    font-weight: 400;
-    transition: all 0.3s ease;
-    padding: 12px 16px;
+  /* Bold Card - Strong visual with colored accent */
+  .bold-card {
+    @apply bg-white border-2 border-black rounded-lg p-6 shadow-sm transition-all duration-200;
   }
 
-  .soft-input:focus {
-    box-shadow: inset 4px 4px 8px #ccc, inset -4px -4px 8px #fff;
-    border-color: #a0a0a0;
-    outline: none;
+  .bold-card:hover {
+    @apply shadow-md translate-y-[-2px];
   }
 
-  /* Soft UI Button Component */
-  .soft-button {
-    background: hsl(var(--background));
-    border-radius: 16px;
-    box-shadow: 4px 4px 12px #ccc, -4px -4px 12px #fff;
-    border: none;
-    font-weight: 400;
-    transition: all 0.3s ease;
-    padding: 12px 24px;
-    cursor: pointer;
+  /* Accent Card - Full color background */
+  .accent-card {
+    @apply bg-primary text-primary-foreground rounded-lg p-6 shadow-lg;
   }
 
-  .soft-button:hover {
-    transform: scale(1.02);
-    box-shadow: 6px 6px 16px #ccc, -6px -6px 16px #fff;
+  /* Modern Input - Clean and minimal */
+  .modern-input {
+    @apply bg-white border border-gray-300 rounded-lg px-4 py-3 text-base transition-all duration-200;
+    @apply focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none;
   }
 
-  .soft-button:active {
-    transform: scale(0.98);
-    box-shadow: inset 2px 2px 6px #ccc, inset -2px -2px 6px #fff;
+  /* Bold Button - Strong presence */
+  .bold-button {
+    @apply bg-black text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200;
+    @apply hover:bg-gray-800 active:scale-95;
   }
 
-  /* Ghost/Pill Button */
+  /* Primary Button - Electric accent */
+  .primary-button {
+    @apply bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold transition-all duration-200;
+    @apply hover:bg-primary/90 active:scale-95 shadow-sm;
+  }
+
+  /* Ghost Button - Minimal outline */
   .ghost-button {
-    background: transparent;
-    border: 1px solid #e0e0e0;
-    border-radius: 24px;
-    font-weight: 400;
-    transition: all 0.3s ease;
-    padding: 8px 16px;
-    cursor: pointer;
+    @apply bg-transparent border-2 border-gray-200 text-gray-900 px-6 py-3 rounded-lg font-medium transition-all duration-200;
+    @apply hover:border-gray-900 hover:bg-gray-50;
   }
 
-  .ghost-button:hover {
-    background: rgba(0, 0, 0, 0.05);
-    transform: scale(1.02);
+  /* Badge Styles */
+  .badge-modern {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide;
   }
 
-  /* Section Titles */
+  .badge-primary {
+    @apply bg-primary/10 text-primary border border-primary/20;
+  }
+
+  .badge-success {
+    @apply bg-green-50 text-green-700 border border-green-200;
+  }
+
+  .badge-warning {
+    @apply bg-amber-50 text-amber-700 border border-amber-200;
+  }
+
+  .badge-danger {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+
+  /* Section Utilities */
+  .section-header {
+    @apply mb-8;
+  }
+
   .section-title {
-    font-weight: 400;
-    color: #666;
-    text-align: left;
-    margin-bottom: 1rem;
-    letter-spacing: 0.025em;
-    font-size: 1.125rem;
+    @apply heading-md mb-2;
   }
 
-  /* Icon Spacing */
-  .icon-text {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  .section-description {
+    @apply text-gray-600 body-base;
   }
 
-  .icon-text svg {
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
+  /* Divider */
+  .divider {
+    @apply border-t border-gray-200 my-8;
   }
 
-  .icon-text:hover svg {
-    opacity: 1;
+  .divider-bold {
+    @apply border-t-2 border-black my-8;
   }
 
-  /* PDF and CSV button styles with soft UI */
-  .btn-pdf {
-    @apply soft-button text-blue-600;
+  /* Icon Container - Modern circular background */
+  .icon-container {
+    @apply w-12 h-12 rounded-full flex items-center justify-center;
   }
 
-  .btn-csv {
-    @apply soft-button text-green-600;
+  .icon-container-primary {
+    @apply bg-primary/10 text-primary;
   }
+
+  .icon-container-secondary {
+    @apply bg-gray-100 text-gray-900;
+  }
+
+  /* Stats Card */
+  .stat-card {
+    @apply bg-white border border-gray-200 rounded-lg p-6;
+  }
+
+  .stat-value {
+    @apply heading-lg;
+  }
+
+  .stat-label {
+    @apply label-caps text-gray-500;
+  }
+
+  /* Link Hover Effect */
+  .link-modern {
+    @apply text-primary font-medium hover:text-primary/80 transition-colors duration-200;
+  }
+
+  /* Focus Ring - Consistent focus states */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar - Modern minimal design */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(0, 0%, 96%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(0, 0%, 70%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(0, 0%, 50%);
+}
+
+/* Selection Color */
+::selection {
+  background: hsl(217, 100%, 50%);
+  color: white;
 }
