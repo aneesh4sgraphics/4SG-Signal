@@ -157,6 +157,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Temporary endpoint to fix admin user approval status
+  app.get("/api/fix-admin-user", async (req: any, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const aneeshUser = allUsers.find(u => u.email === 'aneesh@4sgraphics.com');
+      
+      if (!aneeshUser) {
+        return res.json({ message: "User not found in database", allEmails: allUsers.map(u => u.email) });
+      }
+
+      console.log("Current user status:", aneeshUser);
+
+      // Update to approved admin status
+      const updated = await storage.approveUser(aneeshUser.id, 'system');
+      
+      if (updated) {
+        // Also ensure role is admin
+        await storage.changeUserRole(aneeshUser.id, 'admin');
+      }
+
+      const finalUser = await storage.getUser(aneeshUser.id);
+      
+      res.json({
+        message: "User status updated",
+        before: { status: aneeshUser.status, role: aneeshUser.role },
+        after: { status: finalUser?.status, role: finalUser?.role }
+      });
+    } catch (error) {
+      console.error("Error fixing user:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   // Dashboard statistics endpoint (with relaxed auth for now)
   app.get("/api/dashboard/stats", async (req: any, res) => {
     try {
@@ -314,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           email: process.env.DEV_USER_EMAIL || "test@4sgraphics.com",
           role: process.env.DEV_USER_ROLE || "admin",
-          approved: true
+          status: 'approved'
         });
       }
       const userId = req.user.claims.sub;
