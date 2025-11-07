@@ -112,8 +112,28 @@ async function upsertUser(claims: any) {
   console.log("Auth claims received:", {
     sub: claims["sub"],
     email: claims["email"],
-    existing_user_id: currentUser?.id
+    existing_user_id: currentUser?.id,
+    existing_status: currentUser?.status,
+    existing_role: currentUser?.role
   });
+  
+  // Preserve existing status and role for already-approved users
+  // Only apply pre-approved logic for new users
+  const role = currentUser && currentUser.status === 'approved' 
+    ? currentUser.role 
+    : (isAdmin ? "admin" : "user");
+  
+  const status = currentUser && currentUser.status === 'approved'
+    ? 'approved'
+    : (isPreApproved ? "approved" : "pending");
+  
+  const approvedBy = currentUser && currentUser.status === 'approved'
+    ? currentUser.approvedBy
+    : (isPreApproved ? "system" : null);
+    
+  const approvedAt = currentUser && currentUser.status === 'approved'
+    ? currentUser.approvedAt
+    : (isPreApproved ? new Date() : null);
   
   try {
     await storage.upsertUser({
@@ -122,13 +142,15 @@ async function upsertUser(claims: any) {
       firstName: firstName,
       lastName: claims["last_name"] || null,
       profileImageUrl: claims["profile_image_url"] || null,
-      role: isAdmin ? "admin" : "user",
-      status: isPreApproved ? "approved" : "pending",
-      approvedBy: isPreApproved ? "system" : null,
-      approvedAt: isPreApproved ? new Date() : null,
+      role: role,
+      status: status,
+      approvedBy: approvedBy,
+      approvedAt: approvedAt,
       loginCount: (currentUser?.loginCount || 0) + 1,
       lastLoginDate: currentDate,
     });
+    
+    console.log("User upserted with preserved status:", { role, status });
   } catch (error) {
     console.error("Error in upsertUser:", error);
     console.error("Attempted to upsert with ID:", claims["sub"], "and email:", claims["email"]);
