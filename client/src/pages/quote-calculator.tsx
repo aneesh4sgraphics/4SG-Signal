@@ -159,7 +159,9 @@ export default function QuoteCalculator() {
   const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database'],
     queryFn: async () => {
-      const response = await fetch('/api/product-pricing-database');
+      const response = await fetch('/api/product-pricing-database', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch pricing data');
       }
@@ -398,6 +400,7 @@ export default function QuoteCalculator() {
       const response = await fetch('/api/generate-pdf-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : "Customer",
           customerEmail: selectedCustomer?.email || null,
@@ -454,6 +457,7 @@ export default function QuoteCalculator() {
       const quoteNumberResponse = await fetch('/api/generate-quote-number', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({})
       });
       
