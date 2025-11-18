@@ -60,6 +60,7 @@ export default function ClientDatabase() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showOdooUploadDialog, setShowOdooUploadDialog] = useState(false);
   const [filters, setFilters] = useState({
     city: "",
     province: "",
@@ -240,7 +241,105 @@ export default function ClientDatabase() {
         count: totalProcessed
       });
 
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+
+      toast({
+        title: "Upload Successful",
+        description: `Processed ${totalProcessed} clients from ${file.name}: ${newCount} new, ${updatedCount} updated`,
+      });
+
+    } catch (error) {
+      console.error("Upload error:", error);
+      
+      let errorMessage = "Unknown error occurred";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setUploadResult({
+        success: false,
+        message: errorMessage
+      });
+
+      toast({
+        title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadResult(null);
+      }, 5000);
+    }
+  };
+
+  const handleOdooFileUpload = async (file: File) => {
+    if (!file.name.endsWith('.xlsx')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload an Excel file (.xlsx)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(10);
+    setUploadResult(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadProgress(30);
+      
+      const response = await fetch('/api/admin/upload-odoo-contacts', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      setUploadProgress(70);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}`, details: errorText };
+        }
+        
+        let errorMessage = errorData.error || errorData.message || `Upload failed with status ${response.status}`;
+        if (response.status === 401) {
+          errorMessage = "Authentication failed. Please refresh the page and try again.";
+        } else if (response.status === 403) {
+          errorMessage = "Admin access required. Please contact your administrator.";
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setUploadProgress(100);
+      
+      const totalProcessed = result.stats?.totalCustomers || 0;
+      const newCount = result.stats?.newCustomers || 0;
+      const updatedCount = result.stats?.updatedCustomers || 0;
+      
+      setUploadResult({
+        success: true,
+        message: `Successfully processed ${totalProcessed} clients (${newCount} new, ${updatedCount} updated)`,
+        count: totalProcessed
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
 
       toast({
         title: "Upload Successful",
@@ -421,10 +520,16 @@ export default function ClientDatabase() {
             {viewMode === 'cards' ? 'Table View' : 'Card View'}
           </Button>
           {isAdmin && (
-            <Button onClick={() => setShowUploadDialog(true)} variant="outline" data-testid="button-upload">
-              <Upload className="h-4 w-4 mr-2" />
-              Import from Shopify
-            </Button>
+            <>
+              <Button onClick={() => setShowUploadDialog(true)} variant="outline" data-testid="button-upload-shopify">
+                <Upload className="h-4 w-4 mr-2" />
+                Import from Shopify
+              </Button>
+              <Button onClick={() => setShowOdooUploadDialog(true)} variant="outline" data-testid="button-upload-odoo">
+                <Upload className="h-4 w-4 mr-2" />
+                Import from Odoo
+              </Button>
+            </>
           )}
           <Button onClick={handleCreateCustomer} data-testid="button-create-client">
             <Plus className="h-4 w-4 mr-2" />
@@ -824,6 +929,85 @@ export default function ClientDatabase() {
 
             <DialogFooter>
               <Button onClick={() => setShowUploadDialog(false)} variant="outline">
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Odoo Upload Dialog (Admin Only) */}
+      {isAdmin && (
+        <Dialog open={showOdooUploadDialog} onOpenChange={setShowOdooUploadDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Import from Odoo</DialogTitle>
+              <DialogDescription>
+                Upload an Excel file (XLSX) exported from Odoo to bulk import or update client information
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {isUploading && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-primary font-medium">Uploading...</span>
+                    <span className="text-gray-500">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+
+              {uploadResult && (
+                <Alert className={uploadResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+                  {uploadResult.success ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                  )}
+                  <AlertDescription className={uploadResult.success ? "text-green-800" : "text-red-800"}>
+                    {uploadResult.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-2">
+                <Label>Upload Excel File (.xlsx)</Label>
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleOdooFileUpload(file);
+                    }
+                  }}
+                  disabled={isUploading}
+                  className="block w-full text-sm text-gray-600
+                           file:mr-4 file:py-2 file:px-4
+                           file:rounded-lg file:border-0
+                           file:text-sm file:font-semibold
+                           file:bg-primary file:text-white
+                           hover:file:bg-primary/90
+                           file:disabled:opacity-50"
+                />
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-2">How to Export from Odoo</h3>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>1. In Odoo, go to Contacts</li>
+                  <li>2. Select the contacts you want to export (or select all)</li>
+                  <li>3. Click "Export" and choose Excel format</li>
+                  <li>4. Ensure your export includes: Complete Name, Phone, Email, City, Country, Zip</li>
+                  <li>5. Upload the exported Excel file here</li>
+                  <li>• New clients will be added, existing clients will be updated based on Email or Phone</li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => setShowOdooUploadDialog(false)} variant="outline">
                 Close
               </Button>
             </DialogFooter>

@@ -12,6 +12,7 @@ import chatRouter from "./chat";
 import { z } from "zod";
 // Removed: parseProductData import - legacy CSV parser no longer used
 import { parseCustomerCSV } from "./customer-parser";
+import { parseOdooExcel } from "./odoo-parser";
 
 import { generateQuoteHTMLForDownload, generatePriceListHTML, validateQuoteNumber, generateQuoteNumber } from "./stub-functions";
 import { insertSentQuoteSchema } from "@shared/schema";
@@ -911,16 +912,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     dest: 'uploads/',
     fileFilter: (req, file, cb) => {
       console.log(`File upload check: ${file.originalname}, mimetype: ${file.mimetype}`);
-      // Accept files that end with .csv or have CSV mimetype
-      // Some browsers may not set the correct mimetype for CSV files
-      if (file.originalname.toLowerCase().endsWith('.csv') || 
+      // Accept CSV and Excel files
+      const isCSV = file.originalname.toLowerCase().endsWith('.csv') || 
           file.mimetype === 'text/csv' || 
           file.mimetype === 'application/csv' ||
-          file.mimetype === 'text/plain') {
+          file.mimetype === 'text/plain';
+      
+      const isExcel = file.originalname.toLowerCase().endsWith('.xlsx') ||
+          file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          file.mimetype === 'application/vnd.ms-excel';
+      
+      if (isCSV || isExcel) {
         cb(null, true);
       } else {
         console.log(`File rejected: ${file.originalname} with mimetype ${file.mimetype}`);
-        cb(new Error('Only CSV files are allowed'));
+        cb(new Error('Only CSV and Excel (.xlsx) files are allowed'));
       }
     },
     limits: {
@@ -1522,6 +1528,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.unlinkSync(req.file.path);
       }
       res.status(500).json({ error: "Failed to upload customer data file" });
+    }
+  });
+
+  // Upload Odoo Excel file (Admin only)
+  app.post("/api/admin/upload-odoo-contacts", isAuthenticated, requireAdmin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Read the uploaded Excel file as buffer
+      const fileBuffer = fs.readFileSync(req.file.path);
+      
+      // Use the Odoo parser to process the Excel file
+      const { parseOdooExcel } = await import("./odoo-parser");
+      const { newCustomers, updatedCustomers, errors } = await parseOdooExcel(fileBuffer);
+      
+      // Save the uploaded file for records
+      const targetPath = path.join(process.cwd(), 'attached_assets', 'odoo-contacts_' + Date.now() + '.xlsx');
+      fs.writeFileSync(targetPath, fileBuffer);
+      
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+
+      // Clear cache to ensure fresh customer data
+      setCachedData("customers", null);
+
+      let message: string;
+      if (errors.length > 0) {
+        message = `Odoo contacts uploaded with ${errors.length} errors: ${newCustomers} new customers added, ${updatedCustomers} customers updated. Check logs for error details.`;
+      } else if (newCustomers > 0 && updatedCustomers > 0) {
+        message = `Odoo contacts uploaded successfully: ${newCustomers} new customers added, ${updatedCustomers} customers updated`;
+      } else if (newCustomers > 0) {
+        message = `Odoo contacts uploaded successfully: ${newCustomers} new customers added`;
+      } else if (updatedCustomers > 0) {
+        message = `Odoo contacts uploaded successfully: ${updatedCustomers} customers updated`;
+      } else {
+        message = "No customers were processed. Please check the file format.";
+      }
+
+      res.json({ 
+        message,
+        stats: {
+          newCustomers,
+          updatedCustomers,
+          errors: errors.length,
+          totalCustomers: newCustomers + updatedCustomers
+        }
+      });
+    } catch (error) {
+      console.error("Error uploading Odoo contacts:", error);
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to upload Odoo contacts file" });
     }
   });
 
