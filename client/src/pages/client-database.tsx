@@ -221,17 +221,21 @@ export default function ClientDatabase() {
       const result = await response.json();
       setUploadProgress(100);
       
+      const totalProcessed = result.stats?.totalCustomers || 0;
+      const newCount = result.stats?.newCustomers || 0;
+      const updatedCount = result.stats?.updatedCustomers || 0;
+      
       setUploadResult({
         success: true,
-        message: `Successfully uploaded ${result.recordsProcessed || 0} clients`,
-        count: result.recordsProcessed
+        message: `Successfully processed ${totalProcessed} clients (${newCount} new, ${updatedCount} updated)`,
+        count: totalProcessed
       });
 
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
 
       toast({
         title: "Upload Successful",
-        description: `Processed ${result.recordsProcessed || 0} clients from ${file.name}`,
+        description: `Processed ${totalProcessed} clients from ${file.name}: ${newCount} new, ${updatedCount} updated`,
       });
 
     } catch (error) {
