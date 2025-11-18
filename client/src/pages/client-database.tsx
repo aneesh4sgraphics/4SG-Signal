@@ -447,6 +447,7 @@ export default function ClientDatabase() {
       note: "",
       taxExempt: false,
       tags: "",
+      sources: [],
       createdAt: null,
       updatedAt: null,
     });
