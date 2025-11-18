@@ -670,9 +670,10 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
         errorResponse.details = error.message;
       }
       
-      // In development, include stack trace
-      if (process.env.NODE_ENV === 'development') {
-        errorResponse.stack = error.stack;
+      // Stack traces are NEVER sent to client - only logged server-side
+      // In development, log full stack to console
+      if (process.env.NODE_ENV === 'development' && error.stack) {
+        console.error("Full stack trace:", error.stack);
       }
     }
     

@@ -317,6 +317,7 @@ export const getErrorDetails = (error: any): string => {
     try {
       const parsedError = JSON.parse(error.responseText);
       
+      // Only show sanitized fields from backend (no raw data or stack traces)
       if (parsedError.details) {
         details.push(`Details: ${parsedError.details}`);
       }
@@ -341,8 +342,8 @@ export const getErrorDetails = (error: any): string => {
         details.push(`Duration: ${parsedError.duration}`);
       }
     } catch (e) {
-      // If parsing fails, show raw response
-      details.push(`Response: ${error.responseText}`);
+      // If parsing fails, don't expose raw response - just indicate parse failure
+      details.push('Unable to parse error response');
     }
   }
   
@@ -366,12 +367,10 @@ export const getErrorDetails = (error: any): string => {
     details.push(`Code: ${error.code}`);
   }
   
-  if (error.responseText) {
-    details.push(`Response: ${error.responseText}`);
-  }
-  
+  // DO NOT add raw responseText here - it's handled above in sanitized form
+  // Stack traces are never shown to users - only logged in browser console
   if (error.stack && process.env.NODE_ENV === 'development') {
-    details.push(`\nStack:\n${error.stack}`);
+    console.debug('Client-side error stack:', error.stack);
   }
   
   if (details.length === 0 && error.message) {
