@@ -1,0 +1,2 @@
+Customer ID,First Name,Last Name,Email,Accepts Email Marketing,Default Address Company,Default Address Address1,Default Address Address2,Default Address City,Default Address Province Code,Default Address Country Code,Default Address Zip,Default Address Phone,Phone,Accepts SMS Marketing,Total Spent,Total Orders,Note,Tax Exempt,Tags
+'999999999999,Test,Customer,testcustomer@example.com,yes,Test Company,123 Test St,,Test City,CA,US,90001,'(555) 123-4567,'+15551234567,no,100.00,5,Test customer for upload verification,no,#test
