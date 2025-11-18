@@ -51,6 +51,7 @@ import {
   Phone,
   MapPin,
 } from "lucide-react";
+import { SiShopify, SiOdoo } from "react-icons/si";
 
 import type { Customer } from '@shared/schema';
 
@@ -769,8 +770,8 @@ export default function ClientDatabase() {
                         </div>
                       </div>
                       
-                      {(customer.taxExempt || customer.acceptsEmailMarketing || customer.acceptsSmsMarketing) && (
-                        <div className="flex gap-1 flex-wrap">
+                      {(customer.taxExempt || customer.acceptsEmailMarketing || customer.acceptsSmsMarketing || customer.sources?.length) && (
+                        <div className="flex gap-1 flex-wrap items-center">
                           {customer.taxExempt && (
                             <Badge variant="secondary" className="text-xs">Tax Exempt</Badge>
                           )}
@@ -779,6 +780,16 @@ export default function ClientDatabase() {
                           )}
                           {customer.acceptsSmsMarketing && (
                             <Badge variant="outline" className="text-xs">SMS</Badge>
+                          )}
+                          {customer.sources?.includes('shopify') && (
+                            <div className="flex items-center gap-1 text-green-600" title="Imported from Shopify">
+                              <SiShopify className="h-4 w-4" />
+                            </div>
+                          )}
+                          {customer.sources?.includes('odoo') && (
+                            <div className="flex items-center gap-1 text-purple-600" title="Imported from Odoo">
+                              <SiOdoo className="h-4 w-4" />
+                            </div>
                           )}
                         </div>
                       )}
@@ -818,9 +829,19 @@ export default function ClientDatabase() {
                       </TableCell>
                       <TableCell className="body-sm text-center">{customer.totalOrders}</TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap items-center">
                           {customer.taxExempt && (
                             <Badge variant="secondary" className="text-xs">Tax Exempt</Badge>
+                          )}
+                          {customer.sources?.includes('shopify') && (
+                            <div className="flex items-center gap-1 text-green-600" title="Imported from Shopify">
+                              <SiShopify className="h-4 w-4" />
+                            </div>
+                          )}
+                          {customer.sources?.includes('odoo') && (
+                            <div className="flex items-center gap-1 text-purple-600" title="Imported from Odoo">
+                              <SiOdoo className="h-4 w-4" />
+                            </div>
                           )}
                         </div>
                       </TableCell>
