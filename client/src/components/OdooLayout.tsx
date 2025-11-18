@@ -50,6 +50,7 @@ const mainItems = [
   { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes' },
   { path: '/price-list', icon: DollarSign, label: 'Price List' },
   { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes' },
+  { path: '/clients', icon: Building2, label: 'Client Database' },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator' },
   { path: '/competitor-pricing', icon: TrendingUp, label: 'ComIntel' },
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator' },
@@ -58,7 +59,6 @@ const mainItems = [
 const adminItems = [
   { path: '/admin', icon: Users, label: 'User Management' },
   { path: '/activity-logs', icon: Activity, label: 'Activity Logs' },
-  { path: '/customers', icon: Building2, label: 'Customers' },
   { path: '/product-pricing-management', icon: Database, label: 'Product Pricing' },
 ];
 
