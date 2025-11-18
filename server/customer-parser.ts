@@ -242,7 +242,8 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
         totalOrders: parsedCustomer.totalOrders,
         note: parsedCustomer.note,
         taxExempt: parsedCustomer.taxExempt,
-        tags: parsedCustomer.tags
+        tags: parsedCustomer.tags,
+        sources: ['shopify'] // Mark as Shopify import
       };
 
       parsedCustomers.push({ customerData, lineNumber: i + 1 });
@@ -260,7 +261,7 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
   console.log('Fetching existing customers from database...');
   const startTime = Date.now();
   const allExistingCustomers = await storage.getAllCustomers();
-  const existingCustomerIds = new Set(allExistingCustomers.map(c => c.id));
+  const existingCustomerMap = new Map(allExistingCustomers.map(c => [c.id, c]));
   console.log(`Fetched ${allExistingCustomers.length} existing customers in ${Date.now() - startTime}ms`);
 
   // Separate into new vs existing customers
@@ -268,8 +269,22 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
   const customersToUpdate: Array<{ id: string; data: InsertCustomer }> = [];
 
   for (const { customerData } of parsedCustomers) {
-    if (existingCustomerIds.has(customerData.id)) {
-      customersToUpdate.push({ id: customerData.id, data: customerData });
+    const existingCustomer = existingCustomerMap.get(customerData.id);
+    
+    if (existingCustomer) {
+      // Merge sources: add 'shopify' if not already present
+      const existingSources = existingCustomer.sources || [];
+      const mergedSources = existingSources.includes('shopify') 
+        ? existingSources 
+        : [...existingSources, 'shopify'];
+      
+      customersToUpdate.push({ 
+        id: customerData.id, 
+        data: {
+          ...customerData,
+          sources: mergedSources
+        }
+      });
     } else {
       customersToCreate.push(customerData);
     }

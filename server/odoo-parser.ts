@@ -159,7 +159,8 @@ export async function parseOdooExcel(fileBuffer: Buffer): Promise<{
           totalOrders: 0,
           note: '',
           taxExempt: false,
-          tags: parsedOdoo.salesperson ? `Salesperson: ${parsedOdoo.salesperson}` : ''
+          tags: parsedOdoo.salesperson ? `Salesperson: ${parsedOdoo.salesperson}` : '',
+          sources: ['odoo'] // Mark as Odoo import
         };
 
         parsedCustomers.push({ customerData, lineNumber: i + 2 }); // +2 for header row
@@ -208,12 +209,19 @@ export async function parseOdooExcel(fileBuffer: Buffer): Promise<{
       }
 
       if (existingCustomer) {
+        // Merge sources: add 'odoo' if not already present
+        const existingSources = existingCustomer.sources || [];
+        const mergedSources = existingSources.includes('odoo') 
+          ? existingSources 
+          : [...existingSources, 'odoo'];
+        
         // Update existing customer
         customersToUpdate.push({ 
           id: existingCustomer.id, 
           data: {
             ...customerData,
-            id: existingCustomer.id // Use existing ID
+            id: existingCustomer.id, // Use existing ID
+            sources: mergedSources
           }
         });
       } else {
