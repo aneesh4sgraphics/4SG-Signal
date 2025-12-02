@@ -778,6 +778,77 @@ router.get("/upload-batches/:batchId", isAuthenticated, requireAdmin, async (req
   }
 });
 
+// Update single product pricing (admin only)
+router.patch("/product-pricing/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    console.log(`=== PATCH /api/product-pricing/${id} START ===`);
+    console.log("Updates:", updates);
+    
+    // Validate the update data
+    const validPriceFields = [
+      'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
+      'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 
+      'tierStage15Price', 'tierStage1Price', 'retailPrice',
+      'productName', 'size', 'totalSqm', 'minQuantity'
+    ];
+    
+    const sanitizedUpdates: Record<string, any> = {};
+    for (const key of Object.keys(updates)) {
+      if (validPriceFields.includes(key)) {
+        // Parse price values to ensure they're numbers
+        if (key.includes('Price')) {
+          const value = parseFloat(updates[key]);
+          if (!isNaN(value) && value >= 0) {
+            sanitizedUpdates[key] = value.toString();
+          }
+        } else {
+          sanitizedUpdates[key] = updates[key];
+        }
+      }
+    }
+    
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return res.status(400).json({ 
+        error: "No valid fields to update",
+        details: "Provide at least one valid price field to update"
+      });
+    }
+    
+    // Get the current record to get the itemCode
+    const allPricing = await storage.getAllProductPricingMaster();
+    const currentRecord = allPricing.find(p => p.id === parseInt(id));
+    
+    if (!currentRecord) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    // Update the record
+    await storage.updateProductPricingMasterByItemCode(currentRecord.itemCode, {
+      ...currentRecord,
+      ...sanitizedUpdates,
+      updatedAt: new Date()
+    } as any);
+    
+    console.log(`✓ Updated product pricing for ID ${id} (${currentRecord.itemCode})`);
+    console.log(`=== PATCH /api/product-pricing/${id} END ===`);
+    
+    res.json({ 
+      success: true, 
+      message: "Product pricing updated successfully",
+      updatedFields: Object.keys(sanitizedUpdates)
+    });
+  } catch (error) {
+    console.error("Error updating product pricing:", error);
+    res.status(500).json({ 
+      error: "Failed to update product pricing",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Rollback to specific batch
 router.post("/rollback-batch/:batchId", isAuthenticated, requireAdmin, async (req, res) => {
   try {
