@@ -1,21 +1,21 @@
 import { PricingTier } from '@shared/schema';
 
 // Role-based tier visibility configuration
-// Updated tier names: Export Only, Distributor, Dealer-VIP, Dealer, Shopify Lowest, Shopify3, Shopify2, Shopify1, Shopify-Display, Retail
+// Updated tier names: Export Only, Distributor, Dealer-VIP, Dealer, Shopify Lowest, Shopify3, Shopify2, Shopify1, Shopify-Account, Retail
 export const ROLE_TIER_ACCESS = {
   admin: 'all', // Admin sees all tiers
   user: [
     'Shopify3',
     'Shopify2', 
     'Shopify1',
-    'Shopify-Display',
+    'Shopify-Account',
     'Retail'
   ],
   manager: [
     'Shopify3',
     'Shopify2',
     'Shopify1', 
-    'Shopify-Display',
+    'Shopify-Account',
     'Retail',
     'Shopify Lowest',
     'Dealer',

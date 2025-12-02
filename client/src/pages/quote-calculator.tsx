@@ -83,7 +83,7 @@ const allPricingTiers = [
   { key: 'tierStage25Price', label: 'Shopify3' },
   { key: 'tierStage2Price', label: 'Shopify2' },
   { key: 'tierStage15Price', label: 'Shopify1' },
-  { key: 'tierStage1Price', label: 'Shopify-Display' },
+  { key: 'tierStage1Price', label: 'Shopify-Account' },
   { key: 'retailPrice', label: 'Retail' }
 ];
 

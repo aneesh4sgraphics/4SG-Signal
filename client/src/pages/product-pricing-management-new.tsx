@@ -451,7 +451,7 @@ export default function ProductPricingManagementNew() {
                     <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify3</th>
                     <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify2</th>
                     <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify1</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify-Display</th>
+                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify-Account</th>
                     <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Retail</th>
                   </tr>
                 </thead>

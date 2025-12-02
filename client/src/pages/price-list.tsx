@@ -85,7 +85,7 @@ const allPricingTiers = [
   { key: 'TierStage25', label: 'Shopify3' },
   { key: 'TierStage2', label: 'Shopify2' },
   { key: 'TierStage15', label: 'Shopify1' },
-  { key: 'TierStage1', label: 'Shopify-Display' },
+  { key: 'TierStage1', label: 'Shopify-Account' },
   { key: 'Retail', label: 'Retail' }
 ];
 
