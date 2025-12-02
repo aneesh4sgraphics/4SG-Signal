@@ -19,6 +19,7 @@ import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
 import { EmptyState, getErrorType, getErrorMessage, getErrorDetails } from "@/components/EmptyState";
 import { ApiError } from "@/lib/queryClient";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface ProductData {
   id: number;
@@ -103,6 +104,12 @@ export default function QuoteCalculator() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { logPageView, logQuoteGeneration, logQuoteDownload, logUserAction } = useActivityLogger();
+
+  // Log page view on mount
+  useEffect(() => {
+    logPageView("Quote Calculator");
+  }, [logPageView]);
 
   // Reset all selections
   const resetSelections = () => {
@@ -430,6 +437,8 @@ export default function QuoteCalculator() {
       return { success: true };
     },
     onSuccess: () => {
+      const customerName = selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Customer';
+      logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
       toast({
         title: "PDF Downloaded",
         description: "Quote HTML file has been downloaded - open it and print to PDF",
@@ -527,6 +536,9 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
     
     // Open default email client
     window.location.href = mailtoLink;
+    
+    // Log quote email activity
+    logUserAction("Composed email quote", `Quote ${quoteNumber} for ${customerName}`);
     
     // Show success message
     toast({
