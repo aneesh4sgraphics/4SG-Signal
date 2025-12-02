@@ -785,29 +785,43 @@ router.patch("/product-pricing/:id", isAuthenticated, requireAdmin, async (req: 
     const updates = req.body;
     
     console.log(`=== PATCH /api/product-pricing/${id} START ===`);
-    console.log("Updates:", updates);
+    console.log("Updates received:", updates);
     
-    // Validate the update data
+    // First, get the current record to merge with
+    const allPricing = await storage.getAllProductPricingMaster();
+    const currentRecord = allPricing.find(p => p.id === parseInt(id));
+    
+    if (!currentRecord) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    // Validate and sanitize price updates
     const validPriceFields = [
       'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
       'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 
-      'tierStage15Price', 'tierStage1Price', 'retailPrice',
-      'productName', 'size', 'totalSqm', 'minQuantity'
+      'tierStage15Price', 'tierStage1Price', 'retailPrice'
     ];
     
-    const sanitizedUpdates: Record<string, any> = {};
-    for (const key of Object.keys(updates)) {
-      if (validPriceFields.includes(key)) {
-        // Parse price values to ensure they're numbers
-        if (key.includes('Price')) {
-          const value = parseFloat(updates[key]);
-          if (!isNaN(value) && value >= 0) {
-            sanitizedUpdates[key] = value.toString();
-          }
+    const sanitizedUpdates: Record<string, string> = {};
+    const invalidFields: string[] = [];
+    
+    for (const key of validPriceFields) {
+      if (key in updates) {
+        const value = parseFloat(updates[key]);
+        if (isNaN(value) || value < 0) {
+          invalidFields.push(key);
         } else {
-          sanitizedUpdates[key] = updates[key];
+          sanitizedUpdates[key] = value.toString();
         }
       }
+    }
+    
+    if (invalidFields.length > 0) {
+      return res.status(400).json({ 
+        error: "Invalid price values",
+        details: `The following fields have invalid values: ${invalidFields.join(', ')}`,
+        suggestion: "All price fields must be valid positive numbers"
+      });
     }
     
     if (Object.keys(sanitizedUpdates).length === 0) {
@@ -817,20 +831,42 @@ router.patch("/product-pricing/:id", isAuthenticated, requireAdmin, async (req: 
       });
     }
     
-    // Get the current record to get the itemCode
-    const allPricing = await storage.getAllProductPricingMaster();
-    const currentRecord = allPricing.find(p => p.id === parseInt(id));
+    // Helper to safely get existing numeric value as string
+    const getExistingPrice = (value: any): string => {
+      if (value === null || value === undefined) return '0';
+      const num = parseFloat(String(value));
+      return isNaN(num) ? '0' : num.toString();
+    };
     
-    if (!currentRecord) {
-      return res.status(404).json({ error: "Product not found" });
-    }
+    // Build complete record with existing data + only the validated updates
+    const completeRecord: any = {
+      itemCode: currentRecord.itemCode,
+      productName: currentRecord.productName,
+      productType: currentRecord.productType,
+      productTypeId: currentRecord.productTypeId,
+      size: currentRecord.size,
+      totalSqm: getExistingPrice(currentRecord.totalSqm),
+      minQuantity: currentRecord.minQuantity || 50,
+      // For each price field: use update if provided, otherwise keep existing value
+      exportPrice: sanitizedUpdates.exportPrice !== undefined ? sanitizedUpdates.exportPrice : getExistingPrice(currentRecord.exportPrice),
+      masterDistributorPrice: sanitizedUpdates.masterDistributorPrice !== undefined ? sanitizedUpdates.masterDistributorPrice : getExistingPrice(currentRecord.masterDistributorPrice),
+      dealerPrice: sanitizedUpdates.dealerPrice !== undefined ? sanitizedUpdates.dealerPrice : getExistingPrice(currentRecord.dealerPrice),
+      dealer2Price: sanitizedUpdates.dealer2Price !== undefined ? sanitizedUpdates.dealer2Price : getExistingPrice(currentRecord.dealer2Price),
+      approvalNeededPrice: sanitizedUpdates.approvalNeededPrice !== undefined ? sanitizedUpdates.approvalNeededPrice : getExistingPrice(currentRecord.approvalNeededPrice),
+      tierStage25Price: sanitizedUpdates.tierStage25Price !== undefined ? sanitizedUpdates.tierStage25Price : getExistingPrice(currentRecord.tierStage25Price),
+      tierStage2Price: sanitizedUpdates.tierStage2Price !== undefined ? sanitizedUpdates.tierStage2Price : getExistingPrice(currentRecord.tierStage2Price),
+      tierStage15Price: sanitizedUpdates.tierStage15Price !== undefined ? sanitizedUpdates.tierStage15Price : getExistingPrice(currentRecord.tierStage15Price),
+      tierStage1Price: sanitizedUpdates.tierStage1Price !== undefined ? sanitizedUpdates.tierStage1Price : getExistingPrice(currentRecord.tierStage1Price),
+      retailPrice: sanitizedUpdates.retailPrice !== undefined ? sanitizedUpdates.retailPrice : getExistingPrice(currentRecord.retailPrice),
+      uploadBatch: currentRecord.uploadBatch,
+      rowHash: currentRecord.rowHash,
+      sortOrder: currentRecord.sortOrder,
+    };
     
-    // Update the record
-    await storage.updateProductPricingMasterByItemCode(currentRecord.itemCode, {
-      ...currentRecord,
-      ...sanitizedUpdates,
-      updatedAt: new Date()
-    } as any);
+    console.log("Merged record:", completeRecord);
+    
+    // Update the record with complete data
+    await storage.updateProductPricingMasterByItemCode(currentRecord.itemCode, completeRecord);
     
     console.log(`✓ Updated product pricing for ID ${id} (${currentRecord.itemCode})`);
     console.log(`=== PATCH /api/product-pricing/${id} END ===`);

@@ -7,11 +7,13 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package, Edit2, Save, X, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ProductPricingMaster {
   id: number;
@@ -74,6 +76,125 @@ interface UploadBatch {
   createdAt: string;
 }
 
+// Pricing tier labels for display
+const TIER_LABELS: Record<string, string> = {
+  exportPrice: 'Export Only',
+  masterDistributorPrice: 'Distributor',
+  dealerPrice: 'Dealer-VIP',
+  dealer2Price: 'Dealer',
+  approvalNeededPrice: 'Shopify Lowest',
+  tierStage25Price: 'Shopify3',
+  tierStage2Price: 'Shopify2',
+  tierStage15Price: 'Shopify1',
+  tierStage1Price: 'Shopify-Account',
+  retailPrice: 'Retail',
+};
+
+// Compact Product Pricing Card Component
+function ProductPricingCard({
+  item,
+  isEditing,
+  editValues,
+  onEdit,
+  onSave,
+  onCancel,
+  onValueChange,
+  isSaving
+}: {
+  item: ProductPricingMaster;
+  isEditing: boolean;
+  editValues: Record<string, string>;
+  onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onValueChange: (field: string, value: string) => void;
+  isSaving: boolean;
+}) {
+  const priceFields = [
+    { key: 'exportPrice', value: item.exportPrice },
+    { key: 'masterDistributorPrice', value: item.masterDistributorPrice },
+    { key: 'dealerPrice', value: item.dealerPrice },
+    { key: 'dealer2Price', value: item.dealer2Price },
+    { key: 'approvalNeededPrice', value: item.approvalNeededPrice },
+    { key: 'tierStage25Price', value: item.tierStage25Price },
+    { key: 'tierStage2Price', value: item.tierStage2Price },
+    { key: 'tierStage15Price', value: item.tierStage15Price },
+    { key: 'tierStage1Price', value: item.tierStage1Price },
+    { key: 'retailPrice', value: item.retailPrice },
+  ];
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow" data-testid={`card-product-${item.id}`}>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{item.itemCode}</span>
+            <Badge variant="outline" className="text-[10px] px-1 py-0">{item.size}</Badge>
+          </div>
+          <h3 className="text-sm font-medium text-gray-800 truncate mt-1" title={item.productName}>
+            {item.productName}
+          </h3>
+          <p className="text-[10px] text-gray-500">{item.productType}</p>
+        </div>
+        {!isEditing ? (
+          <button
+            onClick={onEdit}
+            className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+            title="Edit pricing"
+            data-testid={`button-edit-${item.id}`}
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <div className="flex gap-1">
+            <button
+              onClick={onSave}
+              disabled={isSaving}
+              className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+              title="Save changes"
+              data-testid={`button-save-${item.id}`}
+            >
+              <Save className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={isSaving}
+              className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+              title="Cancel"
+              data-testid={`button-cancel-${item.id}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Price Grid */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 pt-2 border-t border-gray-100">
+        {priceFields.map(({ key, value }) => (
+          <div key={key} className="flex items-center justify-between">
+            <span className="text-[10px] text-gray-500 truncate">{TIER_LABELS[key]}</span>
+            {isEditing ? (
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editValues[key] || ''}
+                onChange={(e) => onValueChange(key, e.target.value)}
+                className="w-16 text-right text-xs px-1 py-0.5 border border-gray-300 rounded focus:border-purple-500 focus:ring-1 focus:ring-purple-200"
+                data-testid={`input-${key}-${item.id}`}
+              />
+            ) : (
+              <span className="text-xs font-medium text-gray-700">${Number(value).toFixed(2)}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductPricingManagementNew() {
   const [isUploading, setIsUploading] = useState(false);
   const [clearDatabase, setClearDatabase] = useState(false);
@@ -83,6 +204,9 @@ export default function ProductPricingManagementNew() {
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<UploadBatch | null>(null);
   const [showBatchDetails, setShowBatchDetails] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -142,6 +266,118 @@ export default function ProductPricingManagementNew() {
       });
     },
   });
+
+  // Update pricing mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: number; updates: Record<string, string> }) => {
+      return await apiRequest('PATCH', `/api/product-pricing/${id}`, updates);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Price Updated",
+        description: "Product pricing has been saved successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database', (user as any)?.id] });
+      setEditingId(null);
+      setEditValues({});
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Filter products by search term
+  const filteredPricingData = pricingData.filter(item => 
+    searchTerm === "" ||
+    item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.productType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.size.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Editing functions
+  const startEditing = (item: ProductPricingMaster) => {
+    setEditingId(item.id);
+    setEditValues({
+      exportPrice: item.exportPrice.toString(),
+      masterDistributorPrice: item.masterDistributorPrice.toString(),
+      dealerPrice: item.dealerPrice.toString(),
+      dealer2Price: item.dealer2Price.toString(),
+      approvalNeededPrice: item.approvalNeededPrice.toString(),
+      tierStage25Price: item.tierStage25Price.toString(),
+      tierStage2Price: item.tierStage2Price.toString(),
+      tierStage15Price: item.tierStage15Price.toString(),
+      tierStage1Price: item.tierStage1Price.toString(),
+      retailPrice: item.retailPrice.toString(),
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditValues({});
+  };
+
+  const saveChanges = (id: number) => {
+    // Find the original item to compare changes
+    const originalItem = pricingData.find(p => p.id === id);
+    if (!originalItem) return;
+    
+    // Validate all price fields and only include changed ones
+    const invalidFields: string[] = [];
+    const changedUpdates: Record<string, string> = {};
+    
+    const priceFields = [
+      'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
+      'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price',
+      'tierStage15Price', 'tierStage1Price', 'retailPrice'
+    ];
+    
+    for (const key of priceFields) {
+      const newValue = editValues[key];
+      const originalValue = (originalItem as any)[key];
+      
+      // Skip if value is empty string
+      if (newValue === '' || newValue === undefined) {
+        invalidFields.push(TIER_LABELS[key] || key);
+        continue;
+      }
+      
+      const numValue = parseFloat(newValue);
+      if (isNaN(numValue) || numValue < 0) {
+        invalidFields.push(TIER_LABELS[key] || key);
+      } else {
+        // Only include if value has actually changed
+        const originalNum = parseFloat(String(originalValue || 0));
+        if (Math.abs(numValue - originalNum) > 0.001) {
+          changedUpdates[key] = numValue.toFixed(2);
+        }
+      }
+    }
+    
+    if (invalidFields.length > 0) {
+      toast({
+        title: "Invalid Prices",
+        description: `Please enter valid prices for: ${invalidFields.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (Object.keys(changedUpdates).length === 0) {
+      toast({
+        title: "No Changes",
+        description: "No prices were modified.",
+      });
+      cancelEditing();
+      return;
+    }
+    
+    updateMutation.mutate({ id, updates: changedUpdates });
+  };
 
   const stats = {
     totalProducts: pricingData.length,
@@ -427,56 +663,55 @@ export default function ProductPricingManagementNew() {
         </div>
       </SimpleCardFrame>
 
-      {/* Data Preview */}
+      {/* Data Preview - Compact Cards */}
       {pricingData.length > 0 && (
         <SimpleCardFrame className="p-4">
-          <h2 className="text-base font-medium text-gray-800 mb-1 flex items-center gap-2">
-            <IconBadge icon={Database} label="Data Preview" className="px-0 py-0 bg-transparent border-none text-base font-medium text-gray-800" />
-          </h2>
-          <p className="text-xs text-gray-500 mb-3">Current pricing data in database (showing all {pricingData.length} products)</p>
-          <SectionDivider />
-          <div className="overflow-x-auto">
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Item Code</th>
-                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Product Name</th>
-                    <th className="text-xs font-medium text-gray-800 text-left py-1 px-2 whitespace-nowrap">Size</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Export Only</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Distributor</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Dealer-VIP</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Dealer</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify Lowest</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify3</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify2</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify1</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Shopify-Account</th>
-                    <th className="text-xs font-medium text-gray-800 text-right py-1 px-2 whitespace-nowrap">Retail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricingData.map((item, index) => (
-                    <tr key={item.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="font-mono text-xs text-gray-600 py-1 px-2 whitespace-nowrap">{item.itemCode}</td>
-                      <td className="text-xs text-gray-800 py-1 px-2 truncate max-w-[150px]" title={item.productName}>{item.productName}</td>
-                      <td className="text-xs text-gray-600 py-1 px-2 whitespace-nowrap">{item.size}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.exportPrice}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.masterDistributorPrice}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealerPrice}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.dealer2Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.approvalNeededPrice}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage25Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage2Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage15Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.tierStage1Price}</td>
-                      <td className="text-xs text-gray-600 text-right py-1 px-2">${item.retailPrice}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-base font-medium text-gray-800 flex items-center gap-2">
+                <IconBadge icon={Database} label="Product Pricing" className="px-0 py-0 bg-transparent border-none text-base font-medium text-gray-800" />
+              </h2>
+              <p className="text-xs text-gray-500">{pricingData.length} products in database</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-7 h-8 text-xs w-48"
+                  data-testid="input-search-products"
+                />
+              </div>
             </div>
           </div>
+          <SectionDivider />
+          
+          {/* Compact Card Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-3 max-h-[600px] overflow-y-auto">
+            {filteredPricingData.map((item) => (
+              <ProductPricingCard
+                key={item.id}
+                item={item}
+                isEditing={editingId === item.id}
+                editValues={editValues}
+                onEdit={() => startEditing(item)}
+                onSave={() => saveChanges(item.id)}
+                onCancel={cancelEditing}
+                onValueChange={(field, value) => setEditValues(prev => ({ ...prev, [field]: value }))}
+                isSaving={updateMutation.isPending}
+              />
+            ))}
+          </div>
+          
+          {filteredPricingData.length === 0 && searchTerm && (
+            <div className="text-center py-8 text-gray-500">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No products found matching "{searchTerm}"</p>
+            </div>
+          )}
         </SimpleCardFrame>
       )}
 
