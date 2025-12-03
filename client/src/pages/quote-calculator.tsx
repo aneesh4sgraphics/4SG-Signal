@@ -424,46 +424,58 @@ export default function QuoteCalculator() {
       const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
       const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      // Use XMLHttpRequest for more reliable file download
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/generate-pdf-quote', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.responseType = 'blob';
+      xhr.withCredentials = true;
       
-      const response = await fetch('/api/generate-pdf-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        signal: controller.signal,
-        body: JSON.stringify({
-          customerName,
-          customerEmail: selectedCustomer?.email || null,
-          quoteItems: itemsToUse,
-          totalAmount
-        })
-      });
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          const blob = xhr.response;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
+          a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          
+          logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
+          toast({
+            title: "PDF Downloaded",
+            description: "Quote PDF has been downloaded successfully",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to generate PDF. Please try again.",
+            variant: "destructive",
+          });
+        }
+        setIsPDFGenerating(false);
+      };
       
-      clearTimeout(timeoutId);
+      xhr.onerror = function() {
+        console.error('XHR Error');
+        toast({
+          title: "Error",
+          description: "Network error. Please check your connection and try again.",
+          variant: "destructive",
+        });
+        setIsPDFGenerating(false);
+      };
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to generate PDF');
-      }
+      xhr.send(JSON.stringify({
+        customerName,
+        customerEmail: selectedCustomer?.email || null,
+        quoteItems: itemsToUse,
+        totalAmount
+      }));
       
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      
-      logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
-      toast({
-        title: "PDF Downloaded",
-        description: "Quote PDF has been downloaded successfully",
-      });
     } catch (error) {
       console.error('PDF Generation Error:', error);
       toast({
@@ -471,7 +483,6 @@ export default function QuoteCalculator() {
         description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsPDFGenerating(false);
     }
   };
