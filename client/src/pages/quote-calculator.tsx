@@ -424,78 +424,60 @@ export default function QuoteCalculator() {
       const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
       const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
       
-      // Use XMLHttpRequest for more reliable file download
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/generate-pdf-quote', true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.responseType = 'blob';
-      xhr.withCredentials = true;
-      xhr.timeout = 60000; // 60 second timeout
+      // Use fetch API with proper error handling
+      const response = await fetch('/api/generate-pdf-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          customerName,
+          customerEmail: selectedCustomer?.email || null,
+          quoteItems: itemsToUse,
+          totalAmount
+        })
+      });
       
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          const blob = xhr.response;
-          if (blob.size === 0) {
-            toast({
-              title: "Error",
-              description: "Received empty PDF. Please try again.",
-              variant: "destructive",
-            });
-            setIsPDFGenerating(false);
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-          a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-          
-          logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
-          toast({
-            title: "PDF Downloaded",
-            description: "Quote PDF has been downloaded successfully",
-          });
-        } else {
-          console.error('PDF Generation failed with status:', xhr.status);
-          toast({
-            title: "Error",
-            description: `Failed to generate PDF (Error ${xhr.status}). Please try again.`,
-            variant: "destructive",
-          });
-        }
-        setIsPDFGenerating(false);
-      };
-      
-      xhr.onerror = function() {
-        console.error('XHR Network Error - readyState:', xhr.readyState, 'status:', xhr.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('PDF Generation failed:', response.status, errorText);
         toast({
-          title: "Network Error",
-          description: "Could not connect to server. Please refresh the page and try again.",
+          title: "Error",
+          description: `Failed to generate PDF (Error ${response.status}). Please try again.`,
           variant: "destructive",
         });
         setIsPDFGenerating(false);
-      };
+        return;
+      }
       
-      xhr.ontimeout = function() {
-        console.error('XHR Timeout');
+      const blob = await response.blob();
+      if (blob.size === 0) {
         toast({
-          title: "Timeout",
-          description: "Request took too long. Please try again.",
+          title: "Error",
+          description: "Received empty PDF. Please try again.",
           variant: "destructive",
         });
         setIsPDFGenerating(false);
-      };
+        return;
+      }
       
-      xhr.send(JSON.stringify({
-        customerName,
-        customerEmail: selectedCustomer?.email || null,
-        quoteItems: itemsToUse,
-        totalAmount
-      }));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
+      a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      
+      logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
+      toast({
+        title: "PDF Downloaded",
+        description: "Quote PDF has been downloaded successfully",
+      });
+      setIsPDFGenerating(false);
       
     } catch (error) {
       console.error('PDF Generation Error:', error);
