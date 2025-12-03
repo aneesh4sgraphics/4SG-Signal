@@ -396,63 +396,85 @@ export default function QuoteCalculator() {
 
   const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
 
-  const generatePDFMutation = useMutation({
-    mutationFn: async () => {
-      if (quoteItems.length === 0) {
-        throw new Error('No items in quote to generate PDF');
-      }
+  const [isPDFGenerating, setIsPDFGenerating] = useState(false);
+  
+  const handleDownloadPDF = async () => {
+    if (quoteItems.length === 0) {
+      toast({
+        title: "No Items",
+        description: "Please add items to your quote first",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      if (!selectedCustomer) {
-        throw new Error('Please select a client from the Client Database before downloading the quote');
-      }
+    if (!selectedCustomer) {
+      toast({
+        title: "No Client Selected",
+        description: "Please select a client from the Client Database before downloading",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    setIsPDFGenerating(true);
+    
+    try {
       const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
       const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
+      const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       
       const response = await fetch('/api/generate-pdf-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        signal: controller.signal,
         body: JSON.stringify({
-          customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : "Customer",
+          customerName,
           customerEmail: selectedCustomer?.email || null,
           quoteItems: itemsToUse,
           totalAmount
         })
       });
       
-      if (!response.ok) throw new Error('Failed to generate PDF');
+      clearTimeout(timeoutId);
       
-      // Handle PDF file download
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to generate PDF');
+      }
+      
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const customerName = selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}`.replace(/[^a-zA-Z0-9]/g, '_') : 'Customer';
-      a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${customerName}.pdf`;
+      const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
+      a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
       
-      return { success: true };
-    },
-    onSuccess: () => {
-      const customerName = selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Customer';
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      
       logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
       toast({
         title: "PDF Downloaded",
         description: "Quote PDF has been downloaded successfully",
       });
-    },
-    onError: (error) => {
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate PDF",
+        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsPDFGenerating(false);
     }
-  });
+  };
 
   const handleEmailQuote = async () => {
     if (quoteItems.length === 0) {
@@ -1444,12 +1466,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => generatePDFMutation.mutate()}
-                  disabled={generatePDFMutation.isPending}
+                  onClick={handleDownloadPDF}
+                  disabled={isPDFGenerating}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Download className="h-4 w-4" />
-                  Download PDF
+                  {isPDFGenerating ? 'Generating...' : 'Download PDF'}
                 </button>
                 <button
                   onClick={handleEmailQuote}
