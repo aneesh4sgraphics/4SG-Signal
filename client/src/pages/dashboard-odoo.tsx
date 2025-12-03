@@ -223,17 +223,19 @@ export default function Dashboard() {
           {mainApps.map((app) => {
             const Icon = app.icon;
             return (
-              <Link key={app.path} href={app.path}>
-                <a className="group modern-card hover:border-black hover:shadow-md cursor-pointer transition-all duration-200 block">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`icon-container ${app.color} text-white`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-200" />
+              <Link 
+                key={app.path} 
+                href={app.path}
+                className="group modern-card hover:border-black hover:shadow-md cursor-pointer transition-all duration-200 block"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`icon-container ${app.color} text-white`}>
+                    <Icon className="h-6 w-6" />
                   </div>
-                  <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
-                  <p className="body-sm text-gray-600">{app.description}</p>
-                </a>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-200" />
+                </div>
+                <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
+                <p className="body-sm text-gray-600">{app.description}</p>
               </Link>
             );
           })}
@@ -257,21 +259,23 @@ export default function Dashboard() {
             {adminApps.map((app) => {
               const Icon = app.icon;
               return (
-                <Link key={app.path} href={app.path}>
-                  <a className="group bold-card hover:shadow-lg cursor-pointer transition-all duration-200 block">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`icon-container ${app.color} text-white`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <Badge className="badge-modern badge-primary">Admin</Badge>
+                <Link 
+                  key={app.path} 
+                  href={app.path}
+                  className="group bold-card hover:shadow-lg cursor-pointer transition-all duration-200 block"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`icon-container ${app.color} text-white`}>
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
-                    <p className="body-sm text-gray-600">{app.description}</p>
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center text-primary font-medium body-sm group-hover:gap-2 transition-all duration-200">
-                      <span>Open</span>
-                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </a>
+                    <Badge className="badge-modern badge-primary">Admin</Badge>
+                  </div>
+                  <h3 className="heading-sm mb-2 group-hover:text-primary transition-colors">{app.title}</h3>
+                  <p className="body-sm text-gray-600">{app.description}</p>
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex items-center text-primary font-medium body-sm group-hover:gap-2 transition-all duration-200">
+                    <span>Open</span>
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 </Link>
               );
             })}
