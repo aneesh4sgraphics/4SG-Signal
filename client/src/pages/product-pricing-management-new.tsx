@@ -240,7 +240,16 @@ export default function ProductPricingManagementNew() {
         },
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch pricing data');
+        // Try to get error details from response
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // Response wasn't JSON
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       const result = await response.json();
       return result.data || []; // Extract data from response wrapper

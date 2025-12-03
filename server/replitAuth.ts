@@ -56,6 +56,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: true,
+      sameSite: 'lax', // Required for same-site cookies with secure flag
       maxAge: sessionTtl,
     },
   });
