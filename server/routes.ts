@@ -2221,7 +2221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rowHeight = Math.max(20, descLines * 12 + 8);
         
         doc.fontSize(9).font('Helvetica').fillColor(textDark);
-        doc.text(productCode.substring(0, 12), colX.code, yPos, { width: colWidths.code - 5 });
+        doc.fontSize(7).text(productCode.substring(0, 15), colX.code, yPos + 1, { width: colWidths.code - 2 });
+        doc.fontSize(9);
         doc.text(description, colX.desc, yPos, { width: colWidths.desc - 5 });
         doc.text(qty.toFixed(2), colX.qty, yPos, { width: colWidths.qty, align: 'right' });
         doc.text(uom, colX.uom + 5, yPos, { width: colWidths.uom });
