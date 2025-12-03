@@ -430,10 +430,20 @@ export default function QuoteCalculator() {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.responseType = 'blob';
       xhr.withCredentials = true;
+      xhr.timeout = 60000; // 60 second timeout
       
       xhr.onload = function() {
         if (xhr.status === 200) {
           const blob = xhr.response;
+          if (blob.size === 0) {
+            toast({
+              title: "Error",
+              description: "Received empty PDF. Please try again.",
+              variant: "destructive",
+            });
+            setIsPDFGenerating(false);
+            return;
+          }
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -450,9 +460,10 @@ export default function QuoteCalculator() {
             description: "Quote PDF has been downloaded successfully",
           });
         } else {
+          console.error('PDF Generation failed with status:', xhr.status);
           toast({
             title: "Error",
-            description: "Failed to generate PDF. Please try again.",
+            description: `Failed to generate PDF (Error ${xhr.status}). Please try again.`,
             variant: "destructive",
           });
         }
@@ -460,10 +471,20 @@ export default function QuoteCalculator() {
       };
       
       xhr.onerror = function() {
-        console.error('XHR Error');
+        console.error('XHR Network Error - readyState:', xhr.readyState, 'status:', xhr.status);
         toast({
-          title: "Error",
-          description: "Network error. Please check your connection and try again.",
+          title: "Network Error",
+          description: "Could not connect to server. Please refresh the page and try again.",
+          variant: "destructive",
+        });
+        setIsPDFGenerating(false);
+      };
+      
+      xhr.ontimeout = function() {
+        console.error('XHR Timeout');
+        toast({
+          title: "Timeout",
+          description: "Request took too long. Please try again.",
           variant: "destructive",
         });
         setIsPDFGenerating(false);
