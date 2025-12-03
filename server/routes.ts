@@ -2225,7 +2225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         doc.text(description, colX.desc, yPos, { width: colWidths.desc - 5 });
         doc.text(qty.toFixed(2), colX.qty, yPos, { width: colWidths.qty, align: 'right' });
         doc.text(uom, colX.uom + 5, yPos, { width: colWidths.uom });
-        doc.text(unitPrice.toFixed(4), colX.price, yPos, { width: colWidths.price, align: 'right' });
+        doc.text(`$ ${unitPrice.toFixed(4)}`, colX.price, yPos, { width: colWidths.price, align: 'right' });
         doc.text(`$ ${amount.toFixed(2)}`, colX.amount, yPos, { width: colWidths.amount, align: 'right' });
         
         yPos += rowHeight;
