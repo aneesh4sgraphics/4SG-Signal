@@ -2051,11 +2051,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quoteNum = Math.floor(10000 + Math.random() * 90000);
       const finalQuoteNumber = `S0${quoteNum}`;
       
-      // Calculate totals
-      const untaxedAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
-      const taxRate = 0.15;
-      const taxAmount = untaxedAmount * taxRate;
-      const totalAmount = untaxedAmount + taxAmount;
+      // Calculate totals (no tax)
+      const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
       
       // Save quote to database (non-blocking - don't wait for it)
       storage.upsertSentQuote({
@@ -2266,23 +2263,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalsLabelWidth = 120;
       const totalsAmountWidth = 80;
       
-      // Untaxed Amount row
-      doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).fill('#f5f5f5');
-      doc.fontSize(10).font('Helvetica').fillColor(textDark);
-      doc.text('Untaxed Amount', totalsStartX + 8, yPos + 6, { width: totalsLabelWidth - 10 });
-      doc.text(`$ ${untaxedAmount.toFixed(2)}`, totalsStartX + totalsLabelWidth, yPos + 6, { width: totalsAmountWidth - 8, align: 'right' });
-      
-      // Tax row
-      yPos += 22;
-      doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).fill('#ffffff');
-      doc.lineWidth(0.5).strokeColor(borderColor).rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).stroke();
-      doc.fillColor(textDark);
-      doc.text('Tax 15%', totalsStartX + 8, yPos + 6, { width: totalsLabelWidth - 10 });
-      doc.text(`$ ${taxAmount.toFixed(2)}`, totalsStartX + totalsLabelWidth, yPos + 6, { width: totalsAmountWidth - 8, align: 'right' });
-      
       // Total row (green text)
-      yPos += 22;
-      doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).fill('#ffffff');
+      doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).fill('#f5f5f5');
       doc.lineWidth(0.5).strokeColor(borderColor).rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).stroke();
       doc.fontSize(10).font('Helvetica-Bold').fillColor(brandGreen);
       doc.text('Total', totalsStartX + 8, yPos + 6, { width: totalsLabelWidth - 10 });
