@@ -26,6 +26,8 @@ const allowedOrigins = [
   process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : '',
   // Add the deployed URL directly as fallback
   'https://4sgraphics.replit.app',
+  // Custom domain
+  'https://quote.4sgraphics.com',
 ].filter(Boolean);
 
 app.use(cors({
@@ -35,6 +37,11 @@ app.use(cors({
     
     // Allow any replit.dev domain (development environments)
     if (origin.endsWith('.replit.dev') || origin.endsWith('.repl.co') || origin.endsWith('.replit.app')) {
+      return cb(null, true);
+    }
+    
+    // Allow custom 4sgraphics domains
+    if (origin.endsWith('.4sgraphics.com') || origin === 'https://4sgraphics.com') {
       return cb(null, true);
     }
     
