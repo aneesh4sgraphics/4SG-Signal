@@ -513,15 +513,29 @@ export default function QuoteCalculator() {
       // Generate email content
       const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
       
-      // Generate quote number on server side to ensure uniqueness
-      const quoteNumberResponse = await fetch('/api/generate-quote-number', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({})
-      });
-      
-      const { quoteNumber } = await quoteNumberResponse.json();
+      // Generate quote number - try server first, fallback to client-side
+      let quoteNumber: string;
+      try {
+        const quoteNumberResponse = await fetch('/api/generate-quote-number', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({})
+        });
+        
+        if (quoteNumberResponse.ok) {
+          const data = await quoteNumberResponse.json();
+          quoteNumber = data.quoteNumber;
+        } else {
+          // Fallback to client-side generation
+          const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+          quoteNumber = Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+        }
+      } catch {
+        // Fallback to client-side generation if server is unreachable
+        const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        quoteNumber = Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      }
     const currentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
