@@ -49,6 +49,17 @@ function setCachedData(key: string, data: any) {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
+// Pre-load logo buffer at startup for fast PDF generation
+let cachedLogoBuffer: Buffer | null = null;
+const logoPath = path.join(process.cwd(), 'attached_assets', '4s_logo_Clean_120x_1764801255491.png');
+try {
+  if (fs.existsSync(logoPath)) {
+    cachedLogoBuffer = fs.readFileSync(logoPath);
+  }
+} catch (e) {
+  console.log('Logo not found for caching, will use text fallback');
+}
+
 function convertQuotesToCSV(quotes: any[]): string {
   if (quotes.length === 0) {
     return 'No quotes found\n';
@@ -2021,10 +2032,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate PDF quote using pdfkit (no Chromium required)
+  // Generate PDF quote using pdfkit (optimized for speed)
   app.post("/api/generate-pdf-quote", isAuthenticated, async (req: any, res) => {
     try {
-      console.log('📄 Starting PDF quote generation with pdfkit...');
       const { customerName, customerEmail, quoteItems, sentVia } = req.body;
       
       if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
@@ -2047,8 +2057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const taxAmount = untaxedAmount * taxRate;
       const totalAmount = untaxedAmount + taxAmount;
       
-      // Save quote to database
-      await storage.upsertSentQuote({
+      // Save quote to database (non-blocking - don't wait for it)
+      storage.upsertSentQuote({
         quoteNumber: finalQuoteNumber,
         customerName,
         customerEmail: customerEmail || null,
@@ -2056,14 +2066,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalAmount: totalAmount.toString(),
         sentVia: sentVia || 'pdf',
         status: 'sent'
-      });
+      }).catch(err => console.error('Failed to save quote:', err));
       
       // Generate filename
       const currentDate = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }).replace(/\//g, '-');
       const sanitizedCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
       const filename = `QuickQuotes_4SGraphics_${currentDate}_for_${sanitizedCustomerName}.pdf`;
-      
-      console.log('📝 Generating PDF with pdfkit...');
 
       // Brand colors matching Odoo invoice style
       const brandGreen = '#00945f';
@@ -2071,11 +2079,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const textMuted = '#666666';
       const borderColor = '#cccccc';
 
-      // Create PDF using pdfkit
+      // Create PDF using pdfkit (optimized settings)
       const doc = new PDFDocument({ 
         size: 'A4', 
         margins: { top: 40, bottom: 60, left: 40, right: 40 },
-        bufferPages: true
+        autoFirstPage: true,
+        compress: true
       });
       
       // Collect PDF into buffer
@@ -2093,16 +2102,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const contentWidth = rightMargin - leftMargin;
 
       // === HEADER SECTION ===
-      // Try to load logo image
-      const logoPath = path.join(process.cwd(), 'attached_assets', '4s_logo_Clean_120x_1764801255491.png');
+      // Use pre-cached logo buffer for speed
       let logoLoaded = false;
-      try {
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, leftMargin, 30, { width: 45 });
+      if (cachedLogoBuffer) {
+        try {
+          doc.image(cachedLogoBuffer, leftMargin, 30, { width: 45 });
           logoLoaded = true;
-        }
-      } catch (e) {
-        console.log('Logo not found, using text fallback');
+        } catch (e) { /* ignore logo errors */ }
       }
       
       // Company name and address next to logo
