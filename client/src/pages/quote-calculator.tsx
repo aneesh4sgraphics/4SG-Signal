@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -397,6 +397,7 @@ export default function QuoteCalculator() {
   const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
 
   const [isPDFGenerating, setIsPDFGenerating] = useState(false);
+  const pdfAbortControllerRef = useRef<AbortController | null>(null);
   
   const handleDownloadPDF = async () => {
     if (quoteItems.length === 0) {
@@ -417,6 +418,20 @@ export default function QuoteCalculator() {
       return;
     }
 
+    // Prevent multiple concurrent requests
+    if (isPDFGenerating) {
+      return;
+    }
+
+    // Abort any previous request
+    if (pdfAbortControllerRef.current) {
+      pdfAbortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    pdfAbortControllerRef.current = abortController;
+
     setIsPDFGenerating(true);
     
     try {
@@ -431,6 +446,7 @@ export default function QuoteCalculator() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
+        signal: abortController.signal,
         body: JSON.stringify({
           customerName,
           customerEmail: selectedCustomer?.email || null,
@@ -480,6 +496,11 @@ export default function QuoteCalculator() {
       setIsPDFGenerating(false);
       
     } catch (error) {
+      // Ignore abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('PDF request was cancelled');
+        return;
+      }
       console.error('PDF Generation Error:', error);
       toast({
         title: "Error",
