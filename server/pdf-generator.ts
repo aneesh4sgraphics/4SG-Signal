@@ -208,11 +208,11 @@ async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
         .map(
           (item, idx) => `
       <tr style="background:${idx % 2 === 0 ? "#ffffff" : "#f2f2f2"};">
-        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, monospace, sans-serif; padding:8px;text-align:center;">${item.itemCode || '-'}</td>
-        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;">${item.size}</td>
-        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;">${item.minOrderQty}</td>
-        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;">$${item.pricePerSheet.toFixed(2)}</td>
-        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;font-weight:500;">$${(item.minOrderQty * item.pricePerSheet).toFixed(2)}</td>
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, monospace, sans-serif; padding:8px;text-align:center;vertical-align:middle;">${item.itemCode || '-'}</td>
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;vertical-align:middle;">${item.size}</td>
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;vertical-align:middle;">${item.minOrderQty}</td>
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;vertical-align:middle;">$${item.pricePerSheet.toFixed(2)}</td>
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;font-weight:500;vertical-align:middle;">$${(item.minOrderQty * item.pricePerSheet).toFixed(2)}</td>
       </tr>
     `,
         )
@@ -229,11 +229,11 @@ async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
         <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
           <thead>
             <tr style="background:#bfdbfe;color:#000000;">
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;font-weight:700;">Item Code</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:left;font-weight:700;">Size</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;font-weight:700;">Min Order Qty</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;font-weight:700;">Price/Unit</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;font-weight:700;">Total</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;vertical-align:middle;font-weight:700;">Item Code</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:left;vertical-align:middle;font-weight:700;">Size</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:center;vertical-align:middle;font-weight:700;">Min Order Qty</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;vertical-align:middle;font-weight:700;">Price/Unit</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding:8px;text-align:right;vertical-align:middle;font-weight:700;">Total</th>
             </tr>
           </thead>
           <tbody>
