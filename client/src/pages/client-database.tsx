@@ -127,6 +127,14 @@ export default function ClientDatabase() {
     return quoteCounts[email.toLowerCase()] || 0;
   };
   
+  // Get display name for a customer
+  const getDisplayName = (customer: Customer) => {
+    if (customer.firstName || customer.lastName) {
+      return `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+    }
+    return customer.email || customer.id;
+  };
+  
   // Get first letter of customer name for alphabet filtering
   const getFirstLetter = (customer: Customer): string => {
     const name = getDisplayName(customer);
@@ -556,13 +564,6 @@ export default function ClientDatabase() {
 
   const updateEditingField = (field: keyof Customer, value: any) => {
     setEditingData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const getDisplayName = (customer: Customer) => {
-    if (customer.firstName || customer.lastName) {
-      return `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
-    }
-    return customer.email || customer.id;
   };
 
   const isAdmin = (user as any)?.role === 'admin';
