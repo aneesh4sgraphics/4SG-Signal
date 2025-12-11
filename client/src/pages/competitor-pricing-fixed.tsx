@@ -50,6 +50,7 @@ export default function CompetitorPricing() {
   const [thicknessFilter, setThicknessFilter] = useState("all");
   const [productKindFilter, setProductKindFilter] = useState("all");
   const [surfaceFinishFilter, setSurfaceFinishFilter] = useState("all");
+  const [sizeFilter, setSizeFilter] = useState("all");
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<number[][]>([]);
   
@@ -268,16 +269,17 @@ export default function CompetitorPricing() {
   };
 
   // Get filter options using useMemo to prevent recalculation
-  const { suppliers, thicknesses, productKinds, surfaceFinishes } = useMemo(() => {
+  const { suppliers, thicknesses, productKinds, surfaceFinishes, sizes } = useMemo(() => {
     if (!competitorData || !Array.isArray(competitorData)) {
-      return { suppliers: [], thicknesses: [], productKinds: [], surfaceFinishes: [] };
+      return { suppliers: [], thicknesses: [], productKinds: [], surfaceFinishes: [], sizes: [] };
     }
 
     return {
-      suppliers: [...new Set(competitorData.map(item => item.supplierInfo).filter(Boolean))],
-      thicknesses: [...new Set(competitorData.map(item => item.thickness).filter(Boolean))],
-      productKinds: [...new Set(competitorData.map(item => item.productKind).filter(Boolean))],
-      surfaceFinishes: [...new Set(competitorData.map(item => item.surfaceFinish).filter(Boolean))],
+      suppliers: [...new Set(competitorData.map(item => item.supplierInfo).filter(Boolean))].sort(),
+      thicknesses: [...new Set(competitorData.map(item => item.thickness).filter(Boolean))].sort(),
+      productKinds: [...new Set(competitorData.map(item => item.productKind).filter(Boolean))].sort(),
+      surfaceFinishes: [...new Set(competitorData.map(item => item.surfaceFinish).filter(Boolean))].sort(),
+      sizes: [...new Set(competitorData.map(item => item.dimensions).filter(Boolean))].sort(),
     };
   }, [competitorData]);
 
@@ -305,8 +307,12 @@ export default function CompetitorPricing() {
       filtered = filtered.filter(item => item.surfaceFinish === surfaceFinishFilter);
     }
     
+    if (sizeFilter && sizeFilter !== "all") {
+      filtered = filtered.filter(item => item.dimensions === sizeFilter);
+    }
+    
     return filtered;
-  }, [competitorData, supplierFilter, thicknessFilter, productKindFilter, surfaceFinishFilter]);
+  }, [competitorData, supplierFilter, thicknessFilter, productKindFilter, surfaceFinishFilter, sizeFilter]);
 
   // Reset filters
   const resetFilters = () => {
@@ -314,6 +320,7 @@ export default function CompetitorPricing() {
     setThicknessFilter("all");
     setProductKindFilter("all");
     setSurfaceFinishFilter("all");
+    setSizeFilter("all");
   };
 
   // Find duplicates function
@@ -544,6 +551,21 @@ export default function CompetitorPricing() {
                 <SelectItem value="all">All Surface Finishes</SelectItem>
                 {surfaceFinishes.map(finish => (
                   <SelectItem key={finish} value={finish}>{finish}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex-1 min-w-[140px] max-w-[180px]">
+            <Label htmlFor="size" className="text-xs text-gray-500 mb-1 block">Size</Label>
+            <Select value={sizeFilter} onValueChange={setSizeFilter}>
+              <SelectTrigger className="h-9 bg-white" data-testid="select-size-filter">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sizes</SelectItem>
+                {sizes.map(size => (
+                  <SelectItem key={size} value={size}>{size}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
