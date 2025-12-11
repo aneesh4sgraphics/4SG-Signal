@@ -335,24 +335,27 @@ export default function AreaPricer() {
   }
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 max-w-7xl">
-      <div className="text-center mb-6 sm:mb-8">
-        <div className="flex justify-center mb-4">
-          <div className="p-2 sm:p-3 bg-purple-100 rounded-lg">
-            <Calculator className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
+      <div className="container mx-auto p-3 sm:p-6 max-w-7xl">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 sm:p-4 bg-white/40 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50">
+              <Calculator className="h-8 w-8 sm:h-10 sm:w-10 text-purple-600" />
+            </div>
           </div>
+          <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-purple-700 via-blue-600 to-indigo-700 bg-clip-text text-transparent mb-2">
+            SqM Calculator
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600/80">Calculate unit pricing (in², ft², m²) for rolls or sheets</p>
         </div>
-        <h1 className="text-xl sm:text-3xl font-bold text-gray-900 mb-2">SqM Calculator</h1>
-        <p className="text-sm sm:text-base text-gray-600">Calculate unit pricing (in², ft², m²) for rolls or sheets. Log entries and export to Excel.</p>
-      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
-        {/* Input Configuration */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Input Configuration</CardTitle>
-            <CardDescription>Enter dimensions and pricing information</CardDescription>
-          </CardHeader>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
+          {/* Input Configuration */}
+          <Card className="bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-purple-500/10">
+            <CardHeader>
+              <CardTitle className="text-lg sm:text-xl text-gray-800">Input Configuration</CardTitle>
+              <CardDescription className="text-gray-600">Enter dimensions and pricing information</CardDescription>
+            </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
             {/* Calculation Type */}
             <div>
@@ -580,37 +583,37 @@ export default function AreaPricer() {
             <Button 
               onClick={calculate}
               disabled={isCalculating}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40"
             >
               {isCalculating ? "Calculating..." : "Calculate"}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Results */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Calculation Results</CardTitle>
-            <CardDescription>Unit pricing and total calculations</CardDescription>
-          </CardHeader>
+          {/* Results */}
+          <Card className="bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-blue-500/10">
+            <CardHeader>
+              <CardTitle className="text-lg sm:text-xl text-gray-800">Calculation Results</CardTitle>
+              <CardDescription className="text-gray-600">Unit pricing and total calculations</CardDescription>
+            </CardHeader>
           <CardContent>
             {currentResult ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-3 sm:p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-900 text-sm sm:text-base">Price per Square Inch</h4>
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-100/80 to-blue-50/60 backdrop-blur-sm rounded-xl border border-blue-200/50 shadow-sm">
+                    <h4 className="font-semibold text-blue-900/80 text-sm sm:text-base">Price per Square Inch</h4>
                     <p className="text-lg sm:text-2xl font-bold text-blue-700">${currentResult.pricePerSqIn.toFixed(4)}</p>
                   </div>
-                  <div className="p-3 sm:p-4 bg-green-50 rounded-lg">
-                    <h4 className="font-semibold text-green-900 text-sm sm:text-base">Price per Square Foot</h4>
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-green-100/80 to-green-50/60 backdrop-blur-sm rounded-xl border border-green-200/50 shadow-sm">
+                    <h4 className="font-semibold text-green-900/80 text-sm sm:text-base">Price per Square Foot</h4>
                     <p className="text-lg sm:text-2xl font-bold text-green-700">${currentResult.pricePerSqFt.toFixed(4)}</p>
                   </div>
-                  <div className="p-3 sm:p-4 bg-purple-50 rounded-lg">
-                    <h4 className="font-semibold text-purple-900 text-sm sm:text-base">Price per Square Meter</h4>
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-100/80 to-purple-50/60 backdrop-blur-sm rounded-xl border border-purple-200/50 shadow-sm">
+                    <h4 className="font-semibold text-purple-900/80 text-sm sm:text-base">Price per Square Meter</h4>
                     <p className="text-lg sm:text-2xl font-bold text-purple-700">${currentResult.pricePerSqMeter.toFixed(4)}</p>
                   </div>
-                  <div className="p-3 sm:p-4 bg-orange-50 rounded-lg">
-                    <h4 className="font-semibold text-orange-900 text-sm sm:text-base">Total Area</h4>
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-orange-100/80 to-orange-50/60 backdrop-blur-sm rounded-xl border border-orange-200/50 shadow-sm">
+                    <h4 className="font-semibold text-orange-900/80 text-sm sm:text-base">Total Area</h4>
                     <p className="text-lg sm:text-2xl font-bold text-orange-700">
                       {currentResult.type === "sheets" 
                         ? `${currentResult.totalSqIn.toFixed(2)} in²`
@@ -637,7 +640,7 @@ export default function AreaPricer() {
 
                 <Button 
                   onClick={addToSheet}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/30 transition-all duration-300"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add to Sheet
@@ -653,34 +656,34 @@ export default function AreaPricer() {
         </Card>
       </div>
 
-      {/* Calculations Table */}
-      {calculations.length > 0 && (
-        <Card className="mt-6 sm:mt-8">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle className="text-lg sm:text-xl">Calculations ({calculations.length})</CardTitle>
-                <CardDescription>Your saved calculations</CardDescription>
+        {/* Calculations Table */}
+        {calculations.length > 0 && (
+          <Card className="mt-6 sm:mt-8 bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-indigo-500/10">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle className="text-lg sm:text-xl text-gray-800">Calculations ({calculations.length})</CardTitle>
+                  <CardDescription className="text-gray-600">Your saved calculations</CardDescription>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button
+                    onClick={exportToExcel}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
+                  >
+                    <Sheet className="w-4 h-4 mr-2" />
+                    Export Excel
+                  </Button>
+                  <Button
+                    onClick={addToCompInfo}
+                    disabled={isAddingToCompInfo}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-md"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    {isAddingToCompInfo ? "Adding..." : "Add to Market Prices"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button
-                  onClick={exportToExcel}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Sheet className="w-4 h-4 mr-2" />
-                  Export Excel
-                </Button>
-                <Button
-                  onClick={addToCompInfo}
-                  disabled={isAddingToCompInfo}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {isAddingToCompInfo ? "Adding..." : "Add to Market Prices"}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
@@ -728,8 +731,9 @@ export default function AreaPricer() {
               </Table>
             </div>
           </CardContent>
-        </Card>
-      )}
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
