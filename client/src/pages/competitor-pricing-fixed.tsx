@@ -307,24 +307,30 @@ export default function CompetitorPricing() {
   const exportToCSV = () => {
     if (filteredData.length === 0) return;
 
-    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Price/Pack", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/m²", "Notes", "Date"];
+    const headers = ["Source", "Type", "Dimensions", "Pack Qty", "Price/Pack", "Price/Sheet", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Price/m²", "Notes", "Date"];
     const csvContent = [
       headers.join(","),
-      ...filteredData.map(item => [
-        item.source,
-        item.type,
-        item.dimensions,
-        item.packQty,
-        `$${parseFloat(item.inputPrice).toFixed(2)}`,
-        `"${item.thickness}"`,
-        `"${item.productKind}"`,
-        `"${item.surfaceFinish}"`,
-        `"${item.supplierInfo}"`,
-        `"${item.infoReceivedFrom}"`,
-        `$${parseFloat(item.pricePerSqMeter).toFixed(4)}`,
-        `"${item.notes}"`,
-        new Date(item.timestamp || item.createdAt).toLocaleDateString()
-      ].join(","))
+      ...filteredData.map(item => {
+        const pricePerSheet = item.pricePerSheet && parseFloat(item.pricePerSheet) > 0 
+          ? parseFloat(item.pricePerSheet) 
+          : (parseFloat(item.inputPrice) / (parseInt(item.packQty) || 1));
+        return [
+          item.source,
+          item.type,
+          item.dimensions,
+          item.packQty,
+          `$${parseFloat(item.inputPrice).toFixed(2)}`,
+          `$${pricePerSheet.toFixed(2)}`,
+          `"${item.thickness}"`,
+          `"${item.productKind}"`,
+          `"${item.surfaceFinish}"`,
+          `"${item.supplierInfo}"`,
+          `"${item.infoReceivedFrom}"`,
+          `$${parseFloat(item.pricePerSqMeter).toFixed(4)}`,
+          `"${item.notes}"`,
+          new Date(item.timestamp || item.createdAt).toLocaleDateString()
+        ].join(",");
+      })
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -584,6 +590,7 @@ export default function CompetitorPricing() {
                   <TableHead className="whitespace-nowrap">Dimensions</TableHead>
                   <TableHead className="whitespace-nowrap">Pack Qty</TableHead>
                   <TableHead className="whitespace-nowrap">Price/Pack</TableHead>
+                  <TableHead className="whitespace-nowrap">Price/Sheet</TableHead>
                   <TableHead className="whitespace-nowrap">Thickness</TableHead>
                   <TableHead className="whitespace-nowrap">Product Kind</TableHead>
                   <TableHead className="whitespace-nowrap">Surface Finish</TableHead>
@@ -603,6 +610,12 @@ export default function CompetitorPricing() {
                     <TableCell className="whitespace-nowrap">{item.dimensions}</TableCell>
                     <TableCell className="whitespace-nowrap">{item.packQty}</TableCell>
                     <TableCell className="whitespace-nowrap">${parseFloat(item.inputPrice).toFixed(2)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      ${(item.pricePerSheet && parseFloat(item.pricePerSheet) > 0 
+                        ? parseFloat(item.pricePerSheet) 
+                        : (parseFloat(item.inputPrice) / (parseInt(item.packQty) || 1))
+                      ).toFixed(2)}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">{item.thickness}</TableCell>
                     <TableCell className="whitespace-nowrap">{item.productKind}</TableCell>
                     <TableCell className="whitespace-nowrap">{item.surfaceFinish}</TableCell>
