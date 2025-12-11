@@ -5,7 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText, Search } from "lucide-react";
+import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText, Search, Download, Settings2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RippleButton } from "@/components/ui/micro-interactions";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
@@ -51,6 +53,63 @@ export default function CompetitorPricing() {
   const [maxPrice, setMaxPrice] = useState("");
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<number[][]>([]);
+  
+  // Column visibility state
+  const allColumns = [
+    { key: 'source', label: 'Source' },
+    { key: 'type', label: 'Type' },
+    { key: 'dimensions', label: 'Dimensions' },
+    { key: 'packQty', label: 'Pack Qty' },
+    { key: 'pricePack', label: 'Price/Pack' },
+    { key: 'priceSheet', label: 'Price/Sheet' },
+    { key: 'thickness', label: 'Thickness' },
+    { key: 'productKind', label: 'Product Kind' },
+    { key: 'surfaceFinish', label: 'Surface Finish' },
+    { key: 'supplier', label: 'Supplier' },
+    { key: 'infoFrom', label: 'Info From' },
+    { key: 'priceM2', label: 'Price/m²' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'date', label: 'Date' },
+  ];
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(allColumns.map(c => c.key))
+  );
+  
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+  
+  // Download CSV template
+  const downloadTemplate = () => {
+    const headers = ["Source", "Type", "Width", "Length", "Unit", "Pack Qty", "Price/Pack", "Price/Sheet", "Thickness", "Product Kind", "Surface Finish", "Supplier", "Info From", "Notes"];
+    const exampleRow = ["Website", "sheet", "48", "96", "in", "25", "139.99", "5.60", "3mm", "Aluminum Composite Panel", "Gloss White", "Competitor Name", "John Doe", "Optional notes"];
+    
+    const csvContent = [
+      headers.join(","),
+      exampleRow.join(",")
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "market-prices-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Template Downloaded",
+      description: "Fill in your data and upload using the CSV Upload button",
+    });
+  };
 
   // Show authentication check first
   if (authLoading) {
@@ -538,36 +597,70 @@ export default function CompetitorPricing() {
               Clear Highlighting
             </Button>
           )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <Settings2 className="w-4 h-4 mr-2" />
+                Columns
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="start">
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm mb-3">Visible Columns</h4>
+                {allColumns.map(col => (
+                  <div key={col.key} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`col-${col.key}`}
+                      checked={visibleColumns.has(col.key)}
+                      onCheckedChange={() => toggleColumn(col.key)}
+                    />
+                    <label htmlFor={`col-${col.key}`} className="text-sm cursor-pointer">
+                      {col.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         
-        {isAdmin && (
-          <div className="flex gap-2 items-center">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-              className="hidden"
-              id="csv-upload"
-            />
-            <label htmlFor="csv-upload">
-              <Button variant="outline" className="cursor-pointer" asChild>
-                <span>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Choose CSV File
-                </span>
-              </Button>
-            </label>
-            {uploadFile && (
-              <Button
-                onClick={handleFileUpload}
-                disabled={uploadMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {uploadMutation.isPending ? "Uploading..." : "Upload"}
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex gap-2 items-center">
+          <Button
+            onClick={downloadTemplate}
+            variant="outline"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            CSV Template
+          </Button>
+          {isAdmin && (
+            <>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="csv-upload"
+              />
+              <label htmlFor="csv-upload">
+                <Button variant="outline" className="cursor-pointer" asChild>
+                  <span>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose CSV File
+                  </span>
+                </Button>
+              </label>
+              {uploadFile && (
+                <Button
+                  onClick={handleFileUpload}
+                  disabled={uploadMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {uploadMutation.isPending ? "Uploading..." : "Upload"}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Data Table */}
@@ -585,47 +678,51 @@ export default function CompetitorPricing() {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="whitespace-nowrap">Source</TableHead>
-                  <TableHead className="whitespace-nowrap">Type</TableHead>
-                  <TableHead className="whitespace-nowrap">Dimensions</TableHead>
-                  <TableHead className="whitespace-nowrap">Pack Qty</TableHead>
-                  <TableHead className="whitespace-nowrap">Price/Pack</TableHead>
-                  <TableHead className="whitespace-nowrap">Price/Sheet</TableHead>
-                  <TableHead className="whitespace-nowrap">Thickness</TableHead>
-                  <TableHead className="whitespace-nowrap">Product Kind</TableHead>
-                  <TableHead className="whitespace-nowrap">Surface Finish</TableHead>
-                  <TableHead className="whitespace-nowrap">Supplier</TableHead>
-                  <TableHead className="whitespace-nowrap">Info From</TableHead>
-                  <TableHead className="whitespace-nowrap">Price/m²</TableHead>
-                  <TableHead className="whitespace-nowrap">Notes</TableHead>
-                  <TableHead className="whitespace-nowrap">Date</TableHead>
+                  {visibleColumns.has('source') && <TableHead className="whitespace-nowrap">Source</TableHead>}
+                  {visibleColumns.has('type') && <TableHead className="whitespace-nowrap">Type</TableHead>}
+                  {visibleColumns.has('dimensions') && <TableHead className="whitespace-nowrap">Dimensions</TableHead>}
+                  {visibleColumns.has('packQty') && <TableHead className="whitespace-nowrap">Pack Qty</TableHead>}
+                  {visibleColumns.has('pricePack') && <TableHead className="whitespace-nowrap">Price/Pack</TableHead>}
+                  {visibleColumns.has('priceSheet') && <TableHead className="whitespace-nowrap">Price/Sheet</TableHead>}
+                  {visibleColumns.has('thickness') && <TableHead className="whitespace-nowrap">Thickness</TableHead>}
+                  {visibleColumns.has('productKind') && <TableHead className="whitespace-nowrap">Product Kind</TableHead>}
+                  {visibleColumns.has('surfaceFinish') && <TableHead className="whitespace-nowrap">Surface Finish</TableHead>}
+                  {visibleColumns.has('supplier') && <TableHead className="whitespace-nowrap">Supplier</TableHead>}
+                  {visibleColumns.has('infoFrom') && <TableHead className="whitespace-nowrap">Info From</TableHead>}
+                  {visibleColumns.has('priceM2') && <TableHead className="whitespace-nowrap">Price/m²</TableHead>}
+                  {visibleColumns.has('notes') && <TableHead className="whitespace-nowrap">Notes</TableHead>}
+                  {visibleColumns.has('date') && <TableHead className="whitespace-nowrap">Date</TableHead>}
                   {isAdmin && <TableHead className="w-20 sticky right-0 bg-white shadow-md whitespace-nowrap">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.map((item, index) => (
                   <TableRow key={item.id} className={getRowColor(index)}>
-                    <TableCell className="whitespace-nowrap">{item.source}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.type}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.dimensions}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.packQty}</TableCell>
-                    <TableCell className="whitespace-nowrap">${parseFloat(item.inputPrice).toFixed(2)}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      ${(item.pricePerSheet && parseFloat(item.pricePerSheet) > 0 
-                        ? parseFloat(item.pricePerSheet) 
-                        : (parseFloat(item.inputPrice) / (parseInt(item.packQty) || 1))
-                      ).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{item.thickness}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.productKind}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.surfaceFinish}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.supplierInfo}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.infoReceivedFrom}</TableCell>
-                    <TableCell className="whitespace-nowrap">${parseFloat(item.pricePerSqMeter).toFixed(4)}</TableCell>
-                    <TableCell className="max-w-32 truncate" title={item.notes}>{item.notes}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {new Date(item.timestamp || item.createdAt).toLocaleDateString()}
-                    </TableCell>
+                    {visibleColumns.has('source') && <TableCell className="whitespace-nowrap">{item.source}</TableCell>}
+                    {visibleColumns.has('type') && <TableCell className="whitespace-nowrap">{item.type}</TableCell>}
+                    {visibleColumns.has('dimensions') && <TableCell className="whitespace-nowrap">{item.dimensions}</TableCell>}
+                    {visibleColumns.has('packQty') && <TableCell className="whitespace-nowrap">{item.packQty}</TableCell>}
+                    {visibleColumns.has('pricePack') && <TableCell className="whitespace-nowrap">${parseFloat(item.inputPrice).toFixed(2)}</TableCell>}
+                    {visibleColumns.has('priceSheet') && (
+                      <TableCell className="whitespace-nowrap">
+                        ${(item.pricePerSheet && parseFloat(item.pricePerSheet) > 0 
+                          ? parseFloat(item.pricePerSheet) 
+                          : (parseFloat(item.inputPrice) / (parseInt(item.packQty) || 1))
+                        ).toFixed(2)}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('thickness') && <TableCell className="whitespace-nowrap">{item.thickness}</TableCell>}
+                    {visibleColumns.has('productKind') && <TableCell className="whitespace-nowrap">{item.productKind}</TableCell>}
+                    {visibleColumns.has('surfaceFinish') && <TableCell className="whitespace-nowrap">{item.surfaceFinish}</TableCell>}
+                    {visibleColumns.has('supplier') && <TableCell className="whitespace-nowrap">{item.supplierInfo}</TableCell>}
+                    {visibleColumns.has('infoFrom') && <TableCell className="whitespace-nowrap">{item.infoReceivedFrom}</TableCell>}
+                    {visibleColumns.has('priceM2') && <TableCell className="whitespace-nowrap">${parseFloat(item.pricePerSqMeter).toFixed(4)}</TableCell>}
+                    {visibleColumns.has('notes') && <TableCell className="max-w-32 truncate" title={item.notes}>{item.notes}</TableCell>}
+                    {visibleColumns.has('date') && (
+                      <TableCell className="whitespace-nowrap">
+                        {new Date(item.timestamp || item.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    )}
                     {isAdmin && (
                       <TableCell className="w-20 sticky right-0 bg-white shadow-md">
                         <RippleButton
