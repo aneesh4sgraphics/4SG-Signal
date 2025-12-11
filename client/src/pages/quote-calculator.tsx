@@ -426,62 +426,84 @@ export default function QuoteCalculator() {
 
     setIsPDFGenerating(true);
     
-    try {
-      const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
-      const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
-      const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
-      
-      // Use fetch API with proper error handling
-      const response = await fetch('/api/generate-pdf-quote', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          customerName,
-          customerEmail: selectedCustomer?.email || null,
-          quoteItems: itemsToUse,
-          totalAmount
-        })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('PDF Generation failed:', response.status, errorText);
-        throw new Error(`Failed to generate PDF (Error ${response.status})`);
+    const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
+    const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
+    const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
+    
+    // Retry logic for network failures
+    const maxRetries = 2;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log(`PDF download retry attempt ${attempt}...`);
+        }
+        
+        const response = await fetch('/api/generate-pdf-quote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            customerName,
+            customerEmail: selectedCustomer?.email || null,
+            quoteItems: itemsToUse,
+            totalAmount
+          })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('PDF Generation failed:', response.status, errorText);
+          throw new Error(`Failed to generate PDF (Error ${response.status})`);
+        }
+        
+        const blob = await response.blob();
+        if (blob.size === 0) {
+          throw new Error("Received empty PDF");
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
+        a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+        logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
+        toast({
+          title: "PDF Downloaded",
+          description: "Quote PDF has been downloaded successfully",
+        });
+        
+        setIsPDFGenerating(false);
+        return; // Success - exit function
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        const isNetworkError = lastError.message === 'Failed to fetch' || lastError.message.includes('NetworkError');
+        
+        // Only retry on network errors
+        if (!isNetworkError || attempt === maxRetries) {
+          console.error('PDF Generation Error:', error);
+          toast({
+            title: "PDF Download Failed",
+            description: isNetworkError 
+              ? "Network connection issue. Please check your internet and try again."
+              : lastError.message,
+            variant: "destructive",
+          });
+          setIsPDFGenerating(false);
+          return;
+        }
       }
-      
-      const blob = await response.blob();
-      if (blob.size === 0) {
-        throw new Error("Received empty PDF");
-      }
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const safeName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-      a.download = `QuickQuotes_4SGraphics_${new Date().toLocaleDateString().replace(/\//g, '-')}_for_${safeName}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      
-      logQuoteDownload(`${customerName}_${new Date().toLocaleDateString()}`, 'PDF');
-      toast({
-        title: "PDF Downloaded",
-        description: "Quote PDF has been downloaded successfully",
-      });
-      
-    } catch (error) {
-      console.error('PDF Generation Error:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPDFGenerating(false);
     }
   };
 
