@@ -794,18 +794,9 @@ export default function CompetitorPricing() {
           )}
           <Popover>
             <PopoverTrigger asChild>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <Settings2 className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Columns</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button variant="outline" size="icon" title="Columns">
+                <Settings2 className="w-5 h-5" />
+              </Button>
             </PopoverTrigger>
             <PopoverContent className="w-56" align="start">
               <div className="space-y-2">
@@ -853,22 +844,13 @@ export default function CompetitorPricing() {
                 className="hidden"
                 id="csv-upload"
               />
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="csv-upload">
-                      <Button variant="outline" className="cursor-pointer" size="icon" asChild>
-                        <span>
-                          <Upload className="w-5 h-5" />
-                        </span>
-                      </Button>
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Choose CSV File</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <label htmlFor="csv-upload" title="Choose CSV File">
+                <Button variant="outline" className="cursor-pointer" size="icon" asChild>
+                  <span>
+                    <Upload className="w-5 h-5" />
+                  </span>
+                </Button>
+              </label>
               {uploadFile && (
                 <TooltipProvider>
                   <Tooltip>
