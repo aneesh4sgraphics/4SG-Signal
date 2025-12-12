@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Save, FileText, RefreshCw, Loader2, Eye, Plus } from "lucide-react";
+import { Save, FileText, RefreshCw, Loader2, Eye, Plus, Upload, X, Image } from "lucide-react";
 import type { PdfCategoryDetails } from "@shared/schema";
 
 interface CategoryFormData {
@@ -70,21 +70,101 @@ const DEFAULT_CATEGORIES: Partial<CategoryFormData>[] = [
   }
 ];
 
+function LivePreview({ formData, logoPreview }: { formData: CategoryFormData; logoPreview: string | null }) {
+  return (
+    <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
+      <div className="text-xs text-gray-500 mb-2 uppercase tracking-wide">Live Preview - PDF Header</div>
+      <div className="border border-gray-200 p-4 bg-gray-50 rounded">
+        <div className="flex items-start gap-4">
+          {logoPreview ? (
+            <img src={logoPreview} alt="Logo" className="h-12 object-contain" />
+          ) : (
+            <div className="h-12 w-24 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">
+              No Logo
+            </div>
+          )}
+          <div className="flex-1">
+            <div className="text-lg font-bold text-gray-900 mb-1">
+              {formData.displayName || 'Product Category Name'}
+            </div>
+            {formData.featuresMain && (
+              <div className="text-sm font-semibold text-gray-800">
+                {formData.featuresMain}
+              </div>
+            )}
+            {formData.featuresSub && (
+              <div className="text-sm italic text-gray-600">
+                {formData.featuresSub}
+              </div>
+            )}
+            {formData.compatibleWith && (
+              <div className="text-xs text-gray-500 mt-1">
+                {formData.compatibleWith}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="mt-4 border-t pt-3">
+          <div className="text-xs text-gray-500 mb-2">Sample Price Table</div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-blue-100">
+                <th className="border p-1 text-left">Size</th>
+                <th className="border p-1 text-center">Item Code</th>
+                <th className="border p-1 text-center">Min Qty</th>
+                <th className="border p-1 text-right">Price/Unit</th>
+                <th className="border p-1 text-right">Price/Pack</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="bg-white">
+                <td className="border p-1">12" x 18"</td>
+                <td className="border p-1 text-center font-mono">GP-1218-5</td>
+                <td className="border p-1 text-center">50</td>
+                <td className="border p-1 text-right">$0.00</td>
+                <td className="border p-1 text-right">$0.00</td>
+              </tr>
+              <tr className="bg-gray-50">
+                <td className="border p-1">13" x 19"</td>
+                <td className="border p-1 text-center font-mono">GP-1319-5</td>
+                <td className="border p-1 text-center">50</td>
+                <td className="border p-1 text-right">$0.00</td>
+                <td className="border p-1 text-right">$0.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CategoryEditor({ 
   category, 
   onSave, 
   isSaving 
 }: { 
   category: CategoryFormData; 
-  onSave: (data: CategoryFormData) => void;
+  onSave: (data: CategoryFormData, logoFile?: File) => void;
   isSaving: boolean;
 }) {
   const [formData, setFormData] = useState<CategoryFormData>(category);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setFormData(category);
     setHasChanges(false);
+    if (category.logoFile) {
+      setLogoPreview(`/attached_assets/${category.logoFile}`);
+    } else {
+      setLogoPreview(null);
+    }
   }, [category]);
 
   const handleChange = (field: keyof CategoryFormData, value: string | number | boolean) => {
@@ -92,9 +172,48 @@ function CategoryEditor({
     setHasChanges(true);
   };
 
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a PNG or JPG image file.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Logo file must be under 2MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedLogoFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      setHasChanges(true);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setSelectedLogoFile(null);
+    setLogoPreview(null);
+    handleChange('logoFile', '');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSave = () => {
-    onSave(formData);
+    onSave(formData, selectedLogoFile || undefined);
     setHasChanges(false);
+    setSelectedLogoFile(null);
   };
 
   return (
@@ -106,6 +225,15 @@ function CategoryEditor({
             {formData.displayName || formData.categoryKey}
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+              data-testid={`button-preview-${formData.categoryKey}`}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              {showPreview ? 'Hide' : 'Show'} Preview
+            </Button>
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
               Key: {formData.categoryKey}
             </span>
@@ -116,6 +244,10 @@ function CategoryEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {showPreview && (
+          <LivePreview formData={formData} logoPreview={logoPreview} />
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor={`displayName-${formData.categoryKey}`}>Display Name</Label>
@@ -137,6 +269,46 @@ function CategoryEditor({
               data-testid={`input-sortOrder-${formData.categoryKey}`}
             />
           </div>
+        </div>
+
+        <div>
+          <Label>Logo Image (PNG)</Label>
+          <div className="flex items-center gap-3 mt-1">
+            {logoPreview ? (
+              <div className="relative">
+                <img src={logoPreview} alt="Logo preview" className="h-12 object-contain border rounded p-1" />
+                <button
+                  onClick={handleRemoveLogo}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                  data-testid={`button-remove-logo-${formData.categoryKey}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="h-12 w-24 bg-gray-100 border border-dashed border-gray-300 rounded flex items-center justify-center">
+                <Image className="h-5 w-5 text-gray-400" />
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handleLogoSelect}
+              className="hidden"
+              data-testid={`input-logo-${formData.categoryKey}`}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid={`button-upload-logo-${formData.categoryKey}`}
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              {logoPreview ? 'Change' : 'Upload'} Logo
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">PNG or JPG, max 2MB. Recommended: 200x50px</p>
         </div>
 
         <div>
@@ -273,15 +445,42 @@ export default function PdfCategoryAdmin() {
     }
   }, [dbCategories]);
 
+  const uploadLogoMutation = useMutation({
+    mutationFn: async ({ categoryKey, file }: { categoryKey: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('categoryKey', categoryKey);
+      
+      const response = await fetch('/api/pdf-category-logo', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload logo');
+      }
+      
+      return response.json();
+    },
+  });
+
   const saveMutation = useMutation({
-    mutationFn: async (data: CategoryFormData) => {
+    mutationFn: async ({ data, logoFile }: { data: CategoryFormData; logoFile?: File }) => {
+      if (logoFile) {
+        const logoResult = await uploadLogoMutation.mutateAsync({ 
+          categoryKey: data.categoryKey, 
+          file: logoFile 
+        });
+        data.logoFile = logoResult.filename;
+      }
       return await apiRequest('POST', '/api/pdf-category-details', data);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/pdf-category-details'] });
       toast({
         title: "Category saved",
-        description: `${variables.displayName} has been updated successfully.`,
+        description: `${variables.data.displayName} has been updated successfully.`,
       });
     },
     onError: (error: Error) => {
@@ -326,8 +525,8 @@ export default function PdfCategoryAdmin() {
     },
   });
 
-  const handleSave = (data: CategoryFormData) => {
-    saveMutation.mutate(data);
+  const handleSave = (data: CategoryFormData, logoFile?: File) => {
+    saveMutation.mutate({ data, logoFile });
   };
 
   if (isLoading) {
@@ -385,8 +584,8 @@ export default function PdfCategoryAdmin() {
             <h3 className="font-medium text-blue-900">How it works</h3>
             <p className="text-sm text-blue-700 mt-1">
               These settings control the header section displayed at the top of each product category 
-              in your Price List PDFs. The main features appear in bold, sub-features in italic, 
-              and compatibility text below. Changes take effect immediately on new PDF downloads.
+              in your Price List PDFs. Click "Show Preview" on any category to see a live preview 
+              with sample pricing ($0.00). Changes take effect immediately on new PDF downloads.
             </p>
           </div>
         </div>

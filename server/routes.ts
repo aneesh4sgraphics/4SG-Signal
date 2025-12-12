@@ -3912,6 +3912,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Use the new chat router
   app.use(chatRouter);
 
+  // PDF Category Logo Upload endpoint
+  app.post("/api/pdf-category-logo", isAuthenticated, requireAdmin, upload.single('logo'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const { categoryKey } = req.body;
+      if (!categoryKey) {
+        return res.status(400).json({ error: "Category key is required" });
+      }
+      
+      const originalExt = path.extname(req.file.originalname).toLowerCase();
+      const newFilename = `pdf-logo-${categoryKey}${originalExt}`;
+      const destPath = path.join(process.cwd(), 'attached_assets', newFilename);
+      
+      fs.renameSync(req.file.path, destPath);
+      
+      res.json({ 
+        success: true, 
+        filename: newFilename,
+        message: "Logo uploaded successfully" 
+      });
+    } catch (error) {
+      console.error("Error uploading PDF category logo:", error);
+      res.status(500).json({ error: "Failed to upload logo" });
+    }
+  });
+
   // PDF Category Details endpoints (Admin only)
   app.get("/api/pdf-category-details", isAuthenticated, async (req, res) => {
     try {

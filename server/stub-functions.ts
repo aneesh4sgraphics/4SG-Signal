@@ -4,6 +4,8 @@ import fs from "fs";
 import path from "path";
 import axios from "axios";
 import { generatePaymentInstructionsHTML } from "./config/paymentInstructions";
+import { storage } from "./storage";
+import type { PdfCategoryDetails } from "@shared/schema";
 
 // Cache for logo to avoid repeated network requests
 let logoCache: string | null = null;
@@ -11,8 +13,13 @@ let logoCache: string | null = null;
 // Cache for product category logos
 const productLogoCache: Record<string, string> = {};
 
-// Product category logo mappings
-const PRODUCT_LOGO_FILES: Record<string, string> = {
+// Cache for PDF category details from database
+let pdfCategoryDetailsCache: PdfCategoryDetails[] | null = null;
+let pdfCategoryCacheTime: number = 0;
+const CACHE_TTL_MS = 60000; // 1 minute cache
+
+// Fallback product category logo mappings (used when DB has no data)
+const FALLBACK_LOGO_FILES: Record<string, string> = {
   'graffiti': 'Graffiti-Logo--long_1765564746224.png',
   'graffitistick': 'GraffitiSTICK-left_align_1765564758521.jpg',
   'slickstick': 'GraffitiSTICK-left_align_1765564758521.jpg',
@@ -26,8 +33,8 @@ const PRODUCT_LOGO_FILES: Record<string, string> = {
   'paper': 'CLIQ_Final_logo2_med_size_1765564721731.png',
 };
 
-// Product features by category
-const PRODUCT_FEATURES: Record<string, string[]> = {
+// Fallback product features by category (used when DB has no data)
+const FALLBACK_FEATURES: Record<string, string[]> = {
   'graffiti': ['Scuff Free', 'Waterproof', 'Tear Resistant', 'High Rigidity', 'Excellent Alcohol & Stain Resistance'],
   'graffitistick': ['Self-Adhesive', 'Waterproof', 'Tear Resistant', 'Easy Application', 'Removable or Permanent Options'],
   'slickstick': ['Self-Adhesive', 'Waterproof', 'Tear Resistant', 'Easy Application'],
@@ -42,49 +49,124 @@ const PRODUCT_FEATURES: Record<string, string[]> = {
 const LOGO_MATCH_ORDER = ['graffitistick', 'slickstick', 'graffiti', 'solvit', 'rang', 'canvas', 'cliq', 'photo', 'eie', 'ele', 'paper'];
 const FEATURE_MATCH_ORDER = ['graffitistick', 'slickstick', 'graffiti', 'solvit', 'rang', 'cliq', 'photo'];
 
-function getProductLogoBase64(productType: string): string {
+async function getPdfCategoryDetailsFromDb(): Promise<PdfCategoryDetails[]> {
+  const now = Date.now();
+  if (pdfCategoryDetailsCache && (now - pdfCategoryCacheTime) < CACHE_TTL_MS) {
+    return pdfCategoryDetailsCache;
+  }
+  
+  try {
+    pdfCategoryDetailsCache = await storage.getPdfCategoryDetails();
+    pdfCategoryCacheTime = now;
+    return pdfCategoryDetailsCache;
+  } catch (error) {
+    console.error('Error fetching PDF category details from database:', error);
+    return [];
+  }
+}
+
+function findMatchingCategoryKey(productType: string): string {
   const normalized = productType.toLowerCase();
   
-  // Find matching logo key using priority order (more specific first)
-  let logoKey = 'default';
   for (const key of LOGO_MATCH_ORDER) {
     if (normalized.includes(key)) {
-      logoKey = key;
-      break;
+      return key;
     }
   }
+  return 'default';
+}
+
+async function getProductLogoBase64(productType: string): Promise<string> {
+  const normalized = productType.toLowerCase();
+  const categoryKey = findMatchingCategoryKey(productType);
   
   // Return cached logo if available
-  if (productLogoCache[logoKey]) {
-    return productLogoCache[logoKey];
+  if (productLogoCache[categoryKey]) {
+    return productLogoCache[categoryKey];
   }
   
-  // Load logo from file
-  const logoFile = PRODUCT_LOGO_FILES[logoKey];
+  // Try to get logo from database
+  const dbCategories = await getPdfCategoryDetailsFromDb();
+  const dbCategory = dbCategories.find(c => c.categoryKey === categoryKey);
+  
+  let logoFile = dbCategory?.logoFile || FALLBACK_LOGO_FILES[categoryKey];
+  
   if (logoFile) {
     const logoPath = path.join(process.cwd(), 'attached_assets', logoFile);
     if (fs.existsSync(logoPath)) {
       const buffer = fs.readFileSync(logoPath);
       const ext = logoFile.endsWith('.jpg') || logoFile.endsWith('.jpeg') ? 'jpeg' : 'png';
-      productLogoCache[logoKey] = `data:image/${ext};base64,${buffer.toString('base64')}`;
-      return productLogoCache[logoKey];
+      productLogoCache[categoryKey] = `data:image/${ext};base64,${buffer.toString('base64')}`;
+      return productLogoCache[categoryKey];
     }
   }
   
   return '';
 }
 
-function getProductFeatures(productType: string): string[] {
-  const normalized = productType.toLowerCase();
+async function getProductFeatures(productType: string): Promise<string[]> {
+  const categoryKey = findMatchingCategoryKey(productType);
   
-  // Use priority order (more specific first)
-  for (const key of FEATURE_MATCH_ORDER) {
-    if (normalized.includes(key)) {
-      return PRODUCT_FEATURES[key] || PRODUCT_FEATURES['default'];
+  // Try to get features from database
+  const dbCategories = await getPdfCategoryDetailsFromDb();
+  const dbCategory = dbCategories.find(c => c.categoryKey === categoryKey);
+  
+  if (dbCategory) {
+    // Combine main and sub features from database
+    const features: string[] = [];
+    if (dbCategory.featuresMain) {
+      features.push(...dbCategory.featuresMain.split(' / ').map(f => f.trim()).filter(Boolean));
+    }
+    if (dbCategory.featuresSub) {
+      features.push(...dbCategory.featuresSub.split(' / ').map(f => f.trim()).filter(Boolean));
+    }
+    if (features.length > 0) {
+      return features;
     }
   }
   
-  return PRODUCT_FEATURES['default'];
+  // Fall back to hardcoded features
+  for (const key of FEATURE_MATCH_ORDER) {
+    if (productType.toLowerCase().includes(key)) {
+      return FALLBACK_FEATURES[key] || FALLBACK_FEATURES['default'];
+    }
+  }
+  
+  return FALLBACK_FEATURES['default'];
+}
+
+// Sync version for backward compatibility (uses cached data or fallbacks)
+function getProductLogoBase64Sync(productType: string): string {
+  const categoryKey = findMatchingCategoryKey(productType);
+  
+  if (productLogoCache[categoryKey]) {
+    return productLogoCache[categoryKey];
+  }
+  
+  const logoFile = FALLBACK_LOGO_FILES[categoryKey];
+  if (logoFile) {
+    const logoPath = path.join(process.cwd(), 'attached_assets', logoFile);
+    if (fs.existsSync(logoPath)) {
+      const buffer = fs.readFileSync(logoPath);
+      const ext = logoFile.endsWith('.jpg') || logoFile.endsWith('.jpeg') ? 'jpeg' : 'png';
+      productLogoCache[categoryKey] = `data:image/${ext};base64,${buffer.toString('base64')}`;
+      return productLogoCache[categoryKey];
+    }
+  }
+  
+  return '';
+}
+
+function getProductFeaturesSync(productType: string): string[] {
+  const normalized = productType.toLowerCase();
+  
+  for (const key of FEATURE_MATCH_ORDER) {
+    if (normalized.includes(key)) {
+      return FALLBACK_FEATURES[key] || FALLBACK_FEATURES['default'];
+    }
+  }
+  
+  return FALLBACK_FEATURES['default'];
 }
 
 async function getLogoBase64FromURL(): Promise<string> {
@@ -544,8 +626,8 @@ export async function generatePriceListHTML(data: any): Promise<string> {
 
   // Determine primary product logo and features from first product type
   const primaryProductType = sortedProductTypes[0] || categoryName || '';
-  const productLogo = getProductLogoBase64(primaryProductType);
-  const productFeatures = getProductFeatures(primaryProductType);
+  const productLogo = await getProductLogoBase64(primaryProductType);
+  const productFeatures = await getProductFeatures(primaryProductType);
 
   // Calculate total items for page numbering
   const totalItems = items.length;
