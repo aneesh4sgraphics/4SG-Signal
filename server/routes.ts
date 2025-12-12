@@ -2553,7 +2553,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Empty CSV file" });
       }
       
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      // Helper function to parse CSV row properly (handles commas inside quoted fields)
+      const parseCSVRow = (row: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim().replace(/^"|"$/g, ''));
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim().replace(/^"|"$/g, ''));
+        return result;
+      };
+      
+      const headers = parseCSVRow(lines[0]);
       const dataRows = lines.slice(1);
       
       console.log('Headers:', headers);
@@ -2588,7 +2610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const row = dataRows[i];
         console.log(`Processing row ${i + 1}:`, row);
         
-        const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
+        const values = parseCSVRow(row);
         console.log('Values:', values);
         
         if (values.length !== headers.length) {
