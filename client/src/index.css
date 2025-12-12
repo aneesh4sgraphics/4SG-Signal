@@ -539,3 +539,21 @@ html {
 .group:hover .nav-icon-box .nav-icon {
   color: white;
 }
+
+/* Stat icon box with hover color effect */
+.stat-icon-box {
+  background: #e5e7eb;
+}
+
+.stat-icon-box .stat-icon {
+  color: #6b7280;
+}
+
+.group:hover .stat-icon-box {
+  background: var(--hover-bg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.group:hover .stat-icon-box .stat-icon {
+  color: white;
+}

@@ -47,21 +47,21 @@ const mainApps: AppItem[] = [
     description: "Generate instant quotes with pricing calculations",
     path: "/quick-quotes",
     icon: Calculator,
-    color: "bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600"
+    color: "linear-gradient(135deg, #3b82f6, #4f46e5)"
   },
   {
     title: "Price List",
     description: "View and export comprehensive pricing tables",
     path: "/price-list",
     icon: FileText,
-    color: "bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600"
+    color: "linear-gradient(135deg, #10b981, #059669)"
   },
   {
     title: "Saved Quotes",
     description: "Manage and track all generated quotes",
     path: "/saved-quotes",
     icon: BarChart3,
-    color: "bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600"
+    color: "linear-gradient(135deg, #a855f7, #7c3aed)"
   }
 ];
 
@@ -71,7 +71,7 @@ const adminApps: AppItem[] = [
     description: "Manage product catalog and pricing data",
     path: "/product-pricing-management",
     icon: Database,
-    color: "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500",
+    color: "linear-gradient(135deg, #f97316, #dc2626)",
     adminOnly: true
   },
   {
@@ -79,7 +79,7 @@ const adminApps: AppItem[] = [
     description: "Customer database management",
     path: "/customers",
     icon: Users,
-    color: "bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600",
+    color: "linear-gradient(135deg, #06b6d4, #3b82f6)",
     adminOnly: true
   },
   {
@@ -87,7 +87,7 @@ const adminApps: AppItem[] = [
     description: "System settings and user management",
     path: "/admin",
     icon: Settings,
-    color: "bg-gradient-to-br from-slate-400 via-gray-500 to-zinc-600",
+    color: "linear-gradient(135deg, #6b7280, #374151)",
     adminOnly: true
   }
 ];
@@ -155,8 +155,11 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <ClipboardList className="h-7 w-7 text-white" />
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                  style={{ '--hover-bg': 'linear-gradient(135deg, #3b82f6, #4f46e5)' } as React.CSSProperties}
+                >
+                  <ClipboardList className="h-7 w-7 transition-colors duration-300 stat-icon" />
                 </div>
                 <div className="flex items-center gap-1 text-green-500 text-sm font-medium">
                   <TrendingUp className="h-4 w-4" />
@@ -172,8 +175,11 @@ export default function Dashboard() {
 
             <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                  <Wallet className="h-7 w-7 text-white" />
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                  style={{ '--hover-bg': 'linear-gradient(135deg, #10b981, #059669)' } as React.CSSProperties}
+                >
+                  <Wallet className="h-7 w-7 transition-colors duration-300 stat-icon" />
                 </div>
                 <div className="flex items-center gap-1 text-emerald-500 text-sm font-medium">
                   <DollarSign className="h-4 w-4" />
@@ -188,8 +194,11 @@ export default function Dashboard() {
 
             <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                  <UserCheck className="h-7 w-7 text-white" />
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                  style={{ '--hover-bg': 'linear-gradient(135deg, #a855f7, #7c3aed)' } as React.CSSProperties}
+                >
+                  <UserCheck className="h-7 w-7 transition-colors duration-300 stat-icon" />
                 </div>
                 <div className="flex items-center gap-1 text-purple-500 text-sm font-medium">
                   <Users className="h-4 w-4" />
@@ -204,8 +213,11 @@ export default function Dashboard() {
 
             <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-                  <Boxes className="h-7 w-7 text-white" />
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                  style={{ '--hover-bg': 'linear-gradient(135deg, #f97316, #dc2626)' } as React.CSSProperties}
+                >
+                  <Boxes className="h-7 w-7 transition-colors duration-300 stat-icon" />
                 </div>
                 <div className="flex items-center gap-1 text-orange-500 text-sm font-medium">
                   <Package className="h-4 w-4" />
@@ -239,8 +251,11 @@ export default function Dashboard() {
                   className="group glass-card-solid p-6 hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all duration-200 block"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`w-14 h-14 rounded-2xl ${app.color} flex items-center justify-center shadow-lg`}>
-                      <Icon className="h-7 w-7 text-white" />
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                      style={{ '--hover-bg': app.color } as React.CSSProperties}
+                    >
+                      <Icon className="h-7 w-7 transition-colors duration-300 stat-icon" />
                     </div>
                     <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-200" />
                   </div>
@@ -275,8 +290,11 @@ export default function Dashboard() {
                     className="group glass-card-solid p-6 hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all duration-200 block border-2 border-transparent hover:border-indigo-200"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className={`w-14 h-14 rounded-2xl ${app.color} flex items-center justify-center shadow-lg`}>
-                        <Icon className="h-7 w-7 text-white" />
+                      <div 
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300 stat-icon-box"
+                        style={{ '--hover-bg': app.color } as React.CSSProperties}
+                      >
+                        <Icon className="h-7 w-7 transition-colors duration-300 stat-icon" />
                       </div>
                       <Badge className="glass-badge text-indigo-600">Admin</Badge>
                     </div>
