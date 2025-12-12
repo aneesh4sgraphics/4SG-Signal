@@ -71,8 +71,9 @@ export default function CompetitorPricing() {
     { key: 'notes', label: 'Notes' },
     { key: 'date', label: 'Date' },
   ];
+  // Default visible columns: Dimensions, Price/Sheet, Price/m², Notes
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(allColumns.map(c => c.key))
+    new Set(['dimensions', 'priceSheet', 'priceM2', 'notes'])
   );
   
   const toggleColumn = (key: string) => {
