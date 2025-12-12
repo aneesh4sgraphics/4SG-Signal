@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText, Search, Download, Settings2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RippleButton } from "@/components/ui/micro-interactions";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
@@ -736,7 +737,20 @@ export default function CompetitorPricing() {
                     {visibleColumns.has('supplier') && <TableCell className="whitespace-nowrap">{item.supplierInfo}</TableCell>}
                     {visibleColumns.has('infoFrom') && <TableCell className="whitespace-nowrap">{item.infoReceivedFrom}</TableCell>}
                     {visibleColumns.has('priceM2') && <TableCell className="whitespace-nowrap">${calculatePricePerM2(item).toFixed(4)}</TableCell>}
-                    {visibleColumns.has('notes') && <TableCell className="max-w-32 truncate" title={item.notes}>{item.notes}</TableCell>}
+                    {visibleColumns.has('notes') && (
+                      <TableCell className="max-w-32">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="block truncate cursor-pointer">{item.notes || '-'}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs bg-gray-900 text-white p-3 rounded-lg shadow-lg">
+                              <p className="text-sm whitespace-pre-wrap">{item.notes || 'No notes'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                    )}
                     {visibleColumns.has('date') && (
                       <TableCell className="whitespace-nowrap">
                         {new Date(item.timestamp || item.createdAt).toLocaleDateString()}
