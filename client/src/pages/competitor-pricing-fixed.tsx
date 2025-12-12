@@ -581,11 +581,11 @@ export default function CompetitorPricing() {
     <div className="glass-container p-6">
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Header */}
-        <div className="glass-card p-6 mb-8">
+        <div className="glass-card-solid p-6 mb-8 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <div className="glass-icon-btn bg-gradient-to-br from-orange-400 to-orange-600 text-white mr-4">
-                <TrendingUp className="h-6 w-6" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg mr-4">
+                <TrendingUp className="h-7 w-7 text-white" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Market Prices</h1>
