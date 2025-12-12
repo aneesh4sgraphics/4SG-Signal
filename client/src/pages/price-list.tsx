@@ -110,10 +110,11 @@ export default function PriceList() {
   const { user } = useAuth();
   
   // Get user role and filter pricing tiers accordingly - memoize to prevent re-renders
+  const userEmail = (user as any)?.email || '';
   const pricingTiers = useMemo(() => {
-    const userRole = getUserRoleFromEmail((user as any)?.email || '');
+    const userRole = getUserRoleFromEmail(userEmail);
     return allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
-  }, [(user as any)?.email]);
+  }, [userEmail]);
 
   // Reset all filters
   const resetFilters = () => {
@@ -365,7 +366,10 @@ export default function PriceList() {
     });
   };
 
-  // Load filters from localStorage on mount
+  // Serialize pricingTiers keys for stable dependency
+  const pricingTierKeys = useMemo(() => pricingTiers.map(t => t.key).join(','), [pricingTiers]);
+  
+  // Load filters from localStorage on mount - only run once when data is available
   useEffect(() => {
     if (!productData.length || filtersInitialized) return;
     
@@ -373,51 +377,35 @@ export default function PriceList() {
     if (storedFilters) {
       try {
         const filters = JSON.parse(storedFilters);
-        let validCategory = "";
-        let validTier = "";
+        
+        // Validate category against current categories
+        const categoryNames = productData
+          .map(item => item.productName || item.product_name || '')
+          .filter(name => name && name.trim().length > 0);
+        const validCategories = Array.from(new Set(categoryNames));
         
         // Validate and set category
-        if (filters.category && categories.includes(filters.category)) {
-          validCategory = filters.category;
+        if (filters.category && validCategories.includes(filters.category)) {
           setSelectedCategory(filters.category);
-        } else if (filters.category) {
-          // Category no longer exists, reset all filters
-          console.log(`[Filter Validation] Category '${filters.category}' no longer exists, resetting filters`);
-          setSelectedCategory("");
-          setSelectedTier("");
-          localStorage.removeItem("priceListFilters");
-        }
-        
-        // Validate and set tier only if valid
-        if (filters.tier && pricingTiers.some(t => t.key === filters.tier)) {
-          validTier = filters.tier;
-          setSelectedTier(filters.tier);
-        } else if (filters.tier) {
-          // Tier no longer accessible, reset
-          console.log(`[Filter Validation] Tier '${filters.tier}' no longer accessible, resetting`);
-          setSelectedTier("");
-        }
-        
-        // Update stored filters with valid values only
-        if (validCategory || validTier) {
-          const validFilters = {
-            category: validCategory,
-            tier: validTier
-          };
-          localStorage.setItem("priceListFilters", JSON.stringify(validFilters));
         } else {
-          // No valid filters, remove from storage
+          setSelectedCategory("");
           localStorage.removeItem("priceListFilters");
+        }
+        
+        // Validate and set tier
+        const tierKeys = pricingTierKeys.split(',');
+        if (filters.tier && tierKeys.includes(filters.tier)) {
+          setSelectedTier(filters.tier);
+        } else {
+          setSelectedTier("");
         }
       } catch (error) {
         console.error("Failed to load filters from storage:", error);
         localStorage.removeItem("priceListFilters");
-        setSelectedCategory("");
-        setSelectedTier("");
       }
     }
     setFiltersInitialized(true);
-  }, [productData, categories, pricingTiers, filtersInitialized]);
+  }, [productData.length, filtersInitialized, pricingTierKeys]);
 
   // Save filters to localStorage when they change
   useEffect(() => {
