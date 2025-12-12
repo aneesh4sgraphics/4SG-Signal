@@ -23,6 +23,7 @@ import PriceList from "@/pages/price-list";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
 import ActivityLogsPage from "@/pages/activity-logs";
+import PdfCategoryAdmin from "@/pages/pdf-category-admin";
 import Dashboard from "@/pages/dashboard-odoo";
 
 import NotFound from "@/pages/not-found";
@@ -146,6 +147,7 @@ function Router() {
         <Route path="/activity-logs" component={ActivityLogsPage} />
         <Route path="/shipping-calculator" component={ShippingCalculator} />
         <Route path="/admin" component={Admin} />
+        <Route path="/pdf-settings" component={PdfCategoryAdmin} />
         <Route><Redirect to="/" /></Route>
       </Switch>
     </OdooLayout>

@@ -3912,6 +3912,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Use the new chat router
   app.use(chatRouter);
 
+  // PDF Category Details endpoints (Admin only)
+  app.get("/api/pdf-category-details", isAuthenticated, async (req, res) => {
+    try {
+      const details = await storage.getPdfCategoryDetails();
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching PDF category details:", error);
+      res.status(500).json({ error: "Failed to fetch PDF category details" });
+    }
+  });
+
+  app.get("/api/pdf-category-details/:categoryKey", isAuthenticated, async (req, res) => {
+    try {
+      const { categoryKey } = req.params;
+      const detail = await storage.getPdfCategoryDetailByKey(categoryKey);
+      if (!detail) {
+        return res.status(404).json({ error: "Category detail not found" });
+      }
+      res.json(detail);
+    } catch (error) {
+      console.error("Error fetching PDF category detail:", error);
+      res.status(500).json({ error: "Failed to fetch PDF category detail" });
+    }
+  });
+
+  app.post("/api/pdf-category-details", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { insertPdfCategoryDetailsSchema } = await import("@shared/schema");
+      const validatedData = insertPdfCategoryDetailsSchema.parse({
+        ...req.body,
+        updatedBy: req.user?.claims?.sub || 'system'
+      });
+      const detail = await storage.upsertPdfCategoryDetail(validatedData);
+      res.json(detail);
+    } catch (error) {
+      console.error("Error saving PDF category detail:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to save PDF category detail" });
+    }
+  });
+
+  app.delete("/api/pdf-category-details/:id", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePdfCategoryDetail(id);
+      res.json({ message: "Category detail deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting PDF category detail:", error);
+      res.status(500).json({ error: "Failed to delete PDF category detail" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });

@@ -60,6 +60,7 @@ const adminItems = [
   { path: '/admin', icon: Users, label: 'User Management', hoverBg: 'linear-gradient(135deg, #ef4444, #b91c1c)' },
   { path: '/activity-logs', icon: Activity, label: 'Activity Logs', hoverBg: 'linear-gradient(135deg, #84cc16, #4d7c0f)' },
   { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', hoverBg: 'linear-gradient(135deg, #f59e0b, #b45309)' },
+  { path: '/pdf-settings', icon: FileText, label: 'PDF Settings', hoverBg: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' },
 ];
 
 function SettingsMenu() {
