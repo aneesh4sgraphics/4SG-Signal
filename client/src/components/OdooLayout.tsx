@@ -106,10 +106,13 @@ function SettingsMenu() {
 }
 
 export default function OdooLayout({ children }: OdooLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
+  
+  const handleMouseEnter = () => setSidebarOpen(true);
+  const handleMouseLeave = () => setSidebarOpen(false);
   
   const logout = () => {
     if (isLoggingOut) return;
@@ -127,27 +130,28 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
   return (
     <div className="min-h-screen bg-white flex">
       {/* Modern Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-gray-50 border-r border-gray-200 h-screen transition-all duration-300 flex flex-col`}>
+      <aside 
+        className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-gray-50 border-r border-gray-200 h-screen transition-all duration-300 flex flex-col`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-gray-200 rounded-lg"
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            {sidebarOpen && <SettingsMenu />}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            {sidebarOpen ? (
+              <>
+                <div className="space-y-1">
+                  <h1 className="heading-sm text-black">4S Graphics</h1>
+                  <p className="body-sm text-gray-500">Employee Portal</p>
+                </div>
+                <SettingsMenu />
+              </>
+            ) : (
+              <div className="flex justify-center w-full">
+                <Menu className="h-5 w-5 text-gray-500" />
+              </div>
+            )}
           </div>
-          
-          {sidebarOpen && (
-            <div className="space-y-1">
-              <h1 className="heading-sm text-black">4S Graphics</h1>
-              <p className="body-sm text-gray-500">Employee Portal</p>
-            </div>
-          )}
         </div>
 
         {/* Navigation */}
