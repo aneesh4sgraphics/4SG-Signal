@@ -46,20 +46,20 @@ interface OdooLayoutProps {
 }
 
 const mainItems = [
-  { path: '/', icon: Home, label: 'Dashboard', color: 'from-blue-400 to-indigo-600' },
-  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: 'from-emerald-400 to-teal-600' },
-  { path: '/price-list', icon: DollarSign, label: 'Price List', color: 'from-green-400 to-green-600' },
-  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', color: 'from-violet-400 to-purple-600' },
-  { path: '/clients', icon: Building2, label: 'Client Database', color: 'from-cyan-400 to-blue-600' },
-  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: 'from-pink-400 to-rose-600' },
-  { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', color: 'from-amber-400 to-orange-600' },
-  { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator', color: 'from-sky-400 to-blue-600' },
+  { path: '/', icon: Home, label: 'Dashboard', color: 'from-blue-500 to-blue-700' },
+  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: 'from-emerald-500 to-emerald-700' },
+  { path: '/price-list', icon: DollarSign, label: 'Price List', color: 'from-yellow-400 to-yellow-600' },
+  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', color: 'from-purple-500 to-purple-700' },
+  { path: '/clients', icon: Building2, label: 'Client Database', color: 'from-cyan-500 to-cyan-700' },
+  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: 'from-pink-500 to-pink-700' },
+  { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', color: 'from-orange-500 to-orange-700' },
+  { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator', color: 'from-indigo-500 to-indigo-700' },
 ];
 
 const adminItems = [
-  { path: '/admin', icon: Users, label: 'User Management', color: 'from-red-400 to-rose-600' },
-  { path: '/activity-logs', icon: Activity, label: 'Activity Logs', color: 'from-lime-400 to-green-600' },
-  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', color: 'from-orange-400 to-red-500' },
+  { path: '/admin', icon: Users, label: 'User Management', color: 'from-red-500 to-red-700' },
+  { path: '/activity-logs', icon: Activity, label: 'Activity Logs', color: 'from-lime-500 to-lime-700' },
+  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', color: 'from-amber-500 to-amber-700' },
 ];
 
 function SettingsMenu() {
