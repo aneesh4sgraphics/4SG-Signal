@@ -46,8 +46,8 @@ const FALLBACK_FEATURES: Record<string, string[]> = {
 };
 
 // Priority order for matching - more specific first
-const LOGO_MATCH_ORDER = ['graffitistick', 'slickstick', 'graffiti', 'solvit', 'rang', 'canvas', 'cliq', 'photo', 'eie', 'ele', 'paper'];
-const FEATURE_MATCH_ORDER = ['graffitistick', 'slickstick', 'graffiti', 'solvit', 'rang', 'cliq', 'photo'];
+const LOGO_MATCH_ORDER = ['graffitistick', 'graffitisoft', 'graffitiblended', 'slickstick', 'graffiti', 'solvit', 'rang', 'canvas', 'cliq', 'photo', 'eie', 'ele', 'paper', 'dtf', 'coho', 'offset', 'screenprinting', 'screen printing'];
+const FEATURE_MATCH_ORDER = ['graffitistick', 'graffitisoft', 'graffitiblended', 'slickstick', 'graffiti', 'solvit', 'rang', 'cliq', 'photo', 'dtf', 'coho', 'offset', 'screenprinting', 'screen printing'];
 
 async function getPdfCategoryDetailsFromDb(): Promise<PdfCategoryDetails[]> {
   const now = Date.now();

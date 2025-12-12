@@ -25,40 +25,67 @@ interface CategoryFormData {
 
 const DEFAULT_CATEGORIES: Partial<CategoryFormData>[] = [
   { 
-    categoryKey: 'graffiti', 
-    displayName: 'Graffiti POLYESTER PAPER', 
-    featuresMain: 'Scuff Free / Waterproof / Tear Resistant', 
-    featuresSub: 'High Rigidity / Excellent Alcohol & Stain Resistance', 
-    compatibleWith: 'Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh, Fuji Inkjet and others',
-    matchesPattern: 'Products containing "graffiti" (not "graffitistick")',
+    categoryKey: 'cliq', 
+    displayName: 'CliQ Aqueous Medias', 
+    featuresMain: 'Photo Quality / Archival Inks Compatible / High Color Gamut', 
+    featuresSub: 'Instant Dry / Premium Finish', 
+    compatibleWith: 'Compatible with All Aqueous Inkjet Printers',
+    matchesPattern: 'Products containing "cliq"',
     sortOrder: 1 
   },
   { 
-    categoryKey: 'graffitistick', 
-    displayName: 'GraffitiSTICK', 
-    featuresMain: 'Self-Adhesive / Waterproof / Tear Resistant', 
-    featuresSub: 'Easy Application / Removable or Permanent Options', 
-    compatibleWith: 'Compatible with All Digital Toner Press',
-    matchesPattern: 'Products containing "graffitistick" or "slickstick"',
+    categoryKey: 'dtf', 
+    displayName: 'DTF Film', 
+    featuresMain: 'Direct to Film Transfer / Vibrant Colors', 
+    featuresSub: 'Excellent Wash Durability / Soft Hand Feel', 
+    compatibleWith: 'Compatible with DTF Printers',
+    matchesPattern: 'Products containing "dtf" or "coho"',
     sortOrder: 2 
   },
   { 
-    categoryKey: 'cliq', 
-    displayName: 'CLIQ Photo Paper', 
-    featuresMain: 'Photo Quality / Archival Inks Compatible / High Color Gamut', 
-    featuresSub: 'Instant Dry / Premium Finish', 
-    compatibleWith: 'Compatible with All Digital Toner Press',
-    matchesPattern: 'Products containing "cliq"',
+    categoryKey: 'graffitiblended', 
+    displayName: 'Graffiti Blended Poly', 
+    featuresMain: 'Scuff Free / Waterproof / Tear Resistant', 
+    featuresSub: 'Blended Polyester Construction / High Durability', 
+    compatibleWith: 'Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh',
+    matchesPattern: 'Products containing "graffiti blended"',
     sortOrder: 3 
   },
   { 
-    categoryKey: 'solvit', 
-    displayName: 'SolviT Sign & Display Media', 
-    featuresMain: 'Sign & Display Media / Indoor/Outdoor Use', 
-    featuresSub: 'UV Resistant / Durable', 
-    compatibleWith: 'Compatible with All Eco-Solvent, Latex and UV Printers',
-    matchesPattern: 'Products containing "solvit"',
+    categoryKey: 'graffiti', 
+    displayName: 'Graffiti Polyester Paper', 
+    featuresMain: 'Scuff Free / Waterproof / Tear Resistant', 
+    featuresSub: 'High Rigidity / Excellent Alcohol & Stain Resistance', 
+    compatibleWith: 'Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh, Fuji Inkjet and others',
+    matchesPattern: 'Products containing "graffiti polyester"',
     sortOrder: 4 
+  },
+  { 
+    categoryKey: 'graffitisoft', 
+    displayName: 'Graffiti SOFT Poly', 
+    featuresMain: 'Scuff Free / Waterproof / Tear Resistant', 
+    featuresSub: 'Soft Touch Finish / Flexible', 
+    compatibleWith: 'Compatible with All Digital Toner Press',
+    matchesPattern: 'Products containing "graffiti soft"',
+    sortOrder: 5 
+  },
+  { 
+    categoryKey: 'graffitistick', 
+    displayName: 'Graffiti STICK', 
+    featuresMain: 'Self-Adhesive / Waterproof / Tear Resistant', 
+    featuresSub: 'Easy Application / Removable or Permanent Options', 
+    compatibleWith: 'Compatible with All Digital Toner Press',
+    matchesPattern: 'Products containing "graffiti stick"',
+    sortOrder: 6 
+  },
+  { 
+    categoryKey: 'offset', 
+    displayName: 'Offset Printing Plates', 
+    featuresMain: 'High Resolution / Consistent Quality', 
+    featuresSub: 'Long Run Durability / Sharp Image Reproduction', 
+    compatibleWith: 'Compatible with All Offset Printing Presses',
+    matchesPattern: 'Products containing "offset"',
+    sortOrder: 7 
   },
   { 
     categoryKey: 'rang', 
@@ -67,7 +94,25 @@ const DEFAULT_CATEGORIES: Partial<CategoryFormData>[] = [
     featuresSub: 'True Color Reproduction / Artist Grade', 
     compatibleWith: 'Compatible with All Wide Format Inkjet Printers',
     matchesPattern: 'Products containing "rang" or "canvas"',
-    sortOrder: 5 
+    sortOrder: 8 
+  },
+  { 
+    categoryKey: 'screenprinting', 
+    displayName: 'Screen Printing Positives', 
+    featuresMain: 'High Density Black / Sharp Edge Definition', 
+    featuresSub: 'Excellent Registration / Dimensionally Stable', 
+    compatibleWith: 'Compatible with All Inkjet Printers',
+    matchesPattern: 'Products containing "screen printing"',
+    sortOrder: 9 
+  },
+  { 
+    categoryKey: 'solvit', 
+    displayName: 'Solvit Sign & Display Media', 
+    featuresMain: 'Sign & Display Media / Indoor/Outdoor Use', 
+    featuresSub: 'UV Resistant / Durable', 
+    compatibleWith: 'Compatible with All Eco-Solvent, Latex and UV Printers',
+    matchesPattern: 'Products containing "solvit"',
+    sortOrder: 10 
   }
 ];
 
