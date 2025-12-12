@@ -521,3 +521,21 @@ html {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
+
+/* Navigation icon box with hover color effect */
+.nav-icon-box {
+  background: #e5e7eb;
+}
+
+.nav-icon-box .nav-icon {
+  color: #4b5563;
+}
+
+.group:hover .nav-icon-box {
+  background: var(--hover-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.group:hover .nav-icon-box .nav-icon {
+  color: white;
+}

@@ -46,20 +46,20 @@ interface OdooLayoutProps {
 }
 
 const mainItems = [
-  { path: '/', icon: Home, label: 'Dashboard', color: 'from-blue-500 to-blue-700' },
-  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: 'from-emerald-500 to-emerald-700' },
-  { path: '/price-list', icon: DollarSign, label: 'Price List', color: 'from-yellow-400 to-yellow-600' },
-  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', color: 'from-purple-500 to-purple-700' },
-  { path: '/clients', icon: Building2, label: 'Client Database', color: 'from-cyan-500 to-cyan-700' },
-  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: 'from-pink-500 to-pink-700' },
-  { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', color: 'from-orange-500 to-orange-700' },
-  { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator', color: 'from-indigo-500 to-indigo-700' },
+  { path: '/', icon: Home, label: 'Dashboard', hoverBg: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
+  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', hoverBg: 'linear-gradient(135deg, #10b981, #047857)' },
+  { path: '/price-list', icon: DollarSign, label: 'Price List', hoverBg: 'linear-gradient(135deg, #fbbf24, #d97706)' },
+  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', hoverBg: 'linear-gradient(135deg, #a855f7, #7e22ce)' },
+  { path: '/clients', icon: Building2, label: 'Client Database', hoverBg: 'linear-gradient(135deg, #06b6d4, #0891b2)' },
+  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', hoverBg: 'linear-gradient(135deg, #ec4899, #be185d)' },
+  { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', hoverBg: 'linear-gradient(135deg, #f97316, #c2410c)' },
+  { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator', hoverBg: 'linear-gradient(135deg, #6366f1, #4338ca)' },
 ];
 
 const adminItems = [
-  { path: '/admin', icon: Users, label: 'User Management', color: 'from-red-500 to-red-700' },
-  { path: '/activity-logs', icon: Activity, label: 'Activity Logs', color: 'from-lime-500 to-lime-700' },
-  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', color: 'from-amber-500 to-amber-700' },
+  { path: '/admin', icon: Users, label: 'User Management', hoverBg: 'linear-gradient(135deg, #ef4444, #b91c1c)' },
+  { path: '/activity-logs', icon: Activity, label: 'Activity Logs', hoverBg: 'linear-gradient(135deg, #84cc16, #4d7c0f)' },
+  { path: '/product-pricing-management', icon: Database, label: 'Product Pricing', hoverBg: 'linear-gradient(135deg, #f59e0b, #b45309)' },
 ];
 
 function SettingsMenu() {
@@ -176,8 +176,11 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md transition-all duration-200`}>
-                      <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} text-white`} />
+                    <div 
+                      className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 nav-icon-box`}
+                      style={{ '--hover-bg': item.hoverBg } as React.CSSProperties}
+                    >
+                      <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 nav-icon`} />
                     </div>
                     {sidebarOpen && <span className={`font-medium body-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
                   </div>
@@ -208,8 +211,11 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md transition-all duration-200`}>
-                        <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} text-white`} />
+                      <div 
+                        className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 nav-icon-box`}
+                        style={{ '--hover-bg': item.hoverBg } as React.CSSProperties}
+                      >
+                        <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 nav-icon`} />
                       </div>
                       {sidebarOpen && <span className={`font-medium body-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
                     </div>

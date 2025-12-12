@@ -139,9 +139,9 @@ export default function Dashboard() {
       <div className="space-y-12 relative z-10">
         {/* Hero Section */}
         <div className="glass-card p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="glass-icon-btn bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-              <Zap className="h-6 w-6" />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <Zap className="h-7 w-7 text-white" />
             </div>
             <div>
               <h1 className="heading-lg">Welcome back, {firstName}</h1>
@@ -255,9 +255,9 @@ export default function Dashboard() {
         {/* Admin Section */}
         {isAdmin && (
           <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="glass-icon-btn bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
-                <Settings className="h-5 w-5" />
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <Settings className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h2 className="heading-md">Admin Tools</h2>
