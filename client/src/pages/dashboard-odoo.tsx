@@ -13,9 +13,12 @@ import {
   ArrowRight,
   Zap,
   Activity,
-  Building2,
   DollarSign,
-  Package
+  Package,
+  ClipboardList,
+  Wallet,
+  UserCheck,
+  Boxes
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -44,21 +47,21 @@ const mainApps: AppItem[] = [
     description: "Generate instant quotes with pricing calculations",
     path: "/quick-quotes",
     icon: Calculator,
-    color: "bg-blue-500"
+    color: "bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600"
   },
   {
     title: "Price List",
     description: "View and export comprehensive pricing tables",
     path: "/price-list",
     icon: FileText,
-    color: "bg-green-500"
+    color: "bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600"
   },
   {
     title: "Saved Quotes",
     description: "Manage and track all generated quotes",
     path: "/saved-quotes",
     icon: BarChart3,
-    color: "bg-purple-500"
+    color: "bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600"
   }
 ];
 
@@ -68,7 +71,7 @@ const adminApps: AppItem[] = [
     description: "Manage product catalog and pricing data",
     path: "/product-pricing-management",
     icon: Database,
-    color: "bg-orange-500",
+    color: "bg-gradient-to-br from-amber-400 via-orange-500 to-red-500",
     adminOnly: true
   },
   {
@@ -76,7 +79,7 @@ const adminApps: AppItem[] = [
     description: "Customer database management",
     path: "/customers",
     icon: Users,
-    color: "bg-indigo-500",
+    color: "bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600",
     adminOnly: true
   },
   {
@@ -84,7 +87,7 @@ const adminApps: AppItem[] = [
     description: "System settings and user management",
     path: "/admin",
     icon: Settings,
-    color: "bg-gray-500",
+    color: "bg-gradient-to-br from-slate-400 via-gray-500 to-zinc-600",
     adminOnly: true
   }
 ];
@@ -150,29 +153,31 @@ export default function Dashboard() {
         {/* Stats Grid */}
         {!statsLoading && stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="glass-stat p-6 group transition-all duration-200">
+            <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="glass-icon-btn bg-gradient-to-br from-blue-400 to-blue-600 text-white">
-                  <FileText className="h-5 w-5" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <ClipboardList className="h-7 w-7 text-white" />
                 </div>
-                <Activity className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-1 text-green-500 text-sm font-medium">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>+{stats.quotesThisMonth}</span>
+                </div>
               </div>
               <div className="stat-value text-black">{stats.totalQuotes}</div>
               <div className="stat-label">Total Quotes</div>
               <div className="mt-3 pt-3 border-t border-gray-100/50">
-                <div className="flex items-center gap-2 text-green-600 body-sm font-medium">
-                  <TrendingUp className="h-4 w-4" />
-                  {stats.quotesThisMonth} this month
-                </div>
+                <div className="body-sm text-gray-500">{stats.quotesThisMonth} created this month</div>
               </div>
             </div>
 
-            <div className="glass-stat p-6 group transition-all duration-200">
+            <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="glass-icon-btn bg-gradient-to-br from-green-400 to-green-600 text-white">
-                  <DollarSign className="h-5 w-5" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                  <Wallet className="h-7 w-7 text-white" />
                 </div>
-                <Activity className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-1 text-emerald-500 text-sm font-medium">
+                  <DollarSign className="h-4 w-4" />
+                </div>
               </div>
               <div className="stat-value text-black">${stats.monthlyRevenue.toLocaleString()}</div>
               <div className="stat-label">Monthly Revenue</div>
@@ -181,31 +186,35 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="glass-stat p-6 group transition-all duration-200">
+            <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="glass-icon-btn bg-gradient-to-br from-purple-400 to-purple-600 text-white">
-                  <Building2 className="h-5 w-5" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-400 via-purple-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                  <UserCheck className="h-7 w-7 text-white" />
                 </div>
-                <Activity className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-1 text-purple-500 text-sm font-medium">
+                  <Users className="h-4 w-4" />
+                </div>
               </div>
-              <div className="stat-value text-black">{stats.totalCustomers}</div>
-              <div className="stat-label">Total Customers</div>
+              <div className="stat-value text-black">{Number(stats.totalCustomers).toLocaleString()}</div>
+              <div className="stat-label">Happy Customers</div>
               <div className="mt-3 pt-3 border-t border-gray-100/50">
-                <div className="body-sm text-gray-500">In your database</div>
+                <div className="body-sm text-gray-500">Growing community</div>
               </div>
             </div>
 
-            <div className="glass-stat p-6 group transition-all duration-200">
+            <div className="glass-stat p-6 group transition-all duration-200 hover:scale-[1.02]">
               <div className="flex items-start justify-between mb-4">
-                <div className="glass-icon-btn bg-gradient-to-br from-amber-400 to-amber-600 text-white">
-                  <Package className="h-5 w-5" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                  <Boxes className="h-7 w-7 text-white" />
                 </div>
-                <Activity className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-1 text-orange-500 text-sm font-medium">
+                  <Package className="h-4 w-4" />
+                </div>
               </div>
               <div className="stat-value text-black">{stats.totalProducts}</div>
               <div className="stat-label">Products</div>
               <div className="mt-3 pt-3 border-t border-gray-100/50">
-                <div className="body-sm text-gray-500">Available items</div>
+                <div className="body-sm text-gray-500">In catalog</div>
               </div>
             </div>
           </div>
@@ -227,11 +236,11 @@ export default function Dashboard() {
                 <Link 
                   key={app.path} 
                   href={app.path}
-                  className="group glass-card-solid p-6 hover:shadow-lg cursor-pointer transition-all duration-200 block"
+                  className="group glass-card-solid p-6 hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all duration-200 block"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`glass-icon-btn ${app.color} text-white`}>
-                      <Icon className="h-6 w-6" />
+                    <div className={`w-14 h-14 rounded-2xl ${app.color} flex items-center justify-center shadow-lg`}>
+                      <Icon className="h-7 w-7 text-white" />
                     </div>
                     <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-black group-hover:translate-x-1 transition-all duration-200" />
                   </div>
@@ -263,11 +272,11 @@ export default function Dashboard() {
                   <Link 
                     key={app.path} 
                     href={app.path}
-                    className="group glass-card-solid p-6 hover:shadow-lg cursor-pointer transition-all duration-200 block border-2 border-transparent hover:border-indigo-200"
+                    className="group glass-card-solid p-6 hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all duration-200 block border-2 border-transparent hover:border-indigo-200"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className={`glass-icon-btn ${app.color} text-white`}>
-                        <Icon className="h-6 w-6" />
+                      <div className={`w-14 h-14 rounded-2xl ${app.color} flex items-center justify-center shadow-lg`}>
+                        <Icon className="h-7 w-7 text-white" />
                       </div>
                       <Badge className="glass-badge text-indigo-600">Admin</Badge>
                     </div>
