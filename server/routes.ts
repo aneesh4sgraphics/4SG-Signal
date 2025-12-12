@@ -2559,7 +2559,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Headers:', headers);
       console.log('Data rows:', dataRows.length);
       
+      // Fetch existing entries for duplicate detection
+      const existingEntries = await storage.getCompetitorPricing();
+      
+      // Create fingerprints of existing entries for fast lookup
+      const createFingerprint = (entry: any) => {
+        return [
+          String(entry.type || '').toLowerCase().trim(),
+          String(entry.dimensions || '').toLowerCase().trim(),
+          String(entry.packQty || 0),
+          String(parseFloat(entry.inputPrice || 0).toFixed(2)),
+          String(entry.thickness || '').toLowerCase().trim(),
+          String(entry.productKind || '').toLowerCase().trim(),
+          String(entry.surfaceFinish || '').toLowerCase().trim(),
+          String(entry.supplierInfo || '').toLowerCase().trim(),
+          String(parseFloat(entry.pricePerSqMeter || 0).toFixed(4)),
+          String(entry.notes || '').toLowerCase().trim(),
+        ].join('|');
+      };
+      
+      const existingFingerprints = new Set(existingEntries.map(createFingerprint));
+      console.log(`Found ${existingFingerprints.size} existing unique entries for duplicate detection`);
+      
       let uploadedCount = 0;
+      let skippedDuplicates = 0;
       
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -2637,10 +2660,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('Final competitor data:', JSON.stringify(competitorData, null, 2));
         
+        // Check for duplicate before saving
+        const newFingerprint = createFingerprint(competitorData);
+        if (existingFingerprints.has(newFingerprint)) {
+          console.log(`Skipping duplicate row ${i + 1}`);
+          skippedDuplicates++;
+          continue;
+        }
+        
         try {
           const savedEntry = await storage.createCompetitorPricing(competitorData as any);
           console.log('Successfully saved entry:', JSON.stringify(savedEntry, null, 2));
           uploadedCount++;
+          // Add fingerprint to set to prevent duplicates within same upload
+          existingFingerprints.add(newFingerprint);
         } catch (error) {
           console.error(`Error saving competitor pricing data for row ${i + 1}:`, error);
         }
@@ -2649,9 +2682,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up uploaded file
       fs.unlinkSync(filePath);
       
+      let message = `Upload complete: ${uploadedCount} new entries added.`;
+      if (skippedDuplicates > 0) {
+        message += ` ${skippedDuplicates} duplicates skipped.`;
+      }
+      
       res.json({ 
-        message: `Competitor pricing data uploaded successfully. ${uploadedCount} entries added and are now visible to all users.`,
-        count: uploadedCount 
+        message,
+        count: uploadedCount,
+        skipped: skippedDuplicates
       });
     } catch (error) {
       console.error("Error uploading competitor pricing data:", error);
