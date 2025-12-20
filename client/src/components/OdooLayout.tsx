@@ -144,26 +144,27 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
 
   return (
     <div className="min-h-screen bg-white flex">
-      {/* Modern Sidebar */}
+      {/* NeoPop Sidebar */}
       <aside 
-        className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-gray-50 border-r border-gray-200 h-screen transition-all duration-300 flex flex-col`}
+        className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-white h-screen transition-all duration-300 flex flex-col`}
+        style={{ borderRight: '3px solid #000' }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4" style={{ borderBottom: '3px solid #000' }}>
           <div className="flex items-center justify-between">
             {sidebarOpen ? (
               <>
                 <div className="space-y-1">
-                  <h1 className="heading-sm text-black">4S Graphics</h1>
-                  <p className="body-sm text-gray-500">Employee Portal</p>
+                  <h1 className="text-xl font-black text-black">4S Graphics</h1>
+                  <p className="text-sm font-medium text-gray-600">Employee Portal</p>
                 </div>
                 <SettingsMenu />
               </>
             ) : (
               <div className="flex justify-center w-full">
-                <Menu className="h-5 w-5 text-gray-500" />
+                <Menu className="h-5 w-5 text-black" />
               </div>
             )}
           </div>
@@ -186,20 +187,20 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
                   href={item.path}
                   className={`group flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-2 py-3'} rounded-xl transition-all duration-200 cursor-pointer ${
                     isActive 
-                      ? 'bg-gray-100 shadow-sm'
+                      ? 'bg-[#FFD93D] border-2 border-black'
                       : 'hover:bg-gray-100'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div 
-                      className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 nav-icon-box`}
-                      style={{ '--hover-bg': item.hoverBg } as React.CSSProperties}
+                      className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-black' : 'bg-gray-200'}`}
+                      style={{ border: '2px solid #000' }}
                     >
-                      <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 nav-icon`} />
+                      <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 ${isActive ? 'text-white' : 'text-black'}`} />
                     </div>
-                    {sidebarOpen && <span className={`font-medium body-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
+                    {sidebarOpen && <span className={`font-bold text-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
                   </div>
-                  {sidebarOpen && isActive && <ChevronRight className="h-4 w-4 text-gray-500" />}
+                  {sidebarOpen && isActive && <ChevronRight className="h-4 w-4 text-black" />}
                 </Link>
               );
             })}
@@ -221,20 +222,20 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
                     href={item.path}
                     className={`group flex items-center ${sidebarOpen ? 'justify-between px-3 py-2' : 'justify-center px-2 py-3'} rounded-xl transition-all duration-200 cursor-pointer ${
                       isActive 
-                        ? 'bg-gray-100 shadow-sm'
+                        ? 'bg-[#FFD93D] border-2 border-black'
                         : 'hover:bg-gray-100'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div 
-                        className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 nav-icon-box`}
-                        style={{ '--hover-bg': item.hoverBg } as React.CSSProperties}
+                        className={`${sidebarOpen ? 'w-9 h-9' : 'w-10 h-10'} rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-black' : 'bg-gray-200'}`}
+                        style={{ border: '2px solid #000' }}
                       >
-                        <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 nav-icon`} />
+                        <Icon className={`${sidebarOpen ? 'h-4 w-4' : 'h-5 w-5'} transition-colors duration-300 ${isActive ? 'text-white' : 'text-black'}`} />
                       </div>
-                      {sidebarOpen && <span className={`font-medium body-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
+                      {sidebarOpen && <span className={`font-bold text-sm ${isActive ? 'text-black' : 'text-gray-700'}`}>{item.label}</span>}
                     </div>
-                    {sidebarOpen && isActive && <ChevronRight className="h-4 w-4 text-gray-500" />}
+                    {sidebarOpen && isActive && <ChevronRight className="h-4 w-4 text-black" />}
                   </Link>
                 );
               })}
@@ -243,53 +244,48 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4" style={{ borderTop: '3px solid #000' }}>
           {sidebarOpen ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200">
-                <Avatar className="h-10 w-10 bg-black">
-                  <AvatarFallback className="bg-black text-white font-semibold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-[#C9F4E8]" style={{ border: '2px solid #000' }}>
+                <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center" style={{ border: '2px solid #000' }}>
+                  <span className="text-white font-bold text-sm">{userInitials}</span>
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-black truncate">
+                  <p className="font-bold text-sm text-black truncate">
                     {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">{(user as any)?.email}</p>
+                  <p className="text-xs font-medium text-gray-600 truncate">{(user as any)?.email}</p>
                 </div>
               </div>
-              <Button
-                variant="outline"
+              <button
                 onClick={logout}
                 disabled={isLoggingOut}
-                className="w-full justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full font-bold text-sm bg-white hover:bg-[#FFB3B3] transition-all disabled:opacity-50"
+                style={{ border: '2px solid #000' }}
                 data-testid="button-logout"
                 aria-label="Log out of your account"
               >
                 <LogOut className="h-4 w-4" />
                 <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
-              </Button>
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <Avatar className="h-10 w-10 bg-black">
-                <AvatarFallback className="bg-black text-white font-semibold">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                variant="outline"
-                size="sm"
+              <div className="h-10 w-10 rounded-full bg-black flex items-center justify-center" style={{ border: '2px solid #000' }}>
+                <span className="text-white font-bold text-sm">{userInitials}</span>
+              </div>
+              <button
                 onClick={logout}
                 disabled={isLoggingOut}
-                className="p-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700 rounded-lg disabled:opacity-50"
+                className="p-2 rounded-full bg-white hover:bg-[#FFB3B3] transition-all disabled:opacity-50"
+                style={{ border: '2px solid #000' }}
                 data-testid="button-logout"
                 aria-label="Log out of your account"
                 title={isLoggingOut ? 'Logging out...' : 'Logout'}
               >
                 <LogOut className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
           )}
         </div>
