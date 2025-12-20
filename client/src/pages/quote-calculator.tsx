@@ -265,7 +265,7 @@ export default function QuoteCalculator() {
         return;
       }
 
-      const tierPrice = referenceProduct[tier as keyof ProductData] as number;
+      const tierPrice = (referenceProduct[tier as keyof ProductData] as number) || 0;
       const customSqm = parseFloat(customWidth) * parseFloat(customHeight) * 0.00064516;
       const pricePerSheet = tierPrice * customSqm;
       const useQuantity = quantity; // Custom sizes use entered quantity
@@ -311,7 +311,7 @@ export default function QuoteCalculator() {
 
     if (!selectedProduct) return; // Additional safety check
 
-    const tierPrice = selectedProduct[tier as keyof ProductData] as number;
+    const tierPrice = (selectedProduct[tier as keyof ProductData] as number) || 0;
     const pricePerSheet = tierPrice * parseFloat(String(selectedProduct.totalSqm || 0));
     const useQuantity = Math.max(quantity, selectedProduct.minQuantity);
     
