@@ -76,6 +76,7 @@ interface QuoteItem {
 }
 
 const allPricingTiers = [
+  { key: 'landedPrice', label: 'Landed Price' },
   { key: 'exportPrice', label: 'Export Only' },
   { key: 'masterDistributorPrice', label: 'Distributor' },
   { key: 'dealerPrice', label: 'Dealer-VIP' },

@@ -77,6 +77,7 @@ interface Customer {
 }
 
 const allPricingTiers = [
+  { key: 'Landed', label: 'Landed Price' },
   { key: 'Export', label: 'Export Only' },
   { key: 'M.Distributor', label: 'Distributor' },
   { key: 'Dealer', label: 'Dealer-VIP' },
@@ -437,6 +438,7 @@ export default function PriceList() {
     const calculatedItems = filteredProducts.map((product) => {
       // Map tier names to database field names - use the actual camelCase field names from API response
       const tierMapping: Record<string, string> = {
+        'Landed': 'landedPrice',
         'Export': 'exportPrice',
         'M.Distributor': 'masterDistributorPrice', 
         'Dealer': 'dealerPrice',
