@@ -21,8 +21,7 @@ export const ROLE_TIER_ACCESS = {
     'Dealer',
     'Dealer-VIP',
     'Distributor',
-    'Export Only',
-    'Landed Price'
+    'Export Only'
   ]
 } as const;
 
