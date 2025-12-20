@@ -47,6 +47,7 @@ export const productPricingMaster = pgTable("product_pricing_master", {
   totalSqm: decimal("total_sqm", { precision: 10, scale: 6 }).notNull(),
   minQuantity: integer("min_quantity").notNull().default(50),
   // Pricing tiers
+  landedPrice: decimal("landed_price", { precision: 10, scale: 2 }),
   exportPrice: decimal("export_price", { precision: 10, scale: 2 }),
   masterDistributorPrice: decimal("master_distributor_price", { precision: 10, scale: 2 }),
   dealerPrice: decimal("dealer_price", { precision: 10, scale: 2 }),

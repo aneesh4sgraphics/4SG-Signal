@@ -20,7 +20,9 @@ export const ROLE_TIER_ACCESS = {
     'Shopify Lowest',
     'Dealer',
     'Dealer-VIP',
-    'Distributor'
+    'Distributor',
+    'Export Only',
+    'Landed Price'
   ]
 } as const;
 

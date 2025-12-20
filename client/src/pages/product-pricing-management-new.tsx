@@ -23,6 +23,7 @@ interface ProductPricingMaster {
   size: string;
   totalSqm: number;
   minQuantity: number;
+  landedPrice: number;
   exportPrice: number;
   masterDistributorPrice: number;
   dealerPrice: number;
@@ -78,6 +79,7 @@ interface UploadBatch {
 
 // Pricing tier labels for display
 const TIER_LABELS: Record<string, string> = {
+  landedPrice: 'Landed Price',
   exportPrice: 'Export Only',
   masterDistributorPrice: 'Distributor',
   dealerPrice: 'Dealer-VIP',
@@ -115,6 +117,7 @@ function ProductPricingCard({
   onToggleSelect: () => void;
 }) {
   const priceFields = [
+    { key: 'landedPrice', value: item.landedPrice },
     { key: 'exportPrice', value: item.exportPrice },
     { key: 'masterDistributorPrice', value: item.masterDistributorPrice },
     { key: 'dealerPrice', value: item.dealerPrice },
