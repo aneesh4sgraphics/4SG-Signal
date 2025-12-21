@@ -1,39 +1,29 @@
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 interface OdooCardProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
   className?: string;
-  color?: 'white' | 'yellow' | 'purple' | 'mint' | 'pink' | 'blue';
 }
 
-const colorMap = {
-  white: 'bg-white',
-  yellow: 'bg-[#FFD93D]',
-  purple: 'bg-[#C4B5FD]',
-  mint: 'bg-[#A7F3D0]',
-  pink: 'bg-[#FBCFE8]',
-  blue: 'bg-[#93C5FD]',
-};
-
-export default function OdooCard({ title, description, children, className = "", color = 'white' }: OdooCardProps) {
+export default function OdooCard({ title, description, children, className = "" }: OdooCardProps) {
   return (
-    <div 
-      className={`rounded-2xl p-6 transition-all duration-200 ${colorMap[color]} ${className}`}
-      style={{ border: '3px solid #000' }}
-    >
+    <Card className={`modern-card ${className}`}>
       {(title || description) && (
-        <div className="mb-4">
+        <CardHeader className="pb-4">
           {title && (
-            <h3 className="text-xl font-bold text-black">{title}</h3>
+            <CardTitle className="heading-sm">{title}</CardTitle>
           )}
           {description && (
-            <p className="text-sm font-medium text-gray-600 mt-1">{description}</p>
+            <CardDescription className="body-sm text-gray-600 mt-1">{description}</CardDescription>
           )}
-        </div>
+        </CardHeader>
       )}
-      <div>
+      <CardContent className={title || description ? "pt-0" : ""}>
         {children}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
