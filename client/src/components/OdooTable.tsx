@@ -19,6 +19,7 @@ interface AdaptiveTableProps {
   onRowClick?: (item: any, index: number) => void;
   emptyState?: React.ReactNode;
   maxHeight?: string;
+  getRowClassName?: (item: any, index: number) => string;
 }
 
 interface OdooTableProps {
@@ -34,7 +35,8 @@ export function AdaptiveTable({
   className = "", 
   onRowClick,
   emptyState,
-  maxHeight = "calc(100vh - 300px)"
+  maxHeight = "calc(100vh - 300px)",
+  getRowClassName
 }: AdaptiveTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<string[]>([]);
@@ -131,7 +133,7 @@ export function AdaptiveTable({
             {data.map((item, rowIndex) => (
               <TableRow 
                 key={rowIndex}
-                className={`hover:bg-gray-50 border-gray-200 ${onRowClick ? 'cursor-pointer' : ''}`}
+                className={`hover:bg-gray-50 border-gray-200 ${onRowClick ? 'cursor-pointer' : ''} ${getRowClassName?.(item, rowIndex) || ''}`}
                 onClick={() => onRowClick?.(item, rowIndex)}
               >
                 {columns.map((column, colIndex) => (

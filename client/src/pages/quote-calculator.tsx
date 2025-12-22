@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
@@ -135,6 +135,58 @@ export default function QuoteCalculator() {
   // Use role from user object directly, fallback to email-based detection
   const userRole = (user as any)?.role || getUserRoleFromEmail((user as any)?.email || '');
   const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
+
+  // Check if customer tags match a pricing tier label
+  const getMatchingTierFromTags = (): string | null => {
+    if (!selectedCustomer?.tags) return null;
+    const customerTags = selectedCustomer.tags.toLowerCase().split(',').map((t: string) => t.trim());
+    
+    for (const tier of pricingTiers) {
+      const tierLabel = tier.label.toLowerCase();
+      // Check for exact or partial match
+      if (customerTags.some((tag: string) => 
+        tag === tierLabel || 
+        tierLabel.includes(tag) || 
+        tag.includes(tierLabel) ||
+        // Also check common variations
+        (tag === 'dealer' && tierLabel.includes('dealer')) ||
+        (tag === 'distributor' && tierLabel.includes('distributor')) ||
+        (tag === 'vip' && tierLabel.includes('vip')) ||
+        (tag === 'retail' && tierLabel === 'retail') ||
+        (tag === 'export' && tierLabel.includes('export')) ||
+        (tag === 'shopify' && tierLabel.includes('shopify'))
+      )) {
+        return tier.key;
+      }
+    }
+    return null;
+  };
+
+  // Get suggested tier based on customer data (predictive pricing)
+  const getSuggestedTier = (): string | null => {
+    if (!selectedCustomer) return null;
+    
+    const totalSpent = parseFloat(String((selectedCustomer as any).totalSpent || 0));
+    const totalOrders = (selectedCustomer as any).totalOrders || 0;
+    
+    // Predictive pricing based on customer history
+    if (totalSpent >= 50000 || totalOrders >= 100) {
+      return 'masterDistributorPrice'; // Distributor tier for high-value customers
+    } else if (totalSpent >= 20000 || totalOrders >= 50) {
+      return 'dealerPrice'; // Dealer-VIP for medium-high value
+    } else if (totalSpent >= 10000 || totalOrders >= 25) {
+      return 'dealer2Price'; // Dealer for medium value
+    } else if (totalSpent >= 5000 || totalOrders >= 10) {
+      return 'approvalNeededPrice'; // Shopify Lowest for returning customers
+    } else if (totalOrders >= 3) {
+      return 'tierStage25Price'; // Shopify3 for repeat customers
+    }
+    return 'retailPrice'; // Default to retail for new customers
+  };
+
+  // Get the tier to highlight (tag match takes priority, then prediction)
+  const matchingTier = getMatchingTierFromTags();
+  const suggestedTier = !matchingTier ? getSuggestedTier() : null;
 
   // Product category icon mapping with colors
   const getProductIcon = (productName: string) => {
@@ -1337,10 +1389,26 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       
                       switch (column.key) {
                         case 'tier':
+                          const isTagMatch = item.tierKey === matchingTier;
+                          const isSuggested = item.tierKey === suggestedTier;
                           return (
-                            <span className="text-sm text-gray-800 uppercase font-medium">
-                              {item.tier.label}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-800 uppercase font-medium">
+                                {item.tier.label}
+                              </span>
+                              {isTagMatch && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-yellow-400 text-yellow-900 text-xs font-medium rounded">
+                                  <Tag className="h-3 w-3" />
+                                  Match
+                                </span>
+                              )}
+                              {isSuggested && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                  <Sparkles className="h-3 w-3" />
+                                  Suggested
+                                </span>
+                              )}
+                            </div>
                           );
                         case 'pricePerSqM':
                           // Only show for admin users (column is conditionally included)
@@ -1426,6 +1494,15 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                         default:
                           return null;
                       }
+                    }}
+                    getRowClassName={(item) => {
+                      if (item.tierKey === matchingTier) {
+                        return 'bg-yellow-200 hover:bg-yellow-300';
+                      }
+                      if (item.tierKey === suggestedTier) {
+                        return 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-400';
+                      }
+                      return '';
                     }}
                     maxHeight="600px"
                   />
