@@ -4017,6 +4017,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== EMAIL / GMAIL ENDPOINTS ==========
+  // Gmail integration using Replit's Gmail connection
+  
+  // Get email labels
+  app.get("/api/email/labels", isAuthenticated, async (req, res) => {
+    try {
+      const { getLabels } = await import("./gmail-client");
+      const labels = await getLabels();
+      res.json(labels);
+    } catch (error) {
+      console.error("Error fetching email labels:", error);
+      res.status(500).json({ error: "Failed to fetch email labels" });
+    }
+  });
+  
+  // Get messages from a label (default: INBOX)
+  app.get("/api/email/messages", isAuthenticated, async (req, res) => {
+    try {
+      const { getMessages } = await import("./gmail-client");
+      const label = (req.query.label as string) || 'INBOX';
+      const maxResults = parseInt(req.query.maxResults as string) || 20;
+      const messages = await getMessages(label, maxResults);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching email messages:", error);
+      res.status(500).json({ error: "Failed to fetch email messages" });
+    }
+  });
+  
+  // Get single message with full body
+  app.get("/api/email/messages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { getMessage } = await import("./gmail-client");
+      const message = await getMessage(req.params.id);
+      res.json(message);
+    } catch (error) {
+      console.error("Error fetching email message:", error);
+      res.status(500).json({ error: "Failed to fetch email message" });
+    }
+  });
+  
+  // Send an email
+  app.post("/api/email/send", isAuthenticated, async (req: any, res) => {
+    try {
+      const { sendEmail } = await import("./gmail-client");
+      const { to, subject, body, htmlBody } = req.body;
+      
+      if (!to || !subject || !body) {
+        return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      const result = await sendEmail(to, subject, body, htmlBody);
+      
+      // Log the email activity
+      await storage.logActivity({
+        userId: req.user?.claims?.sub || 'anonymous',
+        activityType: 'email_sent',
+        description: `Email sent to ${to}: ${subject}`,
+        metadata: { to, subject }
+      });
+      
+      res.json({ success: true, messageId: result.id });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });

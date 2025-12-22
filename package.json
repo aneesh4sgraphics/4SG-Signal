@@ -73,6 +73,7 @@
     "fast-glob": "^3.3.3",
     "file-saver": "^2.0.5",
     "framer-motion": "^11.13.1",
+    "googleapis": "^148.0.0",
     "html-entities": "^2.6.0",
     "html-pdf-node": "^1.0.8",
     "html2canvas": "^1.4.1",
