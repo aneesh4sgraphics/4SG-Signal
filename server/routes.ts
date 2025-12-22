@@ -38,6 +38,7 @@ import { db } from "./db";
 import { addPricingRoutes } from "./routes-pricing";
 import pricingDatabaseRoutes from "./routes-pricing-database";
 import { APP_CONFIG, isAdminEmail, getUserRoleFromEmail, getAccessibleTiers, debugLog } from "./config";
+import { searchNotionProducts } from "./notion";
 
 // Simple in-memory cache for frequently accessed data
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -4268,11 +4269,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/notion-products/search", isAuthenticated, async (req, res) => {
     try {
       const query = req.query.q as string || "";
-      const products = await storage.searchNotionProducts(query);
+      const databaseId = req.query.databaseId as string | undefined;
+      
+      // Use Notion API to search products
+      const products = await searchNotionProducts(query, databaseId);
       res.json(products);
-    } catch (error) {
-      console.error("Error searching products:", error);
-      res.status(500).json({ error: "Failed to search products" });
+    } catch (error: any) {
+      console.error("Error searching Notion products:", error);
+      
+      // Return helpful error message
+      if (error.message?.includes('not connected')) {
+        return res.status(503).json({ error: "Notion is not connected. Please set up the Notion integration." });
+      }
+      
+      res.status(500).json({ error: "Failed to search products in Notion" });
     }
   });
 
