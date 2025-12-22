@@ -134,17 +134,21 @@ export default function Dashboard() {
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">
+          <h1 className="text-3xl font-extrabold text-[#1A1819] mb-1">
             Welcome back, {firstName}
           </h1>
-          <p className="text-gray-500">
+          <p className="text-[#B7AEA3] font-medium">
             Here's what's happening with your business today
           </p>
         </div>
         <div className="hidden md:flex items-center gap-3">
           <Link href="/quick-quotes">
-            <Button className="contra-btn-primary" data-testid="button-new-quote">
-              <Sparkles className="h-4 w-4" />
+            <Button 
+              className="px-6 py-3 rounded-xl font-bold text-[#1A1819] border-[3px] border-[#1A1819] transition-all hover:shadow-[4px_4px_0px_#1A1819] hover:scale-[1.02]" 
+              style={{ backgroundColor: '#FE8505' }}
+              data-testid="button-new-quote"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
               New Quote
             </Button>
           </Link>
@@ -154,52 +158,52 @@ export default function Dashboard() {
       {/* Stats Grid */}
       {!statsLoading && stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="contra-card group" data-testid="stat-quotes">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#FE8505' }} data-testid="stat-quotes">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--contra-orange)' }}>
-                <ClipboardList className="h-5 w-5 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                <ClipboardList className="h-6 w-6 text-[#1A1819]" />
               </div>
-              <div className="flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--contra-teal)' }}>
-                <TrendingUp className="h-3.5 w-3.5" />
-                <span>+{stats.quotesThisMonth}</span>
+              <div className="flex items-center gap-1 text-sm font-bold bg-white/20 px-2 py-1 rounded-full border-2 border-[#1A1819]">
+                <TrendingUp className="h-3.5 w-3.5 text-[#1A1819]" />
+                <span className="text-[#1A1819]">+{stats.quotesThisMonth}</span>
               </div>
             </div>
-            <div className="text-3xl font-bold mb-1" style={{ color: 'var(--contra-black)' }}>{stats.totalQuotes}</div>
-            <div className="text-sm" style={{ color: 'var(--contra-gray)' }}>Total Quotes</div>
+            <div className="text-4xl font-extrabold mb-1 text-[#1A1819]">{stats.totalQuotes}</div>
+            <div className="text-sm font-semibold text-[#1A1819]/70">Total Quotes</div>
           </div>
 
-          <div className="contra-card group" data-testid="stat-revenue">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#6A9291' }} data-testid="stat-revenue">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--contra-teal)' }}>
-                <DollarSign className="h-5 w-5 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                <DollarSign className="h-6 w-6 text-[#1A1819]" />
               </div>
             </div>
-            <div className="text-3xl font-bold mb-1" style={{ color: 'var(--contra-black)' }}>
+            <div className="text-4xl font-extrabold mb-1 text-white">
               ${stats.monthlyRevenue.toLocaleString()}
             </div>
-            <div className="text-sm" style={{ color: 'var(--contra-gray)' }}>Monthly Revenue</div>
+            <div className="text-sm font-semibold text-white/70">Monthly Revenue</div>
           </div>
 
-          <div className="contra-card group" data-testid="stat-customers">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#F4B854' }} data-testid="stat-customers">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--contra-yellow)' }}>
-                <Users className="h-5 w-5" style={{ color: 'var(--contra-black)' }} />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                <Users className="h-6 w-6 text-[#1A1819]" />
               </div>
             </div>
-            <div className="text-3xl font-bold mb-1" style={{ color: 'var(--contra-black)' }}>
+            <div className="text-4xl font-extrabold mb-1 text-[#1A1819]">
               {Number(stats.totalCustomers).toLocaleString()}
             </div>
-            <div className="text-sm" style={{ color: 'var(--contra-gray)' }}>Customers</div>
+            <div className="text-sm font-semibold text-[#1A1819]/70">Customers</div>
           </div>
 
-          <div className="contra-card group" data-testid="stat-products">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#EF1C07' }} data-testid="stat-products">
             <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--contra-red)' }}>
-                <Package className="h-5 w-5 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                <Package className="h-6 w-6 text-white" />
               </div>
             </div>
-            <div className="text-3xl font-bold mb-1" style={{ color: 'var(--contra-black)' }}>{stats.totalProducts}</div>
-            <div className="text-sm" style={{ color: 'var(--contra-gray)' }}>Products</div>
+            <div className="text-4xl font-extrabold mb-1 text-white">{stats.totalProducts}</div>
+            <div className="text-sm font-semibold text-white/70">Products</div>
           </div>
         </div>
       )}
@@ -221,32 +225,34 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
-            <p className="text-sm text-gray-500">Your most-used tools</p>
+            <h2 className="text-xl font-extrabold text-[#1A1819]">Quick Actions</h2>
+            <p className="text-sm font-medium text-[#B7AEA3]">Your most-used tools</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {mainApps.map((app, index) => {
             const Icon = app.icon;
-            const colors = ['var(--contra-orange)', 'var(--contra-teal)', 'var(--contra-yellow)', 'var(--contra-red)'];
+            const colors = ['#FE8505', '#6A9291', '#F4B854', '#EF1C07'];
             const color = colors[index % colors.length];
-            const isYellow = index % colors.length === 2;
+            const isLightBg = index % colors.length === 0 || index % colors.length === 2;
+            const textColor = isLightBg ? '#1A1819' : 'white';
             return (
               <Link 
                 key={app.path} 
                 href={app.path}
-                className="contra-card group block transition-all hover:scale-[1.02]"
+                className="rounded-2xl p-6 border-[3px] border-[#1A1819] group block transition-all hover:scale-[1.02] hover:shadow-[4px_4px_0px_#1A1819]"
+                style={{ backgroundColor: color }}
                 data-testid={`link-${app.title.toLowerCase().replace(/\s/g, '-')}`}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: color }}>
-                    <Icon className={`h-6 w-6 ${isYellow ? 'text-[#1A1819]' : 'text-white'}`} />
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                    <Icon className="h-6 w-6" style={{ color: textColor }} />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-[#B7AEA3] group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-all" style={{ color: textColor }} />
                 </div>
-                <h3 className="font-semibold mb-1 text-[#1A1819] dark:text-white">{app.title}</h3>
-                <p className="text-sm line-clamp-2 text-[#B7AEA3]">{app.description}</p>
+                <h3 className="font-bold text-lg mb-1" style={{ color: textColor }}>{app.title}</h3>
+                <p className="text-sm line-clamp-2 font-medium" style={{ color: textColor, opacity: 0.7 }}>{app.description}</p>
               </Link>
             );
           })}
@@ -257,34 +263,39 @@ export default function Dashboard() {
       {isAdmin && (
         <div>
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--contra-teal)' }}>
-              <Settings className="h-4 w-4 text-white" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center border-2 border-[#1A1819]" style={{ backgroundColor: '#6A9291' }}>
+              <Settings className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold" style={{ color: 'var(--contra-black)' }}>Admin Tools</h2>
-              <p className="text-sm" style={{ color: 'var(--contra-gray)' }}>Manage system settings</p>
+              <h2 className="text-xl font-bold text-[#1A1819]">Admin Tools</h2>
+              <p className="text-sm text-[#B7AEA3]">Manage system settings</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {adminApps.map((app) => {
+            {adminApps.map((app, index) => {
               const Icon = app.icon;
+              const colors = ['#6A9291', '#F4B854', '#FE8505'];
+              const color = colors[index % colors.length];
+              const isYellow = index % colors.length === 1;
+              const textColor = isYellow ? '#1A1819' : 'white';
               return (
                 <Link 
                   key={app.path} 
                   href={app.path}
-                  className="contra-card-teal group block transition-all hover:scale-[1.02]"
+                  className="rounded-2xl p-6 border-[3px] border-[#1A1819] group block transition-all hover:scale-[1.02] hover:shadow-[4px_4px_0px_#1A1819]"
+                  style={{ backgroundColor: color }}
                   data-testid={`link-admin-${app.title.toLowerCase().replace(/\s/g, '-')}`}
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--contra-teal)' }}>
-                      <Icon className="h-5 w-5 text-white" />
+                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
+                      <Icon className="h-6 w-6" style={{ color: textColor }} />
                     </div>
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full text-white" style={{ backgroundColor: 'var(--contra-teal)' }}>Admin</span>
+                    <span className="px-3 py-1 text-xs font-bold rounded-full border-2 border-[#1A1819] bg-white/20" style={{ color: textColor }}>Admin</span>
                   </div>
-                  <h3 className="font-semibold mb-1" style={{ color: 'var(--contra-black)' }}>{app.title}</h3>
-                  <p className="text-sm" style={{ color: 'var(--contra-gray)' }}>{app.description}</p>
-                  <div className="mt-4 pt-4 border-t flex items-center gap-1 text-sm font-medium" style={{ borderColor: 'var(--contra-teal)', color: 'var(--contra-teal)' }}>
+                  <h3 className="font-bold text-lg mb-1" style={{ color: textColor }}>{app.title}</h3>
+                  <p className="text-sm font-medium" style={{ color: textColor, opacity: 0.7 }}>{app.description}</p>
+                  <div className="mt-4 pt-4 border-t-2 border-[#1A1819]/30 flex items-center gap-1 text-sm font-bold" style={{ color: textColor }}>
                     <span>Open</span>
                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -297,23 +308,22 @@ export default function Dashboard() {
 
       {/* Activity Banner */}
       {stats && (
-        <div className="contra-card-orange" style={{ backgroundColor: 'var(--contra-orange)' }}>
+        <div className="rounded-2xl p-6 border-[3px] border-[#1A1819]" style={{ backgroundColor: '#F4B854' }}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-white mb-1">You're doing great!</h3>
-              <p className="text-white/80 text-sm">
+              <h3 className="font-bold text-xl text-[#1A1819] mb-1">You're doing great!</h3>
+              <p className="text-[#1A1819]/70 font-medium">
                 {stats.activityCount} actions logged. Keep up the momentum!
               </p>
             </div>
-            <div className="hidden md:flex items-center gap-8">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">{stats.quotesThisMonth}</div>
-                <div className="text-xs text-white/70">This Month</div>
+            <div className="hidden md:flex items-center gap-6">
+              <div className="text-center px-4 py-2 rounded-xl bg-white/30 border-2 border-[#1A1819]">
+                <div className="text-2xl font-extrabold text-[#1A1819]">{stats.quotesThisMonth}</div>
+                <div className="text-xs font-semibold text-[#1A1819]/70">This Month</div>
               </div>
-              <div className="w-px h-10 bg-white/30" />
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">{stats.totalCustomers}</div>
-                <div className="text-xs text-white/70">Customers</div>
+              <div className="text-center px-4 py-2 rounded-xl bg-white/30 border-2 border-[#1A1819]">
+                <div className="text-2xl font-extrabold text-[#1A1819]">{stats.totalCustomers}</div>
+                <div className="text-xs font-semibold text-[#1A1819]/70">Customers</div>
               </div>
             </div>
           </div>
