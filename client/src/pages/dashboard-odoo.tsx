@@ -13,7 +13,6 @@ import {
   DollarSign,
   Package,
   ClipboardList,
-  Mail,
   ChevronRight,
   Sparkles
 } from "lucide-react";
@@ -55,12 +54,6 @@ const mainApps: AppItem[] = [
     description: "Manage and track all generated quotes",
     path: "/saved-quotes",
     icon: BarChart3
-  },
-  {
-    title: "Email",
-    description: "Send and receive emails via Gmail",
-    path: "/email",
-    icon: Mail
   }
 ];
 

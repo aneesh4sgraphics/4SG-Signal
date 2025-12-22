@@ -14,7 +14,6 @@ import {
   TrendingUp,
   Truck,
   RefreshCw,
-  Mail,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -51,7 +50,6 @@ const mainItems = [
   { path: '/price-list', icon: DollarSign, label: 'Price List' },
   { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes' },
   { path: '/clients', icon: Users, label: 'Clients' },
-  { path: '/email', icon: Mail, label: 'Email' },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator' },
   { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices' },
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping' },
