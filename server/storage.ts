@@ -46,7 +46,7 @@ import {
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for Replit Auth
@@ -126,7 +126,6 @@ export interface IStorage {
   upsertProductPricingMaster(data: InsertProductPricingMaster): Promise<ProductPricingMaster>;
   clearAllProductPricingMaster(): Promise<number>; // Returns count of deleted records
   bulkCreateProductPricingMaster(data: InsertProductPricingMaster[]): Promise<ProductPricingMaster[]>;
-  bulkUpdateProductPricingByIds(ids: number[], updates: Record<string, string>): Promise<number>;
 
   // Admin methods
   reinitializeData(): Promise<void>;
@@ -829,27 +828,6 @@ export class DatabaseStorage implements IStorage {
       console.log(`✓ Updated pricing record for item code: ${itemCode}`);
     } catch (error) {
       console.error('Error updating pricing record:', error);
-      throw error;
-    }
-  }
-
-  async bulkUpdateProductPricingByIds(ids: number[], updates: Record<string, string>): Promise<number> {
-    try {
-      if (ids.length === 0 || Object.keys(updates).length === 0) {
-        return 0;
-      }
-      
-      const result = await db.update(productPricingMaster)
-        .set({
-          ...updates,
-          updatedAt: new Date()
-        })
-        .where(inArray(productPricingMaster.id, ids));
-      
-      console.log(`✓ Bulk updated ${ids.length} pricing records`);
-      return ids.length;
-    } catch (error) {
-      console.error('Error bulk updating pricing records:', error);
       throw error;
     }
   }

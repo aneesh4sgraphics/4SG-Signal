@@ -841,23 +841,53 @@ router.patch("/product-pricing/bulk-update", isAuthenticated, requireAdmin, asyn
       });
     }
     
-    // Build update object with only the fields that were provided
-    const updateFields: Record<string, string> = {};
-    if (sanitizedUpdates.landedPrice !== undefined) updateFields.landedPrice = sanitizedUpdates.landedPrice.toString();
-    if (sanitizedUpdates.exportPrice !== undefined) updateFields.exportPrice = sanitizedUpdates.exportPrice.toString();
-    if (sanitizedUpdates.masterDistributorPrice !== undefined) updateFields.masterDistributorPrice = sanitizedUpdates.masterDistributorPrice.toString();
-    if (sanitizedUpdates.dealerPrice !== undefined) updateFields.dealerPrice = sanitizedUpdates.dealerPrice.toString();
-    if (sanitizedUpdates.dealer2Price !== undefined) updateFields.dealer2Price = sanitizedUpdates.dealer2Price.toString();
-    if (sanitizedUpdates.approvalNeededPrice !== undefined) updateFields.approvalNeededPrice = sanitizedUpdates.approvalNeededPrice.toString();
-    if (sanitizedUpdates.tierStage25Price !== undefined) updateFields.tierStage25Price = sanitizedUpdates.tierStage25Price.toString();
-    if (sanitizedUpdates.tierStage2Price !== undefined) updateFields.tierStage2Price = sanitizedUpdates.tierStage2Price.toString();
-    if (sanitizedUpdates.tierStage15Price !== undefined) updateFields.tierStage15Price = sanitizedUpdates.tierStage15Price.toString();
-    if (sanitizedUpdates.tierStage1Price !== undefined) updateFields.tierStage1Price = sanitizedUpdates.tierStage1Price.toString();
-    if (sanitizedUpdates.retailPrice !== undefined) updateFields.retailPrice = sanitizedUpdates.retailPrice.toString();
+    // Get all pricing data
+    const allPricing = await storage.getAllProductPricingMaster();
     
-    // Use single batch update query - much faster than individual updates
-    const numericIds = ids.map((id: any) => parseInt(id));
-    const updatedCount = await storage.bulkUpdateProductPricingByIds(numericIds, updateFields);
+    // Helper to safely get existing numeric value
+    const getExistingPrice = (value: any): string => {
+      if (value === null || value === undefined) return '0';
+      const num = parseFloat(String(value));
+      return isNaN(num) ? '0' : num.toString();
+    };
+    
+    // Update each product
+    let updatedCount = 0;
+    for (const productId of ids) {
+      const currentRecord = allPricing.find(p => p.id === parseInt(productId));
+      if (!currentRecord) {
+        console.warn(`Product not found: ${productId}`);
+        continue;
+      }
+      
+      // Build complete record with existing data + updates
+      const completeRecord: any = {
+        itemCode: currentRecord.itemCode,
+        productName: currentRecord.productName,
+        productType: currentRecord.productType,
+        productTypeId: currentRecord.productTypeId,
+        size: currentRecord.size,
+        totalSqm: getExistingPrice(currentRecord.totalSqm),
+        minQuantity: currentRecord.minQuantity || 50,
+        landedPrice: sanitizedUpdates.landedPrice !== undefined ? sanitizedUpdates.landedPrice.toString() : getExistingPrice(currentRecord.landedPrice),
+        exportPrice: sanitizedUpdates.exportPrice !== undefined ? sanitizedUpdates.exportPrice.toString() : getExistingPrice(currentRecord.exportPrice),
+        masterDistributorPrice: sanitizedUpdates.masterDistributorPrice !== undefined ? sanitizedUpdates.masterDistributorPrice.toString() : getExistingPrice(currentRecord.masterDistributorPrice),
+        dealerPrice: sanitizedUpdates.dealerPrice !== undefined ? sanitizedUpdates.dealerPrice.toString() : getExistingPrice(currentRecord.dealerPrice),
+        dealer2Price: sanitizedUpdates.dealer2Price !== undefined ? sanitizedUpdates.dealer2Price.toString() : getExistingPrice(currentRecord.dealer2Price),
+        approvalNeededPrice: sanitizedUpdates.approvalNeededPrice !== undefined ? sanitizedUpdates.approvalNeededPrice.toString() : getExistingPrice(currentRecord.approvalNeededPrice),
+        tierStage25Price: sanitizedUpdates.tierStage25Price !== undefined ? sanitizedUpdates.tierStage25Price.toString() : getExistingPrice(currentRecord.tierStage25Price),
+        tierStage2Price: sanitizedUpdates.tierStage2Price !== undefined ? sanitizedUpdates.tierStage2Price.toString() : getExistingPrice(currentRecord.tierStage2Price),
+        tierStage15Price: sanitizedUpdates.tierStage15Price !== undefined ? sanitizedUpdates.tierStage15Price.toString() : getExistingPrice(currentRecord.tierStage15Price),
+        tierStage1Price: sanitizedUpdates.tierStage1Price !== undefined ? sanitizedUpdates.tierStage1Price.toString() : getExistingPrice(currentRecord.tierStage1Price),
+        retailPrice: sanitizedUpdates.retailPrice !== undefined ? sanitizedUpdates.retailPrice.toString() : getExistingPrice(currentRecord.retailPrice),
+        uploadBatch: currentRecord.uploadBatch,
+        rowHash: currentRecord.rowHash,
+        sortOrder: currentRecord.sortOrder,
+      };
+      
+      await storage.updateProductPricingMasterByItemCode(currentRecord.itemCode, completeRecord);
+      updatedCount++;
+    }
     
     console.log(`✓ Bulk updated ${updatedCount} products`);
     console.log(`=== PATCH /api/product-pricing/bulk-update END ===`);

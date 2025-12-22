@@ -1250,19 +1250,19 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           // Only show for admin users (column is conditionally included)
                           return (
                             <span className="text-sm text-gray-600">
-                              ${Number(item.price || 0).toFixed(2)}
+                              ${item.price.toFixed(2)}
                             </span>
                           );
                         case 'pricePerSheet':
                           return (
                             <span className="text-sm text-gray-600">
-                              ${Number(item.pricePerSheet || 0).toFixed(2)}
+                              ${item.pricePerSheet.toFixed(2)}
                             </span>
                           );
                         case 'minOrderQtyPrice':
                           return (
                             <span className="text-sm text-gray-800 font-medium">
-                              ${Number(item.total || 0).toFixed(2)}
+                              ${item.total.toFixed(2)}
                             </span>
                           );
                         case 'add':
