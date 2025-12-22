@@ -15,6 +15,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 app.use(cookieParser());
 
+// Allow embedding from your email client
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors 'self' https://*.replit.app https://*.replit.dev"
+  );
+  res.removeHeader("X-Frame-Options");
+  next();
+});
+
 // --- CORS ---
 const allowedOrigins = [
   process.env.FRONTEND_ORIGIN || '',
