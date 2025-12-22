@@ -44,6 +44,48 @@ export async function getUncachableNotionClient() {
   return new Client({ auth: accessToken });
 }
 
+// Extract text from any Notion property type
+function extractTextFromProperty(prop: any): string {
+  if (!prop) return '';
+  
+  // Title type
+  if (prop.title && Array.isArray(prop.title)) {
+    return prop.title.map((t: any) => t.plain_text || '').join('');
+  }
+  
+  // Rich text type
+  if (prop.rich_text && Array.isArray(prop.rich_text)) {
+    return prop.rich_text.map((t: any) => t.plain_text || '').join('');
+  }
+  
+  // Select type
+  if (prop.select?.name) {
+    return prop.select.name;
+  }
+  
+  // Multi-select type
+  if (prop.multi_select && Array.isArray(prop.multi_select)) {
+    return prop.multi_select.map((s: any) => s.name).join(', ');
+  }
+  
+  // Number type
+  if (typeof prop.number === 'number') {
+    return String(prop.number);
+  }
+  
+  // URL type
+  if (prop.url) {
+    return prop.url;
+  }
+  
+  // Email type
+  if (prop.email) {
+    return prop.email;
+  }
+  
+  return '';
+}
+
 // Search for products in a Notion database
 export async function searchNotionProducts(query: string, databaseId?: string): Promise<any[]> {
   try {
@@ -65,32 +107,50 @@ export async function searchNotionProducts(query: string, databaseId?: string): 
       return response.results.map((page: any) => {
         const properties = page.properties || {};
         
-        // Extract common property names
-        const getName = () => {
-          const nameField = properties['Name'] || properties['Title'] || properties['name'] || properties['title'] || properties['Product Name'] || properties['SKU'];
-          if (nameField?.title?.[0]?.plain_text) return nameField.title[0].plain_text;
-          if (nameField?.rich_text?.[0]?.plain_text) return nameField.rich_text[0].plain_text;
-          return 'Untitled';
-        };
+        // Log properties for debugging (first result only)
+        console.log('Notion page properties:', JSON.stringify(Object.keys(properties)));
         
-        const getSku = () => {
-          const skuField = properties['SKU'] || properties['sku'] || properties['Product SKU'] || properties['Code'];
-          if (skuField?.rich_text?.[0]?.plain_text) return skuField.rich_text[0].plain_text;
-          if (skuField?.title?.[0]?.plain_text) return skuField.title[0].plain_text;
-          return '';
-        };
+        // Find the title property (it's the one with type "title")
+        let name = '';
+        let sku = '';
+        let description = '';
         
-        const getDescription = () => {
-          const descField = properties['Description'] || properties['description'] || properties['Notes'];
-          if (descField?.rich_text?.[0]?.plain_text) return descField.rich_text[0].plain_text;
-          return '';
-        };
+        for (const [key, value] of Object.entries(properties)) {
+          const prop = value as any;
+          
+          // The title property has type "title"
+          if (prop.type === 'title') {
+            name = extractTextFromProperty(prop);
+          }
+          
+          // Look for SKU-like fields
+          if (key.toLowerCase().includes('sku') || key.toLowerCase().includes('code') || key.toLowerCase().includes('id')) {
+            if (!sku) sku = extractTextFromProperty(prop);
+          }
+          
+          // Look for description fields
+          if (key.toLowerCase().includes('desc') || key.toLowerCase().includes('note')) {
+            if (!description) description = extractTextFromProperty(prop);
+          }
+        }
+        
+        // Fallback: if no title found, use first text property
+        if (!name) {
+          for (const [key, value] of Object.entries(properties)) {
+            const text = extractTextFromProperty(value);
+            if (text) {
+              name = text;
+              break;
+            }
+          }
+        }
         
         return {
           id: page.id,
-          name: getName(),
-          sku: getSku(),
-          description: getDescription(),
+          productName: name || 'Untitled',
+          name: name || 'Untitled',
+          sku: sku,
+          description: description,
           notionUrl: page.url
         };
       });
@@ -119,9 +179,11 @@ export async function searchNotionProducts(query: string, databaseId?: string): 
       
       return response.results.map((page: any) => {
         const properties = page.properties || {};
+        const name = properties['Name']?.title?.[0]?.plain_text || 'Untitled';
         return {
           id: page.id,
-          name: properties['Name']?.title?.[0]?.plain_text || 'Untitled',
+          productName: name,
+          name: name,
           sku: properties['SKU']?.rich_text?.[0]?.plain_text || '',
           description: properties['Description']?.rich_text?.[0]?.plain_text || '',
           notionUrl: page.url
