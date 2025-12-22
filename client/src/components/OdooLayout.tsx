@@ -137,13 +137,88 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
   const userInitials = getUserInitials((user as any)?.email);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Contra-style Sidebar */}
+    <div className="min-h-screen flex" style={{
+      background: 'linear-gradient(135deg, #e0e7ef 0%, #dfe7f2 25%, #e8e4f0 50%, #ede7e3 75%, #e5ebe8 100%)',
+      backgroundSize: '400% 400%',
+      animation: 'gentleShift 20s ease infinite'
+    }}>
+      {/* Global animation keyframes */}
+      <style>{`
+        @keyframes gentleShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes gentleFloat1 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(30px, -30px); }
+          66% { transform: translate(-20px, 20px); }
+        }
+        @keyframes gentleFloat2 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(-40px, 20px); }
+          66% { transform: translate(25px, -25px); }
+        }
+        @keyframes gentleFloat3 {
+          0%, 100% { transform: translate(0, 0); }
+          33% { transform: translate(20px, 30px); }
+          66% { transform: translate(-30px, -20px); }
+        }
+      `}</style>
+
+      {/* Ambient floating orbs */}
+      <div style={{
+        position: 'fixed',
+        top: '15%',
+        left: '10%',
+        width: '500px',
+        height: '500px',
+        background: 'radial-gradient(circle, rgba(147, 197, 253, 0.15) 0%, transparent 70%)',
+        borderRadius: '50%',
+        filter: 'blur(80px)',
+        animation: 'gentleFloat1 25s ease-in-out infinite',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'fixed',
+        top: '50%',
+        right: '15%',
+        width: '450px',
+        height: '450px',
+        background: 'radial-gradient(circle, rgba(196, 181, 253, 0.12) 0%, transparent 70%)',
+        borderRadius: '50%',
+        filter: 'blur(80px)',
+        animation: 'gentleFloat2 30s ease-in-out infinite',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'fixed',
+        bottom: '20%',
+        left: '35%',
+        width: '400px',
+        height: '400px',
+        background: 'radial-gradient(circle, rgba(167, 243, 208, 0.12) 0%, transparent 70%)',
+        borderRadius: '50%',
+        filter: 'blur(80px)',
+        animation: 'gentleFloat3 22s ease-in-out infinite',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+
+      {/* Glass Sidebar */}
       <aside 
-        className={`${sidebarExpanded ? 'w-64' : 'w-[72px]'} bg-white border-r border-gray-200 h-screen transition-all duration-300 flex flex-col fixed left-0 top-0 z-40`}
+        className={`${sidebarExpanded ? 'w-64' : 'w-[72px]'} h-screen transition-all duration-300 flex flex-col fixed left-0 top-0 z-40`}
+        style={{
+          background: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(40px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(150%)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.5)'
+        }}
       >
         {/* Logo/Brand */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+        <div className="h-16 flex items-center justify-between px-4" style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.15)' }}>
           {sidebarExpanded ? (
             <>
               <div className="flex items-center gap-2">
@@ -169,7 +244,12 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
         {/* Toggle Button */}
         <button 
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors z-50"
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all z-50"
+          style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.5)'
+          }}
         >
           {sidebarExpanded ? (
             <ChevronLeft className="h-3 w-3 text-gray-500" />
@@ -291,8 +371,8 @@ export default function OdooLayout({ children }: OdooLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 ${sidebarExpanded ? 'ml-64' : 'ml-[72px]'} transition-all duration-300`}>
-        <div className="min-h-screen bg-gray-50 p-6">
+      <main className={`flex-1 ${sidebarExpanded ? 'ml-64' : 'ml-[72px]'} transition-all duration-300 relative z-10`}>
+        <div className="min-h-screen p-6">
           <div className="max-w-[1400px] mx-auto">
             {children}
           </div>
