@@ -28,12 +28,15 @@
   /* Official Contra Wireframe Kit Colors */
   --contra-orange: #FE8505;
   --contra-orange-dark: #E37202;
+  --contra-pink: #FF8FAB;
   --contra-coral: #E8927C;
   --contra-yellow: #F4B854;
   --contra-teal: #6A9291;
+  --contra-mint: #9ED0CE;
   --contra-cream: #FDF9F9;
   --contra-black: #1A1819;
   --contra-gray: #B7AEA3;
+  --contra-lavender: #C4B5E0;
   
   --secondary: hsl(30, 10%, 95%);
   --secondary-foreground: #1A1819;

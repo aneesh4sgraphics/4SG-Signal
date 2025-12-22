@@ -172,19 +172,19 @@ export default function Dashboard() {
             <div className="text-sm font-semibold text-[#1A1819]/70">Total Quotes</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#6A9291' }} data-testid="stat-revenue">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#9ED0CE' }} data-testid="stat-revenue">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
                 <DollarSign className="h-6 w-6 text-[#1A1819]" />
               </div>
             </div>
-            <div className="text-4xl font-extrabold mb-1 text-white">
+            <div className="text-4xl font-extrabold mb-1 text-[#1A1819]">
               ${stats.monthlyRevenue.toLocaleString()}
             </div>
-            <div className="text-sm font-semibold text-white/70">Monthly Revenue</div>
+            <div className="text-sm font-semibold text-[#1A1819]/70">Monthly Revenue</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#F4B854' }} data-testid="stat-customers">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#FF8FAB' }} data-testid="stat-customers">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
                 <Users className="h-6 w-6 text-[#1A1819]" />
@@ -196,7 +196,7 @@ export default function Dashboard() {
             <div className="text-sm font-semibold text-[#1A1819]/70">Customers</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#E8927C' }} data-testid="stat-products">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#C4B5E0' }} data-testid="stat-products">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
                 <Package className="h-6 w-6 text-[#1A1819]" />
@@ -233,9 +233,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {mainApps.map((app, index) => {
             const Icon = app.icon;
-            const colors = ['#FE8505', '#6A9291', '#F4B854', '#E8927C'];
+            const colors = ['#F4B854', '#6A9291', '#E37202', '#9ED0CE'];
             const color = colors[index % colors.length];
-            const textColor = '#1A1819';
             return (
               <Link 
                 key={app.path} 
@@ -274,7 +273,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {adminApps.map((app, index) => {
               const Icon = app.icon;
-              const colors = ['#6A9291', '#F4B854', '#E8927C'];
+              const colors = ['#C4B5E0', '#FF8FAB', '#FE8505'];
               const color = colors[index % colors.length];
               return (
                 <Link 
