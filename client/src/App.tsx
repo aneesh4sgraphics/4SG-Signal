@@ -25,6 +25,7 @@ import Admin from "@/pages/admin";
 import ActivityLogsPage from "@/pages/activity-logs";
 import PdfCategoryAdmin from "@/pages/pdf-category-admin";
 import Dashboard from "@/pages/dashboard-odoo";
+import EmailClient from "@/pages/email-client";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -148,6 +149,7 @@ function Router() {
         <Route path="/shipping-calculator" component={ShippingCalculator} />
         <Route path="/admin" component={Admin} />
         <Route path="/pdf-settings" component={PdfCategoryAdmin} />
+        <Route path="/email" component={EmailClient} />
         <Route><Redirect to="/" /></Route>
       </Switch>
     </OdooLayout>

@@ -18,7 +18,8 @@ import {
   ClipboardList,
   Wallet,
   UserCheck,
-  Boxes
+  Boxes,
+  Mail
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -62,6 +63,13 @@ const mainApps: AppItem[] = [
     path: "/saved-quotes",
     icon: BarChart3,
     color: "linear-gradient(135deg, #a855f7, #7c3aed)"
+  },
+  {
+    title: "Email",
+    description: "Send and receive emails via Gmail",
+    path: "/email",
+    icon: Mail,
+    color: "linear-gradient(135deg, #ef4444, #dc2626)"
   }
 ];
 

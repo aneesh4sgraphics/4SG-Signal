@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Truck,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -51,6 +52,7 @@ const mainItems = [
   { path: '/price-list', icon: DollarSign, label: 'Price List', hoverBg: 'linear-gradient(135deg, #fbbf24, #d97706)' },
   { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', hoverBg: 'linear-gradient(135deg, #a855f7, #7e22ce)' },
   { path: '/clients', icon: Building2, label: 'Client Database', hoverBg: 'linear-gradient(135deg, #06b6d4, #0891b2)' },
+  { path: '/email', icon: Mail, label: 'Email', hoverBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', hoverBg: 'linear-gradient(135deg, #ec4899, #be185d)' },
   { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', hoverBg: 'linear-gradient(135deg, #f97316, #c2410c)' },
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping Calculator', hoverBg: 'linear-gradient(135deg, #6366f1, #4338ca)' },
