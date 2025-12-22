@@ -1073,6 +1073,7 @@ export default function ClientDatabase() {
                     <TableHead className="body-sm text-right">Spent</TableHead>
                     <TableHead className="body-sm text-center">Orders</TableHead>
                     <TableHead className="body-sm">Status</TableHead>
+                    <TableHead className="body-sm">Tags</TableHead>
                     <TableHead className="body-sm">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1106,6 +1107,19 @@ export default function ClientDatabase() {
                             </div>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="body-sm">
+                        {customer.tags ? (
+                          <div className="flex gap-1 flex-wrap">
+                            {customer.tags.split(',').map((tag, i) => (
+                              <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">
+                                {tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
