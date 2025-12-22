@@ -102,6 +102,7 @@ export default function QuoteCalculator() {
   const [customHeight, setCustomHeight] = useState<string>("");
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   const [sizeSortOrder, setSizeSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
+  const [landedPriceRevealed, setLandedPriceRevealed] = useState<boolean>(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1330,8 +1331,27 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       };
                     }).filter(item => item !== null)}
                     renderCell={(item, column) => {
+                      const isLandedPrice = item.tierKey === 'landedPrice';
+                      const isAdmin = (user as any)?.role === 'admin';
+                      const showLandedPrice = !isLandedPrice || (isAdmin && landedPriceRevealed);
+                      
                       switch (column.key) {
                         case 'tier':
+                          if (isLandedPrice && isAdmin) {
+                            return (
+                              <button
+                                onClick={() => setLandedPriceRevealed(!landedPriceRevealed)}
+                                className="text-sm text-gray-800 uppercase font-medium hover:text-purple-600 transition-colors flex items-center gap-1"
+                              >
+                                {item.tier.label}
+                                {landedPriceRevealed ? (
+                                  <span className="text-xs text-purple-600">(hide)</span>
+                                ) : (
+                                  <span className="text-xs text-purple-500">(click to reveal)</span>
+                                )}
+                              </button>
+                            );
+                          }
                           return (
                             <span className="text-sm text-gray-800 uppercase font-medium">
                               {item.tier.label}
@@ -1339,24 +1359,49 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           );
                         case 'pricePerSqM':
                           // Only show for admin users (column is conditionally included)
+                          if (isLandedPrice && !landedPriceRevealed) {
+                            return <span className="text-sm text-gray-400">•••</span>;
+                          }
                           return (
                             <span className="text-sm text-gray-600">
                               ${item.price.toFixed(2)}
                             </span>
                           );
                         case 'pricePerSheet':
+                          if (isLandedPrice && !landedPriceRevealed) {
+                            return <span className="text-sm text-gray-400">•••</span>;
+                          }
                           return (
                             <span className="text-sm text-gray-600">
                               ${item.pricePerSheet.toFixed(2)}
                             </span>
                           );
                         case 'minOrderQtyPrice':
+                          if (isLandedPrice && !landedPriceRevealed) {
+                            return <span className="text-sm text-gray-400">•••</span>;
+                          }
                           return (
                             <span className="text-sm text-gray-800 font-medium">
                               ${item.total.toFixed(2)}
                             </span>
                           );
                         case 'add':
+                          // Don't show + button for Landed Price tier
+                          if (isLandedPrice) {
+                            // Show margin % when revealed and a tier is selected
+                            if (landedPriceRevealed && quoteItems.length > 0) {
+                              const selectedItem = quoteItems[quoteItems.length - 1];
+                              if (selectedItem && item.pricePerSheet > 0) {
+                                const margin = ((selectedItem.pricePerSheet - item.pricePerSheet) / selectedItem.pricePerSheet) * 100;
+                                return (
+                                  <span className={`text-xs font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {margin >= 0 ? '+' : ''}{margin.toFixed(1)}%
+                                  </span>
+                                );
+                              }
+                            }
+                            return null;
+                          }
                           const isAlreadySelected = isTierAlreadySelected(item.tierKey);
                           return (
                             <button
