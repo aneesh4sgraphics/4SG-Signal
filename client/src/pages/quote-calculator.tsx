@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
@@ -1337,21 +1337,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       
                       switch (column.key) {
                         case 'tier':
-                          if (isLandedPrice && isAdmin) {
-                            return (
-                              <button
-                                onClick={() => setLandedPriceRevealed(!landedPriceRevealed)}
-                                className="text-sm text-gray-800 uppercase font-medium hover:text-purple-600 transition-colors flex items-center gap-1"
-                              >
-                                {item.tier.label}
-                                {landedPriceRevealed ? (
-                                  <span className="text-xs text-purple-600">(hide)</span>
-                                ) : (
-                                  <span className="text-xs text-purple-500">(click to reveal)</span>
-                                )}
-                              </button>
-                            );
-                          }
                           return (
                             <span className="text-sm text-gray-800 uppercase font-medium">
                               {item.tier.label}
@@ -1386,20 +1371,38 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                             </span>
                           );
                         case 'add':
-                          // Don't show + button for Landed Price tier
+                          // Show eye icon for Landed Price tier (admin only)
+                          if (isLandedPrice && isAdmin) {
+                            return (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => setLandedPriceRevealed(!landedPriceRevealed)}
+                                  className="w-6 h-6 rounded-md border flex items-center justify-center transition-colors mx-auto border-purple-300 bg-purple-50 hover:bg-purple-100"
+                                  title={landedPriceRevealed ? "Hide landed price" : "Reveal landed price"}
+                                >
+                                  {landedPriceRevealed ? (
+                                    <EyeOff className="h-3 w-3 text-purple-600" />
+                                  ) : (
+                                    <Eye className="h-3 w-3 text-purple-600" />
+                                  )}
+                                </button>
+                                {landedPriceRevealed && quoteItems.length > 0 && (() => {
+                                  const selectedItem = quoteItems[quoteItems.length - 1];
+                                  if (selectedItem && item.pricePerSheet > 0) {
+                                    const margin = ((selectedItem.pricePerSheet - item.pricePerSheet) / selectedItem.pricePerSheet) * 100;
+                                    return (
+                                      <span className={`text-xs font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {margin >= 0 ? '+' : ''}{margin.toFixed(1)}%
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            );
+                          }
+                          // Non-admin Landed Price - show nothing
                           if (isLandedPrice) {
-                            // Show margin % when revealed and a tier is selected
-                            if (landedPriceRevealed && quoteItems.length > 0) {
-                              const selectedItem = quoteItems[quoteItems.length - 1];
-                              if (selectedItem && item.pricePerSheet > 0) {
-                                const margin = ((selectedItem.pricePerSheet - item.pricePerSheet) / selectedItem.pricePerSheet) * 100;
-                                return (
-                                  <span className={`text-xs font-medium ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {margin >= 0 ? '+' : ''}{margin.toFixed(1)}%
-                                  </span>
-                                );
-                              }
-                            }
                             return null;
                           }
                           const isAlreadySelected = isTierAlreadySelected(item.tierKey);
