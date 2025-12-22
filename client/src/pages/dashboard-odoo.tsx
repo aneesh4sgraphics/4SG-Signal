@@ -13,7 +13,8 @@ import {
   DollarSign,
   Package,
   ClipboardList,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ interface AppItem {
 const mainApps: AppItem[] = [
   {
     title: "QuickQuotes",
-    description: "Generate instant quotes with pricing calculations",
+    description: "Generate instant quotes with intelligent pricing calculations",
     path: "/quick-quotes",
     icon: Calculator
   },
@@ -58,22 +59,22 @@ const mainApps: AppItem[] = [
 
 const adminApps: AppItem[] = [
   {
-    title: "Product Pricing",
-    description: "Manage product catalog and pricing data",
+    title: "Database",
+    description: "System settings",
     path: "/product-pricing-management",
     icon: Database,
     adminOnly: true
   },
   {
-    title: "Customers",
-    description: "Customer database management",
+    title: "Users",
+    description: "User management",
     path: "/customers",
     icon: Users,
     adminOnly: true
   },
   {
-    title: "Administration",
-    description: "System settings and user management",
+    title: "System",
+    description: "Configuration",
     path: "/admin",
     icon: Settings,
     adminOnly: true
@@ -88,11 +89,17 @@ export default function Dashboard() {
     retry: 2,
   });
 
+  // Get current date info
+  const now = new Date();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dateString = `${dayNames[now.getDay()]}, ${monthNames[now.getMonth()]} ${now.getDate()}`;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm text-gray-500">Loading...</span>
         </div>
       </div>
@@ -102,13 +109,13 @@ export default function Dashboard() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="contra-card max-w-md text-center">
-          <div className="contra-avatar-lg mx-auto mb-4 bg-gray-100">
-            <AlertCircle className="h-6 w-6 text-gray-400" />
+        <div className="glass-card max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-8 w-8 text-purple-500" />
           </div>
-          <h3 className="text-xl font-bold mb-2">Sign in required</h3>
+          <h3 className="text-xl font-bold mb-2 text-gray-900">Sign in required</h3>
           <p className="text-gray-500 mb-6">Please sign in to access your dashboard</p>
-          <Button onClick={() => window.location.href = "/api/login"} className="contra-btn-primary">
+          <Button onClick={() => window.location.href = "/api/login"} className="glass-btn-primary">
             Sign in with Replit
           </Button>
         </div>
@@ -123,67 +130,84 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Welcome Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold text-[#1A1819] mb-1">
-            Welcome back, {firstName}
-          </h1>
-          <p className="text-[#B7AEA3] font-medium">
-            Here's what's happening with your business today
-          </p>
+      {/* Welcome Header - Glass Style */}
+      <div className="glass-card">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              <span className="text-sm font-medium text-purple-600">4S Graphics Dashboard</span>
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-gray-900 bg-clip-text text-transparent">
+              Welcome back, {firstName}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {dateString} • Managing your printing operations
+            </p>
+          </div>
+          <Link href="/quick-quotes">
+            <Button className="glass-btn-primary">
+              <Calculator className="h-4 w-4 mr-2" />
+              New Quote
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Glass Cards */}
       {!statsLoading && stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#FE8505' }} data-testid="stat-quotes">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                <ClipboardList className="h-6 w-6 text-[#1A1819]" />
+          <div className="glass-stat-card group" data-testid="stat-revenue">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-200">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-sm font-bold bg-white/20 px-2 py-1 rounded-full border-2 border-[#1A1819]">
-                <TrendingUp className="h-3.5 w-3.5 text-[#1A1819]" />
-                <span className="text-[#1A1819]">+{stats.quotesThisMonth}</span>
+              <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                <TrendingUp className="h-3 w-3" />
+                <span>+12.5%</span>
               </div>
             </div>
-            <div className="text-4xl font-black mb-1 text-[#1A1819]">{stats.totalQuotes}</div>
-            <div className="text-sm font-bold text-[#1A1819]/70">Total Quotes</div>
+            <div className="text-2xl font-bold text-gray-900">${stats.monthlyRevenue.toLocaleString()}</div>
+            <div className="text-sm text-gray-500">Total Revenue</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#6A9291' }} data-testid="stat-revenue">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                <DollarSign className="h-6 w-6 text-[#1A1819]" />
+          <div className="glass-stat-card group" data-testid="stat-quotes">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-200">
+                <ClipboardList className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                <span>+{stats.quotesThisMonth} today</span>
               </div>
             </div>
-            <div className="text-4xl font-black mb-1 text-[#1A1819]">
-              ${stats.monthlyRevenue.toLocaleString()}
-            </div>
-            <div className="text-sm font-bold text-[#1A1819]/70">Monthly Revenue</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalQuotes}</div>
+            <div className="text-sm text-gray-500">Active Quotes</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#FF8FAB' }} data-testid="stat-customers">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                <Users className="h-6 w-6 text-[#1A1819]" />
+          <div className="glass-stat-card group" data-testid="stat-growth">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-200">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                <span>+5.2% this week</span>
               </div>
             </div>
-            <div className="text-4xl font-black mb-1 text-[#1A1819]">
-              {Number(stats.totalCustomers).toLocaleString()}
-            </div>
-            <div className="text-sm font-bold text-[#1A1819]/70">Customers</div>
+            <div className="text-2xl font-bold text-gray-900">23%</div>
+            <div className="text-sm text-gray-500">Growth Rate</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#C4B5E0' }} data-testid="stat-products">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                <Package className="h-6 w-6 text-[#1A1819]" />
+          <div className="glass-stat-card group" data-testid="stat-orders">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200">
+                <Package className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                <span>{stats.totalProducts} products</span>
               </div>
             </div>
-            <div className="text-4xl font-black mb-1 text-[#1A1819]">{stats.totalProducts}</div>
-            <div className="text-sm font-bold text-[#1A1819]/70">Products</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalCustomers}</div>
+            <div className="text-sm text-gray-500">Total Customers</div>
           </div>
         </div>
       )}
@@ -192,116 +216,74 @@ export default function Dashboard() {
       {statsLoading && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="contra-card">
-              <div className="contra-skeleton h-10 w-10 rounded-xl mb-4" />
-              <div className="contra-skeleton h-8 w-24 mb-2" />
-              <div className="contra-skeleton h-4 w-20" />
+            <div key={i} className="glass-stat-card animate-pulse">
+              <div className="h-10 w-10 rounded-xl bg-gray-200 mb-3" />
+              <div className="h-8 w-24 bg-gray-200 rounded mb-2" />
+              <div className="h-4 w-20 bg-gray-100 rounded" />
             </div>
           ))}
         </div>
       )}
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Glass Cards */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-extrabold text-[#1A1819]">Quick Actions</h2>
-            <p className="text-sm font-medium text-[#B7AEA3]">Your most-used tools</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mainApps.map((app, index) => {
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {mainApps.map((app) => {
             const Icon = app.icon;
-            const colors = ['#F4B854', '#6A9291', '#E37202', '#9ED0CE'];
-            const color = colors[index % colors.length];
+            const gradients = [
+              'from-violet-500 to-purple-600',
+              'from-cyan-500 to-blue-600',
+              'from-emerald-500 to-teal-600'
+            ];
+            const gradient = gradients[mainApps.indexOf(app) % gradients.length];
+            
             return (
               <Link 
                 key={app.path} 
                 href={app.path}
-                className="rounded-2xl p-6 border-[3px] border-[#1A1819] group block transition-all hover:scale-[1.02] hover:shadow-[4px_4px_0px_#1A1819]"
-                style={{ backgroundColor: color }}
+                className="glass-action-card group block"
                 data-testid={`link-${app.title.toLowerCase().replace(/\s/g, '-')}`}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                    <Icon className="h-6 w-6 text-[#1A1819]" />
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+                    <Icon className="h-6 w-6 text-white" />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-[#1A1819] group-hover:translate-x-1 transition-all" />
+                  <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
                 </div>
-                <h3 className="font-black text-lg mb-1 text-[#1A1819]">{app.title}</h3>
-                <p className="text-sm line-clamp-2 font-semibold text-[#1A1819]/70">{app.description}</p>
+                <h3 className="font-bold text-lg text-gray-900 mb-1">{app.title}</h3>
+                <p className="text-sm text-gray-500 line-clamp-2">{app.description}</p>
               </Link>
             );
           })}
         </div>
       </div>
 
-      {/* Admin Section */}
+      {/* Admin Section - Glass Style */}
       {isAdmin && (
         <div>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center border-2 border-[#1A1819]" style={{ backgroundColor: '#6A9291' }}>
-              <Settings className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#1A1819]">Admin Tools</h2>
-              <p className="text-sm text-[#B7AEA3]">Manage system settings</p>
-            </div>
-          </div>
-
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Admin Tools</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {adminApps.map((app, index) => {
+            {adminApps.map((app) => {
               const Icon = app.icon;
-              const colors = ['#C4B5E0', '#FF8FAB', '#FE8505'];
-              const color = colors[index % colors.length];
               return (
                 <Link 
                   key={app.path} 
                   href={app.path}
-                  className="rounded-2xl p-6 border-[3px] border-[#1A1819] group block transition-all hover:scale-[1.02] hover:shadow-[4px_4px_0px_#1A1819]"
-                  style={{ backgroundColor: color }}
+                  className="glass-action-card group block"
                   data-testid={`link-admin-${app.title.toLowerCase().replace(/\s/g, '-')}`}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                      <Icon className="h-6 w-6 text-[#1A1819]" />
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                      <Icon className="h-5 w-5 text-white" />
                     </div>
-                    <span className="px-3 py-1 text-xs font-bold rounded-full border-2 border-[#1A1819] bg-white/20 text-[#1A1819]">Admin</span>
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">Admin</span>
                   </div>
-                  <h3 className="font-black text-lg mb-1 text-[#1A1819]">{app.title}</h3>
-                  <p className="text-sm font-semibold text-[#1A1819]/70">{app.description}</p>
-                  <div className="mt-4 pt-4 border-t-2 border-[#1A1819]/30 flex items-center gap-1 text-sm font-black text-[#1A1819]">
-                    <span>Open</span>
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
+                  <h3 className="font-bold text-gray-900 mb-0.5">{app.title}</h3>
+                  <p className="text-sm text-gray-500">{app.description}</p>
                 </Link>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Activity Banner */}
-      {stats && (
-        <div className="rounded-2xl p-6 border-[3px] border-[#1A1819]" style={{ backgroundColor: '#F4B854' }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-xl text-[#1A1819] mb-1">You're doing great!</h3>
-              <p className="text-[#1A1819]/70 font-medium">
-                {stats.activityCount} actions logged. Keep up the momentum!
-              </p>
-            </div>
-            <div className="hidden md:flex items-center gap-6">
-              <div className="text-center px-4 py-2 rounded-xl bg-white/30 border-2 border-[#1A1819]">
-                <div className="text-2xl font-extrabold text-[#1A1819]">{stats.quotesThisMonth}</div>
-                <div className="text-xs font-semibold text-[#1A1819]/70">This Month</div>
-              </div>
-              <div className="text-center px-4 py-2 rounded-xl bg-white/30 border-2 border-[#1A1819]">
-                <div className="text-2xl font-extrabold text-[#1A1819]">{stats.totalCustomers}</div>
-                <div className="text-xs font-semibold text-[#1A1819]/70">Customers</div>
-              </div>
-            </div>
           </div>
         </div>
       )}
