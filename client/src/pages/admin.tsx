@@ -228,7 +228,7 @@ export default function Admin() {
 
 
         {/* User Management Section */}
-        <Card className="shadow-lg mb-8">
+        <Card className="glass-card border-0 shadow-lg mb-8">
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
@@ -325,7 +325,7 @@ export default function Admin() {
         {/* Data Management Section */}
         <div className="max-w-md mx-auto">
           {/* Data Export */}
-          <Card className="shadow-lg">
+          <Card className="glass-card border-0 shadow-lg">
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5 text-primary" />

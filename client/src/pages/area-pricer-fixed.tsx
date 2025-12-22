@@ -352,7 +352,7 @@ export default function AreaPricer() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8">
           {/* Input Configuration */}
-          <Card className="bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-purple-500/10">
+          <Card className="glass-card border-0 bg-white/60 backdrop-blur-xl shadow-xl shadow-purple-500/10">
             <CardHeader>
               <CardTitle className="text-lg sm:text-xl text-gray-800">Input Configuration</CardTitle>
               <CardDescription className="text-gray-600">Enter dimensions and pricing information</CardDescription>
@@ -592,7 +592,7 @@ export default function AreaPricer() {
         </Card>
 
           {/* Results */}
-          <Card className="bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-blue-500/10">
+          <Card className="glass-card border-0 bg-white/60 backdrop-blur-xl shadow-xl shadow-blue-500/10">
             <CardHeader>
               <CardTitle className="text-lg sm:text-xl text-gray-800">Calculation Results</CardTitle>
               <CardDescription className="text-gray-600">Unit pricing and total calculations</CardDescription>
@@ -659,7 +659,7 @@ export default function AreaPricer() {
 
         {/* Calculations Table */}
         {calculations.length > 0 && (
-          <Card className="mt-6 sm:mt-8 bg-white/60 backdrop-blur-xl border-white/50 shadow-xl shadow-indigo-500/10">
+          <Card className="glass-card border-0 mt-6 sm:mt-8 bg-white/60 backdrop-blur-xl shadow-xl shadow-indigo-500/10">
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>

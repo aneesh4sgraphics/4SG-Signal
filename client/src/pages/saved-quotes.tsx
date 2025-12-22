@@ -311,7 +311,7 @@ export default function SavedQuotes() {
         </div>
 
         {/* Search and Filter Toolbar */}
-        <Card className="shadow-sm">
+        <Card className="glass-card border-0 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
@@ -339,7 +339,7 @@ export default function SavedQuotes() {
         </Card>
 
         {/* Quotes Table */}
-        <Card className="shadow-sm">
+        <Card className="glass-card border-0 shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FileText className="h-5 w-5" />

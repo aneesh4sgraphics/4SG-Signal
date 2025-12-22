@@ -607,7 +607,7 @@ export default function ClientDatabase() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="glass-card border-0">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -618,7 +618,7 @@ export default function ClientDatabase() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card border-0">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -629,7 +629,7 @@ export default function ClientDatabase() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card border-0">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -640,7 +640,7 @@ export default function ClientDatabase() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card border-0">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -654,7 +654,7 @@ export default function ClientDatabase() {
       </div>
 
       {/* Quick Search Bar - Prominent */}
-      <Card className="bg-gradient-to-r from-gray-50 to-white border-2 border-gray-100">
+      <Card className="glass-card border-0">
         <CardContent className="py-4">
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 relative w-full">
@@ -751,7 +751,7 @@ export default function ClientDatabase() {
       {/* Alphabet Index Tabs */}
       <Card className="border-0 shadow-none bg-transparent">
         <CardContent className="p-0">
-          <div className="flex items-center gap-1 flex-wrap justify-center bg-white rounded-xl p-3 shadow-sm border border-gray-200">
+          <div className="glass-card flex items-center gap-1 flex-wrap justify-center py-3">
             {/* All button */}
             <Button
               variant={selectedLetter === null || selectedLetter === 'All' ? 'default' : 'ghost'}
@@ -832,7 +832,7 @@ export default function ClientDatabase() {
       </Card>
 
       {/* Client List */}
-      <Card>
+      <Card className="glass-card border-0">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="heading-sm">

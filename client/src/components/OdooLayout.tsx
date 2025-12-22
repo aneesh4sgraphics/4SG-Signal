@@ -86,7 +86,7 @@ function SettingsMenu() {
       </DropdownMenu>
       
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <AlertDialogContent className="contra-card">
+        <AlertDialogContent className="glass-card">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold">Reset App Data</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-500">
@@ -94,8 +94,8 @@ function SettingsMenu() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="contra-btn-secondary">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset} className="contra-btn-primary">
+            <AlertDialogCancel className="glass-btn">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReset} className="glass-btn-primary">
               Reset
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -263,7 +263,7 @@ function CategoryEditor({
   };
 
   return (
-    <Card className="mb-4" data-testid={`category-card-${category.categoryKey}`}>
+    <Card className="glass-card border-0 mb-4" data-testid={`category-card-${category.categoryKey}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">

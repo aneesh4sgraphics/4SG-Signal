@@ -615,7 +615,7 @@ export default function PriceList() {
         )}
 
         {/* Configuration - Optimized Layout */}
-        <div className="contra-card mb-6">
+        <div className="glass-card mb-6">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Product Category */}
@@ -678,7 +678,7 @@ export default function PriceList() {
 
       {/* Price List Table */}
       {priceListItems.length > 0 ? (
-        <div className="contra-card">
+        <div className="glass-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h2 className="heading-secondary text-gray-800">Price List - {selectedCategory}</h2>

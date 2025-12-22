@@ -146,32 +146,32 @@
     100% { background-position: 0% 50%; }
   }
   
-  /* Glass Card - Frosted glass effect */
+  /* Glass Card - Subtle frosted glass effect */
   .glass-card {
     @apply rounded-2xl p-6 transition-all duration-300;
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(24px) saturate(120%);
+    -webkit-backdrop-filter: blur(24px) saturate(120%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 24px rgba(148, 163, 184, 0.1);
   }
   
   .glass-card:hover {
-    background: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.75);
     transform: translateY(-2px);
-    box-shadow: 
-      0 12px 40px rgba(0, 0, 0, 0.15),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(148, 163, 184, 0.15);
   }
   
   .dark .glass-card {
     background: rgba(30, 30, 40, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+  
+  .dark .glass-card:hover {
+    background: rgba(30, 30, 40, 0.7);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
   
   /* Glass Stat Card */

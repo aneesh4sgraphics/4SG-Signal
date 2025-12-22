@@ -887,7 +887,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         {/* Left Panel - Customer & Product Selection */}
         <div className="xl:col-span-2 lg:col-span-1">
           {/* Customer Selection Card */}
-          <div className="contra-card mb-6">
+          <div className="glass-card mb-6">
             <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <User className="h-4 w-4 text-indigo-600" />
               Select Customer
@@ -901,7 +901,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           </div>
 
           {/* Product Selection Card */}
-          <div className="contra-card mb-6">
+          <div className="glass-card mb-6">
             <div className="space-y-6">
               {/* Product Category */}
               <div className="space-y-2">
@@ -1118,7 +1118,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         {/* Right Panel - Customer Details & Quote Summary */}
         <div className="xl:col-span-3 lg:col-span-3">
           {/* Customer Details Card */}
-          <div className="bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl shadow-indigo-500/10 rounded-2xl p-6 mb-6">
+          <div className="glass-card mb-6">
             <h2 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
               <User className="h-5 w-5 text-indigo-600" />
               Customer Details
@@ -1193,7 +1193,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           </div>
 
           {/* Quote Summary Card */}
-          <div className="bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl shadow-blue-500/10 rounded-2xl p-6 mb-6">
+          <div className="glass-card mb-6">
             <h2 className="heading-secondary text-gray-800 mb-2">Quote Summary</h2>
             <p className="body-small text-gray-500 mb-6">Using default pricing</p>
             <div>
@@ -1521,7 +1521,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
 
       {/* Quote Items */}
       {quoteItems.length > 0 && (
-        <div className="bg-white/60 backdrop-blur-xl border border-white/50 shadow-xl shadow-green-500/10 rounded-2xl p-6 mb-6">
+        <div className="glass-card mb-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-gray-800">Quote Items</h2>
             <ProductOrderingDialog

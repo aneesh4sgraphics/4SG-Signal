@@ -86,7 +86,7 @@ export default function ActivityLogsPage() {
         </TabsContent>
 
         <TabsContent value="specific" className="space-y-4">
-          <Card>
+          <Card className="glass-card border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
@@ -149,7 +149,7 @@ export default function ActivityLogsPage() {
           )}
 
           {!selectedUserId && (
-            <Card>
+            <Card className="glass-card border-0">
               <CardContent className="py-12">
                 <div className="text-center text-gray-500">
                   <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
