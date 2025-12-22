@@ -28,7 +28,7 @@
   /* Official Contra Wireframe Kit Colors */
   --contra-orange: #FE8505;
   --contra-orange-dark: #E37202;
-  --contra-red: #EF1C07;
+  --contra-coral: #E8927C;
   --contra-yellow: #F4B854;
   --contra-teal: #6A9291;
   --contra-cream: #FDF9F9;
@@ -41,7 +41,7 @@
   --accent: hsl(30, 80%, 95%);
   --accent-foreground: #E37202;
   
-  --destructive: #EF1C07;
+  --destructive: #D35400;
   --destructive-foreground: #FFFFFF;
   
   --success: #6A9291;

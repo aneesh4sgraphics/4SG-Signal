@@ -196,14 +196,14 @@ export default function Dashboard() {
             <div className="text-sm font-semibold text-[#1A1819]/70">Customers</div>
           </div>
 
-          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#EF1C07' }} data-testid="stat-products">
+          <div className="rounded-2xl p-6 border-[3px] border-[#1A1819] group transition-all hover:scale-[1.02]" style={{ backgroundColor: '#E8927C' }} data-testid="stat-products">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                <Package className="h-6 w-6 text-white" />
+                <Package className="h-6 w-6 text-[#1A1819]" />
               </div>
             </div>
-            <div className="text-4xl font-extrabold mb-1 text-white">{stats.totalProducts}</div>
-            <div className="text-sm font-semibold text-white/70">Products</div>
+            <div className="text-4xl font-extrabold mb-1 text-[#1A1819]">{stats.totalProducts}</div>
+            <div className="text-sm font-semibold text-[#1A1819]/70">Products</div>
           </div>
         </div>
       )}
@@ -233,10 +233,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {mainApps.map((app, index) => {
             const Icon = app.icon;
-            const colors = ['#FE8505', '#6A9291', '#F4B854', '#EF1C07'];
+            const colors = ['#FE8505', '#6A9291', '#F4B854', '#E8927C'];
             const color = colors[index % colors.length];
-            const isLightBg = index % colors.length === 0 || index % colors.length === 2;
-            const textColor = isLightBg ? '#1A1819' : 'white';
+            const textColor = '#1A1819';
             return (
               <Link 
                 key={app.path} 
@@ -247,12 +246,12 @@ export default function Dashboard() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                    <Icon className="h-6 w-6" style={{ color: textColor }} />
+                    <Icon className="h-6 w-6 text-[#1A1819]" />
                   </div>
-                  <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-all" style={{ color: textColor }} />
+                  <ChevronRight className="h-5 w-5 text-[#1A1819] group-hover:translate-x-1 transition-all" />
                 </div>
-                <h3 className="font-bold text-lg mb-1" style={{ color: textColor }}>{app.title}</h3>
-                <p className="text-sm line-clamp-2 font-medium" style={{ color: textColor, opacity: 0.7 }}>{app.description}</p>
+                <h3 className="font-bold text-lg mb-1 text-[#1A1819]">{app.title}</h3>
+                <p className="text-sm line-clamp-2 font-medium text-[#1A1819]/70">{app.description}</p>
               </Link>
             );
           })}
@@ -275,10 +274,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {adminApps.map((app, index) => {
               const Icon = app.icon;
-              const colors = ['#6A9291', '#F4B854', '#FE8505'];
+              const colors = ['#6A9291', '#F4B854', '#E8927C'];
               const color = colors[index % colors.length];
-              const isYellow = index % colors.length === 1;
-              const textColor = isYellow ? '#1A1819' : 'white';
               return (
                 <Link 
                   key={app.path} 
@@ -289,13 +286,13 @@ export default function Dashboard() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-[#1A1819]">
-                      <Icon className="h-6 w-6" style={{ color: textColor }} />
+                      <Icon className="h-6 w-6 text-[#1A1819]" />
                     </div>
-                    <span className="px-3 py-1 text-xs font-bold rounded-full border-2 border-[#1A1819] bg-white/20" style={{ color: textColor }}>Admin</span>
+                    <span className="px-3 py-1 text-xs font-bold rounded-full border-2 border-[#1A1819] bg-white/20 text-[#1A1819]">Admin</span>
                   </div>
-                  <h3 className="font-bold text-lg mb-1" style={{ color: textColor }}>{app.title}</h3>
-                  <p className="text-sm font-medium" style={{ color: textColor, opacity: 0.7 }}>{app.description}</p>
-                  <div className="mt-4 pt-4 border-t-2 border-[#1A1819]/30 flex items-center gap-1 text-sm font-bold" style={{ color: textColor }}>
+                  <h3 className="font-bold text-lg mb-1 text-[#1A1819]">{app.title}</h3>
+                  <p className="text-sm font-medium text-[#1A1819]/70">{app.description}</p>
+                  <div className="mt-4 pt-4 border-t-2 border-[#1A1819]/30 flex items-center gap-1 text-sm font-bold text-[#1A1819]">
                     <span>Open</span>
                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </div>
