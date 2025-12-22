@@ -19,20 +19,34 @@ async function getAccessToken() {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
+  try {
+    const response = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
       }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+    );
+    const data = await response.json();
+    console.log('Gmail connection response:', JSON.stringify(data, null, 2));
+    connectionSettings = data.items?.[0];
+  } catch (err) {
+    console.error('Failed to fetch Gmail connection:', err);
+    throw new Error('Failed to connect to Gmail service');
+  }
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  if (!connectionSettings || !connectionSettings.settings) {
+    console.error('Gmail connection settings not found:', connectionSettings);
+    throw new Error('Gmail not connected - please reconnect in Integrations panel');
+  }
 
-  if (!connectionSettings || !accessToken) {
-    throw new Error('Gmail not connected');
+  const accessToken = connectionSettings.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+
+  if (!accessToken) {
+    console.error('No access token found in settings:', connectionSettings.settings);
+    throw new Error('Gmail access token not available');
   }
   return accessToken;
 }
