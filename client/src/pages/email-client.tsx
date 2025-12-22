@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import OdooLayout from "@/components/OdooLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -132,7 +131,11 @@ export default function EmailClient() {
   const systemLabels = labels.filter(l => l.type === "system" && ["INBOX", "SENT", "DRAFT", "STARRED", "IMPORTANT"].includes(l.id || l.name));
 
   return (
-    <OdooLayout title="Email Client" subtitle="Manage your Gmail inbox">
+    <>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-gray-900">Email Client</h1>
+        <p className="text-gray-600">Manage your Gmail inbox</p>
+      </div>
       <div className="flex gap-4 h-[calc(100vh-200px)]">
         {/* Sidebar with labels */}
         <div className="w-56 flex-shrink-0">
@@ -362,6 +365,6 @@ export default function EmailClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </OdooLayout>
+    </>
   );
 }
