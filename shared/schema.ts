@@ -353,3 +353,127 @@ export const insertPdfCategoryDetailsSchema = createInsertSchema(pdfCategoryDeta
 });
 export type PdfCategoryDetails = typeof pdfCategoryDetails.$inferSelect;
 export type InsertPdfCategoryDetails = z.infer<typeof insertPdfCategoryDetailsSchema>;
+
+// ========================================
+// Shipment Labeler Tables
+// ========================================
+
+// Pallet schema for shipments
+const palletSchema = z.object({
+  weight: z.number(),
+  dimensions: z.string(),
+});
+
+// Shipping companies for Local Transport forms
+export const shippingCompanies = pgTable("shipping_companies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address"),
+  phone: text("phone"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertShippingCompanySchema = createInsertSchema(shippingCompanies).omit({
+  id: true,
+  createdAt: true,
+});
+export type ShippingCompany = typeof shippingCompanies.$inferSelect;
+export type InsertShippingCompany = z.infer<typeof insertShippingCompanySchema>;
+
+// Saved recipients for quick selection
+export const savedRecipients = pgTable("saved_recipients", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  address: text("address").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSavedRecipientSchema = createInsertSchema(savedRecipients).omit({
+  id: true,
+  createdAt: true,
+});
+export type SavedRecipient = typeof savedRecipients.$inferSelect;
+export type InsertSavedRecipient = z.infer<typeof insertSavedRecipientSchema>;
+
+// Shipments table for shipping labels
+export const shipments = pgTable("shipments", {
+  id: serial("id").primaryKey(),
+  shipFrom: text("ship_from").notNull(),
+  companyName: text("company_name"),
+  shipTo: text("ship_to"),
+  invoiceNumber: text("invoice_number"),
+  invoiceDate: text("invoice_date"),
+  clientPO: text("client_po"),
+  palletCount: integer("pallet_count").notNull(),
+  pallets: jsonb("pallets").notNull().$type<Array<{ weight: number; dimensions: string }>>(),
+  format: text("format").notNull(),
+  shipVia: text("ship_via"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertShipmentSchema = createInsertSchema(shipments, {
+  pallets: z.array(palletSchema),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+export type Shipment = typeof shipments.$inferSelect;
+export type InsertShipment = z.infer<typeof insertShipmentSchema>;
+
+// Product Labels for saving and reusing
+export const productLabels = pgTable("product_labels", {
+  id: serial("id").primaryKey(),
+  productName: text("product_name").notNull(),
+  sku: text("sku"),
+  description: text("description"),
+  price: text("price"),
+  barcode: text("barcode"),
+  websiteUrl: text("website_url"),
+  isSamplePack: boolean("is_sample_pack").default(false).notNull(),
+  printTypes: jsonb("print_types").notNull().$type<string[]>().default([]),
+  labelFormat: text("label_format").notNull().default("thermal4x3"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertProductLabelSchema = createInsertSchema(productLabels, {
+  printTypes: z.array(z.string()),
+  sku: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  price: z.string().optional().nullable(),
+  barcode: z.string().optional().nullable(),
+  websiteUrl: z.string().optional().nullable(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+export type ProductLabel = typeof productLabels.$inferSelect;
+export type InsertProductLabel = z.infer<typeof insertProductLabelSchema>;
+
+// Notion Products - synced from Notion for local access
+export const notionProducts = pgTable("notion_products", {
+  id: serial("id").primaryKey(),
+  productName: text("product_name").notNull(),
+  sku: text("sku"),
+  description: text("description"),
+  price: text("price"),
+  barcode: text("barcode"),
+  websiteUrl: text("website_url"),
+  variantSize: text("variant_size"),
+  printTypes: jsonb("print_types").notNull().$type<string[]>().default([]),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+});
+
+export const insertNotionProductSchema = createInsertSchema(notionProducts, {
+  printTypes: z.array(z.string()),
+  sku: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  price: z.string().optional().nullable(),
+  barcode: z.string().optional().nullable(),
+  websiteUrl: z.string().optional().nullable(),
+  variantSize: z.string().optional().nullable(),
+}).omit({
+  id: true,
+  syncedAt: true,
+});
+export type NotionProduct = typeof notionProducts.$inferSelect;
+export type InsertNotionProduct = z.infer<typeof insertNotionProductSchema>;
