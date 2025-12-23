@@ -214,8 +214,22 @@ export default function CRMJourneyDashboard() {
     return customers.filter(c => !inJourney.has(c.id));
   }, [customers, journeys]);
 
-  // Filter available customers for search
+  // Filter available customers for main search bar
   const filteredAvailableCustomers = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase();
+    if (!term || term.length < 2) return [];
+    return availableCustomers
+      .filter(c =>
+        c.company?.toLowerCase().includes(term) ||
+        c.firstName?.toLowerCase().includes(term) ||
+        c.lastName?.toLowerCase().includes(term) ||
+        c.email?.toLowerCase().includes(term)
+      )
+      .slice(0, 20);
+  }, [availableCustomers, searchTerm]);
+
+  // Filter available customers for dialog combobox
+  const filteredDialogCustomers = useMemo(() => {
     if (!customerSearchTerm) return availableCustomers.slice(0, 50);
     const term = customerSearchTerm.toLowerCase();
     return availableCustomers
@@ -325,16 +339,56 @@ export default function CRMJourneyDashboard() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search by company, contact, or supplier..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-          data-testid="input-search"
-        />
+      {/* Search with Customer Suggestions */}
+      <div className="relative max-w-lg">
+        <Popover open={searchTerm.length > 1 && filteredAvailableCustomers.length > 0} onOpenChange={() => {}}>
+          <PopoverTrigger asChild>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search customers to add to pipeline..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="input-search"
+              />
+            </div>
+          </PopoverTrigger>
+          <PopoverContent className="w-[500px] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="p-2 text-xs text-gray-500 border-b">
+              Showing {filteredAvailableCustomers.length} matching customers (not in pipeline)
+            </div>
+            <ScrollArea className="h-[300px]">
+              <div className="p-1">
+                {filteredAvailableCustomers.map(customer => {
+                  const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+                  return (
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-2 hover:bg-gray-100 rounded cursor-pointer"
+                      onClick={() => {
+                        setSelectedCustomerId(customer.id);
+                        setIsAddDialogOpen(true);
+                        setSearchTerm("");
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm">{displayName}</span>
+                        <span className="text-xs text-gray-500">
+                          {customer.email} {customer.city && `• ${customer.city}`}
+                        </span>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Kanban View */}
@@ -531,7 +585,7 @@ export default function CRMJourneyDashboard() {
                         {customerSearchTerm ? "No customers found." : "Start typing to search..."}
                       </CommandEmpty>
                       <CommandGroup>
-                        {filteredAvailableCustomers.map(customer => {
+                        {filteredDialogCustomers.map(customer => {
                           const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
                           return (
                             <CommandItem
