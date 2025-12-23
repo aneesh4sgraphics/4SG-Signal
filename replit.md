@@ -7,6 +7,14 @@ This is a full-stack TypeScript application that provides a quote calculator for
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 23, 2025)
+- **Client Detail View Integration**: Unified customer CRM workspace within Client Database page
+  - **ClientDetailView Component** (`client/src/components/ClientDetailView.tsx`): Integrated customer detail view with journey stepper, risk profile, and tabbed CRM data. Shows when clicking "View" on any customer in the database.
+  - **7-Stage Journey Stepper**: Visual progression display (Trigger → Internal Alarm → Supplier Pushback → Pilot Alignment → Controlled Trial → Validation & Proof → Conversion) with "Advance Stage" action
+  - **Customer Info Cards**: Contact information, risk profile (journey stage, pending tasks, key metrics), and pending task summary
+  - **Tabbed CRM Data**: Swatch Book tab (shipments with status), Press Profiles tab (equipment details with add dialog), Samples tab (sample requests with add dialog)
+  - **State Management**: `selectedCustomer` state in client-database.tsx conditionally renders detail view vs list view
+  - **API Integration**: Fetches customer-scoped data from `/api/crm/journeys/:customerId`, `/api/crm/press-profiles`, `/api/crm/sample-requests`, `/api/crm/swatch-shipments`
+
 - **Paper Distribution CRM Integration**: Complete customer journey tracking system with 7-stage pipeline
   - **Customer Journey Pipeline** (`/crm-journey`): Kanban-style 7-stage customer conversion pipeline (Trigger → Internal Alarm → Supplier Pushback → Pilot Alignment → Controlled Trial → Validation & Proof → Conversion). Features kanban/list view toggle, stage advancement, customer search/filtering, and stage-based metrics.
   - **Sample Requests & Testing** (`/crm-samples`): Sample request tracking with status management (pending/shipped/testing/completed/cancelled), test outcome recording with scoring (run/print/finish scores 1-10), pass/fail/conditional results, and analytics with pass rate calculations.
