@@ -114,8 +114,6 @@ export default function Admin() {
 
   const changeRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
-      console.log('Frontend: Changing role for user', userId, 'to', newRole);
-      
       const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
         method: 'PATCH',
         headers: {
@@ -130,12 +128,9 @@ export default function Admin() {
         throw new Error(error.message || 'Failed to update role');
       }
 
-      const result = await response.json();
-      console.log('Frontend: Role change response:', result);
-      return result;
+      return response.json();
     },
     onSuccess: (data, { userId, newRole }) => {
-      console.log('Frontend: Role change successful, invalidating queries');
       
       // Force refetch to ensure UI shows the latest data
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });

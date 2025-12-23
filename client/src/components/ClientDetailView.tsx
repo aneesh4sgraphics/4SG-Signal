@@ -211,14 +211,10 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
 
   const createPressProfileMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('createPressProfileMutation - sending data:', data);
       const res = await apiRequest('POST', '/api/crm/press-profiles', data);
-      const result = await res.json();
-      console.log('createPressProfileMutation - response:', result);
-      return result;
+      return res.json();
     },
-    onSuccess: (data) => {
-      console.log('createPressProfileMutation - onSuccess:', data);
+    onSuccess: () => {
       refetchPressProfiles();
       setIsAddPressProfileOpen(false);
       setNewPressProfile({ pressType: '', pressName: '', inkType: '', substrateFocus: [], notes: '' });
@@ -272,7 +268,6 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
   };
 
   const handleAddPressProfile = () => {
-    console.log('=== handleAddPressProfile called ===');
     const payload = {
       customerId: String(customer.id),
       pressType: newPressProfile.pressType,
@@ -281,7 +276,6 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
       substrateFocus: newPressProfile.substrateFocus.join(', '),
       notes: newPressProfile.notes,
     };
-    console.log('Press profile payload:', payload);
     createPressProfileMutation.mutate(payload);
   };
 
