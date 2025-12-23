@@ -108,7 +108,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
 
-  const { data: journey } = useQuery<CustomerJourney>({
+  const { data: journey, refetch: refetchJourney } = useQuery<CustomerJourney | null>({
     queryKey: ['/api/crm/journeys', customer.id],
     queryFn: async () => {
       const res = await fetch(`/api/crm/journeys/${customer.id}`);
@@ -118,7 +118,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
     },
   });
 
-  const { data: pressProfiles = [] } = useQuery<PressProfile[]>({
+  const { data: pressProfiles = [], refetch: refetchPressProfiles } = useQuery<PressProfile[]>({
     queryKey: ['/api/crm/press-profiles', customer.id],
     queryFn: async () => {
       const res = await fetch(`/api/crm/press-profiles?customerId=${customer.id}`);
@@ -127,7 +127,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
     },
   });
 
-  const { data: sampleRequests = [] } = useQuery<SampleRequest[]>({
+  const { data: sampleRequests = [], refetch: refetchSamples } = useQuery<SampleRequest[]>({
     queryKey: ['/api/crm/sample-requests', customer.id],
     queryFn: async () => {
       const res = await fetch(`/api/crm/sample-requests?customerId=${customer.id}`);
@@ -159,7 +159,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
     },
     onSuccess: (data) => {
       console.log('createJourneyMutation - onSuccess:', data);
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/journeys', customer.id] });
+      refetchJourney();
       toast({ title: "Success", description: "Customer journey started" });
       logActivity('CRM_JOURNEY_CREATE', `Started journey for ${customer.company || customer.firstName}`);
     },
@@ -175,7 +175,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/journeys', customer.id] });
+      refetchJourney();
       toast({ title: "Success", description: "Journey stage updated" });
     },
     onError: (error: any) => {
@@ -193,7 +193,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
     },
     onSuccess: (data) => {
       console.log('createPressProfileMutation - onSuccess:', data);
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/press-profiles', customer.id] });
+      refetchPressProfiles();
       setIsAddPressProfileOpen(false);
       setNewPressProfile({ pressType: '', pressName: '', inkType: '', substrateFocus: [], notes: '' });
       toast({ title: "Success", description: "Press profile added" });
@@ -210,7 +210,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/crm/sample-requests', customer.id] });
+      refetchSamples();
       setIsAddSampleOpen(false);
       setNewSample({ productCategory: '', productName: '', quantity: '', pressProfileId: '', notes: '' });
       toast({ title: "Success", description: "Sample request created" });
