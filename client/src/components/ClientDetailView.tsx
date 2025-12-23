@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -48,8 +54,10 @@ import {
   Users,
   CheckCircle,
   Rocket,
+  X,
+  ChevronsUpDown,
 } from "lucide-react";
-import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection } from "@shared/schema";
+import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory } from "@shared/schema";
 
 const JOURNEY_STAGE_CONFIG = [
   { id: 'trigger', label: 'Trigger', icon: Target, color: 'bg-red-500', description: 'Price increase detected' },
@@ -84,9 +92,10 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
     pressType: '',
     pressName: '',
     inkType: '',
-    substrateFocus: '',
+    substrateFocus: [] as string[],
     notes: '',
   });
+  const [substratePopoverOpen, setSubstratePopoverOpen] = useState(false);
   const [newSample, setNewSample] = useState({
     productCategory: '',
     productName: '',
@@ -134,6 +143,10 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
     },
   });
 
+  const { data: productCategories = [] } = useQuery<ProductCategory[]>({
+    queryKey: ['/api/product-categories'],
+  });
+
   const createJourneyMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest('POST', '/api/crm/journeys', data);
@@ -171,7 +184,7 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/crm/press-profiles', customer.id] });
       setIsAddPressProfileOpen(false);
-      setNewPressProfile({ pressType: '', pressName: '', inkType: '', substrateFocus: '', notes: '' });
+      setNewPressProfile({ pressType: '', pressName: '', inkType: '', substrateFocus: [], notes: '' });
       toast({ title: "Success", description: "Press profile added" });
     },
     onError: (error: any) => {
@@ -219,7 +232,11 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
   const handleAddPressProfile = () => {
     createPressProfileMutation.mutate({
       customerId: customer.id,
-      ...newPressProfile,
+      pressType: newPressProfile.pressType,
+      pressModel: newPressProfile.pressName,
+      inkType: newPressProfile.inkType,
+      substrateFocus: newPressProfile.substrateFocus.join(', '),
+      notes: newPressProfile.notes,
     });
   };
 
@@ -467,7 +484,7 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
                   {pressProfiles.map(profile => (
                     <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="font-medium">{profile.pressName || profile.pressType}</p>
+                        <p className="font-medium">{profile.pressModel || profile.pressType}</p>
                         <p className="text-sm text-gray-500">
                           {[profile.inkType, profile.substrateFocus].filter(Boolean).join(' • ')}
                         </p>
@@ -505,7 +522,7 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
                   {sampleRequests.map(sample => (
                     <div key={sample.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="font-medium">{sample.productName || sample.productCategory}</p>
+                        <p className="font-medium">{sample.productName || 'Sample Request'}</p>
                         <p className="text-sm text-gray-500">
                           Qty: {sample.quantity} • {sample.status}
                         </p>
@@ -581,11 +598,68 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
             </div>
             <div>
               <Label>Substrate Focus</Label>
-              <Input
-                value={newPressProfile.substrateFocus}
-                onChange={(e) => setNewPressProfile(p => ({ ...p, substrateFocus: e.target.value }))}
-                placeholder="e.g., Coated papers, cardstock"
-              />
+              <Popover open={substratePopoverOpen} onOpenChange={setSubstratePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                    data-testid="substrate-focus-trigger"
+                  >
+                    {newPressProfile.substrateFocus.length > 0
+                      ? `${newPressProfile.substrateFocus.length} selected`
+                      : "Select substrates..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <ScrollArea className="h-60">
+                    <div className="p-2 space-y-1">
+                      {productCategories.map((category) => (
+                        <div
+                          key={category.id}
+                          className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                          onClick={() => {
+                            const name = category.name;
+                            setNewPressProfile(p => ({
+                              ...p,
+                              substrateFocus: p.substrateFocus.includes(name)
+                                ? p.substrateFocus.filter(s => s !== name)
+                                : [...p.substrateFocus, name]
+                            }));
+                          }}
+                        >
+                          <Checkbox
+                            checked={newPressProfile.substrateFocus.includes(category.name)}
+                            onCheckedChange={() => {}}
+                          />
+                          <span className="text-sm">{category.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+              {newPressProfile.substrateFocus.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {newPressProfile.substrateFocus.map((substrate) => (
+                    <Badge
+                      key={substrate}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {substrate}
+                      <X
+                        className="h-3 w-3 cursor-pointer hover:text-red-500"
+                        onClick={() => setNewPressProfile(p => ({
+                          ...p,
+                          substrateFocus: p.substrateFocus.filter(s => s !== substrate)
+                        }))}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <Label>Notes</Label>
@@ -653,7 +727,7 @@ export default function ClientDetailView({ customer, onBack, onDelete }: ClientD
                   <SelectContent>
                     {pressProfiles.map(profile => (
                       <SelectItem key={profile.id} value={profile.id.toString()}>
-                        {profile.pressName || profile.pressType}
+                        {profile.pressModel || profile.pressType}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -509,6 +509,8 @@ export const pressProfiles = pgTable("press_profiles", {
   pressManufacturer: varchar("press_manufacturer", { length: 255 }),
   pressModel: varchar("press_model", { length: 255 }),
   pressType: varchar("press_type", { length: 100 }), // offset, digital, flexo, etc.
+  inkType: varchar("ink_type", { length: 100 }), // dry_toner, hp_indigo, uv, aqueous, etc.
+  substrateFocus: text("substrate_focus"), // comma-separated product categories
   maxSheetWidth: decimal("max_sheet_width", { precision: 10, scale: 2 }),
   maxSheetLength: decimal("max_sheet_length", { precision: 10, scale: 2 }),
   coaterType: varchar("coater_type", { length: 100 }),
