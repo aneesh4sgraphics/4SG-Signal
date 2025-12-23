@@ -26,6 +26,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -83,6 +97,8 @@ export default function CRMJourneyDashboard() {
   const [selectedJourney, setSelectedJourney] = useState<JourneyWithCustomer | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
   const [newJourneyData, setNewJourneyData] = useState({
     journeyStage: 'trigger',
     primaryProductLine: '',
@@ -113,6 +129,7 @@ export default function CRMJourneyDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/crm/journeys'] });
       setIsAddDialogOpen(false);
       setSelectedCustomerId("");
+      setCustomerSearchTerm("");
       setNewJourneyData({
         journeyStage: 'trigger',
         primaryProductLine: '',
@@ -196,6 +213,27 @@ export default function CRMJourneyDashboard() {
     const inJourney = new Set(journeys.map(j => j.customerId));
     return customers.filter(c => !inJourney.has(c.id));
   }, [customers, journeys]);
+
+  // Filter available customers for search
+  const filteredAvailableCustomers = useMemo(() => {
+    if (!customerSearchTerm) return availableCustomers.slice(0, 50);
+    const term = customerSearchTerm.toLowerCase();
+    return availableCustomers
+      .filter(c =>
+        c.company?.toLowerCase().includes(term) ||
+        c.firstName?.toLowerCase().includes(term) ||
+        c.lastName?.toLowerCase().includes(term) ||
+        c.email?.toLowerCase().includes(term)
+      )
+      .slice(0, 50);
+  }, [availableCustomers, customerSearchTerm]);
+
+  // Get selected customer display name
+  const selectedCustomerName = useMemo(() => {
+    const customer = customers.find(c => c.id === selectedCustomerId);
+    if (!customer) return "";
+    return customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+  }, [customers, selectedCustomerId]);
 
   const handleMoveStage = (journey: JourneyWithCustomer, newStage: string) => {
     updateJourneyMutation.mutate({
@@ -468,18 +506,59 @@ export default function CRMJourneyDashboard() {
           <div className="space-y-4">
             <div>
               <Label>Customer</Label>
-              <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                <SelectTrigger data-testid="select-customer">
-                  <SelectValue placeholder="Select a customer..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCustomers.map(customer => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.company || `${customer.firstName} ${customer.lastName}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={customerPopoverOpen}
+                    className="w-full justify-between font-normal"
+                    data-testid="select-customer"
+                  >
+                    {selectedCustomerName || "Search for a customer..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Type to search customers..."
+                      value={customerSearchTerm}
+                      onValueChange={setCustomerSearchTerm}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {customerSearchTerm ? "No customers found." : "Start typing to search..."}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredAvailableCustomers.map(customer => {
+                          const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+                          return (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.id}
+                              onSelect={() => {
+                                setSelectedCustomerId(customer.id);
+                                setCustomerPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"}`}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium">{displayName}</span>
+                                {customer.email && (
+                                  <span className="text-xs text-gray-500">{customer.email}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Starting Stage</Label>
