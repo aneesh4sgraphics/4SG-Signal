@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCustomers } from "@/features/customers/useCustomers";
 import { useAuth } from "@/hooks/useAuth";
+import ClientDetailView from "@/components/ClientDetailView";
 import {
   Table,
   TableBody,
@@ -93,6 +94,7 @@ export default function ClientDatabase() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -600,6 +602,19 @@ export default function ClientDatabase() {
 
   const isAdmin = (user as any)?.role === 'admin';
 
+  if (selectedCustomer) {
+    return (
+      <ClientDetailView
+        customer={selectedCustomer}
+        onBack={() => setSelectedCustomer(null)}
+        onDelete={(customerId) => {
+          deleteCustomerMutation.mutate(customerId);
+          setSelectedCustomer(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1046,6 +1061,14 @@ export default function ClientDatabase() {
                             
                             {/* Action buttons */}
                             <div className="flex gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                              <Button 
+                                onClick={() => setSelectedCustomer(customer)} 
+                                size="sm" 
+                                variant="default" 
+                                data-testid={`button-view-${customer.id}`}
+                              >
+                                View
+                              </Button>
                               <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost" data-testid={`button-edit-${customer.id}`}>
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -1213,6 +1236,14 @@ export default function ClientDatabase() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button 
+                            onClick={() => setSelectedCustomer(customer)} 
+                            size="sm" 
+                            variant="default"
+                            data-testid={`button-view-table-${customer.id}`}
+                          >
+                            View
+                          </Button>
                           <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost">
                             <Edit className="h-3 w-3" />
                           </Button>
