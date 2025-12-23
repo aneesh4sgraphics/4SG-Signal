@@ -6,7 +6,17 @@ This is a full-stack TypeScript application that provides a quote calculator for
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (December 22, 2025)
+## Recent Changes (December 23, 2025)
+- **Bento Grid App Switcher & Command Palette**: Major UI redesign inspired by Odoo's app switcher
+  - **App Switcher Drawer**: Bento grid layout with adaptive tile sizing based on usage frequency. Frequently used apps (3+ uses) display larger 2x1 tiles. Glass design styling with hover effects.
+  - **Command Palette**: Global search triggered by '/' or 'Cmd+K'. Search across all apps, view recent apps, quick actions (logout, reset cache). Built with shadcn/ui Command components (cmdk).
+  - **Usage Tracking**: App usage persisted in localStorage. Tracks visit count and last used timestamp. Used for adaptive icon sizing and recent apps.
+  - **Mobile Responsiveness**: Sheet-based mobile sidebar for screens below lg breakpoint. Floating menu button on mobile.
+  - New components: `CommandPalette.tsx`, `AppSwitcherDrawer.tsx`
+  - New hooks: `useAppUsage.tsx` (React Context + localStorage), `useCommandPalette` (keyboard shortcut handler)
+  - Shared navigation config: `NAV_ITEMS` exported from CommandPalette for consistent app metadata
+
+## Previous Changes (December 22, 2025)
 - **Shipment Labeler Integration**: Added two new label generation features
   - **Shipping Labels** (`/shipping-labels`): Professional shipping label generator with support for multiple formats (4x6 thermal, 4x8 thermal, 8.5x11 laser 2-up, local transport). Features include barcode generation using react-barcode, saved recipients, shipping company management, address validation, Google Maps integration, shipment history, and pallet details per label.
   - **Product Labels** (`/product-labels`): Product label generator with QR codes (qrcode.react), support for thermal 4x3 and Avery 4-up formats, ink compatibility options (Dry Toner, HP Indigo, UV, etc.), sample pack designation, and saved template management. Includes Notion product search integration.
