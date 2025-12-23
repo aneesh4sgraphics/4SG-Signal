@@ -58,7 +58,7 @@ import {
   X,
   ChevronsUpDown,
 } from "lucide-react";
-import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory } from "@shared/schema";
+import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory, QuoteEvent, PriceListEvent } from "@shared/schema";
 
 const JOURNEY_STAGE_CONFIG = [
   { id: 'trigger', label: 'Trigger', icon: Target, color: 'bg-red-500', description: 'Price increase detected' },
@@ -147,6 +147,24 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
 
   const { data: productCategories = [] } = useQuery<ProductCategory[]>({
     queryKey: ['/api/product-categories'],
+  });
+
+  const { data: quoteEvents = [] } = useQuery<QuoteEvent[]>({
+    queryKey: ['/api/crm/quote-events', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/quote-events?customerId=${customer.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: priceListEvents = [] } = useQuery<PriceListEvent[]>({
+    queryKey: ['/api/crm/price-list-events', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/price-list-events?customerId=${customer.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 
   const createJourneyMutation = useMutation({
@@ -445,7 +463,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
           <TabsTrigger value="swatch-book" className="flex items-center gap-2">
             <Palette className="h-4 w-4" />
             Swatch Book
@@ -457,6 +475,10 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
           <TabsTrigger value="samples" className="flex items-center gap-2">
             <FlaskConical className="h-4 w-4" />
             Samples ({sampleRequests.length})
+          </TabsTrigger>
+          <TabsTrigger value="quotes-prices" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Quotes & Prices ({quoteEvents.length + priceListEvents.length})
           </TabsTrigger>
         </TabsList>
 
@@ -561,6 +583,79 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
                     <Plus className="h-4 w-4 mr-1" />
                     Request First Sample
                   </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quotes-prices" className="mt-4">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="text-base">Quotes & Price Lists Sent</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {quoteEvents.length > 0 || priceListEvents.length > 0 ? (
+                <div className="space-y-4">
+                  {quoteEvents.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-600 mb-2">Quotes from QuickQuotes</h4>
+                      <div className="space-y-2">
+                        {quoteEvents.map(event => (
+                          <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="font-medium">{event.quoteNumber || `Quote #${event.id}`}</p>
+                              <p className="text-sm text-gray-500">
+                                {event.itemCount ? `${event.itemCount} items` : ''} 
+                                {event.totalAmount ? ` • $${parseFloat(event.totalAmount).toLocaleString()}` : ''}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {event.createdAt ? new Date(event.createdAt).toLocaleDateString() : ''}
+                              </p>
+                            </div>
+                            <Badge variant={event.eventType === 'accepted' ? 'default' : event.eventType === 'rejected' ? 'destructive' : 'secondary'}>
+                              {event.eventType}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {priceListEvents.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-600 mb-2">Price Lists from Price List App</h4>
+                      <div className="space-y-2">
+                        {priceListEvents.map(event => (
+                          <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="font-medium">
+                                {event.eventType === 'email' ? 'Emailed Price List' : 
+                                 event.eventType === 'download' ? 'Downloaded Price List' : 'Viewed Price List'}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {event.priceTier && `Tier: ${event.priceTier}`}
+                                {event.productTypes && event.productTypes.length > 0 && ` • ${event.productTypes.length} product types`}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {event.createdAt ? new Date(event.createdAt).toLocaleDateString() : ''}
+                                {event.userEmail && ` • by ${event.userEmail}`}
+                              </p>
+                            </div>
+                            <Badge variant="outline">
+                              {event.eventType}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No quotes or price lists sent to this customer yet</p>
+                  <p className="text-xs text-gray-400 mt-2">Use QuickQuotes or Price List apps to send pricing to this customer</p>
                 </div>
               )}
             </CardContent>
