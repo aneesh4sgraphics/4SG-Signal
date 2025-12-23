@@ -98,6 +98,7 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
     notes: '',
   });
   const [substratePopoverOpen, setSubstratePopoverOpen] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<SentQuote | null>(null);
   const [newSample, setNewSample] = useState({
     productCategory: '',
     productName: '',
@@ -170,25 +171,15 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
   const { data: sentQuotes = [] } = useQuery<SentQuote[]>({
     queryKey: ['/api/crm/customer-sent-quotes', customer.email, customer.company],
     queryFn: async () => {
-      console.log('Fetching sent quotes for customer:', { email: customer.email, company: customer.company });
       const params = new URLSearchParams();
       if (customer.email) params.append('email', customer.email);
       if (customer.company) params.append('company', customer.company);
-      const url = `/api/crm/customer-sent-quotes?${params.toString()}`;
-      console.log('Sent quotes URL:', url);
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.log('Sent quotes fetch failed:', res.status, res.statusText);
-        return [];
-      }
-      const data = await res.json();
-      console.log('Sent quotes response:', data);
-      return data;
+      const res = await fetch(`/api/crm/customer-sent-quotes?${params.toString()}`);
+      if (!res.ok) return [];
+      return res.json();
     },
     enabled: !!(customer.email || customer.company),
   });
-  
-  console.log('sentQuotes state:', sentQuotes, 'customer.email:', customer.email, 'customer.company:', customer.company);
 
   const createJourneyMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -625,7 +616,12 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
                       <h4 className="font-medium text-sm text-gray-600 mb-2">Quotes from QuickQuotes</h4>
                       <div className="space-y-2">
                         {sentQuotes.map(quote => (
-                          <div key={quote.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div 
+                            key={quote.id} 
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={() => setSelectedQuote(quote)}
+                            data-testid={`quote-row-${quote.id}`}
+                          >
                             <div>
                               <p className="font-medium">Quote #{quote.quoteNumber}</p>
                               <p className="text-sm text-gray-500">
@@ -635,9 +631,12 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
                                 {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : ''}
                               </p>
                             </div>
-                            <Badge variant={quote.status === 'accepted' ? 'default' : quote.status === 'viewed' ? 'outline' : 'secondary'}>
-                              {quote.status}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={quote.status === 'accepted' ? 'default' : quote.status === 'viewed' ? 'outline' : 'secondary'}>
+                                {quote.status}
+                              </Badge>
+                              <ChevronRight className="h-4 w-4 text-gray-400" />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -911,6 +910,84 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
             <Button onClick={handleAddSample} disabled={createSampleMutation.isPending}>
               {createSampleMutation.isPending ? 'Creating...' : 'Create Request'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quote Detail Dialog */}
+      <Dialog open={!!selectedQuote} onOpenChange={(open) => !open && setSelectedQuote(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Quote #{selectedQuote?.quoteNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Sent to {selectedQuote?.customerName} on {selectedQuote?.createdAt ? new Date(selectedQuote.createdAt).toLocaleDateString() : ''}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-500">Total Amount</p>
+                <p className="text-2xl font-bold text-green-600">
+                  ${selectedQuote ? parseFloat(selectedQuote.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Sent Via</p>
+                <Badge variant="outline" className="mt-1">{selectedQuote?.sentVia}</Badge>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-2">Products in this Quote</h4>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="text-left p-2">Product</th>
+                      <th className="text-left p-2">Size</th>
+                      <th className="text-right p-2">Qty</th>
+                      <th className="text-right p-2">Price/Sheet</th>
+                      <th className="text-right p-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedQuote?.quoteItems && (() => {
+                      try {
+                        const items = typeof selectedQuote.quoteItems === 'string' 
+                          ? JSON.parse(selectedQuote.quoteItems) 
+                          : selectedQuote.quoteItems;
+                        return Array.isArray(items) ? items.map((item: any, index: number) => (
+                          <tr key={item.id || index} className="border-t">
+                            <td className="p-2">
+                              <p className="font-medium">{item.productName || 'Unknown Product'}</p>
+                              <p className="text-xs text-gray-500">{item.productType || item.itemCode || ''}</p>
+                            </td>
+                            <td className="p-2">{item.size || '-'}</td>
+                            <td className="p-2 text-right">{item.quantity?.toLocaleString() || '-'}</td>
+                            <td className="p-2 text-right">
+                              ${item.pricePerSheet?.toFixed(4) || item.price?.toFixed(4) || '0.0000'}
+                            </td>
+                            <td className="p-2 text-right font-medium">
+                              ${item.total?.toFixed(2) || (item.quantity * (item.pricePerSheet || item.price || 0)).toFixed(2)}
+                            </td>
+                          </tr>
+                        )) : <tr><td colSpan={5} className="p-2 text-center text-gray-500">No items found</td></tr>;
+                      } catch (e) {
+                        return <tr><td colSpan={5} className="p-2 text-center text-gray-500">Unable to parse quote items</td></tr>;
+                      }
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedQuote(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
