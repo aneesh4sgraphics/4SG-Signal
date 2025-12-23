@@ -185,16 +185,21 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
 
   const createPressProfileMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('createPressProfileMutation - sending data:', data);
       const res = await apiRequest('POST', '/api/crm/press-profiles', data);
-      return res.json();
+      const result = await res.json();
+      console.log('createPressProfileMutation - response:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('createPressProfileMutation - onSuccess:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/crm/press-profiles', customer.id] });
       setIsAddPressProfileOpen(false);
       setNewPressProfile({ pressType: '', pressName: '', inkType: '', substrateFocus: [], notes: '' });
       toast({ title: "Success", description: "Press profile added" });
     },
     onError: (error: any) => {
+      console.error('createPressProfileMutation - onError:', error);
       toast({ title: "Error", description: error.message || "Failed to add press profile", variant: "destructive" });
     },
   });
@@ -249,14 +254,17 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
   };
 
   const handleAddPressProfile = () => {
-    createPressProfileMutation.mutate({
-      customerId: customer.id,
+    console.log('=== handleAddPressProfile called ===');
+    const payload = {
+      customerId: String(customer.id),
       pressType: newPressProfile.pressType,
       pressModel: newPressProfile.pressName,
       inkType: newPressProfile.inkType,
       substrateFocus: newPressProfile.substrateFocus.join(', '),
       notes: newPressProfile.notes,
-    });
+    };
+    console.log('Press profile payload:', payload);
+    createPressProfileMutation.mutate(payload);
   };
 
   const handleAddSample = () => {
@@ -698,8 +706,8 @@ export default function ClientDetailView({ customer, onBack, onEdit, onDelete }:
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddPressProfileOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddPressProfile} disabled={createPressProfileMutation.isPending}>
+            <Button type="button" variant="outline" onClick={() => setIsAddPressProfileOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleAddPressProfile} disabled={createPressProfileMutation.isPending}>
               {createPressProfileMutation.isPending ? 'Adding...' : 'Add Profile'}
             </Button>
           </DialogFooter>
