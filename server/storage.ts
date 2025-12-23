@@ -95,7 +95,7 @@ import {
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
-import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
+import { eq, desc, and, sql, ilike, or, gte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for Replit Auth
@@ -295,6 +295,19 @@ export interface IStorage {
   // Price List Events
   getPriceListEvents(customerId?: string): Promise<PriceListEvent[]>;
   createPriceListEvent(data: InsertPriceListEvent): Promise<PriceListEvent>;
+
+  // CRM Dashboard Stats
+  getCRMDashboardStats(): Promise<{
+    stageCounts: { stage: string; count: number }[];
+    totalActiveJourneys: number;
+    totalQuotesSent: number;
+    quotesLast30Days: number;
+    totalCustomers: number;
+    newCustomersLast30Days: number;
+    pendingSamples: number;
+    pendingSwatches: number;
+    activePressProfiles: number;
+  }>;
 }
 
 // Removed: MemStorage class - Legacy in-memory storage implementation
@@ -1634,6 +1647,78 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return event;
+  }
+
+  // CRM Dashboard Stats
+  async getCRMDashboardStats(): Promise<{
+    stageCounts: { stage: string; count: number }[];
+    totalActiveJourneys: number;
+    totalQuotesSent: number;
+    quotesLast30Days: number;
+    totalCustomers: number;
+    newCustomersLast30Days: number;
+    pendingSamples: number;
+    pendingSwatches: number;
+    activePressProfiles: number;
+  }> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Get journey stage counts
+    const journeys = await db.select().from(customerJourney);
+    const stageCountsMap: Record<string, number> = {};
+    const stages = ['trigger', 'internal_alarm', 'supplier_pushback', 'pilot_alignment', 'controlled_trial', 'validation_proof', 'conversion'];
+    stages.forEach(s => stageCountsMap[s] = 0);
+    journeys.forEach(j => {
+      if (j.journeyStage && stageCountsMap[j.journeyStage] !== undefined) {
+        stageCountsMap[j.journeyStage]++;
+      }
+    });
+    const stageCounts = stages.map(stage => ({ stage, count: stageCountsMap[stage] }));
+
+    // Total quotes sent (from sent_quotes table)
+    const allQuotes = await db.select({ id: sentQuotes.id }).from(sentQuotes);
+    const totalQuotesSent = allQuotes.length;
+
+    // Quotes last 30 days
+    const recentQuotes = await db.select({ id: sentQuotes.id }).from(sentQuotes)
+      .where(gte(sentQuotes.createdAt, thirtyDaysAgo));
+    const quotesLast30Days = recentQuotes.length;
+
+    // Total customers
+    const allCustomers = await db.select({ id: customers.id }).from(customers);
+    const totalCustomers = allCustomers.length;
+
+    // New customers last 30 days
+    const recentCustomers = await db.select({ id: customers.id }).from(customers)
+      .where(gte(customers.createdAt, thirtyDaysAgo));
+    const newCustomersLast30Days = recentCustomers.length;
+
+    // Pending samples (status = pending or shipped or testing)
+    const pendingSamplesList = await db.select({ id: sampleRequests.id }).from(sampleRequests)
+      .where(sql`${sampleRequests.status} IN ('pending', 'shipped', 'testing')`);
+    const pendingSamples = pendingSamplesList.length;
+
+    // Pending swatch shipments (status = pending or shipped)
+    const pendingSwatchesList = await db.select({ id: swatchBookShipments.id }).from(swatchBookShipments)
+      .where(sql`${swatchBookShipments.status} IN ('pending', 'shipped')`);
+    const pendingSwatches = pendingSwatchesList.length;
+
+    // Active press profiles
+    const allPressProfiles = await db.select({ id: pressProfiles.id }).from(pressProfiles);
+    const activePressProfiles = allPressProfiles.length;
+
+    return {
+      stageCounts,
+      totalActiveJourneys: journeys.length,
+      totalQuotesSent,
+      quotesLast30Days,
+      totalCustomers,
+      newCustomersLast30Days,
+      pendingSamples,
+      pendingSwatches,
+      activePressProfiles,
+    };
   }
 }
 
