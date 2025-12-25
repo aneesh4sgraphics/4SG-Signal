@@ -147,6 +147,13 @@ export default function ClientDatabase() {
     return quoteCounts[email.toLowerCase()] || 0;
   };
   
+  // Get sample count for a customer by ID
+  const getSampleCount = (customerId: string): number => {
+    return sampleRequests.filter((s: any) => 
+      s.customerId === parseInt(customerId) || s.customerId === customerId
+    ).length;
+  };
+  
   // Get display name for a customer
   const getDisplayName = (customer: Customer) => {
     if (customer.firstName || customer.lastName) {
@@ -1118,6 +1125,7 @@ export default function ClientDatabase() {
             <div className="space-y-2">
               {filteredCustomers.map((customer, index) => {
                 const quoteCount = getQuoteCount(customer.email);
+                const sampleCount = getSampleCount(customer.id);
                 const isExpanded = expandedCards.has(customer.id);
                 
                 return (
@@ -1158,9 +1166,15 @@ export default function ClientDatabase() {
                                     <SiOdoo className="h-4 w-4 text-purple-600 flex-shrink-0" title="Odoo" />
                                   )}
                                   {quoteCount > 0 && (
-                                    <Badge variant="default" className="bg-blue-600 text-white text-xs px-1.5 py-0 flex items-center gap-0.5">
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0 flex items-center gap-0.5" title="Quotes sent">
                                       <FileText className="h-3 w-3" />
                                       {quoteCount}
+                                    </Badge>
+                                  )}
+                                  {sampleCount > 0 && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs px-1.5 py-0 flex items-center gap-0.5" title="Samples sent">
+                                      <Package className="h-3 w-3" />
+                                      {sampleCount}
                                     </Badge>
                                   )}
                                 </div>
