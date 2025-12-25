@@ -16,10 +16,18 @@ import {
   ArrowUpRight,
   Printer,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Truck,
+  Tag,
+  Target,
+  FlaskConical,
+  Palette,
+  Activity,
+  Grid3X3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import { useAppUsage } from "@/hooks/useAppUsage";
 
 interface DashboardStats {
   totalQuotes: number;
@@ -42,9 +50,32 @@ interface CRMStats {
   activePressProfiles: number;
 }
 
+const appTiles = [
+  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: '#f59e0b', bgGradient: 'linear-gradient(135deg, rgba(253, 224, 71, 0.4), rgba(250, 204, 21, 0.3))' },
+  { path: '/price-list', icon: DollarSign, label: 'Price List', color: '#8b5cf6', bgGradient: 'linear-gradient(135deg, rgba(167, 139, 250, 0.4), rgba(139, 92, 246, 0.3))' },
+  { path: '/saved-quotes', icon: BarChart3, label: 'Saved Quotes', color: '#06b6d4', bgGradient: 'linear-gradient(135deg, rgba(103, 232, 249, 0.4), rgba(6, 182, 212, 0.3))' },
+  { path: '/clients', icon: Users, label: 'Clients', color: '#10b981', bgGradient: 'linear-gradient(135deg, rgba(134, 239, 172, 0.4), rgba(110, 231, 183, 0.3))' },
+  { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: '#3b82f6', bgGradient: 'linear-gradient(135deg, rgba(147, 197, 253, 0.4), rgba(96, 165, 250, 0.3))' },
+  { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', color: '#ef4444', bgGradient: 'linear-gradient(135deg, rgba(252, 165, 165, 0.4), rgba(248, 113, 113, 0.3))' },
+  { path: '/shipping-calculator', icon: Truck, label: 'Shipping', color: '#64748b', bgGradient: 'linear-gradient(135deg, rgba(148, 163, 184, 0.4), rgba(100, 116, 139, 0.3))' },
+  { path: '/shipping-labels', icon: Package, label: 'Shipping Labels', color: '#0ea5e9', bgGradient: 'linear-gradient(135deg, rgba(125, 211, 252, 0.4), rgba(56, 189, 248, 0.3))' },
+  { path: '/product-labels', icon: Tag, label: 'Product Labels', color: '#ec4899', bgGradient: 'linear-gradient(135deg, rgba(249, 168, 212, 0.4), rgba(244, 114, 182, 0.3))' },
+  { path: '/crm-journey', icon: Target, label: 'CRM Journey', color: '#6366f1', bgGradient: 'linear-gradient(135deg, rgba(165, 180, 252, 0.4), rgba(129, 140, 248, 0.3))' },
+  { path: '/crm-samples', icon: FlaskConical, label: 'Samples', color: '#14b8a6', bgGradient: 'linear-gradient(135deg, rgba(94, 234, 212, 0.4), rgba(45, 212, 191, 0.3))' },
+  { path: '/crm-swatches', icon: Palette, label: 'Swatches', color: '#a855f7', bgGradient: 'linear-gradient(135deg, rgba(216, 180, 254, 0.4), rgba(192, 132, 252, 0.3))' },
+];
+
+const adminTiles = [
+  { path: '/admin', icon: Users, label: 'Users', color: '#475569', bgGradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.4), rgba(71, 85, 105, 0.3))' },
+  { path: '/activity-logs', icon: Activity, label: 'Activity', color: '#475569', bgGradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.4), rgba(71, 85, 105, 0.3))' },
+  { path: '/product-pricing-management', icon: Database, label: 'Products', color: '#475569', bgGradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.4), rgba(71, 85, 105, 0.3))' },
+  { path: '/pdf-settings', icon: FileText, label: 'PDF Settings', color: '#475569', bgGradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.4), rgba(71, 85, 105, 0.3))' },
+];
+
 export default function Dashboard() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const { user, isLoading } = useAuth();
+  const { trackUsage, usageData } = useAppUsage();
 
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -151,45 +182,6 @@ export default function Dashboard() {
       textColor: '#5b21b6',
       accentColor: '#c4b5fd'
     }
-  ];
-
-  const quickActions = [
-    {
-      title: 'QuickQuotes',
-      desc: 'Generate instant quotes with intelligent pricing calculations',
-      icon: Calculator,
-      path: '/quick-quotes',
-      gradient: 'linear-gradient(135deg, rgba(253, 224, 71, 0.35), rgba(250, 204, 21, 0.3))',
-      glowColor: 'rgba(253, 224, 71, 0.15)',
-      textColor: '#713f12',
-      iconColor: '#854d0e'
-    },
-    {
-      title: 'Price List',
-      desc: 'View and export comprehensive pricing tables',
-      icon: FileText,
-      path: '/price-list',
-      gradient: 'linear-gradient(135deg, rgba(167, 139, 250, 0.35), rgba(139, 92, 246, 0.3))',
-      glowColor: 'rgba(167, 139, 250, 0.15)',
-      textColor: '#5b21b6',
-      iconColor: '#6b21a8'
-    },
-    {
-      title: 'Saved Quotes',
-      desc: 'Manage and track all generated quotes',
-      icon: BarChart3,
-      path: '/saved-quotes',
-      gradient: 'linear-gradient(135deg, rgba(103, 232, 249, 0.35), rgba(6, 182, 212, 0.3))',
-      glowColor: 'rgba(103, 232, 249, 0.15)',
-      textColor: '#155e75',
-      iconColor: '#0e7490'
-    }
-  ];
-
-  const adminTools = [
-    { title: 'Database', desc: 'System settings', icon: Database, path: '/product-pricing-management' },
-    { title: 'Users', desc: 'User management', icon: Users, path: '/customers' },
-    { title: 'System', desc: 'Configuration', icon: Settings, path: '/admin' }
   ];
 
   return (
@@ -477,7 +469,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Quick Actions */}
+        {/* App Grid - Odoo Style */}
         <div style={{ marginBottom: '32px' }}>
           <h2 style={{
             fontSize: '24px',
@@ -489,131 +481,133 @@ export default function Dashboard() {
             alignItems: 'center',
             gap: '12px'
           }}>
-            <Layers size={24} style={{ color: '#64748b' }} />
-            Quick Actions
+            <Grid3X3 size={24} style={{ color: '#64748b' }} />
+            Apps
           </h2>
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-            gap: '24px'
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(60px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(60px) saturate(150%)',
+            border: '1px solid rgba(255, 255, 255, 0.8)',
+            borderRadius: '28px',
+            padding: '32px',
+            boxShadow: '0 8px 32px rgba(148, 163, 184, 0.1)',
           }}>
-            {quickActions.map((action, i) => (
-              <Link
-                key={i}
-                href={action.path}
-                onMouseEnter={() => setHoveredCard(`action-${i}`)}
-                onMouseLeave={() => setHoveredCard(null)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(60px) saturate(150%)',
-                  WebkitBackdropFilter: 'blur(60px) saturate(150%)',
-                  border: '1px solid rgba(255, 255, 255, 0.8)',
-                  borderRadius: '28px',
-                  padding: '40px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  boxShadow: hoveredCard === `action-${i}`
-                    ? `0 16px 48px ${action.glowColor}`
-                    : '0 8px 24px rgba(148, 163, 184, 0.08)',
-                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: hoveredCard === `action-${i}` ? 'translateY(-6px) scale(1.01)' : 'translateY(0) scale(1)',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  display: 'block',
-                  textDecoration: 'none'
-                }}
-                data-testid={`link-${action.title.toLowerCase().replace(/\s/g, '-')}`}
-              >
-                {/* Soft gradient overlay */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: action.gradient,
-                  opacity: hoveredCard === `action-${i}` ? 1 : 0.6,
-                  transition: 'opacity 0.4s ease',
-                  pointerEvents: 'none',
-                  borderRadius: '28px'
-                }} />
-
-                {/* Glass shine effect */}
-                <div style={{
-                  position: 'absolute',
-                  top: '-100%',
-                  left: '-100%',
-                  width: '300%',
-                  height: '300%',
-                  background: 'linear-gradient(45deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%)',
-                  transform: hoveredCard === `action-${i}` ? 'translate(100%, 100%)' : 'translate(-100%, -100%)',
-                  transition: 'transform 1s ease',
-                  pointerEvents: 'none'
-                }} />
-
-                {/* Top edge highlight */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '15%',
-                  right: '15%',
-                  height: '2px',
-                  background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 1), transparent)',
-                  opacity: hoveredCard === `action-${i}` ? 1 : 0.3,
-                  transition: 'opacity 0.3s ease',
-                  filter: 'blur(1px)'
-                }} />
-
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginBottom: '20px'
-                  }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      borderRadius: '20px',
-                      background: action.gradient,
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: '16px'
+            }}>
+              {appTiles.map((app, i) => {
+                const Icon = app.icon;
+                const usageCount = usageData[app.path]?.count || 0;
+                const isHovered = hoveredCard === `app-${i}`;
+                
+                return (
+                  <Link
+                    key={app.path}
+                    href={app.path}
+                    onClick={() => trackUsage(app.path)}
+                    onMouseEnter={() => setHoveredCard(`app-${i}`)}
+                    onMouseLeave={() => setHoveredCard(null)}
+                    style={{
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: `0 6px 20px ${action.glowColor}`,
-                      border: '1px solid rgba(255,255,255,0.5)',
-                      backdropFilter: 'blur(10px)'
+                      padding: '24px 16px',
+                      borderRadius: '20px',
+                      background: isHovered ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.5)',
+                      backdropFilter: 'blur(20px)',
+                      border: isHovered ? `2px solid ${app.color}40` : '1px solid rgba(255, 255, 255, 0.6)',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+                      boxShadow: isHovered 
+                        ? `0 12px 32px ${app.color}25, 0 0 0 1px ${app.color}20`
+                        : '0 2px 8px rgba(148, 163, 184, 0.08)',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                    data-testid={`tile-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {/* Gradient overlay on hover */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: app.bgGradient,
+                      opacity: isHovered ? 0.6 : 0,
+                      transition: 'opacity 0.3s ease',
+                      borderRadius: '20px',
+                      pointerEvents: 'none'
+                    }} />
+                    
+                    {/* Usage indicator */}
+                    {usageCount >= 3 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: app.color,
+                        boxShadow: `0 0 8px ${app.color}80`
+                      }} />
+                    )}
+
+                    {/* Glass shine effect */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-50%',
+                      left: '-50%',
+                      width: '200%',
+                      height: '200%',
+                      background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.6) 50%, transparent 70%)',
+                      transform: isHovered ? 'translateX(100%)' : 'translateX(-100%)',
+                      transition: 'transform 0.6s ease',
+                      pointerEvents: 'none'
+                    }} />
+
+                    <div style={{
+                      position: 'relative',
+                      zIndex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '12px'
                     }}>
-                      <action.icon size={32} style={{ color: action.iconColor }} />
+                      <div style={{
+                        width: '52px',
+                        height: '52px',
+                        borderRadius: '16px',
+                        background: app.bgGradient,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: `0 4px 16px ${app.color}20`,
+                        border: '1px solid rgba(255, 255, 255, 0.6)',
+                        transition: 'transform 0.3s ease',
+                        transform: isHovered ? 'scale(1.1)' : 'scale(1)'
+                      }}>
+                        <Icon size={26} style={{ color: app.color }} />
+                      </div>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: isHovered ? app.color : '#475569',
+                        textAlign: 'center',
+                        lineHeight: '1.3',
+                        transition: 'color 0.3s ease'
+                      }}>
+                        {app.label}
+                      </span>
                     </div>
-                    <ChevronRight 
-                      size={28} 
-                      style={{ 
-                        color: '#94a3b8',
-                        transition: 'all 0.3s ease',
-                        transform: hoveredCard === `action-${i}` ? 'translateX(6px)' : 'translateX(0)'
-                      }} 
-                    />
-                  </div>
-                  <h3 style={{
-                    fontSize: '22px',
-                    fontWeight: '700',
-                    color: action.textColor,
-                    marginBottom: '10px',
-                    letterSpacing: '-0.01em'
-                  }}>
-                    {action.title}
-                  </h3>
-                  <p style={{
-                    fontSize: '15px',
-                    color: '#475569',
-                    lineHeight: '1.6',
-                    margin: 0
-                  }}>
-                    {action.desc}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -839,7 +833,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Admin Tools */}
+        {/* Admin Tools - Odoo Style Grid */}
         {isAdmin && (
           <div>
             <h2 style={{
@@ -853,104 +847,132 @@ export default function Dashboard() {
               gap: '12px'
             }}>
               <Settings size={24} style={{ color: '#64748b' }} />
-              Admin Tools
+              Admin
             </h2>
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '20px'
+              background: 'rgba(255, 255, 255, 0.6)',
+              backdropFilter: 'blur(60px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(60px) saturate(150%)',
+              border: '1px solid rgba(255, 255, 255, 0.8)',
+              borderRadius: '28px',
+              padding: '32px',
+              boxShadow: '0 8px 32px rgba(148, 163, 184, 0.1)',
             }}>
-              {adminTools.map((tool, i) => (
-                <Link
-                  key={i}
-                  href={tool.path}
-                  onMouseEnter={() => setHoveredCard(`admin-${i}`)}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  style={{
-                    background: hoveredCard === `admin-${i}` 
-                      ? 'rgba(255, 255, 255, 0.85)' 
-                      : 'rgba(255, 255, 255, 0.6)',
-                    backdropFilter: 'blur(60px) saturate(150%)',
-                    WebkitBackdropFilter: 'blur(60px) saturate(150%)',
-                    border: '1px solid rgba(255, 255, 255, 0.8)',
-                    borderRadius: '20px',
-                    padding: '28px',
-                    cursor: 'pointer',
-                    boxShadow: hoveredCard === `admin-${i}`
-                      ? '0 12px 40px rgba(148, 163, 184, 0.15)'
-                      : '0 4px 16px rgba(148, 163, 184, 0.06)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    transform: hoveredCard === `admin-${i}` ? 'translateY(-3px)' : 'translateY(0)',
-                    display: 'block',
-                    textDecoration: 'none',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                  data-testid={`link-admin-${tool.title.toLowerCase()}`}
-                >
-                  {/* Shine effect */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '-50%',
-                    left: '-50%',
-                    width: '200%',
-                    height: '200%',
-                    background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%)',
-                    transform: hoveredCard === `admin-${i}` ? 'translateX(100%)' : 'translateX(-100%)',
-                    transition: 'transform 0.6s ease',
-                    pointerEvents: 'none'
-                  }} />
-
-                  <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: '16px'
-                    }}>
-                      <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '14px',
-                        background: 'linear-gradient(135deg, #475569, #334155)',
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                gap: '16px'
+              }}>
+                {adminTiles.map((app, i) => {
+                  const Icon = app.icon;
+                  const isHovered = hoveredCard === `admin-${i}`;
+                  
+                  return (
+                    <Link
+                      key={app.path}
+                      href={app.path}
+                      onClick={() => trackUsage(app.path)}
+                      onMouseEnter={() => setHoveredCard(`admin-${i}`)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                      style={{
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(71, 85, 105, 0.25)'
+                        padding: '24px 16px',
+                        borderRadius: '20px',
+                        background: isHovered ? 'rgba(139, 92, 246, 0.1)' : 'rgba(255, 255, 255, 0.5)',
+                        backdropFilter: 'blur(20px)',
+                        border: isHovered ? '2px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.6)',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+                        boxShadow: isHovered 
+                          ? '0 12px 32px rgba(139, 92, 246, 0.2), 0 0 0 1px rgba(139, 92, 246, 0.15)'
+                          : '0 2px 8px rgba(148, 163, 184, 0.08)',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                      data-testid={`tile-admin-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {/* Gradient overlay on hover */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(109, 40, 217, 0.1))',
+                        opacity: isHovered ? 1 : 0,
+                        transition: 'opacity 0.3s ease',
+                        borderRadius: '20px',
+                        pointerEvents: 'none'
+                      }} />
+
+                      {/* Glass shine effect */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '-50%',
+                        left: '-50%',
+                        width: '200%',
+                        height: '200%',
+                        background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.6) 50%, transparent 70%)',
+                        transform: isHovered ? 'translateX(100%)' : 'translateX(-100%)',
+                        transition: 'transform 0.6s ease',
+                        pointerEvents: 'none'
+                      }} />
+
+                      <div style={{
+                        position: 'relative',
+                        zIndex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '12px'
                       }}>
-                        <tool.icon size={24} style={{ color: '#fff' }} />
+                        <div style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '16px',
+                          background: 'linear-gradient(135deg, rgba(100, 116, 139, 0.3), rgba(71, 85, 105, 0.2))',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 4px 16px rgba(71, 85, 105, 0.15)',
+                          border: '1px solid rgba(255, 255, 255, 0.6)',
+                          transition: 'all 0.3s ease',
+                          transform: isHovered ? 'scale(1.1)' : 'scale(1)'
+                        }}>
+                          <Icon size={26} style={{ color: isHovered ? '#7c3aed' : '#475569' }} />
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            color: isHovered ? '#7c3aed' : '#475569',
+                            textAlign: 'center',
+                            lineHeight: '1.3',
+                            transition: 'color 0.3s ease',
+                            display: 'block'
+                          }}>
+                            {app.label}
+                          </span>
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: '600',
+                            color: '#9333ea',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            marginTop: '4px',
+                            display: 'inline-block'
+                          }}>
+                            Admin
+                          </span>
+                        </div>
                       </div>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#6b21a8',
-                        background: 'rgba(167, 139, 250, 0.15)',
-                        padding: '4px 10px',
-                        borderRadius: '8px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        Admin
-                      </span>
-                    </div>
-                    <h3 style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: '#1e293b',
-                      marginBottom: '4px'
-                    }}>
-                      {tool.title}
-                    </h3>
-                    <p style={{
-                      fontSize: '14px',
-                      color: '#64748b',
-                      margin: 0
-                    }}>
-                      {tool.desc}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

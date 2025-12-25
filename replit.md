@@ -6,7 +6,19 @@ This is a full-stack TypeScript application that provides a quote calculator for
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (December 23, 2025)
+## Recent Changes (December 25, 2025)
+- **Dashboard Odoo App Grid Layout**: Redesigned home page with Odoo-style app grid layout while preserving glassmorphism effects
+  - **App Grid Section**: Replaced large action cards with a compact grid of app tiles (12 main apps) featuring icon-centric design with hover effects, usage indicators, and glass card styling
+  - **Admin Grid Section**: Matching tile grid for admin-only apps with purple accent theme and "Admin" badges
+  - **Glass Container**: Apps displayed within a frosted glass container with blur(60px) backdrop effect
+  - **Hover Animations**: Tiles lift, scale, and show gradient overlays with glass shine sweep effect on hover
+  - **Usage Tracking Integration**: Frequently used apps (3+ uses) display colored dot indicators
+  - **Maintained Components**: Stats cards, CRM Pipeline Overview, and header remain unchanged with original glassmorphism styling
+
+- **Client Edit Dialog Fix**: Fixed edit button not working when viewing client details
+  - Edit dialog now renders inside the ClientDetailView early return block, ensuring it's accessible when in detail view
+
+## Previous Changes (December 23, 2025)
 - **Client Detail View Integration**: Unified customer CRM workspace within Client Database page
   - **ClientDetailView Component** (`client/src/components/ClientDetailView.tsx`): Integrated customer detail view with journey stepper, risk profile, and tabbed CRM data. Shows when clicking "View" on any customer in the database.
   - **7-Stage Journey Stepper**: Visual progression display (Trigger → Internal Alarm → Supplier Pushback → Pilot Alignment → Controlled Trial → Validation & Proof → Conversion) with "Advance Stage" action
