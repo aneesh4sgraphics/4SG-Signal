@@ -4390,6 +4390,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CRM / Paper Distribution Routes
   // ========================================
 
+  // Customer Contacts
+  app.get("/api/crm/customer-contacts", isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.query.customerId as string | undefined;
+      if (!customerId) {
+        return res.status(400).json({ error: "customerId is required" });
+      }
+      const contacts = await storage.getCustomerContacts(customerId);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching customer contacts:", error);
+      res.status(500).json({ error: "Failed to fetch customer contacts" });
+    }
+  });
+
+  app.post("/api/crm/customer-contacts", isAuthenticated, async (req, res) => {
+    try {
+      const contact = await storage.createCustomerContact(req.body);
+      res.status(201).json(contact);
+    } catch (error) {
+      console.error("Error creating customer contact:", error);
+      res.status(500).json({ error: "Failed to create customer contact" });
+    }
+  });
+
+  app.put("/api/crm/customer-contacts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contact = await storage.updateCustomerContact(parseInt(req.params.id), req.body);
+      if (!contact) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+      res.json(contact);
+    } catch (error) {
+      console.error("Error updating customer contact:", error);
+      res.status(500).json({ error: "Failed to update customer contact" });
+    }
+  });
+
+  app.delete("/api/crm/customer-contacts/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteCustomerContact(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting customer contact:", error);
+      res.status(500).json({ error: "Failed to delete customer contact" });
+    }
+  });
+
   // Journey Stages metadata
   app.get("/api/crm/journey-stages", isAuthenticated, (req, res) => {
     res.json({ stages: JOURNEY_STAGES, productLines: PRODUCT_LINES });

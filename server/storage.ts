@@ -95,6 +95,9 @@ import {
   customerJourney,
   quoteEvents,
   priceListEvents,
+  customerContacts,
+  type CustomerContact,
+  type InsertCustomerContact,
   // Journey Instance tables
   customerJourneyInstances,
   customerJourneySteps,
@@ -291,6 +294,13 @@ export interface IStorage {
   getSwatchSelections(customerId?: string): Promise<SwatchSelection[]>;
   createSwatchSelection(data: InsertSwatchSelection): Promise<SwatchSelection>;
   updateSwatchSelection(id: number, data: Partial<InsertSwatchSelection>): Promise<SwatchSelection | undefined>;
+
+  // Customer Contacts
+  getCustomerContacts(customerId: string): Promise<CustomerContact[]>;
+  getCustomerContact(id: number): Promise<CustomerContact | undefined>;
+  createCustomerContact(data: InsertCustomerContact): Promise<CustomerContact>;
+  updateCustomerContact(id: number, data: Partial<InsertCustomerContact>): Promise<CustomerContact | undefined>;
+  deleteCustomerContact(id: number): Promise<void>;
 
   // Customer Journey
   getCustomerJourneys(): Promise<CustomerJourney[]>;
@@ -1598,6 +1608,30 @@ export class DatabaseStorage implements IStorage {
   async updateSwatchSelection(id: number, data: Partial<InsertSwatchSelection>): Promise<SwatchSelection | undefined> {
     const [selection] = await db.update(swatchSelections).set(data).where(eq(swatchSelections.id, id)).returning();
     return selection;
+  }
+
+  // Customer Contacts
+  async getCustomerContacts(customerId: string): Promise<CustomerContact[]> {
+    return await db.select().from(customerContacts).where(eq(customerContacts.customerId, customerId)).orderBy(desc(customerContacts.isPrimary), customerContacts.name);
+  }
+
+  async getCustomerContact(id: number): Promise<CustomerContact | undefined> {
+    const [contact] = await db.select().from(customerContacts).where(eq(customerContacts.id, id));
+    return contact;
+  }
+
+  async createCustomerContact(data: InsertCustomerContact): Promise<CustomerContact> {
+    const [contact] = await db.insert(customerContacts).values(data).returning();
+    return contact;
+  }
+
+  async updateCustomerContact(id: number, data: Partial<InsertCustomerContact>): Promise<CustomerContact | undefined> {
+    const [contact] = await db.update(customerContacts).set({ ...data, updatedAt: new Date() }).where(eq(customerContacts.id, id)).returning();
+    return contact;
+  }
+
+  async deleteCustomerContact(id: number): Promise<void> {
+    await db.delete(customerContacts).where(eq(customerContacts.id, id));
   }
 
   // Customer Journey

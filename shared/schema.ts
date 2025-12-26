@@ -141,6 +141,29 @@ export const customers = pgTable("customers", {
 // export type Customer = typeof customers.$inferSelect;
 // export type InsertCustomer = typeof customers.$inferInsert;
 
+// Customer Contacts - multiple contacts per customer company
+export const customerContacts = pgTable("customer_contacts", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  role: varchar("role", { length: 100 }), // e.g., "Buyer", "Production Manager", "Owner"
+  isPrimary: boolean("is_primary").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerContactSchema = createInsertSchema(customerContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CustomerContact = typeof customerContacts.$inferSelect;
+export type InsertCustomerContact = z.infer<typeof insertCustomerContactSchema>;
+
 export const sentQuotes = pgTable("sent_quotes", {
   id: serial("id").primaryKey(),
   quoteNumber: varchar("quote_number", { length: 50 }).notNull(),
