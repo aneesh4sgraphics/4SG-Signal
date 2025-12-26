@@ -1391,10 +1391,18 @@ export default function ClientDatabase() {
                   <div key={group.groupKey} data-testid={`company-group-${primary.id}`}>
                     {/* Company Row */}
                     <div 
-                      className="flex items-center justify-between py-2.5 px-1 hover:bg-gray-50/50 text-sm cursor-pointer"
+                      className={`flex items-center justify-between py-2.5 px-1 hover:bg-gray-50/50 text-sm cursor-pointer ${selectedForMerge.has(primary.id) ? 'bg-blue-50 border-l-2 border-blue-400' : ''}`}
                       onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.groupKey)}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Checkbox 
+                          checked={selectedForMerge.has(primary.id)}
+                          onCheckedChange={() => toggleMergeSelection(primary.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={!selectedForMerge.has(primary.id) && selectedForMerge.size >= 2}
+                          className="h-4 w-4"
+                          data-testid={`checkbox-merge-${primary.id}`}
+                        />
                         {hasMultiplePeople ? (
                           <button className="p-0.5 hover:bg-gray-200 rounded">
                             {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
