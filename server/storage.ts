@@ -57,6 +57,13 @@ import {
   type InsertQuoteEvent,
   type PriceListEvent,
   type InsertPriceListEvent,
+  // Journey Instance types
+  type CustomerJourneyInstance,
+  type InsertCustomerJourneyInstance,
+  type CustomerJourneyStep,
+  type InsertCustomerJourneyStep,
+  type PressTestJourneyDetail,
+  type InsertPressTestJourneyDetail,
   users,
   customers,
   sentQuotes,
@@ -88,6 +95,10 @@ import {
   customerJourney,
   quoteEvents,
   priceListEvents,
+  // Journey Instance tables
+  customerJourneyInstances,
+  customerJourneySteps,
+  pressTestJourneyDetails,
   type ProductPricingMaster,
   type InsertProductPricingMaster,
   type UploadBatch,
@@ -296,6 +307,23 @@ export interface IStorage {
   // Price List Events
   getPriceListEvents(customerId?: string): Promise<PriceListEvent[]>;
   createPriceListEvent(data: InsertPriceListEvent): Promise<PriceListEvent>;
+
+  // Customer Journey Instances (unified journey tracking)
+  getJourneyInstances(customerId?: string): Promise<CustomerJourneyInstance[]>;
+  getJourneyInstance(id: number): Promise<CustomerJourneyInstance | undefined>;
+  createJourneyInstance(data: InsertCustomerJourneyInstance): Promise<CustomerJourneyInstance>;
+  updateJourneyInstance(id: number, data: Partial<InsertCustomerJourneyInstance>): Promise<CustomerJourneyInstance | undefined>;
+  deleteJourneyInstance(id: number): Promise<void>;
+
+  // Customer Journey Steps
+  getJourneySteps(instanceId: number): Promise<CustomerJourneyStep[]>;
+  createJourneyStep(data: InsertCustomerJourneyStep): Promise<CustomerJourneyStep>;
+  updateJourneyStep(id: number, data: Partial<InsertCustomerJourneyStep>): Promise<CustomerJourneyStep | undefined>;
+
+  // Press Test Journey Details
+  getPressTestDetails(instanceId: number): Promise<PressTestJourneyDetail | undefined>;
+  createPressTestDetails(data: InsertPressTestJourneyDetail): Promise<PressTestJourneyDetail>;
+  updatePressTestDetails(instanceId: number, data: Partial<InsertPressTestJourneyDetail>): Promise<PressTestJourneyDetail | undefined>;
 
   // CRM Dashboard Stats
   getCRMDashboardStats(): Promise<{
@@ -1651,6 +1679,77 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return event;
+  }
+
+  // Customer Journey Instances
+  async getJourneyInstances(customerId?: string): Promise<CustomerJourneyInstance[]> {
+    if (customerId) {
+      return await db.select().from(customerJourneyInstances)
+        .where(eq(customerJourneyInstances.customerId, customerId))
+        .orderBy(desc(customerJourneyInstances.createdAt));
+    }
+    return await db.select().from(customerJourneyInstances).orderBy(desc(customerJourneyInstances.createdAt));
+  }
+
+  async getJourneyInstance(id: number): Promise<CustomerJourneyInstance | undefined> {
+    const [instance] = await db.select().from(customerJourneyInstances).where(eq(customerJourneyInstances.id, id));
+    return instance;
+  }
+
+  async createJourneyInstance(data: InsertCustomerJourneyInstance): Promise<CustomerJourneyInstance> {
+    const [instance] = await db.insert(customerJourneyInstances).values(data).returning();
+    return instance;
+  }
+
+  async updateJourneyInstance(id: number, data: Partial<InsertCustomerJourneyInstance>): Promise<CustomerJourneyInstance | undefined> {
+    const [instance] = await db.update(customerJourneyInstances)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(customerJourneyInstances.id, id))
+      .returning();
+    return instance;
+  }
+
+  async deleteJourneyInstance(id: number): Promise<void> {
+    await db.delete(customerJourneyInstances).where(eq(customerJourneyInstances.id, id));
+  }
+
+  // Customer Journey Steps
+  async getJourneySteps(instanceId: number): Promise<CustomerJourneyStep[]> {
+    return await db.select().from(customerJourneySteps)
+      .where(eq(customerJourneySteps.instanceId, instanceId))
+      .orderBy(customerJourneySteps.createdAt);
+  }
+
+  async createJourneyStep(data: InsertCustomerJourneyStep): Promise<CustomerJourneyStep> {
+    const [step] = await db.insert(customerJourneySteps).values(data).returning();
+    return step;
+  }
+
+  async updateJourneyStep(id: number, data: Partial<InsertCustomerJourneyStep>): Promise<CustomerJourneyStep | undefined> {
+    const [step] = await db.update(customerJourneySteps)
+      .set(data)
+      .where(eq(customerJourneySteps.id, id))
+      .returning();
+    return step;
+  }
+
+  // Press Test Journey Details
+  async getPressTestDetails(instanceId: number): Promise<PressTestJourneyDetail | undefined> {
+    const [details] = await db.select().from(pressTestJourneyDetails).where(eq(pressTestJourneyDetails.instanceId, instanceId));
+    return details;
+  }
+
+  async createPressTestDetails(data: InsertPressTestJourneyDetail): Promise<PressTestJourneyDetail> {
+    const [details] = await db.insert(pressTestJourneyDetails).values(data).returning();
+    return details;
+  }
+
+  async updatePressTestDetails(instanceId: number, data: Partial<InsertPressTestJourneyDetail>): Promise<PressTestJourneyDetail | undefined> {
+    const [details] = await db.update(pressTestJourneyDetails)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(pressTestJourneyDetails.instanceId, instanceId))
+      .returning();
+    return details;
   }
 
   // CRM Dashboard Stats

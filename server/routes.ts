@@ -32,7 +32,12 @@ import {
   insertCustomerJourneySchema,
   insertQuoteEventSchema,
   insertPriceListEventSchema,
+  insertCustomerJourneyInstanceSchema,
+  insertCustomerJourneyStepSchema,
+  insertPressTestJourneyDetailSchema,
   JOURNEY_STAGES,
+  JOURNEY_TYPES,
+  PRESS_TEST_STEPS,
   PRODUCT_LINES
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
@@ -4872,6 +4877,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating price list event:", error);
       res.status(500).json({ error: "Failed to create price list event" });
+    }
+  });
+
+  // ========================================
+  // Customer Journey Instances API
+  // ========================================
+
+  // Get journey types and steps configuration
+  app.get("/api/crm/journey-types", isAuthenticated, (req, res) => {
+    res.json({
+      types: JOURNEY_TYPES,
+      pressTestSteps: PRESS_TEST_STEPS,
+    });
+  });
+
+  // Get all journey instances (optionally filter by customerId)
+  app.get("/api/crm/journey-instances", isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.query.customerId as string | undefined;
+      const instances = await storage.getJourneyInstances(customerId);
+      res.json(instances);
+    } catch (error) {
+      console.error("Error fetching journey instances:", error);
+      res.status(500).json({ error: "Failed to fetch journey instances" });
+    }
+  });
+
+  // Get a single journey instance with steps and details
+  app.get("/api/crm/journey-instances/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const instance = await storage.getJourneyInstance(id);
+      if (!instance) {
+        return res.status(404).json({ error: "Journey instance not found" });
+      }
+      
+      const steps = await storage.getJourneySteps(id);
+      let details = null;
+      
+      if (instance.journeyType === 'press_test') {
+        details = await storage.getPressTestDetails(id);
+      }
+      
+      res.json({ instance, steps, details });
+    } catch (error) {
+      console.error("Error fetching journey instance:", error);
+      res.status(500).json({ error: "Failed to fetch journey instance" });
+    }
+  });
+
+  // Create a new journey instance
+  app.post("/api/crm/journey-instances", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertCustomerJourneyInstanceSchema.parse(req.body);
+      const instance = await storage.createJourneyInstance(validatedData);
+      
+      // If it's a press test journey, create the details record
+      if (validatedData.journeyType === 'press_test' && req.body.pressTestDetails) {
+        const detailsData = insertPressTestJourneyDetailSchema.parse({
+          ...req.body.pressTestDetails,
+          instanceId: instance.id,
+        });
+        await storage.createPressTestDetails(detailsData);
+      }
+      
+      // Create the first step
+      if (validatedData.currentStep) {
+        await storage.createJourneyStep({
+          instanceId: instance.id,
+          stepKey: validatedData.currentStep,
+          completedAt: new Date(),
+          completedBy: validatedData.createdBy,
+        });
+      }
+      
+      res.status(201).json(instance);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating journey instance:", error);
+      res.status(500).json({ error: "Failed to create journey instance" });
+    }
+  });
+
+  // Update a journey instance
+  app.put("/api/crm/journey-instances/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertCustomerJourneyInstanceSchema.partial().parse(req.body);
+      const instance = await storage.updateJourneyInstance(id, validatedData);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Journey instance not found" });
+      }
+      
+      // Update press test details if provided
+      if (req.body.pressTestDetails) {
+        const existing = await storage.getPressTestDetails(id);
+        if (existing) {
+          await storage.updatePressTestDetails(id, req.body.pressTestDetails);
+        } else {
+          await storage.createPressTestDetails({
+            ...req.body.pressTestDetails,
+            instanceId: id,
+          });
+        }
+      }
+      
+      res.json(instance);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating journey instance:", error);
+      res.status(500).json({ error: "Failed to update journey instance" });
+    }
+  });
+
+  // Delete a journey instance
+  app.delete("/api/crm/journey-instances/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteJourneyInstance(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting journey instance:", error);
+      res.status(500).json({ error: "Failed to delete journey instance" });
+    }
+  });
+
+  // Advance journey to next step
+  app.post("/api/crm/journey-instances/:id/advance", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { nextStep, completedBy, notes, payload } = req.body;
+      
+      const instance = await storage.getJourneyInstance(id);
+      if (!instance) {
+        return res.status(404).json({ error: "Journey instance not found" });
+      }
+      
+      // Create the step record
+      await storage.createJourneyStep({
+        instanceId: id,
+        stepKey: nextStep,
+        completedAt: new Date(),
+        completedBy,
+        notes,
+        payload,
+      });
+      
+      // Update the instance current step
+      const updatedInstance = await storage.updateJourneyInstance(id, {
+        currentStep: nextStep,
+      });
+      
+      res.json(updatedInstance);
+    } catch (error) {
+      console.error("Error advancing journey:", error);
+      res.status(500).json({ error: "Failed to advance journey" });
+    }
+  });
+
+  // Update press test journey details
+  app.put("/api/crm/journey-instances/:id/press-test-details", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const instance = await storage.getJourneyInstance(id);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Journey instance not found" });
+      }
+      
+      if (instance.journeyType !== 'press_test') {
+        return res.status(400).json({ error: "This journey is not a press test journey" });
+      }
+      
+      const existing = await storage.getPressTestDetails(id);
+      let details;
+      
+      if (existing) {
+        details = await storage.updatePressTestDetails(id, req.body);
+      } else {
+        details = await storage.createPressTestDetails({
+          ...req.body,
+          instanceId: id,
+        });
+      }
+      
+      res.json(details);
+    } catch (error) {
+      console.error("Error updating press test details:", error);
+      res.status(500).json({ error: "Failed to update press test details" });
     }
   });
 
