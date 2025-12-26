@@ -352,20 +352,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Test database connection
       try {
-        const testQuery = await storage.db.execute('SELECT 1 as test');
+        const pricingData = await storage.getAllProductPricingMaster();
         diagnostics.database.connected = true;
-        diagnostics.database.rowCount = testQuery.rows.length;
+        diagnostics.database.rowCount = pricingData.length;
+        diagnostics.api_endpoints['/api/product-pricing-database'] = `✓ Working (${pricingData.length} items)`;
       } catch (dbError) {
         diagnostics.database.connected = false;
         diagnostics.database.error = dbError instanceof Error ? dbError.message : String(dbError);
-      }
-
-      // Test critical API endpoints
-      try {
-        const pricingData = await storage.getAllProductPricing();
-        diagnostics.api_endpoints['/api/product-pricing-database'] = `✓ Working (${pricingData.length} items)`;
-      } catch (apiError) {
-        diagnostics.api_endpoints['/api/product-pricing-database'] = `✗ Error: ${apiError instanceof Error ? apiError.message : String(apiError)}`;
+        diagnostics.api_endpoints['/api/product-pricing-database'] = `✗ Error: ${dbError instanceof Error ? dbError.message : String(dbError)}`;
       }
 
       res.json({
@@ -1810,7 +1804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rowData[header] = values[index];
         });
         
-        // Map CSV data to database schema (ensure all prices are strings)
+        // Map CSV data to database schema (ensure all prices are strings for decimal fields)
         const pricingEntry = {
           productId: rowData.productId || '',
           productType: rowData.productType || '',
@@ -1827,24 +1821,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         try {
-          // Use productPricingMaster table instead
+          // Use productPricingMaster table instead (decimal fields expect strings)
           await storage.createProductPricingMaster({
             itemCode: pricingEntry.productId,
             productName: pricingEntry.productType,
             productType: pricingEntry.productType,
             size: '',
             totalSqm: '0',
-            minQuantity: '1',
-            exportPrice: parseFloat(pricingEntry.exportPrice || '0'),
-            masterDistributorPrice: parseFloat(pricingEntry.masterDistributorPrice || '0'),
-            dealerPrice: parseFloat(pricingEntry.dealerPrice || '0'),
-            dealer2Price: parseFloat(pricingEntry.dealer2Price || '0'),
-            approvalNeededPrice: parseFloat(pricingEntry.approvalRetailPrice || '0'),
-            tierStage25Price: parseFloat(pricingEntry.stage25Price || '0'),
-            tierStage2Price: parseFloat(pricingEntry.stage2Price || '0'),
-            tierStage15Price: parseFloat(pricingEntry.stage15Price || '0'),
-            tierStage1Price: parseFloat(pricingEntry.stage1Price || '0'),
-            retailPrice: parseFloat(pricingEntry.retailPrice || '0'),
+            minQuantity: 1,
+            exportPrice: pricingEntry.exportPrice,
+            masterDistributorPrice: pricingEntry.masterDistributorPrice,
+            dealerPrice: pricingEntry.dealerPrice,
+            dealer2Price: pricingEntry.dealer2Price,
+            approvalNeededPrice: pricingEntry.approvalRetailPrice,
+            tierStage25Price: pricingEntry.stage25Price,
+            tierStage2Price: pricingEntry.stage2Price,
+            tierStage15Price: pricingEntry.stage15Price,
+            tierStage1Price: pricingEntry.stage1Price,
+            retailPrice: pricingEntry.retailPrice,
             uploadBatch: `batch-${Date.now()}`
           });
           newRecords++;
@@ -3145,21 +3139,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // DEPRECATED: Use productPricingMaster table instead
       debugLog(`Would have inserted ${recordsToInsert.length} records into deprecated table`);
       if (recordsToInsert.length > 0) {
-        // Redirect to new productPricingMaster system
+        // Redirect to new productPricingMaster system (decimal fields expect strings)
         for (const record of recordsToInsert) {
           await storage.createProductPricingMaster({
             itemCode: record.productId,
+            productName: record.productType,
             productType: record.productType,
-            exportPrice: record.exportPrice || 0,
-            masterDistributorPrice: record.masterDistributorPrice || 0,
-            dealerPrice: record.dealerPrice || 0,
-            dealer2Price: record.dealer2Price || 0,
-            tierApprovalRetailPrice: record.approvalRetailPrice || 0,
-            tierStage25Price: record.stage25Price || 0,
-            tierStage2Price: record.stage2Price || 0,
-            tierStage15Price: record.stage15Price || 0,
-            tierStage1Price: record.stage1Price || 0,
-            tierRetailPrice: record.retailPrice || 0
+            size: '',
+            totalSqm: '0',
+            minQuantity: 1,
+            exportPrice: record.exportPrice ? String(record.exportPrice) : null,
+            masterDistributorPrice: record.masterDistributorPrice ? String(record.masterDistributorPrice) : null,
+            dealerPrice: record.dealerPrice ? String(record.dealerPrice) : null,
+            dealer2Price: record.dealer2Price ? String(record.dealer2Price) : null,
+            approvalNeededPrice: record.approvalRetailPrice ? String(record.approvalRetailPrice) : null,
+            tierStage25Price: record.stage25Price ? String(record.stage25Price) : null,
+            tierStage2Price: record.stage2Price ? String(record.stage2Price) : null,
+            tierStage15Price: record.stage15Price ? String(record.stage15Price) : null,
+            tierStage1Price: record.stage1Price ? String(record.stage1Price) : null,
+            retailPrice: record.retailPrice ? String(record.retailPrice) : null
           });
           newRecords++;
         }
