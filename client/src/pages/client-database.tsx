@@ -207,6 +207,7 @@ export default function ClientDatabase() {
   };
   
   interface CompanyGroup {
+    groupKey: string; // Unique key for React
     companyName: string;
     customers: Customer[];
     primaryCustomer: Customer; // The one with most data
@@ -235,6 +236,7 @@ export default function ClientDatabase() {
       }, custs[0]);
       
       return {
+        groupKey: key, // Unique normalized key for React key prop
         companyName: primary.company?.trim() || getDisplayName(primary),
         customers: custs,
         primaryCustomer: primary,
@@ -242,16 +244,16 @@ export default function ClientDatabase() {
     }).sort((a, b) => a.companyName.localeCompare(b.companyName));
   }, [customers]);
   
-  // Track expanded companies
+  // Track expanded companies by groupKey
   const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
   
-  const toggleCompanyExpansion = (companyName: string) => {
+  const toggleCompanyExpansion = (groupKey: string) => {
     setExpandedCompanies(prev => {
       const next = new Set(prev);
-      if (next.has(companyName)) {
-        next.delete(companyName);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
       } else {
-        next.add(companyName);
+        next.add(groupKey);
       }
       return next;
     });
@@ -331,15 +333,44 @@ export default function ClientDatabase() {
         if (!matchesCompany && !matchesAnyCustomer) return false;
       }
       
-      // Location filters - match against primary customer
-      const primary = group.primaryCustomer;
-      if (filters.city && !primary.city?.toLowerCase().includes(filters.city.toLowerCase())) return false;
-      if (filters.province && !primary.province?.toLowerCase().includes(filters.province.toLowerCase())) return false;
-      if (filters.country && !primary.country?.toLowerCase().includes(filters.country.toLowerCase())) return false;
+      // Location filters - check if any customer in group matches
+      if (filters.city && !group.customers.some(c => c.city?.toLowerCase().includes(filters.city.toLowerCase()))) return false;
+      if (filters.province && !group.customers.some(c => c.province?.toLowerCase().includes(filters.province.toLowerCase()))) return false;
+      if (filters.country && !group.customers.some(c => c.country?.toLowerCase().includes(filters.country.toLowerCase()))) return false;
+      
+      // Tax exempt filter
+      if (filters.taxExempt !== "all") {
+        const hasTaxExempt = group.customers.some(c => c.taxExempt);
+        if (filters.taxExempt === "yes" && !hasTaxExempt) return false;
+        if (filters.taxExempt === "no" && hasTaxExempt) return false;
+      }
+      
+      // Email marketing filter
+      if (filters.emailMarketing !== "all") {
+        const acceptsMarketing = group.customers.some(c => c.acceptsEmailMarketing);
+        if (filters.emailMarketing === "yes" && !acceptsMarketing) return false;
+        if (filters.emailMarketing === "no" && acceptsMarketing) return false;
+      }
+      
+      // Missing data filters - show only companies where at least one contact is missing data
+      if (missingDataFilters.noEmail && !group.customers.some(c => !c.email || c.email.trim() === '')) return false;
+      if (missingDataFilters.noPhone && !group.customers.some(c => !c.phone || c.phone.trim() === '')) return false;
+      if (missingDataFilters.noTags && !group.customers.some(c => !c.tags || c.tags.trim() === '')) return false;
+      if (missingDataFilters.noCompany && !group.customers.some(c => !c.company || c.company.trim() === '')) return false;
       
       return true;
     });
-  }, [groupedByCompany, selectedLetter, searchTerm, filters]);
+  }, [groupedByCompany, selectedLetter, searchTerm, filters, missingDataFilters]);
+  
+  // Helper to get unique quote count for a company (dedupe by email)
+  const getCompanyQuoteCount = (group: CompanyGroup): number => {
+    const uniqueEmails = new Set(
+      group.customers
+        .filter(c => c.email)
+        .map(c => c.email!.toLowerCase())
+    );
+    return Array.from(uniqueEmails).reduce((sum, email) => sum + (quoteCounts[email] || 0), 0);
+  };
 
   const updateCustomerMutation = useMutation({
     mutationFn: async (customer: Customer) => {
@@ -1347,18 +1378,18 @@ export default function ClientDatabase() {
             /* TABLE VIEW - Grouped by Company */
             <div className="divide-y divide-gray-100">
               {filteredCompanies.map((group) => {
-                const isExpanded = expandedCompanies.has(group.companyName);
+                const isExpanded = expandedCompanies.has(group.groupKey);
                 const hasMultiplePeople = group.customers.length > 1;
                 const primary = group.primaryCustomer;
-                const totalQuotes = group.customers.reduce((sum, c) => sum + getQuoteCount(c.email), 0);
+                const totalQuotes = getCompanyQuoteCount(group);
                 const totalSamples = group.customers.reduce((sum, c) => sum + getSampleCount(c.id), 0);
                 
                 return (
-                  <div key={group.companyName} data-testid={`company-group-${primary.id}`}>
+                  <div key={group.groupKey} data-testid={`company-group-${primary.id}`}>
                     {/* Company Row */}
                     <div 
                       className="flex items-center justify-between py-2.5 px-1 hover:bg-gray-50/50 text-sm cursor-pointer"
-                      onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.companyName)}
+                      onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.groupKey)}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         {hasMultiplePeople ? (
