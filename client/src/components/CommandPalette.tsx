@@ -4,7 +4,7 @@ import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, Comma
 import { 
   Home, FileText, DollarSign, Users, Database, Settings, LogOut,
   Activity, Calculator, TrendingUp, Truck, Package, Tag, Search, Clock,
-  Target, FlaskConical, Palette
+  Target
 } from 'lucide-react';
 import { useAppUsage } from '@/hooks/useAppUsage';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,9 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping', keywords: ['delivery', 'freight', 'transport'] },
   { path: '/shipping-labels', icon: Package, label: 'Shipping Labels', keywords: ['labels', 'packages', 'shipment'] },
   { path: '/product-labels', icon: Tag, label: 'Product Labels', keywords: ['tags', 'stickers', 'product'] },
-  { path: '/crm-journey', icon: Target, label: 'CRM Journey', keywords: ['pipeline', 'sales', 'customers', 'conversion'] },
-  { path: '/crm-samples', icon: FlaskConical, label: 'Samples', keywords: ['testing', 'trial', 'paper', 'samples'] },
-  { path: '/crm-swatches', icon: Palette, label: 'Swatches', keywords: ['swatch', 'book', 'catalog', 'paper'] },
+  { path: '/crm-journey', icon: Target, label: 'CRM Journey', keywords: ['pipeline', 'sales', 'customers', 'conversion', 'samples', 'swatches'] },
   { path: '/admin', icon: Users, label: 'Users', keywords: ['admin', 'management', 'roles'], adminOnly: true },
   { path: '/activity-logs', icon: Activity, label: 'Activity', keywords: ['logs', 'history', 'audit'], adminOnly: true },
   { path: '/product-pricing-management', icon: Database, label: 'Products', keywords: ['inventory', 'catalog', 'items'], adminOnly: true },
