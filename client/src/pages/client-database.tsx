@@ -201,9 +201,66 @@ export default function ClientDatabase() {
     return '#'; // For numbers or special characters
   };
   
-  // Count customers per letter for the tabs
-  const letterCounts = customers.reduce((acc, customer) => {
-    const letter = getFirstLetter(customer);
+  // Group customers by company name (normalized for comparison)
+  const normalizeCompanyName = (name: string): string => {
+    return name.toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+  
+  interface CompanyGroup {
+    companyName: string;
+    customers: Customer[];
+    primaryCustomer: Customer; // The one with most data
+  }
+  
+  const groupedByCompany: CompanyGroup[] = React.useMemo(() => {
+    const groups: Record<string, Customer[]> = {};
+    
+    customers.forEach(customer => {
+      const companyKey = customer.company?.trim() 
+        ? normalizeCompanyName(customer.company)
+        : `individual_${customer.id}`; // Individual contacts without company
+      
+      if (!groups[companyKey]) {
+        groups[companyKey] = [];
+      }
+      groups[companyKey].push(customer);
+    });
+    
+    return Object.entries(groups).map(([key, custs]) => {
+      // Find the "primary" customer - one with most complete data
+      const primary = custs.reduce((best, curr) => {
+        const bestScore = (best.email ? 1 : 0) + (best.phone ? 1 : 0) + (best.city ? 1 : 0) + (Number(best.totalOrders) || 0);
+        const currScore = (curr.email ? 1 : 0) + (curr.phone ? 1 : 0) + (curr.city ? 1 : 0) + (Number(curr.totalOrders) || 0);
+        return currScore > bestScore ? curr : best;
+      }, custs[0]);
+      
+      return {
+        companyName: primary.company?.trim() || getDisplayName(primary),
+        customers: custs,
+        primaryCustomer: primary,
+      };
+    }).sort((a, b) => a.companyName.localeCompare(b.companyName));
+  }, [customers]);
+  
+  // Track expanded companies
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  
+  const toggleCompanyExpansion = (companyName: string) => {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(companyName)) {
+        next.delete(companyName);
+      } else {
+        next.add(companyName);
+      }
+      return next;
+    });
+  };
+  
+  // Count companies per letter for the tabs (instead of customers)
+  const letterCounts = groupedByCompany.reduce((acc, group) => {
+    const firstChar = group.companyName.charAt(0).toUpperCase();
+    const letter = /[A-Z]/.test(firstChar) ? firstChar : '#';
     acc[letter] = (acc[letter] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -248,6 +305,41 @@ export default function ClientDatabase() {
     const companyB = getCompanyDisplayName(b).toLowerCase();
     return companyA.localeCompare(companyB);
   });
+
+  // Filter companies based on search and filters
+  const filteredCompanies = React.useMemo(() => {
+    return groupedByCompany.filter(group => {
+      // Alphabet filter
+      if (selectedLetter && selectedLetter !== 'All') {
+        const firstChar = group.companyName.charAt(0).toUpperCase();
+        if (selectedLetter === '#') {
+          if (/[A-Z]/.test(firstChar)) return false;
+        } else if (firstChar !== selectedLetter) {
+          return false;
+        }
+      }
+      
+      // Search filter - match against company name or any customer in the group
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesCompany = group.companyName.toLowerCase().includes(term);
+        const matchesAnyCustomer = group.customers.some(c => 
+          c.firstName?.toLowerCase().includes(term) ||
+          c.lastName?.toLowerCase().includes(term) ||
+          c.email?.toLowerCase().includes(term)
+        );
+        if (!matchesCompany && !matchesAnyCustomer) return false;
+      }
+      
+      // Location filters - match against primary customer
+      const primary = group.primaryCustomer;
+      if (filters.city && !primary.city?.toLowerCase().includes(filters.city.toLowerCase())) return false;
+      if (filters.province && !primary.province?.toLowerCase().includes(filters.province.toLowerCase())) return false;
+      if (filters.country && !primary.country?.toLowerCase().includes(filters.country.toLowerCase())) return false;
+      
+      return true;
+    });
+  }, [groupedByCompany, selectedLetter, searchTerm, filters]);
 
   const updateCustomerMutation = useMutation({
     mutationFn: async (customer: Customer) => {
@@ -1157,7 +1249,8 @@ export default function ClientDatabase() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="heading-sm">
-              {filteredCustomers.length} {filteredCustomers.length === 1 ? 'Client' : 'Clients'}
+              {filteredCompanies.length} {filteredCompanies.length === 1 ? 'Company' : 'Companies'}
+              <span className="text-gray-400 font-normal ml-2">({customers.length} contacts)</span>
               {selectedLetter && selectedLetter !== 'All' && (
                 <span className="text-gray-500 font-normal ml-2">
                   starting with "{selectedLetter}"
@@ -1235,7 +1328,7 @@ export default function ClientDatabase() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-gray-600">Loading clients...</p>
             </div>
-          ) : filteredCustomers.length === 0 ? (
+          ) : filteredCompanies.length === 0 ? (
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-4">No clients found</p>
@@ -1251,44 +1344,89 @@ export default function ClientDatabase() {
               )}
             </div>
           ) : viewMode === 'table' ? (
-            /* TABLE VIEW - Compressed */
+            /* TABLE VIEW - Grouped by Company */
             <div className="divide-y divide-gray-100">
-              {filteredCustomers.map((customer) => {
-                const quoteCount = getQuoteCount(customer.email);
-                const sampleCount = getSampleCount(customer.id);
-                const isSelected = selectedForMerge.has(customer.id);
+              {filteredCompanies.map((group) => {
+                const isExpanded = expandedCompanies.has(group.companyName);
+                const hasMultiplePeople = group.customers.length > 1;
+                const primary = group.primaryCustomer;
+                const totalQuotes = group.customers.reduce((sum, c) => sum + getQuoteCount(c.email), 0);
+                const totalSamples = group.customers.reduce((sum, c) => sum + getSampleCount(c.id), 0);
+                
                 return (
-                  <div 
-                    key={customer.id}
-                    className={`flex items-center justify-between py-2 px-1 hover:bg-gray-50/50 text-sm ${isSelected ? 'bg-blue-50' : ''}`}
-                    data-testid={`row-client-${customer.id}`}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Checkbox 
-                        checked={isSelected}
-                        onCheckedChange={() => toggleMergeSelection(customer.id)}
-                        disabled={!isSelected && selectedForMerge.size >= 2}
-                        className="h-4 w-4"
-                        data-testid={`checkbox-merge-${customer.id}`}
-                      />
-                      <span className="font-medium text-gray-900 truncate min-w-[180px]">
-                        {getCompanyDisplayName(customer)}
-                      </span>
-                      {customer.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
-                      {customer.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
-                      {quoteCount > 0 && (
-                        <span className="bg-blue-100 text-blue-700 text-xs px-1 rounded">{quoteCount}Q</span>
-                      )}
-                      {sampleCount > 0 && (
-                        <span className="bg-green-100 text-green-700 text-xs px-1 rounded">{sampleCount}S</span>
-                      )}
-                      <span className="text-gray-400 text-xs truncate hidden lg:block">{customer.email}</span>
+                  <div key={group.companyName} data-testid={`company-group-${primary.id}`}>
+                    {/* Company Row */}
+                    <div 
+                      className="flex items-center justify-between py-2.5 px-1 hover:bg-gray-50/50 text-sm cursor-pointer"
+                      onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.companyName)}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {hasMultiplePeople ? (
+                          <button className="p-0.5 hover:bg-gray-200 rounded">
+                            {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                          </button>
+                        ) : (
+                          <div className="w-5" />
+                        )}
+                        <Building2 className="h-4 w-4 text-gray-400" />
+                        <span className="font-medium text-gray-900 truncate min-w-[180px]">
+                          {group.companyName}
+                        </span>
+                        {hasMultiplePeople && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {group.customers.length} people
+                          </Badge>
+                        )}
+                        {primary.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
+                        {primary.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
+                        {totalQuotes > 0 && (
+                          <span className="bg-blue-100 text-blue-700 text-xs px-1 rounded">{totalQuotes}Q</span>
+                        )}
+                        {totalSamples > 0 && (
+                          <span className="bg-green-100 text-green-700 text-xs px-1 rounded">{totalSamples}S</span>
+                        )}
+                        {!hasMultiplePeople && primary.email && (
+                          <span className="text-gray-400 text-xs truncate hidden lg:block">{primary.email}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                        <Button onClick={() => setSelectedCustomer(primary)} size="sm" variant="ghost" className="h-6 px-2 text-xs">View</Button>
+                        <Button onClick={() => handleEditCustomer(primary)} size="sm" variant="ghost" className="h-6 w-6 p-0"><Edit className="h-3 w-3" /></Button>
+                        <Button onClick={() => handleDeleteCustomer(primary.id)} size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500"><Trash2 className="h-3 w-3" /></Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-0.5">
-                      <Button onClick={() => setSelectedCustomer(customer)} size="sm" variant="ghost" className="h-6 px-2 text-xs">View</Button>
-                      <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost" className="h-6 w-6 p-0"><Edit className="h-3 w-3" /></Button>
-                      <Button onClick={() => handleDeleteCustomer(customer.id)} size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500"><Trash2 className="h-3 w-3" /></Button>
-                    </div>
+                    
+                    {/* Expanded People List */}
+                    {isExpanded && hasMultiplePeople && (
+                      <div className="bg-gray-50/50 border-l-2 border-gray-200 ml-6 mb-2">
+                        {group.customers.map((customer) => (
+                          <div 
+                            key={customer.id}
+                            className="flex items-center justify-between py-2 px-3 hover:bg-gray-100/50 text-sm border-b border-gray-100 last:border-0"
+                            data-testid={`person-row-${customer.id}`}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Users className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="text-gray-700">
+                                {customer.firstName || customer.lastName 
+                                  ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+                                  : customer.email || 'Contact'}
+                              </span>
+                              {customer.email && (
+                                <span className="text-gray-400 text-xs truncate">{customer.email}</span>
+                              )}
+                              {customer.phone && (
+                                <span className="text-gray-400 text-xs hidden lg:block">• {customer.phone}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                              <Button onClick={() => setSelectedCustomer(customer)} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]">View</Button>
+                              <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost" className="h-5 w-5 p-0"><Edit className="h-2.5 w-2.5" /></Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
