@@ -202,8 +202,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "User not found in database", allEmails: allUsers.map(u => u.email) });
       }
 
-      console.log("Current user status:", aneeshUser);
-
       // Update to approved admin status
       const updated = await storage.approveUser(aneeshUser.id, 'system');
       
@@ -480,33 +478,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Support both :userId and :id patterns for compatibility
   app.patch('/api/admin/users/:userId/role', requireAdmin, async (req: any, res) => {
     try {
-      console.log('=== SERVER ROLE CHANGE REQUEST (userId pattern) ===');
-      console.log('userId:', req.params.userId);
-      console.log('decoded userId:', decodeURIComponent(req.params.userId));
-      console.log('role from body:', req.body.role);
-      console.log('request body:', JSON.stringify(req.body));
-      
       const userId = decodeURIComponent(req.params.userId);
       const { role } = req.body;
       
       if (!role || !['user', 'manager', 'admin'].includes(role)) {
-        console.log('Invalid role provided:', role);
         return res.status(400).json({ message: "Invalid role. Must be 'user', 'manager', or 'admin'" });
       }
       
-      console.log('Calling storage.changeUserRole with:', { userId, role });
       const user = await storage.changeUserRole(userId, role);
       
       if (!user) {
-        console.log('User not found in database for userId:', userId);
         return res.status(404).json({ message: "User not found" });
       }
       
-      console.log('Role change successful, returning user:', JSON.stringify(user));
       res.json(user);
     } catch (error) {
-      console.error("Error updating user role - full error:", error);
-      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
+      console.error("Error updating user role:", error);
       res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update user role" });
     }
   });
@@ -757,28 +744,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sizeId = parseInt(req.params.id);
       const sizeData = req.body;
 
-      console.log("Updating product size:", { sizeId, sizeData });
-
       if (isNaN(sizeId)) {
-        console.error("Invalid product size ID:", req.params.id);
         return res.status(400).json({ error: "Invalid product size ID" });
       }
 
       // Check if user is admin
       const userRole = req.user?.claims?.email === "aneesh@4sgraphics.com" || req.user?.claims?.email === "oscar@4sgraphics.com" ? "admin" : "user";
       if (userRole !== "admin") {
-        console.error("Non-admin user attempted to update product:", req.user?.claims?.email);
         return res.status(403).json({ error: "Admin access required" });
       }
 
       const updatedSize = await storage.updateProductSize(sizeId, sizeData);
       
       if (!updatedSize) {
-        console.error("Product size not found:", sizeId);
         return res.status(404).json({ error: "Product size not found" });
       }
-      
-      console.log("Product size updated successfully:", updatedSize);
       
       // Clear cache to ensure fresh data
       setCachedData("product-sizes", null);
