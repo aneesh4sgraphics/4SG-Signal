@@ -4930,17 +4930,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new journey instance
   app.post("/api/crm/journey-instances", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== Creating Journey Instance ===");
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
-      
       const validatedData = insertCustomerJourneyInstanceSchema.parse(req.body);
       const instance = await storage.createJourneyInstance(validatedData);
-      console.log("Created instance:", instance.id);
       
       // If it's a press test journey, create the details record
       if (validatedData.journeyType === 'press_test' && req.body.pressTestDetails) {
-        console.log("Creating press test details for instance:", instance.id);
-        console.log("pressTestDetails:", JSON.stringify(req.body.pressTestDetails, null, 2));
         try {
           // Convert date strings to Date objects if needed
           const pressTestData = {
@@ -4949,16 +4943,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             shippedAt: req.body.pressTestDetails.shippedAt ? new Date(req.body.pressTestDetails.shippedAt) : null,
             receivedAt: req.body.pressTestDetails.receivedAt ? new Date(req.body.pressTestDetails.receivedAt) : null,
           };
-          console.log("Prepared pressTestData:", JSON.stringify(pressTestData, null, 2));
           const detailsData = insertPressTestJourneyDetailSchema.parse(pressTestData);
-          console.log("Validated detailsData:", detailsData);
           await storage.createPressTestDetails(detailsData);
-          console.log("Press test details created successfully");
         } catch (detailsError) {
           console.error("Error creating press test details:", detailsError);
         }
-      } else {
-        console.log("No press test details to create. journeyType:", validatedData.journeyType, "pressTestDetails:", !!req.body.pressTestDetails);
       }
       
       // Create the first step
