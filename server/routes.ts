@@ -4935,11 +4935,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If it's a press test journey, create the details record
       if (validatedData.journeyType === 'press_test' && req.body.pressTestDetails) {
-        const detailsData = insertPressTestJourneyDetailSchema.parse({
-          ...req.body.pressTestDetails,
-          instanceId: instance.id,
-        });
-        await storage.createPressTestDetails(detailsData);
+        try {
+          // Convert date strings to Date objects if needed
+          const pressTestData = {
+            ...req.body.pressTestDetails,
+            instanceId: instance.id,
+            shippedAt: req.body.pressTestDetails.shippedAt ? new Date(req.body.pressTestDetails.shippedAt) : null,
+            receivedAt: req.body.pressTestDetails.receivedAt ? new Date(req.body.pressTestDetails.receivedAt) : null,
+          };
+          const detailsData = insertPressTestJourneyDetailSchema.parse(pressTestData);
+          await storage.createPressTestDetails(detailsData);
+        } catch (detailsError) {
+          console.error("Error creating press test details:", detailsError);
+          // Don't fail the whole request, just log the error
+        }
       }
       
       // Create the first step
