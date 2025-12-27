@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,7 @@ import {
   AlertTriangle,
   GitMerge,
   Check,
+  GripVertical,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import {
@@ -154,6 +156,7 @@ export default function ClientDatabase() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // For bulk actions
   const [showSamplesFilter, setShowSamplesFilter] = useState(false); // Filter for samples sent card
   const [showDataCleanupFilter, setShowDataCleanupFilter] = useState(false); // Filter for incomplete data
+  const [kanbanCardOrder, setKanbanCardOrder] = useState<Record<string, string[]>>({}); // Custom card order per column
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     const saved = localStorage.getItem('clientDatabaseRecentSearches');
     return saved ? JSON.parse(saved) : [];
@@ -245,8 +248,7 @@ export default function ClientDatabase() {
     if (hasMissingDetails(customer)) return 'missing';
     return 'none';
   };
-  
-  
+
   // Get display name for a customer
   const getDisplayName = (customer: Customer) => {
     if (customer.firstName || customer.lastName) {
@@ -379,6 +381,49 @@ export default function ClientDatabase() {
     const companyB = getCompanyDisplayName(b).toLowerCase();
     return companyA.localeCompare(companyB);
   });
+
+  // Get ordered customers for a Kanban column (respects drag-drop order)
+  const getOrderedKanbanCustomers = (category: string): Customer[] => {
+    const categoryCustomers = filteredCustomers.filter(c => getKanbanCategory(c) === category);
+    const savedOrder = kanbanCardOrder[category];
+    
+    if (!savedOrder || savedOrder.length === 0) {
+      return categoryCustomers;
+    }
+    
+    // Sort by saved order, put unsaved items at the end
+    return [...categoryCustomers].sort((a, b) => {
+      const indexA = savedOrder.indexOf(a.id);
+      const indexB = savedOrder.indexOf(b.id);
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+  };
+
+  // Handle drag end for Kanban view
+  const handleKanbanDragEnd = (result: DropResult) => {
+    const { destination, source } = result;
+    
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    
+    const category = source.droppableId;
+    const customers = getOrderedKanbanCustomers(category);
+    const customerIds = customers.map(c => c.id);
+    
+    // Reorder within the same column
+    if (destination.droppableId === source.droppableId) {
+      const [removed] = customerIds.splice(source.index, 1);
+      customerIds.splice(destination.index, 0, removed);
+      
+      setKanbanCardOrder(prev => ({
+        ...prev,
+        [category]: customerIds
+      }));
+    }
+  };
 
   // Filter companies based on search and filters
   const filteredCompanies = React.useMemo(() => {
@@ -2008,60 +2053,83 @@ export default function ClientDatabase() {
               })}
             </div>
           ) : (
-            /* KANBAN VIEW */
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {(['both', 'quotes', 'samples', 'none', 'missing'] as const).map((category) => {
-                const config = {
-                  both: { title: 'Quote & Sample Sent', color: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
-                  quotes: { title: 'Quotes Sent', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-                  samples: { title: 'Samples Sent', color: 'green', bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
-                  none: { title: 'None', color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
-                  missing: { title: 'Missing Details', color: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
-                }[category];
-                const customers = filteredCustomers.filter(c => getKanbanCategory(c) === category);
-                
-                return (
-                  <div key={category} className="flex-shrink-0 w-72">
-                    <div className={`${config.bg} ${config.border} border rounded-t-lg px-3 py-2`}>
-                      <h3 className={`font-semibold text-sm ${config.text}`}>{config.title}</h3>
-                      <span className="text-xs text-gray-500">{customers.length} clients</span>
-                    </div>
-                    <div className="bg-gray-50/50 border-x border-b border-gray-200 rounded-b-lg p-2 space-y-2 max-h-[500px] overflow-y-auto">
-                      {customers.map((customer) => {
-                        const quoteCount = getQuoteCount(customer.email);
-                        const sampleCount = getSampleCount(customer.id);
-                        return (
+            /* KANBAN VIEW with Drag & Drop */
+            <DragDropContext onDragEnd={handleKanbanDragEnd}>
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {(['both', 'quotes', 'samples', 'none', 'missing'] as const).map((category) => {
+                  const config = {
+                    both: { title: 'Quote & Sample Sent', color: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+                    quotes: { title: 'Quotes Sent', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+                    samples: { title: 'Samples Sent', color: 'green', bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+                    none: { title: 'None', color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+                    missing: { title: 'Missing Details', color: 'orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
+                  }[category];
+                  const orderedCustomers = getOrderedKanbanCustomers(category);
+                  
+                  return (
+                    <div key={category} className="flex-shrink-0 w-72">
+                      <div className={`${config.bg} ${config.border} border rounded-t-lg px-3 py-2`}>
+                        <h3 className={`font-semibold text-sm ${config.text}`}>{config.title}</h3>
+                        <span className="text-xs text-gray-500">{orderedCustomers.length} clients</span>
+                      </div>
+                      <Droppable droppableId={category}>
+                        {(provided, snapshot) => (
                           <div 
-                            key={customer.id}
-                            className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm cursor-pointer"
-                            onClick={() => setSelectedCustomer(customer)}
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`bg-gray-50/50 border-x border-b border-gray-200 rounded-b-lg p-2 space-y-2 max-h-[500px] overflow-y-auto min-h-[100px] transition-colors ${
+                              snapshot.isDraggingOver ? 'bg-blue-50/50' : ''
+                            }`}
                           >
-                            <div className="flex items-center gap-1 mb-1">
-                              {customer.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
-                              {customer.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
-                              <span className="font-medium text-sm text-gray-900 truncate">{getCompanyDisplayName(customer)}</span>
-                            </div>
-                            {customer.company && (customer.firstName || customer.lastName) && (
-                              <p className="text-xs text-gray-500 truncate mb-2">{getDisplayName(customer)}</p>
+                            {orderedCustomers.map((customer, index) => {
+                              const quoteCount = getQuoteCount(customer.email);
+                              const sampleCount = getSampleCount(customer.id);
+                              return (
+                                <Draggable key={customer.id} draggableId={customer.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div 
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      className={`bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm cursor-pointer transition-shadow ${
+                                        snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-300' : ''
+                                      }`}
+                                      onClick={() => setSelectedCustomer(customer)}
+                                    >
+                                      <div className="flex items-center gap-1 mb-1">
+                                        <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-gray-100 rounded">
+                                          <GripVertical className="h-3 w-3 text-gray-400" />
+                                        </div>
+                                        {customer.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
+                                        {customer.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
+                                        <span className="font-medium text-sm text-gray-900 truncate">{getCompanyDisplayName(customer)}</span>
+                                      </div>
+                                      {customer.company && (customer.firstName || customer.lastName) && (
+                                        <p className="text-xs text-gray-500 truncate mb-2">{getDisplayName(customer)}</p>
+                                      )}
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {quoteCount > 0 && <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">{quoteCount}Q</span>}
+                                        {sampleCount > 0 && <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded">{sampleCount}S</span>}
+                                        {hasMissingDetails(customer) && category === 'missing' && (
+                                          <span className="bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5 rounded">Incomplete</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {provided.placeholder}
+                            {orderedCustomers.length === 0 && (
+                              <p className="text-xs text-gray-400 text-center py-4">No clients</p>
                             )}
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {quoteCount > 0 && <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">{quoteCount}Q</span>}
-                              {sampleCount > 0 && <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded">{sampleCount}S</span>}
-                              {hasMissingDetails(customer) && category === 'missing' && (
-                                <span className="bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5 rounded">Incomplete</span>
-                              )}
-                            </div>
                           </div>
-                        );
-                      })}
-                      {customers.length === 0 && (
-                        <p className="text-xs text-gray-400 text-center py-4">No clients</p>
-                      )}
+                        )}
+                      </Droppable>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </DragDropContext>
           )}
         </CardContent>
       </Card>
