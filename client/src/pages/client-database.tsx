@@ -150,6 +150,7 @@ export default function ClientDatabase() {
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [mergeFieldSelections, setMergeFieldSelections] = useState<Record<string, string>>({});
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // For bulk actions
   const [showSamplesFilter, setShowSamplesFilter] = useState(false); // Filter for samples sent card
   const [showDataCleanupFilter, setShowDataCleanupFilter] = useState(false); // Filter for incomplete data
@@ -516,8 +517,8 @@ export default function ClientDatabase() {
   });
 
   const mergeCustomersMutation = useMutation({
-    mutationFn: async ({ targetId, sourceId }: { targetId: string; sourceId: string }) => {
-      return await apiRequest("POST", `/api/customers/merge`, { targetId, sourceId });
+    mutationFn: async ({ targetId, sourceId, fieldSelections }: { targetId: string; sourceId: string; fieldSelections?: Record<string, string> }) => {
+      return await apiRequest("POST", `/api/customers/merge`, { targetId, sourceId, fieldSelections });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -529,6 +530,7 @@ export default function ClientDatabase() {
       setShowMergeDialog(false);
       setSelectedForMerge(new Set());
       setMergeTarget(null);
+      setMergeFieldSelections({});
     },
     onError: (error: any) => {
       toast({
@@ -560,9 +562,55 @@ export default function ClientDatabase() {
       const ids = Array.from(selectedForMerge);
       const sourceId = ids.find(id => id !== mergeTarget);
       if (sourceId) {
-        mergeCustomersMutation.mutate({ targetId: mergeTarget, sourceId });
+        mergeCustomersMutation.mutate({ targetId: mergeTarget, sourceId, fieldSelections: mergeFieldSelections });
       }
     }
+  };
+
+  // Helper to get merge field comparison
+  const getMergeFields = () => {
+    const selected = getSelectedCustomers();
+    if (selected.length !== 2) return [];
+    const [a, b] = selected;
+    const fields = [
+      { key: 'firstName', label: 'First Name' },
+      { key: 'lastName', label: 'Last Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'company', label: 'Company' },
+      { key: 'address1', label: 'Address' },
+      { key: 'city', label: 'City' },
+      { key: 'province', label: 'Province' },
+      { key: 'country', label: 'Country' },
+      { key: 'postalCode', label: 'Postal Code' },
+      { key: 'notes', label: 'Notes' },
+      { key: 'tags', label: 'Tags' },
+    ];
+    return fields.map(f => {
+      const valA = (a as any)[f.key] || '';
+      const valB = (b as any)[f.key] || '';
+      const hasConflict = valA && valB && valA !== valB;
+      const autoSelect = valA && !valB ? a.id : (!valA && valB ? b.id : null);
+      return { ...f, valA, valB, hasConflict, autoSelect, idA: a.id, idB: b.id };
+    });
+  };
+
+  // Initialize field selections when merge dialog opens
+  const initializeMergeSelections = () => {
+    const fields = getMergeFields();
+    const selections: Record<string, string> = {};
+    fields.forEach(f => {
+      if (f.autoSelect) {
+        selections[f.key] = f.autoSelect;
+      } else if (f.hasConflict) {
+        // No auto-select for conflicts - user must choose
+      } else if (f.valA) {
+        selections[f.key] = f.idA;
+      } else if (f.valB) {
+        selections[f.key] = f.idB;
+      }
+    });
+    setMergeFieldSelections(selections);
   };
 
   const deleteCustomerMutation = useMutation({
@@ -1668,7 +1716,7 @@ export default function ClientDatabase() {
                   <span className="text-xs text-blue-700">{selectedForMerge.size}/2 selected</span>
                   {selectedForMerge.size === 2 && (
                     <Button 
-                      onClick={() => setShowMergeDialog(true)} 
+                      onClick={() => { initializeMergeSelections(); setShowMergeDialog(true); }} 
                       size="sm" 
                       className="h-7 bg-blue-600 hover:bg-blue-700"
                       data-testid="button-merge-clients"
@@ -2065,55 +2113,132 @@ export default function ClientDatabase() {
         </CardContent>
       </Card>
 
-      {/* Merge Dialog */}
-      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
-        <DialogContent className="max-w-lg">
+      {/* Merge Dialog - Field by Field Comparison */}
+      <Dialog open={showMergeDialog} onOpenChange={(open) => {
+        setShowMergeDialog(open);
+        if (!open) {
+          setMergeTarget(null);
+          setMergeFieldSelections({});
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Merge Clients</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="h-5 w-5 text-blue-600" />
+              Merge Clients
+            </DialogTitle>
             <DialogDescription>
-              Select which client to keep. The other client's data will be merged into it.
+              Compare and select which data to keep for each field. Fields with conflicts need your decision.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {getSelectedCustomers().map((customer) => {
-              const isTarget = mergeTarget === customer.id;
+          
+          {/* Client Headers */}
+          {getSelectedCustomers().length === 2 && (
+            <div className="grid grid-cols-[120px_1fr_1fr] gap-2 mb-4 pb-2 border-b">
+              <div className="text-xs font-medium text-gray-500">Field</div>
+              {getSelectedCustomers().map((customer, idx) => (
+                <div key={customer.id} className="text-sm font-medium text-gray-700">
+                  {idx === 0 ? 'Client A' : 'Client B'}: {getCompanyDisplayName(customer)}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Field Comparison */}
+          <div className="space-y-2">
+            {getMergeFields().map((field) => {
+              const selected = mergeFieldSelections[field.key];
+              const isEmpty = !field.valA && !field.valB;
+              
+              if (isEmpty) return null; // Skip empty fields
+              
               return (
-                <div 
-                  key={customer.id}
-                  onClick={() => setMergeTarget(customer.id)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                    isTarget ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      isTarget ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                    }`}>
-                      {isTarget && <CheckCircle className="h-3 w-3 text-white" />}
+                <div key={field.key} className="grid grid-cols-[120px_1fr_1fr] gap-2 items-center">
+                  <div className="text-xs font-medium text-gray-500">{field.label}</div>
+                  
+                  {/* Option A */}
+                  <button
+                    type="button"
+                    onClick={() => setMergeFieldSelections(prev => ({ ...prev, [field.key]: field.idA }))}
+                    disabled={!field.valA}
+                    className={`p-2 text-left text-sm rounded border transition-colors ${
+                      selected === field.idA 
+                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                        : field.valA 
+                          ? 'border-gray-200 hover:border-gray-300 text-gray-700' 
+                          : 'border-gray-100 bg-gray-50 text-gray-400'
+                    }`}
+                  >
+                    {field.valA || <span className="italic">Empty</span>}
+                    {selected === field.idA && <CheckCircle className="h-3 w-3 text-blue-500 inline ml-2" />}
+                  </button>
+                  
+                  {/* Option B */}
+                  <button
+                    type="button"
+                    onClick={() => setMergeFieldSelections(prev => ({ ...prev, [field.key]: field.idB }))}
+                    disabled={!field.valB}
+                    className={`p-2 text-left text-sm rounded border transition-colors ${
+                      selected === field.idB 
+                        ? 'border-blue-500 bg-blue-50 text-blue-900' 
+                        : field.valB 
+                          ? 'border-gray-200 hover:border-gray-300 text-gray-700' 
+                          : 'border-gray-100 bg-gray-50 text-gray-400'
+                    }`}
+                  >
+                    {field.valB || <span className="italic">Empty</span>}
+                    {selected === field.idB && <CheckCircle className="h-3 w-3 text-blue-500 inline ml-2" />}
+                  </button>
+                  
+                  {/* Conflict indicator */}
+                  {field.hasConflict && !selected && (
+                    <div className="col-span-3 text-xs text-amber-600 flex items-center gap-1 ml-[120px]">
+                      <AlertTriangle className="h-3 w-3" /> Please choose which value to keep
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{getCompanyDisplayName(customer)}</h4>
-                      <p className="text-sm text-gray-500">{customer.email}</p>
-                      <p className="text-xs text-gray-400">
-                        {customer.phone || 'No phone'} • {customer.city || 'No city'}
-                      </p>
-                    </div>
-                    {isTarget && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Keep this one</span>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowMergeDialog(false); setMergeTarget(null); }}>
+          
+          {/* Which record to keep */}
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-sm font-medium text-gray-700 mb-2">Which client record should be kept?</p>
+            <div className="flex gap-2">
+              {getSelectedCustomers().map((customer, idx) => {
+                const isTarget = mergeTarget === customer.id;
+                return (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => setMergeTarget(customer.id)}
+                    className={`flex-1 p-3 rounded-lg border transition-colors ${
+                      isTarget ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        isTarget ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                      }`}>
+                        {isTarget && <CheckCircle className="h-2 w-2 text-white" />}
+                      </div>
+                      <span className="text-sm font-medium">{idx === 0 ? 'Client A' : 'Client B'}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setShowMergeDialog(false); setMergeTarget(null); setMergeFieldSelections({}); }}>
               Cancel
             </Button>
             <Button 
               onClick={handleMerge} 
-              disabled={!mergeTarget || mergeCustomersMutation.isPending}
+              disabled={!mergeTarget || mergeCustomersMutation.isPending || getMergeFields().some(f => f.hasConflict && !mergeFieldSelections[f.key])}
               className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-confirm-merge"
             >
               {mergeCustomersMutation.isPending ? 'Merging...' : 'Merge Clients'}
             </Button>

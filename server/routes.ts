@@ -988,7 +988,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Merge customers (Admin only)
   app.post("/api/customers/merge", isAuthenticated, requireAdmin, async (req, res) => {
     try {
-      const { targetId, sourceId } = req.body;
+      const { targetId, sourceId, fieldSelections } = req.body;
       
       if (!targetId || !sourceId) {
         return res.status(400).json({ error: "Both targetId and sourceId are required" });
@@ -1004,39 +1004,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Source customer not found" });
       }
       
-      // Merge: fill in missing data from source to target
+      // Start with target customer as base
       const mergedData: any = { ...targetCustomer };
       
-      // Fill in missing fields from source
-      if (!mergedData.phone && sourceCustomer.phone) mergedData.phone = sourceCustomer.phone;
-      if (!mergedData.email && sourceCustomer.email) mergedData.email = sourceCustomer.email;
-      if (!mergedData.company && sourceCustomer.company) mergedData.company = sourceCustomer.company;
-      if (!mergedData.city && sourceCustomer.city) mergedData.city = sourceCustomer.city;
-      if (!mergedData.province && sourceCustomer.province) mergedData.province = sourceCustomer.province;
-      if (!mergedData.country && sourceCustomer.country) mergedData.country = sourceCustomer.country;
-      if (!mergedData.address1 && sourceCustomer.address1) mergedData.address1 = sourceCustomer.address1;
-      if (!mergedData.address2 && sourceCustomer.address2) mergedData.address2 = sourceCustomer.address2;
-      if (!mergedData.zip && sourceCustomer.zip) mergedData.zip = sourceCustomer.zip;
-      
-      // Merge tags
-      if (sourceCustomer.tags) {
-        const targetTags = mergedData.tags ? mergedData.tags.split(',').map((t: string) => t.trim()) : [];
-        const sourceTags = sourceCustomer.tags.split(',').map((t: string) => t.trim());
-        const allTags = Array.from(new Set([...targetTags, ...sourceTags])).filter(Boolean);
-        mergedData.tags = allTags.join(', ');
+      // If fieldSelections provided, use user's choices for each field
+      if (fieldSelections && typeof fieldSelections === 'object') {
+        const fieldMapping: Record<string, string> = {
+          firstName: 'firstName',
+          lastName: 'lastName',
+          email: 'email',
+          phone: 'phone',
+          company: 'company',
+          address1: 'address1',
+          city: 'city',
+          province: 'province',
+          country: 'country',
+          postalCode: 'zip',
+          notes: 'note',
+          tags: 'tags',
+        };
+        
+        for (const [fieldKey, selectedId] of Object.entries(fieldSelections)) {
+          const dbField = fieldMapping[fieldKey] || fieldKey;
+          if (selectedId === sourceId) {
+            // User chose value from source customer
+            mergedData[dbField] = (sourceCustomer as any)[dbField];
+          }
+          // If selectedId === targetId, keep target's value (already in mergedData)
+        }
+      } else {
+        // Fallback: auto-fill missing fields from source
+        if (!mergedData.phone && sourceCustomer.phone) mergedData.phone = sourceCustomer.phone;
+        if (!mergedData.email && sourceCustomer.email) mergedData.email = sourceCustomer.email;
+        if (!mergedData.company && sourceCustomer.company) mergedData.company = sourceCustomer.company;
+        if (!mergedData.city && sourceCustomer.city) mergedData.city = sourceCustomer.city;
+        if (!mergedData.province && sourceCustomer.province) mergedData.province = sourceCustomer.province;
+        if (!mergedData.country && sourceCustomer.country) mergedData.country = sourceCustomer.country;
+        if (!mergedData.address1 && sourceCustomer.address1) mergedData.address1 = sourceCustomer.address1;
+        if (!mergedData.address2 && sourceCustomer.address2) mergedData.address2 = sourceCustomer.address2;
+        if (!mergedData.zip && sourceCustomer.zip) mergedData.zip = sourceCustomer.zip;
+        
+        // Merge tags
+        if (sourceCustomer.tags) {
+          const targetTags = mergedData.tags ? mergedData.tags.split(',').map((t: string) => t.trim()) : [];
+          const sourceTags = sourceCustomer.tags.split(',').map((t: string) => t.trim());
+          const allTags = Array.from(new Set([...targetTags, ...sourceTags])).filter(Boolean);
+          mergedData.tags = allTags.join(', ');
+        }
       }
       
-      // Merge sources
+      // Always merge sources
       const targetSources = mergedData.sources || [];
       const sourceSources = sourceCustomer.sources || [];
       mergedData.sources = Array.from(new Set([...targetSources, ...sourceSources]));
       
-      // Combine totals
+      // Always combine totals
       mergedData.totalOrders = (parseInt(String(mergedData.totalOrders)) || 0) + (parseInt(String(sourceCustomer.totalOrders)) || 0);
       mergedData.totalSpent = (parseFloat(String(mergedData.totalSpent)) || 0) + (parseFloat(String(sourceCustomer.totalSpent)) || 0);
       
-      // Merge note
-      if (sourceCustomer.note && sourceCustomer.note !== mergedData.note) {
+      // Merge notes if not already handled by fieldSelections
+      if (!fieldSelections?.notes && sourceCustomer.note && sourceCustomer.note !== mergedData.note) {
         mergedData.note = mergedData.note 
           ? `${mergedData.note}\n\n--- Merged from ${sourceCustomer.company || sourceCustomer.email} ---\n${sourceCustomer.note}`
           : sourceCustomer.note;
