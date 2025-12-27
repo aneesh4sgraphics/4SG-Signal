@@ -1,0 +1,32 @@
+I've reviewed the SqM Calculator tool on your Employee Portal. The layout is intuitive, but I noticed a few areas where the user experience could be sharpened to prevent calculation errors.
+
+1. Mixed Unit Input Risks
+The Issue: The calculator mixes inches (for width/height) with feet (for roll length) and meters (for the final SqM result).
+
+Recommendation: Consider adding a toggle or a small label next to the "Roll" option that clearly defines the math being used (e.g., Width 
+in
+​
+ ×Length 
+ft
+​
+ ÷12=TotalSqFt). This prevents an employee from accidentally entering the roll length in inches.
+
+2. Input Validation & Defaults
+Placeholder vs. Value: The "Width," "Height," and "Price per Pack" fields have light-grey placeholder values (12, 18, 25.00).
+
+The Problem: If a user clicks "Calculate" without typing anything, the app might throw an error or calculate using "0" instead of the visible placeholders.
+
+Recommendation: It’s usually better to have these as actual default values that are already typed in, or keep them empty to force the user to enter their specific data.
+
+3. Supplier Info Redundancy
+The Issue: There are two "Supplier Info" sections visible in the screenshot. One is a dropdown menu ("Select supplier"), and the other is a text input field ("Supplier Name").
+
+Recommendation: If the supplier isn't in the dropdown, the "Supplier Name" box should probably only appear if "Other" is selected in the dropdown to keep the form clean.
+
+4. Result Visibility
+The Issue: The "Calculation Results" area on the right is currently a large empty space with a placeholder icon.
+
+Recommendation: To make the tool feel more "live," you could show the "Price per Sheet" or "Price per SqM" update in real-time as the user types, rather than requiring a click on the "Calculate" button.
+
+5. Mobile Responsiveness
+Since this is an employee portal, staff might use this on a phone in a warehouse. The two-column layout (Input on left, Results on right) might become very narrow on mobile. Ensure the "Calculation Results" section stacks below the inputs on smaller screens so the text remains readable.

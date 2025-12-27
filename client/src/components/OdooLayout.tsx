@@ -3,7 +3,8 @@ import { Link, useLocation } from 'wouter';
 import { 
   Home, FileText, DollarSign, Users, Database, Settings, LogOut,
   Menu, Activity, Calculator, TrendingUp, Truck, RefreshCw,
-  ChevronLeft, ChevronRight, Package, Tag, Grid3X3, Command
+  ChevronLeft, ChevronRight, Package, Tag, Grid3X3, Command,
+  GraduationCap
 } from 'lucide-react';
 import logoPath from '@assets/4s_logo_Clean_120x_1764801255491.png';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppUsage, AppUsageProvider } from '@/hooks/useAppUsage';
 import { CommandPalette, useCommandPalette, NAV_ITEMS } from './CommandPalette';
 import { AppSwitcherDrawer } from './AppSwitcherDrawer';
+import TutorialCenter from './TutorialCenter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +90,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
   const { trackUsage } = useAppUsage();
@@ -346,6 +349,16 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
               </>
             )}
           </button>
+
+          <button
+            onClick={() => setTutorialOpen(true)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 mt-2 rounded-xl transition-all duration-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700`}
+            title={!sidebarExpanded ? 'Learning Center' : undefined}
+            data-testid="button-tutorials"
+          >
+            <GraduationCap className="h-5 w-5 flex-shrink-0" />
+            {sidebarExpanded && <span className="text-sm font-medium">Tutorials</span>}
+          </button>
         </div>
 
         <nav className="flex-1 py-2 overflow-y-auto">
@@ -470,6 +483,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
         onClose={() => setAppSwitcherOpen(false)}
         onOpenCommandPalette={() => setCommandOpen(true)}
       />
+      <TutorialCenter open={tutorialOpen} onOpenChange={setTutorialOpen} />
     </div>
   );
 }

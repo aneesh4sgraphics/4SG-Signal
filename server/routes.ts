@@ -5725,6 +5725,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // Tutorial Progress Endpoints
+  // ========================================
+
+  // Get user's tutorial progress
+  app.get("/api/tutorials/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      if (!userEmail) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const progress = await storage.getUserTutorialProgress(userEmail);
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching tutorial progress:", error);
+      res.status(500).json({ error: "Failed to fetch tutorial progress" });
+    }
+  });
+
+  // Create or update tutorial progress
+  app.post("/api/tutorials/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      if (!userEmail) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const { tutorialId, status, currentStep, totalSteps, startedAt } = req.body;
+      
+      if (!tutorialId) {
+        return res.status(400).json({ error: "tutorialId is required" });
+      }
+      
+      const existing = await storage.getTutorialProgress(userEmail, tutorialId);
+      
+      if (existing) {
+        const updated = await storage.updateTutorialProgress(userEmail, tutorialId, {
+          status,
+          currentStep,
+          startedAt: startedAt ? new Date(startedAt) : undefined,
+        });
+        return res.json(updated);
+      }
+      
+      const progress = await storage.createTutorialProgress({
+        userEmail,
+        tutorialId,
+        status: status || "in_progress",
+        currentStep: currentStep || 0,
+        totalSteps: totalSteps || 1,
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
+      });
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error creating tutorial progress:", error);
+      res.status(500).json({ error: "Failed to create tutorial progress" });
+    }
+  });
+
+  // Update tutorial progress
+  app.patch("/api/tutorials/progress/:tutorialId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      if (!userEmail) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const { tutorialId } = req.params;
+      const { status, currentStep, completedAt, skippedAt, startedAt } = req.body;
+      
+      const updateData: any = {};
+      if (status !== undefined) updateData.status = status;
+      if (currentStep !== undefined) updateData.currentStep = currentStep;
+      if (completedAt !== undefined) updateData.completedAt = completedAt ? new Date(completedAt) : null;
+      if (skippedAt !== undefined) updateData.skippedAt = skippedAt ? new Date(skippedAt) : null;
+      if (startedAt !== undefined) updateData.startedAt = startedAt ? new Date(startedAt) : null;
+      
+      const progress = await storage.updateTutorialProgress(userEmail, tutorialId, updateData);
+      
+      if (!progress) {
+        return res.status(404).json({ error: "Tutorial progress not found" });
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error updating tutorial progress:", error);
+      res.status(500).json({ error: "Failed to update tutorial progress" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });

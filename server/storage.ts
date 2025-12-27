@@ -125,12 +125,15 @@ import {
   type InsertCustomerEngagementSummary,
   type FollowUpConfig,
   type InsertFollowUpConfig,
+  type UserTutorialProgress,
+  type InsertUserTutorialProgress,
   // Customer Activity System tables
   customerActivityEvents,
   followUpTasks,
   productExposureLog,
   customerEngagementSummary,
-  followUpConfig
+  followUpConfig,
+  userTutorialProgress,
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
@@ -421,6 +424,12 @@ export interface IStorage {
   getFollowUpConfig(): Promise<FollowUpConfig[]>;
   updateFollowUpConfig(eventType: string, data: Partial<InsertFollowUpConfig>): Promise<FollowUpConfig | undefined>;
   initDefaultFollowUpConfig(): Promise<void>;
+
+  // Tutorial Progress
+  getUserTutorialProgress(userEmail: string): Promise<UserTutorialProgress[]>;
+  getTutorialProgress(userEmail: string, tutorialId: string): Promise<UserTutorialProgress | undefined>;
+  createTutorialProgress(data: InsertUserTutorialProgress): Promise<UserTutorialProgress>;
+  updateTutorialProgress(userEmail: string, tutorialId: string, data: Partial<InsertUserTutorialProgress>): Promise<UserTutorialProgress | undefined>;
 }
 
 // Removed: MemStorage class - Legacy in-memory storage implementation
@@ -2226,6 +2235,50 @@ export class DatabaseStorage implements IStorage {
         await db.insert(followUpConfig).values(config);
       }
     }
+  }
+
+  // ========================================
+  // Tutorial Progress Implementation
+  // ========================================
+
+  async getUserTutorialProgress(userEmail: string): Promise<UserTutorialProgress[]> {
+    return await db
+      .select()
+      .from(userTutorialProgress)
+      .where(eq(userTutorialProgress.userEmail, userEmail))
+      .orderBy(userTutorialProgress.tutorialId);
+  }
+
+  async getTutorialProgress(userEmail: string, tutorialId: string): Promise<UserTutorialProgress | undefined> {
+    const [progress] = await db
+      .select()
+      .from(userTutorialProgress)
+      .where(
+        and(
+          eq(userTutorialProgress.userEmail, userEmail),
+          eq(userTutorialProgress.tutorialId, tutorialId)
+        )
+      );
+    return progress;
+  }
+
+  async createTutorialProgress(data: InsertUserTutorialProgress): Promise<UserTutorialProgress> {
+    const [progress] = await db.insert(userTutorialProgress).values(data).returning();
+    return progress;
+  }
+
+  async updateTutorialProgress(userEmail: string, tutorialId: string, data: Partial<InsertUserTutorialProgress>): Promise<UserTutorialProgress | undefined> {
+    const [progress] = await db
+      .update(userTutorialProgress)
+      .set({ ...data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(userTutorialProgress.userEmail, userEmail),
+          eq(userTutorialProgress.tutorialId, tutorialId)
+        )
+      )
+      .returning();
+    return progress;
   }
 }
 

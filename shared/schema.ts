@@ -1092,3 +1092,26 @@ export const insertFollowUpConfigSchema = createInsertSchema(followUpConfig).omi
 });
 export type FollowUpConfig = typeof followUpConfig.$inferSelect;
 export type InsertFollowUpConfig = z.infer<typeof insertFollowUpConfigSchema>;
+
+// User Tutorial Progress - tracks which tutorials each user has completed
+export const userTutorialProgress = pgTable("user_tutorial_progress", {
+  id: serial("id").primaryKey(),
+  userEmail: varchar("user_email", { length: 255 }).notNull(),
+  tutorialId: varchar("tutorial_id", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("not_started"), // not_started, in_progress, completed, skipped
+  currentStep: integer("current_step").default(0),
+  totalSteps: integer("total_steps").notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  skippedAt: timestamp("skipped_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserTutorialProgressSchema = createInsertSchema(userTutorialProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserTutorialProgress = typeof userTutorialProgress.$inferSelect;
+export type InsertUserTutorialProgress = z.infer<typeof insertUserTutorialProgressSchema>;
