@@ -26,6 +26,7 @@ import {
   Grid3X3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import StartYourDayDashboard from "@/components/StartYourDayDashboard";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUsage } from "@/hooks/useAppUsage";
 
@@ -444,6 +445,11 @@ export default function Dashboard() {
             ))}
           </div>
         )}
+
+        {/* Start Your Day Dashboard */}
+        <div style={{ marginBottom: '32px' }}>
+          <StartYourDayDashboard />
+        </div>
 
         {/* Loading skeleton */}
         {statsLoading && (

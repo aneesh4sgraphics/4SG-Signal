@@ -1083,14 +1083,20 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                 )}
               </div>
 
-              {/* Reset Button */}
-              <button
-                onClick={resetSelections}
-                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-md border border-gray-300 transition-colors"
-                type="button"
-              >
-                RESET
-              </button>
+              {/* Reset Button - styled to prevent accidental clicks */}
+              <div className="pt-4 mt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to reset all selections?')) {
+                      resetSelections();
+                    }
+                  }}
+                  className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-xs font-medium rounded-md border border-dashed border-gray-300 transition-colors"
+                  type="button"
+                >
+                  Reset All Selections
+                </button>
+              </div>
               
               {/* No Results Banner */}
               {hasNoResults && (
