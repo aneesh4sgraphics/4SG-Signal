@@ -127,6 +127,10 @@ import {
   type InsertFollowUpConfig,
   type UserTutorialProgress,
   type InsertUserTutorialProgress,
+  type EmailTemplate,
+  type InsertEmailTemplate,
+  type EmailSend,
+  type InsertEmailSend,
   // Customer Activity System tables
   customerActivityEvents,
   followUpTasks,
@@ -134,6 +138,8 @@ import {
   customerEngagementSummary,
   followUpConfig,
   userTutorialProgress,
+  emailTemplates,
+  emailSends,
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
@@ -431,6 +437,17 @@ export interface IStorage {
   getTutorialProgress(userEmail: string, tutorialId: string): Promise<UserTutorialProgress | undefined>;
   createTutorialProgress(data: InsertUserTutorialProgress): Promise<UserTutorialProgress>;
   updateTutorialProgress(userEmail: string, tutorialId: string, data: Partial<InsertUserTutorialProgress>): Promise<UserTutorialProgress | undefined>;
+
+  // Email Templates
+  getEmailTemplates(): Promise<EmailTemplate[]>;
+  getEmailTemplate(id: number): Promise<EmailTemplate | undefined>;
+  createEmailTemplate(data: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: number, data: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
+  deleteEmailTemplate(id: number): Promise<void>;
+
+  // Email Sends
+  getEmailSends(customerId?: string): Promise<EmailSend[]>;
+  createEmailSend(data: InsertEmailSend): Promise<EmailSend>;
 }
 
 // Removed: MemStorage class - Legacy in-memory storage implementation
@@ -2294,6 +2311,66 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return progress;
+  }
+
+  // ========================================
+  // Email Templates Implementation
+  // ========================================
+
+  async getEmailTemplates(): Promise<EmailTemplate[]> {
+    return await db
+      .select()
+      .from(emailTemplates)
+      .orderBy(emailTemplates.name);
+  }
+
+  async getEmailTemplate(id: number): Promise<EmailTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.id, id));
+    return template;
+  }
+
+  async createEmailTemplate(data: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [template] = await db.insert(emailTemplates).values(data).returning();
+    return template;
+  }
+
+  async updateEmailTemplate(id: number, data: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined> {
+    const [template] = await db
+      .update(emailTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(emailTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteEmailTemplate(id: number): Promise<void> {
+    await db.delete(emailTemplates).where(eq(emailTemplates.id, id));
+  }
+
+  // ========================================
+  // Email Sends Implementation
+  // ========================================
+
+  async getEmailSends(customerId?: string): Promise<EmailSend[]> {
+    if (customerId) {
+      return await db
+        .select()
+        .from(emailSends)
+        .where(eq(emailSends.customerId, customerId))
+        .orderBy(desc(emailSends.sentAt));
+    }
+    return await db
+      .select()
+      .from(emailSends)
+      .orderBy(desc(emailSends.sentAt));
+  }
+
+  async createEmailSend(data: InsertEmailSend): Promise<EmailSend> {
+    const [send] = await db.insert(emailSends).values(data).returning();
+    return send;
   }
 }
 
