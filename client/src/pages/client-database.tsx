@@ -60,10 +60,54 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  MoreHorizontal,
+  Clock,
+  Eye,
+  Send,
+  TrendingUp,
+  Calendar,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import type { Customer } from '@shared/schema';
+
+// Fuzzy search function
+const fuzzyMatch = (text: string, search: string): boolean => {
+  if (!text || !search) return false;
+  const textLower = text.toLowerCase();
+  const searchLower = search.toLowerCase();
+  
+  // Direct substring match
+  if (textLower.includes(searchLower)) return true;
+  
+  // Word-by-word matching (for "Ontario" matching "1145683 Ontario Inc")
+  const textWords = textLower.split(/\s+/);
+  const searchWords = searchLower.split(/\s+/);
+  
+  return searchWords.every(sw => 
+    textWords.some(tw => tw.includes(sw) || sw.includes(tw))
+  );
+};
 
 export default function ClientDatabase() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -80,6 +124,8 @@ export default function ClientDatabase() {
     country: "",
     taxExempt: "all",
     emailMarketing: "all",
+    source: "all", // New: Shopify, Odoo, or All
+    clientValue: "all", // New: high (5+), medium (1-4), low (0)
   });
   const [missingDataFilters, setMissingDataFilters] = useState({
     noEmail: false,
@@ -91,6 +137,7 @@ export default function ClientDatabase() {
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'kanban'>('table');
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Partial<Customer>>({});
+  const [editingField, setEditingField] = useState<string | null>(null); // For inline editing
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; count?: number } | null>(null);
@@ -101,6 +148,14 @@ export default function ClientDatabase() {
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // For bulk actions
+  const [showSamplesFilter, setShowSamplesFilter] = useState(false); // Filter for samples sent card
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    const saved = localStorage.getItem('clientDatabaseRecentSearches');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showRecentSearches, setShowRecentSearches] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Alphabet for tabs
@@ -322,14 +377,14 @@ export default function ClientDatabase() {
         }
       }
       
-      // Search filter - match against company name or any customer in the group
+      // Fuzzy search filter - match against company name or any customer in the group
       if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const matchesCompany = group.companyName.toLowerCase().includes(term);
+        const matchesCompany = fuzzyMatch(group.companyName, searchTerm);
         const matchesAnyCustomer = group.customers.some(c => 
-          c.firstName?.toLowerCase().includes(term) ||
-          c.lastName?.toLowerCase().includes(term) ||
-          c.email?.toLowerCase().includes(term)
+          fuzzyMatch(c.firstName || '', searchTerm) ||
+          fuzzyMatch(c.lastName || '', searchTerm) ||
+          fuzzyMatch(c.email || '', searchTerm) ||
+          fuzzyMatch(c.company || '', searchTerm)
         );
         if (!matchesCompany && !matchesAnyCustomer) return false;
       }
@@ -353,6 +408,26 @@ export default function ClientDatabase() {
         if (filters.emailMarketing === "no" && acceptsMarketing) return false;
       }
       
+      // Source filter (Shopify, Odoo, or All)
+      if (filters.source !== "all") {
+        const hasSource = group.customers.some(c => c.sources?.includes(filters.source));
+        if (!hasSource) return false;
+      }
+      
+      // Client Value filter (based on quote counts)
+      if (filters.clientValue !== "all") {
+        const totalQuotes = getCompanyQuoteCount(group);
+        if (filters.clientValue === "high" && totalQuotes < 5) return false;
+        if (filters.clientValue === "medium" && (totalQuotes < 1 || totalQuotes > 4)) return false;
+        if (filters.clientValue === "low" && totalQuotes > 0) return false;
+      }
+      
+      // Samples filter (from clickable card)
+      if (showSamplesFilter) {
+        const hasSamples = group.customers.some(c => getSampleCount(c.id) > 0);
+        if (!hasSamples) return false;
+      }
+      
       // Missing data filters - show only companies where at least one contact is missing data
       if (missingDataFilters.noEmail && !group.customers.some(c => !c.email || c.email.trim() === '')) return false;
       if (missingDataFilters.noPhone && !group.customers.some(c => !c.phone || c.phone.trim() === '')) return false;
@@ -361,7 +436,7 @@ export default function ClientDatabase() {
       
       return true;
     });
-  }, [groupedByCompany, selectedLetter, searchTerm, filters, missingDataFilters]);
+  }, [groupedByCompany, selectedLetter, searchTerm, filters, missingDataFilters, showSamplesFilter, quoteCounts, sampleRequests]);
   
   // Helper to get unique quote count for a company (dedupe by email)
   const getCompanyQuoteCount = (group: CompanyGroup): number => {
@@ -793,6 +868,8 @@ export default function ClientDatabase() {
       country: "",
       taxExempt: "all",
       emailMarketing: "all",
+      source: "all",
+      clientValue: "all",
     });
     setMissingDataFilters({
       noEmail: false,
@@ -800,6 +877,61 @@ export default function ClientDatabase() {
       noTags: false,
       noCompany: false,
     });
+    setShowSamplesFilter(false);
+    setBulkSelected(new Set());
+  };
+
+  // Recent searches handling
+  const addRecentSearch = (term: string) => {
+    if (!term.trim()) return;
+    const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('clientDatabaseRecentSearches', JSON.stringify(updated));
+  };
+
+  const handleSearchSubmit = () => {
+    if (searchTerm.trim()) {
+      addRecentSearch(searchTerm.trim());
+      setShowRecentSearches(false);
+    }
+  };
+
+  const selectRecentSearch = (term: string) => {
+    setSearchTerm(term);
+    setShowRecentSearches(false);
+  };
+
+  // Bulk selection handlers
+  const toggleBulkSelection = (id: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    const allIds = new Set(filteredCompanies.map(g => g.primaryCustomer.id));
+    setBulkSelected(allIds);
+  };
+
+  const clearBulkSelection = () => {
+    setBulkSelected(new Set());
+  };
+
+  // Bulk delete handler
+  const handleBulkDelete = () => {
+    if (bulkSelected.size === 0) return;
+    if (window.confirm(`Are you sure you want to delete ${bulkSelected.size} clients? This cannot be undone.`)) {
+      bulkSelected.forEach(id => {
+        deleteCustomerMutation.mutate(id);
+      });
+      setBulkSelected(new Set());
+    }
   };
 
   const startEdit = (customer: Customer) => {
@@ -819,10 +951,30 @@ export default function ClientDatabase() {
   const cancelEdit = () => {
     setEditingRowId(null);
     setEditingData({});
+    setEditingField(null);
   };
 
   const updateEditingField = (field: keyof Customer, value: any) => {
     setEditingData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Inline editing - start editing a specific field
+  const startInlineEdit = (customer: Customer, field: string) => {
+    setEditingRowId(customer.id);
+    setEditingData({ ...customer });
+    setEditingField(field);
+  };
+
+  const saveInlineEdit = () => {
+    if (editingRowId && editingData) {
+      const customer = customers.find(c => c.id === editingRowId);
+      if (customer) {
+        updateCustomerMutation.mutate({ ...customer, ...editingData });
+      }
+    }
+    setEditingRowId(null);
+    setEditingData({});
+    setEditingField(null);
   };
 
   const isAdmin = (user as any)?.role === 'admin';
@@ -1037,12 +1189,19 @@ export default function ClientDatabase() {
             </div>
           </CardContent>
         </Card>
-        <Card className="glass-card border-0">
+        <Card 
+          className={`glass-card border-0 cursor-pointer transition-all hover:shadow-md ${showSamplesFilter ? 'ring-2 ring-green-500' : ''}`}
+          onClick={() => setShowSamplesFilter(!showSamplesFilter)}
+          data-testid="card-samples-sent"
+        >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Samples Sent</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{totalSamplesSent}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  {showSamplesFilter ? 'Click to show all' : 'Click to filter'}
+                </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
                 <Package className="h-6 w-6 text-green-500" />
@@ -1065,13 +1224,17 @@ export default function ClientDatabase() {
         </Card>
       </div>
 
-      {/* Clean Search Bar */}
+      {/* Search Bar with Recent Searches */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
         <Input
-          placeholder="Search clients by name, email, company..."
+          ref={searchInputRef}
+          placeholder="Search clients by name, email, company... (fuzzy match enabled)"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onFocus={() => recentSearches.length > 0 && setShowRecentSearches(true)}
+          onBlur={() => setTimeout(() => setShowRecentSearches(false), 200)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
           className="pl-12 pr-24 h-12 text-base bg-white/80 backdrop-blur-sm border border-gray-200 focus:border-primary/50 rounded-xl shadow-sm"
           data-testid="input-client-search"
         />
@@ -1079,7 +1242,7 @@ export default function ClientDatabase() {
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => setSearchTerm("")}
+            onClick={() => { setSearchTerm(""); addRecentSearch(searchTerm); }}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 h-8 px-3 text-gray-500"
           >
             <X className="h-4 w-4 mr-1" /> Clear
@@ -1092,6 +1255,27 @@ export default function ClientDatabase() {
             <Button onClick={() => refetch()} variant="ghost" size="sm" className="h-8 px-2" data-testid="button-refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
+          </div>
+        )}
+        
+        {/* Recent Searches Dropdown */}
+        {showRecentSearches && recentSearches.length > 0 && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+            <div className="p-2">
+              <p className="text-xs text-gray-500 px-2 pb-2 flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Recent Searches
+              </p>
+              {recentSearches.map((term, i) => (
+                <button
+                  key={i}
+                  onClick={() => selectRecentSearch(term)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded-md flex items-center gap-2"
+                >
+                  <Search className="h-3 w-3 text-gray-400" />
+                  {term}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1153,6 +1337,50 @@ export default function ClientDatabase() {
                       <Building2 className="h-4 w-4 text-gray-400" />
                       No Company
                     </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Advanced Filters Row */}
+              <div className="pb-4 border-b border-gray-200">
+                <Label className="text-sm font-semibold text-gray-700 mb-3 block">Advanced Filters</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs text-gray-500">Source</Label>
+                    <Select value={filters.source} onValueChange={(val) => setFilters({...filters, source: val})}>
+                      <SelectTrigger data-testid="select-source">
+                        <SelectValue placeholder="All Sources" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        <SelectItem value="shopify">
+                          <span className="flex items-center gap-2"><SiShopify className="h-3 w-3 text-green-600" /> Shopify</span>
+                        </SelectItem>
+                        <SelectItem value="odoo">
+                          <span className="flex items-center gap-2"><SiOdoo className="h-3 w-3 text-purple-600" /> Odoo</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Client Value (Quotes)</Label>
+                    <Select value={filters.clientValue} onValueChange={(val) => setFilters({...filters, clientValue: val})}>
+                      <SelectTrigger data-testid="select-client-value">
+                        <SelectValue placeholder="All Values" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Values</SelectItem>
+                        <SelectItem value="high">
+                          <span className="flex items-center gap-2"><TrendingUp className="h-3 w-3 text-green-600" /> High (5+ quotes)</span>
+                        </SelectItem>
+                        <SelectItem value="medium">
+                          <span className="flex items-center gap-2"><TrendingUp className="h-3 w-3 text-yellow-600" /> Medium (1-4 quotes)</span>
+                        </SelectItem>
+                        <SelectItem value="low">
+                          <span className="flex items-center gap-2"><TrendingUp className="h-3 w-3 text-gray-400" /> Low (0 quotes)</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1278,9 +1506,53 @@ export default function ClientDatabase() {
         )}
       </div>
 
+      {/* Bulk Actions Toolbar */}
+      {bulkSelected.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-blue-700">
+              {bulkSelected.size} client{bulkSelected.size > 1 ? 's' : ''} selected
+            </span>
+            <Button onClick={clearBulkSelection} variant="ghost" size="sm" className="text-blue-600">
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1" data-testid="button-bulk-email">
+                    <Mail className="h-3 w-3" /> Email
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Send email to selected clients</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {isAdmin && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="gap-1"
+                      onClick={handleBulkDelete}
+                      data-testid="button-bulk-delete"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete selected clients</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Client List */}
       <Card className="glass-card border-0">
-        <CardHeader>
+        <CardHeader className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b">
           <div className="flex items-center justify-between">
             <CardTitle className="heading-sm">
               {filteredCompanies.length} {filteredCompanies.length === 1 ? 'Company' : 'Companies'}
@@ -1289,6 +1561,11 @@ export default function ClientDatabase() {
                 <span className="text-gray-500 font-normal ml-2">
                   starting with "{selectedLetter}"
                 </span>
+              )}
+              {showSamplesFilter && (
+                <Badge variant="secondary" className="ml-2 text-green-700 bg-green-100">
+                  Samples Filter Active
+                </Badge>
               )}
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -1348,7 +1625,7 @@ export default function ClientDatabase() {
                   </Button>
                 </div>
               )}
-              {(searchTerm || selectedLetter || Object.values(filters).some(f => f && f !== "all")) && (
+              {(searchTerm || selectedLetter || showSamplesFilter || Object.values(filters).some(f => f && f !== "all")) && (
                 <Button onClick={() => { clearFilters(); setSelectedLetter(null); }} variant="outline" size="sm">
                   Clear All Filters
                 </Button>
@@ -1378,100 +1655,216 @@ export default function ClientDatabase() {
               )}
             </div>
           ) : viewMode === 'table' ? (
-            /* TABLE VIEW - Grouped by Company */
-            <div className="divide-y divide-gray-100">
-              {filteredCompanies.map((group) => {
-                const isExpanded = expandedCompanies.has(group.groupKey);
-                const hasMultiplePeople = group.customers.length > 1;
-                const primary = group.primaryCustomer;
-                const totalQuotes = getCompanyQuoteCount(group);
-                const totalSamples = group.customers.reduce((sum, c) => sum + getSampleCount(c.id), 0);
-                
-                return (
-                  <div key={group.groupKey} data-testid={`company-group-${primary.id}`}>
-                    {/* Company Row */}
-                    <div 
-                      className={`flex items-center justify-between py-2.5 px-1 hover:bg-gray-50/50 text-sm cursor-pointer ${selectedForMerge.has(primary.id) ? 'bg-blue-50 border-l-2 border-blue-400' : ''}`}
-                      onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.groupKey)}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Checkbox 
-                          checked={selectedForMerge.has(primary.id)}
-                          onCheckedChange={() => toggleMergeSelection(primary.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          disabled={!selectedForMerge.has(primary.id) && selectedForMerge.size >= 2}
-                          className="h-4 w-4"
-                          data-testid={`checkbox-merge-${primary.id}`}
-                        />
-                        {hasMultiplePeople ? (
-                          <button className="p-0.5 hover:bg-gray-200 rounded">
-                            {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
-                          </button>
-                        ) : (
-                          <div className="w-5" />
-                        )}
-                        <Building2 className="h-4 w-4 text-gray-400" />
-                        <span className="font-medium text-gray-900 truncate min-w-[180px]">
-                          {group.companyName}
-                        </span>
-                        {hasMultiplePeople && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {group.customers.length} people
-                          </Badge>
-                        )}
-                        {primary.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
-                        {primary.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
-                        {totalQuotes > 0 && (
-                          <span className="bg-blue-100 text-blue-700 text-xs px-1 rounded">{totalQuotes}Q</span>
-                        )}
-                        {totalSamples > 0 && (
-                          <span className="bg-green-100 text-green-700 text-xs px-1 rounded">{totalSamples}S</span>
-                        )}
-                        {!hasMultiplePeople && primary.email && (
-                          <span className="text-gray-400 text-xs truncate hidden lg:block">{primary.email}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                        <Button onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }} size="sm" variant="ghost" className="h-6 px-2 text-xs">View</Button>
-                        <Button onClick={() => handleEditCustomer(primary)} size="sm" variant="ghost" className="h-6 w-6 p-0"><Edit className="h-3 w-3" /></Button>
-                        <Button onClick={() => handleDeleteCustomer(primary.id)} size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500"><Trash2 className="h-3 w-3" /></Button>
-                      </div>
-                    </div>
-                    
-                    {/* Expanded People List */}
-                    {isExpanded && hasMultiplePeople && (
-                      <div className="bg-gray-50/50 border-l-2 border-gray-200 ml-6 mb-2">
-                        {group.customers.map((customer) => (
-                          <div 
-                            key={customer.id}
-                            className="flex items-center justify-between py-2 px-3 hover:bg-gray-100/50 text-sm border-b border-gray-100 last:border-0"
-                            data-testid={`person-row-${customer.id}`}
+            /* TABLE VIEW - Grouped by Company with Sticky Header */
+            <div className="max-h-[600px] overflow-y-auto">
+              {/* Sticky Table Header */}
+              <div className="sticky top-0 z-10 bg-gray-100 border-b border-gray-200 px-2 py-2 flex items-center gap-2 text-xs font-medium text-gray-600">
+                <Checkbox 
+                  checked={bulkSelected.size === filteredCompanies.length && filteredCompanies.length > 0}
+                  onCheckedChange={(checked) => checked ? selectAllVisible() : clearBulkSelection()}
+                  className="h-4 w-4"
+                  data-testid="checkbox-select-all"
+                />
+                <div className="w-5" />
+                <span className="flex-1 min-w-[200px]">Company</span>
+                <span className="w-24 text-center hidden md:block">Source</span>
+                <span className="w-20 text-center hidden lg:block">Quotes</span>
+                <span className="w-48 hidden lg:block">Email</span>
+                <span className="w-20 text-right">Actions</span>
+              </div>
+              
+              <div className="divide-y divide-gray-100">
+                {filteredCompanies.map((group) => {
+                  const isExpanded = expandedCompanies.has(group.groupKey);
+                  const hasMultiplePeople = group.customers.length > 1;
+                  const primary = group.primaryCustomer;
+                  const totalQuotes = getCompanyQuoteCount(group);
+                  const totalSamples = group.customers.reduce((sum, c) => sum + getSampleCount(c.id), 0);
+                  const isBulkSelected = bulkSelected.has(primary.id);
+                  const isInlineEditing = editingRowId === primary.id;
+                  
+                  return (
+                    <div key={group.groupKey} data-testid={`company-group-${primary.id}`}>
+                      {/* Company Row with Hover Highlighting */}
+                      <div 
+                        className={`group flex items-center justify-between py-2.5 px-2 text-sm cursor-pointer transition-colors
+                          ${isBulkSelected ? 'bg-blue-50 border-l-2 border-blue-400' : ''}
+                          ${selectedForMerge.has(primary.id) ? 'bg-purple-50' : ''}
+                          hover:bg-gray-50`}
+                        onClick={() => hasMultiplePeople && toggleCompanyExpansion(group.groupKey)}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Checkbox 
+                            checked={isBulkSelected}
+                            onCheckedChange={() => toggleBulkSelection(primary.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4"
+                            data-testid={`checkbox-bulk-${primary.id}`}
+                          />
+                          {hasMultiplePeople ? (
+                            <button className="p-0.5 hover:bg-gray-200 rounded">
+                              {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
+                            </button>
+                          ) : (
+                            <div className="w-5" />
+                          )}
+                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <span className="font-medium text-gray-900 truncate min-w-[180px]">
+                            {group.companyName}
+                          </span>
+                          {hasMultiplePeople && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {group.customers.length} people
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Source badges */}
+                        <div className="w-24 flex items-center justify-center gap-1 hidden md:flex">
+                          {primary.sources?.includes('shopify') && <SiShopify className="h-4 w-4 text-green-600" />}
+                          {primary.sources?.includes('odoo') && <SiOdoo className="h-4 w-4 text-purple-600" />}
+                        </div>
+                        
+                        {/* Quote/Sample counts */}
+                        <div className="w-20 flex items-center justify-center gap-1 hidden lg:flex">
+                          {totalQuotes > 0 && (
+                            <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded">{totalQuotes}Q</span>
+                          )}
+                          {totalSamples > 0 && (
+                            <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded">{totalSamples}S</span>
+                          )}
+                        </div>
+                        
+                        {/* Inline editable email */}
+                        <div className="w-48 hidden lg:block" onClick={(e) => e.stopPropagation()}>
+                          {isInlineEditing && editingField === 'email' ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={editingData.email || ''}
+                                onChange={(e) => updateEditingField('email', e.target.value)}
+                                className="h-6 text-xs"
+                                autoFocus
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
+                              />
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={saveInlineEdit}>
+                                <Save className="h-3 w-3 text-green-600" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={cancelEdit}>
+                                <X className="h-3 w-3 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span 
+                              className="text-gray-400 text-xs truncate block cursor-text hover:text-gray-600"
+                              onDoubleClick={() => startInlineEdit(primary, 'email')}
+                              title="Double-click to edit"
+                            >
+                              {primary.email || <span className="italic text-gray-300">No email</span>}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Actions Dropdown */}
+                        <div className="w-20 flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}>
+                                <Eye className="h-4 w-4 mr-2" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditCustomer(primary)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => startInlineEdit(primary, 'email')}>
+                                <Mail className="h-4 w-4 mr-2" /> Edit Email
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => toggleMergeSelection(primary.id)} disabled={selectedForMerge.size >= 2 && !selectedForMerge.has(primary.id)}>
+                                <Users className="h-4 w-4 mr-2" /> Select for Merge
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDeleteCustomer(primary.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button 
+                            onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }} 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-7 px-2 text-xs"
                           >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Users className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="text-gray-700">
-                                {customer.firstName || customer.lastName 
-                                  ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
-                                  : customer.email || 'Contact'}
-                              </span>
-                              {customer.email && (
-                                <span className="text-gray-400 text-xs truncate">{customer.email}</span>
-                              )}
-                              {customer.phone && (
-                                <span className="text-gray-400 text-xs hidden lg:block">• {customer.phone}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                              <Button onClick={() => { setSelectedCustomer(customer); setSelectedCompanyContacts([]); }} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]">View</Button>
-                              <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost" className="h-5 w-5 p-0"><Edit className="h-2.5 w-2.5" /></Button>
-                            </div>
-                          </div>
-                        ))}
+                            View
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      
+                      {/* Expanded People List */}
+                      {isExpanded && hasMultiplePeople && (
+                        <div className="bg-gray-50/50 border-l-2 border-gray-200 ml-8 mb-2">
+                          {group.customers.map((customer) => {
+                            const isCustomerEditing = editingRowId === customer.id;
+                            return (
+                              <div 
+                                key={customer.id}
+                                className="group flex items-center justify-between py-2 px-3 hover:bg-gray-100/50 text-sm border-b border-gray-100 last:border-0"
+                                data-testid={`person-row-${customer.id}`}
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Checkbox 
+                                    checked={bulkSelected.has(customer.id)}
+                                    onCheckedChange={() => toggleBulkSelection(customer.id)}
+                                    className="h-3 w-3"
+                                  />
+                                  <Users className="h-3.5 w-3.5 text-gray-400" />
+                                  <span className="text-gray-700">
+                                    {customer.firstName || customer.lastName 
+                                      ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+                                      : customer.email || 'Contact'}
+                                  </span>
+                                  {isCustomerEditing && editingField === 'email' ? (
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        value={editingData.email || ''}
+                                        onChange={(e) => updateEditingField('email', e.target.value)}
+                                        className="h-5 text-xs w-40"
+                                        autoFocus
+                                        onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
+                                      />
+                                      <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={saveInlineEdit}>
+                                        <Save className="h-2.5 w-2.5 text-green-600" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <span 
+                                      className="text-gray-400 text-xs truncate cursor-text hover:text-gray-600"
+                                      onDoubleClick={() => startInlineEdit(customer, 'email')}
+                                      title="Double-click to edit"
+                                    >
+                                      {customer.email}
+                                    </span>
+                                  )}
+                                  {customer.phone && (
+                                    <span className="text-gray-400 text-xs hidden lg:block">• {customer.phone}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                  <Button onClick={() => { setSelectedCustomer(customer); setSelectedCompanyContacts([]); }} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px]">View</Button>
+                                  <Button onClick={() => handleEditCustomer(customer)} size="sm" variant="ghost" className="h-5 w-5 p-0"><Edit className="h-2.5 w-2.5" /></Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : viewMode === 'cards' ? (
             /* CARDS VIEW - Comfortable */
