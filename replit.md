@@ -27,6 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Error Handling & Diagnostics**: Production-ready error logging, performance tracking, and detailed error responses with actionable suggestions, exposing only sanitized error fields to the frontend. Includes a `/api/diagnostics` health check endpoint.
 - **AI Chatbot**: Hybrid RAG system using OpenAI GPT-4o (with fallback to local BM25 search over troubleshooting PDFs). Features context-only answering, product retrieval from the database, strict "no guessing" policy, source citations, and guidance to appropriate app sections. Works offline with local search.
 - **CRM Integration**: Comprehensive customer journey tracking system, including customer journey instances, press test journeys, sample requests, test outcomes, and swatch management.
+- **Email Studio**: Pre-composed email templates with dynamic variables ({{client.name}}, {{product.type}}, {{price.dealer}}, etc.). Admin-only template creation, user compose flow with recipient selection and variable auto-fill, email send logging and activity tracking.
 
 ### Database Architecture
 - **ORM**: Drizzle ORM with PostgreSQL dialect
