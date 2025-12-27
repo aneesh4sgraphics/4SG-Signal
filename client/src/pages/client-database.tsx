@@ -602,12 +602,16 @@ export default function ClientDatabase() {
   };
 
   const handleMerge = () => {
+    console.log('handleMerge called', { selectedForMerge: Array.from(selectedForMerge), mergeTarget });
     if (selectedForMerge.size === 2 && mergeTarget) {
       const ids = Array.from(selectedForMerge);
       const sourceId = ids.find(id => id !== mergeTarget);
+      console.log('Merging customers', { targetId: mergeTarget, sourceId });
       if (sourceId) {
         mergeCustomersMutation.mutate({ targetId: mergeTarget, sourceId });
       }
+    } else {
+      console.log('Merge conditions not met', { size: selectedForMerge.size, mergeTarget });
     }
   };
 

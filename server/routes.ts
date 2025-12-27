@@ -1040,11 +1040,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Merge customers (Admin only)
   app.post("/api/customers/merge", isAuthenticated, requireAdmin, async (req, res) => {
     try {
+      console.log("=== MERGE CUSTOMERS API CALLED ===");
+      console.log("Request body:", req.body);
       const { targetId, sourceId, fieldSelections } = req.body;
       
       if (!targetId || !sourceId) {
+        console.log("Missing targetId or sourceId");
         return res.status(400).json({ error: "Both targetId and sourceId are required" });
       }
+      console.log("Merging:", { targetId, sourceId });
       
       const targetCustomer = await storage.getCustomer(targetId);
       const sourceCustomer = await storage.getCustomer(sourceId);
