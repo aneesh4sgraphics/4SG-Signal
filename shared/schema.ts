@@ -1115,3 +1115,78 @@ export const insertUserTutorialProgressSchema = createInsertSchema(userTutorialP
 });
 export type UserTutorialProgress = typeof userTutorialProgress.$inferSelect;
 export type InsertUserTutorialProgress = z.infer<typeof insertUserTutorialProgressSchema>;
+
+// Email Templates - pre-composed email templates with dynamic variables
+export const emailTemplates = pgTable("email_templates", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  subject: varchar("subject", { length: 500 }).notNull(),
+  body: text("body").notNull(),
+  category: varchar("category", { length: 100 }).default("general"), // general, quote, sample, follow_up, product_info
+  variables: jsonb("variables").$type<string[]>().default([]), // List of variable names used in template
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+
+// Email Sends - log of sent emails for tracking
+export const emailSends = pgTable("email_sends", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").references(() => emailTemplates.id, { onDelete: "set null" }),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  recipientName: varchar("recipient_name", { length: 255 }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  subject: varchar("subject", { length: 500 }).notNull(),
+  body: text("body").notNull(),
+  variableData: jsonb("variable_data").$type<Record<string, string>>().default({}), // Snapshot of variables used
+  status: varchar("status", { length: 50 }).default("sent"), // draft, sent, failed
+  sentBy: varchar("sent_by", { length: 255 }),
+  sentAt: timestamp("sent_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEmailSendSchema = createInsertSchema(emailSends).omit({
+  id: true,
+  sentAt: true,
+  createdAt: true,
+});
+export type EmailSend = typeof emailSends.$inferSelect;
+export type InsertEmailSend = z.infer<typeof insertEmailSendSchema>;
+
+// Available template variables - defines what variables can be used in templates
+export const EMAIL_TEMPLATE_VARIABLES = {
+  // Client variables
+  'client.name': { label: 'Client Name', description: 'Full name or company name', source: 'customer' },
+  'client.firstName': { label: 'First Name', description: 'Client first name', source: 'customer' },
+  'client.lastName': { label: 'Last Name', description: 'Client last name', source: 'customer' },
+  'client.company': { label: 'Company', description: 'Company name', source: 'customer' },
+  'client.email': { label: 'Client Email', description: 'Client email address', source: 'customer' },
+  // Product variables
+  'product.name': { label: 'Product Name', description: 'Product name', source: 'product' },
+  'product.type': { label: 'Product Type', description: 'Product type/category', source: 'product' },
+  'product.size': { label: 'Product Size', description: 'Product size', source: 'product' },
+  'product.itemCode': { label: 'Item Code', description: 'Product item code', source: 'product' },
+  // Price variables
+  'price.dealer': { label: 'Dealer Price', description: 'Dealer price tier', source: 'pricing' },
+  'price.retail': { label: 'Retail Price', description: 'Retail price tier', source: 'pricing' },
+  'price.export': { label: 'Export Price', description: 'Export price tier', source: 'pricing' },
+  'price.masterDistributor': { label: 'Master Distributor Price', description: 'Master distributor price tier', source: 'pricing' },
+  // User variables
+  'user.name': { label: 'Your Name', description: 'Sender name', source: 'user' },
+  'user.email': { label: 'Your Email', description: 'Sender email', source: 'user' },
+  // Custom variables
+  'custom.text1': { label: 'Custom Text 1', description: 'Custom text field', source: 'custom' },
+  'custom.text2': { label: 'Custom Text 2', description: 'Custom text field', source: 'custom' },
+} as const;
+
+export type EmailTemplateVariableKey = keyof typeof EMAIL_TEMPLATE_VARIABLES;
