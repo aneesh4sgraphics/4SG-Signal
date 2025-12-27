@@ -2165,39 +2165,47 @@ export default function ClientDatabase() {
           </DialogHeader>
           
           <div className="space-y-3 py-4">
-            {getSelectedCustomers().map((customer) => {
-              const isTarget = mergeTarget === customer.id;
-              return (
-                <button
-                  key={customer.id}
-                  type="button"
-                  onClick={() => setMergeTarget(customer.id)}
-                  className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                    isTarget 
-                      ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                      isTarget ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                    }`}>
-                      {isTarget && <Check className="h-3 w-3 text-white" />}
+            {getSelectedCustomers().length === 0 ? (
+              <p className="text-center text-gray-500">No customers selected. Please close and select 2 clients first.</p>
+            ) : (
+              getSelectedCustomers().map((customer) => {
+                const isTarget = mergeTarget === customer.id;
+                console.log('Merge dialog rendering customer:', customer.id, 'isTarget:', isTarget, 'mergeTarget:', mergeTarget);
+                return (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => {
+                      console.log('Setting merge target to:', customer.id);
+                      setMergeTarget(customer.id);
+                    }}
+                    className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                      isTarget 
+                        ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        isTarget ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                      }`}>
+                        {isTarget && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-900 truncate">{getCompanyDisplayName(customer)}</h4>
+                        <p className="text-sm text-gray-500 truncate">{customer.email || 'No email'}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {[customer.phone, customer.city].filter(Boolean).join(' • ') || 'No details'}
+                        </p>
+                      </div>
+                      {isTarget && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex-shrink-0">Keep</span>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 truncate">{getCompanyDisplayName(customer)}</h4>
-                      <p className="text-sm text-gray-500 truncate">{customer.email || 'No email'}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {[customer.phone, customer.city].filter(Boolean).join(' • ') || 'No details'}
-                      </p>
-                    </div>
-                    {isTarget && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex-shrink-0">Keep</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })
+            )}
           </div>
           
           <DialogFooter>
