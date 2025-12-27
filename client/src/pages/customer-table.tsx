@@ -63,7 +63,13 @@ export default function CustomerTable() {
     emailMarketing: "all",
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    // Default to cards view on mobile/tablet for better UX
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
   const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Partial<Customer>>({});
@@ -540,7 +546,7 @@ export default function CustomerTable() {
                   </TableHeader>
                   <TableBody>
                     {filteredCustomers.map((customer) => (
-                      <TableRow key={customer.id} className="h-10">
+                      <TableRow key={customer.id} className="h-10 hover:bg-blue-50 transition-colors cursor-pointer">
                         {visibleColumns.firstName && (
                           <TableCell className="py-1 px-2">
                             {editingRowId === customer.id ? (
