@@ -933,10 +933,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Customer ID is required" });
       }
 
-      // Check if customer already exists
-      const existingCustomer = await storage.getCustomer(customer.id);
-      if (existingCustomer) {
+      // Check if customer already exists by ID
+      const existingById = await storage.getCustomer(customer.id);
+      if (existingById) {
         return res.status(409).json({ error: "Customer with this ID already exists" });
+      }
+
+      // Check for duplicates by email, phone, or company name
+      const allCustomers = await storage.getAllCustomers();
+      
+      // Check for duplicate email
+      if (customer.email && customer.email.trim()) {
+        const emailLower = customer.email.toLowerCase().trim();
+        const duplicateByEmail = allCustomers.find(c => 
+          c.email && c.email.toLowerCase().trim() === emailLower
+        );
+        if (duplicateByEmail) {
+          const displayName = duplicateByEmail.company || `${duplicateByEmail.firstName} ${duplicateByEmail.lastName}`.trim() || duplicateByEmail.email;
+          return res.status(409).json({ 
+            error: `A client with this email already exists: "${displayName}"`,
+            duplicateId: duplicateByEmail.id,
+            duplicateField: 'email'
+          });
+        }
+      }
+      
+      // Check for duplicate phone
+      if (customer.phone && customer.phone.trim()) {
+        const phoneNormalized = customer.phone.replace(/\D/g, '');
+        if (phoneNormalized.length >= 7) {
+          const duplicateByPhone = allCustomers.find(c => 
+            c.phone && c.phone.replace(/\D/g, '') === phoneNormalized
+          );
+          if (duplicateByPhone) {
+            const displayName = duplicateByPhone.company || `${duplicateByPhone.firstName} ${duplicateByPhone.lastName}`.trim() || duplicateByPhone.phone;
+            return res.status(409).json({ 
+              error: `A client with this phone number already exists: "${displayName}"`,
+              duplicateId: duplicateByPhone.id,
+              duplicateField: 'phone'
+            });
+          }
+        }
+      }
+      
+      // Check for duplicate company name (exact match, case-insensitive)
+      if (customer.company && customer.company.trim()) {
+        const companyLower = customer.company.toLowerCase().trim();
+        const duplicateByCompany = allCustomers.find(c => 
+          c.company && c.company.toLowerCase().trim() === companyLower
+        );
+        if (duplicateByCompany) {
+          return res.status(409).json({ 
+            error: `A client with this company name already exists: "${duplicateByCompany.company}"`,
+            duplicateId: duplicateByCompany.id,
+            duplicateField: 'company'
+          });
+        }
       }
 
       const createdCustomer = await storage.createCustomer(customer);

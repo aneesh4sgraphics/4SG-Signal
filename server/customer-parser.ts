@@ -262,6 +262,23 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
   const startTime = Date.now();
   const allExistingCustomers = await storage.getAllCustomers();
   const existingCustomerMap = new Map(allExistingCustomers.map(c => [c.id, c]));
+  
+  // Build lookup maps for duplicate detection by email, phone, and company
+  const existingByEmail = new Map(
+    allExistingCustomers
+      .filter(c => c.email && c.email.trim())
+      .map(c => [c.email!.toLowerCase().trim(), c])
+  );
+  const existingByPhone = new Map(
+    allExistingCustomers
+      .filter(c => c.phone && c.phone.trim())
+      .map(c => [c.phone!.replace(/\D/g, ''), c])
+  );
+  const existingByCompany = new Map(
+    allExistingCustomers
+      .filter(c => c.company && c.company.trim())
+      .map(c => [c.company!.toLowerCase().trim(), c])
+  );
   console.log(`Fetched ${allExistingCustomers.length} existing customers in ${Date.now() - startTime}ms`);
 
   // Separate into new vs existing customers
@@ -269,7 +286,26 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
   const customersToUpdate: Array<{ id: string; data: InsertCustomer }> = [];
 
   for (const { customerData } of parsedCustomers) {
-    const existingCustomer = existingCustomerMap.get(customerData.id);
+    // First check by ID
+    let existingCustomer = existingCustomerMap.get(customerData.id);
+    
+    // If not found by ID, check by email
+    if (!existingCustomer && customerData.email && customerData.email.trim()) {
+      existingCustomer = existingByEmail.get(customerData.email.toLowerCase().trim());
+    }
+    
+    // If still not found, check by phone
+    if (!existingCustomer && customerData.phone && customerData.phone.trim()) {
+      const phoneNormalized = customerData.phone.replace(/\D/g, '');
+      if (phoneNormalized.length >= 7) {
+        existingCustomer = existingByPhone.get(phoneNormalized);
+      }
+    }
+    
+    // If still not found, check by company name
+    if (!existingCustomer && customerData.company && customerData.company.trim()) {
+      existingCustomer = existingByCompany.get(customerData.company.toLowerCase().trim());
+    }
     
     if (existingCustomer) {
       // Merge sources: add 'shopify' if not already present
@@ -279,9 +315,10 @@ Note: Extra columns (like Shopify metafields) will be ignored. Please ensure you
         : [...existingSources, 'shopify'];
       
       customersToUpdate.push({ 
-        id: customerData.id, 
+        id: existingCustomer.id, // Use existing customer's ID
         data: {
           ...customerData,
+          id: existingCustomer.id, // Preserve original ID
           sources: mergedSources
         }
       });
