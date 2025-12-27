@@ -94,8 +94,15 @@ import type {
   CustomerJourneyInstance, 
   CustomerJourneyStep, 
   PressTestJourneyDetail,
-  ProductPricingMaster 
+  ProductPricingMaster,
+  JourneyTemplate,
+  JourneyTemplateStage 
 } from "@shared/schema";
+
+// Extended template type with stages
+interface JourneyTemplateWithStages extends JourneyTemplate {
+  stages: JourneyTemplateStage[];
+}
 
 const JOURNEY_TYPE_CONFIG = {
   press_test: {
@@ -139,9 +146,11 @@ interface CustomerJourneyPanelProps {
 }
 
 export default function CustomerJourneyPanel({ customer, isOpen, onClose }: CustomerJourneyPanelProps) {
-  const [activeJourneyType, setActiveJourneyType] = useState<'press_test' | 'swatch_book' | 'quote_sent'>('press_test');
+  const [activeJourneyType, setActiveJourneyType] = useState<'press_test' | 'swatch_book' | 'quote_sent' | 'custom'>('press_test');
   const [isNewJourneyOpen, setIsNewJourneyOpen] = useState(false);
+  const [isCustomJourneyOpen, setIsCustomJourneyOpen] = useState(false);
   const [selectedJourney, setSelectedJourney] = useState<JourneyWithDetails | null>(null);
+  const [selectedCustomJourney, setSelectedCustomJourney] = useState<{ instance: CustomerJourneyInstance; template: JourneyTemplateWithStages | null } | null>(null);
   const { toast } = useToast();
 
   // Fetch all journey instances for this customer
@@ -169,8 +178,15 @@ export default function CustomerJourneyPanel({ customer, isOpen, onClose }: Cust
     enabled: isOpen,
   });
 
+  // Fetch journey templates for custom journeys
+  const { data: journeyTemplates = [] } = useQuery<JourneyTemplateWithStages[]>({
+    queryKey: ['/api/crm/journey-templates'],
+    enabled: isOpen,
+  });
+
   // Filter journeys by type
   const filteredJourneys = journeyInstances.filter(j => j.journeyType === activeJourneyType);
+  const customJourneys = journeyInstances.filter(j => j.journeyType === 'custom');
 
   const createJourneyMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -216,7 +232,7 @@ export default function CustomerJourneyPanel({ customer, isOpen, onClose }: Cust
         <div className="flex flex-col h-[calc(100vh-140px)]">
           {/* Journey Type Tabs */}
           <Tabs value={activeJourneyType} onValueChange={(v) => setActiveJourneyType(v as any)} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 mx-4 mt-4 max-w-[calc(100%-32px)]">
+            <TabsList className="grid w-full grid-cols-4 mx-4 mt-4 max-w-[calc(100%-32px)]">
               <TabsTrigger value="press_test" className="text-xs" data-testid="tab-press-test">
                 <FlaskConical className="w-3 h-3 mr-1" />
                 Press Test
@@ -228,6 +244,10 @@ export default function CustomerJourneyPanel({ customer, isOpen, onClose }: Cust
               <TabsTrigger value="quote_sent" className="text-xs" data-testid="tab-quote-sent">
                 <FileText className="w-3 h-3 mr-1" />
                 Quote Sent
+              </TabsTrigger>
+              <TabsTrigger value="custom" className="text-xs" data-testid="tab-custom">
+                <Plus className="w-3 h-3 mr-1" />
+                Custom
               </TabsTrigger>
             </TabsList>
 
@@ -305,6 +325,67 @@ export default function CustomerJourneyPanel({ customer, isOpen, onClose }: Cust
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {/* Custom Journey Tab */}
+              <TabsContent value="custom" className="mt-0 space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-muted-foreground">
+                    {customJourneys.length} custom journey{customJourneys.length !== 1 ? 's' : ''}
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setIsCustomJourneyOpen(true)}
+                    disabled={journeyTemplates.length === 0}
+                    data-testid="btn-new-custom-journey"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    New Journey
+                  </Button>
+                </div>
+
+                {journeyTemplates.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="py-8 text-center">
+                      <Plus className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground font-medium">No pipeline templates yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Create a pipeline template in the CRM Journey page first</p>
+                    </CardContent>
+                  </Card>
+                ) : customJourneys.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="py-8 text-center">
+                      <Plus className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">No custom journeys yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {journeyTemplates.length} template{journeyTemplates.length !== 1 ? 's' : ''} available
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4"
+                        onClick={() => setIsCustomJourneyOpen(true)}
+                      >
+                        Start Custom Journey
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {customJourneys.map((journey) => {
+                      const template = journeyTemplates.find(t => t.id === (journey as any).templateId);
+                      return (
+                        <CustomJourneyCard
+                          key={journey.id}
+                          journey={journey}
+                          template={template || null}
+                          onSelect={() => setSelectedCustomJourney({ instance: journey, template: template || null })}
+                          onDelete={() => deleteJourneyMutation.mutate(journey.id)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
             </ScrollArea>
           </Tabs>
         </div>
@@ -333,6 +414,30 @@ export default function CustomerJourneyPanel({ customer, isOpen, onClose }: Cust
                   .then(res => res.json())
                   .then(data => setSelectedJourney(data));
               }
+            }}
+          />
+        )}
+
+        {/* New Custom Journey Dialog */}
+        <NewCustomJourneyDialog
+          isOpen={isCustomJourneyOpen}
+          onClose={() => setIsCustomJourneyOpen(false)}
+          customerId={customer.id}
+          templates={journeyTemplates}
+          onSubmit={(data) => createJourneyMutation.mutate(data)}
+          isPending={createJourneyMutation.isPending}
+        />
+
+        {/* Custom Journey Detail Dialog */}
+        {selectedCustomJourney && (
+          <CustomJourneyDetailDialog
+            journey={selectedCustomJourney.instance}
+            template={selectedCustomJourney.template}
+            isOpen={!!selectedCustomJourney}
+            onClose={() => setSelectedCustomJourney(null)}
+            onUpdate={() => {
+              refetchJourneys();
+              setSelectedCustomJourney(null);
             }}
           />
         )}
@@ -963,6 +1068,406 @@ function JourneyDetailDialog({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Custom Journey Card Component
+function CustomJourneyCard({ 
+  journey, 
+  template,
+  onSelect,
+  onDelete 
+}: { 
+  journey: CustomerJourneyInstance; 
+  template: JourneyTemplateWithStages | null;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  const stages = template?.stages || [];
+  const currentStepIndex = stages.findIndex(s => s.name === journey.currentStep);
+  
+  return (
+    <Card 
+      className="cursor-pointer hover:border-blue-300 transition-colors group"
+      onClick={onSelect}
+      data-testid={`custom-journey-card-${journey.id}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Badge variant={journey.status === 'completed' ? 'default' : 'secondary'}>
+                {journey.status === 'completed' ? 'Completed' : 'In Progress'}
+              </Badge>
+              {template && (
+                <span className="text-xs font-medium text-blue-600">
+                  {template.name}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Started {new Date(journey.startedAt || journey.createdAt!).toLocaleDateString()}
+            </p>
+            {journey.notes && (
+              <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
+                {journey.notes}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            data-testid={`btn-delete-custom-journey-${journey.id}`}
+          >
+            <Trash2 className="w-4 h-4 text-destructive" />
+          </Button>
+        </div>
+
+        {/* Stage Progress */}
+        {stages.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+            {stages.slice(0, 5).map((stage, index) => {
+              const isCompleted = index < currentStepIndex;
+              const isCurrent = index === currentStepIndex;
+              
+              return (
+                <div key={stage.id} className="flex items-center">
+                  <div
+                    className={`flex items-center justify-center w-6 h-6 rounded-full border-2 transition-colors text-xs ${
+                      isCompleted
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : isCurrent
+                        ? `border-blue-500 text-blue-500`
+                        : 'border-gray-300 text-gray-400'
+                    }`}
+                    style={isCurrent ? { borderColor: stage.color || '#3b82f6', color: stage.color || '#3b82f6' } : {}}
+                  >
+                    {isCompleted ? <Check className="w-3 h-3" /> : index + 1}
+                  </div>
+                  {index < Math.min(stages.length, 5) - 1 && (
+                    <ChevronRight className="w-3 h-3 text-gray-300" />
+                  )}
+                </div>
+              );
+            })}
+            {stages.length > 5 && (
+              <span className="text-[10px] text-gray-400 ml-1">+{stages.length - 5}</span>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          Stage: {journey.currentStep}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// New Custom Journey Dialog
+function NewCustomJourneyDialog({
+  isOpen,
+  onClose,
+  customerId,
+  templates,
+  onSubmit,
+  isPending,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  customerId: string;
+  templates: JourneyTemplateWithStages[];
+  onSubmit: (data: any) => void;
+  isPending: boolean;
+}) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [notes, setNotes] = useState('');
+
+  const selectedTemplate = templates.find(t => t.id === Number(selectedTemplateId));
+  const firstStage = selectedTemplate?.stages?.[0];
+  
+  const handleSubmit = () => {
+    if (!selectedTemplateId || !firstStage) return;
+    
+    onSubmit({
+      customerId,
+      journeyType: 'custom',
+      templateId: Number(selectedTemplateId),
+      currentStep: firstStage.name,
+      status: 'in_progress',
+      notes: notes || undefined,
+    });
+    
+    setSelectedTemplateId('');
+    setNotes('');
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Start Custom Journey</DialogTitle>
+          <DialogDescription>
+            Select a pipeline template to start tracking this customer's journey
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="template">Pipeline Template</Label>
+            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <SelectTrigger data-testid="select-template">
+                <SelectValue placeholder="Choose a template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={String(template.id)}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedTemplate && (
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-xs">Pipeline Stages</Label>
+              <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                {selectedTemplate.stages.slice(0, 5).map((stage, i) => (
+                  <div key={i} className="flex items-center flex-shrink-0">
+                    <div
+                      className="px-2 py-0.5 rounded text-[10px] font-medium text-white"
+                      style={{ backgroundColor: stage.color || '#3b82f6' }}
+                    >
+                      {stage.name}
+                    </div>
+                    {i < Math.min(selectedTemplate.stages.length, 5) - 1 && (
+                      <ChevronRight className="h-3 w-3 text-gray-300 mx-0.5" />
+                    )}
+                  </div>
+                ))}
+                {selectedTemplate.stages.length > 5 && (
+                  <span className="text-[10px] text-gray-400 ml-1">
+                    +{selectedTemplate.stages.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              placeholder="Any notes about this journey..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              data-testid="textarea-custom-notes"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isPending || !selectedTemplateId}
+            data-testid="btn-create-custom-journey"
+          >
+            {isPending ? "Creating..." : "Start Journey"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Custom Journey Detail Dialog
+function CustomJourneyDetailDialog({
+  journey,
+  template,
+  isOpen,
+  onClose,
+  onUpdate,
+}: {
+  journey: CustomerJourneyInstance;
+  template: JourneyTemplateWithStages | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onUpdate: () => void;
+}) {
+  const { toast } = useToast();
+  const stages = template?.stages || [];
+  const currentStepIndex = stages.findIndex(s => s.name === journey.currentStep);
+  const nextStage = stages[currentStepIndex + 1];
+  const currentStage = stages[currentStepIndex];
+
+  const advanceJourneyMutation = useMutation({
+    mutationFn: async (nextStep: string) => {
+      const res = await apiRequest('PATCH', `/api/crm/journey-instances/${journey.id}`, {
+        currentStep: nextStep,
+        updatedAt: new Date().toISOString(),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/journey-instances'] });
+      onUpdate();
+      toast({ title: "Journey advanced" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to advance journey", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const completeJourneyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('PATCH', `/api/crm/journey-instances/${journey.id}`, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/journey-instances'] });
+      onUpdate();
+      toast({ title: "Journey completed!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to complete journey", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {template?.name || 'Custom Journey'}
+            <Badge variant={journey.status === 'completed' ? 'default' : 'secondary'}>
+              {journey.status === 'completed' ? 'Completed' : 'In Progress'}
+            </Badge>
+          </DialogTitle>
+          <DialogDescription>
+            Started {new Date(journey.startedAt || journey.createdAt!).toLocaleDateString()}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Stage Progress */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Progress</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              {stages.map((stage, index) => {
+                const isCompleted = index < currentStepIndex;
+                const isCurrent = index === currentStepIndex;
+                
+                return (
+                  <div key={stage.id} className="flex items-center">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors ${
+                          isCompleted
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : isCurrent
+                            ? 'border-blue-500 text-blue-500 ring-2 ring-blue-200'
+                            : 'border-gray-300 text-gray-400'
+                        }`}
+                        style={isCurrent ? { borderColor: stage.color || '#3b82f6', color: stage.color || '#3b82f6' } : {}}
+                      >
+                        {isCompleted ? <Check className="w-4 h-4" /> : index + 1}
+                      </div>
+                      <span className={`text-[10px] mt-1 text-center max-w-[60px] truncate ${isCurrent ? 'font-medium' : 'text-muted-foreground'}`}>
+                        {stage.name}
+                      </span>
+                    </div>
+                    {index < stages.length - 1 && (
+                      <ChevronRight className="w-4 h-4 text-gray-300 mx-1 mt-[-16px]" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Current Stage Info */}
+          {currentStage && journey.status !== 'completed' && (
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: currentStage.color || '#3b82f6' }}
+                  />
+                  <span className="font-medium">Current: {currentStage.name}</span>
+                </div>
+                {currentStage.guidance && (
+                  <p className="text-sm text-muted-foreground">{currentStage.guidance}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Actions */}
+          {journey.status !== 'completed' && (
+            <div className="flex gap-2">
+              {nextStage ? (
+                <Button 
+                  onClick={() => advanceJourneyMutation.mutate(nextStage.name)}
+                  disabled={advanceJourneyMutation.isPending}
+                  className="flex-1"
+                  data-testid="btn-advance-custom"
+                >
+                  <ChevronRight className="w-4 h-4 mr-1" />
+                  Advance to {nextStage.name}
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => completeJourneyMutation.mutate()}
+                  disabled={completeJourneyMutation.isPending}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  data-testid="btn-complete-custom"
+                >
+                  <Check className="w-4 h-4 mr-1" />
+                  Complete Journey
+                </Button>
+              )}
+            </div>
+          )}
+
+          {journey.status === 'completed' && (
+            <Card className="border-green-200 bg-green-50/50">
+              <CardContent className="pt-4 text-center">
+                <CheckCircle className="w-8 h-8 mx-auto text-green-600 mb-2" />
+                <p className="font-medium text-green-800">Journey Completed</p>
+                {journey.completedAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Completed on {new Date(journey.completedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {journey.notes && (
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Notes</Label>
+              <p className="text-sm bg-gray-50 p-2 rounded">{journey.notes}</p>
             </div>
           )}
         </div>

@@ -804,7 +804,8 @@ export type PressTestStep = typeof PRESS_TEST_STEPS[number];
 export const customerJourneyInstances = pgTable("customer_journey_instances", {
   id: serial("id").primaryKey(),
   customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
-  journeyType: varchar("journey_type", { length: 50 }).notNull(), // press_test, swatch_book, quote_sent
+  journeyType: varchar("journey_type", { length: 50 }).notNull(), // press_test, swatch_book, quote_sent, or 'custom'
+  templateId: integer("template_id").references(() => journeyTemplates.id, { onDelete: "set null" }), // for custom template journeys
   currentStep: varchar("current_step", { length: 50 }).notNull(),
   status: varchar("status", { length: 50 }).notNull().default("in_progress"), // in_progress, completed, cancelled
   startedAt: timestamp("started_at").defaultNow(),
