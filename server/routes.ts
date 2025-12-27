@@ -5289,6 +5289,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // Customer Activity System Routes
+  // ========================================
+
+  // Customer Activity Events - list all or by customer
+  app.get("/api/customer-activity/events", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId, limit } = req.query;
+      let events;
+      
+      if (customerId) {
+        events = await storage.getActivityEventsByCustomer(customerId as string);
+      } else {
+        events = await storage.getRecentActivityEvents(limit ? parseInt(limit as string) : 50);
+      }
+      
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching activity events:", error);
+      res.status(500).json({ error: "Failed to fetch activity events" });
+    }
+  });
+
+  // Create activity event
+  app.post("/api/customer-activity/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const event = await storage.createActivityEvent({
+        ...req.body,
+        createdBy: req.user?.id,
+        createdByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user?.email,
+      });
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Error creating activity event:", error);
+      res.status(500).json({ error: "Failed to create activity event" });
+    }
+  });
+
+  // Follow-up Tasks - list all or by customer
+  app.get("/api/customer-activity/follow-ups", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId, status } = req.query;
+      let tasks;
+      
+      if (customerId) {
+        tasks = await storage.getFollowUpTasksByCustomer(customerId as string);
+      } else if (status === 'pending') {
+        tasks = await storage.getPendingFollowUpTasks();
+      } else {
+        tasks = await storage.getPendingFollowUpTasks();
+      }
+      
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching follow-up tasks:", error);
+      res.status(500).json({ error: "Failed to fetch follow-up tasks" });
+    }
+  });
+
+  // Create follow-up task
+  app.post("/api/customer-activity/follow-ups", isAuthenticated, async (req: any, res) => {
+    try {
+      const task = await storage.createFollowUpTask({
+        ...req.body,
+        assignedTo: req.body.assignedTo || req.user?.id,
+        assignedToName: req.body.assignedToName || (req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user?.email),
+      });
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Error creating follow-up task:", error);
+      res.status(500).json({ error: "Failed to create follow-up task" });
+    }
+  });
+
+  // Update follow-up task
+  app.patch("/api/customer-activity/follow-ups/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const task = await storage.updateFollowUpTask(id, req.body);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Follow-up task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating follow-up task:", error);
+      res.status(500).json({ error: "Failed to update follow-up task" });
+    }
+  });
+
+  // Complete follow-up task
+  app.post("/api/customer-activity/follow-ups/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { notes } = req.body;
+      const completedBy = req.user?.id;
+      
+      const task = await storage.completeFollowUpTask(id, completedBy, notes);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Follow-up task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error completing follow-up task:", error);
+      res.status(500).json({ error: "Failed to complete follow-up task" });
+    }
+  });
+
+  // Get today's follow-up tasks
+  app.get("/api/customer-activity/follow-ups/today", isAuthenticated, async (req, res) => {
+    try {
+      const tasks = await storage.getTodayFollowUpTasks();
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching today's tasks:", error);
+      res.status(500).json({ error: "Failed to fetch today's tasks" });
+    }
+  });
+
+  // Get overdue follow-up tasks
+  app.get("/api/customer-activity/follow-ups/overdue", isAuthenticated, async (req, res) => {
+    try {
+      const tasks = await storage.getOverdueFollowUpTasks();
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching overdue tasks:", error);
+      res.status(500).json({ error: "Failed to fetch overdue tasks" });
+    }
+  });
+
+  // Product Exposure - list by customer
+  app.get("/api/customer-activity/product-exposure", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.query;
+      
+      if (!customerId) {
+        return res.status(400).json({ error: "customerId query parameter is required" });
+      }
+      
+      const exposures = await storage.getProductExposureByCustomer(customerId as string);
+      res.json(exposures);
+    } catch (error) {
+      console.error("Error fetching product exposures:", error);
+      res.status(500).json({ error: "Failed to fetch product exposures" });
+    }
+  });
+
+  // Create product exposure
+  app.post("/api/customer-activity/product-exposure", isAuthenticated, async (req: any, res) => {
+    try {
+      const exposure = await storage.createProductExposure({
+        ...req.body,
+        sharedBy: req.user?.id,
+        sharedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user?.email,
+      });
+      res.status(201).json(exposure);
+    } catch (error) {
+      console.error("Error creating product exposure:", error);
+      res.status(500).json({ error: "Failed to create product exposure" });
+    }
+  });
+
+  // Get engagement summary for customer
+  app.get("/api/customer-activity/summary/:customerId", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const summary = await storage.getEngagementSummary(customerId);
+      
+      if (!summary) {
+        return res.json({
+          customerId,
+          lastContactDate: null,
+          daysSinceLastContact: null,
+          totalContactsLast30Days: 0,
+          totalContactsLast90Days: 0,
+          totalQuotesSent: 0,
+          quotesLast30Days: 0,
+          lastQuoteDate: null,
+          openQuotesCount: 0,
+          quotesWithoutFollowUp: 0,
+          totalSamplesSent: 0,
+          samplesLast90Days: 0,
+          lastSampleDate: null,
+          samplesWithoutConversion: 0,
+          productsExposedCount: 0,
+          productCategoriesExposed: [],
+          engagementScore: 0,
+          engagementTrend: 'stable',
+          needsAttention: false,
+          attentionReason: null,
+        });
+      }
+      
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching engagement summary:", error);
+      res.status(500).json({ error: "Failed to fetch engagement summary" });
+    }
+  });
+
+  // Get follow-up configuration
+  app.get("/api/customer-activity/config", isAuthenticated, async (req, res) => {
+    try {
+      let config = await storage.getFollowUpConfig();
+      
+      if (config.length === 0) {
+        await storage.initDefaultFollowUpConfig();
+        config = await storage.getFollowUpConfig();
+      }
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching follow-up config:", error);
+      res.status(500).json({ error: "Failed to fetch follow-up config" });
+    }
+  });
+
+  // Update follow-up configuration
+  app.post("/api/customer-activity/config", isAuthenticated, async (req, res) => {
+    try {
+      const { eventType, ...configData } = req.body;
+      
+      if (!eventType) {
+        return res.status(400).json({ error: "eventType is required" });
+      }
+      
+      const config = await storage.updateFollowUpConfig(eventType, configData);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating follow-up config:", error);
+      res.status(500).json({ error: "Failed to update follow-up config" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });

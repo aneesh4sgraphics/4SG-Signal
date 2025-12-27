@@ -113,7 +113,24 @@ import {
   type ProductPricingMaster,
   type InsertProductPricingMaster,
   type UploadBatch,
-  type InsertUploadBatch
+  type InsertUploadBatch,
+  // Customer Activity System types
+  type CustomerActivityEvent,
+  type InsertCustomerActivityEvent,
+  type FollowUpTask,
+  type InsertFollowUpTask,
+  type ProductExposureLog,
+  type InsertProductExposureLog,
+  type CustomerEngagementSummary,
+  type InsertCustomerEngagementSummary,
+  type FollowUpConfig,
+  type InsertFollowUpConfig,
+  // Customer Activity System tables
+  customerActivityEvents,
+  followUpTasks,
+  productExposureLog,
+  customerEngagementSummary,
+  followUpConfig
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
@@ -373,6 +390,37 @@ export interface IStorage {
     samplesWithTracking: number;
     swatchesWithTracking: number;
   }>;
+
+  // ========================================
+  // Customer Activity System Methods
+  // ========================================
+
+  // Customer Activity Events
+  createActivityEvent(data: InsertCustomerActivityEvent): Promise<CustomerActivityEvent>;
+  getActivityEventsByCustomer(customerId: string): Promise<CustomerActivityEvent[]>;
+  getRecentActivityEvents(limit?: number): Promise<CustomerActivityEvent[]>;
+
+  // Follow-up Tasks
+  createFollowUpTask(data: InsertFollowUpTask): Promise<FollowUpTask>;
+  getFollowUpTasksByCustomer(customerId: string): Promise<FollowUpTask[]>;
+  getPendingFollowUpTasks(): Promise<FollowUpTask[]>;
+  updateFollowUpTask(id: number, data: Partial<InsertFollowUpTask>): Promise<FollowUpTask | undefined>;
+  completeFollowUpTask(id: number, completedBy: string, notes?: string): Promise<FollowUpTask | undefined>;
+  getOverdueFollowUpTasks(): Promise<FollowUpTask[]>;
+  getTodayFollowUpTasks(): Promise<FollowUpTask[]>;
+
+  // Product Exposure
+  createProductExposure(data: InsertProductExposureLog): Promise<ProductExposureLog>;
+  getProductExposureByCustomer(customerId: string): Promise<ProductExposureLog[]>;
+
+  // Engagement Summary
+  getEngagementSummary(customerId: string): Promise<CustomerEngagementSummary | undefined>;
+  updateEngagementSummary(customerId: string, data: Partial<InsertCustomerEngagementSummary>): Promise<CustomerEngagementSummary | undefined>;
+
+  // Follow-up Config
+  getFollowUpConfig(): Promise<FollowUpConfig[]>;
+  updateFollowUpConfig(eventType: string, data: Partial<InsertFollowUpConfig>): Promise<FollowUpConfig | undefined>;
+  initDefaultFollowUpConfig(): Promise<void>;
 }
 
 // Removed: MemStorage class - Legacy in-memory storage implementation
@@ -1984,6 +2032,200 @@ export class DatabaseStorage implements IStorage {
       samplesWithTracking,
       swatchesWithTracking,
     };
+  }
+
+  // ========================================
+  // Customer Activity System Implementation
+  // ========================================
+
+  // Customer Activity Events
+  async createActivityEvent(data: InsertCustomerActivityEvent): Promise<CustomerActivityEvent> {
+    const [event] = await db.insert(customerActivityEvents).values(data).returning();
+    return event;
+  }
+
+  async getActivityEventsByCustomer(customerId: string): Promise<CustomerActivityEvent[]> {
+    return await db
+      .select()
+      .from(customerActivityEvents)
+      .where(eq(customerActivityEvents.customerId, customerId))
+      .orderBy(desc(customerActivityEvents.eventDate));
+  }
+
+  async getRecentActivityEvents(limit: number = 50): Promise<CustomerActivityEvent[]> {
+    return await db
+      .select()
+      .from(customerActivityEvents)
+      .orderBy(desc(customerActivityEvents.eventDate))
+      .limit(limit);
+  }
+
+  // Follow-up Tasks
+  async createFollowUpTask(data: InsertFollowUpTask): Promise<FollowUpTask> {
+    const [task] = await db.insert(followUpTasks).values(data).returning();
+    return task;
+  }
+
+  async getFollowUpTasksByCustomer(customerId: string): Promise<FollowUpTask[]> {
+    return await db
+      .select()
+      .from(followUpTasks)
+      .where(eq(followUpTasks.customerId, customerId))
+      .orderBy(desc(followUpTasks.dueDate));
+  }
+
+  async getPendingFollowUpTasks(): Promise<FollowUpTask[]> {
+    return await db
+      .select()
+      .from(followUpTasks)
+      .where(eq(followUpTasks.status, 'pending'))
+      .orderBy(followUpTasks.dueDate);
+  }
+
+  async updateFollowUpTask(id: number, data: Partial<InsertFollowUpTask>): Promise<FollowUpTask | undefined> {
+    const [task] = await db
+      .update(followUpTasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(followUpTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async completeFollowUpTask(id: number, completedBy: string, notes?: string): Promise<FollowUpTask | undefined> {
+    const [task] = await db
+      .update(followUpTasks)
+      .set({
+        status: 'completed',
+        completedAt: new Date(),
+        completedBy,
+        completionNotes: notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(followUpTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async getOverdueFollowUpTasks(): Promise<FollowUpTask[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(followUpTasks)
+      .where(
+        and(
+          eq(followUpTasks.status, 'pending'),
+          sql`${followUpTasks.dueDate} < ${now}`
+        )
+      )
+      .orderBy(followUpTasks.dueDate);
+  }
+
+  async getTodayFollowUpTasks(): Promise<FollowUpTask[]> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    return await db
+      .select()
+      .from(followUpTasks)
+      .where(
+        and(
+          eq(followUpTasks.status, 'pending'),
+          sql`${followUpTasks.dueDate} >= ${todayStart}`,
+          sql`${followUpTasks.dueDate} <= ${todayEnd}`
+        )
+      )
+      .orderBy(followUpTasks.dueDate);
+  }
+
+  // Product Exposure
+  async createProductExposure(data: InsertProductExposureLog): Promise<ProductExposureLog> {
+    const [exposure] = await db.insert(productExposureLog).values(data).returning();
+    return exposure;
+  }
+
+  async getProductExposureByCustomer(customerId: string): Promise<ProductExposureLog[]> {
+    return await db
+      .select()
+      .from(productExposureLog)
+      .where(eq(productExposureLog.customerId, customerId))
+      .orderBy(desc(productExposureLog.createdAt));
+  }
+
+  // Engagement Summary
+  async getEngagementSummary(customerId: string): Promise<CustomerEngagementSummary | undefined> {
+    const [summary] = await db
+      .select()
+      .from(customerEngagementSummary)
+      .where(eq(customerEngagementSummary.customerId, customerId));
+    return summary;
+  }
+
+  async updateEngagementSummary(customerId: string, data: Partial<InsertCustomerEngagementSummary>): Promise<CustomerEngagementSummary | undefined> {
+    const existing = await this.getEngagementSummary(customerId);
+    
+    if (existing) {
+      const [summary] = await db
+        .update(customerEngagementSummary)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(customerEngagementSummary.customerId, customerId))
+        .returning();
+      return summary;
+    } else {
+      const [summary] = await db
+        .insert(customerEngagementSummary)
+        .values({ customerId, ...data } as any)
+        .returning();
+      return summary;
+    }
+  }
+
+  // Follow-up Config
+  async getFollowUpConfig(): Promise<FollowUpConfig[]> {
+    return await db.select().from(followUpConfig).orderBy(followUpConfig.eventType);
+  }
+
+  async updateFollowUpConfig(eventType: string, data: Partial<InsertFollowUpConfig>): Promise<FollowUpConfig | undefined> {
+    const [existing] = await db
+      .select()
+      .from(followUpConfig)
+      .where(eq(followUpConfig.eventType, eventType));
+    
+    if (existing) {
+      const [config] = await db
+        .update(followUpConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(followUpConfig.eventType, eventType))
+        .returning();
+      return config;
+    } else {
+      const [config] = await db
+        .insert(followUpConfig)
+        .values({ eventType, ...data } as any)
+        .returning();
+      return config;
+    }
+  }
+
+  async initDefaultFollowUpConfig(): Promise<void> {
+    const defaultConfigs = [
+      { eventType: 'quote_sent', isEnabled: true, defaultDelayDays: 3, defaultPriority: 'normal', taskTitle: 'Follow up on sent quote' },
+      { eventType: 'sample_shipped', isEnabled: true, defaultDelayDays: 7, defaultPriority: 'normal', taskTitle: 'Check if sample was received' },
+      { eventType: 'sample_delivered', isEnabled: true, defaultDelayDays: 3, defaultPriority: 'high', taskTitle: 'Get feedback on sample' },
+      { eventType: 'price_list_sent', isEnabled: true, defaultDelayDays: 5, defaultPriority: 'normal', taskTitle: 'Follow up on price list' },
+    ];
+
+    for (const config of defaultConfigs) {
+      const [existing] = await db
+        .select()
+        .from(followUpConfig)
+        .where(eq(followUpConfig.eventType, config.eventType));
+      
+      if (!existing) {
+        await db.insert(followUpConfig).values(config);
+      }
+    }
   }
 }
 

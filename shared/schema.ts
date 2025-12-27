@@ -870,3 +870,223 @@ export const insertPressTestJourneyDetailSchema = createInsertSchema(pressTestJo
 });
 export type PressTestJourneyDetail = typeof pressTestJourneyDetails.$inferSelect;
 export type InsertPressTestJourneyDetail = z.infer<typeof insertPressTestJourneyDetailSchema>;
+
+// =====================================================
+// CUSTOMER ACTIVITY SYSTEM - Auto-tracked engagement
+// =====================================================
+
+// Activity Event Types - all possible auto-tracked events
+export const ACTIVITY_EVENT_TYPES = [
+  'quote_sent',           // QuickQuote created and sent
+  'quote_viewed',         // Customer viewed the quote
+  'quote_accepted',       // Customer accepted the quote
+  'quote_rejected',       // Customer rejected the quote
+  'price_list_sent',      // Price list downloaded/sent
+  'price_list_viewed',    // Customer viewed price list
+  'sample_requested',     // Sample request created
+  'sample_shipped',       // Sample shipped with tracking
+  'sample_delivered',     // Sample delivered
+  'sample_feedback',      // Feedback received on sample
+  'call_made',            // Phone call made
+  'call_received',        // Phone call received
+  'email_sent',           // Email sent to customer
+  'email_received',       // Email received from customer
+  'meeting_scheduled',    // Meeting scheduled
+  'meeting_completed',    // Meeting completed
+  'product_info_shared',  // Product brochure/info shared
+  'order_placed',         // Customer placed an order
+  'note_added',           // Manual note added
+] as const;
+export type ActivityEventType = typeof ACTIVITY_EVENT_TYPES[number];
+
+// Customer Activity Events - unified timeline of all interactions (auto-logged)
+export const customerActivityEvents = pgTable("customer_activity_events", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // from ACTIVITY_EVENT_TYPES
+  title: varchar("title", { length: 255 }).notNull(), // e.g., "Quote #Q-1234 sent"
+  description: text("description"), // Details about the event
+  
+  // Auto-tracking source
+  sourceType: varchar("source_type", { length: 50 }), // 'auto' or 'manual'
+  sourceId: varchar("source_id"), // ID of the source record (quote ID, sample ID, etc.)
+  sourceTable: varchar("source_table", { length: 50 }), // Table name for reference
+  
+  // Financial info (for quotes/orders)
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  itemCount: integer("item_count"),
+  
+  // Product info (for samples, product shares)
+  productId: integer("product_id").references(() => productPricingMaster.id),
+  productName: varchar("product_name", { length: 255 }),
+  
+  // Who did this action
+  createdBy: varchar("created_by"),
+  createdByName: varchar("created_by_name", { length: 255 }),
+  
+  // Timestamps
+  eventDate: timestamp("event_date").defaultNow(), // When the event occurred
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCustomerActivityEventSchema = createInsertSchema(customerActivityEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type CustomerActivityEvent = typeof customerActivityEvents.$inferSelect;
+export type InsertCustomerActivityEvent = z.infer<typeof insertCustomerActivityEventSchema>;
+
+// Follow-up Task Status
+export const FOLLOW_UP_STATUS = ['pending', 'completed', 'snoozed', 'cancelled'] as const;
+export type FollowUpStatus = typeof FOLLOW_UP_STATUS[number];
+
+// Follow-up Task Priority
+export const FOLLOW_UP_PRIORITY = ['low', 'normal', 'high', 'urgent'] as const;
+export type FollowUpPriority = typeof FOLLOW_UP_PRIORITY[number];
+
+// Follow-up Tasks - scheduled actions for sales team (auto-created from events)
+export const followUpTasks = pgTable("follow_up_tasks", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  
+  // Task details
+  title: varchar("title", { length: 255 }).notNull(), // e.g., "Follow up on Quote #Q-1234"
+  description: text("description"),
+  taskType: varchar("task_type", { length: 50 }).notNull(), // quote_follow_up, sample_follow_up, check_in, etc.
+  priority: varchar("priority", { length: 20 }).notNull().default("normal"), // low, normal, high, urgent
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, completed, snoozed, cancelled
+  
+  // Scheduling
+  dueDate: timestamp("due_date").notNull(), // When this should be done
+  reminderDate: timestamp("reminder_date"), // Optional reminder before due date
+  snoozedUntil: timestamp("snoozed_until"), // If snoozed, when to resurface
+  
+  // Link to source activity
+  sourceEventId: integer("source_event_id").references(() => customerActivityEvents.id, { onDelete: "set null" }),
+  sourceType: varchar("source_type", { length: 50 }), // What triggered this: 'quote', 'sample', 'idle_account', etc.
+  sourceId: varchar("source_id"), // ID of the source (quote ID, sample ID)
+  
+  // Assignment
+  assignedTo: varchar("assigned_to"), // User ID of assignee
+  assignedToName: varchar("assigned_to_name", { length: 255 }),
+  
+  // Completion
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"),
+  completionNotes: text("completion_notes"),
+  
+  // Auto-created flag
+  isAutoGenerated: boolean("is_auto_generated").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFollowUpTaskSchema = createInsertSchema(followUpTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FollowUpTask = typeof followUpTasks.$inferSelect;
+export type InsertFollowUpTask = z.infer<typeof insertFollowUpTaskSchema>;
+
+// Product Exposure Log - which products have been shared with each customer
+export const productExposureLog = pgTable("product_exposure_log", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  productId: integer("product_id").references(() => productPricingMaster.id),
+  productName: varchar("product_name", { length: 255 }).notNull(),
+  productCategory: varchar("product_category", { length: 100 }),
+  
+  // How was it shared
+  exposureType: varchar("exposure_type", { length: 50 }).notNull(), // 'quote', 'sample', 'brochure', 'price_list', 'email', 'meeting'
+  sourceId: varchar("source_id"), // Link to quote, sample, etc.
+  
+  // Outcome tracking
+  customerInterest: varchar("customer_interest", { length: 50 }), // 'high', 'medium', 'low', 'none', 'unknown'
+  hasOrdered: boolean("has_ordered").default(false),
+  orderDate: timestamp("order_date"),
+  
+  // Who shared it
+  sharedBy: varchar("shared_by"),
+  sharedByName: varchar("shared_by_name", { length: 255 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProductExposureLogSchema = createInsertSchema(productExposureLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type ProductExposureLog = typeof productExposureLog.$inferSelect;
+export type InsertProductExposureLog = z.infer<typeof insertProductExposureLogSchema>;
+
+// Customer Engagement Summary - aggregated stats for quick access (updated periodically)
+export const customerEngagementSummary = pgTable("customer_engagement_summary", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().unique().references(() => customers.id, { onDelete: "cascade" }),
+  
+  // Contact cadence
+  lastContactDate: timestamp("last_contact_date"),
+  daysSinceLastContact: integer("days_since_last_contact"),
+  totalContactsLast30Days: integer("total_contacts_last_30_days").default(0),
+  totalContactsLast90Days: integer("total_contacts_last_90_days").default(0),
+  
+  // Quote activity
+  totalQuotesSent: integer("total_quotes_sent").default(0),
+  quotesLast30Days: integer("quotes_last_30_days").default(0),
+  lastQuoteDate: timestamp("last_quote_date"),
+  openQuotesCount: integer("open_quotes_count").default(0),
+  quotesWithoutFollowUp: integer("quotes_without_follow_up").default(0),
+  
+  // Sample activity
+  totalSamplesSent: integer("total_samples_sent").default(0),
+  samplesLast90Days: integer("samples_last_90_days").default(0),
+  lastSampleDate: timestamp("last_sample_date"),
+  samplesWithoutConversion: integer("samples_without_conversion").default(0), // Samples that didn't lead to orders
+  
+  // Product exposure
+  productsExposedCount: integer("products_exposed_count").default(0),
+  productCategoriesExposed: text("product_categories_exposed").array().default([]),
+  
+  // Engagement score (0-100)
+  engagementScore: integer("engagement_score").default(0),
+  engagementTrend: varchar("engagement_trend", { length: 20 }), // 'improving', 'declining', 'stable'
+  
+  // Alerts/flags
+  needsAttention: boolean("needs_attention").default(false),
+  attentionReason: varchar("attention_reason", { length: 255 }),
+  
+  // Timestamps
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerEngagementSummarySchema = createInsertSchema(customerEngagementSummary).omit({
+  id: true,
+  updatedAt: true,
+});
+export type CustomerEngagementSummary = typeof customerEngagementSummary.$inferSelect;
+export type InsertCustomerEngagementSummary = z.infer<typeof insertCustomerEngagementSummarySchema>;
+
+// Follow-up Configuration - settings for auto-generated follow-ups
+export const followUpConfig = pgTable("follow_up_config", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 50 }).notNull().unique(), // from ACTIVITY_EVENT_TYPES
+  isEnabled: boolean("is_enabled").default(true),
+  defaultDelayDays: integer("default_delay_days").notNull().default(1), // Days until follow-up due
+  defaultPriority: varchar("default_priority", { length: 20 }).default("normal"),
+  taskTitle: varchar("task_title", { length: 255 }).notNull(), // Template: "Follow up on {event}"
+  taskDescription: text("task_description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFollowUpConfigSchema = createInsertSchema(followUpConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FollowUpConfig = typeof followUpConfig.$inferSelect;
+export type InsertFollowUpConfig = z.infer<typeof insertFollowUpConfigSchema>;
