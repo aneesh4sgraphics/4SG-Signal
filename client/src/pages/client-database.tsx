@@ -153,6 +153,7 @@ export default function ClientDatabase() {
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [mergeFieldSelections, setMergeFieldSelections] = useState<Record<string, string>>({});
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // For bulk actions
   const [showSamplesFilter, setShowSamplesFilter] = useState(false); // Filter for samples sent card
   const [showDataCleanupFilter, setShowDataCleanupFilter] = useState(false); // Filter for incomplete data
@@ -562,8 +563,8 @@ export default function ClientDatabase() {
   });
 
   const mergeCustomersMutation = useMutation({
-    mutationFn: async ({ targetId, sourceId }: { targetId: string; sourceId: string }) => {
-      return await apiRequest("POST", `/api/customers/merge`, { targetId, sourceId });
+    mutationFn: async ({ targetId, sourceId, fieldSelections }: { targetId: string; sourceId: string; fieldSelections?: Record<string, string> }) => {
+      return await apiRequest("POST", `/api/customers/merge`, { targetId, sourceId, fieldSelections });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -575,6 +576,8 @@ export default function ClientDatabase() {
       setShowMergeDialog(false);
       setSelectedForMerge(new Set());
       setMergeTarget(null);
+      setMergeFieldSelections({});
+      setBulkSelected(new Set());
     },
     onError: (error: any) => {
       toast({
@@ -602,18 +605,33 @@ export default function ClientDatabase() {
   };
 
   const handleMerge = () => {
-    console.log('handleMerge called', { selectedForMerge: Array.from(selectedForMerge), mergeTarget });
+    console.log('handleMerge called', { selectedForMerge: Array.from(selectedForMerge), mergeTarget, mergeFieldSelections });
     if (selectedForMerge.size === 2 && mergeTarget) {
       const ids = Array.from(selectedForMerge);
       const sourceId = ids.find(id => id !== mergeTarget);
-      console.log('Merging customers', { targetId: mergeTarget, sourceId });
+      console.log('Merging customers', { targetId: mergeTarget, sourceId, fieldSelections: mergeFieldSelections });
       if (sourceId) {
-        mergeCustomersMutation.mutate({ targetId: mergeTarget, sourceId });
+        mergeCustomersMutation.mutate({ targetId: mergeTarget, sourceId, fieldSelections: mergeFieldSelections });
       }
     } else {
       console.log('Merge conditions not met', { size: selectedForMerge.size, mergeTarget });
     }
   };
+
+  const mergeFields = [
+    { key: 'firstName', label: 'First Name' },
+    { key: 'lastName', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'company', label: 'Company' },
+    { key: 'address1', label: 'Address' },
+    { key: 'city', label: 'City' },
+    { key: 'province', label: 'Province/State' },
+    { key: 'country', label: 'Country' },
+    { key: 'zip', label: 'Postal Code' },
+    { key: 'tags', label: 'Tags' },
+    { key: 'note', label: 'Notes' },
+  ];
 
   const deleteCustomerMutation = useMutation({
     mutationFn: async (customerId: string) => {
@@ -1639,6 +1657,26 @@ export default function ClientDatabase() {
                 <TooltipContent>Send email to selected clients</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {bulkSelected.size === 2 && isAdmin && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => {
+                        setSelectedForMerge(new Set(bulkSelected));
+                        setShowMergeDialog(true);
+                      }}
+                      data-testid="button-bulk-merge"
+                    >
+                      <GitMerge className="h-3 w-3" /> Merge
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Merge selected clients into one record</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {isAdmin && (
               <TooltipProvider>
                 <Tooltip>
@@ -2148,68 +2186,124 @@ export default function ClientDatabase() {
         </CardContent>
       </Card>
 
-      {/* Simplified Merge Dialog */}
+      {/* Side-by-Side Merge Dialog */}
       <Dialog open={showMergeDialog} onOpenChange={(open) => {
         setShowMergeDialog(open);
-        if (!open) setMergeTarget(null);
+        if (!open) {
+          setMergeTarget(null);
+          setMergeFieldSelections({});
+        }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitMerge className="h-5 w-5 text-blue-600" />
               Merge Clients
             </DialogTitle>
             <DialogDescription>
-              Select which client to keep. Missing info will be filled from the other record.
+              Compare both clients and select which values to keep for each field. Click on a value to select it.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3 py-4">
-            {getSelectedCustomers().length === 0 ? (
-              <p className="text-center text-gray-500">No customers selected. Please close and select 2 clients first.</p>
-            ) : (
-              getSelectedCustomers().map((customer) => {
-                const isTarget = mergeTarget === customer.id;
-                console.log('Merge dialog rendering customer:', customer.id, 'isTarget:', isTarget, 'mergeTarget:', mergeTarget);
-                return (
-                  <button
-                    key={customer.id}
-                    type="button"
-                    onClick={() => {
-                      console.log('Setting merge target to:', customer.id);
-                      setMergeTarget(customer.id);
-                    }}
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                      isTarget 
-                        ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        isTarget ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                      }`}>
-                        {isTarget && <Check className="h-3 w-3 text-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 truncate">{getCompanyDisplayName(customer)}</h4>
-                        <p className="text-sm text-gray-500 truncate">{customer.email || 'No email'}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {[customer.phone, customer.city].filter(Boolean).join(' • ') || 'No details'}
-                        </p>
-                      </div>
-                      {isTarget && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex-shrink-0">Keep</span>
-                      )}
+          {(() => {
+            const selectedCustomers = getSelectedCustomers();
+            if (selectedCustomers.length !== 2) {
+              return <p className="text-center text-gray-500 py-4">Please select exactly 2 clients to merge.</p>;
+            }
+            const [clientA, clientB] = selectedCustomers;
+            
+            return (
+              <div className="space-y-4 py-4">
+                {/* Client Headers */}
+                <div className="grid grid-cols-3 gap-4 pb-3 border-b">
+                  <div className="font-medium text-gray-500 text-sm">Field</div>
+                  <div className="text-center">
+                    <div className={`p-3 rounded-lg border-2 transition-all ${mergeTarget === clientA.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <button
+                        type="button"
+                        onClick={() => setMergeTarget(clientA.id)}
+                        className="w-full text-left"
+                      >
+                        <h4 className="font-semibold text-gray-900 truncate">{getCompanyDisplayName(clientA)}</h4>
+                        <p className="text-xs text-gray-500">{clientA.email || 'No email'}</p>
+                        {mergeTarget === clientA.id && (
+                          <span className="inline-block mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Primary Record</span>
+                        )}
+                      </button>
                     </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`p-3 rounded-lg border-2 transition-all ${mergeTarget === clientB.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <button
+                        type="button"
+                        onClick={() => setMergeTarget(clientB.id)}
+                        className="w-full text-left"
+                      >
+                        <h4 className="font-semibold text-gray-900 truncate">{getCompanyDisplayName(clientB)}</h4>
+                        <p className="text-xs text-gray-500">{clientB.email || 'No email'}</p>
+                        {mergeTarget === clientB.id && (
+                          <span className="inline-block mt-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Primary Record</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Field Comparison Rows */}
+                <div className="space-y-2">
+                  {mergeFields.map(({ key, label }) => {
+                    const valueA = (clientA as any)[key] || '';
+                    const valueB = (clientB as any)[key] || '';
+                    const selectedValue = mergeFieldSelections[key];
+                    const isDifferent = valueA !== valueB;
+                    
+                    return (
+                      <div 
+                        key={key} 
+                        className={`grid grid-cols-3 gap-4 py-2 px-2 rounded ${isDifferent ? 'bg-amber-50' : ''}`}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium text-gray-600">{label}</span>
+                          {isDifferent && <span className="ml-2 text-xs text-amber-600">Different</span>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: clientA.id }))}
+                          className={`p-2 text-left rounded border transition-all text-sm ${
+                            selectedValue === clientA.id 
+                              ? 'border-green-500 bg-green-50 ring-1 ring-green-500' 
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {valueA || <span className="text-gray-400 italic">Empty</span>}
+                          {selectedValue === clientA.id && <Check className="inline ml-2 h-3 w-3 text-green-600" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: clientB.id }))}
+                          className={`p-2 text-left rounded border transition-all text-sm ${
+                            selectedValue === clientB.id 
+                              ? 'border-green-500 bg-green-50 ring-1 ring-green-500' 
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {valueB || <span className="text-gray-400 italic">Empty</span>}
+                          {selectedValue === clientB.id && <Check className="inline ml-2 h-3 w-3 text-green-600" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="pt-3 border-t text-sm text-gray-500">
+                  <p>The primary record will be kept. Fields you select will be used. Unselected fields will use the primary record's values.</p>
+                </div>
+              </div>
+            );
+          })()}
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowMergeDialog(false); setMergeTarget(null); }}>
+            <Button variant="outline" onClick={() => { setShowMergeDialog(false); setMergeTarget(null); setMergeFieldSelections({}); }}>
               Cancel
             </Button>
             <Button 
@@ -2218,7 +2312,7 @@ export default function ClientDatabase() {
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-confirm-merge"
             >
-              {mergeCustomersMutation.isPending ? 'Merging...' : 'Merge'}
+              {mergeCustomersMutation.isPending ? 'Merging...' : 'Merge Clients'}
             </Button>
           </DialogFooter>
         </DialogContent>
