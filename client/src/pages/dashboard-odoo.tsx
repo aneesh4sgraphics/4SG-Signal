@@ -48,6 +48,7 @@ interface CRMStats {
   pendingSamples: number;
   pendingSwatches: number;
   activePressProfiles: number;
+  pendingFeedback: number;
 }
 
 const appTiles = [
@@ -825,6 +826,32 @@ export default function Dashboard() {
                     <strong style={{ color: '#1e293b' }}>{crmStats.quotesLast30Days}</strong> quotes (30 days)
                   </span>
                 </div>
+                {crmStats.pendingFeedback > 0 && (
+                  <Link 
+                    href="/crm-samples" 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      textDecoration: 'none',
+                      padding: '4px 12px',
+                      borderRadius: '16px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)'
+                    }}
+                  >
+                    <div style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      animation: 'pulse 2s infinite'
+                    }} />
+                    <span style={{ fontSize: '14px', color: '#ef4444', fontWeight: '600' }}>
+                      <strong>{crmStats.pendingFeedback}</strong> awaiting feedback
+                    </span>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

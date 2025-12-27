@@ -109,7 +109,7 @@ import {
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
-import { eq, desc, and, sql, ilike, or, gte } from "drizzle-orm";
+import { eq, desc, and, sql, ilike, or, gte, isNull, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations for Replit Auth
@@ -346,6 +346,7 @@ export interface IStorage {
     pendingSamples: number;
     pendingSwatches: number;
     activePressProfiles: number;
+    pendingFeedback: number;
   }>;
 }
 
@@ -1797,6 +1798,7 @@ export class DatabaseStorage implements IStorage {
     pendingSamples: number;
     pendingSwatches: number;
     activePressProfiles: number;
+    pendingFeedback: number;
   }> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -1845,6 +1847,24 @@ export class DatabaseStorage implements IStorage {
     const allPressProfiles = await db.select({ id: pressProfiles.id }).from(pressProfiles);
     const activePressProfiles = allPressProfiles.length;
 
+    // Pending feedback: Press test journeys with tracking/received but no result
+    const pendingFeedbackList = await db
+      .select({ id: pressTestJourneyDetails.id })
+      .from(pressTestJourneyDetails)
+      .innerJoin(customerJourneyInstances, eq(pressTestJourneyDetails.instanceId, customerJourneyInstances.id))
+      .where(
+        and(
+          eq(customerJourneyInstances.journeyType, 'press_test'),
+          eq(customerJourneyInstances.status, 'in_progress'),
+          or(
+            isNotNull(pressTestJourneyDetails.trackingNumber),
+            isNotNull(pressTestJourneyDetails.receivedAt)
+          ),
+          isNull(pressTestJourneyDetails.result)
+        )
+      );
+    const pendingFeedback = pendingFeedbackList.length;
+
     return {
       stageCounts,
       totalActiveJourneys: journeys.length,
@@ -1855,6 +1875,7 @@ export class DatabaseStorage implements IStorage {
       pendingSamples,
       pendingSwatches,
       activePressProfiles,
+      pendingFeedback,
     };
   }
 }
