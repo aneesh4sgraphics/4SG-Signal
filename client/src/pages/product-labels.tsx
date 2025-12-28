@@ -257,6 +257,23 @@ export default function ProductLabels() {
                       ))}
                     </div>
                   )}
+                  {searchQuery && searchQuery.length >= 2 && notionProducts.length === 0 && !notionError && (
+                    <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                      <p className="text-sm text-amber-800 font-medium">No products found</p>
+                      <p className="text-xs text-amber-600 mt-1">
+                        Make sure your Notion product database is shared with the Replit integration. 
+                        In Notion, open your database → click "..." → Connections → Add Replit.
+                      </p>
+                    </div>
+                  )}
+                  {notionError && (
+                    <div className="border border-red-200 bg-red-50 rounded-lg p-3">
+                      <p className="text-sm text-red-800 font-medium">Unable to connect to Notion</p>
+                      <p className="text-xs text-red-600 mt-1">
+                        Please check that the Notion integration is properly connected.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
