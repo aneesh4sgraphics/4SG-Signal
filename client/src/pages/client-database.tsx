@@ -235,12 +235,16 @@ export default function ClientDatabase() {
 
   // Check if customer has received a swatch book
   const hasSwatchBook = (customerId: string): boolean => {
-    return swatchBookShipments.some((s: any) => s.customerId === customerId);
+    return swatchBookShipments.some((s: any) => 
+      String(s.customerId) === customerId || s.customerId === customerId
+    );
   };
 
   // Check if customer has received a press kit
   const hasPressKit = (customerId: string): boolean => {
-    return pressKitShipments.some((s: any) => s.customerId === customerId);
+    return pressKitShipments.some((s: any) => 
+      String(s.customerId) === customerId || s.customerId === customerId
+    );
   };
   
   // Check if customer has missing details
