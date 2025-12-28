@@ -28,6 +28,7 @@ import {
   insertValidationEventSchema,
   insertSwatchSchema,
   insertSwatchBookShipmentSchema,
+  insertPressKitShipmentSchema,
   insertSwatchSelectionSchema,
   insertCustomerJourneySchema,
   insertQuoteEventSchema,
@@ -5140,6 +5141,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating swatch book shipment:", error);
       res.status(500).json({ error: "Failed to update swatch book shipment" });
+    }
+  });
+
+  // Press Kit Shipments
+  app.get("/api/crm/press-kit-shipments", isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.query.customerId as string | undefined;
+      const shipments = await storage.getPressKitShipments(customerId);
+      res.json(shipments);
+    } catch (error) {
+      console.error("Error fetching press kit shipments:", error);
+      res.status(500).json({ error: "Failed to fetch press kit shipments" });
+    }
+  });
+
+  app.post("/api/crm/press-kit-shipments", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPressKitShipmentSchema.parse(req.body);
+      const shipment = await storage.createPressKitShipment(validatedData);
+      res.status(201).json(shipment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating press kit shipment:", error);
+      res.status(500).json({ error: "Failed to create press kit shipment" });
+    }
+  });
+
+  app.put("/api/crm/press-kit-shipments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPressKitShipmentSchema.partial().parse(req.body);
+      const shipment = await storage.updatePressKitShipment(parseInt(req.params.id), validatedData);
+      if (!shipment) {
+        return res.status(404).json({ error: "Press kit shipment not found" });
+      }
+      res.json(shipment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating press kit shipment:", error);
+      res.status(500).json({ error: "Failed to update press kit shipment" });
     }
   });
 

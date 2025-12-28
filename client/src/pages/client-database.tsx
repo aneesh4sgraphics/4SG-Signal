@@ -71,6 +71,8 @@ import {
   GitMerge,
   Check,
   GripVertical,
+  BookOpen,
+  Printer,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import {
@@ -191,6 +193,16 @@ export default function ClientDatabase() {
     queryKey: ['/api/crm/sample-requests'],
   });
   const totalSamplesSent = sampleRequests.filter((s: any) => s.status === 'shipped' || s.status === 'completed').length;
+
+  // Fetch swatch book shipments
+  const { data: swatchBookShipments = [] } = useQuery<any[]>({
+    queryKey: ['/api/crm/swatch-shipments'],
+  });
+
+  // Fetch press kit shipments
+  const { data: pressKitShipments = [] } = useQuery<any[]>({
+    queryKey: ['/api/crm/press-kit-shipments'],
+  });
   
   // Calculate total quotes sent
   const totalQuotesSent = Object.values(quoteCounts).reduce((sum, count) => sum + count, 0);
@@ -219,6 +231,16 @@ export default function ClientDatabase() {
     return sampleRequests.filter((s: any) => 
       s.customerId === parseInt(customerId) || s.customerId === customerId
     ).length;
+  };
+
+  // Check if customer has received a swatch book
+  const hasSwatchBook = (customerId: string): boolean => {
+    return swatchBookShipments.some((s: any) => s.customerId === customerId);
+  };
+
+  // Check if customer has received a press kit
+  const hasPressKit = (customerId: string): boolean => {
+    return pressKitShipments.some((s: any) => s.customerId === customerId);
   };
   
   // Check if customer has missing details
@@ -1818,6 +1840,8 @@ export default function ClientDatabase() {
                 <span className="flex-1 min-w-[200px]">Company</span>
                 <span className="w-24 text-center hidden md:block">Source</span>
                 <span className="w-20 text-center hidden lg:block">Quotes</span>
+                <span className="w-16 text-center hidden lg:block">Swatch</span>
+                <span className="w-16 text-center hidden lg:block">Press Kit</span>
                 <span className="w-48 hidden lg:block">Email</span>
                 <span className="w-20 text-right">Actions</span>
               </div>
@@ -1887,6 +1911,20 @@ export default function ClientDatabase() {
                           )}
                           {totalSamples > 0 && (
                             <span className="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded">{totalSamples}S</span>
+                          )}
+                        </div>
+
+                        {/* Swatch Book */}
+                        <div className="w-16 flex items-center justify-center hidden lg:flex">
+                          {hasSwatchBook(primary.id) && (
+                            <BookOpen className="h-4 w-4 text-purple-600" />
+                          )}
+                        </div>
+
+                        {/* Press Kit */}
+                        <div className="w-16 flex items-center justify-center hidden lg:flex">
+                          {hasPressKit(primary.id) && (
+                            <Printer className="h-4 w-4 text-orange-600" />
                           )}
                         </div>
                         

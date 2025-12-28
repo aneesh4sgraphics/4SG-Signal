@@ -49,6 +49,8 @@ import {
   type InsertSwatch,
   type SwatchBookShipment,
   type InsertSwatchBookShipment,
+  type PressKitShipment,
+  type InsertPressKitShipment,
   type SwatchSelection,
   type InsertSwatchSelection,
   type CustomerJourney,
@@ -96,6 +98,7 @@ import {
   validationEvents,
   swatches,
   swatchBookShipments,
+  pressKitShipments,
   swatchSelections,
   customerJourney,
   quoteEvents,
@@ -324,6 +327,12 @@ export interface IStorage {
   getSwatchBookShipment(id: number): Promise<SwatchBookShipment | undefined>;
   createSwatchBookShipment(data: InsertSwatchBookShipment): Promise<SwatchBookShipment>;
   updateSwatchBookShipment(id: number, data: Partial<InsertSwatchBookShipment>): Promise<SwatchBookShipment | undefined>;
+
+  // Press Kit Shipments
+  getPressKitShipments(customerId?: string): Promise<PressKitShipment[]>;
+  getPressKitShipment(id: number): Promise<PressKitShipment | undefined>;
+  createPressKitShipment(data: InsertPressKitShipment): Promise<PressKitShipment>;
+  updatePressKitShipment(id: number, data: Partial<InsertPressKitShipment>): Promise<PressKitShipment | undefined>;
 
   // Swatch Selections
   getSwatchSelections(customerId?: string): Promise<SwatchSelection[]>;
@@ -1704,6 +1713,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateSwatchBookShipment(id: number, data: Partial<InsertSwatchBookShipment>): Promise<SwatchBookShipment | undefined> {
     const [shipment] = await db.update(swatchBookShipments).set(data).where(eq(swatchBookShipments.id, id)).returning();
+    return shipment;
+  }
+
+  // Press Kit Shipments
+  async getPressKitShipments(customerId?: string): Promise<PressKitShipment[]> {
+    if (customerId) {
+      return await db.select().from(pressKitShipments).where(eq(pressKitShipments.customerId, customerId)).orderBy(desc(pressKitShipments.createdAt));
+    }
+    return await db.select().from(pressKitShipments).orderBy(desc(pressKitShipments.createdAt));
+  }
+
+  async getPressKitShipment(id: number): Promise<PressKitShipment | undefined> {
+    const [shipment] = await db.select().from(pressKitShipments).where(eq(pressKitShipments.id, id));
+    return shipment;
+  }
+
+  async createPressKitShipment(data: InsertPressKitShipment): Promise<PressKitShipment> {
+    const [shipment] = await db.insert(pressKitShipments).values(data).returning();
+    return shipment;
+  }
+
+  async updatePressKitShipment(id: number, data: Partial<InsertPressKitShipment>): Promise<PressKitShipment | undefined> {
+    const [shipment] = await db.update(pressKitShipments).set(data).where(eq(pressKitShipments.id, id)).returning();
     return shipment;
   }
 

@@ -661,6 +661,26 @@ export const insertSwatchBookShipmentSchema = createInsertSchema(swatchBookShipm
 export type SwatchBookShipment = typeof swatchBookShipments.$inferSelect;
 export type InsertSwatchBookShipment = z.infer<typeof insertSwatchBookShipmentSchema>;
 
+// Press Kit Shipments - track press kit sends to customers
+export const pressKitShipments = pgTable("press_kit_shipments", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  pressKitVersion: varchar("press_kit_version", { length: 50 }),
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // pending, shipped, delivered, returned
+  shippedAt: timestamp("shipped_at"),
+  receivedAt: timestamp("received_at"),
+  trackingNumber: varchar("tracking_number", { length: 100 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPressKitShipmentSchema = createInsertSchema(pressKitShipments).omit({
+  id: true,
+  createdAt: true,
+});
+export type PressKitShipment = typeof pressKitShipments.$inferSelect;
+export type InsertPressKitShipment = z.infer<typeof insertPressKitShipmentSchema>;
+
 // Swatch Selections - customer picks from swatch book
 export const swatchSelections = pgTable("swatch_selections", {
   id: serial("id").primaryKey(),
