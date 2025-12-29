@@ -448,7 +448,6 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       const res = await apiRequest('POST', '/api/crm/swatch-shipments', {
         customerId: data.customerId,
         status: 'shipped',
-        shippedAt: new Date().toISOString(),
         notes: data.notes || 'Printed address label',
       });
       return res.json();
@@ -458,6 +457,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       toast({ title: "Success", description: "SwatchBook shipment recorded" });
     },
     onError: (error: any) => {
+      console.error('SwatchBook shipment error:', error);
       toast({ title: "Error", description: error.message || "Failed to record shipment", variant: "destructive" });
     },
   });
@@ -467,7 +467,6 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       const res = await apiRequest('POST', '/api/crm/press-kit-shipments', {
         customerId: data.customerId,
         status: 'shipped',
-        shippedAt: new Date().toISOString(),
         notes: data.notes || 'Printed address label',
       });
       return res.json();
@@ -477,6 +476,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       toast({ title: "Success", description: "Press Kit shipment recorded" });
     },
     onError: (error: any) => {
+      console.error('Press Kit shipment error:', error);
       toast({ title: "Error", description: error.message || "Failed to record shipment", variant: "destructive" });
     },
   });
