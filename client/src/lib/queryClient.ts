@@ -5,6 +5,27 @@ import { toast } from "@/hooks/use-toast";
 let sessionExpiredToastShown = false;
 let lastSessionExpiredTime = 0;
 
+// Grace period after login - don't show session expired during this time
+let loginGracePeriodActive = false;
+let loginGracePeriodEnd = 0;
+
+// Check if we just logged in (set by OIDC callback redirect)
+function checkLoginGracePeriod() {
+  const justLoggedIn = sessionStorage.getItem('justLoggedIn');
+  if (justLoggedIn === 'true') {
+    loginGracePeriodActive = true;
+    loginGracePeriodEnd = Date.now() + 5000; // 5 second grace period
+    sessionStorage.removeItem('justLoggedIn');
+  }
+  
+  // Check if grace period has expired
+  if (loginGracePeriodActive && Date.now() > loginGracePeriodEnd) {
+    loginGracePeriodActive = false;
+  }
+  
+  return loginGracePeriodActive;
+}
+
 // Reset the toast shown flag after 30 seconds
 function resetSessionExpiredFlag() {
   setTimeout(() => {
@@ -156,6 +177,17 @@ export const getQueryFn: <T>(options: {
       // Handle 401/403 with toast notification (debounced to prevent spam)
       if (res.status === 401 || res.status === 403) {
         const now = Date.now();
+        const isInGracePeriod = checkLoginGracePeriod();
+        
+        // During grace period after login, don't show session expired - just throw silently
+        if (isInGracePeriod && res.status === 401) {
+          throw new ApiError("Session initializing", {
+            status: res.status,
+            statusText: res.statusText,
+            url: res.url
+          });
+        }
+        
         const message = res.status === 401 
           ? "Session expired. Please log in again."
           : "You don't have permission to access this resource.";

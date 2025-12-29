@@ -402,26 +402,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'approved'
         });
       }
-      const userId = req.user.claims.sub;
       
-      // Development bypass - return mock user data for development
-      if (APP_CONFIG.DEV_MODE && (req.hostname === 'localhost' || req.get('host')?.includes('localhost') || req.get('host')?.includes('replit.dev'))) {
-        return res.json({
-          id: 'dev-user-123',
-          email: process.env.DEV_USER_EMAIL || APP_CONFIG.ADMIN_EMAILS[0],
-          firstName: 'Dev',
-          lastName: 'User',
-          profileImageUrl: 'https://via.placeholder.com/150',
-          role: process.env.DEV_USER_ROLE || 'admin',
-          status: 'approved',
-          loginCount: 1,
-          lastLoginDate: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
+      // Check if user is authenticated before accessing req.user
+      if (!req.isAuthenticated || !req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      // Safely access user claims
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Invalid session" });
       }
       
       const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       debugLog("User data from storage:", user);
       res.json(user);
     } catch (error) {
