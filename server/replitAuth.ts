@@ -1,15 +1,51 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
-
 import passport from "passport";
 import session from "express-session";
-import type { Express, RequestHandler } from "express";
+import type { Express, RequestHandler, Request, Response, NextFunction } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
+const ALLOWED_DOMAIN = "@4sgraphics.com";
+
+const PRE_APPROVED_EMAILS = [
+  "aneesh@4sgraphics.com",
+  "oscar@4sgraphics.com",
+  "santiago@4sgraphics.com",
+  "patricio@4sgraphics.com",
+  "remy@4sgraphics.com",
+  "shiva@4sgraphics.com"
+];
+
+const ADMIN_EMAILS = [
+  "aneesh@4sgraphics.com",
+  "oscar@4sgraphics.com",
+  "shiva@4sgraphics.com"
+];
+
+const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
+
+function isAllowedEmail(email: string | undefined | null): boolean {
+  if (!email || typeof email !== 'string') return false;
+  return email.toLowerCase().endsWith(ALLOWED_DOMAIN);
+}
+
+function isPreApprovedEmail(email: string): boolean {
+  return PRE_APPROVED_EMAILS.includes(email.toLowerCase());
+}
+
+function isAdminEmail(email: string): boolean {
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+function getUserRole(email: string): "admin" | "user" {
+  return isAdminEmail(email) ? "admin" : "user";
+}
+
+function getUserStatus(email: string, existingStatus?: string): "approved" | "pending" {
+  if (existingStatus === "approved") return "approved";
+  return isPreApprovedEmail(email) ? "approved" : "pending";
 }
 
 const getOidcConfig = memoize(
@@ -22,59 +58,35 @@ const getOidcConfig = memoize(
   { maxAge: 3600 * 1000 }
 );
 
-export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  
-  // Check if we're in true development (not Replit deployment)
-  const isDevEnv = process.env.NODE_ENV === 'development' && !process.env.REPLIT_DEPLOYMENT;
-  
-  // In development without database, use memory store for simplicity
-  if (isDevEnv && !process.env.DATABASE_URL) {
-    console.log("Using memory session store for development");
-    return session({
-      secret: process.env.SESSION_SECRET || 'dev-secret-key',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: false,
-        maxAge: sessionTtl,
-      },
-    });
-  }
-  
-  // Use PostgreSQL store for production and Replit environments
+function createSessionMiddleware(): ReturnType<typeof session> {
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: true,
-    ttl: sessionTtl / 1000, // ttl is in seconds for pg-store
+    ttl: Math.floor(SESSION_TTL / 1000),
     tableName: "sessions",
-    pruneSessionInterval: 60 * 15, // Prune expired sessions every 15 minutes
+    pruneSessionInterval: 60 * 15,
   });
-  
-  // IMPORTANT: Replit's proxy terminates TLS and forwards HTTP internally.
-  // If we set secure:true, the browser won't store the cookie because it sees HTTP.
-  // We need secure:false with sameSite:'lax' for cookies to work behind the proxy.
-  // The connection is still secure end-to-end because Replit handles HTTPS externally.
-  console.log(`Session configuration: secure=false (proxy-aware), ttl=${sessionTtl}ms`);
-  
+
+  console.log(`[Auth] Session configured: TTL=${SESSION_TTL}ms, secure=false (proxy-aware)`);
+
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
-    rolling: true, // Reset maxAge on every response, keeping active sessions alive
+    rolling: true,
     cookie: {
       httpOnly: true,
-      secure: false, // Must be false for Replit's proxy - TLS is terminated externally
-      sameSite: 'lax',
-      maxAge: sessionTtl,
+      secure: false,
+      sameSite: "lax",
+      maxAge: SESSION_TTL,
+      path: "/",
     },
   });
 }
 
-function updateUserSession(
+function updateUserTokens(
   user: any,
   tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
 ) {
@@ -84,158 +96,99 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(claims: any) {
-  const email = claims["email"];
-  
-  // Check if email domain is 4sgraphics.com
-  if (!email || !email.endsWith("@4sgraphics.com")) {
-    throw new Error("Only 4sgraphics.com email addresses are allowed");
+async function upsertUserFromClaims(claims: any): Promise<void> {
+  const email = claims["email"]?.toLowerCase();
+
+  if (!isAllowedEmail(email)) {
+    throw new Error(`Access denied: Only ${ALLOWED_DOMAIN} email addresses are allowed`);
   }
-  
-  // List of pre-approved emails
-  const preApprovedEmails = [
-    "aneesh@4sgraphics.com",
-    "oscar@4sgraphics.com", 
-    "santiago@4sgraphics.com",
-    "patricio@4sgraphics.com",
-    "remy@4sgraphics.com",
-    "shiva@4sgraphics.com"
-  ];
-  
-  const isAdmin = email === "aneesh@4sgraphics.com" || email === "oscar@4sgraphics.com" || email === "shiva@4sgraphics.com";
-  const isPreApproved = preApprovedEmails.includes(email);
-  
-  // Extract first name from email if not provided
-  const firstName = claims["first_name"] || email.split('@')[0] || null;
-  
-  console.log("Upserting user with data:", {
+
+  const existingUser = await storage.getUser(claims["sub"]);
+  const role = existingUser?.role || getUserRole(email);
+  const status = getUserStatus(email, existingUser?.status);
+
+  const firstName = claims["first_name"] || email.split("@")[0] || "User";
+
+  console.log(`[Auth] Upserting user: ${email}, role=${role}, status=${status}`);
+
+  await storage.upsertUser({
     id: claims["sub"],
-    email: claims["email"],
+    email: email,
     firstName: firstName,
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-    role: isAdmin ? "admin" : "user",
-    status: isPreApproved ? "approved" : "pending",
+    lastName: claims["last_name"] || null,
+    profileImageUrl: claims["profile_image_url"] || null,
+    role: role,
+    status: status,
+    approvedBy: status === "approved" ? (existingUser?.approvedBy || "system") : null,
+    approvedAt: status === "approved" ? (existingUser?.approvedAt || new Date()) : null,
+    loginCount: (existingUser?.loginCount || 0) + 1,
+    lastLoginDate: new Date().toISOString().split("T")[0],
   });
-  
-  // Get current user to increment login count
-  const currentUser = await storage.getUser(claims["sub"]);
-  const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-  
-  console.log("Auth claims received:", {
-    sub: claims["sub"],
-    email: claims["email"],
-    existing_user_id: currentUser?.id,
-    existing_status: currentUser?.status,
-    existing_role: currentUser?.role
-  });
-  
-  // Preserve existing status and role for already-approved users
-  // Only apply pre-approved logic for new users
-  const role = currentUser && currentUser.status === 'approved' 
-    ? currentUser.role 
-    : (isAdmin ? "admin" : "user");
-  
-  const status = currentUser && currentUser.status === 'approved'
-    ? 'approved'
-    : (isPreApproved ? "approved" : "pending");
-  
-  const approvedBy = currentUser && currentUser.status === 'approved'
-    ? currentUser.approvedBy
-    : (isPreApproved ? "system" : null);
-    
-  const approvedAt = currentUser && currentUser.status === 'approved'
-    ? currentUser.approvedAt
-    : (isPreApproved ? new Date() : null);
-  
-  try {
-    await storage.upsertUser({
-      id: claims["sub"],
-      email: claims["email"],
-      firstName: firstName,
-      lastName: claims["last_name"] || null,
-      profileImageUrl: claims["profile_image_url"] || null,
-      role: role,
-      status: status,
-      approvedBy: approvedBy,
-      approvedAt: approvedAt,
-      loginCount: (currentUser?.loginCount || 0) + 1,
-      lastLoginDate: currentDate,
+}
+
+function promisifiedLogin(req: Request, user: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.logIn(user, (err) => {
+      if (err) reject(err);
+      else resolve();
     });
-    
-    console.log("User upserted with preserved status:", { role, status });
-  } catch (error) {
-    console.error("Error in upsertUser:", error);
-    console.error("Attempted to upsert with ID:", claims["sub"], "and email:", claims["email"]);
-    throw error;
-  }
+  });
+}
+
+function promisifiedSessionSave(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+function promisifiedSessionRegenerate(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 }
 
 export async function setupAuth(app: Express) {
+  if (!process.env.REPLIT_DOMAINS) {
+    console.error("[Auth] REPLIT_DOMAINS not set - auth will not work in production");
+    setupFallbackRoutes(app);
+    return;
+  }
+
+  app.set("trust proxy", 1);
+  app.use(createSessionMiddleware());
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
   try {
-    app.set("trust proxy", 1);
-    app.use(getSession());
-    app.use(passport.initialize());
-    app.use(passport.session());
-
-    // Check if we're in a true development environment (not Replit deployment)
-    const isTrueDevEnv = process.env.NODE_ENV === 'development' && 
-                        process.env.REPLIT_DOMAINS === undefined;
-    
-    // Also bypass for Replit development environment (for testing)
-    const isReplitDev = process.env.REPLIT_DOMAINS && 
-                       process.env.REPLIT_DOMAINS.includes('replit.dev');
-
-    if (isTrueDevEnv || isReplitDev) {
-      console.log("Local development mode: Setting up simplified auth routes");
-      
-      // Set up simple passport serialization for development
-      passport.serializeUser((user: any, cb) => cb(null, user));
-      passport.deserializeUser((user: any, cb) => cb(null, user));
-      
-      app.get("/api/login", (req, res) => {
-        console.log("Development login - redirecting to home");
-        res.redirect("/");
-      });
-
-      app.get("/api/callback", (req, res) => {
-        console.log("Development callback - redirecting to home");
-        res.redirect("/");
-      });
-
-      app.get("/api/logout", (req, res) => {
-        console.log("Development logout - clearing session and redirecting");
-        req.logout((err) => {
-          if (err) {
-            console.error("Logout error:", err);
-          }
-          req.session.destroy((err) => {
-            if (err) {
-              console.error("Session destroy error:", err);
-            }
-            res.clearCookie('connect.sid');
-            res.redirect("/");
-          });
-        });
-      });
-      
-      return;
-    }
-
-    // Production OIDC setup
     const config = await getOidcConfig();
 
-    const verify: VerifyFunction = async (
-      tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-      verified: passport.AuthenticateCallback
-    ) => {
+    const verify: VerifyFunction = async (tokens, verified) => {
       try {
-        const user = {};
-        updateUserSession(user, tokens);
-        await upsertUser(tokens.claims());
+        const claims = tokens.claims();
+        const rawEmail = claims?.["email"];
+        const email = typeof rawEmail === 'string' ? rawEmail.toLowerCase() : null;
+
+        if (!isAllowedEmail(email)) {
+          return verified(new Error(`Access denied: Only ${ALLOWED_DOMAIN} emails allowed`), null);
+        }
+
+        const user: any = {};
+        updateUserTokens(user, tokens);
+        await upsertUserFromClaims(claims);
+
+        console.log(`[Auth] User verified: ${email}`);
         verified(null, user);
       } catch (error) {
-        console.error("Auth verification error:", error);
+        console.error("[Auth] Verification failed:", error);
         verified(error, null);
       }
     };
@@ -248,15 +201,13 @@ export async function setupAuth(app: Express) {
           scope: "openid email profile offline_access",
           callbackURL: `https://${domain}/api/callback`,
         },
-        verify,
+        verify
       );
       passport.use(strategy);
     }
 
-    passport.serializeUser((user: Express.User, cb) => cb(null, user));
-    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
     app.get("/api/login", (req, res, next) => {
+      console.log(`[Auth] Login initiated from ${req.hostname}`);
       passport.authenticate(`replitauth:${req.hostname}`, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
@@ -264,185 +215,148 @@ export async function setupAuth(app: Express) {
     });
 
     app.get("/api/callback", (req, res, next) => {
-      passport.authenticate(`replitauth:${req.hostname}`, (err: any, user: any, info: any) => {
+      passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any, info: any) => {
         if (err) {
-          return next(err);
+          console.error("[Auth] Callback error:", err);
+          return res.redirect("/?error=auth_failed");
         }
+
         if (!user) {
+          console.log("[Auth] No user returned from OIDC");
           return res.redirect("/api/login");
         }
-        req.logIn(user, (err) => {
-          if (err) {
-            return next(err);
-          }
-          // Set login flag in session storage via redirect with script
+
+        try {
+          await promisifiedSessionRegenerate(req);
+          await promisifiedLogin(req, user);
+          await promisifiedSessionSave(req);
+
+          console.log(`[Auth] Login successful, session regenerated and saved`);
+
           res.send(`
-            <script>
-              sessionStorage.setItem('justLoggedIn', 'true');
-              window.location.href = '/';
-            </script>
+            <!DOCTYPE html>
+            <html>
+            <head><title>Logging in...</title></head>
+            <body>
+              <script>
+                sessionStorage.setItem('authComplete', 'true');
+                sessionStorage.setItem('authTimestamp', Date.now().toString());
+                window.location.replace('/');
+              </script>
+            </body>
+            </html>
           `);
-        });
+        } catch (loginErr) {
+          console.error("[Auth] Login/session save failed:", loginErr);
+          res.redirect("/?error=session_failed");
+        }
       })(req, res, next);
     });
 
-    app.get("/api/logout", (req, res) => {
+    app.get("/api/logout", async (req, res) => {
+      const config = await getOidcConfig();
+      
       req.logout(() => {
-        res.redirect(
-          client.buildEndSessionUrl(config, {
+        req.session.destroy((err) => {
+          if (err) console.error("[Auth] Session destroy error:", err);
+          
+          res.clearCookie("connect.sid", { path: "/" });
+          
+          const logoutUrl = client.buildEndSessionUrl(config, {
             client_id: process.env.REPL_ID!,
-            post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-          }).href
-        );
+            post_logout_redirect_uri: `https://${req.hostname}`,
+          }).href;
+          
+          res.redirect(logoutUrl);
+        });
       });
     });
+
+    console.log("[Auth] OIDC authentication configured successfully");
   } catch (error) {
-    console.error("Auth setup error:", error);
-    // Set up fallback routes that don't crash
-    app.get("/api/login", (req, res) => {
-      res.status(500).json({ message: "Authentication not configured properly" });
-    });
-    app.get("/api/callback", (req, res) => {
-      res.redirect("/");
-    });
-    app.get("/api/logout", (req, res) => {
-      res.redirect("/");
-    });
+    console.error("[Auth] Failed to configure OIDC:", error);
+    setupFallbackRoutes(app);
   }
 }
 
-export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // More secure development bypass conditions
-  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
-                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
-                        !process.env.REPLIT_DOMAINS;
-  
-  // Allow Replit dev environment for legitimate development/testing
-  const isReplitDev = process.env.REPLIT_DOMAINS && 
-                     process.env.REPLIT_DOMAINS.includes('replit.dev') &&
-                     process.env.NODE_ENV === 'development';
+function setupFallbackRoutes(app: Express) {
+  app.get("/api/login", (req, res) => {
+    res.status(503).json({ message: "Authentication service unavailable" });
+  });
+  app.get("/api/callback", (req, res) => {
+    res.redirect("/");
+  });
+  app.get("/api/logout", (req, res) => {
+    res.redirect("/");
+  });
+}
 
-  if (isTrueLocalDev || isReplitDev) {
-    // Create a mock user for development with email at both levels for compatibility
-    req.user = {
-      id: 'dev-user-123',
-      email: 'test@4sgraphics.com',
-      role: 'admin',
-      claims: {
-        sub: 'dev-user-123',
-        email: 'test@4sgraphics.com',
-        first_name: 'Admin',
-        last_name: 'Dev',
-        profile_image_url: 'https://via.placeholder.com/150'
-      }
-    };
-    console.log('Development bypass activated for isAuthenticated');
-    return next();
-  }
-
-  const user = req.user as any;
-
-  // Check if user is authenticated (has a session)
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  // If no expires_at, check if user has valid claims (session-based auth)
-  if (!user.expires_at && user.claims?.sub) {
-    // User has a valid session with claims, allow through
-    return next();
-  }
-
-  // If no expires_at and no claims, unauthorized
-  if (!user.expires_at) {
-    return res.status(401).json({ message: "Session expired" });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  // Add 60 second buffer to prevent edge cases
-  if (now <= user.expires_at + 60) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    console.log("No refresh token available, session expired");
-    res.status(401).json({ message: "Session expired, please log in again" });
-    return;
-  }
-
-  try {
-    console.log("Attempting to refresh access token...");
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    console.log("Access token refreshed successfully");
-    return next();
-  } catch (error) {
-    console.error("Token refresh failed:", error);
-    res.status(401).json({ message: "Session expired, please log in again" });
-    return;
-  }
-};
-
-export const requireApproval: RequestHandler = async (req, res, next) => {
-  // More secure development bypass conditions
-  const isTrueLocalDev = process.env.NODE_ENV === 'development' && 
-                        (req.hostname === 'localhost' || req.hostname === '127.0.0.1') &&
-                        !process.env.REPLIT_DOMAINS;
-  
-  // Allow Replit dev environment for legitimate development/testing
-  const isReplitDev = process.env.REPLIT_DOMAINS && 
-                     process.env.REPLIT_DOMAINS.includes('replit.dev') &&
-                     process.env.NODE_ENV === 'development';
-
-  if (isTrueLocalDev || isReplitDev) {
-    // Create a mock user for development with email at both levels for compatibility
-    req.user = {
-      id: 'dev-user-123',
-      email: 'aneesh@4sgraphics.com',
-      role: 'admin',
-      claims: {
-        sub: 'dev-user-123',
-        email: 'aneesh@4sgraphics.com',
-        first_name: 'Aneesh',
-        last_name: 'Dev',
-        profile_image_url: 'https://via.placeholder.com/150'
-      }
-    };
-    console.log('Development bypass activated for requireApproval');
-    return next();
+export const isAuthenticated: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ message: "Not authenticated" });
   }
 
   const user = req.user as any;
   if (!user?.claims?.sub) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Invalid session" });
   }
-  
-  const dbUser = await storage.getUser(user.claims.sub);
-  if (!dbUser || dbUser.status !== "approved") {
-    return res.status(403).json({ message: "Account pending approval" });
+
+  if (user.expires_at) {
+    const now = Math.floor(Date.now() / 1000);
+    const bufferSeconds = 60;
+
+    if (now > user.expires_at + bufferSeconds) {
+      if (!user.refresh_token) {
+        return res.status(401).json({ message: "Session expired" });
+      }
+
+      try {
+        const config = await getOidcConfig();
+        const tokenResponse = await client.refreshTokenGrant(config, user.refresh_token);
+        updateUserTokens(user, tokenResponse);
+        console.log("[Auth] Token refreshed successfully");
+      } catch (error) {
+        console.error("[Auth] Token refresh failed:", error);
+        return res.status(401).json({ message: "Session expired" });
+      }
+    }
   }
-  
+
   next();
 };
 
-export const requireAdmin: RequestHandler = async (req, res, next) => {
-  // Development bypass - simplified for Replit environment
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Development bypass activated for requireAdmin');
-    return next();
-  }
-
+export const requireApproval: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   const user = req.user as any;
   if (!user?.claims?.sub) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: "Not authenticated" });
   }
-  
+
   const dbUser = await storage.getUser(user.claims.sub);
-  if (!dbUser || dbUser.role !== "admin") {
+  if (!dbUser) {
+    return res.status(401).json({ message: "User not found" });
+  }
+
+  if (dbUser.status !== "approved") {
+    return res.status(403).json({ message: "Account pending approval" });
+  }
+
+  next();
+};
+
+export const requireAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user as any;
+  if (!user?.claims?.sub) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  const dbUser = await storage.getUser(user.claims.sub);
+  if (!dbUser) {
+    return res.status(401).json({ message: "User not found" });
+  }
+
+  if (dbUser.role !== "admin") {
     return res.status(403).json({ message: "Admin access required" });
   }
-  
+
   next();
 };

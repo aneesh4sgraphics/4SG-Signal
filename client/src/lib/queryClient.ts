@@ -5,25 +5,17 @@ import { toast } from "@/hooks/use-toast";
 let sessionExpiredToastShown = false;
 let lastSessionExpiredTime = 0;
 
-// Grace period after login - don't show session expired during this time
-let loginGracePeriodActive = false;
-let loginGracePeriodEnd = 0;
-
 // Check if we just logged in (set by OIDC callback redirect)
-function checkLoginGracePeriod() {
-  const justLoggedIn = sessionStorage.getItem('justLoggedIn');
-  if (justLoggedIn === 'true') {
-    loginGracePeriodActive = true;
-    loginGracePeriodEnd = Date.now() + 5000; // 5 second grace period
-    sessionStorage.removeItem('justLoggedIn');
+function checkLoginGracePeriod(): boolean {
+  const authTimestamp = sessionStorage.getItem('authTimestamp');
+  if (authTimestamp) {
+    const loginTime = parseInt(authTimestamp, 10);
+    const gracePeriod = 5000; // 5 seconds
+    if (Date.now() - loginTime < gracePeriod) {
+      return true;
+    }
   }
-  
-  // Check if grace period has expired
-  if (loginGracePeriodActive && Date.now() > loginGracePeriodEnd) {
-    loginGracePeriodActive = false;
-  }
-  
-  return loginGracePeriodActive;
+  return false;
 }
 
 // Reset the toast shown flag after 30 seconds

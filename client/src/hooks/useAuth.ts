@@ -1,29 +1,84 @@
 import { useQuery } from "@tanstack/react-query";
-import { getQueryFn } from "@/lib/queryClient";
+import { useEffect, useState } from "react";
 
-export function useAuth() {
-  // Check if we just logged in - give session time to establish
-  const justLoggedIn = typeof window !== 'undefined' && sessionStorage.getItem('justLoggedIn') === 'true';
-  
-  const { data: user, isLoading, error } = useQuery({
-    queryKey: ["/api/auth/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }), // Return null on 401 instead of throwing
-    retry: justLoggedIn ? 3 : 1, // More retries right after login
-    retryDelay: (attemptIndex) => Math.min(1000 * (attemptIndex + 1), 3000), // 1s, 2s, 3s delays
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: false, // Don't refetch on every mount
+interface AuthUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+  role: "admin" | "user" | "manager";
+  status: "approved" | "pending" | "rejected";
+  loginCount?: number;
+  lastLoginDate?: string;
+}
+
+async function fetchAuthUser(): Promise<AuthUser | null> {
+  const res = await fetch("/api/auth/user", {
+    credentials: "include",
+    headers: {
+      "Accept": "application/json",
+    },
   });
 
-  if (import.meta.env.DEV) {
-    console.log("useAuth - user:", user, "isLoading:", isLoading, "error:", error);
+  if (res.status === 401) {
+    return null;
   }
+
+  if (!res.ok) {
+    throw new Error(`Auth check failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export function useAuth() {
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  const wasJustAuthenticated = typeof window !== "undefined" && 
+    sessionStorage.getItem("authComplete") === "true";
+
+  const { data: user, isLoading, error, refetch } = useQuery<AuthUser | null>({
+    queryKey: ["/api/auth/user"],
+    queryFn: fetchAuthUser,
+    retry: wasJustAuthenticated ? 3 : 1,
+    retryDelay: (attemptIndex) => Math.min(1000 * (attemptIndex + 1), 3000),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  useEffect(() => {
+    if (wasJustAuthenticated) {
+      sessionStorage.removeItem("authComplete");
+      sessionStorage.removeItem("authTimestamp");
+      
+      const timer = setTimeout(() => {
+        refetch();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [wasJustAuthenticated, refetch]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setIsInitializing(false);
+    }
+  }, [isLoading]);
+
+  const isAuthenticated = !!user && !error;
+  const isApproved = isAuthenticated && user?.status === "approved";
+  const isAdmin = isAuthenticated && user?.role === "admin";
 
   return {
     user,
-    isLoading,
-    isAuthenticated: !!user && !error,
-    error
+    isLoading: isLoading || isInitializing,
+    isAuthenticated,
+    isApproved,
+    isAdmin,
+    error,
+    refetch,
   };
 }
