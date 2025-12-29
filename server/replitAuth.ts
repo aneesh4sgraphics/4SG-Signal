@@ -298,6 +298,9 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
   
   if (isDevMode) {
     req.user = {
+      id: 'dev-user-123',
+      email: 'test@4sgraphics.com',
+      role: 'admin',
       claims: {
         sub: 'dev-user-123',
         email: 'test@4sgraphics.com',
@@ -313,6 +316,10 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
   const user = req.user as any;
   if (!user?.claims?.sub) {
     return res.status(401).json({ message: "Invalid session" });
+  }
+
+  if (user.claims?.email && !user.email) {
+    user.email = user.claims.email;
   }
 
   if (user.expires_at) {

@@ -196,13 +196,6 @@ export const getQueryFn: <T>(options: {
           });
           
           resetSessionExpiredFlag();
-          
-          // Trigger re-auth by redirecting to login after a delay (only for 401)
-          if (res.status === 401) {
-            setTimeout(() => {
-              window.location.href = '/api/login';
-            }, 2500);
-          }
         }
         
         throw new ApiError(message, {
