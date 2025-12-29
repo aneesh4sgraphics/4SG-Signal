@@ -273,7 +273,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
 
   const updateAddressMutation = useMutation({
     mutationFn: async (data: typeof editAddress) => {
-      const res = await apiRequest('PATCH', `/api/customers/${customer.id}`, data);
+      const res = await apiRequest('PUT', `/api/customers/${customer.id}`, data);
       return res.json();
     },
     onSuccess: () => {
