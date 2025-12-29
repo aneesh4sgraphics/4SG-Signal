@@ -1356,6 +1356,7 @@ export const customerMachineProfiles = pgTable("customer_machine_profiles", {
   machineFamily: varchar("machine_family", { length: 50 }).notNull(), // matches MACHINE_FAMILIES id
   status: varchar("status", { length: 20 }).notNull().default("inferred"), // inferred, confirmed
   source: varchar("source", { length: 100 }), // how we know (sample request, order, user confirmed)
+  otherDetails: text("other_details"), // additional details when machineFamily is 'other'
   touchCount: integer("touch_count").default(0), // number of interactions related to this machine
   confirmedAt: timestamp("confirmed_at"),
   confirmedBy: varchar("confirmed_by"),

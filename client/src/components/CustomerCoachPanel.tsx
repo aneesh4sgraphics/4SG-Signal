@@ -16,9 +16,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,21 +75,29 @@ const CATEGORY_STATE_CONFIG: Record<string, { label: string; progress: number; c
 };
 
 const MACHINE_FAMILIES = [
-  { id: 'offset', label: 'Offset', brands: ['Heidelberg', 'Komori', 'KBA'] },
-  { id: 'digital_toner', label: 'Digital Toner', brands: ['Xerox', 'Canon', 'Ricoh'] },
-  { id: 'digital_inkjet', label: 'Digital Inkjet', brands: ['HP Indigo', 'Screen'] },
-  { id: 'wide_format', label: 'Wide Format', brands: ['HP Latex', 'Roland', 'Mimaki'] },
-  { id: 'flexo', label: 'Flexo', brands: ['Mark Andy', 'Nilpeter'] },
-  { id: 'label', label: 'Label Press', brands: ['HP Indigo', 'Epson'] },
+  { id: 'offset', label: 'Offset' },
+  { id: 'digital_toner', label: 'Digital Dry Toner' },
+  { id: 'hp_indigo', label: 'Digital - HP Indigo' },
+  { id: 'digital_inkjet_uv', label: 'Digital Inkjet UV (KM1, Fuji)' },
+  { id: 'label_press', label: 'Label Press' },
+  { id: 'screen_printing', label: 'Screen Printing' },
+  { id: 'wide_format_flatbed', label: 'Wide Format - Flat Bed' },
+  { id: 'wide_format_roll', label: 'Wide Format - Roll to Roll' },
+  { id: 'aqueous_photo', label: 'Aqueous Photo Printers' },
+  { id: 'other', label: 'Other' },
 ];
 
 const CATEGORY_MACHINE_COMPATIBILITY: Record<string, string[]> = {
-  offset: ['Commodity Cut-Size', 'Specialty Coated', 'Cover Stock', 'Text Weight', 'Opaque Offset'],
-  digital_toner: ['Digital Toner', 'Specialty Coated', 'Cover Stock', 'Labels'],
-  digital_inkjet: ['Digital Inkjet', 'Photo Paper', 'Proofing', 'Fine Art'],
-  wide_format: ['Large Format', 'Banner Material', 'Vinyl', 'Canvas', 'Backlit Film'],
-  flexo: ['Label Stocks', 'Tag Stock', 'Flexible Packaging'],
-  label: ['Label Stocks', 'Synthetic Labels', 'Thermal Transfer'],
+  offset: ['Commodity Cut-Size', 'Specialty Coated', 'Cover Stock', 'Text Weight', 'Opaque Offset', 'Bond', 'Bristol', 'Index'],
+  digital_toner: ['Digital Toner', 'Specialty Coated', 'Cover Stock', 'Labels', 'Synthetic'],
+  hp_indigo: ['HP Indigo', 'Specialty Coated', 'Synthetic Labels', 'Photo Paper', 'Cover Stock'],
+  digital_inkjet_uv: ['Digital Inkjet', 'Cover Stock', 'Specialty Coated', 'Synthetic'],
+  label_press: ['Label Stocks', 'Synthetic Labels', 'Thermal Transfer', 'Tag Stock'],
+  screen_printing: ['Screen Print', 'Specialty Coated', 'Synthetic', 'Poster Board'],
+  wide_format_flatbed: ['Large Format', 'Rigid Substrates', 'PVC', 'Foam Board', 'Acrylic'],
+  wide_format_roll: ['Large Format', 'Banner Material', 'Vinyl', 'Canvas', 'Backlit Film', 'Wallpaper'],
+  aqueous_photo: ['Photo Paper', 'Fine Art', 'Proofing', 'Canvas'],
+  other: ['Custom Substrates', 'Specialty Products'],
 };
 
 const OBJECTION_TYPES = [
@@ -104,6 +116,7 @@ interface CustomerCoachPanelProps {
 
 export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps) {
   const [objectionDialog, setObjectionDialog] = useState<{ open: boolean; categoryName: string; trustId?: number }>({ open: false, categoryName: '' });
+  const [otherMachineDialog, setOtherMachineDialog] = useState<{ open: boolean; details: string }>({ open: false, details: '' });
   const { toast } = useToast();
 
   const { data: machineProfiles = [], refetch: refetchMachines } = useQuery<CustomerMachineProfile[]>({
@@ -134,7 +147,7 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
   });
 
   const toggleMachineMutation = useMutation({
-    mutationFn: async ({ machineFamily, currentlyEnabled }: { machineFamily: string; currentlyEnabled: boolean }) => {
+    mutationFn: async ({ machineFamily, currentlyEnabled, otherDetails }: { machineFamily: string; currentlyEnabled: boolean; otherDetails?: string }) => {
       if (currentlyEnabled) {
         const existing = machineProfiles.find(p => p.machineFamily === machineFamily);
         if (existing) {
@@ -146,6 +159,7 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
           customerId: customer.id,
           machineFamily,
           status: 'inferred',
+          otherDetails: otherDetails || null,
         });
         return res.json();
       }
@@ -153,6 +167,7 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
     onSuccess: () => {
       refetchMachines();
       queryClient.invalidateQueries({ queryKey: ['/api/crm/machine-profiles', customer.id] });
+      setOtherMachineDialog({ open: false, details: '' });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update machine", variant: "destructive" });
@@ -372,6 +387,7 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
               const profile = machineProfiles.find(p => p.machineFamily === machine.id);
               const isEnabled = !!profile;
               const isConfirmed = profile?.status === 'confirmed';
+              const isOther = machine.id === 'other';
 
               return (
                 <div
@@ -383,7 +399,13 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
                         : 'bg-blue-50 border-blue-200'
                       : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                   }`}
-                  onClick={() => toggleMachineMutation.mutate({ machineFamily: machine.id, currentlyEnabled: isEnabled })}
+                  onClick={() => {
+                    if (isOther && !isEnabled) {
+                      setOtherMachineDialog({ open: true, details: '' });
+                    } else {
+                      toggleMachineMutation.mutate({ machineFamily: machine.id, currentlyEnabled: isEnabled });
+                    }
+                  }}
                   data-testid={`machine-${machine.id}`}
                 >
                   <Checkbox
@@ -398,6 +420,8 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
                           <span className="text-green-600 flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" /> Confirmed
                           </span>
+                        ) : isOther && profile?.otherDetails ? (
+                          <span className="text-blue-600 truncate">{profile.otherDetails}</span>
                         ) : (
                           <span className="text-blue-600">Inferred</span>
                         )}
@@ -596,6 +620,49 @@ export default function CustomerCoachPanel({ customer }: CustomerCoachPanelProps
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={otherMachineDialog.open} onOpenChange={(open) => setOtherMachineDialog({ ...otherMachineDialog, open })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Other Machine Type</DialogTitle>
+            <DialogDescription>
+              Please describe the machine type this customer uses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="other-details">Machine Details</Label>
+              <Input
+                id="other-details"
+                placeholder="e.g., Letterpress, Gravure, etc."
+                value={otherMachineDialog.details}
+                onChange={(e) => setOtherMachineDialog({ ...otherMachineDialog, details: e.target.value })}
+                data-testid="input-other-machine-details"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOtherMachineDialog({ open: false, details: '' })}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (otherMachineDialog.details.trim()) {
+                  toggleMachineMutation.mutate({ 
+                    machineFamily: 'other', 
+                    currentlyEnabled: false, 
+                    otherDetails: otherMachineDialog.details.trim() 
+                  });
+                }
+              }}
+              disabled={!otherMachineDialog.details.trim() || toggleMachineMutation.isPending}
+              data-testid="btn-save-other-machine"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
