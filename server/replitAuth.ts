@@ -51,14 +51,6 @@ export function getSession() {
     ttl: sessionTtl / 1000, // ttl is in seconds for pg-store
     tableName: "sessions",
     pruneSessionInterval: 60 * 15, // Prune expired sessions every 15 minutes
-    errorLog: (err: Error) => {
-      console.error("Session store error:", err);
-    },
-  });
-  
-  // Handle session store connection errors gracefully
-  sessionStore.on('error', (error: Error) => {
-    console.error('Session store connection error:', error);
   });
   
   const isSecure = !isDevEnv;
