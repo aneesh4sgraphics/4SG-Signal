@@ -1,10 +1,10 @@
 export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const base = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-  if (!base) throw new Error('VITE_API_URL is missing');
-  const res = await fetch(`${base}${path}`, {
+  const url = base ? `${base}${path}` : path;
+  const res = await fetch(url, {
     ...opts,
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    credentials: 'include', // cookie auth; remove if you use bearer tokens
+    credentials: 'include',
   });
 
   const text = await res.text();
