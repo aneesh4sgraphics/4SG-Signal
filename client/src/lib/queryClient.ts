@@ -1,6 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
+// Track if we've already shown a session expired toast to avoid spam
+let sessionExpiredToastShown = false;
+let lastSessionExpiredTime = 0;
+
+// Reset the toast shown flag after 30 seconds
+function resetSessionExpiredFlag() {
+  setTimeout(() => {
+    sessionExpiredToastShown = false;
+  }, 30000);
+}
+
 // Enhanced error class with more details
 export class ApiError extends Error {
   status?: number;
@@ -142,24 +153,32 @@ export const getQueryFn: <T>(options: {
         return null;
       }
 
-      // Handle 401/403 with toast notification
+      // Handle 401/403 with toast notification (debounced to prevent spam)
       if (res.status === 401 || res.status === 403) {
+        const now = Date.now();
         const message = res.status === 401 
           ? "Session expired. Please log in again."
           : "You don't have permission to access this resource.";
         
-        // Show toast notification
-        toast({
-          title: res.status === 401 ? "Session Expired" : "Access Denied",
-          description: message,
-          variant: "destructive",
-        });
-        
-        // Trigger re-auth by redirecting to login after a delay
-        if (res.status === 401) {
-          setTimeout(() => {
-            window.location.href = '/api/login';
-          }, 2000);
+        // Only show toast if we haven't shown one recently (within 10 seconds)
+        if (!sessionExpiredToastShown && (now - lastSessionExpiredTime > 10000)) {
+          sessionExpiredToastShown = true;
+          lastSessionExpiredTime = now;
+          
+          toast({
+            title: res.status === 401 ? "Session Expired" : "Access Denied",
+            description: message,
+            variant: "destructive",
+          });
+          
+          resetSessionExpiredFlag();
+          
+          // Trigger re-auth by redirecting to login after a delay (only for 401)
+          if (res.status === 401) {
+            setTimeout(() => {
+              window.location.href = '/api/login';
+            }, 2500);
+          }
         }
         
         throw new ApiError(message, {
