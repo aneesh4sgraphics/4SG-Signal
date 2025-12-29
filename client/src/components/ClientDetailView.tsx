@@ -132,6 +132,9 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     country: customer.country || '',
     zip: customer.zip || '',
   });
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'other' | null>(null);
+  const [printLabelNotes, setPrintLabelNotes] = useState('');
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
 
@@ -193,7 +196,12 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     `);
     printWindow.document.close();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
-    logActivity("PRINTED LABEL", `Address label for ${customer.company || customer.firstName || customer.email}`);
+  };
+
+  const handlePrintClick = () => {
+    setIsPrintDialogOpen(true);
+    setPrintLabelType(null);
+    setPrintLabelNotes('');
   };
 
   const { data: journey, refetch: refetchJourney } = useQuery<CustomerJourney | null>({
@@ -407,6 +415,62 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       toast({ title: "Error", description: error.message || "Failed to create sample", variant: "destructive" });
     },
   });
+
+  const createSwatchShipmentMutation = useMutation({
+    mutationFn: async (data: { customerId: string; notes?: string }) => {
+      const res = await apiRequest('POST', '/api/crm/swatch-shipments', {
+        customerId: data.customerId,
+        status: 'shipped',
+        shippedAt: new Date().toISOString(),
+        notes: data.notes || 'Printed address label',
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/swatch-shipments', customer.id] });
+      toast({ title: "Success", description: "SwatchBook shipment recorded" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to record shipment", variant: "destructive" });
+    },
+  });
+
+  const createPressKitShipmentMutation = useMutation({
+    mutationFn: async (data: { customerId: string; notes?: string }) => {
+      const res = await apiRequest('POST', '/api/crm/press-kit-shipments', {
+        customerId: data.customerId,
+        status: 'shipped',
+        shippedAt: new Date().toISOString(),
+        notes: data.notes || 'Printed address label',
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/press-kit-shipments', customer.id] });
+      toast({ title: "Success", description: "Press Kit shipment recorded" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to record shipment", variant: "destructive" });
+    },
+  });
+
+  const confirmPrintLabel = () => {
+    printAddressLabel();
+    
+    if (printLabelType === 'swatchbook') {
+      createSwatchShipmentMutation.mutate({ customerId: String(customer.id), notes: printLabelNotes || undefined });
+      logActivity("PRINTED LABEL", `SwatchBook label for ${customer.company || customer.firstName || customer.email}`);
+    } else if (printLabelType === 'presskit') {
+      createPressKitShipmentMutation.mutate({ customerId: String(customer.id), notes: printLabelNotes || undefined });
+      logActivity("PRINTED LABEL", `Press Kit label for ${customer.company || customer.firstName || customer.email}`);
+    } else {
+      logActivity("PRINTED LABEL", `Address label for ${customer.company || customer.firstName || customer.email}${printLabelNotes ? ` - ${printLabelNotes}` : ''}`);
+    }
+    
+    setIsPrintDialogOpen(false);
+    setPrintLabelType(null);
+    setPrintLabelNotes('');
+  };
 
   const currentStageIndex = journey ? JOURNEY_STAGE_CONFIG.findIndex(s => s.id === journey.journeyStage) : -1;
   const customerName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown';
@@ -849,7 +913,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={printAddressLabel}
+                            onClick={handlePrintClick}
                             className="h-6 w-6 p-0 border-blue-200"
                             data-testid="btn-print-address-label"
                           >
@@ -1827,6 +1891,88 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
         isOpen={isJourneyPanelOpen}
         onClose={() => setIsJourneyPanelOpen(false)}
       />
+
+      {/* Print Label Dialog */}
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Print Address Label</DialogTitle>
+            <DialogDescription>
+              What is this label for?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="flex flex-col gap-3">
+              <Button
+                variant={printLabelType === 'swatchbook' ? 'default' : 'outline'}
+                className="justify-start h-auto py-3"
+                onClick={() => setPrintLabelType('swatchbook')}
+                data-testid="btn-label-swatchbook"
+              >
+                <Palette className="h-5 w-5 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">SwatchBook</p>
+                  <p className="text-xs text-muted-foreground">Record shipment in customer's SwatchBook tab</p>
+                </div>
+              </Button>
+              
+              <Button
+                variant={printLabelType === 'presskit' ? 'default' : 'outline'}
+                className="justify-start h-auto py-3"
+                onClick={() => setPrintLabelType('presskit')}
+                data-testid="btn-label-presskit"
+              >
+                <Package className="h-5 w-5 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">Press Kit</p>
+                  <p className="text-xs text-muted-foreground">Record shipment in customer's Press Kit tab</p>
+                </div>
+              </Button>
+              
+              <Button
+                variant={printLabelType === 'other' ? 'default' : 'outline'}
+                className="justify-start h-auto py-3"
+                onClick={() => setPrintLabelType('other')}
+                data-testid="btn-label-other"
+              >
+                <FileText className="h-5 w-5 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">Something Else</p>
+                  <p className="text-xs text-muted-foreground">Just print the label without recording</p>
+                </div>
+              </Button>
+            </div>
+            
+            {printLabelType === 'other' && (
+              <div className="space-y-2">
+                <Label>Notes (optional)</Label>
+                <Textarea
+                  placeholder="What are you sending?"
+                  value={printLabelNotes}
+                  onChange={(e) => setPrintLabelNotes(e.target.value)}
+                  className="h-20"
+                  data-testid="input-label-notes"
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPrintDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmPrintLabel}
+              disabled={!printLabelType || createSwatchShipmentMutation.isPending || createPressKitShipmentMutation.isPending}
+              data-testid="btn-confirm-print"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print Label
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
