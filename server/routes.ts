@@ -335,6 +335,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Usage/Cost indicator for admins - shows database size and resource usage
+  app.get("/api/dashboard/usage", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Get database size info
+      const dbSizeResult = await db.execute(sql`
+        SELECT 
+          pg_size_pretty(pg_database_size(current_database())) as db_size,
+          pg_database_size(current_database()) as db_size_bytes
+      `);
+      
+      // Get table sizes
+      const tableSizesResult = await db.execute(sql`
+        SELECT 
+          relname as table_name,
+          pg_size_pretty(pg_total_relation_size(relid)) as total_size,
+          pg_total_relation_size(relid) as size_bytes
+        FROM pg_catalog.pg_statio_user_tables
+        ORDER BY pg_total_relation_size(relid) DESC
+        LIMIT 10
+      `);
+      
+      // Get record counts
+      const customerCount = await storage.getCustomerCount();
+      const productCount = await storage.getProductsCount();
+      const quoteCount = await storage.getSentQuotesCount();
+      
+      // Get activity log count (estimated to be fast)
+      const activityResult = await db.execute(sql`
+        SELECT reltuples::bigint as estimate FROM pg_class WHERE relname = 'activity_logs'
+      `);
+      const activityLogCount = activityResult.rows[0]?.estimate || 0;
+      
+      res.json({
+        database: {
+          size: dbSizeResult.rows[0]?.db_size || 'Unknown',
+          sizeBytes: parseInt(dbSizeResult.rows[0]?.db_size_bytes as string) || 0,
+          tables: tableSizesResult.rows
+        },
+        records: {
+          customers: customerCount,
+          products: productCount,
+          quotes: quoteCount,
+          activityLogs: activityLogCount
+        },
+        limits: {
+          dbMaxSize: '1 GB', // Neon free tier
+          dbMaxSizeBytes: 1073741824
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Usage stats error:", error);
+      res.status(500).json({ error: "Failed to fetch usage statistics" });
+    }
+  });
+
   // --- Health check (for debugging connectivity quickly) ---
   app.get('/api/health', (_req, res) => {
     res.json({ 

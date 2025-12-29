@@ -27,12 +27,15 @@ import {
   Plus,
   Clock,
   History,
-  Mail
+  Mail,
+  HardDrive,
+  Gauge
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import StartYourDayDashboard from "@/components/StartYourDayDashboard";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUsage } from "@/hooks/useAppUsage";
+import { Progress } from "@/components/ui/progress";
 
 interface DashboardStats {
   totalQuotes: number;
@@ -56,6 +59,25 @@ interface CRMStats {
   pendingFeedback: number;
   samplesWithTracking: number;
   swatchesWithTracking: number;
+}
+
+interface UsageStats {
+  database: {
+    size: string;
+    sizeBytes: number;
+    tables: { table_name: string; total_size: string; size_bytes: number }[];
+  };
+  records: {
+    customers: number;
+    products: number;
+    quotes: number;
+    activityLogs: number;
+  };
+  limits: {
+    dbMaxSize: string;
+    dbMaxSizeBytes: number;
+  };
+  timestamp: string;
 }
 
 // Grouped app tiles by category
@@ -116,6 +138,15 @@ export default function Dashboard() {
   const { data: crmStats } = useQuery<CRMStats>({
     queryKey: ["/api/dashboard/crm"],
     retry: 2,
+  });
+
+  const isAdminUser = (user as any)?.role === 'admin';
+  
+  const { data: usageStats } = useQuery<UsageStats>({
+    queryKey: ["/api/dashboard/usage"],
+    retry: 1,
+    enabled: isAdminUser,
+    refetchInterval: 60000, // Refresh every minute
   });
 
   const now = new Date();
@@ -1058,6 +1089,138 @@ export default function Dashboard() {
                 })}
               </div>
             </div>
+
+            {/* Usage/Cost Indicator for Admins */}
+            {usageStats && (
+              <div style={{
+                marginTop: '24px',
+                background: 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(60px) saturate(150%)',
+                WebkitBackdropFilter: 'blur(60px) saturate(150%)',
+                border: '1px solid rgba(255, 255, 255, 0.8)',
+                borderRadius: '24px',
+                padding: '24px',
+                boxShadow: '0 8px 32px rgba(148, 163, 184, 0.08)'
+              }} data-testid="usage-indicator">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(22, 163, 74, 0.2))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  }}>
+                    <Gauge size={20} style={{ color: '#16a34a' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', margin: 0 }}>
+                      Resource Usage
+                    </h3>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+                      Real-time database & system metrics
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  {/* Database Size */}
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.6)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <HardDrive size={16} style={{ color: '#3b82f6' }} />
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Database</span>
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>
+                      {usageStats.database.size}
+                    </div>
+                    <div style={{ marginBottom: '8px' }}>
+                      <Progress 
+                        value={(usageStats.database.sizeBytes / usageStats.limits.dbMaxSizeBytes) * 100} 
+                        className="h-2"
+                      />
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      of {usageStats.limits.dbMaxSize} limit ({((usageStats.database.sizeBytes / usageStats.limits.dbMaxSizeBytes) * 100).toFixed(1)}%)
+                    </div>
+                  </div>
+
+                  {/* Record Counts */}
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.6)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <Database size={16} style={{ color: '#8b5cf6' }} />
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Records</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                          {usageStats.records.customers.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>Customers</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                          {usageStats.records.products.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>Products</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                          {usageStats.records.quotes.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>Quotes</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
+                          {Number(usageStats.records.activityLogs).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>Activity Logs</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Top Tables */}
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.6)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <Layers size={16} style={{ color: '#f59e0b' }} />
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Top Tables</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {usageStats.database.tables.slice(0, 4).map((table, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', color: '#475569', fontFamily: 'monospace' }}>
+                            {table.table_name}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
+                            {table.total_size}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '12px', fontSize: '10px', color: '#94a3b8', textAlign: 'right' }}>
+                  Updated: {new Date(usageStats.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
