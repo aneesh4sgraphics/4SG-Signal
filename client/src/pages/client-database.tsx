@@ -73,6 +73,7 @@ import {
   GripVertical,
   BookOpen,
   Printer,
+  ExternalLink,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import {
@@ -385,6 +386,16 @@ export default function ClientDatabase() {
     }, 250);
 
     logUserAction("PRINTED LABEL", `Address label for ${customer.company || customer.firstName || customer.email}`);
+  };
+
+  // Open Google Maps search for company address
+  const searchCompanyAddress = (companyName: string, city?: string | null) => {
+    const searchQuery = city 
+      ? `${companyName} ${city}` 
+      : companyName;
+    const url = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+    window.open(url, '_blank');
+    logUserAction("SEARCHED ADDRESS", `Google Maps search for: ${searchQuery}`);
   };
   
   // Get Kanban category for a customer
@@ -2031,6 +2042,24 @@ export default function ClientDatabase() {
                           >
                             {group.companyName}
                           </span>
+                          {!hasAddress(primary) && primary.company && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 ml-1"
+                                    onClick={(e) => { e.stopPropagation(); searchCompanyAddress(primary.company || group.companyName, primary.city); }}
+                                    data-testid={`button-search-address-${primary.id}`}
+                                  >
+                                    <ExternalLink className="h-3 w-3 text-orange-500 hover:text-orange-700" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Search address on Google Maps</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                           {hasMultiplePeople && (
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                               {group.customers.length} people
@@ -2310,7 +2339,7 @@ export default function ClientDatabase() {
                     
                     <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
                       <Button onClick={() => setSelectedCustomer(customer)} size="sm" variant="default" className="flex-1 h-8">View</Button>
-                      {hasAddress(customer) && (
+                      {hasAddress(customer) ? (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -2319,6 +2348,17 @@ export default function ClientDatabase() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Print Address Label (4x2")</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : customer.company && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button onClick={() => searchCompanyAddress(customer.company || '', customer.city)} size="sm" variant="outline" className="h-8 w-8 p-0 border-orange-200">
+                                <ExternalLink className="h-4 w-4 text-orange-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Find address on Google Maps</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
