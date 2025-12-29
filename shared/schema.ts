@@ -1218,13 +1218,56 @@ export type EmailTemplateVariableKey = keyof typeof EMAIL_TEMPLATE_VARIABLES;
 // COACH-STYLE B2B CUSTOMER JOURNEY
 // ========================================
 
-// Customer States - auto-derived from orders/quotes/samples
-export const CUSTOMER_STATES = ['prospect', 'engaged', 'sampled', 'ordered', 'repeat', 'loyal', 'at_risk', 'churned'] as const;
-export type CustomerState = typeof CUSTOMER_STATES[number];
+// Account States - auto-computed from order/engagement data
+export const ACCOUNT_STATES = ['prospect', 'first_trust', 'expansion_possible', 'expansion_in_progress', 'multi_category', 'embedded'] as const;
+export type AccountState = typeof ACCOUNT_STATES[number];
 
-// Trust Levels - click-based progression per category
-export const TRUST_LEVELS = ['unknown', 'aware', 'interested', 'testing', 'approved', 'preferred'] as const;
-export type TrustLevel = typeof TRUST_LEVELS[number];
+export const ACCOUNT_STATE_CONFIG = {
+  prospect: { label: 'Prospect', description: 'No orders yet', color: 'gray' },
+  first_trust: { label: 'First Trust', description: '1 category adopted', color: 'blue' },
+  expansion_possible: { label: 'Expansion Possible', description: 'Could expand to more categories', color: 'purple' },
+  expansion_in_progress: { label: 'Expansion In Progress', description: 'Testing new categories', color: 'indigo' },
+  multi_category: { label: 'Multi-Category', description: 'Ordering multiple categories', color: 'green' },
+  embedded: { label: 'Embedded', description: 'Fully integrated supplier', color: 'emerald' },
+} as const;
+
+// Machine Profile - customer's press/machine types
+export const MACHINE_FAMILIES = [
+  { id: 'offset', label: 'Offset', brands: ['Heidelberg', 'Komori', 'KBA', 'Manroland'] },
+  { id: 'digital_toner', label: 'Digital Toner', brands: ['Xerox', 'Canon', 'Ricoh', 'Konica Minolta'] },
+  { id: 'digital_inkjet', label: 'Digital Inkjet', brands: ['HP Indigo', 'Screen', 'Fujifilm'] },
+  { id: 'wide_format', label: 'Wide Format', brands: ['HP Latex', 'Roland', 'Mimaki', 'Canon'] },
+  { id: 'flexo', label: 'Flexo', brands: ['Mark Andy', 'Nilpeter', 'Gallus'] },
+  { id: 'label', label: 'Label Press', brands: ['HP Indigo', 'Epson', 'Durst'] },
+] as const;
+
+export type MachineFamily = typeof MACHINE_FAMILIES[number]['id'];
+
+// Category Trust States - 5 progression levels
+export const CATEGORY_STATES = ['not_introduced', 'introduced', 'evaluated', 'adopted', 'habitual'] as const;
+export type CategoryState = typeof CATEGORY_STATES[number];
+
+export const CATEGORY_STATE_CONFIG = {
+  not_introduced: { label: 'Not Introduced', progress: 0, color: 'gray' },
+  introduced: { label: 'Introduced', progress: 25, color: 'blue' },
+  evaluated: { label: 'Evaluated', progress: 50, color: 'purple' },
+  adopted: { label: 'Adopted', progress: 75, color: 'green' },
+  habitual: { label: 'Habitual', progress: 100, color: 'emerald' },
+} as const;
+
+// Objection Types for logging
+export const OBJECTION_TYPES = ['price', 'compatibility', 'moq', 'lead_time', 'has_supplier', 'other'] as const;
+export type ObjectionType = typeof OBJECTION_TYPES[number];
+
+// Reorder Status
+export const REORDER_STATUSES = ['upcoming', 'due', 'overdue', 'at_risk'] as const;
+export type ReorderStatus = typeof REORDER_STATUSES[number];
+
+// Legacy aliases for backwards compatibility
+export const CUSTOMER_STATES = ACCOUNT_STATES;
+export type CustomerState = AccountState;
+export const TRUST_LEVELS = CATEGORY_STATES;
+export type TrustLevel = CategoryState;
 
 // Category Trust - tracks trust level per customer per product category + machine type
 export const categoryTrust = pgTable("category_trust", {
@@ -1305,3 +1348,66 @@ export const COACH_NUDGE_ACTIONS = {
 } as const;
 
 export type CoachNudgeAction = keyof typeof COACH_NUDGE_ACTIONS;
+
+// Customer Machine Profiles - tracks which machines customer has
+export const customerMachineProfiles = pgTable("customer_machine_profiles", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  machineFamily: varchar("machine_family", { length: 50 }).notNull(), // matches MACHINE_FAMILIES id
+  status: varchar("status", { length: 20 }).notNull().default("inferred"), // inferred, confirmed
+  source: varchar("source", { length: 100 }), // how we know (sample request, order, user confirmed)
+  touchCount: integer("touch_count").default(0), // number of interactions related to this machine
+  confirmedAt: timestamp("confirmed_at"),
+  confirmedBy: varchar("confirmed_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerMachineProfileSchema = createInsertSchema(customerMachineProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CustomerMachineProfile = typeof customerMachineProfiles.$inferSelect;
+export type InsertCustomerMachineProfile = z.infer<typeof insertCustomerMachineProfileSchema>;
+
+// Category Objections - log objections for each category
+export const categoryObjections = pgTable("category_objections", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  categoryTrustId: integer("category_trust_id").references(() => categoryTrust.id, { onDelete: "cascade" }),
+  categoryName: varchar("category_name", { length: 100 }).notNull(),
+  objectionType: varchar("objection_type", { length: 50 }).notNull(), // matches OBJECTION_TYPES
+  details: text("details"),
+  status: varchar("status", { length: 50 }).notNull().default("open"), // open, addressed, won, lost
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCategoryObjectionSchema = createInsertSchema(categoryObjections).omit({
+  id: true,
+  createdAt: true,
+});
+export type CategoryObjection = typeof categoryObjections.$inferSelect;
+export type InsertCategoryObjection = z.infer<typeof insertCategoryObjectionSchema>;
+
+// Category-Machine Compatibility - defines which categories work with which machines
+export const CATEGORY_MACHINE_COMPATIBILITY: Record<string, string[]> = {
+  'offset': ['Commodity Cut-Size', 'Specialty Coated', 'Cover Stock', 'Text Weight', 'Opaque Offset'],
+  'digital_toner': ['Digital Toner', 'Specialty Coated', 'Cover Stock', 'Labels'],
+  'digital_inkjet': ['Digital Inkjet', 'Photo Paper', 'Proofing', 'Fine Art'],
+  'wide_format': ['Large Format', 'Banner Material', 'Vinyl', 'Canvas', 'Backlit Film'],
+  'flexo': ['Label Stocks', 'Tag Stock', 'Flexible Packaging'],
+  'label': ['Label Stocks', 'Synthetic Labels', 'Thermal Transfer'],
+};
+
+// Next Best Move Rules - configurable nudge rules
+export const COACH_RULES = [
+  { id: 'confirm_machine', trigger: 'unprofiled_after_touches', touchThreshold: 2, priority: 'high', action: 'confirm_machine', message: 'Confirm machine type' },
+  { id: 'reorder_reminder', trigger: 'reorder_due_soon', daysThreshold: 5, priority: 'high', action: 'check_reorder', message: 'Reorder due soon' },
+  { id: 'follow_up_intro', trigger: 'introduced_no_followup', daysThreshold: 14, priority: 'normal', action: 'follow_up', message: 'Follow up on introduction' },
+  { id: 'stuck_evaluation', trigger: 'evaluated_too_long', daysThreshold: 30, priority: 'normal', action: 'log_objection', message: 'Evaluation stalled - log objection' },
+  { id: 'expand_category', trigger: 'single_category_adopted', priority: 'low', action: 'introduce_category', message: 'Introduce new category' },
+] as const;

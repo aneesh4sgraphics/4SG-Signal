@@ -68,9 +68,18 @@ import {
   testOutcomes,
   categoryTrust,
   customerCoachState,
+  customerMachineProfiles,
+  categoryObjections,
+  ACCOUNT_STATES,
+  ACCOUNT_STATE_CONFIG,
+  CATEGORY_STATES,
+  CATEGORY_STATE_CONFIG,
+  MACHINE_FAMILIES,
+  OBJECTION_TYPES,
+  CATEGORY_MACHINE_COMPATIBILITY,
+  COACH_NUDGE_ACTIONS,
   CUSTOMER_STATES,
-  TRUST_LEVELS,
-  COACH_NUDGE_ACTIONS
+  TRUST_LEVELS
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -6505,10 +6514,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get constants for UI
   app.get("/api/crm/coach-constants", isAuthenticated, (req, res) => {
     res.json({
-      customerStates: CUSTOMER_STATES,
-      trustLevels: TRUST_LEVELS,
+      accountStates: ACCOUNT_STATES,
+      accountStateConfig: ACCOUNT_STATE_CONFIG,
+      categoryStates: CATEGORY_STATES,
+      categoryStateConfig: CATEGORY_STATE_CONFIG,
+      machineFamilies: MACHINE_FAMILIES,
+      objectionTypes: OBJECTION_TYPES,
+      categoryMachineCompatibility: CATEGORY_MACHINE_COMPATIBILITY,
       nudgeActions: COACH_NUDGE_ACTIONS,
     });
+  });
+
+  // ========================================
+  // MACHINE PROFILE APIs
+  // ========================================
+
+  // Get machine profiles for a customer
+  app.get("/api/crm/machine-profiles/:customerId", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const profiles = await db.select().from(customerMachineProfiles)
+        .where(eq(customerMachineProfiles.customerId, customerId));
+      res.json(profiles);
+    } catch (error) {
+      console.error("Error fetching machine profiles:", error);
+      res.status(500).json({ error: "Failed to fetch machine profiles" });
+    }
+  });
+
+  // Add or toggle machine profile (one-click)
+  app.post("/api/crm/machine-profiles", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId, machineFamily, status, source } = req.body;
+      
+      if (!customerId || !machineFamily) {
+        return res.status(400).json({ error: "customerId and machineFamily are required" });
+      }
+
+      // Check if profile exists
+      const existing = await db.select().from(customerMachineProfiles)
+        .where(sql`${customerMachineProfiles.customerId} = ${customerId} AND ${customerMachineProfiles.machineFamily} = ${machineFamily}`);
+
+      let result;
+      if (existing.length > 0) {
+        // Update existing
+        result = await db.update(customerMachineProfiles)
+          .set({ 
+            status: status || 'confirmed',
+            confirmedAt: status === 'confirmed' ? new Date() : existing[0].confirmedAt,
+            confirmedBy: status === 'confirmed' ? req.user?.email : existing[0].confirmedBy,
+            touchCount: (existing[0].touchCount || 0) + 1,
+            updatedAt: new Date()
+          })
+          .where(eq(customerMachineProfiles.id, existing[0].id))
+          .returning();
+      } else {
+        // Create new
+        result = await db.insert(customerMachineProfiles).values({
+          customerId,
+          machineFamily,
+          status: status || 'inferred',
+          source: source || 'user_added',
+          touchCount: 1,
+          confirmedAt: status === 'confirmed' ? new Date() : null,
+          confirmedBy: status === 'confirmed' ? req.user?.email : null,
+        }).returning();
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error creating/updating machine profile:", error);
+      res.status(500).json({ error: "Failed to update machine profile" });
+    }
+  });
+
+  // Confirm machine (one-click)
+  app.post("/api/crm/machine-profiles/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      const result = await db.update(customerMachineProfiles)
+        .set({ 
+          status: 'confirmed',
+          confirmedAt: new Date(),
+          confirmedBy: req.user?.email,
+          updatedAt: new Date()
+        })
+        .where(eq(customerMachineProfiles.id, parseInt(id)))
+        .returning();
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Machine profile not found" });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error confirming machine profile:", error);
+      res.status(500).json({ error: "Failed to confirm machine profile" });
+    }
+  });
+
+  // Remove machine profile
+  app.delete("/api/crm/machine-profiles/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(customerMachineProfiles).where(eq(customerMachineProfiles.id, parseInt(id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting machine profile:", error);
+      res.status(500).json({ error: "Failed to delete machine profile" });
+    }
+  });
+
+  // ========================================
+  // CATEGORY OBJECTION APIs
+  // ========================================
+
+  // Get objections for a customer
+  app.get("/api/crm/objections/:customerId", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const objections = await db.select().from(categoryObjections)
+        .where(eq(categoryObjections.customerId, customerId));
+      res.json(objections);
+    } catch (error) {
+      console.error("Error fetching objections:", error);
+      res.status(500).json({ error: "Failed to fetch objections" });
+    }
+  });
+
+  // Log objection (one-click)
+  app.post("/api/crm/objections", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId, categoryName, categoryTrustId, objectionType, details } = req.body;
+      
+      if (!customerId || !categoryName || !objectionType) {
+        return res.status(400).json({ error: "customerId, categoryName, and objectionType are required" });
+      }
+
+      const result = await db.insert(categoryObjections).values({
+        customerId,
+        categoryName,
+        categoryTrustId: categoryTrustId || null,
+        objectionType,
+        details,
+        status: 'open',
+        createdBy: req.user?.email,
+      }).returning();
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error logging objection:", error);
+      res.status(500).json({ error: "Failed to log objection" });
+    }
+  });
+
+  // Resolve objection
+  app.post("/api/crm/objections/:id/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body; // addressed, won, lost
+      
+      const result = await db.update(categoryObjections)
+        .set({ 
+          status: status || 'addressed',
+          resolvedAt: new Date(),
+          resolvedBy: req.user?.email,
+        })
+        .where(eq(categoryObjections.id, parseInt(id)))
+        .returning();
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Objection not found" });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error resolving objection:", error);
+      res.status(500).json({ error: "Failed to resolve objection" });
+    }
   });
 
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML

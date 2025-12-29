@@ -29,10 +29,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import CustomerJourneyPanel from "./CustomerJourneyPanel";
+import CustomerCoachPanel from "./CustomerCoachPanel";
 import {
   ArrowLeft,
   Mail,
@@ -1210,34 +1212,46 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       </div>
 
       <Card className="glass-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-semibold">Customer Journey</CardTitle>
-              {journey?.primaryProductLine && (
-                <p className="text-sm text-gray-500">
-                  {PRODUCT_LINE_LABELS[journey.primaryProductLine] || journey.primaryProductLine}
-                  <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">low risk</Badge>
-                </p>
+        <CardContent className="pt-4">
+          <CustomerCoachPanel customer={customer} />
+        </CardContent>
+      </Card>
+
+      <Collapsible>
+        <Card className="glass-card">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="p-0 h-auto">
+                    <ChevronRight className="h-4 w-4 transition-transform data-[state=open]:rotate-90" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CardTitle className="text-sm font-medium text-gray-500">Legacy Journey Stages</CardTitle>
+                {journey?.primaryProductLine && (
+                  <Badge variant="outline" className="text-xs">
+                    {PRODUCT_LINE_LABELS[journey.primaryProductLine] || journey.primaryProductLine}
+                  </Badge>
+                )}
+              </div>
+              {journey && currentStageIndex < JOURNEY_STAGE_CONFIG.length - 1 && (
+                <Button size="sm" variant="outline" onClick={handleAdvanceStage} disabled={updateJourneyMutation.isPending} data-testid="btn-advance-stage">
+                  <ChevronRight className="h-4 w-4 mr-1" />
+                  Advance
+                </Button>
+              )}
+              {!journey && (
+                <Button size="sm" variant="outline" type="button" onClick={handleStartJourney} disabled={createJourneyMutation.isPending} data-testid="btn-start-journey">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Start
+                </Button>
               )}
             </div>
-            {journey && currentStageIndex < JOURNEY_STAGE_CONFIG.length - 1 && (
-              <Button onClick={handleAdvanceStage} disabled={updateJourneyMutation.isPending} data-testid="btn-advance-stage">
-                <ChevronRight className="h-4 w-4 mr-1" />
-                Advance Stage
-              </Button>
-            )}
-            {!journey && (
-              <Button type="button" onClick={handleStartJourney} disabled={createJourneyMutation.isPending} data-testid="btn-start-journey">
-                <Plus className="h-4 w-4 mr-1" />
-                Start Journey
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {journey ? (
-            <div className="space-y-4">
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {journey ? (
+                <div className="space-y-4">
               <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
                 {JOURNEY_STAGE_CONFIG.map((stage, index) => {
                   const isCompleted = index < currentStageIndex;
@@ -1419,8 +1433,10 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-gray-100 p-1 rounded-lg">
