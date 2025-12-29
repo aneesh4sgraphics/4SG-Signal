@@ -64,7 +64,7 @@ export default function ShippingCalculator() {
   const { toast } = useToast();
   
   // Form state
-  const [origin, setOrigin] = useState("");
+  const [origin, setOrigin] = useState("33309");
   const [destination, setDestination] = useState("");
   const [weight, setWeight] = useState("");
   const [length, setLength] = useState("");
