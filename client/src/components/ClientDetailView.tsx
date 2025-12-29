@@ -61,6 +61,7 @@ import {
   Route,
   Copy,
   Printer,
+  ExternalLink,
 } from "lucide-react";
 import {
   Tooltip,
@@ -142,7 +143,12 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     });
   };
 
-  const hasAddress = !!(customer.address1 || customer.city || customer.province || customer.zip);
+  const hasAddress = !!(customer.address1?.trim() || customer.city?.trim() || customer.province?.trim() || customer.zip?.trim());
+
+  const openGoogleMapsSearch = () => {
+    const searchQuery = encodeURIComponent(customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim());
+    window.open(`https://www.google.com/maps/search/${searchQuery}`, '_blank');
+  };
 
   const printAddressLabel = () => {
     const lines: string[] = [];
@@ -774,7 +780,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   Company Address
                 </span>
                 <div className="flex items-center gap-1">
-                  {hasAddress && !isEditingAddress && (
+                  {!isEditingAddress && hasAddress && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -789,6 +795,24 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Print Address Label (4x2")</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {!isEditingAddress && !hasAddress && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={openGoogleMapsSearch}
+                            className="h-6 w-6 p-0 border-orange-200"
+                            data-testid="btn-search-address"
+                          >
+                            <ExternalLink className="h-3 w-3 text-orange-500" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Search address on Google Maps</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   )}
