@@ -135,7 +135,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [printDialogStep, setPrintDialogStep] = useState<'select-person' | 'select-type'>('select-person');
   const [selectedPrintPerson, setSelectedPrintPerson] = useState<{ name: string; company: string } | null>(null);
-  const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'other' | null>(null);
+  const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'mailer' | 'other' | null>(null);
   const [printLabelNotes, setPrintLabelNotes] = useState('');
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
@@ -494,6 +494,8 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     } else if (printLabelType === 'presskit') {
       createPressKitShipmentMutation.mutate({ customerId: String(customer.id), notes: printLabelNotes || `Addressed to: ${selectedPrintPerson?.name || 'N/A'}` });
       logActivity("PRINTED LABEL", `Press Kit label for ${recipientDesc}`);
+    } else if (printLabelType === 'mailer') {
+      logActivity("PRINTED LABEL", `Mailer label for ${recipientDesc}${printLabelNotes ? ` - Mailer: ${printLabelNotes}` : ''}`);
     } else {
       logActivity("PRINTED LABEL", `Address label for ${recipientDesc}${printLabelNotes ? ` - ${printLabelNotes}` : ''}`);
     }
@@ -2010,6 +2012,19 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   </Button>
                   
                   <Button
+                    variant={printLabelType === 'mailer' ? 'default' : 'outline'}
+                    className="justify-start h-auto py-3"
+                    onClick={() => setPrintLabelType('mailer')}
+                    data-testid="btn-label-mailer"
+                  >
+                    <Mail className="h-5 w-5 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium">Mailer</p>
+                      <p className="text-xs text-muted-foreground">Promotional mailer or flyer</p>
+                    </div>
+                  </Button>
+                  
+                  <Button
                     variant={printLabelType === 'other' ? 'default' : 'outline'}
                     className="justify-start h-auto py-3"
                     onClick={() => setPrintLabelType('other')}
@@ -2022,6 +2037,18 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                     </div>
                   </Button>
                 </div>
+                
+                {printLabelType === 'mailer' && (
+                  <div className="space-y-2">
+                    <Label>Which mailer are you sending?</Label>
+                    <Input
+                      placeholder="e.g., Spring 2025 Promo, New Product Announcement"
+                      value={printLabelNotes}
+                      onChange={(e) => setPrintLabelNotes(e.target.value)}
+                      data-testid="input-mailer-notes"
+                    />
+                  </div>
+                )}
                 
                 {printLabelType === 'other' && (
                   <div className="space-y-2">
