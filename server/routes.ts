@@ -65,8 +65,7 @@ import {
   quoteEvents, 
   priceListEvents, 
   pressProfiles, 
-  testOutcomes, 
-  swatches 
+  testOutcomes 
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -1203,11 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(testOutcomes.customerId, sourceId));
       console.log("✓ Transferred test outcomes");
       
-      // Transfer swatches
-      await db.update(swatches)
-        .set({ customerId: targetId })
-        .where(eq(swatches.customerId, sourceId));
-      console.log("✓ Transferred swatches");
+      // Note: swatches table is product-based, not customer-based, so no transfer needed
       
       console.log("All related records transferred successfully!");
       
