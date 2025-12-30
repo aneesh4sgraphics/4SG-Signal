@@ -97,19 +97,64 @@ const MACHINE_FAMILIES = [
 
 const REQUIRES_NOTE_MACHINES = ['distributor', 'dealer', 'other'];
 
+// Category Groups based on machine compatibility
+// Group A: Graffiti Logic - works with Offset, Digital Dry Toner, HP Indigo, Digital Inkjet UV
+const GRAFFITI_CATEGORIES = [
+  'Graffiti Polyester Paper',
+  'Graffiti Blended Poly',
+  'Graffiti Soft Poly',
+  'GraffitiStick CoolStick',
+  'GraffitiStick ClearStick',
+  'GraffitiStick MetalStick',
+  'GraffitiStick SilverStick',
+  'GraffitiStick DuraStick',
+  'GraffitiStick PaperStick',
+];
+const GRAFFITI_MACHINES = ['offset', 'digital_toner', 'hp_indigo', 'digital_inkjet_uv'];
+
+// Group B: Solvit & Rang Lux - Wide Format
+const WIDE_FORMAT_CATEGORIES = [
+  'Solvit Sign & Display Media',
+  'Rang Lux Print Canvas',
+];
+const WIDE_FORMAT_MACHINES = ['wide_format_flatbed', 'wide_format_roll'];
+
+// Group C: Cliq & Rang Duo - Aqueous
+const AQUEOUS_CATEGORIES = [
+  'Cliq Aqueous Media',
+  'Rang Duo Print Canvas',
+];
+const AQUEOUS_MACHINES = ['aqueous_photo'];
+
+// Group D: Screen Print
+const SCREEN_PRINT_CATEGORIES = [
+  'EiE Inkjet Film',
+  'eLe Laser Film',
+];
+const SCREEN_PRINT_MACHINES = ['screen_printing'];
+
+// All product categories for reference
+const ALL_PRODUCT_CATEGORIES = [
+  ...GRAFFITI_CATEGORIES,
+  ...WIDE_FORMAT_CATEGORIES,
+  ...AQUEOUS_CATEGORIES,
+  ...SCREEN_PRINT_CATEGORIES,
+];
+
+// Machine to category group mapping
 const CATEGORY_MACHINE_COMPATIBILITY: Record<string, string[]> = {
-  offset: ['Commodity Cut-Size', 'Specialty Coated', 'Cover Stock', 'Text Weight', 'Opaque Offset', 'Bond', 'Bristol', 'Index'],
-  digital_toner: ['Digital Toner', 'Specialty Coated', 'Cover Stock', 'Labels', 'Synthetic'],
-  hp_indigo: ['HP Indigo', 'Specialty Coated', 'Synthetic Labels', 'Photo Paper', 'Cover Stock'],
-  digital_inkjet_uv: ['Digital Inkjet', 'Cover Stock', 'Specialty Coated', 'Synthetic'],
-  label_press: ['Label Stocks', 'Synthetic Labels', 'Thermal Transfer', 'Tag Stock'],
-  screen_printing: ['Screen Print', 'Specialty Coated', 'Synthetic', 'Poster Board'],
-  wide_format_flatbed: ['Large Format', 'Rigid Substrates', 'PVC', 'Foam Board', 'Acrylic'],
-  wide_format_roll: ['Large Format', 'Banner Material', 'Vinyl', 'Canvas', 'Backlit Film', 'Wallpaper'],
-  aqueous_photo: ['Photo Paper', 'Fine Art', 'Proofing', 'Canvas'],
-  distributor: ['All Categories'],
-  dealer: ['All Categories'],
-  other: ['Custom Substrates', 'Specialty Products'],
+  offset: GRAFFITI_CATEGORIES,
+  digital_toner: GRAFFITI_CATEGORIES,
+  hp_indigo: GRAFFITI_CATEGORIES,
+  digital_inkjet_uv: GRAFFITI_CATEGORIES,
+  label_press: ['Label Stocks', 'Synthetic Labels'],
+  screen_printing: SCREEN_PRINT_CATEGORIES,
+  wide_format_flatbed: WIDE_FORMAT_CATEGORIES,
+  wide_format_roll: WIDE_FORMAT_CATEGORIES,
+  aqueous_photo: AQUEOUS_CATEGORIES,
+  distributor: ALL_PRODUCT_CATEGORIES,
+  dealer: ALL_PRODUCT_CATEGORIES,
+  other: ALL_PRODUCT_CATEGORIES,
 };
 
 const OBJECTION_TYPES = [
@@ -412,6 +457,134 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
         </Card>
       )}
 
+      <Collapsible open={machineProfileOpen} onOpenChange={setMachineProfileOpen}>
+        <Card className={hasMachines ? 'border-green-200' : ''}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-2 cursor-pointer hover:bg-gray-50/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Printer className="h-4 w-4" />
+                  Machine Profile
+                  {hasMachines && (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                      {machineProfiles.length} selected
+                    </Badge>
+                  )}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {hasMachines && onNavigateToPressProfiles && (
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="h-auto p-0 text-xs text-blue-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigateToPressProfiles();
+                      }}
+                      data-testid="link-press-profiles"
+                    >
+                      View Press Details →
+                    </Button>
+                  )}
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${machineProfileOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <p className="text-xs text-gray-500 mb-3">
+                Select the broad machine types this customer uses. For detailed press information, use the Press Profiles tab.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {MACHINE_FAMILIES.map(machine => {
+                  const profile = machineProfiles.find(p => p.machineFamily === machine.id);
+                  const isEnabled = !!profile;
+                  const isConfirmed = profile?.status === 'confirmed';
+
+                  return (
+                    <div
+                      key={machine.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        isEnabled
+                          ? isConfirmed
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-blue-50 border-blue-200'
+                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        if (REQUIRES_NOTE_MACHINES.includes(machine.id) && !isEnabled) {
+                          setMachineNoteDialog({ open: true, machineId: machine.id, machineLabel: machine.label, details: '' });
+                        } else {
+                          toggleMachineMutation.mutate({ machineFamily: machine.id, currentlyEnabled: isEnabled });
+                        }
+                      }}
+                      data-testid={`machine-${machine.id}`}
+                    >
+                      <Checkbox
+                        checked={isEnabled}
+                        className="pointer-events-none"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{machine.label}</p>
+                        {isEnabled && (
+                          <p className="text-xs text-gray-500">
+                            {isConfirmed ? (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Confirmed
+                              </span>
+                            ) : REQUIRES_NOTE_MACHINES.includes(machine.id) && profile?.otherDetails ? (
+                              <span className="text-blue-600 truncate">{profile.otherDetails}</span>
+                            ) : (
+                              <span className="text-blue-600">Inferred</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      {isEnabled && !isConfirmed && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (profile) confirmMachineMutation.mutate(profile.id);
+                                }}
+                                data-testid={`confirm-machine-${machine.id}`}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Confirm machine</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {hasMachines && onNavigateToPressProfiles && (
+                <div className="mt-3 pt-3 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={onNavigateToPressProfiles}
+                    data-testid="btn-go-to-press-profiles"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Add Detailed Press Information
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -576,134 +749,6 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
           </CardContent>
         </Card>
       )}
-
-      <Collapsible open={machineProfileOpen} onOpenChange={setMachineProfileOpen}>
-        <Card className={hasMachines ? 'border-green-200' : ''}>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="pb-2 cursor-pointer hover:bg-gray-50/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Printer className="h-4 w-4" />
-                  Machine Profile
-                  {hasMachines && (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                      {machineProfiles.length} selected
-                    </Badge>
-                  )}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  {hasMachines && onNavigateToPressProfiles && (
-                    <Button 
-                      variant="link" 
-                      size="sm" 
-                      className="h-auto p-0 text-xs text-blue-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigateToPressProfiles();
-                      }}
-                      data-testid="link-press-profiles"
-                    >
-                      View Press Details →
-                    </Button>
-                  )}
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${machineProfileOpen ? 'rotate-180' : ''}`} />
-                </div>
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              <p className="text-xs text-gray-500 mb-3">
-                Select the broad machine types this customer uses. For detailed press information, use the Press Profiles tab.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {MACHINE_FAMILIES.map(machine => {
-                  const profile = machineProfiles.find(p => p.machineFamily === machine.id);
-                  const isEnabled = !!profile;
-                  const isConfirmed = profile?.status === 'confirmed';
-
-                  return (
-                    <div
-                      key={machine.id}
-                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        isEnabled
-                          ? isConfirmed
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-blue-50 border-blue-200'
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                      }`}
-                      onClick={() => {
-                        if (REQUIRES_NOTE_MACHINES.includes(machine.id) && !isEnabled) {
-                          setMachineNoteDialog({ open: true, machineId: machine.id, machineLabel: machine.label, details: '' });
-                        } else {
-                          toggleMachineMutation.mutate({ machineFamily: machine.id, currentlyEnabled: isEnabled });
-                        }
-                      }}
-                      data-testid={`machine-${machine.id}`}
-                    >
-                      <Checkbox
-                        checked={isEnabled}
-                        className="pointer-events-none"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{machine.label}</p>
-                        {isEnabled && (
-                          <p className="text-xs text-gray-500">
-                            {isConfirmed ? (
-                              <span className="text-green-600 flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Confirmed
-                              </span>
-                            ) : REQUIRES_NOTE_MACHINES.includes(machine.id) && profile?.otherDetails ? (
-                              <span className="text-blue-600 truncate">{profile.otherDetails}</span>
-                            ) : (
-                              <span className="text-blue-600">Inferred</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      {isEnabled && !isConfirmed && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (profile) confirmMachineMutation.mutate(profile.id);
-                                }}
-                                data-testid={`confirm-machine-${machine.id}`}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Confirm machine</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {hasMachines && onNavigateToPressProfiles && (
-                <div className="mt-3 pt-3 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full"
-                    onClick={onNavigateToPressProfiles}
-                    data-testid="btn-go-to-press-profiles"
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    Add Detailed Press Information
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
 
       <Dialog open={machineNoteDialog.open} onOpenChange={(open) => setMachineNoteDialog({ ...machineNoteDialog, open })}>
         <DialogContent className="sm:max-w-md">

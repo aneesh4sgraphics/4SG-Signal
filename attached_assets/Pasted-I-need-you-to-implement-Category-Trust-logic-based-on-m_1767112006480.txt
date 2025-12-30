@@ -1,0 +1,84 @@
+I need you to implement Category Trust logic based on machine compatibility and product-family rules, and use it to drive the “Next Best Move” coach nudges.
+
+Trust must be tracked at the Product Category level, not SKU level.
+(Distributor/Dealer logic will be handled separately later.)
+
+1) Machine Types (already defined, listed for reference)
+Offset
+Digital Dry Toner
+Digital – HP Indigo
+Digital Inkjet UV
+Wide Format – Flatbed
+Wide Format – Roll to Roll
+Aqueous Photo Printers
+Screen Printing
+
+Define Category Groups (compatibility mapping)
+Group A: Graffiti Logic (compatible with multiple machine types)
+Categories:
+* Graffiti Polyester Paper
+* Graffiti Blended Poly
+* Graffiti Soft Poly
+* GraffitiStick (subtypes: CoolStick, ClearStick, MetalStick, SilverStick, DuraStick, PaperStick)
+Compatible machines:
+* Offset OR Digital Dry Toner OR HP Indigo OR Digital Inkjet UV
+Rule: if customer has any of those machines confirmed, unlock these categories.
+
+Group B: Solvit & Rang Lux (Wide Format)
+Categories:
+* Solvit Sign & Display Media
+* Rang Lux Print Canvas
+Compatible machines:
+* Wide Format – Flatbed OR Wide Format – Roll to Roll
+Rule: If product name starts with “Solvit” or “Rang Lux”, it belongs to this group and is unlocked for wide-format machines.
+
+Group C: Cliq & Rang Duo (Aqueous)
+Categories:
+* Cliq Aqueous Media
+* Rang Duo Print Canvas
+Compatible machines:
+* Aqueous Photo Printers
+Rule: If product name starts with “Cliq” or “Rang Duo”, it belongs to this group.
+
+Group D: Screen Print
+Categories:
+* EiE Inkjet Film
+* eLe Laser Film
+Compatible machines:
+* Screen Printing
+Rule: If product name starts with “EiE” or “eLe”, it belongs to this group.
+
+
+Category Trust States (fixed enum, meaning-based)
+
+Each (account_id, category_id) must have one trust state:
+* NotIntroduced – category not yet discussed
+* Introduced – category presented (quote, bundle, conversation)
+* Evaluated – customer actively considering (sample, test, comparison)
+* Adopted – at least one purchase in this category
+* Habitual – repeat purchases with predictable cadence
+State changes must be one-click or automatic. No text input.
+
+
+Order value & frequency (weighting, not state definition)
+Purchase value and frequency should influence coaching and priority, not redefine trust states.
+Examples:
+First purchase of any value → Adopted
+Multiple purchases in same category within 30 days → upgrade to Habitual
+Single low-value purchase with no repeat → expansion coaching
+High-value or frequent purchases → relationship-focused nudges (bundles, pricing, account review)
+Coaching Logic (Next Best Move)
+
+Use Category Trust + order signals to surface ONE nudge at a time:
+
+No machine confirmed → “Confirm machine to unlock categories”
+
+Introduced but not evaluated → follow-up
+
+Adopted once → introduce other categories in same group
+
+High-frequency purchases → relationship move
+
+No repeat when expected → reorder reminder
+
+Goal: show what’s possible, where trust exists, and what to do next — without heavy data entry.

@@ -1,0 +1,148 @@
+I need you to implement Category Trust logic based on machine compatibility and product-family rules, and use it to drive the “Next Best Move” coach nudges. We should track trust at the Category level (48 categories), not SKU level (480 SKUs). Product names and groups below define compatibility and recommendations.
+
+1) Define Machine Types (used for compatibility)
+
+Machine types in UI:
+
+Offset
+
+Digital Dry Toner
+
+Digital – HP Indigo
+
+Digital Inkjet UV
+
+Wide Format – Flatbed
+
+Wide Format – Roll to Roll
+
+Aqueous Photo Printers
+
+Screen Printing
+
+2) Define Category Groups (compatibility mapping)
+Group A: Graffiti Logic (compatible with multiple machine types)
+
+Categories:
+
+Graffiti Polyester Paper
+
+Graffiti Blended Poly
+
+Graffiti Soft Poly
+
+GraffitiStick (subtypes: CoolStick, ClearStick, MetalStick, SilverStick, DuraStick, PaperStick)
+
+Compatible machines:
+
+Offset OR Digital Dry Toner OR HP Indigo OR Digital Inkjet UV
+
+Rule: if customer has any of those machines confirmed, unlock these categories.
+
+Group B: Solvit & Rang Lux (Wide Format)
+
+Categories:
+
+Solvit Sign & Display Media
+
+Rang Lux Print Canvas
+
+Compatible machines:
+
+Wide Format – Flatbed OR Wide Format – Roll to Roll
+
+Rule: If product name starts with “Solvit” or “Rang Lux”, it belongs to this group and is unlocked for wide-format machines.
+
+Group C: Cliq & Rang Duo (Aqueous)
+
+Categories:
+
+Cliq Aqueous Media
+
+Rang Duo Print Canvas
+
+Compatible machines:
+
+Aqueous Photo Printers
+
+Rule: If product name starts with “Cliq” or “Rang Duo”, it belongs to this group.
+
+Group D: Screen Print
+
+Categories:
+
+EiE Inkjet Film
+
+eLe Laser Film
+
+Compatible machines:
+
+Screen Printing
+
+Rule: If product name starts with “EiE” or “eLe”, it belongs to this group.
+
+3) Category Trust States (fixed enum)
+
+Each (account_id, category_id) must have a trust state:
+
+NotIntroduced
+
+Introduced
+
+Evaluated
+
+Adopted
+
+Habitual
+
+State changes must be one-click or automatic. No text entry required.
+
+4) Visibility rules (locked vs unlocked categories)
+
+Always show Category Trust section.
+
+If machine profile is not confirmed yet, show categories as locked/disabled with label:
+“Confirm machine to unlock”
+
+After machine confirmation, show only compatible categories as unlocked and interactive.
+
+5) Weightage / auto-updates from events
+
+We already track quotes/samples/orders. Use them as signals:
+
+Quotes (intent signal)
+
+Sending a quote for a category DOES NOT auto-change trust state.
+
+It increases priority/weight and should trigger follow-up nudges.
+
+Orders (trust signal)
+
+First purchase of any SKU in a category automatically sets that category state to Adopted.
+
+If the customer buys from the same category 2+ times within 30 days, upgrade to Habitual.
+
+If they only purchased once and no reorder in 30 days, keep as Adopted and trigger expansion coaching.
+
+6) Expansion logic (what to recommend next)
+
+If customer has Adopted (or Habitual) in a group but other categories in that same group are still NotIntroduced/Introduced:
+
+Nudge the rep to introduce the next best categories within that group.
+Example: if they bought “Graffiti Polyester Paper” once, recommend “GraffitiStick” and/or “Soft Poly”.
+
+7) Coaching Nudges (Next Best Move)
+
+Use these rules to pick ONE best nudge:
+
+No confirmed machine → “Confirm machine to unlock categories”
+
+Category quoted but not progressed in 7–14 days → “Follow up on quoted category”
+
+Category Adopted only once → “Introduce other categories in same group”
+
+Category purchased 2+ times in 30 days → “This is a high-frequency buyer; suggest relationship move (bundle pricing/account review)”
+
+If reorder estimate is due/overdue (later) → “Reorder due for Category X”
+
+Goal: the journey is customer-state + category trust + reorder intelligence, not internal stages.
