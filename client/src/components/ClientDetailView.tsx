@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -139,8 +139,22 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   const [selectedPrintPerson, setSelectedPrintPerson] = useState<{ name: string; company: string } | null>(null);
   const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'mailer' | 'other' | null>(null);
   const [printLabelNotes, setPrintLabelNotes] = useState('');
+  const [highlightAddPressProfile, setHighlightAddPressProfile] = useState(false);
+  const addPressProfileButtonRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
+
+  useEffect(() => {
+    if (highlightAddPressProfile && addPressProfileButtonRef.current) {
+      setTimeout(() => {
+        addPressProfileButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      const timer = setTimeout(() => {
+        setHighlightAddPressProfile(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightAddPressProfile]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -1215,7 +1229,10 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
         <CardContent className="pt-4">
           <CustomerCoachPanel 
             customer={customer} 
-            onNavigateToPressProfiles={() => setActiveTab('press-profiles')}
+            onNavigateToPressProfiles={() => {
+              setActiveTab('press-profiles');
+              setHighlightAddPressProfile(true);
+            }}
           />
         </CardContent>
       </Card>
@@ -1516,7 +1533,13 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
           <Card className="glass-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">Press Equipment</CardTitle>
-              <Button size="sm" onClick={() => setIsAddPressProfileOpen(true)} data-testid="btn-add-press-profile">
+              <Button 
+                ref={addPressProfileButtonRef}
+                size="sm" 
+                onClick={() => setIsAddPressProfileOpen(true)} 
+                data-testid="btn-add-press-profile"
+                className={highlightAddPressProfile ? 'animate-pulse ring-2 ring-primary ring-offset-2 bg-primary text-primary-foreground' : ''}
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Press Profile
               </Button>
