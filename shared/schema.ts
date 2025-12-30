@@ -1441,3 +1441,38 @@ export const COACH_RULES = [
   { id: 'stuck_evaluation', trigger: 'evaluated_too_long', daysThreshold: 30, priority: 'normal', action: 'log_objection', message: 'Evaluation stalled - log objection' },
   { id: 'expand_category', trigger: 'single_category_adopted', priority: 'low', action: 'introduce_category', message: 'Introduce new category' },
 ] as const;
+
+// Customer Journey Progress Stages
+export const JOURNEY_PROGRESS_STAGES = [
+  'machine_profile',
+  'quotes',
+  'press_kit',
+  'call',
+  'email',
+  'rep_visit',
+  'buyer',
+  'try_and_try',
+  'dont_worry',
+] as const;
+
+export type JourneyProgressStage = typeof JOURNEY_PROGRESS_STAGES[number];
+
+// Customer Journey Progress - tracks which stages are completed per customer
+export const customerJourneyProgress = pgTable("customer_journey_progress", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  stage: varchar("stage", { length: 50 }).notNull(),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerJourneyProgressSchema = createInsertSchema(customerJourneyProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CustomerJourneyProgress = typeof customerJourneyProgress.$inferSelect;
+export type InsertCustomerJourneyProgress = z.infer<typeof insertCustomerJourneyProgressSchema>;
