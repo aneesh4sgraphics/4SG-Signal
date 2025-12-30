@@ -375,15 +375,15 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     }
   };
 
-  const computeNextBestMove = (): { action: string; reason: string; priority: 'low' | 'normal' | 'high' | 'urgent' } | null => {
+  const computeNextBestMove = (): { action: string; reason: string; whyNow: string; priority: 'low' | 'normal' | 'high' | 'urgent' } | null => {
     // Priority 1: No machine profile - must confirm first to unlock categories
     if (allMachines.length === 0) {
-      return { action: 'confirm_machine', reason: 'Confirm machine to unlock categories', priority: 'high' };
+      return { action: 'confirm_machine', reason: 'Confirm machine to unlock categories', whyNow: 'Cannot recommend products without knowing their equipment', priority: 'high' };
     }
     
     // Priority 2: Has inferred machines but none confirmed
     if (confirmedMachines.length === 0 && inferredMachines.length > 0) {
-      return { action: 'confirm_machine', reason: 'Confirm inferred machine types', priority: 'normal' };
+      return { action: 'confirm_machine', reason: 'Confirm inferred machine types', whyNow: 'Verified equipment info ensures accurate recommendations', priority: 'normal' };
     }
 
     // Priority 3: Reorder due/overdue for adopted categories
@@ -394,21 +394,21 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     if (adoptedWithReorderDue.length > 0) {
       const overdue = adoptedWithReorderDue.find(t => t.reorderStatus === 'overdue');
       if (overdue) {
-        return { action: 'check_reorder', reason: `Reorder overdue: ${overdue.categoryName}`, priority: 'urgent' };
+        return { action: 'check_reorder', reason: `Reorder overdue: ${overdue.categoryName}`, whyNow: 'Customer likely running low - risk of buying elsewhere', priority: 'urgent' };
       }
-      return { action: 'check_reorder', reason: `Reorder due: ${adoptedWithReorderDue[0].categoryName}`, priority: 'high' };
+      return { action: 'check_reorder', reason: `Reorder due: ${adoptedWithReorderDue[0].categoryName}`, whyNow: 'Proactive outreach before they need to call', priority: 'high' };
     }
 
     // Priority 4: Evaluated but not adopted - follow up
     const stuckEvaluated = categoryTrusts.filter(t => t.trustLevel === 'evaluated');
     if (stuckEvaluated.length > 0) {
-      return { action: 'follow_up', reason: `Follow up on ${stuckEvaluated[0].categoryName} evaluation`, priority: 'high' };
+      return { action: 'follow_up', reason: `Follow up on ${stuckEvaluated[0].categoryName} evaluation`, whyNow: 'They tested it - now is the time to close', priority: 'high' };
     }
 
     // Priority 5: Introduced but not evaluated - send sample
     const introduced = categoryTrusts.filter(t => t.trustLevel === 'introduced');
     if (introduced.length > 0) {
-      return { action: 'send_sample', reason: `Send sample for ${introduced[0].categoryName}`, priority: 'normal' };
+      return { action: 'send_sample', reason: `Send sample for ${introduced[0].categoryName}`, whyNow: 'Move from awareness to hands-on trial', priority: 'normal' };
     }
 
     // Priority 6: Cross-sell within same category group (adopted once → introduce others in group)
@@ -426,6 +426,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
           return { 
             action: 'cross_sell', 
             reason: `Introduce ${unexploredInGroup[0]} (same family as ${adopted.categoryName})`, 
+            whyNow: 'Already trusts this product line - easy expansion',
             priority: 'normal' 
           };
         }
@@ -435,12 +436,12 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     // Priority 7: Introduce new compatible categories
     const unexplored = compatibleCategories.filter(cat => !categoryTrusts.find(t => t.categoryName === cat));
     if (unexplored.length > 0) {
-      return { action: 'introduce_category', reason: `Introduce ${unexplored[0]}`, priority: 'low' };
+      return { action: 'introduce_category', reason: `Introduce ${unexplored[0]}`, whyNow: 'Untapped opportunity for their equipment', priority: 'low' };
     }
 
     // Habitual customer with everything explored - relationship move
     if (adoptedCategories.length > 0) {
-      return { action: 'relationship', reason: 'Review pricing & bundles for loyal customer', priority: 'low' };
+      return { action: 'relationship', reason: 'Review pricing & bundles for loyal customer', whyNow: 'Reward loyalty to deepen the relationship', priority: 'low' };
     }
 
     return null;
@@ -478,26 +479,31 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
 
   return (
     <div className="space-y-4" data-testid="customer-coach-panel">
-      <div className="flex items-center gap-3 mb-2">
-        <TrendingUp className="h-5 w-5 text-purple-500" />
-        <h3 className="font-semibold text-lg">Customer Journey</h3>
-        <Badge className={`${accountConfig?.bgColor} ${accountConfig?.color} border-0`}>
-          {accountConfig?.label}
-        </Badge>
-        {machineProfiles.length > 0 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-green-500 text-white text-xs font-bold" data-testid="machine-indicator">
-                  M
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {machineProfiles.length} machine{machineProfiles.length > 1 ? 's' : ''} configured
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+      <div className="space-y-1 mb-3">
+        <div className="flex items-center gap-3">
+          <TrendingUp className="h-5 w-5 text-purple-500" />
+          <h3 className="font-semibold text-lg">Customer Journey</h3>
+          <Badge className={`${accountConfig?.bgColor} ${accountConfig?.color} border-0`}>
+            {accountConfig?.label}
+          </Badge>
+          {machineProfiles.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-green-500 text-white text-xs font-bold" data-testid="machine-indicator">
+                    M
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {machineProfiles.length} machine{machineProfiles.length > 1 ? 's' : ''} configured
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 pl-8">
+          {accountConfig?.description} • {adoptedCount} of {compatibleCategories.length} categories adopted
+        </p>
       </div>
 
       {nextMove && (
@@ -512,12 +518,11 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
               {getActionLabel(nextMove.action)}
               <ChevronRight className="h-4 w-4 ml-auto" />
             </Button>
-            <p className="text-xs text-gray-500 mt-1 text-center">{nextMove.reason}</p>
+            <p className="text-xs text-gray-600 mt-1 text-center">{nextMove.reason}</p>
+            <p className="text-xs text-purple-600 font-medium mt-0.5 text-center italic">Why now: {nextMove.whyNow}</p>
           </CardContent>
         </Card>
       )}
-
-      <JourneyProgress customerId={customer.id} />
 
       <Collapsible open={machineProfileOpen} onOpenChange={setMachineProfileOpen}>
         <Card className={hasMachines ? 'border-green-200' : ''}>
@@ -641,12 +646,29 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
         </Card>
       </Collapsible>
 
+      <JourneyProgress customerId={customer.id} />
+
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <Package className="h-4 w-4" />
               Category Trust
+              {hasMachines && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200 cursor-help">
+                        {allMachines.length} machine{allMachines.length > 1 ? 's' : ''} → {compatibleCategories.length} categories
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">Compatible with:</p>
+                      <p className="text-xs">{allMachines.map(m => MACHINE_FAMILIES.find(f => f.id === m)?.label).join(', ')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               <TooltipProvider>
@@ -687,80 +709,97 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
                 const isMaxLevel = state === 'habitual';
                 const isAdopted = state === 'adopted' || state === 'habitual';
 
+                const getNextAction = () => {
+                  switch (state) {
+                    case 'not_introduced': return { label: 'Introduce', nextState: 'Introduced', icon: FileText, color: 'text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100' };
+                    case 'introduced': return { label: 'Mark Tested', nextState: 'Evaluated', icon: Package, color: 'text-purple-600 border-purple-200 bg-purple-50 hover:bg-purple-100' };
+                    case 'evaluated': return { label: 'Mark Adopted', nextState: 'Adopted', icon: CheckCircle2, color: 'text-orange-600 border-orange-200 bg-orange-50 hover:bg-orange-100' };
+                    case 'adopted': return { label: 'Mark Habitual', nextState: 'Habitual', icon: Star, color: 'text-green-600 border-green-200 bg-green-50 hover:bg-green-100' };
+                    default: return null;
+                  }
+                };
+
+                const nextAction = getNextAction();
+
                 return (
-                  <div key={category} className="flex items-center gap-2 group">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm truncate">{category}</span>
-                        {categoryObjections.length > 0 && (
+                  <div key={category} className="p-2 rounded-lg border bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium truncate">{category}</span>
+                          {categoryObjections.length > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {categoryObjections.map(o => o.objectionType).join(', ')}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {isAdopted && trust?.reorderStatus && (
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${
+                                trust.reorderStatus === 'overdue' ? 'border-red-500 text-red-600 bg-red-50' :
+                                trust.reorderStatus === 'due' ? 'border-orange-500 text-orange-600 bg-orange-50' :
+                                'border-green-500 text-green-600 bg-green-50'
+                              }`}
+                            >
+                              {trust.reorderStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Progress value={config.progress} className="h-1.5 flex-1" />
+                          <Badge variant="outline" className={`text-xs ${config.color} shrink-0`}>
+                            {config.label}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {nextAction && !isMaxLevel && (
                           <TooltipProvider>
                             <Tooltip>
-                              <TooltipTrigger>
-                                <AlertTriangle className="h-3 w-3 text-orange-500" />
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`h-7 px-2 text-xs ${nextAction.color}`}
+                                  onClick={() => advanceCategoryMutation.mutate({ categoryName: category })}
+                                  disabled={advanceCategoryMutation.isPending}
+                                  data-testid={`advance-${category}`}
+                                >
+                                  <ChevronRight className="h-3 w-3 mr-1" />
+                                  {nextAction.label}
+                                </Button>
                               </TooltipTrigger>
-                              <TooltipContent>
-                                {categoryObjections.map(o => o.objectionType).join(', ')}
-                              </TooltipContent>
+                              <TooltipContent>Advance to {nextAction.nextState}</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        {isAdopted && trust?.reorderStatus && (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${
-                              trust.reorderStatus === 'overdue' ? 'border-red-500 text-red-600' :
-                              trust.reorderStatus === 'due' ? 'border-orange-500 text-orange-600' :
-                              'border-green-500 text-green-600'
-                            }`}
-                          >
-                            {trust.reorderStatus}
-                          </Badge>
-                        )}
-                      </div>
-                      <Progress value={config.progress} className="h-1.5 mt-1" />
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!isMaxLevel && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2"
-                                onClick={() => advanceCategoryMutation.mutate({ categoryName: category })}
-                                disabled={advanceCategoryMutation.isPending}
-                                data-testid={`advance-${category}`}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {OBJECTION_TYPES.map(obj => (
+                              <DropdownMenuItem
+                                key={obj.id}
+                                onClick={() => logObjectionMutation.mutate({ categoryName: category, objectionType: obj.id })}
                               >
-                                <ChevronRight className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Advance to next stage</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {OBJECTION_TYPES.map(obj => (
-                            <DropdownMenuItem
-                              key={obj.id}
-                              onClick={() => logObjectionMutation.mutate({ categoryName: category, objectionType: obj.id })}
-                            >
-                              <obj.icon className="h-4 w-4 mr-2" />
-                              Log: {obj.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                                <obj.icon className="h-4 w-4 mr-2" />
+                                Log: {obj.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <Badge variant="outline" className={`text-xs ${config.color} shrink-0`}>
-                      {config.label}
-                    </Badge>
                   </div>
                 );
               })}

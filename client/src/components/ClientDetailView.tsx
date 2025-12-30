@@ -102,7 +102,7 @@ interface ClientDetailViewProps {
 }
 
 export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete }: ClientDetailViewProps) {
-  const [activeTab, setActiveTab] = useState("press-profiles");
+  const [activeTab, setActiveTab] = useState("quotes-prices");
   const [isAddPressProfileOpen, setIsAddPressProfileOpen] = useState(false);
   const [isAddSampleOpen, setIsAddSampleOpen] = useState(false);
   const [newPressProfile, setNewPressProfile] = useState({
@@ -1240,6 +1240,25 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-gray-100 p-1 rounded-lg">
           <TabsTrigger 
+            value="quotes-prices" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            data-testid="tab-quotes-prices"
+          >
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Quotes & Prices</span>
+            <span className="sm:hidden">Quotes</span>
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sentQuotes.length + quoteEvents.length + priceListEvents.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="samples" 
+            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            data-testid="tab-samples"
+          >
+            <FlaskConical className="h-4 w-4" />
+            <span>Samples</span>
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sampleRequests.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger 
             value="swatch-book" 
             className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
             data-testid="tab-swatch-book"
@@ -1257,25 +1276,6 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
             <span className="hidden sm:inline">Press Profiles</span>
             <span className="sm:hidden">Press</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{pressProfiles.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="samples" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
-            data-testid="tab-samples"
-          >
-            <FlaskConical className="h-4 w-4" />
-            <span>Samples</span>
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sampleRequests.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="quotes-prices" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
-            data-testid="tab-quotes-prices"
-          >
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Quotes & Prices</span>
-            <span className="sm:hidden">Quotes</span>
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sentQuotes.length + quoteEvents.length + priceListEvents.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
