@@ -483,9 +483,11 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
               </div>
               <AlertDialogTitle className="text-xl font-bold">Welcome to 4S Graphics Portal!</AlertDialogTitle>
             </div>
-            <AlertDialogDescription className="text-gray-600 space-y-3">
-              <p>We're excited to have you here. This portal helps you create quotes, manage customers, and track your sales activities.</p>
-              <p className="font-medium text-gray-800">Would you like a quick tour to learn the basics?</p>
+            <AlertDialogDescription asChild>
+              <div className="text-gray-600 space-y-3">
+                <p>We're excited to have you here. This portal helps you create quotes, manage customers, and track your sales activities.</p>
+                <p className="font-medium text-gray-800">Would you like a quick tour to learn the basics?</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
