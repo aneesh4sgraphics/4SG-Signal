@@ -37,3 +37,9 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "perplexity_v0:1.0.0", "javascript_openai:1.0.0", "javascript_log_in_with_replit:1.0.0", "google-mail:1.0.0", "notion:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+SHOPIFY_SCOPES = "read_orders,read_customers,read_products,write_customers"
+SHOPIFY_APP_URL = "https://4sgraphics.replit.app"
