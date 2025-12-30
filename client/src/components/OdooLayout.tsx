@@ -469,7 +469,12 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
       />
       <TutorialCenter open={tutorialOpen} onOpenChange={setTutorialOpen} />
 
-      <AlertDialog open={showWelcome} onOpenChange={setShowWelcome}>
+      <AlertDialog open={showWelcome} onOpenChange={(open) => {
+        if (!open) {
+          localStorage.setItem('4s-seen-welcome', 'true');
+        }
+        setShowWelcome(open);
+      }}>
         <AlertDialogContent className="glass-card max-w-lg">
           <AlertDialogHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -484,18 +489,11 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel 
-              onClick={() => {
-                localStorage.setItem('4s-seen-welcome', 'true');
-              }}
-              className="glass-btn"
-            >
+            <AlertDialogCancel className="glass-btn">
               Maybe Later
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => {
-                localStorage.setItem('4s-seen-welcome', 'true');
-                setShowWelcome(false);
                 setTutorialOpen(true);
               }}
               className="glass-btn-primary bg-emerald-600 hover:bg-emerald-700"
