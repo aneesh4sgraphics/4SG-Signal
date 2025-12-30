@@ -209,6 +209,15 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     },
   });
 
+  const { data: pressKitShipments = [] } = useQuery<any[]>({
+    queryKey: ['/api/crm/press-kit-shipments', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/press-kit-shipments?customerId=${customer.id}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   useEffect(() => {
     if (machineProfiles.length > 0) {
       setMachineProfileOpen(false);
@@ -389,6 +398,35 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
       return { action: 'confirm_machine', reason: 'Confirm inferred machine types', whyNow: 'Verified equipment info ensures accurate recommendations', priority: 'normal' };
     }
 
+    // Priority 2.5: Press Kit Follow-up - sample materials sent via Shopify
+    if (pressKitShipments.length > 0) {
+      const now = new Date();
+      for (const shipment of pressKitShipments) {
+        const shippedDate = shipment.shippedAt ? new Date(shipment.shippedAt) : new Date(shipment.createdAt);
+        const daysSinceShipped = Math.floor((now.getTime() - shippedDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // If shipped 3-10 days ago and status is still 'shipped' (no follow-up), prompt
+        if (daysSinceShipped >= 3 && daysSinceShipped <= 10 && shipment.status === 'shipped') {
+          return { 
+            action: 'press_kit_followup', 
+            reason: `Follow up on Press Kit sent ${daysSinceShipped} days ago`, 
+            whyNow: 'Check if materials arrived and gather initial feedback', 
+            priority: 'high' 
+          };
+        }
+        
+        // If shipped more than 10 days ago without follow-up, urgent
+        if (daysSinceShipped > 10 && shipment.status === 'shipped') {
+          return { 
+            action: 'press_kit_followup', 
+            reason: `Press Kit sent ${daysSinceShipped} days ago - needs follow-up!`, 
+            whyNow: 'Overdue check-in - ask about testing results and next steps', 
+            priority: 'urgent' 
+          };
+        }
+      }
+    }
+
     // Priority 3: Reorder due/overdue for adopted categories
     const adoptedWithReorderDue = categoryTrusts.filter(t => 
       (t.trustLevel === 'adopted' || t.trustLevel === 'habitual') && 
@@ -487,6 +525,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
       cross_sell: 'Cross-Sell',
       relationship: 'Relationship Review',
       call_customer: 'Call Customer',
+      press_kit_followup: 'Press Kit Follow-up',
     };
     return labels[action] || action;
   };

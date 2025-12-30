@@ -7829,16 +7829,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to process paid orders for coaching
   async function processOrderForCoaching(customerId: string, order: any) {
     try {
+      // Keywords that indicate press kit / sample materials
+      const PRESS_KIT_KEYWORDS = [
+        'sample sheet', 'sample sheets',
+        'swatch book', 'swatchbook', 'swatch-book',
+        'test kit', 'test-kit', 'testkit',
+        'press kit', 'press-kit', 'presskit',
+        'sample kit', 'sample pack', 'sample package',
+        'evaluation kit', 'trial kit'
+      ];
+      
       // Get product mappings
       const mappings = await db.select().from(shopifyProductMappings)
         .where(eq(shopifyProductMappings.isActive, true));
 
-      // Extract categories from line items
+      // Extract categories from line items and detect press kits
       const categoriesFromOrder = new Set<string>();
+      const pressKitItems: { title: string; quantity: number }[] = [];
       
       for (const item of order.line_items || []) {
         const title = item.title?.toLowerCase() || '';
         const productType = item.product_type?.toLowerCase() || '';
+        
+        // Check for press kit keywords
+        for (const keyword of PRESS_KIT_KEYWORDS) {
+          if (title.includes(keyword)) {
+            pressKitItems.push({ title: item.title, quantity: item.quantity || 1 });
+            break;
+          }
+        }
         
         for (const mapping of mappings) {
           if (mapping.shopifyProductTitle && title.includes(mapping.shopifyProductTitle.toLowerCase())) {
@@ -7847,6 +7866,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (mapping.shopifyProductType && productType.includes(mapping.shopifyProductType.toLowerCase())) {
             categoriesFromOrder.add(mapping.categoryName);
           }
+        }
+      }
+      
+      // Process press kit orders - create shipment records and coaching activity
+      if (pressKitItems.length > 0) {
+        console.log(`Press kit detected in order ${order.name}: ${pressKitItems.map(i => i.title).join(', ')}`);
+        
+        // Check if we already recorded this order as a press kit (avoid duplicates)
+        // Check both by order number in notes and by checking activity events
+        const existingPressKitActivity = await db.select().from(customerActivityEvents)
+          .where(and(
+            eq(customerActivityEvents.customerId, customerId),
+            eq(customerActivityEvents.eventType, 'press_kit_shipped'),
+            eq(customerActivityEvents.sourceId, String(order.id))
+          ))
+          .limit(1);
+        
+        if (existingPressKitActivity.length === 0) {
+          // Create press kit shipment record
+          await db.insert(pressKitShipments).values({
+            customerId,
+            pressKitVersion: pressKitItems.map(i => i.title).join(', '),
+            status: 'shipped',
+            shippedAt: new Date(order.created_at),
+            notes: `Auto-created from Shopify order ${order.name}. Items: ${pressKitItems.map(i => `${i.title} (x${i.quantity})`).join(', ')}`,
+          });
+          
+          // Create coaching activity for press kit follow-up
+          await db.insert(customerActivityEvents).values({
+            customerId,
+            eventType: 'press_kit_shipped',
+            title: `Press Kit Shipped - Order ${order.name}`,
+            description: `Customer received sample materials via Shopify order. Items: ${pressKitItems.map(i => i.title).join(', ')}. ACTION NEEDED: Follow up in 3-5 days to check if materials arrived and gather feedback.`,
+            sourceType: 'auto',
+            sourceId: String(order.id),
+            sourceTable: 'shopify_orders',
+            metadata: {
+              orderId: order.id,
+              orderNumber: order.name,
+              pressKitItems: pressKitItems,
+              coachingActions: [
+                'Check if materials arrived safely',
+                'Ask which products they plan to test',
+                'Schedule a follow-up call for test results',
+                'Offer technical support if needed'
+              ]
+            },
+          });
+          
+          console.log(`Created press kit shipment and coaching activity for customer ${customerId}`);
         }
       }
 
@@ -7902,8 +7971,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.insert(customerActivityEvents).values({
         customerId,
         eventType: 'shopify_order',
-        eventCategory: 'order',
-        description: `Shopify order ${order.name} - $${order.total_price}`,
+        title: `Shopify Order ${order.name} - $${order.total_price}`,
+        description: `Order placed with ${order.line_items?.length || 0} items. Categories: ${Array.from(categoriesFromOrder).join(', ') || 'None mapped'}`,
+        sourceType: 'auto',
+        sourceId: String(order.id),
+        sourceTable: 'shopify_orders',
+        amount: order.total_price,
+        itemCount: order.line_items?.length || 0,
         metadata: {
           orderId: order.id,
           orderNumber: order.name,
