@@ -8121,22 +8121,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(shopifyOrders.shopifyOrderId, String(order.id)))
           .limit(1);
 
-        const orderData = {
+        const orderData: any = {
           shopifyOrderId: String(order.id),
           orderNumber: order.name,
           shopifyCustomerId: order.customer?.id ? String(order.customer.id) : null,
-          customerEmail: order.email || order.customer?.email,
+          email: order.email || order.customer?.email,
           customerName: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : order.shipping_address?.name,
           companyName: order.customer?.default_address?.company || order.billing_address?.company,
           totalPrice: order.total_price,
           financialStatus: order.financial_status,
           fulfillmentStatus: order.fulfillment_status,
           lineItems: order.line_items,
-          shippingAddress: order.shipping_address,
-          billingAddress: order.billing_address,
+          shippingAddress: order.shipping_address || null,
+          billingAddress: order.billing_address || null,
           shopifyCreatedAt: new Date(order.created_at),
           updatedAt: new Date(),
         };
+        
+        console.log(`Order ${order.name}: shipping_address=${!!order.shipping_address}, billing_address=${!!order.billing_address}`);
 
         if (existing.length > 0) {
           await db.update(shopifyOrders)
