@@ -97,57 +97,57 @@ const MACHINE_FAMILIES = [
 
 const REQUIRES_NOTE_MACHINES = ['distributor', 'dealer', 'other'];
 
-// Category Groups based on machine compatibility
+// Category Groups based on machine compatibility (using QuickQuotes Product Categories)
 // Group A: Graffiti Logic - works with Offset, Digital Dry Toner, HP Indigo, Digital Inkjet UV
 const GRAFFITI_CATEGORIES = [
   'Graffiti Polyester Paper',
   'Graffiti Blended Poly',
-  'Graffiti Soft Poly',
-  'GraffitiStick CoolStick',
-  'GraffitiStick ClearStick',
-  'GraffitiStick MetalStick',
-  'GraffitiStick SilverStick',
-  'GraffitiStick DuraStick',
-  'GraffitiStick PaperStick',
+  'Graffiti SOFT Poly',
+  'Graffiti STICK',
 ];
 const GRAFFITI_MACHINES = ['offset', 'digital_toner', 'hp_indigo', 'digital_inkjet_uv'];
 
-// Group B: Solvit & Rang Lux - Wide Format
+// Group B: Wide Format
 const WIDE_FORMAT_CATEGORIES = [
   'Solvit Sign & Display Media',
-  'Rang Lux Print Canvas',
+  'Rang Print Canvas',
 ];
 const WIDE_FORMAT_MACHINES = ['wide_format_flatbed', 'wide_format_roll'];
 
-// Group C: Cliq & Rang Duo - Aqueous
+// Group C: Aqueous
 const AQUEOUS_CATEGORIES = [
-  'Cliq Aqueous Media',
-  'Rang Duo Print Canvas',
+  'CliQ Aqueous Medias',
 ];
 const AQUEOUS_MACHINES = ['aqueous_photo'];
 
-// Group D: Screen Print
+// Group D: Screen Print / DTF
 const SCREEN_PRINT_CATEGORIES = [
-  'EiE Inkjet Film',
-  'eLe Laser Film',
+  'Screen Printing Positives',
+  'DTF Film',
 ];
 const SCREEN_PRINT_MACHINES = ['screen_printing'];
 
-// All product categories for reference
+// Offset Printing Plates - for offset machines only
+const OFFSET_PLATE_CATEGORIES = [
+  'Offset Printing Plates',
+];
+
+// All product categories for reference (QuickQuotes categories)
 const ALL_PRODUCT_CATEGORIES = [
   ...GRAFFITI_CATEGORIES,
   ...WIDE_FORMAT_CATEGORIES,
   ...AQUEOUS_CATEGORIES,
   ...SCREEN_PRINT_CATEGORIES,
+  ...OFFSET_PLATE_CATEGORIES,
 ];
 
 // Machine to category group mapping
 const CATEGORY_MACHINE_COMPATIBILITY: Record<string, string[]> = {
-  offset: GRAFFITI_CATEGORIES,
+  offset: [...GRAFFITI_CATEGORIES, ...OFFSET_PLATE_CATEGORIES],
   digital_toner: GRAFFITI_CATEGORIES,
   hp_indigo: GRAFFITI_CATEGORIES,
   digital_inkjet_uv: GRAFFITI_CATEGORIES,
-  label_press: ['Label Stocks', 'Synthetic Labels'],
+  label_press: GRAFFITI_CATEGORIES,
   screen_printing: SCREEN_PRINT_CATEGORIES,
   wide_format_flatbed: WIDE_FORMAT_CATEGORIES,
   wide_format_roll: WIDE_FORMAT_CATEGORIES,
@@ -359,6 +359,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     if (WIDE_FORMAT_CATEGORIES.includes(categoryName)) return 'wide_format';
     if (AQUEOUS_CATEGORIES.includes(categoryName)) return 'aqueous';
     if (SCREEN_PRINT_CATEGORIES.includes(categoryName)) return 'screen_print';
+    if (OFFSET_PLATE_CATEGORIES.includes(categoryName)) return 'offset_plates';
     return null;
   };
 
@@ -368,6 +369,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
       case 'wide_format': return WIDE_FORMAT_CATEGORIES;
       case 'aqueous': return AQUEOUS_CATEGORIES;
       case 'screen_print': return SCREEN_PRINT_CATEGORIES;
+      case 'offset_plates': return OFFSET_PLATE_CATEGORIES;
       default: return [];
     }
   };
