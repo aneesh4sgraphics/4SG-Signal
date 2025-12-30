@@ -45,6 +45,7 @@ export default function ShopifySettingsPage() {
   const [matchingOrderId, setMatchingOrderId] = useState<number | null>(null);
   const [selectedCrmCustomer, setSelectedCrmCustomer] = useState("");
   const [createMappingForFuture, setCreateMappingForFuture] = useState(true);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
 
   const { data: settings, isLoading: settingsLoading } = useQuery<{
     shopDomain?: string;
@@ -190,6 +191,57 @@ export default function ShopifySettingsPage() {
   };
 
   const unmatchedOrders = orders.filter(o => !o.customerId);
+
+  // Get filtered and sorted customers for matching
+  const getFilteredCustomers = (order: any) => {
+    const searchLower = customerSearchTerm.toLowerCase();
+    const orderEmail = order.customerEmail?.toLowerCase() || '';
+    const orderCompany = order.companyName?.toLowerCase() || '';
+    const orderName = order.customerName?.toLowerCase() || '';
+
+    // Score each customer based on match quality
+    const scored = crmCustomers.map((customer: any) => {
+      const email = customer.email?.toLowerCase() || '';
+      const company = customer.company?.toLowerCase() || '';
+      const name = `${customer.firstName || ''} ${customer.lastName || ''}`.toLowerCase().trim();
+      
+      let score = 0;
+      
+      // Exact email match = highest priority
+      if (orderEmail && email && orderEmail === email) score += 100;
+      // Email contains match
+      else if (orderEmail && email && (email.includes(orderEmail) || orderEmail.includes(email))) score += 50;
+      
+      // Company name match
+      if (orderCompany && company) {
+        if (orderCompany === company) score += 80;
+        else if (company.includes(orderCompany) || orderCompany.includes(company)) score += 40;
+      }
+      
+      // Customer name match
+      if (orderName && name) {
+        if (orderName === name) score += 60;
+        else if (name.includes(orderName) || orderName.includes(name)) score += 30;
+      }
+
+      return { ...customer, score, displayName: company || name || email };
+    });
+
+    // Filter by search term
+    let filtered = scored;
+    if (searchLower) {
+      filtered = scored.filter((c: any) => 
+        c.displayName.toLowerCase().includes(searchLower) ||
+        c.email?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Sort by score (highest first), then alphabetically
+    return filtered.sort((a: any, b: any) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.displayName.localeCompare(b.displayName);
+    });
+  };
 
   if (settingsLoading) {
     return (
@@ -707,54 +759,134 @@ export default function ShopifySettingsPage() {
                         </TableCell>
                         <TableCell>
                           {!order.customerId && matchingOrderId === order.id ? (
-                            <div className="flex items-center gap-2">
-                              <Select value={selectedCrmCustomer} onValueChange={setSelectedCrmCustomer}>
-                                <SelectTrigger className="w-40">
-                                  <SelectValue placeholder="Select customer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {crmCustomers.map((customer: any) => (
-                                    <SelectItem key={customer.id} value={String(customer.id)}>
-                                      {customer.company || `${customer.firstName} ${customer.lastName}`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <div className="flex items-center gap-1">
-                                <input 
-                                  type="checkbox" 
-                                  id={`mapping-${order.id}`}
-                                  checked={createMappingForFuture} 
-                                  onChange={(e) => setCreateMappingForFuture(e.target.checked)}
-                                  className="h-3 w-3"
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  placeholder="Search customers..."
+                                  value={customerSearchTerm}
+                                  onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                                  className="w-48 h-8 text-sm"
+                                  data-testid={`input-customer-search-${order.id}`}
                                 />
-                                <label htmlFor={`mapping-${order.id}`} className="text-xs">Remember</label>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => { 
+                                    setMatchingOrderId(null); 
+                                    setSelectedCrmCustomer(""); 
+                                    setCustomerSearchTerm("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
                               </div>
-                              <Button 
-                                size="sm" 
-                                onClick={() => matchCustomerMutation.mutate({ 
-                                  orderId: order.id, 
-                                  customerId: selectedCrmCustomer, 
-                                  createMapping: createMappingForFuture 
-                                })}
-                                disabled={!selectedCrmCustomer || matchCustomerMutation.isPending}
-                                data-testid={`button-confirm-match-${order.id}`}
-                              >
-                                Save
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => { setMatchingOrderId(null); setSelectedCrmCustomer(""); }}
-                              >
-                                Cancel
-                              </Button>
+                              <div className="max-h-40 overflow-y-auto border rounded bg-white">
+                                {(() => {
+                                  const filtered = getFilteredCustomers(order);
+                                  const suggested = filtered.filter((c: any) => c.score > 0).slice(0, 3);
+                                  const others = filtered.filter((c: any) => c.score === 0 || !suggested.includes(c)).slice(0, 20);
+                                  
+                                  return (
+                                    <>
+                                      {suggested.length > 0 && (
+                                        <div className="border-b">
+                                          <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50">
+                                            Suggested Matches
+                                          </div>
+                                          {suggested.map((customer: any) => (
+                                            <div
+                                              key={customer.id}
+                                              className={`px-2 py-1.5 cursor-pointer hover:bg-green-100 flex items-center justify-between ${
+                                                selectedCrmCustomer === String(customer.id) ? 'bg-green-100' : ''
+                                              }`}
+                                              onClick={() => setSelectedCrmCustomer(String(customer.id))}
+                                              data-testid={`option-customer-${customer.id}`}
+                                            >
+                                              <div>
+                                                <div className="text-sm font-medium">{customer.displayName}</div>
+                                                {customer.email && (
+                                                  <div className="text-xs text-gray-500">{customer.email}</div>
+                                                )}
+                                              </div>
+                                              {selectedCrmCustomer === String(customer.id) && (
+                                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {others.length > 0 && (
+                                        <div>
+                                          {suggested.length > 0 && (
+                                            <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">
+                                              All Customers
+                                            </div>
+                                          )}
+                                          {others.map((customer: any) => (
+                                            <div
+                                              key={customer.id}
+                                              className={`px-2 py-1.5 cursor-pointer hover:bg-gray-100 flex items-center justify-between ${
+                                                selectedCrmCustomer === String(customer.id) ? 'bg-blue-100' : ''
+                                              }`}
+                                              onClick={() => setSelectedCrmCustomer(String(customer.id))}
+                                              data-testid={`option-customer-${customer.id}`}
+                                            >
+                                              <div>
+                                                <div className="text-sm">{customer.displayName}</div>
+                                                {customer.email && (
+                                                  <div className="text-xs text-gray-500">{customer.email}</div>
+                                                )}
+                                              </div>
+                                              {selectedCrmCustomer === String(customer.id) && (
+                                                <CheckCircle className="h-4 w-4 text-blue-600" />
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {filtered.length === 0 && (
+                                        <div className="px-2 py-3 text-sm text-gray-500 text-center">
+                                          No customers found
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  <input 
+                                    type="checkbox" 
+                                    id={`mapping-${order.id}`}
+                                    checked={createMappingForFuture} 
+                                    onChange={(e) => setCreateMappingForFuture(e.target.checked)}
+                                    className="h-3 w-3"
+                                  />
+                                  <label htmlFor={`mapping-${order.id}`} className="text-xs">Remember for future</label>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => matchCustomerMutation.mutate({ 
+                                    orderId: order.id, 
+                                    customerId: selectedCrmCustomer, 
+                                    createMapping: createMappingForFuture 
+                                  })}
+                                  disabled={!selectedCrmCustomer || matchCustomerMutation.isPending}
+                                  data-testid={`button-confirm-match-${order.id}`}
+                                >
+                                  {matchCustomerMutation.isPending ? 'Saving...' : 'Save Match'}
+                                </Button>
+                              </div>
                             </div>
                           ) : !order.customerId ? (
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => setMatchingOrderId(order.id)}
+                              onClick={() => {
+                                setMatchingOrderId(order.id);
+                                setCustomerSearchTerm("");
+                                setSelectedCrmCustomer("");
+                              }}
                               data-testid={`button-match-order-${order.id}`}
                             >
                               <Users className="h-3 w-3 mr-1" /> Match
