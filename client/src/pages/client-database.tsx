@@ -1543,7 +1543,12 @@ export default function ClientDatabase() {
           ref={searchInputRef}
           placeholder="Search clients by name, email, company... (fuzzy match enabled)"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => { 
+            setSearchTerm(e.target.value);
+            if (e.target.value && selectedLetter) {
+              setSelectedLetter(null);
+            }
+          }}
           onFocus={() => recentSearches.length > 0 && setShowRecentSearches(true)}
           onBlur={() => setTimeout(() => setShowRecentSearches(false), 200)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
