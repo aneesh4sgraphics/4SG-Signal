@@ -601,25 +601,19 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
                         )}
                       </div>
                       {isEnabled && !isConfirmed && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (profile) confirmMachineMutation.mutate(profile.id);
-                                }}
-                                data-testid={`confirm-machine-${machine.id}`}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Confirm machine</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white animate-pulse shadow-md"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (profile) confirmMachineMutation.mutate(profile.id);
+                          }}
+                          data-testid={`confirm-machine-${machine.id}`}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Confirm
+                        </Button>
                       )}
                     </div>
                   );
