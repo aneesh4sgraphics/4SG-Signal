@@ -233,12 +233,12 @@ export default function QuoteCalculator() {
     },
   });
 
-  // Get unique categories
-  const categories = Array.from(new Set(productData.map(item => item.productName))).sort();
+  // Get unique categories (filter out empty/null values)
+  const categories = Array.from(new Set(productData.map(item => item.productName).filter(Boolean))).sort();
   
-  // Get product types for selected category
+  // Get product types for selected category (filter out empty/null values)
   const productTypes = selectedCategory
-    ? Array.from(new Set(productData.filter(item => item.productName === selectedCategory).map(item => item.productType))).sort()
+    ? Array.from(new Set(productData.filter(item => item.productName === selectedCategory).map(item => item.productType).filter(Boolean))).sort()
     : [];
 
   // Get sizes for selected type with sorting
