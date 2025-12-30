@@ -1494,6 +1494,8 @@ export const shopifyOrders = pgTable("shopify_orders", {
   financialStatus: varchar("financial_status", { length: 50 }),
   fulfillmentStatus: varchar("fulfillment_status", { length: 50 }),
   lineItems: jsonb("line_items"),
+  shippingAddress: jsonb("shipping_address"),
+  billingAddress: jsonb("billing_address"),
   tags: text("tags"),
   note: text("note"),
   shopifyCreatedAt: timestamp("shopify_created_at"),

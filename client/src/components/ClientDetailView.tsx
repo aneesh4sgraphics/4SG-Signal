@@ -1146,7 +1146,40 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                     {customer.country && <p>{customer.country}</p>}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 italic">No address on file</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-400 italic">No address on file</p>
+                    {shopifyOrders.length > 0 && (() => {
+                      const orderWithAddress = shopifyOrders.find((o: any) => 
+                        o.shippingAddress?.address1 || o.billingAddress?.address1
+                      );
+                      if (orderWithAddress) {
+                        const addr = orderWithAddress.shippingAddress || orderWithAddress.billingAddress;
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => {
+                              setEditAddress({
+                                address1: addr.address1 || '',
+                                address2: addr.address2 || '',
+                                city: addr.city || '',
+                                province: addr.province || addr.province_code || '',
+                                zip: addr.zip || '',
+                                country: addr.country || addr.country_code || '',
+                              });
+                              setIsEditingAddress(true);
+                            }}
+                            data-testid="btn-pull-shopify-address"
+                          >
+                            <ShoppingCart className="h-3 w-3 mr-1" />
+                            Pull from Shopify Order
+                          </Button>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 )
               )}
             </div>

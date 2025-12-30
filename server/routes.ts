@@ -7795,6 +7795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           financialStatus: order.financial_status,
           fulfillmentStatus: order.fulfillment_status,
           lineItems: order.line_items,
+          shippingAddress: order.shipping_address,
+          billingAddress: order.billing_address,
           tags: order.tags,
           note: order.note,
           shopifyCreatedAt: order.created_at ? new Date(order.created_at) : new Date(),
@@ -8130,6 +8132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           financialStatus: order.financial_status,
           fulfillmentStatus: order.fulfillment_status,
           lineItems: order.line_items,
+          shippingAddress: order.shipping_address,
+          billingAddress: order.billing_address,
           shopifyCreatedAt: new Date(order.created_at),
           updatedAt: new Date(),
         };
