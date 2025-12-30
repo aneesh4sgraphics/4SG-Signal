@@ -6460,7 +6460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get coach state for a customer
+  // Get coach state for a customer (enhanced with quote/test follow-ups)
   app.get("/api/crm/coach-state/:customerId", isAuthenticated, async (req, res) => {
     try {
       const { customerId } = req.params;
@@ -6477,15 +6477,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const samples = await storage.getSampleRequestsByCustomerId(customerId);
         const quotes = await db.select().from(quoteEvents).where(eq(quoteEvents.customerId, customerId));
         
+        // === ENHANCED: Check for pending quote follow-ups ===
+        const pendingQuoteFollowUps = await db.select().from(quoteCategoryLinks)
+          .where(sql`${quoteCategoryLinks.customerId} = ${customerId} AND ${quoteCategoryLinks.followUpStage} != 'closed' AND ${quoteCategoryLinks.nextFollowUpDue} IS NOT NULL`);
+        
+        const now = new Date();
+        const overdueFollowUps = pendingQuoteFollowUps.filter(q => q.nextFollowUpDue && new Date(q.nextFollowUpDue) <= now);
+        const upcomingFollowUps = pendingQuoteFollowUps.filter(q => q.nextFollowUpDue && new Date(q.nextFollowUpDue) > now);
+        
         let currentState: string = 'prospect';
         let nudgeAction: string | null = null;
         let nudgeReason: string | null = null;
+        let nudgePriority: string = 'normal';
 
         const totalOrders = parseInt(customer.totalOrders || '0');
         const hasSamples = samples.length > 0;
-        const hasQuotes = quotes.length > 0;
+        const hasQuotes = quotes.length > 0 || pendingQuoteFollowUps.length > 0;
 
-        if (totalOrders >= 5) {
+        // === PRIORITY: Overdue quote follow-ups take precedence ===
+        if (overdueFollowUps.length > 0) {
+          const urgent = overdueFollowUps.sort((a, b) => (b.urgencyScore || 0) - (a.urgencyScore || 0))[0];
+          currentState = 'engaged';
+          nudgeAction = 'follow_up_quote';
+          nudgeReason = `Quote ${urgent.quoteNumber} follow-up overdue (${urgent.categoryName})`;
+          nudgePriority = 'high';
+        } else if (totalOrders >= 5) {
           currentState = 'loyal';
           nudgeAction = 'celebrate_milestone';
           nudgeReason = `${totalOrders} orders placed - maintain relationship`;
@@ -6497,6 +6513,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentState = 'ordered';
           nudgeAction = 'follow_up_quote';
           nudgeReason = 'Follow up on first order experience';
+        } else if (upcomingFollowUps.length > 0) {
+          const next = upcomingFollowUps.sort((a, b) => 
+            new Date(a.nextFollowUpDue!).getTime() - new Date(b.nextFollowUpDue!).getTime()
+          )[0];
+          currentState = 'engaged';
+          nudgeAction = 'follow_up_quote';
+          const daysUntil = Math.ceil((new Date(next.nextFollowUpDue!).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          nudgeReason = `Quote ${next.quoteNumber} follow-up in ${daysUntil} days (${next.categoryName})`;
+          nudgePriority = daysUntil <= 1 ? 'high' : 'normal';
         } else if (hasSamples) {
           currentState = 'sampled';
           nudgeAction = 'follow_up_sample';
@@ -6518,7 +6543,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders,
           nextNudgeAction: nudgeAction,
           nextNudgeReason: nudgeReason,
-          nextNudgePriority: 'normal',
+          nextNudgePriority: nudgePriority,
+          pendingQuoteFollowUps: pendingQuoteFollowUps.length,
+          overdueFollowUps: overdueFollowUps.length,
           isCalculated: true, // Flag that this is computed, not stored
         });
       }
@@ -6610,6 +6637,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error recording coach action:", error);
       res.status(500).json({ error: "Failed to record action" });
+    }
+  });
+
+  // ========================================
+  // QUOTE CATEGORY LINKS (Quote Follow-up Tracking)
+  // ========================================
+
+  // Get all quote category links for a customer
+  app.get("/api/crm/quote-category-links/:customerId", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const links = await db.select().from(quoteCategoryLinks)
+        .where(eq(quoteCategoryLinks.customerId, customerId));
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching quote category links:", error);
+      res.status(500).json({ error: "Failed to fetch quote category links" });
+    }
+  });
+
+  // Advance follow-up stage for a quote category link
+  app.post("/api/crm/quote-category-links/:id/advance", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      const existing = await db.select().from(quoteCategoryLinks)
+        .where(eq(quoteCategoryLinks.id, parseInt(id)));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ error: "Quote category link not found" });
+      }
+
+      const current = existing[0];
+      const stageOrder = ['initial', 'second', 'final', 'expired', 'closed'];
+      const currentIndex = stageOrder.indexOf(current.followUpStage);
+      
+      if (currentIndex >= 3) {
+        return res.status(400).json({ error: "Follow-up already at final stage" });
+      }
+
+      const nextStage = stageOrder[currentIndex + 1];
+      const nextFollowUpDue = new Date();
+      
+      // Set next follow-up date based on stage
+      if (nextStage === 'second') {
+        nextFollowUpDue.setDate(nextFollowUpDue.getDate() + 5); // 7-10 days total
+      } else if (nextStage === 'final') {
+        nextFollowUpDue.setDate(nextFollowUpDue.getDate() + 7); // 14+ days total
+      }
+
+      const result = await db.update(quoteCategoryLinks)
+        .set({
+          followUpStage: nextStage,
+          nextFollowUpDue: nextStage === 'expired' || nextStage === 'closed' ? null : nextFollowUpDue,
+          followUpCount: (current.followUpCount || 0) + 1,
+          lastFollowUpDate: new Date(),
+          urgencyScore: (current.urgencyScore || 30) + 20, // Increase urgency with each follow-up
+          notes: notes || current.notes,
+          updatedAt: new Date()
+        })
+        .where(eq(quoteCategoryLinks.id, parseInt(id)))
+        .returning();
+
+      // Log the follow-up activity
+      if (current.customerId) {
+        await storage.createActivityEvent({
+          customerId: current.customerId,
+          eventType: 'quote_follow_up',
+          title: `Quote ${current.quoteNumber} Follow-up (${nextStage})`,
+          description: `Category: ${current.categoryName}${notes ? `. Notes: ${notes}` : ''}`,
+          createdBy: req.user?.email,
+        });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error advancing follow-up stage:", error);
+      res.status(500).json({ error: "Failed to advance follow-up stage" });
+    }
+  });
+
+  // Close follow-up (quote won or lost)
+  app.post("/api/crm/quote-category-links/:id/close", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { outcome, notes, advanceTrust } = req.body;
+
+      const existing = await db.select().from(quoteCategoryLinks)
+        .where(eq(quoteCategoryLinks.id, parseInt(id)));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ error: "Quote category link not found" });
+      }
+
+      const current = existing[0];
+      
+      const result = await db.update(quoteCategoryLinks)
+        .set({
+          followUpStage: 'closed',
+          nextFollowUpDue: null,
+          notes: notes || current.notes,
+          updatedAt: new Date()
+        })
+        .where(eq(quoteCategoryLinks.id, parseInt(id)))
+        .returning();
+
+      // If quote was won and advanceTrust is true, advance category trust
+      if (outcome === 'won' && advanceTrust && current.customerId && current.categoryName) {
+        const existingTrust = await db.select().from(categoryTrust)
+          .where(sql`${categoryTrust.customerId} = ${current.customerId} AND ${categoryTrust.categoryName} = ${current.categoryName}`);
+
+        if (existingTrust.length > 0) {
+          const trust = existingTrust[0];
+          const trustLevelOrder = ['not_introduced', 'introduced', 'evaluated', 'adopted', 'habitual'];
+          const currentTrustIndex = trustLevelOrder.indexOf(trust.trustLevel);
+          
+          // Advance to at least "adopted" if quote won
+          if (currentTrustIndex < 3) {
+            await db.update(categoryTrust)
+              .set({
+                trustLevel: 'adopted',
+                updatedAt: new Date(),
+                updatedBy: req.user?.email
+              })
+              .where(eq(categoryTrust.id, trust.id));
+          }
+        }
+      }
+
+      // Log the close activity
+      if (current.customerId) {
+        await storage.createActivityEvent({
+          customerId: current.customerId,
+          eventType: outcome === 'won' ? 'quote_won' : 'quote_lost',
+          title: `Quote ${current.quoteNumber} ${outcome === 'won' ? 'Won' : 'Lost'}`,
+          description: `Category: ${current.categoryName}${notes ? `. Notes: ${notes}` : ''}`,
+          createdBy: req.user?.email,
+        });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error closing follow-up:", error);
+      res.status(500).json({ error: "Failed to close follow-up" });
     }
   });
 
