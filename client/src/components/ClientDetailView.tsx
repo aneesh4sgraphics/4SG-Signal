@@ -64,6 +64,7 @@ import {
   Copy,
   Printer,
   ExternalLink,
+  ShoppingCart,
 } from "lucide-react";
 import {
   Tooltip,
@@ -343,6 +344,16 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     queryKey: ['/api/crm/customer-contacts', customer.id],
     queryFn: async () => {
       const res = await fetch(`/api/crm/customer-contacts?customerId=${customer.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Fetch Shopify orders matched to this customer
+  const { data: shopifyOrders = [] } = useQuery<any[]>({
+    queryKey: ['/api/shopify/orders', 'customer', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/shopify/orders?customerId=${customer.id}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1209,6 +1220,15 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <span className="text-gray-600">Follow-up Tasks</span>
               </div>
               <Badge variant="secondary" className="text-base px-3">{journeyInstances.filter(j => j.status === 'in_progress').length}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <ShoppingCart className="h-4 w-4 text-green-600" />
+                </div>
+                <span className="text-gray-600">Orders Placed</span>
+              </div>
+              <Badge variant="secondary" className="text-base px-3">{shopifyOrders.length}</Badge>
             </div>
             {journeyInstances.filter(j => j.status === 'in_progress').length > 0 && (
               <div className="pt-2 border-t">
