@@ -354,35 +354,90 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
     return 'prospect';
   };
 
-  const computeNextBestMove = (): { action: string; reason: string; priority: 'low' | 'normal' | 'high' | 'urgent' } | null => {
-    if (allMachines.length === 0) {
-      return { action: 'confirm_machine', reason: 'No machine profile - confirm equipment type', priority: 'high' };
+  const getCategoryGroup = (categoryName: string): string | null => {
+    if (GRAFFITI_CATEGORIES.includes(categoryName)) return 'graffiti';
+    if (WIDE_FORMAT_CATEGORIES.includes(categoryName)) return 'wide_format';
+    if (AQUEOUS_CATEGORIES.includes(categoryName)) return 'aqueous';
+    if (SCREEN_PRINT_CATEGORIES.includes(categoryName)) return 'screen_print';
+    return null;
+  };
+
+  const getGroupCategories = (group: string): string[] => {
+    switch (group) {
+      case 'graffiti': return GRAFFITI_CATEGORIES;
+      case 'wide_format': return WIDE_FORMAT_CATEGORIES;
+      case 'aqueous': return AQUEOUS_CATEGORIES;
+      case 'screen_print': return SCREEN_PRINT_CATEGORIES;
+      default: return [];
     }
+  };
+
+  const computeNextBestMove = (): { action: string; reason: string; priority: 'low' | 'normal' | 'high' | 'urgent' } | null => {
+    // Priority 1: No machine profile - must confirm first to unlock categories
+    if (allMachines.length === 0) {
+      return { action: 'confirm_machine', reason: 'Confirm machine to unlock categories', priority: 'high' };
+    }
+    
+    // Priority 2: Has inferred machines but none confirmed
     if (confirmedMachines.length === 0 && inferredMachines.length > 0) {
       return { action: 'confirm_machine', reason: 'Confirm inferred machine types', priority: 'normal' };
     }
 
+    // Priority 3: Reorder due/overdue for adopted categories
     const adoptedWithReorderDue = categoryTrusts.filter(t => 
       (t.trustLevel === 'adopted' || t.trustLevel === 'habitual') && 
-      t.reorderStatus === 'due' || t.reorderStatus === 'overdue'
+      (t.reorderStatus === 'due' || t.reorderStatus === 'overdue')
     );
     if (adoptedWithReorderDue.length > 0) {
-      return { action: 'check_reorder', reason: `Reorder due: ${adoptedWithReorderDue[0].categoryName}`, priority: 'urgent' };
+      const overdue = adoptedWithReorderDue.find(t => t.reorderStatus === 'overdue');
+      if (overdue) {
+        return { action: 'check_reorder', reason: `Reorder overdue: ${overdue.categoryName}`, priority: 'urgent' };
+      }
+      return { action: 'check_reorder', reason: `Reorder due: ${adoptedWithReorderDue[0].categoryName}`, priority: 'high' };
     }
 
+    // Priority 4: Evaluated but not adopted - follow up
     const stuckEvaluated = categoryTrusts.filter(t => t.trustLevel === 'evaluated');
     if (stuckEvaluated.length > 0) {
       return { action: 'follow_up', reason: `Follow up on ${stuckEvaluated[0].categoryName} evaluation`, priority: 'high' };
     }
 
+    // Priority 5: Introduced but not evaluated - send sample
     const introduced = categoryTrusts.filter(t => t.trustLevel === 'introduced');
     if (introduced.length > 0) {
       return { action: 'send_sample', reason: `Send sample for ${introduced[0].categoryName}`, priority: 'normal' };
     }
 
+    // Priority 6: Cross-sell within same category group (adopted once → introduce others in group)
+    const adoptedCategories = categoryTrusts.filter(t => t.trustLevel === 'adopted' || t.trustLevel === 'habitual');
+    for (const adopted of adoptedCategories) {
+      const group = getCategoryGroup(adopted.categoryName);
+      if (group) {
+        const groupCategories = getGroupCategories(group);
+        const unexploredInGroup = groupCategories.filter(cat => 
+          cat !== adopted.categoryName && 
+          compatibleCategories.includes(cat) &&
+          !categoryTrusts.find(t => t.categoryName === cat)
+        );
+        if (unexploredInGroup.length > 0) {
+          return { 
+            action: 'cross_sell', 
+            reason: `Introduce ${unexploredInGroup[0]} (same family as ${adopted.categoryName})`, 
+            priority: 'normal' 
+          };
+        }
+      }
+    }
+
+    // Priority 7: Introduce new compatible categories
     const unexplored = compatibleCategories.filter(cat => !categoryTrusts.find(t => t.categoryName === cat));
     if (unexplored.length > 0) {
       return { action: 'introduce_category', reason: `Introduce ${unexplored[0]}`, priority: 'low' };
+    }
+
+    // Habitual customer with everything explored - relationship move
+    if (adoptedCategories.length > 0) {
+      return { action: 'relationship', reason: 'Review pricing & bundles for loyal customer', priority: 'low' };
     }
 
     return null;
@@ -399,6 +454,8 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
       follow_up: 'Follow Up',
       send_sample: 'Send Sample',
       introduce_category: 'Introduce Category',
+      cross_sell: 'Cross-Sell',
+      relationship: 'Relationship Review',
     };
     return labels[action] || action;
   };
