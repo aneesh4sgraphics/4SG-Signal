@@ -2370,16 +2370,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate totals (no tax)
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
       
-      // Save quote to database (non-blocking - don't wait for it)
-      storage.upsertSentQuote({
-        quoteNumber: finalQuoteNumber,
-        customerName,
-        customerEmail: customerEmail || null,
-        quoteItems: JSON.stringify(quoteItems),
-        totalAmount: totalAmount.toString(),
-        sentVia: sentVia || 'pdf',
-        status: 'sent'
-      }).catch(err => console.error('Failed to save quote:', err));
+      // Save quote to database and link to categories
+      (async () => {
+        try {
+          const savedQuote = await storage.upsertSentQuote({
+            quoteNumber: finalQuoteNumber,
+            customerName,
+            customerEmail: customerEmail || null,
+            quoteItems: JSON.stringify(quoteItems),
+            totalAmount: totalAmount.toString(),
+            sentVia: sentVia || 'pdf',
+            status: 'sent'
+          });
+
+          // === QUOTE-CATEGORY INTEGRATION ===
+          let customerId = null;
+          if (customerEmail) {
+            customerId = await findCustomerIdByEmail(customerEmail);
+          }
+          if (!customerId && customerName) {
+            customerId = await findCustomerIdByName(customerName);
+          }
+
+          if (customerId && savedQuote) {
+            // Extract unique product categories from quote items
+            const uniqueCategories = [...new Set(quoteItems.map((item: any) => item.productName).filter(Boolean))];
+
+            for (const categoryName of uniqueCategories) {
+              // Update category trust: if not_introduced, set to introduced
+              const existingTrust = await db.select().from(categoryTrust)
+                .where(sql`${categoryTrust.customerId} = ${customerId} AND ${categoryTrust.categoryName} = ${categoryName}`);
+
+              if (existingTrust.length > 0) {
+                const trust = existingTrust[0];
+                await db.update(categoryTrust)
+                  .set({
+                    quotesSent: (trust.quotesSent || 0) + 1,
+                    trustLevel: trust.trustLevel === 'not_introduced' ? 'introduced' : trust.trustLevel,
+                    updatedAt: new Date()
+                  })
+                  .where(eq(categoryTrust.id, trust.id));
+              } else {
+                await db.insert(categoryTrust).values({
+                  customerId,
+                  categoryName: categoryName as string,
+                  trustLevel: 'introduced',
+                  quotesSent: 1,
+                  updatedBy: req.user?.email
+                });
+              }
+
+              // Create quote category link with follow-up timer (4 days initial)
+              const initialFollowUpDue = new Date();
+              initialFollowUpDue.setDate(initialFollowUpDue.getDate() + 4);
+
+              await db.insert(quoteCategoryLinks).values({
+                customerId,
+                quoteId: savedQuote.id,
+                quoteNumber: finalQuoteNumber,
+                categoryName: categoryName as string,
+                followUpStage: 'initial',
+                nextFollowUpDue: initialFollowUpDue,
+                urgencyScore: 30
+              });
+            }
+
+            console.log(`[Quote Integration] Linked quote ${finalQuoteNumber} to ${uniqueCategories.length} categories for customer ${customerId}`);
+          } else {
+            console.log(`[Quote Integration] Customer not found for: ${customerEmail || customerName}`);
+          }
+        } catch (err) {
+          console.error('Failed to save quote or link categories:', err);
+        }
+      })();
       
       // Generate filename
       const currentDate = new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }).replace(/\//g, '-');
