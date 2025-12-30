@@ -70,6 +70,7 @@ import {
   customerCoachState,
   customerMachineProfiles,
   categoryObjections,
+  quoteCategoryLinks,
   ACCOUNT_STATES,
   ACCOUNT_STATE_CONFIG,
   CATEGORY_STATES,
@@ -79,7 +80,8 @@ import {
   CATEGORY_MACHINE_COMPATIBILITY,
   COACH_NUDGE_ACTIONS,
   CUSTOMER_STATES,
-  TRUST_LEVELS
+  TRUST_LEVELS,
+  QUOTE_FOLLOW_UP_STAGES
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -3163,7 +3165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save a new quote or update existing method
   app.post("/api/sent-quotes", isAuthenticated, async (req: any, res) => {
     try {
-      const { quoteNumber, customerName, customerEmail, quoteItems, totalAmount, sentVia } = req.body;
+      const { quoteNumber, customerName, customerEmail, quoteItems, totalAmount, sentVia, customerId: providedCustomerId } = req.body;
       
       if (!quoteNumber || !customerName || !quoteItems || !totalAmount) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -3176,6 +3178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingQuotes = await storage.getSentQuotes();
       const existingQuote = existingQuotes.find(q => q.quoteNumber === quoteNumber);
       
+      let savedQuote;
       if (existingQuote) {
         // Update the existing quote with new delivery method
         const updatedSentVia = existingQuote.sentVia.includes(finalSentVia) 
@@ -3183,11 +3186,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : existingQuote.sentVia + `, ${finalSentVia}`;
         
         // For now, we'll just return the existing quote since we don't have an update method
-        // In a real database, we would update the sentVia field
-        res.json(existingQuote);
+        savedQuote = existingQuote;
       } else {
         // Create new quote
-        const newQuote = await storage.createSentQuote({
+        savedQuote = await storage.createSentQuote({
           quoteNumber,
           customerName,
           customerEmail: customerEmail || null,
@@ -3196,9 +3198,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sentVia: finalSentVia,
           status: 'sent'
         });
-        
-        res.json(newQuote);
       }
+
+      // === QUOTE-CATEGORY INTEGRATION ===
+      // Find customer by email or provided ID
+      let customerId = providedCustomerId;
+      if (!customerId && customerEmail) {
+        customerId = await findCustomerIdByEmail(customerEmail);
+      }
+      if (!customerId && customerName) {
+        customerId = await findCustomerIdByName(customerName);
+      }
+
+      if (customerId) {
+        try {
+          // Parse quote items to extract unique product categories
+          const items = Array.isArray(quoteItems) ? quoteItems : JSON.parse(quoteItems);
+          const uniqueCategories = [...new Set(items.map((item: any) => item.productName).filter(Boolean))];
+
+          for (const categoryName of uniqueCategories) {
+            // 1. Update category trust: if not_introduced, set to introduced
+            const existingTrust = await db.select().from(categoryTrust)
+              .where(sql`${categoryTrust.customerId} = ${customerId} AND ${categoryTrust.categoryName} = ${categoryName}`);
+
+            if (existingTrust.length > 0) {
+              const trust = existingTrust[0];
+              // Increment quotes sent count
+              await db.update(categoryTrust)
+                .set({
+                  quotesSent: (trust.quotesSent || 0) + 1,
+                  trustLevel: trust.trustLevel === 'not_introduced' ? 'introduced' : trust.trustLevel,
+                  updatedAt: new Date()
+                })
+                .where(eq(categoryTrust.id, trust.id));
+            } else {
+              // Create new category trust at "introduced" level
+              await db.insert(categoryTrust).values({
+                customerId,
+                categoryName: categoryName as string,
+                trustLevel: 'introduced',
+                quotesSent: 1,
+                updatedBy: req.user?.email
+              });
+            }
+
+            // 2. Create quote category link with follow-up timer (4 days initial)
+            const initialFollowUpDue = new Date();
+            initialFollowUpDue.setDate(initialFollowUpDue.getDate() + 4); // 3-5 days initial
+
+            await db.insert(quoteCategoryLinks).values({
+              customerId,
+              quoteId: savedQuote.id,
+              quoteNumber,
+              categoryName: categoryName as string,
+              followUpStage: 'initial',
+              nextFollowUpDue: initialFollowUpDue,
+              urgencyScore: 30 // Base urgency for new quote
+            });
+          }
+
+          console.log(`[Quote Integration] Linked quote ${quoteNumber} to ${uniqueCategories.length} categories for customer ${customerId}`);
+        } catch (integrationError) {
+          console.error("[Quote Integration] Error linking quote to categories:", integrationError);
+          // Don't fail the main request, just log the error
+        }
+      }
+
+      res.json(savedQuote);
     } catch (error) {
       console.error("Error saving quote:", error);
       res.status(500).json({ error: "Failed to save quote" });

@@ -752,6 +752,35 @@ export const insertQuoteEventSchema = createInsertSchema(quoteEvents).omit({
 export type QuoteEvent = typeof quoteEvents.$inferSelect;
 export type InsertQuoteEvent = z.infer<typeof insertQuoteEventSchema>;
 
+// Quote Category Links - track quotes linked to product categories with follow-up stages
+export const QUOTE_FOLLOW_UP_STAGES = ['initial', 'second', 'final', 'expired', 'closed'] as const;
+export type QuoteFollowUpStage = typeof QUOTE_FOLLOW_UP_STAGES[number];
+
+export const quoteCategoryLinks = pgTable("quote_category_links", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  quoteId: integer("quote_id").references(() => sentQuotes.id, { onDelete: "cascade" }),
+  quoteNumber: varchar("quote_number", { length: 50 }),
+  categoryName: varchar("category_name", { length: 100 }).notNull(), // product category (e.g., "Graffiti STICK")
+  followUpStage: varchar("follow_up_stage", { length: 50 }).notNull().default("initial"), // initial, second, final, expired, closed
+  nextFollowUpDue: timestamp("next_follow_up_due"), // when next follow-up is due
+  lastFollowUpAt: timestamp("last_follow_up_at"), // when last follow-up was done
+  followUpCount: integer("follow_up_count").default(0),
+  outcome: varchar("outcome", { length: 50 }), // won, lost, pending, no_response
+  urgencyScore: integer("urgency_score").default(0), // 0-100, higher = more urgent
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertQuoteCategoryLinkSchema = createInsertSchema(quoteCategoryLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type QuoteCategoryLink = typeof quoteCategoryLinks.$inferSelect;
+export type InsertQuoteCategoryLink = z.infer<typeof insertQuoteCategoryLinkSchema>;
+
 // Price List Events - track price list views/downloads
 export const priceListEvents = pgTable("price_list_events", {
   id: serial("id").primaryKey(),
