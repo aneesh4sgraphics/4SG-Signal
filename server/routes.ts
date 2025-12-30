@@ -7386,11 +7386,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SHOPIFY INTEGRATION APIs
   // ========================================
 
-  // Environment variables for Shopify OAuth
+  // Environment variables for Shopify (supports both OAuth and direct access token)
   const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
   const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
   const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,read_customers,read_products';
   const SHOPIFY_APP_URL = process.env.SHOPIFY_APP_URL || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000');
+  // Direct access token for "Develop apps" (custom apps created in store admin)
+  const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+  const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
 
   // Shopify OAuth: Initiate install flow
   app.get("/shopify/auth", async (req, res) => {
@@ -7617,11 +7620,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint to get Shopify install status
   app.get("/api/shopify/install-status", isAuthenticated, async (req, res) => {
     try {
+      // Check for direct access token setup first (Develop apps / custom apps)
+      if (SHOPIFY_ACCESS_TOKEN && SHOPIFY_STORE_DOMAIN) {
+        return res.json({
+          installed: true,
+          connectionType: 'direct_token',
+          shops: [{ 
+            shop: SHOPIFY_STORE_DOMAIN, 
+            installedAt: new Date().toISOString(), 
+            scope: SHOPIFY_SCOPES 
+          }],
+        });
+      }
+
+      // Fall back to OAuth-based installs
       const installs = await db.select().from(shopifyInstalls)
         .where(eq(shopifyInstalls.isActive, true));
       
       res.json({
         installed: installs.length > 0,
+        connectionType: 'oauth',
         shops: installs.map(i => ({ shop: i.shop, installedAt: i.installedAt, scope: i.scope })),
       });
     } catch (error) {
@@ -8019,6 +8037,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching Shopify orders:", error);
       res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Sync orders from Shopify (for direct token setup)
+  app.post("/api/shopify/sync-orders", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
+        return res.status(400).json({ error: "Shopify direct access not configured. Please add SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE_DOMAIN to your secrets." });
+      }
+
+      const axios = (await import('axios')).default;
+      
+      // Fetch recent orders from Shopify
+      const response = await axios.get(
+        `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/orders.json?status=any&limit=50`,
+        {
+          headers: {
+            'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const shopifyOrdersList = response.data.orders || [];
+      let synced = 0;
+      let updated = 0;
+
+      for (const order of shopifyOrdersList) {
+        // Check if order already exists
+        const existing = await db.select().from(shopifyOrders)
+          .where(eq(shopifyOrders.shopifyOrderId, String(order.id)))
+          .limit(1);
+
+        const orderData = {
+          shopifyOrderId: String(order.id),
+          orderNumber: order.name,
+          shopifyCustomerId: order.customer?.id ? String(order.customer.id) : null,
+          customerEmail: order.email || order.customer?.email,
+          customerName: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : order.shipping_address?.name,
+          companyName: order.customer?.default_address?.company || order.billing_address?.company,
+          totalPrice: order.total_price,
+          financialStatus: order.financial_status,
+          fulfillmentStatus: order.fulfillment_status,
+          lineItems: order.line_items,
+          shopifyCreatedAt: new Date(order.created_at),
+          updatedAt: new Date(),
+        };
+
+        if (existing.length > 0) {
+          await db.update(shopifyOrders)
+            .set(orderData)
+            .where(eq(shopifyOrders.id, existing[0].id));
+          updated++;
+        } else {
+          await db.insert(shopifyOrders).values(orderData);
+          synced++;
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Synced ${synced} new orders, updated ${updated} existing orders`,
+        total: shopifyOrdersList.length
+      });
+    } catch (error: any) {
+      console.error("Error syncing Shopify orders:", error.response?.data || error);
+      res.status(500).json({ error: "Failed to sync orders", details: error.response?.data?.errors || error.message });
+    }
+  });
+
+  // Test Shopify connection (for direct token setup)
+  app.get("/api/shopify/test-connection", isAuthenticated, async (req, res) => {
+    try {
+      if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
+        return res.status(400).json({ 
+          connected: false, 
+          error: "Shopify credentials not configured" 
+        });
+      }
+
+      const axios = (await import('axios')).default;
+      
+      // Test API access by fetching shop info
+      const response = await axios.get(
+        `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/shop.json`,
+        {
+          headers: {
+            'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      res.json({ 
+        connected: true, 
+        shop: response.data.shop.name,
+        domain: response.data.shop.domain,
+        email: response.data.shop.email,
+      });
+    } catch (error: any) {
+      console.error("Error testing Shopify connection:", error.response?.data || error);
+      res.status(500).json({ 
+        connected: false, 
+        error: error.response?.data?.errors || error.message 
+      });
     }
   });
 

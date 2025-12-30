@@ -55,9 +55,34 @@ export default function ShopifySettingsPage() {
 
   const { data: installStatus } = useQuery<{
     installed: boolean;
+    connectionType?: string;
     shops: Array<{ shop: string; installedAt: string; scope: string }>;
   }>({
     queryKey: ['/api/shopify/install-status'],
+  });
+
+  const { data: connectionTest, refetch: testConnection, isFetching: testingConnection } = useQuery<{
+    connected: boolean;
+    shop?: string;
+    domain?: string;
+    email?: string;
+    error?: string;
+  }>({
+    queryKey: ['/api/shopify/test-connection'],
+    enabled: false, // Manual trigger only
+  });
+
+  const syncOrdersMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/shopify/sync-orders', {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shopify/orders'] });
+      toast({ title: "Orders synced!", description: data.message });
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    },
   });
 
   const { data: orders = [] } = useQuery<any[]>({
@@ -192,10 +217,10 @@ export default function ShopifySettingsPage() {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5" />
-                  Shopify App Install
+                  Shopify Connection
                 </CardTitle>
                 <CardDescription>
-                  Install the CRM app in your Shopify store to enable embedded access and automatic webhook registration
+                  Connect your Shopify store using an Admin API access token
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -203,25 +228,79 @@ export default function ShopifySettingsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle className="h-5 w-5" />
-                      <span className="font-medium">App Installed</span>
+                      <span className="font-medium">
+                        {installStatus.connectionType === 'direct_token' ? 'Connected via Access Token' : 'App Installed'}
+                      </span>
                     </div>
                     {installStatus.shops.map((shop, i) => (
                       <div key={i} className="bg-gray-50 p-4 rounded-lg">
                         <p className="font-medium">{shop.shop}</p>
                         <p className="text-sm text-gray-500">
-                          Installed: {shop.installedAt ? format(new Date(shop.installedAt), 'PPp') : 'Unknown'}
+                          {installStatus.connectionType === 'direct_token' 
+                            ? 'Using Admin API access token'
+                            : `Installed: ${shop.installedAt ? format(new Date(shop.installedAt), 'PPp') : 'Unknown'}`
+                          }
                         </p>
                         <p className="text-xs text-gray-400 mt-1">Scopes: {shop.scope || 'N/A'}</p>
                       </div>
                     ))}
+                    
+                    {/* Test Connection Button */}
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => testConnection()}
+                      disabled={testingConnection}
+                      data-testid="button-test-connection"
+                    >
+                      {testingConnection ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Link2 className="h-4 w-4 mr-2" />
+                      )}
+                      Test Connection
+                    </Button>
+
+                    {connectionTest && (
+                      <div className={`p-3 rounded-lg text-sm ${connectionTest.connected ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        {connectionTest.connected ? (
+                          <>
+                            <p className="font-medium">Connection Successful!</p>
+                            <p>Shop: {connectionTest.shop}</p>
+                            <p>Domain: {connectionTest.domain}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium">Connection Failed</p>
+                            <p>{connectionTest.error}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Sync Orders Button */}
+                    <Button 
+                      className="w-full"
+                      onClick={() => syncOrdersMutation.mutate()}
+                      disabled={syncOrdersMutation.isPending}
+                      data-testid="button-sync-orders"
+                    >
+                      {syncOrdersMutation.isPending ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Sync Orders from Shopify
+                    </Button>
+
                     <Button variant="outline" className="w-full" asChild>
                       <a 
-                        href={`https://${installStatus.shops[0]?.shop || 'admin.shopify.com'}/admin/apps`}
+                        href={`https://${installStatus.shops[0]?.shop || 'admin.shopify.com'}/admin`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
-                        Open in Shopify Admin
+                        Open Shopify Admin
                       </a>
                     </Button>
                   </div>
@@ -229,36 +308,24 @@ export default function ShopifySettingsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-orange-600">
                       <AlertTriangle className="h-5 w-5" />
-                      <span className="font-medium">App Not Installed</span>
+                      <span className="font-medium">Not Connected</span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Install the app on your Shopify store to enable:
+                      To connect your Shopify store, add these secrets in your environment:
                     </p>
                     <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                      <li>Access CRM directly from Shopify Admin</li>
-                      <li>Automatic webhook registration</li>
-                      <li>Order and customer syncing</li>
+                      <li><code className="bg-gray-100 px-1 rounded">SHOPIFY_ACCESS_TOKEN</code> - Your Admin API access token</li>
+                      <li><code className="bg-gray-100 px-1 rounded">SHOPIFY_STORE_DOMAIN</code> - Your store domain (e.g., store.myshopify.com)</li>
                     </ul>
-                    <div className="space-y-2">
-                      <Label htmlFor="installShop">Enter your shop domain</Label>
-                      <Input
-                        id="installShop"
-                        placeholder="yourstore.myshopify.com"
-                        value={shopDomain}
-                        onChange={(e) => setShopDomain(e.target.value)}
-                        data-testid="input-install-shop"
-                      />
+                    <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-700">
+                      <p className="font-medium">How to get your access token:</p>
+                      <ol className="list-decimal list-inside space-y-1 mt-2">
+                        <li>Go to Shopify Admin → Settings → Apps and sales channels</li>
+                        <li>Click "Develop apps" → Create an app</li>
+                        <li>Configure Admin API scopes: read_orders, read_customers, read_products</li>
+                        <li>Install the app and copy the Admin API access token</li>
+                      </ol>
                     </div>
-                    <Button 
-                      className="w-full"
-                      disabled={!shopDomain}
-                      onClick={() => {
-                        window.location.href = `/shopify/auth?shop=${shopDomain}`;
-                      }}
-                      data-testid="button-install-app"
-                    >
-                      Install App on Shopify
-                    </Button>
                   </div>
                 )}
               </CardContent>
