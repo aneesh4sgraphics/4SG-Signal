@@ -52,13 +52,20 @@ export function useAuth() {
   useEffect(() => {
     if (wasJustAuthenticated) {
       sessionStorage.removeItem("authComplete");
-      sessionStorage.removeItem("authTimestamp");
       
       const timer = setTimeout(() => {
         refetch();
       }, 500);
       
-      return () => clearTimeout(timer);
+      // Remove authTimestamp after 10 seconds (allowing grace period to work for all queries)
+      const cleanupTimer = setTimeout(() => {
+        sessionStorage.removeItem("authTimestamp");
+      }, 10000);
+      
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(cleanupTimer);
+      };
     }
   }, [wasJustAuthenticated, refetch]);
 

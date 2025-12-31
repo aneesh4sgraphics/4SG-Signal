@@ -10,7 +10,7 @@ function checkLoginGracePeriod(): boolean {
   const authTimestamp = sessionStorage.getItem('authTimestamp');
   if (authTimestamp) {
     const loginTime = parseInt(authTimestamp, 10);
-    const gracePeriod = 5000; // 5 seconds
+    const gracePeriod = 10000; // 10 seconds - enough time for session sync in production
     if (Date.now() - loginTime < gracePeriod) {
       return true;
     }
