@@ -1334,4 +1334,218 @@ router.post("/shopify-unmapped-items/:id/resolve", isAuthenticated, requireAdmin
   }
 });
 
+// Helper function to generate canonical category code from product name
+function generateCategoryCode(productName: string): string {
+  return productName
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, '') // Remove special chars
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/_+/g, '_') // Collapse multiple underscores
+    .replace(/^_|_$/g, ''); // Trim underscores
+}
+
+// Mapping Audit - Shows % of Shopify SKUs that match ItemCodes
+router.get("/mapping-audit", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    // Get all pricing items with their ItemCodes
+    const pricingItems = await storage.getAllPricingMasterItems();
+    const itemCodes = new Set(pricingItems.map(p => p.itemCode).filter(Boolean));
+    
+    // Get all SKU mappings
+    const skuMappings = await storage.getAllAdminSkuMappings();
+    const activeMappings = skuMappings.filter(m => m.isActive);
+    
+    // Get all categories for lookup
+    const categories = await storage.getAllAdminCategories();
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+    
+    // Get Shopify products/variants (from unmapped items or orders)
+    const unmappedItems = await storage.getShopifyUnmappedItems();
+    
+    // Also get unique ItemCodes from pricing database
+    const uniqueItemCodes = [...itemCodes];
+    
+    // Build audit results
+    const auditResults = {
+      summary: {
+        totalPricingItems: pricingItems.length,
+        totalUniqueItemCodes: uniqueItemCodes.length,
+        totalSkuMappings: activeMappings.length,
+        totalUnmappedShopifyItems: unmappedItems.filter(u => !u.resolvedCategoryId).length,
+        totalResolvedItems: unmappedItems.filter(u => u.resolvedCategoryId).length,
+      },
+      categories: categories.map(cat => ({
+        id: cat.id,
+        code: cat.code,
+        label: cat.label,
+        itemCount: pricingItems.filter(p => p.catalogCategoryId === cat.id).length,
+        mappingRules: activeMappings.filter(m => m.categoryId === cat.id).length,
+      })),
+      unmappedItems: unmappedItems.filter(u => !u.resolvedCategoryId).map(item => ({
+        id: item.id,
+        sku: item.shopifySku,
+        productTitle: item.shopifyProductTitle,
+        variantTitle: item.shopifyVariantTitle,
+        orderId: item.shopifyOrderId,
+        createdAt: item.createdAt,
+        suggestedMatches: findSuggestedMatches(item.shopifySku || '', pricingItems, categories),
+      })),
+      mappingRules: activeMappings.map(rule => ({
+        id: rule.id,
+        ruleType: rule.ruleType,
+        pattern: rule.pattern,
+        categoryId: rule.categoryId,
+        categoryCode: rule.categoryCode || categoryMap.get(rule.categoryId || 0)?.code,
+        categoryLabel: categoryMap.get(rule.categoryId || 0)?.label,
+        priority: rule.priority,
+      })),
+    };
+    
+    res.json(auditResults);
+  } catch (error) {
+    console.error("Error running mapping audit:", error);
+    res.status(500).json({ error: "Failed to run mapping audit" });
+  }
+});
+
+// Helper to find suggested matches for a SKU
+function findSuggestedMatches(
+  sku: string, 
+  pricingItems: any[], 
+  categories: any[]
+): { itemCode: string; productName: string; similarity: number }[] {
+  if (!sku) return [];
+  
+  const skuLower = sku.toLowerCase();
+  const matches: { itemCode: string; productName: string; similarity: number }[] = [];
+  
+  // Check for exact ItemCode match
+  const exactMatch = pricingItems.find(p => p.itemCode?.toLowerCase() === skuLower);
+  if (exactMatch) {
+    return [{
+      itemCode: exactMatch.itemCode || '',
+      productName: exactMatch.productName || '',
+      similarity: 100
+    }];
+  }
+  
+  // Check for prefix matches
+  for (const item of pricingItems.slice(0, 500)) { // Limit for performance
+    if (!item.itemCode) continue;
+    const itemCodeLower = item.itemCode.toLowerCase();
+    
+    // Check if SKU starts with or contains the ItemCode
+    if (skuLower.startsWith(itemCodeLower) || itemCodeLower.startsWith(skuLower)) {
+      matches.push({
+        itemCode: item.itemCode,
+        productName: item.productName || '',
+        similarity: Math.round((Math.min(sku.length, item.itemCode.length) / Math.max(sku.length, item.itemCode.length)) * 100)
+      });
+    }
+  }
+  
+  // Sort by similarity and return top 3
+  return matches
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 3);
+}
+
+// Create SKU mapping rule from audit
+router.post("/mapping-audit/create-rule", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const { pattern, ruleType, categoryId, description } = req.body;
+    
+    if (!pattern || !categoryId) {
+      return res.status(400).json({ error: "Pattern and categoryId are required" });
+    }
+    
+    // Get the category to store its code
+    const categories = await storage.getAllAdminCategories();
+    const category = categories.find(c => c.id === categoryId);
+    
+    if (!category) {
+      return res.status(400).json({ error: "Category not found" });
+    }
+    
+    const mapping = await storage.createAdminSkuMapping({
+      ruleType: ruleType || 'exact',
+      pattern,
+      categoryId,
+      categoryCode: category.code,
+      priority: 10,
+      description: description || `Created from mapping audit`,
+      isActive: true
+    });
+    
+    res.json({ success: true, mapping });
+  } catch (error) {
+    console.error("Error creating mapping rule:", error);
+    res.status(500).json({ error: "Failed to create mapping rule" });
+  }
+});
+
+// Create new category with canonical code
+router.post("/categories/create", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const { label, code, groupId, compatibleMachineTypes, description } = req.body;
+    
+    if (!label) {
+      return res.status(400).json({ error: "Category label is required" });
+    }
+    
+    // Generate code if not provided
+    const categoryCode = code || generateCategoryCode(label);
+    
+    // Check if code already exists
+    const existingCategories = await storage.getAllAdminCategories();
+    if (existingCategories.some(c => c.code === categoryCode)) {
+      return res.status(400).json({ error: "Category code already exists" });
+    }
+    
+    const category = await storage.createAdminCategory({
+      code: categoryCode,
+      label,
+      groupId: groupId || null,
+      compatibleMachineTypes: compatibleMachineTypes || [],
+      description: description || null,
+      sortOrder: existingCategories.length,
+      isActive: true
+    });
+    
+    res.json({ success: true, category });
+  } catch (error) {
+    console.error("Error creating category:", error);
+    res.status(500).json({ error: "Failed to create category" });
+  }
+});
+
+// Create new product type under a category
+router.post("/product-types/create", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const { categoryId, label, code, subfamily, description } = req.body;
+    
+    if (!categoryId || !label) {
+      return res.status(400).json({ error: "Category ID and label are required" });
+    }
+    
+    // Generate code if not provided
+    const typeCode = code || generateCategoryCode(label);
+    
+    const productType = await storage.createCatalogProductType({
+      categoryId,
+      code: typeCode,
+      label,
+      subfamily: subfamily || null,
+      description: description || null,
+      sortOrder: 0,
+      isActive: true
+    });
+    
+    res.json({ success: true, productType });
+  } catch (error) {
+    console.error("Error creating product type:", error);
+    res.status(500).json({ error: "Failed to create product type" });
+  }
+});
+
 export default router;
