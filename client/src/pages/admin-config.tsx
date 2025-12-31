@@ -489,7 +489,7 @@ export default function AdminConfig() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-8 w-full max-w-6xl">
+          <TabsList className="grid grid-cols-9 w-full max-w-6xl">
             <TabsTrigger value="home" className="flex items-center gap-1" data-testid="tab-home">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Home</span>
@@ -505,6 +505,10 @@ export default function AdminConfig() {
             <TabsTrigger value="sku-mapping" className="flex items-center gap-1" data-testid="tab-sku-mapping">
               <Database className="h-4 w-4" />
               <span className="hidden sm:inline">SKU Map</span>
+            </TabsTrigger>
+            <TabsTrigger value="mapping-audit" className="flex items-center gap-1" data-testid="tab-mapping-audit">
+              <CheckCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Mapping Audit</span>
             </TabsTrigger>
             <TabsTrigger value="timers" className="flex items-center gap-1" data-testid="tab-timers">
               <Clock className="h-4 w-4" />
@@ -559,6 +563,10 @@ export default function AdminConfig() {
               categories={categories}
               isLoading={skuMappingsLoading}
             />
+          </TabsContent>
+
+          <TabsContent value="mapping-audit">
+            <MappingAuditTab categories={categories} />
           </TabsContent>
 
           <TabsContent value="timers">
@@ -2828,6 +2836,332 @@ function ConversationScriptsTab({ scripts, isLoading }: { scripts: AdminConversa
             <Button onClick={() => saveScriptMutation.mutate({ ...formData, id: editingScript?.id })} disabled={saveScriptMutation.isPending}>
               <Save className="h-4 w-4 mr-2" />
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+interface MappingAuditData {
+  summary: {
+    totalPricingItems: number;
+    totalUniqueItemCodes: number;
+    totalSkuMappings: number;
+    totalUnmappedShopifyItems: number;
+    totalResolvedItems: number;
+  };
+  categories: Array<{
+    id: number;
+    code: string;
+    label: string;
+    itemCount: number;
+    mappingRules: number;
+  }>;
+  unmappedItems: Array<{
+    id: number;
+    sku: string;
+    productTitle: string;
+    variantTitle: string;
+    orderId: string;
+    createdAt: string;
+    suggestedMatches: Array<{
+      itemCode: string;
+      productName: string;
+      similarity: number;
+    }>;
+  }>;
+  mappingRules: Array<{
+    id: number;
+    ruleType: string;
+    pattern: string;
+    categoryId: number;
+    categoryCode: string;
+    categoryLabel: string;
+    priority: number;
+  }>;
+}
+
+function MappingAuditTab({ categories }: { categories: AdminCategory[] }) {
+  const [createMappingOpen, setCreateMappingOpen] = useState(false);
+  const [selectedUnmappedItem, setSelectedUnmappedItem] = useState<MappingAuditData['unmappedItems'][0] | null>(null);
+  const [newMappingPattern, setNewMappingPattern] = useState('');
+  const [newMappingCategoryId, setNewMappingCategoryId] = useState<number | null>(null);
+  const [newMappingRuleType, setNewMappingRuleType] = useState<'exact' | 'prefix' | 'regex'>('exact');
+  const { toast } = useToast();
+
+  const { data: auditData, isLoading, refetch } = useQuery<MappingAuditData>({
+    queryKey: ['/api/pricing-database/mapping-audit'],
+  });
+
+  const createMappingMutation = useMutation({
+    mutationFn: async (data: { pattern: string; ruleType: string; categoryId: number }) => {
+      const response = await apiRequest('/api/pricing-database/mapping-audit/create-rule', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: 'Mapping rule created successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/pricing-database/mapping-audit'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/sku-mappings'] });
+      setCreateMappingOpen(false);
+      setSelectedUnmappedItem(null);
+      setNewMappingPattern('');
+      setNewMappingCategoryId(null);
+    },
+    onError: () => {
+      toast({ title: 'Failed to create mapping rule', variant: 'destructive' });
+    },
+  });
+
+  if (isLoading) return <div className="text-center py-8">Loading mapping audit data...</div>;
+
+  const summary = auditData?.summary || {
+    totalPricingItems: 0,
+    totalUniqueItemCodes: 0,
+    totalSkuMappings: 0,
+    totalUnmappedShopifyItems: 0,
+    totalResolvedItems: 0,
+  };
+
+  const mappingRate = summary.totalUnmappedShopifyItems + summary.totalResolvedItems > 0
+    ? Math.round((summary.totalResolvedItems / (summary.totalUnmappedShopifyItems + summary.totalResolvedItems)) * 100)
+    : 100;
+
+  const openCreateMapping = (item: MappingAuditData['unmappedItems'][0]) => {
+    setSelectedUnmappedItem(item);
+    setNewMappingPattern(item.sku || '');
+    setNewMappingCategoryId(null);
+    setNewMappingRuleType('exact');
+    setCreateMappingOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Mapping Audit</h2>
+          <p className="text-sm text-gray-500">Track coverage of Shopify SKUs mapped to product categories</p>
+        </div>
+        <Button onClick={() => refetch()} variant="outline" size="sm" data-testid="refresh-audit">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-blue-600">{summary.totalPricingItems.toLocaleString()}</div>
+            <div className="text-sm text-gray-500">Pricing Items</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-purple-600">{summary.totalUniqueItemCodes.toLocaleString()}</div>
+            <div className="text-sm text-gray-500">Unique Item Codes</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-green-600">{summary.totalSkuMappings}</div>
+            <div className="text-sm text-gray-500">SKU Mapping Rules</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-orange-600">{summary.totalUnmappedShopifyItems}</div>
+            <div className="text-sm text-gray-500">Unmapped Shopify Items</div>
+          </CardContent>
+        </Card>
+        <Card className={mappingRate >= 80 ? 'bg-green-50' : mappingRate >= 50 ? 'bg-yellow-50' : 'bg-red-50'}>
+          <CardContent className="p-4 text-center">
+            <div className={`text-3xl font-bold ${mappingRate >= 80 ? 'text-green-600' : mappingRate >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {mappingRate}%
+            </div>
+            <div className="text-sm text-gray-500">Mapping Rate</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {summary.totalUnmappedShopifyItems > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Unmapped Shopify SKUs ({summary.totalUnmappedShopifyItems})
+            </CardTitle>
+            <CardDescription>
+              These SKUs from Shopify orders couldn't be matched to product categories. Create mapping rules to resolve them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {auditData?.unmappedItems?.map((item) => (
+                <div key={item.id} className="border rounded-lg p-4 bg-white">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded inline-block mb-2">
+                        {item.sku || 'No SKU'}
+                      </div>
+                      <div className="text-sm font-medium">{item.productTitle}</div>
+                      {item.variantTitle && (
+                        <div className="text-xs text-gray-500">{item.variantTitle}</div>
+                      )}
+                      <div className="text-xs text-gray-400 mt-1">
+                        Order: {item.orderId} • {new Date(item.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={() => openCreateMapping(item)}
+                      data-testid={`create-mapping-${item.id}`}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Create Mapping
+                    </Button>
+                  </div>
+                  
+                  {item.suggestedMatches && item.suggestedMatches.length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="text-xs font-medium text-gray-500 mb-2">Suggested Matches:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {item.suggestedMatches.map((match, i) => (
+                          <div 
+                            key={i} 
+                            className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded flex items-center gap-1"
+                          >
+                            <span className="font-mono">{match.itemCode}</span>
+                            <span className="text-blue-400">({match.similarity}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Categories with Mapping Coverage
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            {auditData?.categories?.filter(c => c.itemCount > 0).map((cat) => (
+              <div key={cat.id} className="border rounded-lg p-3 bg-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-sm">{cat.label}</div>
+                    <div className="text-xs font-mono text-gray-500">{cat.code}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-semibold text-blue-600">{cat.itemCount}</div>
+                    <div className="text-xs text-gray-500">{cat.mappingRules} rules</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={createMappingOpen} onOpenChange={setCreateMappingOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create SKU Mapping Rule</DialogTitle>
+            <DialogDescription>
+              Map this SKU pattern to a product category for future orders.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedUnmappedItem && (
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="text-sm font-medium">{selectedUnmappedItem.productTitle}</div>
+                <div className="text-xs text-gray-500">{selectedUnmappedItem.variantTitle}</div>
+              </div>
+            )}
+            
+            <div>
+              <Label>Pattern</Label>
+              <Input
+                value={newMappingPattern}
+                onChange={(e) => setNewMappingPattern(e.target.value)}
+                placeholder="SKU pattern to match"
+                data-testid="mapping-pattern-input"
+              />
+            </div>
+            
+            <div>
+              <Label>Rule Type</Label>
+              <Select 
+                value={newMappingRuleType} 
+                onValueChange={(v) => setNewMappingRuleType(v as 'exact' | 'prefix' | 'regex')}
+              >
+                <SelectTrigger data-testid="mapping-rule-type-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="exact">Exact Match</SelectItem>
+                  <SelectItem value="prefix">Prefix Match</SelectItem>
+                  <SelectItem value="regex">Regex Pattern</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Exact: SKU must match exactly. Prefix: SKU starts with pattern. Regex: Custom pattern.
+              </p>
+            </div>
+            
+            <div>
+              <Label>Category</Label>
+              <Select 
+                value={newMappingCategoryId?.toString() || ''} 
+                onValueChange={(v) => setNewMappingCategoryId(parseInt(v))}
+              >
+                <SelectTrigger data-testid="mapping-category-select">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.filter(c => c.isActive).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.label} ({cat.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateMappingOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (newMappingPattern && newMappingCategoryId) {
+                  createMappingMutation.mutate({
+                    pattern: newMappingPattern,
+                    ruleType: newMappingRuleType,
+                    categoryId: newMappingCategoryId,
+                  });
+                }
+              }}
+              disabled={!newMappingPattern || !newMappingCategoryId || createMappingMutation.isPending}
+              data-testid="save-mapping-btn"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {createMappingMutation.isPending ? 'Saving...' : 'Create Mapping'}
             </Button>
           </DialogFooter>
         </DialogContent>
