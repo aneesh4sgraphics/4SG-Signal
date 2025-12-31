@@ -1519,7 +1519,7 @@ export default function ClientDatabase() {
         </Card>
 
         {/* Stats Cards Grid */}
-        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-3">
           {/* Total Clients */}
           <Card className="glass-card border-0">
             <CardContent className="p-4">
@@ -1530,6 +1530,36 @@ export default function ClientDatabase() {
                 </div>
                 <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center">
                   <Users className="h-4 w-4 text-blue-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mailers & SwatchBooks Split Card */}
+          <Card className="glass-card border-0">
+            <CardContent className="p-0">
+              {/* Mailers (Top) */}
+              <div className="p-3 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Mailers Sent</p>
+                    <p className="text-xl font-bold text-orange-600">{pressKitShipments.length}</p>
+                  </div>
+                  <div className="h-7 w-7 rounded-full bg-orange-50 flex items-center justify-center">
+                    <Mail className="h-3.5 w-3.5 text-orange-500" />
+                  </div>
+                </div>
+              </div>
+              {/* SwatchBooks (Bottom) */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">SwatchBooks</p>
+                    <p className="text-xl font-bold text-purple-600">{swatchBookShipments.length}</p>
+                  </div>
+                  <div className="h-7 w-7 rounded-full bg-purple-50 flex items-center justify-center">
+                    <BookOpen className="h-3.5 w-3.5 text-purple-500" />
+                  </div>
                 </div>
               </div>
             </CardContent>
