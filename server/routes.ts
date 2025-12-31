@@ -8958,6 +8958,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- SKU Mappings ---
+  // Get unique SKUs from Shopify orders for unmapped product detection
+  app.get("/api/admin/config/shopify-skus", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      // Fetch unique SKUs from Shopify orders
+      const orders = await db.select({ lineItems: shopifyOrders.lineItems }).from(shopifyOrders);
+      const skuSet = new Set<string>();
+      for (const order of orders) {
+        if (order.lineItems && Array.isArray(order.lineItems)) {
+          for (const item of order.lineItems) {
+            if (item && typeof item === 'object' && 'sku' in item && item.sku) {
+              skuSet.add(String(item.sku));
+            } else if (item && typeof item === 'object' && 'title' in item && item.title) {
+              // Use title as fallback identifier if no SKU
+              skuSet.add(String(item.title));
+            }
+          }
+        }
+      }
+      res.json(Array.from(skuSet).sort());
+    } catch (error) {
+      console.error("Error fetching Shopify SKUs:", error);
+      res.status(500).json({ error: "Failed to fetch Shopify SKUs" });
+    }
+  });
+
   app.get("/api/admin/config/sku-mappings", isAuthenticated, requireAdmin, async (req, res) => {
     try {
       const mappings = await db.select().from(adminSkuMappings).orderBy(desc(adminSkuMappings.priority));

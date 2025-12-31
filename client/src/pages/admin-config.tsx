@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, CheckCircle2, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye, Package, X } from "lucide-react";
 import { Link } from "wouter";
 
 type AdminMachineType = {
@@ -1637,6 +1637,15 @@ function SkuMappingTab({ mappings, categories, isLoading }: { mappings: AdminSku
   const queryClient = useQueryClient();
   const [newMapping, setNewMapping] = useState(false);
   const [formData, setFormData] = useState({ ruleType: "prefix", pattern: "", categoryCode: "", priority: 0, description: "" });
+  const [showUnmapped, setShowUnmapped] = useState(false);
+  const [quickMapSku, setQuickMapSku] = useState<string | null>(null);
+  const [quickMapCategory, setQuickMapCategory] = useState("");
+
+  // Fetch unique SKUs from Shopify orders
+  const { data: shopifySkus = [], isLoading: skusLoading } = useQuery<string[]>({
+    queryKey: ["/api/admin/config/shopify-skus"],
+    enabled: showUnmapped,
+  });
 
   const saveMappingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1645,6 +1654,8 @@ function SkuMappingTab({ mappings, categories, isLoading }: { mappings: AdminSku
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/config/sku-mappings"] });
       setNewMapping(false);
+      setQuickMapSku(null);
+      setQuickMapCategory("");
       setFormData({ ruleType: "prefix", pattern: "", categoryCode: "", priority: 0, description: "" });
       toast({ title: "Saved", description: "SKU mapping saved" });
     },
@@ -1663,101 +1674,219 @@ function SkuMappingTab({ mappings, categories, isLoading }: { mappings: AdminSku
     },
   });
 
+  // Find unmapped SKUs by checking which ones don't match any rule
+  const getUnmappedSkus = () => {
+    if (!shopifySkus.length || !mappings.length) return shopifySkus;
+    return shopifySkus.filter(sku => {
+      for (const m of mappings) {
+        if (!m.isActive) continue;
+        if (m.ruleType === "exact" && sku === m.pattern) return false;
+        if (m.ruleType === "prefix" && sku.startsWith(m.pattern)) return false;
+        if (m.ruleType === "regex") {
+          try {
+            if (new RegExp(m.pattern).test(sku)) return false;
+          } catch {}
+        }
+      }
+      return true;
+    });
+  };
+
+  const unmappedSkus = getUnmappedSkus();
+
   if (isLoading) return <div className="text-center py-8">Loading SKU mappings...</div>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-lg">SKU → Category Mappings</CardTitle>
-          <CardDescription>Map Shopify SKUs/products to internal categories using exact, prefix, or regex rules</CardDescription>
-        </div>
-        <Button size="sm" onClick={() => setNewMapping(true)} data-testid="add-sku-mapping">
-          <Plus className="h-4 w-4 mr-1" />
-          Add Rule
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {newMapping && (
-          <div className="mb-4 p-4 border rounded-lg bg-gray-50 space-y-3">
-            <div className="grid grid-cols-4 gap-3">
-              <Select value={formData.ruleType} onValueChange={(v) => setFormData({ ...formData, ruleType: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="exact">Exact</SelectItem>
-                  <SelectItem value="prefix">Prefix</SelectItem>
-                  <SelectItem value="regex">Regex</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input 
-                placeholder="Pattern (e.g., Solvit*)" 
-                value={formData.pattern}
-                onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-              />
-              <Input 
-                placeholder="Category code" 
-                value={formData.categoryCode}
-                onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value })}
-              />
-              <Input 
-                type="number"
-                placeholder="Priority" 
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => saveMappingMutation.mutate(formData)} disabled={saveMappingMutation.isPending}>
-                <Save className="h-4 w-4 mr-1" />
-                Save
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setNewMapping(false)}>Cancel</Button>
-            </div>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg">SKU → Category Mappings</CardTitle>
+            <CardDescription>Map Shopify SKUs/products to internal categories using exact, prefix, or regex rules</CardDescription>
           </div>
-        )}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Pattern</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {mappings.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell><Badge variant="outline">{m.ruleType}</Badge></TableCell>
-                <TableCell className="font-mono text-sm">{m.pattern}</TableCell>
-                <TableCell>{m.categoryCode}</TableCell>
-                <TableCell>{m.priority}</TableCell>
-                <TableCell>
-                  <Badge variant={m.isActive ? "default" : "secondary"}>
-                    {m.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    if (confirm("Delete this mapping?")) deleteMappingMutation.mutate(m.id);
-                  }}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {mappings.length === 0 && (
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant={showUnmapped ? "default" : "outline"} 
+              onClick={() => setShowUnmapped(!showUnmapped)}
+              data-testid="toggle-unmapped"
+            >
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              {showUnmapped ? "Hide" : "Show"} Unmapped
+            </Button>
+            <Button size="sm" onClick={() => setNewMapping(true)} data-testid="add-sku-mapping">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Rule
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {newMapping && (
+            <div className="mb-4 p-4 border rounded-lg bg-gray-50 space-y-3">
+              <div className="grid grid-cols-4 gap-3">
+                <Select value={formData.ruleType} onValueChange={(v) => setFormData({ ...formData, ruleType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exact">Exact</SelectItem>
+                    <SelectItem value="prefix">Prefix</SelectItem>
+                    <SelectItem value="regex">Regex</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input 
+                  placeholder="Pattern (e.g., Solvit*)" 
+                  value={formData.pattern}
+                  onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
+                />
+                <Select value={formData.categoryCode} onValueChange={(v) => setFormData({ ...formData, categoryCode: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.filter(c => c.isActive !== false).map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input 
+                  type="number"
+                  placeholder="Priority" 
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => saveMappingMutation.mutate(formData)} disabled={saveMappingMutation.isPending}>
+                  <Save className="h-4 w-4 mr-1" />
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setNewMapping(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                  No SKU mappings configured. Add rules to map Shopify products to categories.
-                </TableCell>
+                <TableHead>Type</TableHead>
+                <TableHead>Pattern</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mappings.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell><Badge variant="outline">{m.ruleType}</Badge></TableCell>
+                  <TableCell className="font-mono text-sm">{m.pattern}</TableCell>
+                  <TableCell>{categories.find(c => c.code === m.categoryCode)?.label || m.categoryCode}</TableCell>
+                  <TableCell>{m.priority}</TableCell>
+                  <TableCell>
+                    <Badge variant={m.isActive ? "default" : "secondary"}>
+                      {m.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (confirm("Delete this mapping?")) deleteMappingMutation.mutate(m.id);
+                    }}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {mappings.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    No SKU mappings configured. Add rules to map Shopify products to categories.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Unmapped Shopify Products Panel */}
+      {showUnmapped && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  Unmapped Shopify Products
+                </CardTitle>
+                <CardDescription>
+                  These SKUs from Shopify orders don't match any mapping rules. Click to create a mapping.
+                </CardDescription>
+              </div>
+              {!skusLoading && (
+                <Badge variant={unmappedSkus.length > 0 ? "destructive" : "secondary"} className="text-lg px-3 py-1">
+                  {unmappedSkus.length} unmapped
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {skusLoading ? (
+              <div className="text-center py-4 text-gray-500">Loading Shopify SKUs...</div>
+            ) : shopifySkus.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                No Shopify order data found. SKUs will appear here once orders sync.
+              </div>
+            ) : unmappedSkus.length === 0 ? (
+              <div className="text-center py-4 text-green-600">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
+                All {shopifySkus.length} SKUs are mapped!
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {unmappedSkus.map((sku) => (
+                  <div key={sku} className="flex items-center justify-between p-2 bg-white rounded border">
+                    <span className="font-mono text-sm">{sku}</span>
+                    {quickMapSku === sku ? (
+                      <div className="flex items-center gap-2">
+                        <Select value={quickMapCategory} onValueChange={setQuickMapCategory}>
+                          <SelectTrigger className="w-40 h-8">
+                            <SelectValue placeholder="Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.filter(c => c.isActive !== false).map(c => (
+                              <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button 
+                          size="sm" 
+                          className="h-8"
+                          disabled={!quickMapCategory || saveMappingMutation.isPending}
+                          onClick={() => saveMappingMutation.mutate({ 
+                            ruleType: "exact", 
+                            pattern: sku, 
+                            categoryCode: quickMapCategory, 
+                            priority: 100 
+                          })}
+                        >
+                          <Save className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8" onClick={() => { setQuickMapSku(null); setQuickMapCategory(""); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setQuickMapSku(sku)}>
+                        <Plus className="h-3 w-3 mr-1" />
+                        Map
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
