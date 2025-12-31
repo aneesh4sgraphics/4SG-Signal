@@ -1584,8 +1584,8 @@ function TestCustomerDialog({
     return timer?.valueDays || 0;
   };
 
-  const quoteStaleTimer = getTimerValue("quote_stale_days");
-  const sampleGraceTimer = getTimerValue("sample_grace_period");
+  const quoteStaleTimer = getTimerValue("quote_followup_expire");
+  const sampleGraceTimer = getTimerValue("press_test_delivery_grace");
 
   const isQuoteOverdue = hasPendingQuote && dayssinceQuote > quoteStaleTimer;
   const isSampleOverdue = hasPendingSample && daysSinceSample > sampleGraceTimer;
@@ -1743,13 +1743,13 @@ function TestCustomerDialog({
               <p className="text-sm font-medium text-gray-700 mb-2">Active Timer Thresholds</p>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Quote stale after:</span>
+                  <span className="text-gray-500">Quote expires after:</span>
                   <span className={hasPendingQuote && dayssinceQuote > quoteStaleTimer ? 'text-red-600 font-medium' : ''}>
                     {quoteStaleTimer} days
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Sample grace period:</span>
+                  <span className="text-gray-500">Press test grace period:</span>
                   <span className={hasPendingSample && daysSinceSample > sampleGraceTimer ? 'text-red-600 font-medium' : ''}>
                     {sampleGraceTimer} days
                   </span>
