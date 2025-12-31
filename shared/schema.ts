@@ -1307,7 +1307,8 @@ export type TrustLevel = CategoryState;
 export const categoryTrust = pgTable("category_trust", {
   id: serial("id").primaryKey(),
   customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
-  categoryName: varchar("category_name", { length: 100 }).notNull(), // product category (e.g., "Commodity Cut-Size", "Specialty Coated")
+  categoryCode: varchar("category_code", { length: 100 }).notNull(), // canonical immutable code (GRAFFITI_POLY_PAPER, SOLVIT_SIGN, etc.)
+  categoryName: varchar("category_name", { length: 100 }), // display name (for backwards compatibility, deprecated)
   machineType: varchar("machine_type", { length: 100 }), // press type (offset, digital, flexo, etc.)
   trustLevel: varchar("trust_level", { length: 50 }).notNull().default("unknown"), // matches TRUST_LEVELS
   samplesSent: integer("samples_sent").default(0),
@@ -1341,7 +1342,7 @@ export const customerCoachState = pgTable("customer_coach_state", {
   customerId: varchar("customer_id").notNull().unique().references(() => customers.id, { onDelete: "cascade" }),
   currentState: varchar("current_state", { length: 50 }).notNull().default("prospect"), // matches CUSTOMER_STATES
   stateConfidence: integer("state_confidence").default(0), // 0-100% confidence in state
-  primaryCategory: varchar("primary_category", { length: 100 }), // main product category for this customer
+  primaryCategoryCode: varchar("primary_category_code", { length: 100 }), // main product category code (canonical)
   totalLifetimeValue: decimal("total_lifetime_value", { precision: 12, scale: 2 }).default("0"),
   totalOrders: integer("total_orders").default(0),
   avgOrderValue: decimal("avg_order_value", { precision: 10, scale: 2 }),
@@ -1351,7 +1352,7 @@ export const customerCoachState = pgTable("customer_coach_state", {
   nextNudgeReason: text("next_nudge_reason"), // why this action
   nextNudgePriority: varchar("next_nudge_priority", { length: 20 }).default("normal"), // low, normal, high, urgent
   nextNudgeDueDate: timestamp("next_nudge_due_date"),
-  stuckCategory: varchar("stuck_category", { length: 100 }), // category where progress stalled
+  stuckCategoryCode: varchar("stuck_category_code", { length: 100 }), // category code where progress stalled
   stuckDays: integer("stuck_days"), // days stuck in current state
   lastStateChange: timestamp("last_state_change"),
   lastCalculated: timestamp("last_calculated").defaultNow(),
