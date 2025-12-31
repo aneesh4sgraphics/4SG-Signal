@@ -53,6 +53,16 @@ Preferred communication style: Simple, everyday language.
   - Paid orders auto-advance category trust to "adopted" via product mappings
   - Environment variables: SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, SHOPIFY_APP_URL
   - Tables: `shopifyInstalls` (OAuth tokens), `shopifyWebhookEvents` (event logging), `shopifyOrders`, `shopifyProductMappings`
+- **Admin Rules & Config System**: Admin-only area at `/admin/config` for adjusting coaching/journey logic without code changes:
+  - **Product Taxonomy Tab**: Manage machine types (6 families), category groups, and product categories with machine compatibility settings
+  - **SKU→Category Mapping Tab**: Map Shopify SKUs to internal categories using exact, prefix, or regex rules with priority ordering
+  - **Coaching Timers Tab**: Editable timing parameters for quote follow-ups (4/7/14 days), press test delivery grace, habitual definitions, stale account thresholds
+  - **Nudge Engine Settings Tab**: Configure nudge priority order, enable/disable nudges, severity levels (low/medium/high/critical)
+  - **Conversation Scripts Tab**: Editable sales scripts by stage (prospect/expansion/retention) and persona (distributor/end_customer)
+  - **Audit Log Tab**: Track all config changes with before/after states, user attribution, and timestamps
+  - **Config Versioning**: Draft/publish flow with rollback capability to previous versions
+  - **Seed Capability**: One-click initial config seeding with default timers and nudge settings
+  - Tables: `adminMachineTypes`, `adminCategoryGroups`, `adminCategories`, `adminCategoryVariants`, `adminSkuMappings`, `adminCoachingTimers`, `adminNudgeSettings`, `adminConversationScripts`, `adminConfigVersions`, `adminAuditLog`
 
 ### Database Architecture
 - **ORM**: Drizzle ORM with PostgreSQL dialect

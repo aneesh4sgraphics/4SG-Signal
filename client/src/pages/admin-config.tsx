@@ -156,7 +156,13 @@ export default function AdminConfig() {
     onSuccess: (data: any) => {
       if (data.seeded) {
         toast({ title: "Config seeded", description: "Initial configuration data has been created" });
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/config"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/machine-types"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/category-groups"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/coaching-timers"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/nudge-settings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/conversation-scripts"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/config/audit-log"] });
       } else {
         toast({ title: "Already seeded", description: "Configuration data already exists" });
       }
@@ -292,6 +298,10 @@ function ProductTaxonomyTab({
   const queryClient = useQueryClient();
   const [editingMachineType, setEditingMachineType] = useState<AdminMachineType | null>(null);
   const [newMachineType, setNewMachineType] = useState(false);
+  const [editingCategoryGroup, setEditingCategoryGroup] = useState<AdminCategoryGroup | null>(null);
+  const [newCategoryGroup, setNewCategoryGroup] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<AdminCategory | null>(null);
+  const [newCategory, setNewCategory] = useState(false);
 
   const saveMachineTypeMutation = useMutation({
     mutationFn: async (data: Partial<AdminMachineType>) => {
@@ -321,6 +331,62 @@ function ProductTaxonomyTab({
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const saveCategoryGroupMutation = useMutation({
+    mutationFn: async (data: Partial<AdminCategoryGroup>) => {
+      if (data.id) {
+        return await apiRequest("PUT", `/api/admin/config/category-groups/${data.id}`, data);
+      }
+      return await apiRequest("POST", "/api/admin/config/category-groups", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/config/category-groups"] });
+      setEditingCategoryGroup(null);
+      setNewCategoryGroup(false);
+      toast({ title: "Saved", description: "Category group saved" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryGroupMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/admin/config/category-groups/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/config/category-groups"] });
+      toast({ title: "Deleted" });
+    },
+  });
+
+  const saveCategoryMutation = useMutation({
+    mutationFn: async (data: Partial<AdminCategory>) => {
+      if (data.id) {
+        return await apiRequest("PUT", `/api/admin/config/categories/${data.id}`, data);
+      }
+      return await apiRequest("POST", "/api/admin/config/categories", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/config/categories"] });
+      setEditingCategory(null);
+      setNewCategory(false);
+      toast({ title: "Saved", description: "Category saved" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/admin/config/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/config/categories"] });
+      toast({ title: "Deleted" });
     },
   });
 
@@ -412,7 +478,7 @@ function ProductTaxonomyTab({
             <CardTitle className="text-lg">Category Groups</CardTitle>
             <CardDescription>Organize categories into logical groups</CardDescription>
           </div>
-          <Button size="sm" disabled data-testid="add-category-group">
+          <Button size="sm" onClick={() => setNewCategoryGroup(true)} data-testid="add-category-group">
             <Plus className="h-4 w-4 mr-1" />
             Add
           </Button>
@@ -426,6 +492,7 @@ function ProductTaxonomyTab({
                 <TableHead>Color</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -442,11 +509,21 @@ function ProductTaxonomyTab({
                       {cg.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingCategoryGroup(cg)} data-testid={`edit-group-${cg.code}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (confirm(`Delete ${cg.label}?`)) deleteCategoryGroupMutation.mutate(cg.id);
+                    }}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {categoryGroups.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                     No category groups configured.
                   </TableCell>
                 </TableRow>
@@ -462,7 +539,7 @@ function ProductTaxonomyTab({
             <CardTitle className="text-lg">Categories ({categories.length})</CardTitle>
             <CardDescription>Product categories with machine compatibility settings</CardDescription>
           </div>
-          <Button size="sm" disabled data-testid="add-category">
+          <Button size="sm" onClick={() => setNewCategory(true)} data-testid="add-category">
             <Plus className="h-4 w-4 mr-1" />
             Add
           </Button>
@@ -475,10 +552,11 @@ function ProductTaxonomyTab({
                 <TableHead>Label</TableHead>
                 <TableHead>Compatible Machines</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.slice(0, 10).map((cat) => (
+              {categories.slice(0, 15).map((cat) => (
                 <TableRow key={cat.id}>
                   <TableCell className="font-mono text-sm">{cat.code}</TableCell>
                   <TableCell>{cat.label}</TableCell>
@@ -494,18 +572,28 @@ function ProductTaxonomyTab({
                       {cat.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingCategory(cat)} data-testid={`edit-category-${cat.code}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (confirm(`Delete ${cat.label}?`)) deleteCategoryMutation.mutate(cat.id);
+                    }}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
-              {categories.length > 10 && (
+              {categories.length > 15 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500">
-                    ... and {categories.length - 10} more categories
+                  <TableCell colSpan={5} className="text-center text-gray-500">
+                    ... and {categories.length - 15} more categories
                   </TableCell>
                 </TableRow>
               )}
               {categories.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                     No categories configured.
                   </TableCell>
                 </TableRow>
@@ -526,6 +614,34 @@ function ProductTaxonomyTab({
         machineType={editingMachineType}
         onSave={(data) => saveMachineTypeMutation.mutate(data)}
         isPending={saveMachineTypeMutation.isPending}
+      />
+
+      <CategoryGroupDialog
+        open={!!editingCategoryGroup || newCategoryGroup}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingCategoryGroup(null);
+            setNewCategoryGroup(false);
+          }
+        }}
+        categoryGroup={editingCategoryGroup}
+        onSave={(data) => saveCategoryGroupMutation.mutate(data)}
+        isPending={saveCategoryGroupMutation.isPending}
+      />
+
+      <CategoryDialog
+        open={!!editingCategory || newCategory}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingCategory(null);
+            setNewCategory(false);
+          }
+        }}
+        category={editingCategory}
+        machineTypes={machineTypes}
+        categoryGroups={categoryGroups}
+        onSave={(data) => saveCategoryMutation.mutate(data)}
+        isPending={saveCategoryMutation.isPending}
       />
     </div>
   );
@@ -663,6 +779,206 @@ function MachineTypeDialog({
           <Button onClick={handleSave} disabled={isPending} data-testid="save-machine-type">
             <Save className="h-4 w-4 mr-2" />
             {isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoryGroupDialog({
+  open,
+  onOpenChange,
+  categoryGroup,
+  onSave,
+  isPending
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  categoryGroup: AdminCategoryGroup | null;
+  onSave: (data: Partial<AdminCategoryGroup>) => void;
+  isPending: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    code: "",
+    label: "",
+    color: "",
+    sortOrder: 0,
+    isActive: true,
+  });
+
+  useEffect(() => {
+    if (categoryGroup) {
+      setFormData({
+        code: categoryGroup.code,
+        label: categoryGroup.label,
+        color: categoryGroup.color || "",
+        sortOrder: categoryGroup.sortOrder || 0,
+        isActive: categoryGroup.isActive ?? true,
+      });
+    } else {
+      setFormData({ code: "", label: "", color: "", sortOrder: 0, isActive: true });
+    }
+  }, [categoryGroup, open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{categoryGroup ? "Edit Category Group" : "Add Category Group"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Code</Label>
+              <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g., labels" />
+            </div>
+            <div>
+              <Label>Label</Label>
+              <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="e.g., Labels" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Color</Label>
+              <Input value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} placeholder="e.g., blue" />
+            </div>
+            <div>
+              <Label>Sort Order</Label>
+              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
+            <Label>Active</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => onSave({ ...formData, id: categoryGroup?.id })} disabled={isPending}>
+            <Save className="h-4 w-4 mr-2" />{isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoryDialog({
+  open,
+  onOpenChange,
+  category,
+  machineTypes,
+  categoryGroups,
+  onSave,
+  isPending
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  category: AdminCategory | null;
+  machineTypes: AdminMachineType[];
+  categoryGroups: AdminCategoryGroup[];
+  onSave: (data: Partial<AdminCategory>) => void;
+  isPending: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    code: "",
+    label: "",
+    groupId: null as number | null,
+    compatibleMachineTypes: [] as string[],
+    description: "",
+    sortOrder: 0,
+    isActive: true,
+  });
+
+  useEffect(() => {
+    if (category) {
+      setFormData({
+        code: category.code,
+        label: category.label,
+        groupId: category.groupId,
+        compatibleMachineTypes: category.compatibleMachineTypes || [],
+        description: category.description || "",
+        sortOrder: category.sortOrder || 0,
+        isActive: category.isActive ?? true,
+      });
+    } else {
+      setFormData({ code: "", label: "", groupId: null, compatibleMachineTypes: [], description: "", sortOrder: 0, isActive: true });
+    }
+  }, [category, open]);
+
+  const toggleMachine = (code: string) => {
+    setFormData(prev => ({
+      ...prev,
+      compatibleMachineTypes: prev.compatibleMachineTypes.includes(code)
+        ? prev.compatibleMachineTypes.filter(m => m !== code)
+        : [...prev.compatibleMachineTypes, code]
+    }));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{category ? "Edit Category" : "Add Category"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Code</Label>
+              <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g., graffitistick" />
+            </div>
+            <div>
+              <Label>Label</Label>
+              <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="e.g., GraffitiStick" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Group</Label>
+              <Select value={formData.groupId?.toString() || ""} onValueChange={(v) => setFormData({ ...formData, groupId: v ? parseInt(v) : null })}>
+                <SelectTrigger><SelectValue placeholder="Select group" /></SelectTrigger>
+                <SelectContent>
+                  {categoryGroups.map(g => (
+                    <SelectItem key={g.id} value={g.id.toString()}>{g.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Sort Order</Label>
+              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} />
+            </div>
+          </div>
+          <div>
+            <Label>Compatible Machine Types</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {machineTypes.map(mt => (
+                <Button
+                  key={mt.code}
+                  type="button"
+                  variant={formData.compatibleMachineTypes.includes(mt.code) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleMachine(mt.code)}
+                >
+                  {mt.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional..." />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
+            <Label>Active</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => onSave({ ...formData, id: category?.id })} disabled={isPending}>
+            <Save className="h-4 w-4 mr-2" />{isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
