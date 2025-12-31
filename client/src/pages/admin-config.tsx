@@ -1985,6 +1985,11 @@ function CoachingTimersTab({ timers, isLoading }: { timers: AdminCoachingTimer[]
 function NudgeSettingsTab({ settings, isLoading }: { settings: AdminNudgeSetting[]; isLoading: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [orderedSettings, setOrderedSettings] = useState<AdminNudgeSetting[]>([]);
+
+  useEffect(() => {
+    setOrderedSettings([...settings].sort((a, b) => a.priority - b.priority));
+  }, [settings]);
 
   const toggleNudgeMutation = useMutation({
     mutationFn: async ({ id, isEnabled }: { id: number; isEnabled: boolean }) => {
@@ -2002,74 +2007,136 @@ function NudgeSettingsTab({ settings, isLoading }: { settings: AdminNudgeSetting
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/config/nudge-settings"] });
-      toast({ title: "Priority updated" });
     },
   });
+
+  const moveNudge = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === orderedSettings.length - 1) return;
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const newOrder = [...orderedSettings];
+    const [moved] = newOrder.splice(index, 1);
+    newOrder.splice(newIndex, 0, moved);
+    
+    setOrderedSettings(newOrder);
+    
+    for (let i = 0; i < newOrder.length; i++) {
+      const newPriority = (i + 1) * 10;
+      if (newOrder[i].priority !== newPriority) {
+        await updatePriorityMutation.mutateAsync({ id: newOrder[i].id, priority: newPriority });
+      }
+    }
+    toast({ title: "Priority updated" });
+  };
 
   if (isLoading) return <div className="text-center py-8">Loading nudge settings...</div>;
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'critical': return 'bg-red-500 text-white';
+      case 'high': return 'bg-orange-500 text-white';
+      case 'medium': return 'bg-yellow-400 text-yellow-900';
+      case 'low': return 'bg-gray-200 text-gray-700';
+      default: return 'bg-gray-200 text-gray-700';
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical': return '🔴';
+      case 'high': return '🟠';
+      case 'medium': return '🟡';
+      case 'low': return '⚪';
+      default: return '⚪';
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Nudge Engine Settings</CardTitle>
-        <CardDescription>Configure which nudges appear and their priority order (lower = higher priority)</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Enabled</TableHead>
-              <TableHead>Nudge</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Severity</TableHead>
-              <TableHead>Description</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {settings.map((s) => (
-              <TableRow key={s.id} className={!s.isEnabled ? "opacity-50" : ""}>
-                <TableCell>
-                  <Switch
-                    checked={s.isEnabled ?? true}
-                    onCheckedChange={(checked) => toggleNudgeMutation.mutate({ id: s.id, isEnabled: checked })}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{s.label}</TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    className="w-16"
-                    value={s.priority}
-                    onChange={(e) => updatePriorityMutation.mutate({ id: s.id, priority: parseInt(e.target.value) || 0 })}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Badge className={getSeverityColor(s.severity)}>{s.severity}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">{s.description}</TableCell>
-              </TableRow>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Nudge Engine Settings
+          </CardTitle>
+          <CardDescription>
+            Configure which nudges appear and their priority. Drag items to reorder - top = highest priority (shown first in "Next Best Move").
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {orderedSettings.map((s, index) => (
+              <div 
+                key={s.id} 
+                className={`flex items-center gap-3 p-3 border rounded-lg transition-all ${
+                  !s.isEnabled ? 'opacity-50 bg-gray-50' : 'bg-white hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => moveNudge(index, 'up')}
+                    disabled={index === 0}
+                  >
+                    ▲
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => moveNudge(index, 'down')}
+                    disabled={index === orderedSettings.length - 1}
+                  >
+                    ▼
+                  </Button>
+                </div>
+                <div className="flex items-center justify-center w-8 h-8 bg-purple-100 text-purple-700 rounded-full font-bold text-sm">
+                  {index + 1}
+                </div>
+                <GripVertical className="h-5 w-5 text-gray-400 cursor-grab" />
+                <Switch
+                  checked={s.isEnabled ?? true}
+                  onCheckedChange={(checked) => toggleNudgeMutation.mutate({ id: s.id, isEnabled: checked })}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{s.label}</span>
+                    <span title={s.severity}>{getSeverityIcon(s.severity)}</span>
+                  </div>
+                  <p className="text-sm text-gray-500">{s.description}</p>
+                </div>
+                <Badge className={getSeverityColor(s.severity)}>{s.severity}</Badge>
+              </div>
             ))}
-            {settings.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                  No nudge settings configured. Click "Seed Initial Config" to get started.
-                </TableCell>
-              </TableRow>
+            {orderedSettings.length === 0 && (
+              <div className="text-center text-gray-500 py-8 border rounded-lg">
+                No nudge settings configured. Click "Seed Initial Config" on the Home tab to get started.
+              </div>
             )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* How Nudges Work Explainer */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-blue-900">How the Nudge Engine Works</p>
+              <p className="text-sm text-blue-700 mt-1">
+                When a customer is viewed, the system checks all enabled nudges in priority order (top to bottom). 
+                The first matching nudge becomes the "Next Best Move" shown in the Coach Panel. 
+                Use severity to indicate urgency (critical items get red styling).
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -2272,6 +2339,9 @@ function ConversationScriptsTab({ scripts, isLoading }: { scripts: AdminConversa
 }
 
 function AuditLogTab({ logs, isLoading }: { logs: AdminAuditLog[]; isLoading: boolean }) {
+  const [expandedLog, setExpandedLog] = useState<number | null>(null);
+  const [diffView, setDiffView] = useState<'before' | 'after' | 'diff'>('diff');
+
   if (isLoading) return <div className="text-center py-8">Loading audit logs...</div>;
 
   const getActionColor = (action: string) => {
@@ -2281,56 +2351,188 @@ function AuditLogTab({ logs, isLoading }: { logs: AdminAuditLog[]; isLoading: bo
       case 'delete': return 'bg-red-100 text-red-800';
       case 'publish': return 'bg-purple-100 text-purple-800';
       case 'rollback': return 'bg-orange-100 text-orange-800';
+      case 'seed': return 'bg-indigo-100 text-indigo-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const formatJson = (data: any): string => {
+    if (!data) return 'null';
+    return JSON.stringify(data, null, 2);
+  };
+
+  const getDiff = (before: any, after: any): { added: string[]; removed: string[]; changed: string[] } => {
+    const added: string[] = [];
+    const removed: string[] = [];
+    const changed: string[] = [];
+
+    const beforeKeys = before ? Object.keys(before) : [];
+    const afterKeys = after ? Object.keys(after) : [];
+
+    for (const key of afterKeys) {
+      if (!beforeKeys.includes(key)) {
+        added.push(`+ ${key}: ${JSON.stringify(after[key])}`);
+      } else if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        changed.push(`~ ${key}: ${JSON.stringify(before[key])} → ${JSON.stringify(after[key])}`);
+      }
+    }
+
+    for (const key of beforeKeys) {
+      if (!afterKeys.includes(key)) {
+        removed.push(`- ${key}: ${JSON.stringify(before[key])}`);
+      }
+    }
+
+    return { added, removed, changed };
+  };
+
+  const getTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <History className="h-5 w-5" />
-          Audit Log
-        </CardTitle>
-        <CardDescription>Track all configuration changes with before/after states</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Config Type</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Entity</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {logs.map((log) => (
-              <TableRow key={log.id}>
-                <TableCell className="text-sm text-gray-500">
-                  {new Date(log.createdAt).toLocaleString()}
-                </TableCell>
-                <TableCell className="text-sm">{log.userEmail || log.userId}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{log.configType}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge className={getActionColor(log.action)}>{log.action}</Badge>
-                </TableCell>
-                <TableCell className="text-sm">{log.entityName || log.entityId || '-'}</TableCell>
-              </TableRow>
-            ))}
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Audit Log
+          </CardTitle>
+          <CardDescription>
+            Track all configuration changes with before/after states. Click any row to view details and diff.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {logs.map((log) => {
+              const isExpanded = expandedLog === log.id;
+              const diff = getDiff(log.beforeData, log.afterData);
+              const hasChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0;
+
+              return (
+                <div key={log.id} className="border rounded-lg overflow-hidden">
+                  <div 
+                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                  >
+                    <div className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={getActionColor(log.action)}>{log.action}</Badge>
+                        <Badge variant="outline">{log.configType}</Badge>
+                        {log.entityName && <span className="text-sm font-medium">{log.entityName}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                        <span>{log.userEmail || log.userId}</span>
+                        <span>•</span>
+                        <span title={new Date(log.createdAt).toLocaleString()}>{getTimeAgo(log.createdAt)}</span>
+                      </div>
+                    </div>
+                    {hasChanges && (
+                      <div className="flex items-center gap-1 text-xs">
+                        {diff.added.length > 0 && <span className="text-green-600">+{diff.added.length}</span>}
+                        {diff.changed.length > 0 && <span className="text-blue-600">~{diff.changed.length}</span>}
+                        {diff.removed.length > 0 && <span className="text-red-600">-{diff.removed.length}</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t bg-gray-50 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Button 
+                          variant={diffView === 'diff' ? 'default' : 'outline'} 
+                          size="sm"
+                          onClick={() => setDiffView('diff')}
+                        >
+                          Diff
+                        </Button>
+                        <Button 
+                          variant={diffView === 'before' ? 'default' : 'outline'} 
+                          size="sm"
+                          onClick={() => setDiffView('before')}
+                        >
+                          Before
+                        </Button>
+                        <Button 
+                          variant={diffView === 'after' ? 'default' : 'outline'} 
+                          size="sm"
+                          onClick={() => setDiffView('after')}
+                        >
+                          After
+                        </Button>
+                      </div>
+
+                      {diffView === 'diff' && (
+                        <div className="space-y-2 font-mono text-xs">
+                          {diff.added.map((line, i) => (
+                            <div key={`add-${i}`} className="bg-green-100 text-green-800 p-1 rounded">{line}</div>
+                          ))}
+                          {diff.changed.map((line, i) => (
+                            <div key={`change-${i}`} className="bg-blue-100 text-blue-800 p-1 rounded">{line}</div>
+                          ))}
+                          {diff.removed.map((line, i) => (
+                            <div key={`rem-${i}`} className="bg-red-100 text-red-800 p-1 rounded">{line}</div>
+                          ))}
+                          {!hasChanges && (
+                            <div className="text-gray-500 italic">No field-level changes detected</div>
+                          )}
+                        </div>
+                      )}
+
+                      {diffView === 'before' && (
+                        <pre className="bg-white p-3 rounded border text-xs overflow-x-auto max-h-48">
+                          {formatJson(log.beforeData)}
+                        </pre>
+                      )}
+
+                      {diffView === 'after' && (
+                        <pre className="bg-white p-3 rounded border text-xs overflow-x-auto max-h-48">
+                          {formatJson(log.afterData)}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {logs.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                  No audit logs yet. Changes will be tracked automatically.
-                </TableCell>
-              </TableRow>
+              <div className="text-center text-gray-500 py-8 border rounded-lg">
+                No audit logs yet. Changes will be tracked automatically when you modify configuration.
+              </div>
             )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Info Card */}
+      <Card className="bg-amber-50 border-amber-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <RotateCcw className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-900">About Rollbacks</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Each change is logged with before/after states. To rollback a change, view the "Before" state and manually recreate it. 
+                Full automatic rollback for complex multi-item changes is coming soon.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
