@@ -43,6 +43,9 @@ export const productPricingMaster = pgTable("product_pricing_master", {
   productName: varchar("product_name", { length: 255 }).notNull(),
   productType: varchar("product_type", { length: 255 }).notNull(),
   productTypeId: integer("product_type_id").references(() => productTypes.id, { onDelete: "cascade" }),
+  // Catalog linkage (set by CSV import)
+  catalogCategoryId: integer("catalog_category_id"), // Links to adminCategories.id
+  catalogProductTypeId: integer("catalog_product_type_id"), // Links to catalogProductTypes.id
   size: varchar("size", { length: 100 }).notNull(),
   totalSqm: decimal("total_sqm", { precision: 10, scale: 6 }).notNull(),
   minQuantity: integer("min_quantity").notNull().default(50),
@@ -1877,3 +1880,81 @@ export const insertAdminConversationScriptSchema = createInsertSchema(adminConve
 });
 export type AdminConversationScript = typeof adminConversationScripts.$inferSelect;
 export type InsertAdminConversationScript = z.infer<typeof insertAdminConversationScriptSchema>;
+
+// Catalog Product Types - ProductType within each category (from CSV)
+// Maps to the "ProductType" column in pricing CSV
+export const catalogProductTypes = pgTable("catalog_product_types", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").references(() => adminCategories.id, { onDelete: "cascade" }),
+  code: varchar("code", { length: 255 }).notNull().unique(), // Slugified ProductType
+  label: varchar("label", { length: 255 }).notNull(), // Original ProductType value
+  subfamily: varchar("subfamily", { length: 100 }), // For Rang Duo/Lux, EiE/eLe split
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCatalogProductTypeSchema = createInsertSchema(catalogProductTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CatalogProductType = typeof catalogProductTypes.$inferSelect;
+export type InsertCatalogProductType = z.infer<typeof insertCatalogProductTypeSchema>;
+
+// Shopify Unmapped Items - queue for order line items that couldn't be matched
+export const shopifyUnmappedItems = pgTable("shopify_unmapped_items", {
+  id: serial("id").primaryKey(),
+  shopifyOrderId: varchar("shopify_order_id", { length: 100 }).notNull(),
+  shopifyLineItemId: varchar("shopify_line_item_id", { length: 100 }),
+  sku: varchar("sku", { length: 255 }),
+  productTitle: varchar("product_title", { length: 500 }),
+  variantTitle: varchar("variant_title", { length: 255 }),
+  quantity: integer("quantity").default(1),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  // Resolution fields
+  resolvedCategoryId: integer("resolved_category_id").references(() => adminCategories.id, { onDelete: "set null" }),
+  resolvedProductTypeId: integer("resolved_product_type_id").references(() => catalogProductTypes.id, { onDelete: "set null" }),
+  resolvedItemCode: varchar("resolved_item_code", { length: 100 }),
+  resolvedBy: varchar("resolved_by", { length: 255 }),
+  resolvedAt: timestamp("resolved_at"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'resolved', 'ignored'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertShopifyUnmappedItemSchema = createInsertSchema(shopifyUnmappedItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type ShopifyUnmappedItem = typeof shopifyUnmappedItems.$inferSelect;
+export type InsertShopifyUnmappedItem = z.infer<typeof insertShopifyUnmappedItemSchema>;
+
+// Catalog Import Logs - track CSV import batches
+export const catalogImportLogs = pgTable("catalog_import_logs", {
+  id: serial("id").primaryKey(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  importedBy: varchar("imported_by", { length: 255 }),
+  importedByEmail: varchar("imported_by_email", { length: 255 }),
+  categoriesCreated: integer("categories_created").default(0),
+  categoriesUpdated: integer("categories_updated").default(0),
+  productTypesCreated: integer("product_types_created").default(0),
+  productTypesUpdated: integer("product_types_updated").default(0),
+  variantsCreated: integer("variants_created").default(0),
+  variantsUpdated: integer("variants_updated").default(0),
+  errors: jsonb("errors"), // Array of error messages
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'completed', 'failed'
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCatalogImportLogSchema = createInsertSchema(catalogImportLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type CatalogImportLog = typeof catalogImportLogs.$inferSelect;
+export type InsertCatalogImportLog = z.infer<typeof insertCatalogImportLogSchema>;
