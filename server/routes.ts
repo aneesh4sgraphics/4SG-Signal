@@ -3827,8 +3827,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add pricing management routes
   addPricingRoutes(app, isAuthenticated, requireAdmin);
   
-  // Add database-backed pricing routes
-  app.use("/api/pricing-database", pricingDatabaseRoutes);
+  // Add database-backed pricing routes (mounted at /api so routes like /product-pricing-database work)
+  app.use("/api", pricingDatabaseRoutes);
 
   // Generate Price List PDF
   app.post("/api/generate-price-list-pdf", isAuthenticated, async (req, res) => {
