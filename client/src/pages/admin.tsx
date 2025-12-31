@@ -2,7 +2,8 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -221,6 +222,26 @@ export default function Admin() {
         </div>
 
 
+
+        {/* Rules & Config Quick Link */}
+        <Link href="/admin/config">
+          <Card className="glass-card border-0 shadow-lg mb-6 cursor-pointer hover:bg-gray-50 transition-colors" data-testid="link-admin-config">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Sliders className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Rules & Config</h3>
+                    <p className="text-sm text-gray-500">Manage coaching timers, nudge settings, and mappings</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* User Management Section */}
         <Card className="glass-card border-0 shadow-lg mb-8">
