@@ -10,6 +10,7 @@ import { ShopifyAppBridgeProvider } from "@/components/ShopifyAppBridgeProvider"
 // Removed: FloatingCalculator and AIChatbot per user request
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import { AuthWatcher } from "@/components/AuthWatcher";
+import { EmailComposerProvider } from "@/components/email-composer";
 // Removed: FirecrackerAnimation import - animation removed per user request
 import OdooLayout from "@/components/OdooLayout";
 import AreaPricer from "@/pages/area-pricer-fixed";
@@ -174,12 +175,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ShopifyAppBridgeProvider>
         <TooltipProvider>
-          <MicroFeedbackProvider>
-            <Toaster />
-            <AuthWatcher />
-            <Router />
-            <ServiceWorkerUpdater />
-          </MicroFeedbackProvider>
+          <EmailComposerProvider>
+            <MicroFeedbackProvider>
+              <Toaster />
+              <AuthWatcher />
+              <Router />
+              <ServiceWorkerUpdater />
+            </MicroFeedbackProvider>
+          </EmailComposerProvider>
         </TooltipProvider>
       </ShopifyAppBridgeProvider>
     </QueryClientProvider>

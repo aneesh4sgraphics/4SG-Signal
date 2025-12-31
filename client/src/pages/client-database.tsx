@@ -98,6 +98,7 @@ import {
 } from "@/components/ui/select";
 
 import type { Customer } from '@shared/schema';
+import { EmailLaunchIcon } from "@/components/email-composer";
 
 // Fuzzy search function
 const fuzzyMatch = (text: string, search: string): boolean => {
@@ -2331,7 +2332,7 @@ export default function ClientDatabase() {
                         </div>
                         
                         {/* Inline editable email */}
-                        <div className="w-44 hidden lg:block" onClick={(e) => e.stopPropagation()}>
+                        <div className="w-48 hidden lg:block" onClick={(e) => e.stopPropagation()}>
                           {isInlineEditing && editingField === 'email' ? (
                             <div className="flex items-center gap-1">
                               <Input
@@ -2349,13 +2350,27 @@ export default function ClientDatabase() {
                               </Button>
                             </div>
                           ) : (
-                            <span 
-                              className="text-gray-400 text-xs truncate block cursor-text hover:text-gray-600"
-                              onDoubleClick={() => startInlineEdit(primary, 'email')}
-                              title="Double-click to edit"
-                            >
-                              {primary.email || <span className="italic text-gray-300">No email</span>}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span 
+                                className="text-gray-400 text-xs truncate cursor-text hover:text-gray-600 flex-1"
+                                onDoubleClick={() => startInlineEdit(primary, 'email')}
+                                title="Double-click to edit"
+                              >
+                                {primary.email || <span className="italic text-gray-300">No email</span>}
+                              </span>
+                              {primary.email && (
+                                <EmailLaunchIcon
+                                  email={primary.email}
+                                  customerId={primary.id}
+                                  customerName={primary.company || `${primary.firstName || ''} ${primary.lastName || ''}`.trim() || primary.email}
+                                  variables={{
+                                    'client.firstName': primary.firstName || '',
+                                    'client.lastName': primary.lastName || '',
+                                    'client.company': primary.company || '',
+                                  }}
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
                         

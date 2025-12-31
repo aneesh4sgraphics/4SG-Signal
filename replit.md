@@ -43,6 +43,13 @@ Preferred communication style: Simple, everyday language.
   - Next Best Move prioritizes overdue quote follow-ups
   - Quote close flow with "won/lost" outcome tracking and optional trust advancement to "adopted"
 - **Email Studio**: Pre-composed email templates with dynamic variables ({{client.name}}, {{product.type}}, {{price.dealer}}, etc.). Admin-only template creation, user compose flow with recipient selection and variable auto-fill, email send logging and activity tracking.
+- **Gmail Integration**: App-wide email compose popup via EmailComposerProvider context. Features:
+  - EmailLaunchIcon appears next to all customer email addresses (client table, customer detail header)
+  - Gmail-style compose popup with template selection and variable substitution
+  - Sends via connected Gmail account using googleapis, appears in sender's Sent folder
+  - All sends logged to `emailSends` table with customer context, template used, and variable data
+  - Email History tab in customer detail view shows sent emails with subject, recipient, date, and preview
+  - Email count badge displayed per customer in client table ("Mailer Sent" column)
 - **Shopify Integration**: Embedded Shopify Admin app for single-store internal use:
   - OAuth flow: `/shopify/auth?shop=...` initiates install, `/shopify/callback` handles token exchange
   - Automatic webhook registration for orders/paid, orders/updated, customers/create, customers/update

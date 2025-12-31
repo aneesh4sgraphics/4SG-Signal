@@ -73,7 +73,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Link } from "wouter";
-import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory, QuoteEvent, PriceListEvent, SentQuote, CustomerJourneyInstance, CustomerContact } from "@shared/schema";
+import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory, QuoteEvent, PriceListEvent, SentQuote, CustomerJourneyInstance, CustomerContact, EmailSend } from "@shared/schema";
+import { EmailLaunchIcon } from "@/components/email-composer";
+import { Send } from "lucide-react";
 
 const JOURNEY_STAGE_CONFIG = [
   { id: 'trigger', label: 'Trigger', icon: Target, color: 'bg-red-500', description: 'Price increase detected' },
@@ -354,6 +356,16 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     queryKey: ['/api/shopify/orders', 'customer', customer.id],
     queryFn: async () => {
       const res = await fetch(`/api/shopify/orders?customerId=${customer.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Fetch email sends for this customer
+  const { data: emailSends = [] } = useQuery<EmailSend[]>({
+    queryKey: ['/api/email/sends', customer.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/email/sends?customerId=${customer.id}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1284,52 +1296,58 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       </Collapsible>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 max-w-3xl bg-gray-100 p-1 rounded-lg">
+        <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-gray-100 p-1 rounded-lg">
           <TabsTrigger 
             value="quotes-prices" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
             data-testid="tab-quotes-prices"
           >
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Quotes & Prices</span>
-            <span className="sm:hidden">Quotes</span>
+            <span className="hidden sm:inline">Quotes</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sentQuotes.length + quoteEvents.length + priceListEvents.length}</Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="orders" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
             data-testid="tab-orders"
           >
             <ShoppingCart className="h-4 w-4" />
-            <span>Orders</span>
+            <span className="hidden sm:inline">Orders</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{shopifyOrders.length}</Badge>
           </TabsTrigger>
           <TabsTrigger 
+            value="emails" 
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-pink-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
+            data-testid="tab-emails"
+          >
+            <Mail className="h-4 w-4" />
+            <span className="hidden sm:inline">Emails</span>
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{emailSends.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger 
             value="samples" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-teal-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
             data-testid="tab-samples"
           >
             <FlaskConical className="h-4 w-4" />
-            <span>Samples</span>
+            <span className="hidden sm:inline">Samples</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{sampleRequests.length}</Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="swatch-book" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
             data-testid="tab-swatch-book"
           >
             <Palette className="h-4 w-4" />
-            <span className="hidden sm:inline">Swatch Book</span>
-            <span className="sm:hidden">Swatch</span>
+            <span className="hidden sm:inline">Swatch</span>
           </TabsTrigger>
           <TabsTrigger 
             value="press-profiles" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all"
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
             data-testid="tab-press-profiles"
           >
             <Building2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Press Profiles</span>
-            <span className="sm:hidden">Press</span>
+            <span className="hidden sm:inline">Press</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{pressProfiles.length}</Badge>
           </TabsTrigger>
         </TabsList>
@@ -1404,6 +1422,90 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">No orders matched to this customer yet</p>
                   <p className="text-xs text-gray-400 mt-1">Orders from Shopify will appear here when matched</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="emails" className="mt-4">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-pink-600" />
+                  Email History
+                </CardTitle>
+                {customer.email && (
+                  <EmailLaunchIcon
+                    email={customer.email}
+                    customerId={customer.id}
+                    customerName={customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email}
+                    variables={{
+                      'client.firstName': customer.firstName || '',
+                      'client.lastName': customer.lastName || '',
+                      'client.company': customer.company || '',
+                      'client.email': customer.email,
+                    }}
+                    size="md"
+                  />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 pt-2">
+              {emailSends.length > 0 ? (
+                <div className="space-y-3">
+                  {emailSends.map((email) => (
+                    <div key={email.id} className="border rounded-lg p-4 bg-white hover:shadow-sm transition-shadow" data-testid={`email-send-${email.id}`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Send className="h-4 w-4 text-pink-500" />
+                            <span className="font-medium text-sm">{email.subject}</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            To: {email.recipientEmail}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="secondary" className="text-xs">
+                            {email.status}
+                          </Badge>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {email.sentAt ? new Date(email.sentAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            }) : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600 bg-gray-50 rounded p-2 mt-2 line-clamp-2">
+                        {email.body?.substring(0, 200)}{email.body && email.body.length > 200 ? '...' : ''}
+                      </div>
+                      {email.sentBy && (
+                        <p className="text-xs text-gray-400 mt-2">Sent by: {email.sentBy}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Mail className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No emails sent to this customer yet</p>
+                  {customer.email && (
+                    <div className="mt-4">
+                      <EmailLaunchIcon
+                        email={customer.email}
+                        customerId={customer.id}
+                        customerName={customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email}
+                        variables={{
+                          'client.firstName': customer.firstName || '',
+                          'client.lastName': customer.lastName || '',
+                          'client.company': customer.company || '',
+                        }}
+                        size="md"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

@@ -4568,27 +4568,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Send an email
+  // Send an email via Gmail and log to database
   app.post("/api/email/send", isAuthenticated, async (req: any, res) => {
     try {
       const { sendEmail } = await import("./gmail-client");
-      const { to, subject, body, htmlBody } = req.body;
+      const { to, subject, body, htmlBody, customerId, templateId, recipientName, variableData } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
       }
       
+      // Send via Gmail
       const result = await sendEmail(to, subject, body, htmlBody);
+      
+      // Log to emailSends table
+      const emailSend = await storage.createEmailSend({
+        templateId: templateId || null,
+        recipientEmail: to,
+        recipientName: recipientName || null,
+        customerId: customerId || null,
+        subject,
+        body,
+        variableData: variableData || {},
+        status: "sent",
+        sentBy: req.user?.email || req.user?.claims?.email,
+      });
       
       // Log the email activity
       await storage.logActivity({
         userId: req.user?.claims?.sub || 'anonymous',
         activityType: 'email_sent',
         description: `Email sent to ${to}: ${subject}`,
-        metadata: { to, subject }
+        metadata: { to, subject, messageId: result.id }
       });
       
-      res.json({ success: true, messageId: result.id });
+      // Log as customer activity if customerId is provided
+      if (customerId) {
+        try {
+          await storage.createActivityEvent({
+            customerId,
+            eventType: 'email_sent',
+            eventData: {
+              templateId,
+              subject,
+              recipientEmail: to,
+              gmailMessageId: result.id,
+            },
+            createdBy: req.user?.email,
+          });
+        } catch (activityError) {
+          console.error("Error logging email activity:", activityError);
+        }
+      }
+      
+      res.json({ success: true, messageId: result.id, emailSend });
     } catch (error) {
       console.error("Error sending email:", error);
       res.status(500).json({ error: "Failed to send email" });
@@ -6417,52 +6450,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching email sends:", error);
       res.status(500).json({ error: "Failed to fetch email sends" });
-    }
-  });
-
-  // Log email send (for tracking - actual sending would need email integration)
-  app.post("/api/email/send", isAuthenticated, async (req: any, res) => {
-    try {
-      const { templateId, recipientEmail, recipientName, customerId, subject, body, variableData } = req.body;
-      
-      if (!recipientEmail || !subject || !body) {
-        return res.status(400).json({ error: "Recipient email, subject, and body are required" });
-      }
-      
-      const emailSend = await storage.createEmailSend({
-        templateId,
-        recipientEmail,
-        recipientName,
-        customerId,
-        subject,
-        body,
-        variableData: variableData || {},
-        status: "sent",
-        sentBy: req.user?.email,
-      });
-      
-      // Log as customer activity if customerId is provided
-      if (customerId) {
-        try {
-          await storage.createActivityEvent({
-            customerId,
-            eventType: 'email_sent',
-            eventData: {
-              templateId,
-              subject,
-              recipientEmail,
-            },
-            createdBy: req.user?.email,
-          });
-        } catch (activityError) {
-          console.error("Error logging email activity:", activityError);
-        }
-      }
-      
-      res.json({ success: true, emailSend });
-    } catch (error) {
-      console.error("Error sending email:", error);
-      res.status(500).json({ error: "Failed to send email" });
     }
   });
 
