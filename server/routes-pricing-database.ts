@@ -1548,4 +1548,231 @@ router.post("/product-types/create", isAuthenticated, requireAdmin, async (req: 
   }
 });
 
+// Test SKU Resolution - Paste a SKU and see resolved category, machine compatibility, trust state
+router.post("/test-sku", isAuthenticated, async (req: any, res) => {
+  try {
+    const { sku } = req.body;
+    
+    if (!sku) {
+      return res.status(400).json({ error: "SKU is required" });
+    }
+    
+    // Get all SKU mappings
+    const skuMappings = await storage.getAllAdminSkuMappings();
+    const activeMappings = skuMappings.filter(m => m.isActive).sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    
+    // Get all categories for lookup
+    const categories = await storage.getAllAdminCategories();
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+    
+    // Get machine types
+    const machineTypes = await storage.getAllAdminMachineTypes();
+    
+    // Try to find a matching rule
+    let matchedRule: typeof activeMappings[0] | null = null;
+    let matchType: string = 'none';
+    
+    for (const rule of activeMappings) {
+      if (rule.ruleType === 'exact' && rule.pattern === sku) {
+        matchedRule = rule;
+        matchType = 'exact';
+        break;
+      } else if (rule.ruleType === 'prefix' && sku.startsWith(rule.pattern || '')) {
+        matchedRule = rule;
+        matchType = 'prefix';
+        break;
+      } else if (rule.ruleType === 'regex') {
+        try {
+          const regex = new RegExp(rule.pattern || '');
+          if (regex.test(sku)) {
+            matchedRule = rule;
+            matchType = 'regex';
+            break;
+          }
+        } catch (e) {
+          // Invalid regex, skip
+        }
+      }
+    }
+    
+    // Also check for direct ItemCode match in pricing database
+    const pricingItems = await storage.getAllPricingMasterItems();
+    const directMatch = pricingItems.find(p => p.itemCode?.toLowerCase() === sku.toLowerCase());
+    
+    let result: any = {
+      sku,
+      resolved: false,
+      matchType: 'none',
+      category: null,
+      machineCompatibility: [],
+      pricingMatch: null,
+    };
+    
+    if (matchedRule && matchedRule.categoryId) {
+      const category = categoryMap.get(matchedRule.categoryId);
+      if (category) {
+        result = {
+          ...result,
+          resolved: true,
+          matchType,
+          matchedPattern: matchedRule.pattern,
+          category: {
+            id: category.id,
+            code: category.code,
+            label: category.label,
+            groupId: category.groupId,
+          },
+          machineCompatibility: (category.compatibleMachineTypes || []).map(mtCode => {
+            const mt = machineTypes.find(m => m.code === mtCode);
+            return mt ? { code: mt.code, label: mt.label, icon: mt.icon } : { code: mtCode, label: mtCode };
+          }),
+        };
+      }
+    }
+    
+    if (directMatch) {
+      result.pricingMatch = {
+        itemCode: directMatch.itemCode,
+        productName: directMatch.productName,
+        productType: directMatch.productType,
+        size: directMatch.size,
+        dealerPrice: directMatch.dealerPrice,
+        retailPrice: directMatch.retailPrice,
+      };
+      
+      // If no mapping but there's a pricing match, check if it has a catalog category
+      if (!result.resolved && directMatch.catalogCategoryId) {
+        const category = categoryMap.get(directMatch.catalogCategoryId);
+        if (category) {
+          result = {
+            ...result,
+            resolved: true,
+            matchType: 'pricing_database',
+            category: {
+              id: category.id,
+              code: category.code,
+              label: category.label,
+              groupId: category.groupId,
+            },
+            machineCompatibility: (category.compatibleMachineTypes || []).map(mtCode => {
+              const mt = machineTypes.find(m => m.code === mtCode);
+              return mt ? { code: mt.code, label: mt.label, icon: mt.icon } : { code: mtCode, label: mtCode };
+            }),
+          };
+        }
+      }
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error testing SKU:", error);
+    res.status(500).json({ error: "Failed to test SKU" });
+  }
+});
+
+// Preview Impact - Show how many customers/categories would be affected by a mapping change
+router.post("/preview-impact", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const { mappingId, newCategoryId, pattern, ruleType } = req.body;
+    
+    // Get existing mapping if we're updating
+    let existingMapping = null;
+    if (mappingId) {
+      const mappings = await storage.getAllAdminSkuMappings();
+      existingMapping = mappings.find(m => m.id === mappingId);
+    }
+    
+    // Get all categories
+    const categories = await storage.getAllAdminCategories();
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+    
+    // Get machine types
+    const machineTypes = await storage.getAllAdminMachineTypes();
+    
+    // Get pricing items to estimate SKU coverage
+    const pricingItems = await storage.getAllPricingMasterItems();
+    
+    // Get unmapped items to see potential matches
+    const unmappedItems = await storage.getShopifyUnmappedItems();
+    const unresolvedItems = unmappedItems.filter(u => !u.resolvedCategoryId);
+    
+    // Get all customer trust records to see impact
+    const categoryTrust = await storage.getAllCategoryTrust();
+    
+    // Calculate impact
+    const testPattern = pattern || existingMapping?.pattern || '';
+    const testRuleType = ruleType || existingMapping?.ruleType || 'exact';
+    const targetCategoryId = newCategoryId || existingMapping?.categoryId;
+    
+    // Find matching pricing items
+    let matchingPricingItems: typeof pricingItems = [];
+    let matchingUnmappedItems: typeof unresolvedItems = [];
+    
+    if (testPattern) {
+      if (testRuleType === 'exact') {
+        matchingPricingItems = pricingItems.filter(p => p.itemCode === testPattern);
+        matchingUnmappedItems = unresolvedItems.filter(u => u.shopifySku === testPattern);
+      } else if (testRuleType === 'prefix') {
+        matchingPricingItems = pricingItems.filter(p => p.itemCode?.startsWith(testPattern));
+        matchingUnmappedItems = unresolvedItems.filter(u => u.shopifySku?.startsWith(testPattern));
+      } else if (testRuleType === 'regex') {
+        try {
+          const regex = new RegExp(testPattern);
+          matchingPricingItems = pricingItems.filter(p => p.itemCode && regex.test(p.itemCode));
+          matchingUnmappedItems = unresolvedItems.filter(u => u.shopifySku && regex.test(u.shopifySku));
+        } catch (e) {
+          // Invalid regex
+        }
+      }
+    }
+    
+    // Get target category info
+    const targetCategory = targetCategoryId ? categoryMap.get(targetCategoryId) : null;
+    
+    // Find customers who have trust records for the target category
+    const affectedTrustRecords = targetCategory 
+      ? categoryTrust.filter(t => t.categoryName === targetCategory.label || t.categoryCode === targetCategory.code)
+      : [];
+    
+    // Get unique customer IDs
+    const uniqueCustomerIds = new Set(affectedTrustRecords.map(t => t.customerId));
+    
+    const impact = {
+      pattern: testPattern,
+      ruleType: testRuleType,
+      targetCategory: targetCategory ? {
+        id: targetCategory.id,
+        code: targetCategory.code,
+        label: targetCategory.label,
+      } : null,
+      machineCompatibility: targetCategory?.compatibleMachineTypes?.map(mtCode => {
+        const mt = machineTypes.find(m => m.code === mtCode);
+        return mt ? { code: mt.code, label: mt.label } : { code: mtCode, label: mtCode };
+      }) || [],
+      stats: {
+        matchingPricingItems: matchingPricingItems.length,
+        matchingUnmappedItems: matchingUnmappedItems.length,
+        customersWithTrustInCategory: uniqueCustomerIds.size,
+        totalTrustRecordsInCategory: affectedTrustRecords.length,
+      },
+      sampleMatches: {
+        pricingItems: matchingPricingItems.slice(0, 5).map(p => ({
+          itemCode: p.itemCode,
+          productName: p.productName,
+          productType: p.productType,
+        })),
+        unmappedItems: matchingUnmappedItems.slice(0, 5).map(u => ({
+          sku: u.shopifySku,
+          productTitle: u.shopifyProductTitle,
+        })),
+      },
+    };
+    
+    res.json(impact);
+  } catch (error) {
+    console.error("Error previewing impact:", error);
+    res.status(500).json({ error: "Failed to preview impact" });
+  }
+});
+
 export default router;

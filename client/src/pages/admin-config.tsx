@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, CheckCircle2, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye, Package, X } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, CheckCircle2, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye, Package, X, Search } from "lucide-react";
 import { Link } from "wouter";
 
 type AdminMachineType = {
@@ -433,17 +433,86 @@ interface MappingAuditData {
   }>;
 }
 
+interface TestSkuResult {
+  sku: string;
+  resolved: boolean;
+  matchType: string;
+  matchedPattern?: string;
+  category: { id: number; code: string; label: string; groupId: number | null } | null;
+  machineCompatibility: { code: string; label: string; icon?: string }[];
+  pricingMatch: { itemCode: string; productName: string; productType: string; size: string; dealerPrice: string; retailPrice: string } | null;
+}
+
+interface PreviewImpactResult {
+  pattern: string;
+  ruleType: string;
+  targetCategory: { id: number; code: string; label: string } | null;
+  machineCompatibility: { code: string; label: string }[];
+  stats: {
+    matchingPricingItems: number;
+    matchingUnmappedItems: number;
+    customersWithTrustInCategory: number;
+    totalTrustRecordsInCategory: number;
+  };
+  sampleMatches: {
+    pricingItems: { itemCode: string; productName: string; productType: string }[];
+    unmappedItems: { sku: string; productTitle: string }[];
+  };
+}
+
 function MappingAuditTab({ categories }: { categories: AdminCategory[] }) {
   const [createMappingOpen, setCreateMappingOpen] = useState(false);
   const [selectedUnmappedItem, setSelectedUnmappedItem] = useState<MappingAuditData['unmappedItems'][0] | null>(null);
   const [newMappingPattern, setNewMappingPattern] = useState('');
   const [newMappingCategoryId, setNewMappingCategoryId] = useState<number | null>(null);
   const [newMappingRuleType, setNewMappingRuleType] = useState<'exact' | 'prefix' | 'regex'>('exact');
+  
+  const [testSku, setTestSku] = useState('');
+  const [testSkuResult, setTestSkuResult] = useState<TestSkuResult | null>(null);
+  const [previewPattern, setPreviewPattern] = useState('');
+  const [previewRuleType, setPreviewRuleType] = useState<'exact' | 'prefix' | 'regex'>('exact');
+  const [previewCategoryId, setPreviewCategoryId] = useState<number | null>(null);
+  const [previewResult, setPreviewResult] = useState<PreviewImpactResult | null>(null);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: auditData, isLoading, refetch } = useQuery<MappingAuditData>({
     queryKey: ['/api/pricing-database/mapping-audit'],
+  });
+  
+  const testSkuMutation = useMutation({
+    mutationFn: async (sku: string) => {
+      const response = await apiRequest('/api/pricing-database/test-sku', {
+        method: 'POST',
+        body: JSON.stringify({ sku }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response as TestSkuResult;
+    },
+    onSuccess: (data) => {
+      setTestSkuResult(data);
+    },
+    onError: () => {
+      toast({ title: 'Failed to test SKU', variant: 'destructive' });
+    },
+  });
+  
+  const previewImpactMutation = useMutation({
+    mutationFn: async (data: { pattern: string; ruleType: string; newCategoryId: number | null }) => {
+      const response = await apiRequest('/api/pricing-database/preview-impact', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return response as PreviewImpactResult;
+    },
+    onSuccess: (data) => {
+      setPreviewResult(data);
+    },
+    onError: () => {
+      toast({ title: 'Failed to preview impact', variant: 'destructive' });
+    },
   });
 
   const createMappingMutation = useMutation({
@@ -535,6 +604,204 @@ function MappingAuditTab({ categories }: { categories: AdminCategory[] }) {
               {mappingRate}%
             </div>
             <div className="text-sm text-gray-500">Mapping Rate</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Search className="h-5 w-5 text-blue-500" />
+              Test SKU
+            </CardTitle>
+            <CardDescription>
+              Paste a Shopify SKU to see its resolved category and machine compatibility
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={testSku}
+                onChange={(e) => setTestSku(e.target.value)}
+                placeholder="Enter SKU (e.g., GRAFFITI-12x18)"
+                className="flex-1"
+                data-testid="test-sku-input"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && testSku.trim()) {
+                    testSkuMutation.mutate(testSku.trim());
+                  }
+                }}
+              />
+              <Button 
+                onClick={() => testSku.trim() && testSkuMutation.mutate(testSku.trim())}
+                disabled={!testSku.trim() || testSkuMutation.isPending}
+                data-testid="test-sku-btn"
+              >
+                {testSkuMutation.isPending ? 'Testing...' : 'Test'}
+              </Button>
+            </div>
+            
+            {testSkuResult && (
+              <div className={`p-4 rounded-lg border ${testSkuResult.resolved ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  {testSkuResult.resolved ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                  )}
+                  <span className={`font-medium ${testSkuResult.resolved ? 'text-green-800' : 'text-red-800'}`}>
+                    {testSkuResult.resolved ? 'SKU Resolved' : 'SKU Not Mapped'}
+                  </span>
+                  <Badge variant="outline" className="ml-auto">{testSkuResult.matchType}</Badge>
+                </div>
+                
+                {testSkuResult.category && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Category:</span>
+                      <span className="font-medium">{testSkuResult.category.label}</span>
+                      <span className="text-xs font-mono text-gray-500">({testSkuResult.category.code})</span>
+                    </div>
+                    
+                    {testSkuResult.machineCompatibility.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-gray-600">Machines:</span>
+                        {testSkuResult.machineCompatibility.map((m, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{m.label}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {testSkuResult.pricingMatch && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-sm font-medium text-gray-700 mb-1">Pricing Database Match:</div>
+                    <div className="text-sm">
+                      <span className="font-mono bg-gray-100 px-1 rounded">{testSkuResult.pricingMatch.itemCode}</span>
+                      <span className="mx-2">-</span>
+                      <span>{testSkuResult.pricingMatch.productName}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {testSkuResult.pricingMatch.productType} • {testSkuResult.pricingMatch.size} • 
+                      Dealer: ${testSkuResult.pricingMatch.dealerPrice} • Retail: ${testSkuResult.pricingMatch.retailPrice}
+                    </div>
+                  </div>
+                )}
+                
+                {!testSkuResult.resolved && !testSkuResult.pricingMatch && (
+                  <p className="text-sm text-red-700">
+                    No mapping rule or pricing entry found for this SKU. Create a mapping rule to resolve it.
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Eye className="h-5 w-5 text-purple-500" />
+              Preview Impact
+            </CardTitle>
+            <CardDescription>
+              See how many customers/products would be affected by a mapping rule
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 mb-4">
+              <div className="flex gap-2">
+                <Input
+                  value={previewPattern}
+                  onChange={(e) => setPreviewPattern(e.target.value)}
+                  placeholder="Pattern (e.g., GRAFFITI)"
+                  className="flex-1"
+                  data-testid="preview-pattern-input"
+                />
+                <Select value={previewRuleType} onValueChange={(v) => setPreviewRuleType(v as any)}>
+                  <SelectTrigger className="w-28" data-testid="preview-rule-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exact">Exact</SelectItem>
+                    <SelectItem value="prefix">Prefix</SelectItem>
+                    <SelectItem value="regex">Regex</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Select 
+                  value={previewCategoryId?.toString() || ''} 
+                  onValueChange={(v) => setPreviewCategoryId(parseInt(v))}
+                >
+                  <SelectTrigger className="flex-1" data-testid="preview-category">
+                    <SelectValue placeholder="Select target category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.filter(c => c.isActive).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.label} ({cat.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={() => previewPattern && previewImpactMutation.mutate({
+                    pattern: previewPattern,
+                    ruleType: previewRuleType,
+                    newCategoryId: previewCategoryId
+                  })}
+                  disabled={!previewPattern || previewImpactMutation.isPending}
+                  data-testid="preview-impact-btn"
+                >
+                  {previewImpactMutation.isPending ? 'Analyzing...' : 'Preview'}
+                </Button>
+              </div>
+            </div>
+            
+            {previewResult && (
+              <div className="p-4 rounded-lg border bg-purple-50 border-purple-200">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="text-center p-2 bg-white rounded">
+                    <div className="text-2xl font-bold text-blue-600">{previewResult.stats.matchingPricingItems}</div>
+                    <div className="text-xs text-gray-500">Pricing Items Match</div>
+                  </div>
+                  <div className="text-center p-2 bg-white rounded">
+                    <div className="text-2xl font-bold text-orange-600">{previewResult.stats.matchingUnmappedItems}</div>
+                    <div className="text-xs text-gray-500">Unmapped Would Resolve</div>
+                  </div>
+                  <div className="text-center p-2 bg-white rounded">
+                    <div className="text-2xl font-bold text-green-600">{previewResult.stats.customersWithTrustInCategory}</div>
+                    <div className="text-xs text-gray-500">Customers Affected</div>
+                  </div>
+                  <div className="text-center p-2 bg-white rounded">
+                    <div className="text-2xl font-bold text-purple-600">{previewResult.stats.totalTrustRecordsInCategory}</div>
+                    <div className="text-xs text-gray-500">Trust Records</div>
+                  </div>
+                </div>
+                
+                {previewResult.targetCategory && (
+                  <div className="text-sm mb-2">
+                    <span className="text-gray-600">Target: </span>
+                    <span className="font-medium">{previewResult.targetCategory.label}</span>
+                    {previewResult.machineCompatibility.length > 0 && (
+                      <span className="text-gray-500 ml-2">
+                        ({previewResult.machineCompatibility.map(m => m.label).join(', ')})
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {previewResult.sampleMatches.pricingItems.length > 0 && (
+                  <div className="text-xs text-gray-600 mt-2">
+                    <span className="font-medium">Sample matches: </span>
+                    {previewResult.sampleMatches.pricingItems.map(p => p.itemCode).join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

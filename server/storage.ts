@@ -160,6 +160,8 @@ import {
   shopifyUnmappedItems,
   type ShopifyUnmappedItem,
   type InsertShopifyUnmappedItem,
+  categoryTrust,
+  type CategoryTrust,
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
 import { db } from "./db";
@@ -2566,6 +2568,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(catalogImportLogs.id, id))
       .returning();
     return log;
+  }
+
+  // Category Trust
+  async getAllCategoryTrust(): Promise<CategoryTrust[]> {
+    return await db.select().from(categoryTrust).orderBy(desc(categoryTrust.updatedAt));
   }
 
   // Shopify Unmapped Items
