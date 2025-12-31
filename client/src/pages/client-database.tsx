@@ -1454,89 +1454,205 @@ export default function ClientDatabase() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <Card className="glass-card border-0">
+      {/* Data Health Score & Coaching Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Data Health Gauge */}
+        <Card className="glass-card border-0 lg:col-span-1">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Total Clients</p>
-                <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
+            <div className="flex flex-col items-center">
+              <p className="text-xs font-medium text-gray-500 mb-2">Database Health</p>
+              <div className="relative w-24 h-24">
+                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#e5e7eb" strokeWidth="12" fill="none" />
+                  <circle 
+                    cx="50" cy="50" r="40" 
+                    stroke={(() => {
+                      const cleanCount = groupedByCompany.filter(g => !g.customers.some(c => hasIncompleteEmail(c.email))).length;
+                      const pct = groupedByCompany.length > 0 ? Math.round((cleanCount / groupedByCompany.length) * 100) : 100;
+                      return pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                    })()}
+                    strokeWidth="12" 
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(() => {
+                      const cleanCount = groupedByCompany.filter(g => !g.customers.some(c => hasIncompleteEmail(c.email))).length;
+                      return groupedByCompany.length > 0 ? Math.round((cleanCount / groupedByCompany.length) * 251.2) : 251.2;
+                    })()} 251.2`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xl font-bold text-gray-900">
+                    {groupedByCompany.length > 0 
+                      ? Math.round((groupedByCompany.filter(g => !g.customers.some(c => hasIncompleteEmail(c.email))).length / groupedByCompany.length) * 100)
+                      : 100}%
+                  </span>
+                </div>
               </div>
-              <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center">
-                <Users className="h-4 w-4 text-blue-500" />
-              </div>
+              <p className="text-[10px] text-gray-500 mt-1 text-center">Clean records improve sales</p>
             </div>
           </CardContent>
         </Card>
-        <Card 
-          className={`glass-card border-0 cursor-pointer transition-all hover:shadow-md ${showSamplesFilter ? 'ring-2 ring-green-500' : ''}`}
-          onClick={() => setShowSamplesFilter(!showSamplesFilter)}
-          data-testid="card-samples-sent"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Samples Sent</p>
-                <p className="text-2xl font-bold text-gray-900">{totalSamplesSent}</p>
-                <p className="text-[10px] text-green-600">
-                  {showSamplesFilter ? 'Click to show all' : 'Click to filter'}
-                </p>
+
+        {/* Stats Cards Grid */}
+        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Total Clients */}
+          <Card className="glass-card border-0">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Total Clients</p>
+                  <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
+                </div>
+                <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-blue-500" />
+                </div>
               </div>
-              <div className="h-9 w-9 rounded-full bg-green-50 flex items-center justify-center">
+            </CardContent>
+          </Card>
+
+          {/* Samples Sent with Weekly Goal */}
+          <Card 
+            className={`glass-card border-0 cursor-pointer transition-all hover:shadow-md ${showSamplesFilter ? 'ring-2 ring-green-500' : ''}`}
+            onClick={() => setShowSamplesFilter(!showSamplesFilter)}
+            data-testid="card-samples-sent"
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-500">Samples This Week</p>
                 <Package className="h-4 w-4 text-green-500" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card border-0">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Press Kit Sent</p>
-                <p className="text-2xl font-bold text-gray-900">{pressKitShipments.length}</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-gray-900">{totalSamplesSent}</span>
+                <span className="text-sm text-gray-400">/ 10</span>
               </div>
-              <div className="h-9 w-9 rounded-full bg-orange-50 flex items-center justify-center">
-                <Printer className="h-4 w-4 text-orange-500" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card border-0">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Quotes Sent</p>
-                <p className="text-2xl font-bold text-gray-900">{totalQuotesSent}</p>
-              </div>
-              <div className="h-9 w-9 rounded-full bg-purple-50 flex items-center justify-center">
+              <Progress value={Math.min((totalSamplesSent / 10) * 100, 100)} className="h-1.5 mt-2" />
+              {totalSamplesSent === 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-[10px] text-green-600 mt-1 cursor-help underline decoration-dotted">Pro tip: Send samples</p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Click any client, then use "Log Sample" to track samples sent. Samples help build trust!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quotes Sent with Weekly Goal */}
+          <Card className="glass-card border-0">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-500">Quotes This Week</p>
                 <FileText className="h-4 w-4 text-purple-500" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className={`glass-card border-0 cursor-pointer transition-all hover:shadow-md ${showDataCleanupFilter ? 'ring-2 ring-amber-500' : ''}`}
-          onClick={() => setShowDataCleanupFilter(!showDataCleanupFilter)}
-          data-testid="card-data-cleanup"
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500">Needs Cleanup</p>
-                <p className="text-2xl font-bold text-amber-600">
-                  {groupedByCompany.filter(g => g.customers.some(c => hasIncompleteEmail(c.email))).length}
-                </p>
-                <p className="text-[10px] text-amber-600">
-                  {showDataCleanupFilter ? 'Click to show all' : 'Missing/invalid emails'}
-                </p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-gray-900">{totalQuotesSent}</span>
+                <span className="text-sm text-gray-400">/ 15</span>
               </div>
-              <div className="h-9 w-9 rounded-full bg-amber-50 flex items-center justify-center">
+              <Progress value={Math.min((totalQuotesSent / 15) * 100, 100)} className="h-1.5 mt-2" />
+              {totalQuotesSent === 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-[10px] text-purple-600 mt-1 cursor-help underline decoration-dotted">Pro tip: Send quotes</p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Go to QuickQuotes to create and send professional quotes to customers.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Needs Cleanup with Fix Now Button */}
+          <Card 
+            className={`glass-card border-0 transition-all ${showDataCleanupFilter ? 'ring-2 ring-amber-500' : ''}`}
+            data-testid="card-data-cleanup"
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-500">Needs Cleanup</p>
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <p className="text-2xl font-bold text-amber-600">
+                {groupedByCompany.filter(g => g.customers.some(c => hasIncompleteEmail(c.email))).length}
+              </p>
+              <Button 
+                size="sm" 
+                variant={showDataCleanupFilter ? "secondary" : "default"}
+                className={`w-full mt-2 h-7 text-xs ${!showDataCleanupFilter ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                onClick={(e) => { e.stopPropagation(); setShowDataCleanupFilter(!showDataCleanupFilter); }}
+                data-testid="button-fix-now"
+              >
+                {showDataCleanupFilter ? 'Show All' : 'Fix Now'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Filter Presets Row */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-500">Quick Filters:</span>
+        <Button 
+          size="sm" 
+          variant={filters.source === 'shopify' ? 'default' : 'outline'} 
+          className="h-7 text-xs gap-1.5"
+          onClick={() => setFilters({...filters, source: filters.source === 'shopify' ? 'all' : 'shopify'})}
+        >
+          <SiShopify className="h-3.5 w-3.5" /> Shopify
+        </Button>
+        <Button 
+          size="sm" 
+          variant={filters.source === 'odoo' ? 'default' : 'outline'} 
+          className="h-7 text-xs gap-1.5"
+          onClick={() => setFilters({...filters, source: filters.source === 'odoo' ? 'all' : 'odoo'})}
+        >
+          <SiOdoo className="h-3.5 w-3.5" /> Odoo
+        </Button>
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <Button 
+          size="sm" 
+          variant={showSamplesFilter ? 'default' : 'outline'} 
+          className="h-7 text-xs"
+          onClick={() => setShowSamplesFilter(!showSamplesFilter)}
+        >
+          Has Samples
+        </Button>
+        <Button 
+          size="sm" 
+          variant={missingDataFilters.noEmail ? 'default' : 'outline'} 
+          className="h-7 text-xs"
+          onClick={() => setMissingDataFilters({...missingDataFilters, noEmail: !missingDataFilters.noEmail})}
+        >
+          No Email
+        </Button>
+        <Button 
+          size="sm" 
+          variant={missingDataFilters.noPhone ? 'default' : 'outline'} 
+          className="h-7 text-xs"
+          onClick={() => setMissingDataFilters({...missingDataFilters, noPhone: !missingDataFilters.noPhone})}
+        >
+          No Phone
+        </Button>
+        {(filters.source !== 'all' || showSamplesFilter || Object.values(missingDataFilters).some(Boolean)) && (
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="h-7 text-xs text-gray-500"
+            onClick={() => { 
+              setFilters({...filters, source: 'all'}); 
+              setShowSamplesFilter(false); 
+              setMissingDataFilters({noEmail: false, noPhone: false, noTags: false, noCompany: false}); 
+            }}
+          >
+            <X className="h-3 w-3 mr-1" /> Clear
+          </Button>
+        )}
       </div>
 
       {/* Search Bar with Recent Searches */}
