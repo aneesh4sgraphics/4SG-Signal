@@ -700,78 +700,86 @@ function MachineTypeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{machineType ? "Edit Machine Type" : "Add Machine Type"}</DialogTitle>
-          <DialogDescription>Configure a machine type for category compatibility</DialogDescription>
+          <DialogDescription>Machine types represent the printing equipment your customers use (e.g., Offset presses, HP Indigo, Inkjet). Products are marked as compatible with specific machines.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="code">Code</Label>
-              <Input
-                id="code"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="e.g., offset"
-                data-testid="machine-code-input"
-              />
-            </div>
-            <div>
-              <Label htmlFor="label">Label</Label>
-              <Input
-                id="label"
-                value={formData.label}
-                onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                placeholder="e.g., Offset"
-                data-testid="machine-label-input"
-              />
-            </div>
+        <div className="space-y-5">
+          <div>
+            <Label htmlFor="code" className="text-sm font-medium">Internal ID (Code)</Label>
+            <p className="text-xs text-gray-500 mb-1">A short, unique identifier used by the system (lowercase, no spaces)</p>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/\s/g, '_') })}
+              placeholder="offset, hp_indigo, inkjet"
+              data-testid="machine-code-input"
+            />
+          </div>
+          <div>
+            <Label htmlFor="label" className="text-sm font-medium">Display Name</Label>
+            <p className="text-xs text-gray-500 mb-1">The friendly name shown to users in the app</p>
+            <Input
+              id="label"
+              value={formData.label}
+              onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+              placeholder="Offset Press, HP Indigo, Inkjet"
+              data-testid="machine-label-input"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="icon">Icon</Label>
+              <Label htmlFor="icon" className="text-sm font-medium">Icon (Optional)</Label>
+              <p className="text-xs text-gray-500 mb-1">Visual icon in the interface</p>
               <Select value={formData.icon} onValueChange={(v) => setFormData({ ...formData, icon: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select icon" />
+                  <SelectValue placeholder="Choose an icon" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Printer">Printer</SelectItem>
-                  <SelectItem value="Zap">Zap</SelectItem>
-                  <SelectItem value="Sparkles">Sparkles</SelectItem>
-                  <SelectItem value="Droplet">Droplet</SelectItem>
-                  <SelectItem value="Layers">Layers</SelectItem>
-                  <SelectItem value="Maximize">Maximize</SelectItem>
+                  <SelectItem value="Zap">Zap (Digital)</SelectItem>
+                  <SelectItem value="Sparkles">Sparkles (HP Indigo)</SelectItem>
+                  <SelectItem value="Droplet">Droplet (Inkjet)</SelectItem>
+                  <SelectItem value="Layers">Layers (Flexo)</SelectItem>
+                  <SelectItem value="Maximize">Maximize (Wide Format)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="sortOrder">Sort Order</Label>
+              <Label htmlFor="sortOrder" className="text-sm font-medium">Display Order</Label>
+              <p className="text-xs text-gray-500 mb-1">Lower numbers appear first</p>
               <Input
                 id="sortOrder"
                 type="number"
                 value={formData.sortOrder}
                 onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
+                placeholder="1, 2, 3..."
                 data-testid="machine-sort-input"
               />
             </div>
           </div>
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="text-sm font-medium">Notes (Optional)</Label>
+            <p className="text-xs text-gray-500 mb-1">Internal notes about this machine type</p>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Optional description..."
+              placeholder="e.g., Traditional lithographic printing..."
+              rows={2}
               data-testid="machine-description-input"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-2 border-t">
             <Switch
               checked={formData.isActive}
               onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
             />
-            <Label>Active</Label>
+            <div>
+              <Label className="text-sm font-medium">Active</Label>
+              <p className="text-xs text-gray-500">Only active machine types appear in dropdowns</p>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -823,34 +831,50 @@ function CategoryGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{categoryGroup ? "Edit Category Group" : "Add Category Group"}</DialogTitle>
+          <DialogDescription>Category groups organize products into logical sections (e.g., Labels, Tapes, Specialty Papers).</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Code</Label>
-              <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g., labels" />
-            </div>
-            <div>
-              <Label>Label</Label>
-              <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="e.g., Labels" />
-            </div>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-sm font-medium">Internal ID (Code)</Label>
+            <p className="text-xs text-gray-500 mb-1">A short, unique identifier (lowercase, no spaces)</p>
+            <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/\s/g, '_') })} placeholder="labels, tapes, specialty" />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Display Name</Label>
+            <p className="text-xs text-gray-500 mb-1">The name shown to users</p>
+            <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="Labels, Tapes, Specialty Papers" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Color</Label>
-              <Input value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} placeholder="e.g., blue" />
+              <Label className="text-sm font-medium">Color Tag (Optional)</Label>
+              <p className="text-xs text-gray-500 mb-1">For visual distinction</p>
+              <Select value={formData.color} onValueChange={(v) => setFormData({ ...formData, color: v })}>
+                <SelectTrigger><SelectValue placeholder="Choose color" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="purple">Purple</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="red">Red</SelectItem>
+                  <SelectItem value="gray">Gray</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label>Sort Order</Label>
-              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} />
+              <Label className="text-sm font-medium">Display Order</Label>
+              <p className="text-xs text-gray-500 mb-1">Lower numbers first</p>
+              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} placeholder="1, 2, 3..." />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-2 border-t">
             <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
-            <Label>Active</Label>
+            <div>
+              <Label className="text-sm font-medium">Active</Label>
+              <p className="text-xs text-gray-500">Inactive groups are hidden from views</p>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -918,24 +942,26 @@ function CategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{category ? "Edit Category" : "Add Category"}</DialogTitle>
+          <DialogTitle>{category ? "Edit Product Category" : "Add Product Category"}</DialogTitle>
+          <DialogDescription>Product categories are specific product types (e.g., GraffitiStick, PermaTack, ChromaLabel). Each category can be marked as compatible with certain machine types.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Code</Label>
-              <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g., graffitistick" />
-            </div>
-            <div>
-              <Label>Label</Label>
-              <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="e.g., GraffitiStick" />
-            </div>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-sm font-medium">Internal ID (Code)</Label>
+            <p className="text-xs text-gray-500 mb-1">A short, unique identifier (lowercase, no spaces)</p>
+            <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/\s/g, '_') })} placeholder="graffitistick, permatack, chromalabel" />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">Product Name</Label>
+            <p className="text-xs text-gray-500 mb-1">The display name customers will see</p>
+            <Input value={formData.label} onChange={(e) => setFormData({ ...formData, label: e.target.value })} placeholder="GraffitiStick, PermaTack, ChromaLabel" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Group</Label>
+              <Label className="text-sm font-medium">Product Group</Label>
+              <p className="text-xs text-gray-500 mb-1">Which group does this belong to?</p>
               <Select value={formData.groupId?.toString() || ""} onValueChange={(v) => setFormData({ ...formData, groupId: v ? parseInt(v) : null })}>
                 <SelectTrigger><SelectValue placeholder="Select group" /></SelectTrigger>
                 <SelectContent>
@@ -946,13 +972,18 @@ function CategoryDialog({
               </Select>
             </div>
             <div>
-              <Label>Sort Order</Label>
-              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} />
+              <Label className="text-sm font-medium">Display Order</Label>
+              <p className="text-xs text-gray-500 mb-1">Lower numbers first</p>
+              <Input type="number" value={formData.sortOrder} onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })} placeholder="1, 2, 3..." />
             </div>
           </div>
           <div>
-            <Label>Compatible Machine Types</Label>
+            <Label className="text-sm font-medium">Works With These Machines</Label>
+            <p className="text-xs text-gray-500 mb-1">Click to select which printing machines this product works with</p>
             <div className="flex flex-wrap gap-2 mt-2">
+              {machineTypes.length === 0 && (
+                <p className="text-sm text-gray-400 italic">No machine types configured yet. Add some above first.</p>
+              )}
               {machineTypes.map(mt => (
                 <Button
                   key={mt.code}
@@ -967,12 +998,16 @@ function CategoryDialog({
             </div>
           </div>
           <div>
-            <Label>Description</Label>
-            <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional..." />
+            <Label className="text-sm font-medium">Notes (Optional)</Label>
+            <p className="text-xs text-gray-500 mb-1">Internal notes about this product category</p>
+            <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="e.g., Best for outdoor signage..." rows={2} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-2 border-t">
             <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} />
-            <Label>Active</Label>
+            <div>
+              <Label className="text-sm font-medium">Active</Label>
+              <p className="text-xs text-gray-500">Inactive categories are hidden from views</p>
+            </div>
           </div>
         </div>
         <DialogFooter>
