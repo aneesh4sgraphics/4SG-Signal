@@ -180,6 +180,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
   const [machineNoteDialog, setMachineNoteDialog] = useState<{ open: boolean; machineId: string; machineLabel: string; details: string }>({ open: false, machineId: '', machineLabel: '', details: '' });
   const [machineProfileOpen, setMachineProfileOpen] = useState(true);
   const [conversationModalOpen, setConversationModalOpen] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const { toast } = useToast();
 
   const { data: machineProfiles = [], refetch: refetchMachines } = useQuery<CustomerMachineProfile[]>({
@@ -773,7 +774,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
             </div>
           ) : (
             <div className="space-y-2">
-              {compatibleCategories.map(category => {
+              {(showAllCategories ? compatibleCategories : compatibleCategories.slice(0, 3)).map(category => {
                 const state = getCategoryState(category);
                 const config = CATEGORY_STATE_CONFIG[state];
                 const trust = getCategoryTrust(category);
@@ -875,6 +876,21 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
                   </div>
                 );
               })}
+              {compatibleCategories.length > 3 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-gray-500 hover:text-gray-700"
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  data-testid="toggle-categories"
+                >
+                  {showAllCategories ? (
+                    <>Show Less</>
+                  ) : (
+                    <>+{compatibleCategories.length - 3} more categories</>
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
