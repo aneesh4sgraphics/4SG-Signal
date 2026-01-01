@@ -54,7 +54,7 @@ export default function ActivityLogs({ userId, showAllUsers = false }: ActivityL
       }
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 2 * 60 * 1000, // Keep fresh for 2 minutes
   });
 
   const activities = response?.activities || [];

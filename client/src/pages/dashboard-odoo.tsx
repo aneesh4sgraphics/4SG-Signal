@@ -12,8 +12,6 @@ import {
   AlertCircle,
   DollarSign,
   Package,
-  Sparkles,
-  ArrowUpRight,
   Printer,
   Layers,
   ChevronRight,
@@ -24,7 +22,6 @@ import {
   Palette,
   Activity,
   Grid3X3,
-  Plus,
   Clock,
   History,
   Mail,
@@ -146,7 +143,7 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard/usage"],
     retry: 1,
     enabled: isAdminUser,
-    refetchInterval: 60000, // Refresh every minute
+    staleTime: 5 * 60 * 1000, // Keep fresh for 5 minutes
   });
 
   const { data: objections = [] } = useQuery<{ id: number; status: string }[]>({

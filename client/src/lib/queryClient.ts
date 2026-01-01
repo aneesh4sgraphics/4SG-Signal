@@ -1,16 +1,14 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 
-// Track if we've already shown a session expired toast to avoid spam
 let sessionExpiredToastShown = false;
 let lastSessionExpiredTime = 0;
 
-// Check if we just logged in (set by OIDC callback redirect)
 function checkLoginGracePeriod(): boolean {
   const authTimestamp = sessionStorage.getItem('authTimestamp');
   if (authTimestamp) {
     const loginTime = parseInt(authTimestamp, 10);
-    const gracePeriod = 10000; // 10 seconds - enough time for session sync in production
+    const gracePeriod = 10000;
     if (Date.now() - loginTime < gracePeriod) {
       return true;
     }
@@ -18,14 +16,12 @@ function checkLoginGracePeriod(): boolean {
   return false;
 }
 
-// Reset the toast shown flag after 30 seconds
 function resetSessionExpiredFlag() {
   setTimeout(() => {
     sessionExpiredToastShown = false;
   }, 30000);
 }
 
-// Enhanced error class with more details
 export class ApiError extends Error {
   status?: number;
   statusText?: string;
@@ -56,10 +52,8 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // Create a detailed error message
     let message = `Request failed`;
     
-    // Add user-friendly message based on status
     if (res.status === 401) {
       message = 'Your session has expired. Please log in again.';
     } else if (res.status === 403) {
@@ -81,44 +75,28 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// Cache version for preventing stale data issues
-const CACHE_VERSION = Date.now().toString(36);
-
-// Enhanced fetch with cache busting and service worker protection
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    // Add cache busting for GET requests and health checks
-    const urlWithCache = method === 'GET' || url.includes('/health')
-      ? `${url}${url.includes('?') ? '&' : '?'}_v=${CACHE_VERSION}&_t=${Date.now()}`
-      : url;
-
-    const headers: Record<string, string> = {
-      // Force fresh response, prevent service worker cache
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-    };
+    const headers: Record<string, string> = {};
 
     if (data) {
       headers['Content-Type'] = 'application/json';
     }
 
-    const res = await fetch(urlWithCache, {
+    const res = await fetch(url, {
       method,
       headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
-      cache: 'no-store', // Force bypass cache
     });
 
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
-    // Handle network errors
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new ApiError('Network error: Unable to connect to the server', {
         isNetworkError: true,
@@ -127,12 +105,10 @@ export async function apiRequest(
       });
     }
     
-    // Re-throw ApiErrors
     if (error instanceof ApiError) {
       throw error;
     }
     
-    // Wrap other errors
     throw new ApiError('An unexpected error occurred', {
       responseText: error instanceof Error ? error.message : 'Unknown error',
       url
@@ -149,29 +125,18 @@ export const getQueryFn: <T>(options: {
     const url = queryKey.join("/") as string;
     
     try {
-      // Enhanced fetch with cache busting for query requests
-      const urlWithCache = `${url}${url.includes('?') ? '&' : '?'}_v=${CACHE_VERSION}&_t=${Date.now()}`;
-      
-      const res = await fetch(urlWithCache, {
+      const res = await fetch(url, {
         credentials: "include",
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-        cache: 'no-store',
       });
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
         return null;
       }
 
-      // Handle 401/403 with toast notification (debounced to prevent spam)
       if (res.status === 401 || res.status === 403) {
         const now = Date.now();
         const isInGracePeriod = checkLoginGracePeriod();
         
-        // During grace period after login, don't show session expired - just throw silently
         if (isInGracePeriod && res.status === 401) {
           throw new ApiError("Session initializing", {
             status: res.status,
@@ -184,7 +149,6 @@ export const getQueryFn: <T>(options: {
           ? "Session expired. Please log in again."
           : "You don't have permission to access this resource.";
         
-        // Only show toast if we haven't shown one recently (within 10 seconds)
         if (!sessionExpiredToastShown && (now - lastSessionExpiredTime > 10000)) {
           sessionExpiredToastShown = true;
           lastSessionExpiredTime = now;
@@ -208,33 +172,14 @@ export const getQueryFn: <T>(options: {
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      // Handle network errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        const networkError = new ApiError('Network error: Unable to connect to the server', {
+        throw new ApiError('Network error: Unable to connect to the server', {
           isNetworkError: true,
           url,
           responseText: error.message
         });
-        
-        // Log in development
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[Network Error]', url, error);
-        }
-        
-        throw networkError;
       }
       
-      // Log ApiErrors in development
-      if (error instanceof ApiError && process.env.NODE_ENV === 'development') {
-        console.error('[API Error]', {
-          url: error.url,
-          status: error.status,
-          message: error.message,
-          responseText: error.responseText
-        });
-      }
-      
-      // Re-throw the error
       throw error;
     }
   };
@@ -245,8 +190,10 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+      gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
+      retry: 1,
+      retryDelay: 1000,
     },
     mutations: {
       retry: false,
