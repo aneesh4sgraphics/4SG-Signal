@@ -107,7 +107,7 @@ export default function QuoteCalculator() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
   const { logPageView, logQuoteGeneration, logQuoteDownload, logUserAction } = useActivityLogger();
   const { open: openEmailComposer } = useEmailComposer();
 
@@ -220,7 +220,7 @@ export default function QuoteCalculator() {
     return 'text-gray-600'; // Default color
   };
 
-  // Fetch product pricing data from new database
+  // Fetch product pricing data from new database - only fetch when authenticated
   const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database'],
     queryFn: async () => {
@@ -233,6 +233,7 @@ export default function QuoteCalculator() {
       const result = await response.json();
       return result.data || []; // Extract data from response wrapper
     },
+    enabled: !isAuthLoading && isAuthenticated,
   });
 
   // Get unique categories (filter out empty/null values)
@@ -786,7 +787,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
     }
   }, [selectedCategory, selectedType, selectedSize, filtersInitialized]);
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="container mx-auto p-6">
         <EmptyState type="loading" />

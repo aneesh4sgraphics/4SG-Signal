@@ -108,7 +108,7 @@ export default function PriceList() {
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
   
   // Get user role and filter pricing tiers accordingly - memoize to prevent re-renders
   const userEmail = (user as any)?.email || '';
@@ -326,17 +326,20 @@ export default function PriceList() {
 
 
 
-  // Fetch product pricing data from new database
+  // Fetch product pricing data from new database - only fetch when authenticated
   const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
     queryKey: ['/api/product-pricing-database', (user as any)?.id],
     queryFn: async () => {
-      const response = await fetch('/api/product-pricing-database');
+      const response = await fetch('/api/product-pricing-database', {
+        credentials: 'include'
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch pricing data');
       }
       const result = await response.json();
       return result.data || []; // Extract data from response wrapper
     },
+    enabled: !isAuthLoading && isAuthenticated,
     staleTime: 0, // Consider data stale immediately
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (gcTime replaces cacheTime in React Query v5)
     refetchOnMount: true, // Always refetch when component mounts
@@ -493,7 +496,7 @@ export default function PriceList() {
 
 
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="container mx-auto p-6">
         <EmptyState type="loading" />
