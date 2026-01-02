@@ -1180,7 +1180,8 @@ export const emailTemplates = pgTable("email_templates", {
   description: text("description"),
   subject: varchar("subject", { length: 500 }).notNull(),
   body: text("body").notNull(),
-  category: varchar("category", { length: 100 }).default("general"), // general, quote, sample, follow_up, product_info
+  category: varchar("category", { length: 100 }).default("general"), // general, marketing, follow_up, product_info, account_payments, other
+  usageType: varchar("usage_type", { length: 50 }).default("client_email"), // quick_quotes, price_list, client_email, marketing
   variables: jsonb("variables").$type<string[]>().default([]), // List of variable names used in template
   isActive: boolean("is_active").default(true),
   createdBy: varchar("created_by", { length: 255 }),
