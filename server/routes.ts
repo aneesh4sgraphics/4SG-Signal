@@ -6489,6 +6489,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // EMAIL TRACKING APIs (PUBLIC - no auth required)
+  // ========================================
+
+  // Tracking pixel endpoint - logs email opens
+  // Accessed via <img src="/api/t/open/:token.png"> in emails
+  app.get("/api/t/open/:token.png", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Look up the tracking token
+      const trackingToken = await storage.getEmailTrackingTokenByToken(token);
+      
+      if (trackingToken) {
+        // Record the open event
+        const ipAddress = req.headers['x-forwarded-for'] as string || req.ip;
+        const userAgent = req.headers['user-agent'] || undefined;
+        
+        await storage.recordEmailOpenEvent(trackingToken.id, ipAddress, userAgent);
+        
+        // Create follow-up task on first open
+        if (trackingToken.openCount === 0 && trackingToken.customerId) {
+          try {
+            await storage.createFollowUpTask({
+              customerId: trackingToken.customerId,
+              taskType: 'email_engagement',
+              title: `Email Opened: ${trackingToken.subject || 'Email'}`,
+              description: `Customer opened the email "${trackingToken.subject}". Consider following up.`,
+              priority: 'medium',
+              status: 'pending',
+              dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Due in 24 hours
+              assignedTo: trackingToken.sentBy || undefined,
+              createdBy: 'system',
+            });
+          } catch (taskError) {
+            console.error('Error creating follow-up task for email open:', taskError);
+          }
+        }
+        
+        console.log(`Email open tracked: token=${token}, customer=${trackingToken.customerId}`);
+      } else {
+        console.log(`Unknown tracking token: ${token}`);
+      }
+      
+      // Return a 1x1 transparent GIF
+      const transparentGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set({
+        'Content-Type': 'image/gif',
+        'Content-Length': transparentGif.length,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
+      res.send(transparentGif);
+    } catch (error) {
+      console.error("Error tracking email open:", error);
+      // Still return the transparent GIF to avoid broken images
+      const transparentGif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set({ 'Content-Type': 'image/gif' });
+      res.send(transparentGif);
+    }
+  });
+
+  // Link click redirect endpoint - logs clicks and redirects
+  // Accessed via /api/t/click/:token?url=<encoded_url>&text=<link_text>
+  app.get("/api/t/click/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { url, text } = req.query;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).send('Missing redirect URL');
+      }
+      
+      const decodedUrl = decodeURIComponent(url);
+      
+      // Look up the tracking token
+      const trackingToken = await storage.getEmailTrackingTokenByToken(token);
+      
+      if (trackingToken) {
+        // Record the click event
+        const ipAddress = req.headers['x-forwarded-for'] as string || req.ip;
+        const userAgent = req.headers['user-agent'] || undefined;
+        const linkText = typeof text === 'string' ? decodeURIComponent(text) : undefined;
+        
+        await storage.recordEmailClickEvent(trackingToken.id, decodedUrl, linkText, ipAddress, userAgent);
+        
+        // Create follow-up task on first click
+        if (trackingToken.clickCount === 0 && trackingToken.customerId) {
+          try {
+            await storage.createFollowUpTask({
+              customerId: trackingToken.customerId,
+              taskType: 'email_engagement',
+              title: `Email Link Clicked: ${trackingToken.subject || 'Email'}`,
+              description: `Customer clicked a link in "${trackingToken.subject}": ${linkText || decodedUrl}. High engagement - consider immediate follow-up!`,
+              priority: 'high',
+              status: 'pending',
+              dueDate: new Date(Date.now() + 4 * 60 * 60 * 1000), // Due in 4 hours for clicks
+              assignedTo: trackingToken.sentBy || undefined,
+              createdBy: 'system',
+            });
+          } catch (taskError) {
+            console.error('Error creating follow-up task for email click:', taskError);
+          }
+        }
+        
+        console.log(`Email click tracked: token=${token}, url=${decodedUrl}, customer=${trackingToken.customerId}`);
+      } else {
+        console.log(`Unknown tracking token for click: ${token}`);
+      }
+      
+      // Redirect to the original URL
+      res.redirect(302, decodedUrl);
+    } catch (error) {
+      console.error("Error tracking email click:", error);
+      // Try to redirect anyway
+      const { url } = req.query;
+      if (url && typeof url === 'string') {
+        res.redirect(302, decodeURIComponent(url));
+      } else {
+        res.status(500).send('Error processing redirect');
+      }
+    }
+  });
+
+  // Get email tracking stats for a customer (authenticated)
+  app.get("/api/email/tracking/:customerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      const tokens = await storage.getEmailTrackingTokensByCustomer(customerId);
+      
+      // Get events for each token
+      const trackingData = await Promise.all(
+        tokens.map(async (token) => {
+          const events = await storage.getEmailTrackingEventsByToken(token.id);
+          return { ...token, events };
+        })
+      );
+      
+      res.json(trackingData);
+    } catch (error) {
+      console.error("Error fetching email tracking data:", error);
+      res.status(500).json({ error: "Failed to fetch tracking data" });
+    }
+  });
+
+  // ========================================
   // DRIP CAMPAIGN APIs
   // ========================================
 
