@@ -19,6 +19,7 @@ interface EmailComposeConfig {
   customerName?: string;
   templateId?: number;
   variables?: Record<string, string>;
+  usageType?: string; // quick_quotes, price_list, client_email, marketing
 }
 
 interface EmailComposerContextType {
@@ -173,7 +174,15 @@ function EmailComposePopup({ isOpen, onClose, initialConfig }: EmailComposePopup
     });
   };
 
-  const activeTemplates = templates.filter(t => t.isActive);
+  const activeTemplates = templates.filter(t => {
+    if (!t.isActive) return false;
+    // If a usageType is specified, only show templates matching that type
+    if (initialConfig.usageType) {
+      return (t as any).usageType === initialConfig.usageType;
+    }
+    // Default: show client_email templates or templates without usageType
+    return !(t as any).usageType || (t as any).usageType === 'client_email';
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
