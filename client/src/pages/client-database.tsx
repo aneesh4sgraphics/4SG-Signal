@@ -2268,6 +2268,59 @@ export default function ClientDatabase() {
                           >
                             {group.companyName}
                           </span>
+                          
+                          {/* Quick Actions Dropdown - Ellipsis menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`button-actions-${primary.id}`}
+                                aria-label="Quick actions"
+                              >
+                                <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuItem onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}>
+                                <Eye className="h-4 w-4 mr-2 text-blue-500" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => window.location.href = `/quick-quotes?customerId=${primary.id}`}>
+                                <FileText className="h-4 w-4 mr-2 text-purple-500" /> Send Quote
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}>
+                                <Package className="h-4 w-4 mr-2 text-green-500" /> Log Sample
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleEditCustomer(primary)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => startInlineEdit(primary, 'email')}>
+                                <Mail className="h-4 w-4 mr-2" /> Edit Email
+                              </DropdownMenuItem>
+                              {needsDataCleanup && (
+                                <DropdownMenuItem onClick={() => startInlineEdit(primary, 'email')} className="text-amber-600">
+                                  <AlertTriangle className="h-4 w-4 mr-2" /> Fix Email
+                                </DropdownMenuItem>
+                              )}
+                              {hasAddress(primary) && (
+                                <DropdownMenuItem onClick={() => printAddressLabel(primary)}>
+                                  <Printer className="h-4 w-4 mr-2" /> Print Address Label
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => toggleMergeSelection(primary.id)} disabled={selectedForMerge.size >= 2 && !selectedForMerge.has(primary.id)}>
+                                <Users className="h-4 w-4 mr-2" /> Select for Merge
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDeleteCustomer(primary.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          
                           {!hasAddress(primary) && primary.company && (
                             <TooltipProvider>
                               <Tooltip>
@@ -2397,129 +2450,14 @@ export default function ClientDatabase() {
                           )}
                         </div>
                         
-                        {/* Quick Actions (appear on hover) */}
-                        <div className="w-28 flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-                          {/* Quick Action Icons - visible on hover */}
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 w-7 p-0 hover:bg-blue-50"
-                                    onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}
-                                  >
-                                    <Eye className="h-3.5 w-3.5 text-blue-500" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">View Details</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 w-7 p-0 hover:bg-purple-50"
-                                    onClick={() => window.location.href = `/quick-quotes?customerId=${primary.id}`}
-                                  >
-                                    <FileText className="h-3.5 w-3.5 text-purple-500" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Send Quote</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 w-7 p-0 hover:bg-green-50"
-                                    onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}
-                                  >
-                                    <Package className="h-3.5 w-3.5 text-green-500" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Log Sample</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            {needsDataCleanup && (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-7 w-7 p-0 hover:bg-amber-50"
-                                      onClick={() => startInlineEdit(primary, 'email')}
-                                    >
-                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">Fix Email</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
-                          
-                          {/* More Actions Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }}>
-                                <Eye className="h-4 w-4 mr-2" /> View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditCustomer(primary)}>
-                                <Edit className="h-4 w-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => startInlineEdit(primary, 'email')}>
-                                <Mail className="h-4 w-4 mr-2" /> Edit Email
-                              </DropdownMenuItem>
-                              {hasAddress(primary) && (
-                                <DropdownMenuItem onClick={() => printAddressLabel(primary)}>
-                                  <Printer className="h-4 w-4 mr-2" /> Print Address Label
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => toggleMergeSelection(primary.id)} disabled={selectedForMerge.size >= 2 && !selectedForMerge.has(primary.id)}>
-                                <Users className="h-4 w-4 mr-2" /> Select for Merge
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleDeleteCustomer(primary.id)} className="text-red-600">
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          {hasAddress(primary) && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    onClick={() => printAddressLabel(primary)}
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-7 w-7 p-0"
-                                    data-testid={`button-print-label-${primary.id}`}
-                                  >
-                                    <Printer className="h-3.5 w-3.5 text-blue-500 hover:text-blue-700" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Print Address Label (4x2")</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
+                        {/* View button on right side */}
+                        <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                           <Button 
                             onClick={() => { setSelectedCustomer(primary); setSelectedCompanyContacts(group.customers); }} 
                             size="sm" 
                             variant="ghost" 
                             className="h-7 px-2 text-xs"
+                            data-testid={`button-view-${primary.id}`}
                           >
                             View
                           </Button>
