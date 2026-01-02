@@ -76,7 +76,8 @@ import {
 import { Link } from "wouter";
 import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory, QuoteEvent, PriceListEvent, SentQuote, CustomerJourneyInstance, CustomerContact, EmailSend } from "@shared/schema";
 import { EmailLaunchIcon } from "@/components/email-composer";
-import { Send } from "lucide-react";
+import { Send, Zap } from "lucide-react";
+import type { DripCampaign } from "@shared/schema";
 
 const JOURNEY_STAGE_CONFIG = [
   { id: 'trigger', label: 'Trigger', icon: Target, color: 'bg-red-500', description: 'Price increase detected' },
@@ -144,6 +145,8 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'mailer' | 'other' | null>(null);
   const [printLabelNotes, setPrintLabelNotes] = useState('');
   const [highlightAddPressProfile, setHighlightAddPressProfile] = useState(false);
+  const [isDripCampaignDialogOpen, setIsDripCampaignDialogOpen] = useState(false);
+  const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
   const addPressProfileButtonRef = useRef<HTMLButtonElement>(null);
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
@@ -370,6 +373,27 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       const res = await fetch(`/api/email/sends?customerId=${customer.id}`);
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+
+  // Fetch drip campaigns for assignment
+  const { data: dripCampaigns = [] } = useQuery<DripCampaign[]>({
+    queryKey: ['/api/drip-campaigns'],
+  });
+
+  // Mutation to assign customer to drip campaign
+  const assignToDripCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, customerId }: { campaignId: number; customerId: number }) => {
+      return await apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, { customerId });
+    },
+    onSuccess: () => {
+      setIsDripCampaignDialogOpen(false);
+      setSelectedDripCampaignId("");
+      toast({ title: "Success", description: "Customer enrolled in drip campaign" });
+      logActivity('drip_campaign_enrolled', { customerId: customer.id, campaignId: selectedDripCampaignId });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to enroll customer", variant: "destructive" });
     },
   });
 
@@ -1504,20 +1528,32 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   <Mail className="h-5 w-5 text-pink-600" />
                   Email History
                 </CardTitle>
-                {customer.email && (
-                  <EmailLaunchIcon
-                    email={customer.email}
-                    customerId={customer.id}
-                    customerName={customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email}
-                    variables={{
-                      'client.firstName': customer.firstName || '',
-                      'client.lastName': customer.lastName || '',
-                      'client.company': customer.company || '',
-                      'client.email': customer.email,
-                    }}
-                    size="md"
-                  />
-                )}
+                <div className="flex items-center gap-2">
+                  {customer.email && (
+                    <EmailLaunchIcon
+                      email={customer.email}
+                      customerId={customer.id}
+                      customerName={customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email}
+                      variables={{
+                        'client.firstName': customer.firstName || '',
+                        'client.lastName': customer.lastName || '',
+                        'client.company': customer.company || '',
+                        'client.email': customer.email,
+                      }}
+                      size="md"
+                    />
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsDripCampaignDialogOpen(true)}
+                    className="gap-1"
+                    data-testid="btn-send-drip-email"
+                  >
+                    <Zap className="h-4 w-4" />
+                    Send Drip Email
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2">
@@ -2240,6 +2276,86 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 Print Label
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Drip Campaign Assignment Dialog */}
+      <Dialog open={isDripCampaignDialogOpen} onOpenChange={setIsDripCampaignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enroll in Drip Campaign</DialogTitle>
+            <DialogDescription>
+              Select a drip email campaign to automatically send scheduled emails to {customer.company || customer.firstName || 'this customer'}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Campaign</Label>
+              <Select 
+                value={selectedDripCampaignId} 
+                onValueChange={setSelectedDripCampaignId}
+              >
+                <SelectTrigger data-testid="select-drip-campaign">
+                  <SelectValue placeholder="Choose a drip campaign..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dripCampaigns.filter(c => c.isActive).map((campaign) => (
+                    <SelectItem 
+                      key={campaign.id} 
+                      value={campaign.id.toString()}
+                      data-testid={`campaign-option-${campaign.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-yellow-500" />
+                        {campaign.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                  {dripCampaigns.filter(c => c.isActive).length === 0 && (
+                    <SelectItem value="none" disabled>
+                      No active campaigns available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedDripCampaignId && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <Zap className="h-4 w-4 inline mr-1" />
+                  This customer will receive automated emails from this campaign according to its schedule.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDripCampaignDialogOpen(false);
+                setSelectedDripCampaignId("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedDripCampaignId) {
+                  assignToDripCampaignMutation.mutate({
+                    campaignId: parseInt(selectedDripCampaignId),
+                    customerId: customer.id,
+                  });
+                }
+              }}
+              disabled={!selectedDripCampaignId || assignToDripCampaignMutation.isPending}
+              data-testid="btn-confirm-drip-enroll"
+            >
+              {assignToDripCampaignMutation.isPending ? "Enrolling..." : "Enroll Customer"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
