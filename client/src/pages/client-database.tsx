@@ -1545,6 +1545,12 @@ export default function ClientDatabase() {
                   <Users className="h-4 w-4 text-blue-500" />
                 </div>
               </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500">Florida</p>
+                <p className="text-sm font-semibold text-blue-600" data-testid="florida-count">
+                  {customers.filter(c => c.province?.toUpperCase() === 'FL' || c.province?.toLowerCase() === 'florida').length}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
