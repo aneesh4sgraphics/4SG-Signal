@@ -1288,6 +1288,64 @@ export const EMAIL_TEMPLATE_VARIABLES = {
 export type EmailTemplateVariableKey = keyof typeof EMAIL_TEMPLATE_VARIABLES;
 
 // ========================================
+// EMAIL TRACKING - Open & Click Tracking
+// ========================================
+
+// Email Tracking Tokens - unique token per email for tracking
+export const emailTrackingTokens = pgTable("email_tracking_tokens", {
+  id: serial("id").primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(), // Unique tracking token
+  emailSendId: integer("email_send_id").references(() => emailSends.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 500 }),
+  sentBy: varchar("sent_by", { length: 255 }),
+  openCount: integer("open_count").default(0),
+  clickCount: integer("click_count").default(0),
+  firstOpenedAt: timestamp("first_opened_at"),
+  lastOpenedAt: timestamp("last_opened_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_email_tracking_tokens_token").on(table.token),
+  index("IDX_email_tracking_tokens_customer_id").on(table.customerId),
+  index("IDX_email_tracking_tokens_email_send_id").on(table.emailSendId),
+]);
+
+export const insertEmailTrackingTokenSchema = createInsertSchema(emailTrackingTokens).omit({
+  id: true,
+  openCount: true,
+  clickCount: true,
+  firstOpenedAt: true,
+  lastOpenedAt: true,
+  createdAt: true,
+});
+export type EmailTrackingToken = typeof emailTrackingTokens.$inferSelect;
+export type InsertEmailTrackingToken = z.infer<typeof insertEmailTrackingTokenSchema>;
+
+// Email Tracking Events - log of opens and clicks
+export const emailTrackingEvents = pgTable("email_tracking_events", {
+  id: serial("id").primaryKey(),
+  tokenId: integer("token_id").references(() => emailTrackingTokens.id, { onDelete: "cascade" }).notNull(),
+  eventType: varchar("event_type", { length: 20 }).notNull(), // 'open' or 'click'
+  linkUrl: text("link_url"), // For clicks, the original destination URL
+  linkText: varchar("link_text", { length: 255 }), // For clicks, the link text or description
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_email_tracking_events_token_id").on(table.tokenId),
+  index("IDX_email_tracking_events_event_type").on(table.eventType),
+  index("IDX_email_tracking_events_created_at").on(table.createdAt),
+]);
+
+export const insertEmailTrackingEventSchema = createInsertSchema(emailTrackingEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type EmailTrackingEvent = typeof emailTrackingEvents.$inferSelect;
+export type InsertEmailTrackingEvent = z.infer<typeof insertEmailTrackingEventSchema>;
+
+// ========================================
 // COACH-STYLE B2B CUSTOMER JOURNEY
 // ========================================
 
