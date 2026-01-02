@@ -4594,14 +4594,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/email/send", isAuthenticated, async (req: any, res) => {
     try {
       const { sendEmail } = await import("./gmail-client");
-      const { to, subject, body, htmlBody, customerId, templateId, recipientName, variableData } = req.body;
+      const crypto = await import("crypto");
+      const { to, subject, body, htmlBody, customerId, templateId, recipientName, variableData, enableTracking = true } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
       }
       
-      // Send via Gmail
-      const result = await sendEmail(to, subject, body, htmlBody);
+      // Generate tracking token and prepare tracked HTML
+      let trackedHtmlBody = htmlBody || body.replace(/\n/g, '<br>');
+      let trackingToken: string | null = null;
+      let trackingTokenRecord: any = null;
+      
+      if (enableTracking) {
+        // Generate unique tracking token
+        trackingToken = crypto.randomBytes(24).toString('hex');
+        
+        // Get the base URL for tracking (use HOST header or default)
+        const baseUrl = `https://${req.get('host')}`;
+        
+        // Create tracking pixel URL
+        const trackingPixelUrl = `${baseUrl}/api/t/open/${trackingToken}.png`;
+        
+        // Wrap links in the HTML for click tracking
+        trackedHtmlBody = trackedHtmlBody.replace(
+          /<a\s+([^>]*href=["'])([^"']+)(["'][^>]*)>/gi,
+          (match: string, prefix: string, url: string, suffix: string) => {
+            // Don't track mailto: links, tel: links, or internal tracking links
+            if (url.startsWith('mailto:') || url.startsWith('tel:') || url.includes('/api/t/')) {
+              return match;
+            }
+            const encodedUrl = encodeURIComponent(url);
+            const trackedUrl = `${baseUrl}/api/t/click/${trackingToken}?url=${encodedUrl}`;
+            return `<a ${prefix}${trackedUrl}${suffix}>`;
+          }
+        );
+        
+        // Inject tracking pixel at the end of the email body
+        const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;width:1px;height:1px;border:0;" alt="" />`;
+        
+        // Insert tracking pixel before closing body tag or at the end
+        if (trackedHtmlBody.includes('</body>')) {
+          trackedHtmlBody = trackedHtmlBody.replace('</body>', `${trackingPixel}</body>`);
+        } else {
+          trackedHtmlBody = trackedHtmlBody + trackingPixel;
+        }
+      }
+      
+      // Send via Gmail with tracked HTML
+      const result = await sendEmail(to, subject, body, trackedHtmlBody);
       
       // Log to emailSends table
       const emailSend = await storage.createEmailSend({
@@ -4616,6 +4657,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sentBy: req.user?.email || req.user?.claims?.email,
       });
       
+      // Create tracking token record if tracking is enabled
+      if (enableTracking && trackingToken) {
+        try {
+          trackingTokenRecord = await storage.createEmailTrackingToken({
+            token: trackingToken,
+            emailSendId: emailSend.id,
+            customerId: customerId || null,
+            recipientEmail: to,
+            subject: subject,
+            sentBy: req.user?.email || req.user?.claims?.email,
+          });
+        } catch (trackingError) {
+          console.error("Error creating tracking token (non-critical):", trackingError);
+        }
+      }
+      
       // Log the email activity
       try {
         await storage.logActivity({
@@ -4625,7 +4682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           action: 'email_sent',
           actionType: 'email',
           description: `Email sent to ${to}: ${subject}`,
-          metadata: { to, subject, messageId: result.id }
+          metadata: { to, subject, messageId: result.id, trackingEnabled: enableTracking }
         });
       } catch (logError) {
         console.error("Error logging email activity (non-critical):", logError);
@@ -4650,7 +4707,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json({ success: true, messageId: result.id, emailSend });
+      res.json({ 
+        success: true, 
+        messageId: result.id, 
+        emailSend,
+        trackingEnabled: enableTracking,
+        trackingToken: trackingToken 
+      });
     } catch (error: any) {
       console.error("Error sending email:", error);
       const errorMessage = error?.message || error?.errors?.[0]?.message || "Failed to send email";
@@ -6516,11 +6579,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               taskType: 'email_engagement',
               title: `Email Opened: ${trackingToken.subject || 'Email'}`,
               description: `Customer opened the email "${trackingToken.subject}". Consider following up.`,
-              priority: 'medium',
+              priority: 'normal',
               status: 'pending',
               dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Due in 24 hours
               assignedTo: trackingToken.sentBy || undefined,
-              createdBy: 'system',
+              isAutoGenerated: true,
             });
           } catch (taskError) {
             console.error('Error creating follow-up task for email open:', taskError);
@@ -6587,7 +6650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: 'pending',
               dueDate: new Date(Date.now() + 4 * 60 * 60 * 1000), // Due in 4 hours for clicks
               assignedTo: trackingToken.sentBy || undefined,
-              createdBy: 'system',
+              isAutoGenerated: true,
             });
           } catch (taskError) {
             console.error('Error creating follow-up task for email click:', taskError);
