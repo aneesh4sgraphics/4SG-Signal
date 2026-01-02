@@ -553,6 +553,7 @@ export interface IStorage {
   // Drip Campaign Assignments
   getDripCampaignAssignments(campaignId?: number, customerId?: string): Promise<DripCampaignAssignment[]>;
   getDripCampaignAssignment(id: number): Promise<DripCampaignAssignment | undefined>;
+  getDripCampaignAssignmentCounts(): Promise<{ campaignId: number; count: number }[]>;
   createDripCampaignAssignment(data: InsertDripCampaignAssignment): Promise<DripCampaignAssignment>;
   updateDripCampaignAssignment(id: number, data: Partial<InsertDripCampaignAssignment>): Promise<DripCampaignAssignment | undefined>;
   
@@ -2802,6 +2803,17 @@ export class DatabaseStorage implements IStorage {
   async getDripCampaignAssignment(id: number): Promise<DripCampaignAssignment | undefined> {
     const [assignment] = await db.select().from(dripCampaignAssignments).where(eq(dripCampaignAssignments.id, id));
     return assignment;
+  }
+
+  async getDripCampaignAssignmentCounts(): Promise<{ campaignId: number; count: number }[]> {
+    const result = await db
+      .select({
+        campaignId: dripCampaignAssignments.campaignId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(dripCampaignAssignments)
+      .groupBy(dripCampaignAssignments.campaignId);
+    return result;
   }
 
   async createDripCampaignAssignment(data: InsertDripCampaignAssignment): Promise<DripCampaignAssignment> {

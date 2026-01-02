@@ -6481,6 +6481,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get assignment counts for all campaigns
+  app.get("/api/drip-campaigns/assignment-counts", isAuthenticated, async (req: any, res) => {
+    try {
+      const counts = await storage.getDripCampaignAssignmentCounts();
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching drip campaign assignment counts:", error);
+      res.status(500).json({ error: "Failed to fetch assignment counts" });
+    }
+  });
+
   // Get single drip campaign with steps
   app.get("/api/drip-campaigns/:id", isAuthenticated, async (req: any, res) => {
     try {

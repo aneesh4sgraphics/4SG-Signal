@@ -87,6 +87,15 @@ export default function DripCampaignBuilder() {
     queryKey: ["/api/drip-campaigns"],
   });
 
+  const { data: assignmentCounts = [] } = useQuery<{ campaignId: number; count: number }[]>({
+    queryKey: ["/api/drip-campaigns/assignment-counts"],
+  });
+
+  const getAssignmentCount = (campaignId: number) => {
+    const found = assignmentCounts.find(a => a.campaignId === campaignId);
+    return found?.count || 0;
+  };
+
   const { data: campaignDetails } = useQuery<CampaignWithSteps>({
     queryKey: ["/api/drip-campaigns", selectedCampaign?.id],
     enabled: !!selectedCampaign?.id,
@@ -189,6 +198,7 @@ export default function DripCampaignBuilder() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns/assignment-counts"] });
       setSelectedCustomerIds([]);
       toast({ title: `${data.created} customer(s) enrolled in campaign` });
     },
@@ -319,7 +329,13 @@ export default function DripCampaignBuilder() {
                         <Zap className={`h-5 w-5 ${campaign.isActive ? 'text-green-600' : 'text-gray-400'}`} />
                       </div>
                       <div>
-                        <h4 className="font-medium">{campaign.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{campaign.name}</h4>
+                          <Badge variant="secondary" className="text-xs" data-testid={`campaign-count-${campaign.id}`}>
+                            <Users className="h-3 w-3 mr-1" />
+                            {getAssignmentCount(campaign.id)}
+                          </Badge>
+                        </div>
                         <p className="text-sm text-gray-500">{campaign.description || "No description"}</p>
                       </div>
                     </div>
