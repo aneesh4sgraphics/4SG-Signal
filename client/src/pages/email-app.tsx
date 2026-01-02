@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Mail, Plus, Edit2, Trash2, Send, Eye, Copy, Search, Users, 
-  FileText, Variable, ChevronRight, CheckCircle, AlertCircle
+  FileText, Variable, ChevronRight, CheckCircle, AlertCircle, Clock, Zap
 } from "lucide-react";
 import type { EmailTemplate, Customer, ProductPricingMaster } from "@shared/schema";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
@@ -303,6 +303,10 @@ export default function EmailApp() {
           <TabsTrigger value="templates" data-testid="tab-templates">
             <FileText className="h-4 w-4 mr-2" />
             Templates
+          </TabsTrigger>
+          <TabsTrigger value="drip" data-testid="tab-drip">
+            <Zap className="h-4 w-4 mr-2" />
+            Drip Emails
           </TabsTrigger>
         </TabsList>
 
@@ -613,6 +617,49 @@ export default function EmailApp() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="drip" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-yellow-600" />
+                Drip Email Campaigns
+              </CardTitle>
+              <CardDescription>
+                Automated email sequences that send over time to nurture leads and follow up with customers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+                  <Zap className="h-8 w-8 text-yellow-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon</h3>
+                <p className="text-gray-500 max-w-md mb-6">
+                  Create automated drip campaigns to send a series of emails over time. 
+                  Set up triggers, timing, and personalized content for each step.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <Clock className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                    <h4 className="font-medium text-sm">Scheduled Sends</h4>
+                    <p className="text-xs text-gray-500 mt-1">Automated timing between emails</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                    <h4 className="font-medium text-sm">Segment Targeting</h4>
+                    <p className="text-xs text-gray-500 mt-1">Target specific customer groups</p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <Variable className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                    <h4 className="font-medium text-sm">Dynamic Content</h4>
+                    <p className="text-xs text-gray-500 mt-1">Personalized variables per email</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
