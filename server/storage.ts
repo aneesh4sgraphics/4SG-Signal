@@ -2225,7 +2225,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(journeyTemplateStages).where(eq(journeyTemplateStages.templateId, templateId));
   }
 
-  // CRM Dashboard Stats
+  // CRM Dashboard Stats - Optimized with parallel queries
   async getCRMDashboardStats(): Promise<{
     stageCounts: { stage: string; count: number }[];
     totalActiveJourneys: number;
@@ -2243,8 +2243,64 @@ export class DatabaseStorage implements IStorage {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Get journey stage counts
-    const journeys = await db.select().from(customerJourney);
+    // Execute all independent queries in parallel for better performance
+    const [
+      journeys,
+      allQuotesResult,
+      recentQuotesResult,
+      allCustomersResult,
+      recentCustomersResult,
+      pendingSamplesResult,
+      pendingSwatchesResult,
+      allPressProfilesResult,
+      samplesWithTrackingResult,
+      swatchesWithTrackingResult,
+      pendingFeedbackResult,
+    ] = await Promise.all([
+      // Journey stage counts
+      db.select().from(customerJourney),
+      // Total quotes
+      db.select({ count: sql<number>`count(*)` }).from(sentQuotes),
+      // Quotes last 30 days
+      db.select({ count: sql<number>`count(*)` }).from(sentQuotes)
+        .where(gte(sentQuotes.createdAt, thirtyDaysAgo)),
+      // Total customers
+      db.select({ count: sql<number>`count(*)` }).from(customers),
+      // New customers last 30 days
+      db.select({ count: sql<number>`count(*)` }).from(customers)
+        .where(gte(customers.createdAt, thirtyDaysAgo)),
+      // Pending samples
+      db.select({ count: sql<number>`count(*)` }).from(sampleRequests)
+        .where(sql`${sampleRequests.status} IN ('pending', 'shipped', 'testing')`),
+      // Pending swatches
+      db.select({ count: sql<number>`count(*)` }).from(swatchBookShipments)
+        .where(sql`${swatchBookShipments.status} IN ('pending', 'shipped')`),
+      // Active press profiles
+      db.select({ count: sql<number>`count(*)` }).from(pressProfiles),
+      // Samples with tracking
+      db.select({ count: sql<number>`count(*)` }).from(pressTestJourneyDetails)
+        .where(isNotNull(pressTestJourneyDetails.trackingNumber)),
+      // Swatches with tracking
+      db.select({ count: sql<number>`count(*)` }).from(swatchBookShipments)
+        .where(isNotNull(swatchBookShipments.trackingNumber)),
+      // Pending feedback
+      db.select({ count: sql<number>`count(*)` })
+        .from(pressTestJourneyDetails)
+        .innerJoin(customerJourneyInstances, eq(pressTestJourneyDetails.instanceId, customerJourneyInstances.id))
+        .where(
+          and(
+            eq(customerJourneyInstances.journeyType, 'press_test'),
+            eq(customerJourneyInstances.status, 'in_progress'),
+            or(
+              isNotNull(pressTestJourneyDetails.trackingNumber),
+              isNotNull(pressTestJourneyDetails.receivedAt)
+            ),
+            isNull(pressTestJourneyDetails.result)
+          )
+        ),
+    ]);
+
+    // Process journey stage counts
     const stageCountsMap: Record<string, number> = {};
     const stages = ['trigger', 'internal_alarm', 'supplier_pushback', 'pilot_alignment', 'controlled_trial', 'validation_proof', 'conversion'];
     stages.forEach(s => stageCountsMap[s] = 0);
@@ -2255,83 +2311,19 @@ export class DatabaseStorage implements IStorage {
     });
     const stageCounts = stages.map(stage => ({ stage, count: stageCountsMap[stage] }));
 
-    // Total quotes sent (from sent_quotes table)
-    const allQuotes = await db.select({ id: sentQuotes.id }).from(sentQuotes);
-    const totalQuotesSent = allQuotes.length;
-
-    // Quotes last 30 days
-    const recentQuotes = await db.select({ id: sentQuotes.id }).from(sentQuotes)
-      .where(gte(sentQuotes.createdAt, thirtyDaysAgo));
-    const quotesLast30Days = recentQuotes.length;
-
-    // Total customers
-    const allCustomers = await db.select({ id: customers.id }).from(customers);
-    const totalCustomers = allCustomers.length;
-
-    // New customers last 30 days
-    const recentCustomers = await db.select({ id: customers.id }).from(customers)
-      .where(gte(customers.createdAt, thirtyDaysAgo));
-    const newCustomersLast30Days = recentCustomers.length;
-
-    // Pending samples (status = pending or shipped or testing)
-    const pendingSamplesList = await db.select({ id: sampleRequests.id }).from(sampleRequests)
-      .where(sql`${sampleRequests.status} IN ('pending', 'shipped', 'testing')`);
-    const pendingSamples = pendingSamplesList.length;
-
-    // Pending swatch shipments (status = pending or shipped)
-    const pendingSwatchesList = await db.select({ id: swatchBookShipments.id }).from(swatchBookShipments)
-      .where(sql`${swatchBookShipments.status} IN ('pending', 'shipped')`);
-    const pendingSwatches = pendingSwatchesList.length;
-
-    // Active press profiles
-    const allPressProfiles = await db.select({ id: pressProfiles.id }).from(pressProfiles);
-    const activePressProfiles = allPressProfiles.length;
-
-    // Samples with tracking: Press test journeys that have a tracking number added
-    const samplesWithTrackingList = await db
-      .select({ id: pressTestJourneyDetails.id })
-      .from(pressTestJourneyDetails)
-      .where(isNotNull(pressTestJourneyDetails.trackingNumber));
-    const samplesWithTracking = samplesWithTrackingList.length;
-
-    // Swatches with tracking: Swatch shipments that have a tracking number
-    const swatchesWithTrackingList = await db
-      .select({ id: swatchBookShipments.id })
-      .from(swatchBookShipments)
-      .where(isNotNull(swatchBookShipments.trackingNumber));
-    const swatchesWithTracking = swatchesWithTrackingList.length;
-
-    // Pending feedback: Press test journeys with tracking/received but no result
-    const pendingFeedbackList = await db
-      .select({ id: pressTestJourneyDetails.id })
-      .from(pressTestJourneyDetails)
-      .innerJoin(customerJourneyInstances, eq(pressTestJourneyDetails.instanceId, customerJourneyInstances.id))
-      .where(
-        and(
-          eq(customerJourneyInstances.journeyType, 'press_test'),
-          eq(customerJourneyInstances.status, 'in_progress'),
-          or(
-            isNotNull(pressTestJourneyDetails.trackingNumber),
-            isNotNull(pressTestJourneyDetails.receivedAt)
-          ),
-          isNull(pressTestJourneyDetails.result)
-        )
-      );
-    const pendingFeedback = pendingFeedbackList.length;
-
     return {
       stageCounts,
       totalActiveJourneys: journeys.length,
-      totalQuotesSent,
-      quotesLast30Days,
-      totalCustomers,
-      newCustomersLast30Days,
-      pendingSamples,
-      pendingSwatches,
-      activePressProfiles,
-      pendingFeedback,
-      samplesWithTracking,
-      swatchesWithTracking,
+      totalQuotesSent: Number(allQuotesResult[0]?.count) || 0,
+      quotesLast30Days: Number(recentQuotesResult[0]?.count) || 0,
+      totalCustomers: Number(allCustomersResult[0]?.count) || 0,
+      newCustomersLast30Days: Number(recentCustomersResult[0]?.count) || 0,
+      pendingSamples: Number(pendingSamplesResult[0]?.count) || 0,
+      pendingSwatches: Number(pendingSwatchesResult[0]?.count) || 0,
+      activePressProfiles: Number(allPressProfilesResult[0]?.count) || 0,
+      pendingFeedback: Number(pendingFeedbackResult[0]?.count) || 0,
+      samplesWithTracking: Number(samplesWithTrackingResult[0]?.count) || 0,
+      swatchesWithTracking: Number(swatchesWithTrackingResult[0]?.count) || 0,
     };
   }
 
@@ -2517,15 +2509,15 @@ export class DatabaseStorage implements IStorage {
       { eventType: 'price_list_sent', isEnabled: true, defaultDelayDays: 5, defaultPriority: 'normal', taskTitle: 'Follow up on price list' },
     ];
 
-    for (const config of defaultConfigs) {
-      const [existing] = await db
-        .select()
-        .from(followUpConfig)
-        .where(eq(followUpConfig.eventType, config.eventType));
-      
-      if (!existing) {
-        await db.insert(followUpConfig).values(config);
-      }
+    // Batch fetch existing configs to avoid N+1 queries
+    const existingConfigs = await db.select().from(followUpConfig);
+    const existingEventTypes = new Set(existingConfigs.map(c => c.eventType));
+    
+    // Filter to only insert missing configs
+    const configsToInsert = defaultConfigs.filter(c => !existingEventTypes.has(c.eventType));
+    
+    if (configsToInsert.length > 0) {
+      await db.insert(followUpConfig).values(configsToInsert);
     }
   }
 
