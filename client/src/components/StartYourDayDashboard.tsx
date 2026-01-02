@@ -24,7 +24,9 @@ import {
   TrendingUp,
   RefreshCw,
   Filter,
+  Flame,
 } from "lucide-react";
+import { Link } from "wouter";
 import { format, formatDistanceToNow, isToday, isPast, isFuture, addDays } from "date-fns";
 import type { FollowUpTask, CustomerActivityEvent, Customer } from "@shared/schema";
 
@@ -262,7 +264,7 @@ export default function StartYourDayDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card data-testid="stat-today-tasks">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -292,6 +294,31 @@ export default function StartYourDayDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <Link href="/client-database?filter=hot">
+          <Card 
+            data-testid="stat-hot-leads" 
+            className={`cursor-pointer transition-all hover:shadow-md ${
+              (customers?.filter(c => c.isHotProspect).length || 0) > 0 
+                ? 'border-orange-300 bg-orange-50/50' 
+                : ''
+            }`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Hot Leads</p>
+                  <p className={`text-3xl font-bold ${(customers?.filter(c => c.isHotProspect).length || 0) > 0 ? 'text-orange-600' : ''}`}>
+                    {customers?.filter(c => c.isHotProspect).length || 0}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-full ${(customers?.filter(c => c.isHotProspect).length || 0) > 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                  <Flame className={`h-6 w-6 ${(customers?.filter(c => c.isHotProspect).length || 0) > 0 ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card data-testid="stat-pending-tasks">
           <CardContent className="p-4">
