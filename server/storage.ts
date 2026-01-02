@@ -221,6 +221,7 @@ export interface IStorage {
   
   // Customers
   getCustomers(): Promise<Customer[]>;
+  getCustomersPaginated(page: number, limit: number, search?: string): Promise<{ data: Customer[]; total: number; page: number; limit: number; totalPages: number }>;
   getAllCustomers(): Promise<Customer[]>; // Alias for getCustomers for clarity
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerCount(): Promise<number>;
@@ -233,6 +234,7 @@ export interface IStorage {
   
   // Sent Quotes
   getSentQuotes(): Promise<SentQuote[]>;
+  getSentQuotesPaginated(page: number, limit: number, search?: string): Promise<{ data: SentQuote[]; total: number; page: number; limit: number; totalPages: number }>;
   getSentQuote(id: number): Promise<SentQuote | undefined>;
   getSentQuoteByNumber(quoteNumber: string): Promise<SentQuote | undefined>;
   createSentQuote(quote: InsertSentQuote): Promise<SentQuote>;
@@ -896,6 +898,52 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(customers);
   }
 
+  async getCustomersPaginated(page: number, limit: number, search?: string): Promise<{ data: Customer[]; total: number; page: number; limit: number; totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    if (search) {
+      const searchPattern = `%${search.toLowerCase()}%`;
+      const searchCondition = or(
+        ilike(customers.firstName, searchPattern),
+        ilike(customers.lastName, searchPattern),
+        ilike(customers.email, searchPattern),
+        ilike(customers.company, searchPattern)
+      );
+      
+      const [countResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(customers)
+        .where(searchCondition);
+      const total = Number(countResult?.count) || 0;
+      
+      const data = await db.select()
+        .from(customers)
+        .where(searchCondition)
+        .limit(limit)
+        .offset(offset);
+      
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
+    }
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(customers);
+    const total = Number(countResult?.count) || 0;
+    
+    const data = await db.select().from(customers).limit(limit).offset(offset);
+    
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
   async getCustomer(id: string): Promise<Customer | undefined> {
     const [customer] = await db
       .select()
@@ -995,6 +1043,56 @@ export class DatabaseStorage implements IStorage {
   // Sent Quotes - Database implementation
   async getSentQuotes(): Promise<SentQuote[]> {
     return await db.select().from(sentQuotes).orderBy(desc(sentQuotes.createdAt));
+  }
+
+  async getSentQuotesPaginated(page: number, limit: number, search?: string): Promise<{ data: SentQuote[]; total: number; page: number; limit: number; totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    if (search) {
+      const searchPattern = `%${search.toLowerCase()}%`;
+      const searchCondition = or(
+        ilike(sentQuotes.quoteNumber, searchPattern),
+        ilike(sentQuotes.customerName, searchPattern),
+        ilike(sentQuotes.customerEmail, searchPattern)
+      );
+      
+      const [countResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(sentQuotes)
+        .where(searchCondition);
+      const total = Number(countResult?.count) || 0;
+      
+      const data = await db.select()
+        .from(sentQuotes)
+        .where(searchCondition)
+        .orderBy(desc(sentQuotes.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
+    }
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(sentQuotes);
+    const total = Number(countResult?.count) || 0;
+    
+    const data = await db.select()
+      .from(sentQuotes)
+      .orderBy(desc(sentQuotes.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async getSentQuote(id: number): Promise<SentQuote | undefined> {

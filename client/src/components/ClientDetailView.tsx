@@ -390,14 +390,14 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
 
   // Mutation to assign customer to drip campaign
   const assignToDripCampaignMutation = useMutation({
-    mutationFn: async ({ campaignId, customerId }: { campaignId: number; customerId: number }) => {
+    mutationFn: async ({ campaignId, customerId }: { campaignId: number; customerId: string }) => {
       return await apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, { customerId });
     },
     onSuccess: () => {
       setIsDripCampaignDialogOpen(false);
       setSelectedDripCampaignId("");
       toast({ title: "Success", description: "Customer enrolled in drip campaign" });
-      logActivity('drip_campaign_enrolled', { customerId: customer.id, campaignId: selectedDripCampaignId });
+      logActivity('DRIP_CAMPAIGN_ENROLLED', `Enrolled customer ${customer.firstName || customer.company || customer.id} in drip campaign ${selectedDripCampaignId}`);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to enroll customer", variant: "destructive" });

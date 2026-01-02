@@ -809,16 +809,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customer management routes
   app.get("/api/customers", async (req, res) => {
     try {
-      const cacheKey = "customers";
-      const cachedData = getCachedData(cacheKey);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string | undefined;
       
-      if (cachedData) {
-        return res.json(cachedData);
+      // For backward compatibility, if no pagination params, use cache
+      if (!req.query.page && !req.query.limit && !search) {
+        const cacheKey = "customers";
+        const cachedData = getCachedData(cacheKey);
+        
+        if (cachedData) {
+          return res.json(cachedData);
+        }
+        
+        const customers = await storage.getCustomers();
+        setCachedData(cacheKey, customers);
+        return res.json(customers);
       }
       
-      const customers = await storage.getCustomers();
-      setCachedData(cacheKey, customers);
-      res.json(customers);
+      // Paginated response
+      const result = await storage.getCustomersPaginated(page, limit, search);
+      res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch customers" });
     }
@@ -2850,8 +2861,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all sent quotes
   app.get("/api/sent-quotes", async (req, res) => {
     try {
-      const quotes = await storage.getSentQuotes();
-      res.json(quotes);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string | undefined;
+      
+      // For backward compatibility, if no pagination params, return all
+      if (!req.query.page && !req.query.limit && !search) {
+        const quotes = await storage.getSentQuotes();
+        return res.json(quotes);
+      }
+      
+      // Paginated response
+      const result = await storage.getSentQuotesPaginated(page, limit, search);
+      res.json(result);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sent quotes" });
     }
