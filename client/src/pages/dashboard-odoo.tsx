@@ -27,7 +27,8 @@ import {
   Mail,
   HardDrive,
   Gauge,
-  AlertTriangle
+  AlertTriangle,
+  Flame
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import StartYourDayDashboard from "@/components/StartYourDayDashboard";
@@ -57,6 +58,7 @@ interface CRMStats {
   pendingFeedback: number;
   samplesWithTracking: number;
   swatchesWithTracking: number;
+  hotProspects: number;
 }
 
 interface UsageStats {
@@ -634,6 +636,38 @@ export default function Dashboard() {
                   New (30 Days)
                 </div>
               </div>
+              <Link href="/client-database?filter=hot">
+                <div style={{
+                  background: crmStats.hotProspects > 0 
+                    ? 'linear-gradient(135deg, rgba(255, 159, 67, 0.2) 0%, rgba(255, 127, 14, 0.15) 100%)'
+                    : 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(60px) saturate(150%)',
+                  border: crmStats.hotProspects > 0 
+                    ? '2px solid rgba(249, 115, 22, 0.5)' 
+                    : '1px solid rgba(255, 255, 255, 0.8)',
+                  borderRadius: '20px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }} data-testid="crm-hot-prospects">
+                  <div style={{ 
+                    fontSize: '32px', 
+                    fontWeight: '700', 
+                    color: '#f97316',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    <Flame size={28} style={{ color: '#f97316' }} />
+                    {crmStats.hotProspects}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase' }}>
+                    Hot Leads
+                  </div>
+                </div>
+              </Link>
             </div>
 
             {/* Journey Stage Distribution */}

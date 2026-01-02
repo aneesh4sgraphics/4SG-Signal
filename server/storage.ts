@@ -447,6 +447,7 @@ export interface IStorage {
     pendingFeedback: number;
     samplesWithTracking: number;
     swatchesWithTracking: number;
+    hotProspects: number;
   }>;
 
   // ========================================
@@ -2239,6 +2240,7 @@ export class DatabaseStorage implements IStorage {
     pendingFeedback: number;
     samplesWithTracking: number;
     swatchesWithTracking: number;
+    hotProspects: number;
   }> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -2256,6 +2258,7 @@ export class DatabaseStorage implements IStorage {
       samplesWithTrackingResult,
       swatchesWithTrackingResult,
       pendingFeedbackResult,
+      hotProspectsResult,
     ] = await Promise.all([
       // Journey stage counts
       db.select().from(customerJourney),
@@ -2298,6 +2301,9 @@ export class DatabaseStorage implements IStorage {
             isNull(pressTestJourneyDetails.result)
           )
         ),
+      // Hot prospects count
+      db.select({ count: sql<number>`count(*)` }).from(customers)
+        .where(eq(customers.isHotProspect, true)),
     ]);
 
     // Process journey stage counts
@@ -2324,6 +2330,7 @@ export class DatabaseStorage implements IStorage {
       pendingFeedback: Number(pendingFeedbackResult[0]?.count) || 0,
       samplesWithTracking: Number(samplesWithTrackingResult[0]?.count) || 0,
       swatchesWithTracking: Number(swatchesWithTrackingResult[0]?.count) || 0,
+      hotProspects: Number(hotProspectsResult[0]?.count) || 0,
     };
   }
 

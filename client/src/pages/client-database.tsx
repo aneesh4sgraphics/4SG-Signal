@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ import {
   BookOpen,
   Printer,
   ExternalLink,
+  Flame,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import {
@@ -124,6 +126,10 @@ const fuzzyMatch = (text: string, search: string): boolean => {
 };
 
 export default function ClientDatabase() {
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialHotFilter = urlParams.get('filter') === 'hot';
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -132,6 +138,7 @@ export default function ClientDatabase() {
   const [showOdooUploadDialog, setShowOdooUploadDialog] = useState(false);
   const [selectedOdooFile, setSelectedOdooFile] = useState<File | null>(null);
   const odooFileInputRef = useRef<HTMLInputElement>(null);
+  const [showHotOnly, setShowHotOnly] = useState(initialHotFilter);
   const [filters, setFilters] = useState({
     city: "",
     province: "",
@@ -590,8 +597,11 @@ export default function ClientDatabase() {
     const matchesMissingPhone = !missingDataFilters.noPhone || !customer.phone || customer.phone.trim() === '';
     const matchesMissingTags = !missingDataFilters.noTags || !customer.tags || customer.tags.trim() === '';
     const matchesMissingCompany = !missingDataFilters.noCompany || !customer.company || customer.company.trim() === '';
+    
+    // Hot prospect filter
+    const matchesHotFilter = !showHotOnly || customer.isHotProspect === true;
 
-    return matchesSearch && matchesCity && matchesProvince && matchesCountry && matchesTaxExempt && matchesEmailMarketing && matchesMissingEmail && matchesMissingPhone && matchesMissingTags && matchesMissingCompany;
+    return matchesSearch && matchesCity && matchesProvince && matchesCountry && matchesTaxExempt && matchesEmailMarketing && matchesMissingEmail && matchesMissingPhone && matchesMissingTags && matchesMissingCompany && matchesHotFilter;
   }).sort((a, b) => {
     // Sort by company name (case-insensitive)
     const companyA = getCompanyDisplayName(a).toLowerCase();
@@ -1789,6 +1799,24 @@ export default function ClientDatabase() {
           </Button>
         ) : (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex gap-2">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={() => setShowHotOnly(!showHotOnly)} 
+                    variant={showHotOnly ? "default" : "ghost"} 
+                    size="sm" 
+                    className={`h-8 px-2 ${showHotOnly ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+                    data-testid="button-hot-filter"
+                  >
+                    <Flame className={`h-4 w-4 ${showHotOnly ? 'fill-current' : ''}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {showHotOnly ? 'Showing hot leads only - click to show all' : 'Filter to hot leads only'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Button onClick={() => setShowFilters(!showFilters)} variant="ghost" size="sm" className="h-8 px-2" data-testid="button-filters">
               <Filter className="h-4 w-4" />
             </Button>
