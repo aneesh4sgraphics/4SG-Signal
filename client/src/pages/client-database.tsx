@@ -106,15 +106,20 @@ const fuzzyMatch = (text: string, search: string): boolean => {
   const textLower = text.toLowerCase();
   const searchLower = search.toLowerCase();
   
-  // Direct substring match
+  // Direct substring match (most common case)
   if (textLower.includes(searchLower)) return true;
   
-  // Word-by-word matching (for "Ontario" matching "1145683 Ontario Inc")
-  const textWords = textLower.split(/\s+/);
-  const searchWords = searchLower.split(/\s+/);
+  // Word-by-word matching - all search words must appear in some text word
+  // Only match words with at least 2 characters to avoid single-letter matches
+  const textWords = textLower.split(/\s+/).filter(w => w.length > 1);
+  const searchWords = searchLower.split(/\s+/).filter(w => w.length > 1);
   
+  // If no significant search words, fall back to direct match only
+  if (searchWords.length === 0) return false;
+  
+  // Each search word must be found as a substring in at least one text word
   return searchWords.every(sw => 
-    textWords.some(tw => tw.includes(sw) || sw.includes(tw))
+    textWords.some(tw => tw.includes(sw))
   );
 };
 
