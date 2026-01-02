@@ -86,6 +86,12 @@ Preferred communication style: Simple, everyday language.
 - **Connection**: Neon Database serverless connection
 - **Schema Location**: `/shared/schema.ts` for shared types.
 - **System Design Choices**: Comprehensive foreign key constraints with cascade delete for data integrity across product categories, types, sizes, and pricing. Utilizes a unified `productPricingMaster` table. Includes robust NaN validation and boolean parsing enhancements.
+- **Performance Optimizations**:
+  - Database indexes on foreign key columns and timestamps across key tables (customerContacts, sentQuotes, activityLogs, pressProfiles, sampleRequests, testOutcomes, swatchBookShipments, quoteEvents, quoteCategoryLinks, priceListEvents, customerActivityEvents, followUpTasks, emailSends)
+  - Lazy-loading for Client Detail tabs (orders, emails, swatch-book, press-profiles, samples, quotes-prices) using React Query's `enabled` property
+  - Server-side pagination for customers and sent-quotes endpoints with search support
+  - Parallel query execution in getCRMDashboardStats using Promise.all for 11 independent count queries
+  - Batch operations in initDefaultFollowUpConfig to avoid N+1 query patterns
 
 ## External Dependencies
 
