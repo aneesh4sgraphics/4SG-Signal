@@ -59,6 +59,17 @@ Preferred communication style: Simple, everyday language.
   - All sends logged to `emailSends` table with customer context, template used, and variable data
   - Email History tab in customer detail view shows sent emails with subject, recipient, date, and preview
   - Email count badge displayed per customer in client table ("Mailer Sent" column)
+- **Email Engagement Tracking**: Open and click tracking for all outgoing emails with automated follow-up task creation:
+  - Unique tracking token generated per email sent
+  - Invisible tracking pixel (1x1 GIF) injected into HTML emails to detect opens
+  - All links automatically wrapped with click-tracking redirects
+  - Public endpoints: `/api/t/open/:token.png` (pixel), `/api/t/click/:token` (redirect)
+  - Tracking events logged to `emailTrackingEvents` with IP address, user agent, and timestamps
+  - Open/click counts updated in `emailTrackingTokens` with first/last opened timestamps
+  - Automated follow-up task creation on first engagement: opens (24-hour due, normal priority), clicks (4-hour due, high priority)
+  - Tracking data accessible via `/api/email/tracking/:customerId`
+  - Works for both manual email sends and drip campaign emails
+  - Tables: `emailTrackingTokens`, `emailTrackingEvents`
 - **Shopify Integration**: Embedded Shopify Admin app for single-store internal use:
   - OAuth flow: `/shopify/auth?shop=...` initiates install, `/shopify/callback` handles token exchange
   - Automatic webhook registration for orders/paid, orders/updated, customers/create, customers/update
