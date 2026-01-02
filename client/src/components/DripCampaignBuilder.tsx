@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import type { Editor } from '@tiptap/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ export default function DripCampaignBuilder() {
   const [showPreview, setShowPreview] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const editorRef = useRef<Editor | null>(null);
   
   const [campaignForm, setCampaignForm] = useState({
     name: "",
@@ -247,10 +249,9 @@ export default function DripCampaignBuilder() {
   };
 
   const insertVariable = (variable: string) => {
-    setStepForm(prev => ({
-      ...prev,
-      body: prev.body + `{{${variable}}}`,
-    }));
+    if (editorRef.current) {
+      editorRef.current.chain().focus().insertContent(`{{${variable}}}`).run();
+    }
   };
 
   const filteredCustomers = customers.filter(c => {
@@ -659,7 +660,8 @@ export default function DripCampaignBuilder() {
                 
                 <RichTextEditor 
                   content={stepForm.body} 
-                  onChange={(html) => setStepForm(prev => ({ ...prev, body: html }))} 
+                  onChange={(html) => setStepForm(prev => ({ ...prev, body: html }))}
+                  onEditorReady={(editor) => { editorRef.current = editor; }}
                 />
 
                 <div className="mt-2 p-3 bg-gray-50 rounded-lg">
@@ -732,7 +734,13 @@ export default function DripCampaignBuilder() {
   return null;
 }
 
-function RichTextEditor({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+interface RichTextEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  onEditorReady?: (editor: any) => void;
+}
+
+function RichTextEditor({ content, onChange, onEditorReady }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -753,6 +761,11 @@ function RichTextEditor({ content, onChange }: { content: string; onChange: (htm
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
+    },
+    onCreate: ({ editor }) => {
+      if (onEditorReady) {
+        onEditorReady(editor);
+      }
     },
   });
 
