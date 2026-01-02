@@ -43,6 +43,15 @@ Preferred communication style: Simple, everyday language.
   - Next Best Move prioritizes overdue quote follow-ups
   - Quote close flow with "won/lost" outcome tracking and optional trust advancement to "adopted"
 - **Email Studio**: Pre-composed email templates with dynamic variables ({{client.name}}, {{product.type}}, {{price.dealer}}, etc.). Admin-only template creation, user compose flow with recipient selection and variable auto-fill, email send logging and activity tracking.
+- **Drip Email Campaigns**: Automated multi-step email sequences with time delays for nurturing leads and follow-ups:
+  - Campaign builder with multi-step workflow, configurable delays (minutes/hours/days/weeks)
+  - Rich text editor (TipTap) with formatting, images, links, and variable personalization
+  - Customer assignment interface for enrolling customers in campaigns
+  - Background worker polls for scheduled emails and sends via Gmail
+  - Row-level locking prevents duplicate sends, with automatic retry on failure (up to 3 attempts)
+  - Step status tracking (scheduled/sending/sent/failed/skipped) with error logging
+  - Trigger types: manual, on_signup, on_purchase, on_quote
+  - Tables: `dripCampaigns`, `dripCampaignSteps`, `dripCampaignAssignments`, `dripCampaignStepStatus`
 - **Gmail Integration**: App-wide email compose popup via EmailComposerProvider context. Features:
   - EmailLaunchIcon appears next to all customer email addresses (client table, customer detail header)
   - Gmail-style compose popup with template selection and variable substitution
