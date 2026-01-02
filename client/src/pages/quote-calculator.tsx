@@ -670,6 +670,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
       body: emailBody,
       customerId: selectedCustomer?.id,
       customerName: customerName,
+      usageType: 'quick_quotes',
       variables: {
         'client.name': customerName,
         'client.company': selectedCustomer?.company || '',

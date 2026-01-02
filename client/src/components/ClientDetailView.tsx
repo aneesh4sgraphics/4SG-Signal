@@ -720,6 +720,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           to: customer.email!,
                           customerId: customer.id,
                           customerName: customerName,
+                          usageType: 'client_email',
                           variables: { 'client.name': customerName, 'client.company': customer.company || '' }
                         })}
                         className="text-blue-600 hover:underline flex items-center gap-1"
@@ -749,6 +750,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           to: contact.email!,
                           customerId: customer.id,
                           customerName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || customerName,
+                          usageType: 'client_email',
                           variables: { 'client.name': `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || customerName, 'client.company': customer.company || '' }
                         })}
                         className="text-blue-600 hover:underline flex items-center gap-1"
@@ -776,6 +778,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           to: contact.email!,
                           customerId: customer.id,
                           customerName: contact.name,
+                          usageType: 'client_email',
                           variables: { 'client.name': contact.name, 'client.company': customer.company || '' }
                         })}
                         className="text-blue-600 hover:underline flex items-center gap-1"
@@ -911,6 +914,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                                   to: contact.email!,
                                   customerId: customer.id,
                                   customerName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || customerName,
+                                  usageType: 'client_email',
                                   variables: { 'client.name': `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || customerName, 'client.company': customer.company || '' }
                                 })}
                                 className="text-xs text-blue-600 hover:underline"
@@ -967,6 +971,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                                 to: customer.email!,
                                 customerId: customer.id,
                                 customerName: customerName,
+                                usageType: 'client_email',
                                 variables: { 'client.name': customerName, 'client.company': customer.company || '' }
                               })}
                               className="text-xs text-blue-600 hover:underline"
@@ -1074,6 +1079,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                               to: contact.email!,
                               customerId: customer.id,
                               customerName: contact.name,
+                              usageType: 'client_email',
                               variables: { 'client.name': contact.name, 'client.company': customer.company || '' }
                             })}
                             className="text-xs text-blue-600 hover:underline"
