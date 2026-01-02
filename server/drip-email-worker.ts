@@ -5,11 +5,13 @@ import {
   dripCampaignAssignments, 
   dripCampaigns,
   customers,
-  emailSends
+  emailSends,
+  emailTrackingTokens
 } from "@shared/schema";
 import { eq, and, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./gmail-client";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
+import crypto from "crypto";
 
 const POLL_INTERVAL_MS = 60000;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -141,7 +143,40 @@ async function sendScheduledEmail(email: ScheduledEmail) {
     }
 
     const processedSubject = replaceVariables(email.subject, email);
-    const processedBody = replaceVariables(email.body, email);
+    let processedBody = replaceVariables(email.body, email);
+    
+    // Generate tracking token for drip emails
+    const trackingToken = crypto.randomBytes(24).toString('hex');
+    
+    // Get base URL from environment or use default
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+      : process.env.APP_URL || 'https://quote-calculator-application.replit.app';
+    
+    // Create tracking pixel URL
+    const trackingPixelUrl = `${baseUrl}/api/t/open/${trackingToken}.png`;
+    
+    // Wrap links in the HTML for click tracking
+    processedBody = processedBody.replace(
+      /<a\s+([^>]*href=["'])([^"']+)(["'][^>]*)>/gi,
+      (match: string, prefix: string, url: string, suffix: string) => {
+        if (url.startsWith('mailto:') || url.startsWith('tel:') || url.includes('/api/t/')) {
+          return match;
+        }
+        const encodedUrl = encodeURIComponent(url);
+        const trackedUrl = `${baseUrl}/api/t/click/${trackingToken}?url=${encodedUrl}`;
+        return `<a ${prefix}${trackedUrl}${suffix}>`;
+      }
+    );
+    
+    // Inject tracking pixel at the end of the email body
+    const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;width:1px;height:1px;border:0;" alt="" />`;
+    
+    if (processedBody.includes('</body>')) {
+      processedBody = processedBody.replace('</body>', `${trackingPixel}</body>`);
+    } else {
+      processedBody = processedBody + trackingPixel;
+    }
 
     const result = await sendEmail(
       email.customerEmail,
@@ -182,9 +217,23 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         .update(dripCampaignStepStatus)
         .set({ emailSendId: emailSendRecord.id })
         .where(eq(dripCampaignStepStatus.id, email.statusId));
+      
+      // Create tracking token record
+      try {
+        await db.insert(emailTrackingTokens).values({
+          token: trackingToken,
+          emailSendId: emailSendRecord.id,
+          customerId: email.customerId,
+          recipientEmail: email.customerEmail,
+          subject: processedSubject,
+          sentBy: 'drip-worker',
+        });
+      } catch (trackingError) {
+        console.error("[Drip Worker] Error creating tracking token:", trackingError);
+      }
     }
 
-    console.log(`[Drip Worker] Sent email to ${email.customerEmail} for campaign "${email.campaignName}"`);
+    console.log(`[Drip Worker] Sent email to ${email.customerEmail} for campaign "${email.campaignName}" (tracking: ${trackingToken.substring(0, 8)}...)`);
   } catch (error: any) {
     console.error(`[Drip Worker] Failed to send email to ${email.customerEmail}:`, error.message);
     
