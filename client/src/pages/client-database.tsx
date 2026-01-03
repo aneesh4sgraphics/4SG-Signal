@@ -3615,7 +3615,7 @@ export default function ClientDatabase() {
                     <SelectTrigger id="pendingTier" data-testid="select-pending-tier">
                       <SelectValue placeholder="Choose a pricing tier..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
                       {PRICING_TIERS.map(tier => (
                         <SelectItem key={tier} value={tier}>{tier}</SelectItem>
                       ))}
@@ -3632,10 +3632,14 @@ export default function ClientDatabase() {
                     <SelectTrigger id="pendingSalesRep" data-testid="select-pending-sales-rep">
                       <SelectValue placeholder="Choose a sales rep..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {teamUsers.map(user => (
-                        <SelectItem key={user.id} value={user.email}>{user.displayName}</SelectItem>
-                      ))}
+                    <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
+                      {teamUsers.length > 0 ? (
+                        teamUsers.map(user => (
+                          <SelectItem key={user.id} value={user.email}>{user.displayName}</SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-gray-500">No sales reps available</div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
