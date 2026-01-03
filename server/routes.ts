@@ -385,6 +385,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all approved users (for sales rep selection)
+  app.get("/api/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const approvedUsers = allUsers
+        .filter(u => u.status === 'approved')
+        .map(u => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: u.role,
+          displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email
+        }));
+      res.json(approvedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch users", details: errorMessage });
+    }
+  });
+
   // Usage/Cost indicator for admins - shows database size and resource usage
   app.get("/api/dashboard/usage", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
