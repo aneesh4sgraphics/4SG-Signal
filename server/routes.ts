@@ -627,9 +627,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Sort by score (highest first) and take top 5
-      const topClients = customerScores
+      let topClients = customerScores
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
+      
+      // CRITICAL: Always ensure at least 5 recommendations
+      // If we don't have enough, add data hygiene fallbacks for any customer
+      if (topClients.length < 5) {
+        const usedCustomerIds = new Set(topClients.map(c => c.customerId));
+        const hygieneRecommendations: typeof topClients = [];
+        
+        // Get customers not already in the list for hygiene tasks
+        const availableCustomers = customers.filter(c => {
+          // Exclude already included customers
+          if (usedCustomerIds.has(c.id)) return false;
+          // Filter by sales rep for non-admin
+          if (!isAdmin && c.salesRepId) {
+            const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail;
+            if (!isAssignedToMe) return false;
+          }
+          return true;
+        });
+        
+        // Shuffle for variety each day, but deterministic by date
+        const todayStr = today.toISOString().split('T')[0];
+        const shuffledCustomers = availableCustomers.sort((a, b) => {
+          const hashA = (a.id + todayStr).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          const hashB = (b.id + todayStr).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+          return hashA - hashB;
+        });
+        
+        for (const customer of shuffledCustomers) {
+          if (topClients.length + hygieneRecommendations.length >= 5) break;
+          
+          const displayName = customer.company || 
+            `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 
+            customer.email || customer.id;
+          
+          // Check for data hygiene opportunities in priority order
+          let reasonCode = '';
+          let reasonText = '';
+          let recommendedAction = '';
+          
+          // Check various hygiene issues
+          if (!customer.pricingTier) {
+            reasonCode = 'hygiene_pricing_tier';
+            reasonText = 'Missing pricing tier';
+            recommendedAction = 'Assign a pricing tier';
+          } else if (!customer.salesRepId) {
+            reasonCode = 'hygiene_sales_rep';
+            reasonText = 'No sales rep assigned';
+            recommendedAction = 'Assign a sales representative';
+          } else if (!customer.phone && !customer.phone2 && !customer.cell) {
+            reasonCode = 'hygiene_phone';
+            reasonText = 'Missing phone number';
+            recommendedAction = 'Add contact phone number';
+          } else if (!customer.address1 || !customer.city) {
+            reasonCode = 'hygiene_address';
+            reasonText = 'Incomplete address';
+            recommendedAction = 'Complete mailing address';
+          } else if (!customer.email) {
+            reasonCode = 'hygiene_email';
+            reasonText = 'Missing email address';
+            recommendedAction = 'Add email for communication';
+          } else if (!customer.tags) {
+            reasonCode = 'hygiene_tags';
+            reasonText = 'No tags assigned';
+            recommendedAction = 'Add customer tags';
+          } else {
+            // General engagement - always provide something
+            reasonCode = 'engage_customer';
+            reasonText = 'Customer review opportunity';
+            recommendedAction = 'Check in with customer';
+          }
+          
+          hygieneRecommendations.push({
+            customerId: customer.id,
+            displayName,
+            score: 10, // Low score for hygiene items
+            reasonCode,
+            reasonText,
+            recommendedAction,
+            priority: 'medium' as const
+          });
+        }
+        
+        topClients = [...topClients, ...hygieneRecommendations];
+      }
+      
+      // If STILL not enough (e.g., user has very few customers), show generic recommendations
+      if (topClients.length < 5) {
+        const genericRecommendations = [
+          { reasonCode: 'action_import', reasonText: 'Build your customer base', recommendedAction: 'Import customers from CSV' },
+          { reasonCode: 'action_prospect', reasonText: 'Find new opportunities', recommendedAction: 'Add new prospects' },
+          { reasonCode: 'action_campaign', reasonText: 'Boost engagement', recommendedAction: 'Create email campaign' },
+          { reasonCode: 'action_quotes', reasonText: 'Drive revenue', recommendedAction: 'Send new quotes' },
+          { reasonCode: 'action_samples', reasonText: 'Convert prospects', recommendedAction: 'Schedule sample sends' }
+        ];
+        
+        let idx = 0;
+        while (topClients.length < 5 && idx < genericRecommendations.length) {
+          const rec = genericRecommendations[idx];
+          topClients.push({
+            customerId: 'system-action-' + idx,
+            displayName: 'System Action',
+            score: 5,
+            reasonCode: rec.reasonCode,
+            reasonText: rec.reasonText,
+            recommendedAction: rec.recommendedAction,
+            priority: 'medium'
+          });
+          idx++;
+        }
+      }
       
       res.json(topClients);
     } catch (error) {

@@ -592,58 +592,81 @@ export default function StartYourDayDashboard() {
             <div className="space-y-3">
               {criticalClients
                 .filter(client => !completedCriticalClients.has(client.customerId))
-                .map((client, index) => (
-                <div 
-                  key={client.customerId}
-                  className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 hover:shadow-sm transition-all"
-                  data-testid={`critical-client-${client.customerId}`}
-                >
-                  <Link 
-                    href={`/clients?customer=${client.customerId}`}
-                    className="flex items-center gap-3 flex-1"
-                  >
-                    <div className={`p-2 rounded-full ${
-                      client.priority === 'critical' ? 'bg-red-100' :
-                      client.priority === 'high' ? 'bg-orange-100' : 'bg-blue-100'
-                    }`}>
-                      <span className="text-lg font-bold text-gray-600">#{index + 1}</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{client.displayName}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            client.priority === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
-                            client.priority === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' : 
-                            'border-blue-300 text-blue-700 bg-blue-50'
-                          }`}
+                .map((client, index) => {
+                  const isSystemAction = client.customerId.startsWith('system-action-');
+                  const isHygieneTask = client.reasonCode?.startsWith('hygiene_') || client.reasonCode?.startsWith('engage_');
+                  
+                  const content = (
+                    <>
+                      <div className={`p-2 rounded-full ${
+                        client.priority === 'critical' ? 'bg-red-100' :
+                        client.priority === 'high' ? 'bg-orange-100' : 
+                        isHygieneTask ? 'bg-purple-100' : 'bg-blue-100'
+                      }`}>
+                        <span className="text-lg font-bold text-gray-600">#{index + 1}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {isSystemAction ? client.reasonText : client.displayName}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              client.priority === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
+                              client.priority === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' : 
+                              isHygieneTask ? 'border-purple-300 text-purple-700 bg-purple-50' :
+                              'border-blue-300 text-blue-700 bg-blue-50'
+                            }`}
+                          >
+                            {isSystemAction ? 'action' : isHygieneTask ? 'data quality' : client.priority}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {isSystemAction ? client.recommendedAction : client.reasonText}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                  
+                  return (
+                    <div 
+                      key={client.customerId}
+                      className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 hover:shadow-sm transition-all"
+                      data-testid={`critical-client-${client.customerId}`}
+                    >
+                      {isSystemAction ? (
+                        <div className="flex items-center gap-3 flex-1">
+                          {content}
+                        </div>
+                      ) : (
+                        <Link 
+                          href={`/clients?customer=${client.customerId}`}
+                          className="flex items-center gap-3 flex-1"
                         >
-                          {client.priority}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">{client.reasonText}</span>
+                          {content}
+                        </Link>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-purple-600 font-medium hidden sm:inline">{client.recommendedAction}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCompleteCriticalClient(client.customerId);
+                          }}
+                          data-testid={`complete-critical-client-${client.customerId}`}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Done
+                        </Button>
                       </div>
                     </div>
-                  </Link>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-purple-600 font-medium hidden sm:inline">{client.recommendedAction}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-green-300 text-green-700 hover:bg-green-50"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleCompleteCriticalClient(client.customerId);
-                      }}
-                      data-testid={`complete-critical-client-${client.customerId}`}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                      Done
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
               {/* Show completed clients with strikethrough */}
               {criticalClients
                 .filter(client => completedCriticalClients.has(client.customerId))
