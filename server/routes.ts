@@ -467,13 +467,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/critical-clients", isAuthenticated, async (req: any, res) => {
     try {
       const userEmail = req.user?.email;
+      const userId = req.user?.id;
       const isAdmin = req.user?.role === 'admin';
       
       // Get all relevant data for scoring
-      const [allTasks, customers, hotProspects] = await Promise.all([
+      const [allTasks, customers] = await Promise.all([
         storage.getAllFollowUpTasks(),
-        storage.getAllCustomers(),
-        storage.getAllCustomers().then(c => c.filter(cust => cust.isHotProspect))
+        storage.getAllCustomers()
       ]);
       
       const now = new Date();
@@ -502,8 +502,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const customer of customers) {
         // Filter by sales rep assignment (unless admin)
-        if (!isAdmin && customer.salesRepId && customer.salesRepId !== userEmail) {
-          continue;
+        // Check against both user ID and email for compatibility
+        if (!isAdmin && customer.salesRepId) {
+          const isAssignedToMe = customer.salesRepId === userId || customer.salesRepId === userEmail;
+          if (!isAssignedToMe) {
+            continue;
+          }
         }
         
         let score = 0;

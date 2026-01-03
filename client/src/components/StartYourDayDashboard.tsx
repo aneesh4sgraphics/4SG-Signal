@@ -28,6 +28,8 @@ import {
   Flame,
   Users,
   UserCog,
+  Lightbulb,
+  ArrowRight,
 } from "lucide-react";
 import { Link } from "wouter";
 import { format, formatDistanceToNow, isToday, isPast, isFuture, addDays } from "date-fns";
@@ -51,6 +53,16 @@ interface DashboardStats {
   idleAccounts: number;
   pendingSamples: number;
   recentActivity: number;
+}
+
+interface CriticalClient {
+  customerId: string;
+  displayName: string;
+  score: number;
+  reasonCode: string;
+  reasonText: string;
+  recommendedAction: string;
+  priority: 'critical' | 'high' | 'medium';
 }
 
 export default function StartYourDayDashboard() {
@@ -90,6 +102,10 @@ export default function StartYourDayDashboard() {
 
   const { data: dashboardStats } = useQuery<DashboardStats>({
     queryKey: ["/api/customer-activity/dashboard-stats"],
+  });
+
+  const { data: criticalClients, isLoading: loadingCriticalClients } = useQuery<CriticalClient[]>({
+    queryKey: ["/api/dashboard/critical-clients"],
   });
 
   // Filter tasks by assignment for admin view
@@ -495,6 +511,91 @@ export default function StartYourDayDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Critical Clients - Work on today section */}
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50" data-testid="critical-clients-section">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-purple-700">
+                <Lightbulb className="h-5 w-5" />
+                I think you should work on these clients today
+              </CardTitle>
+              <CardDescription>
+                Based on your tasks, follow-ups, and customer activity
+              </CardDescription>
+            </div>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+              {criticalClients?.length || 0} clients
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingCriticalClients ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div>
+                      <Skeleton className="h-4 w-32 mb-1" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-8 w-24" />
+                </div>
+              ))}
+            </div>
+          ) : criticalClients && criticalClients.length > 0 ? (
+            <div className="space-y-3">
+              {criticalClients.map((client, index) => (
+                <Link 
+                  key={client.customerId} 
+                  href={`/crm/customers/${client.customerId}`}
+                  data-testid={`critical-client-${client.customerId}`}
+                >
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-purple-300 hover:shadow-sm transition-all cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${
+                        client.priority === 'critical' ? 'bg-red-100' :
+                        client.priority === 'high' ? 'bg-orange-100' : 'bg-blue-100'
+                      }`}>
+                        <span className="text-lg font-bold text-gray-600">#{index + 1}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{client.displayName}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              client.priority === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
+                              client.priority === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' : 
+                              'border-blue-300 text-blue-700 bg-blue-50'
+                            }`}
+                          >
+                            {client.priority}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">{client.reasonText}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-purple-600 font-medium">{client.recommendedAction}</span>
+                      <ArrowRight className="h-4 w-4 text-purple-600" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-32 text-center">
+              <CheckCircle2 className="h-10 w-10 text-green-500 mb-2" />
+              <p className="font-medium text-gray-700">No urgent clients today!</p>
+              <p className="text-sm text-muted-foreground">All your clients are in good standing</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {displayedOverdueTasks && displayedOverdueTasks.length > 0 && (
         <Card className="border-red-200">
