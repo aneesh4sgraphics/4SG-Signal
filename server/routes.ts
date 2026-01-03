@@ -471,10 +471,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isAdmin = req.user?.role === 'admin';
       
       // Get all relevant data for scoring
-      const [allTasks, customers] = await Promise.all([
-        storage.getAllFollowUpTasks(),
+      const [pendingTasks, todayTasks, overdueTasks, customers] = await Promise.all([
+        storage.getPendingFollowUpTasks(),
+        storage.getTodayFollowUpTasks(),
+        storage.getOverdueFollowUpTasks(),
         storage.getAllCustomers()
       ]);
+      
+      // Combine all tasks for processing (they may overlap but that's ok)
+      const allTasks = [...pendingTasks, ...todayTasks, ...overdueTasks];
       
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -490,14 +495,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priority: 'critical' | 'high' | 'medium';
       }> = [];
       
-      // Build a map of customer tasks
-      const customerTaskMap = new Map<string, typeof allTasks>();
+      // Build a map of customer tasks (dedupe by task id)
+      const taskMap = new Map<number, typeof allTasks[0]>();
       for (const task of allTasks) {
-        if (task.status !== 'completed') {
-          const tasks = customerTaskMap.get(task.customerId) || [];
-          tasks.push(task);
-          customerTaskMap.set(task.customerId, tasks);
+        if (task.status !== 'completed' && !taskMap.has(task.id)) {
+          taskMap.set(task.id, task);
         }
+      }
+      
+      const customerTaskMap = new Map<string, typeof allTasks>();
+      for (const task of taskMap.values()) {
+        const tasks = customerTaskMap.get(task.customerId) || [];
+        tasks.push(task);
+        customerTaskMap.set(task.customerId, tasks);
       }
       
       for (const customer of customers) {
@@ -566,12 +576,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           priority = 'medium';
         }
         
-        // 5. Missing required info (pricing tier or sales rep)
+        // 5. Missing required info (pricing tier or sales rep) - score 40
         if (!reasonCode && (!customer.pricingTier || !customer.salesRepId)) {
           score += 40;
-          reasonCode = 'missing_info';
-          reasonText = 'Missing pricing tier or sales rep';
+          reasonCode = 'missing_required';
+          const missing = [];
+          if (!customer.pricingTier) missing.push('pricing tier');
+          if (!customer.salesRepId) missing.push('sales rep');
+          reasonText = `Missing ${missing.join(' and ')}`;
           recommendedAction = 'Update customer profile';
+          priority = 'medium';
+        }
+        
+        // 6. Missing contact info (address, phone) - score 30
+        const hasPhone = customer.phone || customer.phone2 || customer.cell || customer.defaultAddressPhone;
+        const hasAddress = customer.address1 && customer.city;
+        if (!reasonCode && (!hasPhone || !hasAddress)) {
+          score += 30;
+          reasonCode = 'missing_contact';
+          const missing = [];
+          if (!hasPhone) missing.push('phone');
+          if (!hasAddress) missing.push('address');
+          reasonText = `Missing ${missing.join(' and ')}`;
+          recommendedAction = 'Complete contact info';
+          priority = 'medium';
+        }
+        
+        // 7. Missing tags/enrichment - score 25
+        if (!reasonCode && !customer.tags) {
+          score += 25;
+          reasonCode = 'missing_tags';
+          reasonText = 'No tags assigned';
+          recommendedAction = 'Add customer tags';
           priority = 'medium';
         }
         
