@@ -2376,8 +2376,65 @@ export class DatabaseStorage implements IStorage {
 
   // Follow-up Tasks
   async createFollowUpTask(data: InsertFollowUpTask): Promise<FollowUpTask> {
-    const [task] = await db.insert(followUpTasks).values(data).returning();
+    // Auto-assign to customer's sales rep if not specified
+    let taskData = { ...data };
+    
+    if (!taskData.assignedTo && taskData.customerId) {
+      try {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, taskData.customerId));
+        if (customer?.salesRepId) {
+          taskData.assignedTo = customer.salesRepId;
+          taskData.assignedToName = customer.salesRepName || undefined;
+        }
+      } catch (error) {
+        console.warn('[Task] Failed to lookup customer for auto-assign:', error);
+      }
+    }
+    
+    const [task] = await db.insert(followUpTasks).values(taskData).returning();
+    
+    // Create Google Calendar event asynchronously (don't block task creation)
+    this.createCalendarEventForTask(task).catch(err => {
+      console.warn('[Task] Failed to create calendar event:', err);
+    });
+    
     return task;
+  }
+  
+  private async createCalendarEventForTask(task: FollowUpTask): Promise<void> {
+    try {
+      const { createCalendarEvent } = await import('./calendar-client');
+      
+      // Get customer name for the calendar event
+      let customerName = 'Unknown Customer';
+      try {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, task.customerId));
+        if (customer) {
+          customerName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer';
+        }
+      } catch (e) {
+        console.warn('[Calendar] Failed to get customer name:', e);
+      }
+      
+      const eventId = await createCalendarEvent({
+        title: task.title,
+        description: task.description || undefined,
+        dueDate: task.dueDate,
+        customerId: task.customerId,
+        customerName,
+        taskType: task.taskType,
+      });
+      
+      if (eventId) {
+        // Update task with calendar event ID
+        await db.update(followUpTasks)
+          .set({ calendarEventId: eventId, updatedAt: new Date() })
+          .where(eq(followUpTasks.id, task.id));
+        console.log(`[Task] Calendar event ${eventId} created for task ${task.id}`);
+      }
+    } catch (error) {
+      console.warn('[Task] Calendar sync failed:', error);
+    }
   }
 
   async getFollowUpTasksByCustomer(customerId: string): Promise<FollowUpTask[]> {
@@ -2406,6 +2463,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async completeFollowUpTask(id: number, completedBy: string, notes?: string): Promise<FollowUpTask | undefined> {
+    // Get the task first to check for calendar event
+    const [existingTask] = await db.select().from(followUpTasks).where(eq(followUpTasks.id, id));
+    
     const [task] = await db
       .update(followUpTasks)
       .set({
@@ -2417,7 +2477,25 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(followUpTasks.id, id))
       .returning();
+    
+    // Delete calendar event if it exists
+    if (existingTask?.calendarEventId) {
+      this.deleteCalendarEventForTask(existingTask.calendarEventId).catch(err => {
+        console.warn('[Task] Failed to delete calendar event:', err);
+      });
+    }
+    
     return task;
+  }
+  
+  private async deleteCalendarEventForTask(eventId: string): Promise<void> {
+    try {
+      const { deleteCalendarEvent } = await import('./calendar-client');
+      await deleteCalendarEvent(eventId);
+      console.log(`[Task] Calendar event ${eventId} deleted`);
+    } catch (error) {
+      console.warn('[Task] Calendar event deletion failed:', error);
+    }
   }
 
   async getOverdueFollowUpTasks(): Promise<FollowUpTask[]> {

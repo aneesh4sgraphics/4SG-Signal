@@ -1183,6 +1183,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update customer sales rep assignment (dedicated endpoint to avoid overwriting other fields)
+  app.put("/api/customers/:id/sales-rep", isAuthenticated, async (req: any, res) => {
+    try {
+      const customerId = req.params.id;
+      const { salesRepId, salesRepName } = req.body;
+      
+      // Validate required fields
+      if (!salesRepId || !salesRepName) {
+        return res.status(400).json({ error: "salesRepId and salesRepName are required" });
+      }
+      
+      // Check if customer exists
+      const existingCustomer = await storage.getCustomer(customerId);
+      if (!existingCustomer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      // Only update the sales rep fields
+      const updatedCustomer = await storage.updateCustomer(customerId, {
+        salesRepId,
+        salesRepName,
+        updatedAt: new Date()
+      });
+      
+      // Clear cache to ensure fresh data
+      setCachedData("customers", null);
+      
+      res.json(updatedCustomer);
+    } catch (error) {
+      console.error("Error updating customer sales rep:", error);
+      res.status(500).json({ error: "Failed to update customer sales rep" });
+    }
+  });
+
   // Delete customer (Admin only)
   app.delete("/api/customers/:id", isAuthenticated, requireAdmin, async (req, res) => {
     try {

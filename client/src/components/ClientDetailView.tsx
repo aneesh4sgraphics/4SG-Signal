@@ -68,6 +68,7 @@ import {
   ShoppingCart,
   Flame,
   Tag,
+  UserCog,
 } from "lucide-react";
 import {
   Tooltip,
@@ -388,6 +389,38 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   // Fetch drip campaigns for assignment
   const { data: dripCampaigns = [] } = useQuery<DripCampaign[]>({
     queryKey: ['/api/drip-campaigns'],
+  });
+
+  // Fetch all approved users for sales rep assignment
+  interface TeamUser {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
+    displayName: string;
+  }
+  const { data: teamUsers = [] } = useQuery<TeamUser[]>({
+    queryKey: ['/api/users'],
+  });
+
+  // Mutation to update sales rep assignment
+  const updateSalesRepMutation = useMutation({
+    mutationFn: async ({ salesRepId, salesRepName }: { salesRepId: string; salesRepName: string }) => {
+      const res = await apiRequest('PUT', `/api/customers/${customer.id}/sales-rep`, {
+        salesRepId,
+        salesRepName
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id] });
+      toast({ title: "Success", description: "Sales rep assigned" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to assign sales rep", variant: "destructive" });
+    },
   });
 
   // Mutation to assign customer to drip campaign
@@ -773,6 +806,38 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   </span>
                 </div>
               )}
+              {/* Sales Rep Assignment */}
+              <div className="flex items-center gap-2 mt-1" data-testid="sales-rep-assignment">
+                <UserCog className="h-4 w-4 text-green-600" />
+                <Select
+                  value={(customer as any).salesRepId || ""}
+                  onValueChange={(value) => {
+                    const selectedUser = teamUsers.find(u => u.id === value);
+                    if (selectedUser) {
+                      updateSalesRepMutation.mutate({
+                        salesRepId: selectedUser.id,
+                        salesRepName: selectedUser.displayName
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-[180px] text-sm bg-white border-green-200" data-testid="select-sales-rep">
+                    <SelectValue placeholder="Assign Sales Rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(customer as any).salesRepName && (
+                  <span className="text-sm text-green-700 font-medium">
+                    {(customer as any).salesRepName}
+                  </span>
+                )}
+              </div>
               {/* Contact Lines */}
               <div className="mt-1 space-y-0.5">
                 {/* Primary customer contact */}
