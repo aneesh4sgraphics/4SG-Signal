@@ -1516,6 +1516,16 @@ export default function ClientDatabase() {
                     rows={3}
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="editTags">Tags</Label>
+                  <Input
+                    id="editTags"
+                    value={editingCustomer.tags || ""}
+                    onChange={(e) => setEditingCustomer(prev => prev ? {...prev, tags: e.target.value} : null)}
+                    placeholder="Enter tags separated by commas (e.g., VIP, Wholesale, Priority)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Separate multiple tags with commas</p>
+                </div>
               </div>
             )}
 
@@ -3370,12 +3380,12 @@ export default function ClientDatabase() {
               </div>
 
               <div>
-                <Label htmlFor="tags">Pricing Tier *</Label>
+                <Label htmlFor="pricingTier">Pricing Tier *</Label>
                 <Select 
-                  value={editingCustomer.tags || ""} 
-                  onValueChange={(value) => setEditingCustomer(prev => prev ? {...prev, tags: value} : null)}
+                  value={editingCustomer.pricingTier || ""} 
+                  onValueChange={(value) => setEditingCustomer(prev => prev ? {...prev, pricingTier: value} : null)}
                 >
-                  <SelectTrigger id="tags" data-testid="select-pricing-tier">
+                  <SelectTrigger id="pricingTier" data-testid="select-pricing-tier">
                     <SelectValue placeholder="Select pricing tier" />
                   </SelectTrigger>
                   <SelectContent>
@@ -3402,6 +3412,17 @@ export default function ClientDatabase() {
                   onChange={(e) => setEditingCustomer(prev => prev ? {...prev, note: e.target.value} : null)}
                   rows={3}
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="tags2">Tags</Label>
+                <Input
+                  id="tags2"
+                  value={editingCustomer.tags || ""}
+                  onChange={(e) => setEditingCustomer(prev => prev ? {...prev, tags: e.target.value} : null)}
+                  placeholder="Enter tags separated by commas (e.g., VIP, Wholesale, Priority)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Separate multiple tags with commas</p>
               </div>
             </div>
           )}
