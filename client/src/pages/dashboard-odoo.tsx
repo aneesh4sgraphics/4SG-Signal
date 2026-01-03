@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Calculator, 
   FileText, 
@@ -353,60 +354,79 @@ export default function Dashboard() {
                 <DollarSign size={14} />
                 Quick Access
               </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'flex-end', maxWidth: '400px' }}>
-                {appCategories[0].apps.map((app, i) => {
-                  const Icon = app.icon;
-                  const appKey = `quick-${i}`;
-                  const isHovered = hoveredCard === appKey;
-                  
-                  return (
-                    <Link
-                      key={app.path}
-                      href={app.path}
-                      onClick={() => trackUsage(app.path)}
-                      onMouseEnter={() => setHoveredCard(appKey)}
-                      onMouseLeave={() => setHoveredCard(null)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        background: isHovered ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.6)',
-                        backdropFilter: 'blur(20px)',
-                        border: isHovered ? `2px solid ${app.color}50` : '1px solid rgba(255, 255, 255, 0.7)',
-                        cursor: 'pointer',
-                        textDecoration: 'none',
-                        transition: 'all 0.2s ease',
-                        transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
-                        boxShadow: isHovered 
-                          ? `0 6px 20px ${app.color}25`
-                          : '0 2px 8px rgba(148, 163, 184, 0.08)',
-                      }}
-                      data-testid={`quick-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '8px',
-                        background: app.bgGradient,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <Icon size={16} style={{ color: app.color }} />
-                      </div>
-                      <span style={{
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        color: isHovered ? app.color : '#475569',
-                      }}>
-                        {app.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
+              <TooltipProvider>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'flex-end', maxWidth: '400px' }}>
+                  {appCategories[0].apps.map((app, i) => {
+                    const Icon = app.icon;
+                    const appKey = `quick-${i}`;
+                    const isHovered = hoveredCard === appKey;
+                    const isQuickQuotes = app.label === 'QuickQuotes';
+                    
+                    return (
+                      <Tooltip key={app.path}>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href={app.path}
+                            onClick={() => trackUsage(app.path)}
+                            onMouseEnter={() => setHoveredCard(appKey)}
+                            onMouseLeave={() => setHoveredCard(null)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '10px',
+                              borderRadius: '12px',
+                              background: isHovered ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.6)',
+                              backdropFilter: 'blur(20px)',
+                              border: isHovered ? `2px solid ${app.color}50` : '1px solid rgba(255, 255, 255, 0.7)',
+                              cursor: 'pointer',
+                              textDecoration: 'none',
+                              transition: 'all 0.2s ease',
+                              transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
+                              boxShadow: isHovered 
+                                ? `0 6px 20px ${app.color}25`
+                                : '0 2px 8px rgba(148, 163, 184, 0.08)',
+                            }}
+                            data-testid={`quick-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '10px',
+                              background: app.bgGradient,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              position: 'relative',
+                            }}>
+                              <Icon size={18} style={{ color: app.color }} />
+                              {isQuickQuotes && (
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '-2px',
+                                  right: '-2px',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  color: '#fff',
+                                  background: app.color,
+                                  borderRadius: '4px',
+                                  padding: '1px 3px',
+                                  lineHeight: 1,
+                                }}>
+                                  Q
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>{app.label}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </TooltipProvider>
             </div>
           </div>
         </div>
