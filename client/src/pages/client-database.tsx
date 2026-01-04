@@ -1244,8 +1244,10 @@ export default function ClientDatabase() {
     displayName: string;
     role: string;
   }
-  const { data: teamUsers = [] } = useQuery<TeamUser[]>({
+  const { data: teamUsers = [], isLoading: isLoadingUsers, error: usersError, refetch: refetchUsers } = useQuery<TeamUser[]>({
     queryKey: ['/api/users'],
+    staleTime: 0, // Always refetch when needed
+    retry: 2,
   });
 
   // Handler to check for missing pricing tier or sales rep before viewing customer
@@ -1259,6 +1261,8 @@ export default function ClientDatabase() {
       setSelectedTierForPending(customer.pricingTier || "");
       setSelectedSalesRepForPending(customer.salesRepId || "");
       setShowMissingInfoDialog(true);
+      // Refetch users to ensure fresh data
+      refetchUsers();
     } else {
       // Customer has all required info - proceed normally
       setSelectedCustomer(customer);
@@ -3630,15 +3634,29 @@ export default function ClientDatabase() {
                   <Label htmlFor="pendingSalesRep">Sales Rep *</Label>
                   <Select value={selectedSalesRepForPending} onValueChange={setSelectedSalesRepForPending}>
                     <SelectTrigger id="pendingSalesRep" data-testid="select-pending-sales-rep">
-                      <SelectValue placeholder="Choose a sales rep..." />
+                      <SelectValue placeholder={isLoadingUsers ? "Loading..." : "Choose a sales rep..."} />
                     </SelectTrigger>
                     <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
-                      {teamUsers.length > 0 ? (
+                      {isLoadingUsers ? (
+                        <div className="p-2 text-sm text-gray-500">Loading sales reps...</div>
+                      ) : usersError ? (
+                        <div className="p-2 text-sm text-red-500">
+                          Session expired - please refresh the page and log in again
+                        </div>
+                      ) : teamUsers.length > 0 ? (
                         teamUsers.map(user => (
                           <SelectItem key={user.id} value={user.email}>{user.displayName}</SelectItem>
                         ))
                       ) : (
-                        <div className="p-2 text-sm text-gray-500">No sales reps available</div>
+                        <div className="p-2 text-sm text-gray-500">
+                          No sales reps found. 
+                          <button 
+                            onClick={() => refetchUsers()} 
+                            className="ml-1 text-purple-600 underline"
+                          >
+                            Retry
+                          </button>
+                        </div>
                       )}
                     </SelectContent>
                   </Select>
