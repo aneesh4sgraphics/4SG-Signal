@@ -639,19 +639,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hygieneRecommendations: typeof topClients = [];
         
         // Get customers not already in the list for hygiene tasks
-        // IMPORTANT: When user has few tasks, show UNASSIGNED customers they can claim
-        const availableCustomers = customers.filter(c => {
-          // Exclude already included customers
+        // PRIORITY: First show user's assigned customers, then company-wide tasks
+        
+        // Step 1: Get remaining customers assigned to this user
+        const myCustomers = customers.filter(c => {
           if (usedCustomerIds.has(c.id)) return false;
-          // For non-admin: include their assigned customers OR unassigned customers
           if (!isAdmin) {
             const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail;
-            const isUnassigned = !c.salesRepId || c.salesRepId.trim() === '';
-            // Include if assigned to me OR unassigned (team opportunity)
-            if (!isAssignedToMe && !isUnassigned) return false;
+            if (!isAssignedToMe) return false;
           }
           return true;
         });
+        
+        // Step 2: Get unassigned/team customers (only used if we need more tasks)
+        const teamCustomers = customers.filter(c => {
+          if (usedCustomerIds.has(c.id)) return false;
+          const isUnassigned = !c.salesRepId || c.salesRepId.trim() === '';
+          return isUnassigned;
+        });
+        
+        // Combine: user's customers first, then team opportunities
+        const availableCustomers = [...myCustomers, ...teamCustomers];
         
         // Shuffle for variety each day, but deterministic by date
         const todayStr = today.toISOString().split('T')[0];
@@ -675,16 +683,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check various hygiene issues and outreach opportunities
           const isUnassigned = !customer.salesRepId || customer.salesRepId.trim() === '';
+          const isMyCustomer = !isAdmin && (customer.salesRepId === userId || customer.salesRepId === userEmail);
           const hasPhone = customer.phone || customer.phone2 || customer.cell || customer.defaultAddressPhone;
           const hasAddress = customer.address1 && customer.city;
           
-          // Rotate through different types of tasks based on customer ID hash + date
-          // This ensures variety across the week
+          // Build list of possible tasks, prioritizing hygiene issues first
           const taskTypes = [];
           
+          // For unassigned customers, the main task is to claim them
           if (isUnassigned) {
             taskTypes.push({ code: 'team_opportunity', text: 'Unassigned - available to claim', action: 'Claim this customer' });
           }
+          
+          // Data hygiene tasks (for any customer)
           if (!customer.pricingTier) {
             taskTypes.push({ code: 'hygiene_pricing_tier', text: 'Missing pricing tier', action: 'Assign a pricing tier' });
           }
@@ -697,7 +708,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!customer.email) {
             taskTypes.push({ code: 'hygiene_email', text: 'Missing email address', action: 'Add email for communication' });
           }
-          // Outreach tasks - always available for any customer
+          
+          // Outreach tasks - always available for any customer (lower priority)
           taskTypes.push({ code: 'outreach_sample', text: 'Sample opportunity', action: 'Send product samples' });
           taskTypes.push({ code: 'outreach_swatchbook', text: 'SwatchBook opportunity', action: 'Send a SwatchBook' });
           taskTypes.push({ code: 'engage_customer', text: 'Customer engagement opportunity', action: 'Schedule a check-in call' });
