@@ -595,12 +595,14 @@ export default function StartYourDayDashboard() {
                 .map((client, index) => {
                   const isSystemAction = client.customerId.startsWith('system-action-');
                   const isHygieneTask = client.reasonCode?.startsWith('hygiene_') || client.reasonCode?.startsWith('engage_');
+                  const isTeamOpportunity = client.reasonCode === 'team_opportunity';
                   
                   const content = (
                     <>
                       <div className={`p-2 rounded-full ${
                         client.priority === 'critical' ? 'bg-red-100' :
                         client.priority === 'high' ? 'bg-orange-100' : 
+                        isTeamOpportunity ? 'bg-green-100' :
                         isHygieneTask ? 'bg-purple-100' : 'bg-blue-100'
                       }`}>
                         <span className="text-lg font-bold text-gray-600">#{index + 1}</span>
@@ -615,11 +617,12 @@ export default function StartYourDayDashboard() {
                             className={`text-xs ${
                               client.priority === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
                               client.priority === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' : 
+                              isTeamOpportunity ? 'border-green-300 text-green-700 bg-green-50' :
                               isHygieneTask ? 'border-purple-300 text-purple-700 bg-purple-50' :
                               'border-blue-300 text-blue-700 bg-blue-50'
                             }`}
                           >
-                            {isSystemAction ? 'action' : isHygieneTask ? 'data quality' : client.priority}
+                            {isSystemAction ? 'action' : isTeamOpportunity ? 'team opportunity' : isHygieneTask ? 'data quality' : client.priority}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
                             {isSystemAction ? client.recommendedAction : client.reasonText}

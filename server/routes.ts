@@ -639,13 +639,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hygieneRecommendations: typeof topClients = [];
         
         // Get customers not already in the list for hygiene tasks
+        // IMPORTANT: When user has few tasks, show UNASSIGNED customers they can claim
         const availableCustomers = customers.filter(c => {
           // Exclude already included customers
           if (usedCustomerIds.has(c.id)) return false;
-          // Filter by sales rep for non-admin
-          if (!isAdmin && c.salesRepId) {
+          // For non-admin: include their assigned customers OR unassigned customers
+          if (!isAdmin) {
             const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail;
-            if (!isAssignedToMe) return false;
+            const isUnassigned = !c.salesRepId || c.salesRepId.trim() === '';
+            // Include if assigned to me OR unassigned (team opportunity)
+            if (!isAssignedToMe && !isUnassigned) return false;
           }
           return true;
         });
@@ -671,14 +674,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let recommendedAction = '';
           
           // Check various hygiene issues
-          if (!customer.pricingTier) {
+          const isUnassigned = !customer.salesRepId || customer.salesRepId.trim() === '';
+          
+          if (isUnassigned) {
+            reasonCode = 'team_opportunity';
+            reasonText = 'Unassigned - available to claim';
+            recommendedAction = 'Claim this customer';
+          } else if (!customer.pricingTier) {
             reasonCode = 'hygiene_pricing_tier';
             reasonText = 'Missing pricing tier';
             recommendedAction = 'Assign a pricing tier';
-          } else if (!customer.salesRepId) {
-            reasonCode = 'hygiene_sales_rep';
-            reasonText = 'No sales rep assigned';
-            recommendedAction = 'Assign a sales representative';
           } else if (!customer.phone && !customer.phone2 && !customer.cell) {
             reasonCode = 'hygiene_phone';
             reasonText = 'Missing phone number';
