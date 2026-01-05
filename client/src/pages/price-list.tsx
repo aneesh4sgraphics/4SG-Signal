@@ -19,7 +19,7 @@ import { AdaptiveTable } from "@/components/OdooTable";
 import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
 import { EmptyState, getErrorType, getErrorMessage, getErrorDetails } from "@/components/EmptyState";
-import { ApiError } from "@/lib/queryClient";
+import { ApiError, queryClient } from "@/lib/queryClient";
 
 interface ProductData {
   [key: string]: string | number | undefined;
@@ -218,7 +218,7 @@ export default function PriceList() {
 
       return response.blob();
     },
-    onSuccess: (blob) => {
+    onSuccess: async (blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -228,9 +228,45 @@ export default function PriceList() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
+      // If a customer is selected, log the event with items for future reference
+      if (selectedCustomer?.id) {
+        try {
+          const itemsToUse = orderedItems.length > 0 ? orderedItems : priceListItems;
+          const adjustedItems = getAdjustedItems(itemsToUse);
+          
+          await fetch('/api/crm/price-list-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerId: selectedCustomer.id,
+              eventType: 'download',
+              priceTier: selectedTier,
+              productTypes: [selectedCategory],
+              userId: (user as any)?.id,
+              userEmail: (user as any)?.email,
+              items: adjustedItems.map(item => ({
+                itemCode: item.itemCode,
+                productType: item.productType,
+                size: item.size,
+                minQty: item.minQty,
+                pricePerUnit: item.pricePerSheet.toString(),
+                pricePerPack: item.pricePerPack.toString(),
+                shippingCost: includeShipping ? (shippingCosts[item.itemCode] || 0).toString() : null,
+                priceTier: selectedTier,
+                category: selectedCategory
+              }))
+            })
+          });
+          queryClient.invalidateQueries({ queryKey: ['/api/crm/price-list-events'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/customers/price-list-counts'] });
+        } catch (error) {
+          console.error('Failed to log price list event:', error);
+        }
+      }
+      
       toast({
         title: "Success",
-        description: "Price list PDF downloaded successfully"
+        description: selectedCustomer ? "Price list PDF downloaded and tracked for customer" : "Price list PDF downloaded successfully"
       });
     },
     onError: () => {
