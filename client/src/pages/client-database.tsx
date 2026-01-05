@@ -1237,18 +1237,30 @@ export default function ClientDatabase() {
     }
   };
 
+  // Hardcoded team members (fallback when API fails)
+  const TEAM_MEMBERS = [
+    { id: "45980257", email: "aneesh@4sgraphics.com", displayName: "Aneesh Prabhu" },
+    { id: "45163473", email: "patricio@4sgraphics.com", displayName: "Patricio" },
+    { id: "45165274", email: "santiago@4sgraphics.com", displayName: "Santiago" },
+    { id: "45080323", email: "oscar@4sgraphics.com", displayName: "Oscar Aguayo" },
+    { id: "52063823", email: "warehouse@4sgraphics.com", displayName: "Warehouse" },
+  ];
+  
   // Fetch team users for sales rep selection
   interface TeamUser {
     id: string;
     email: string;
     displayName: string;
-    role: string;
+    role?: string;
   }
-  const { data: teamUsers = [], isLoading: isLoadingUsers, error: usersError, refetch: refetchUsers } = useQuery<TeamUser[]>({
+  const { data: apiUsers = [], isLoading: isLoadingUsers, error: usersError, refetch: refetchUsers } = useQuery<TeamUser[]>({
     queryKey: ['/api/users'],
-    staleTime: 0, // Always refetch when needed
+    staleTime: 0,
     retry: 2,
   });
+  
+  // Use API data if available, otherwise fall back to hardcoded list
+  const teamUsers = apiUsers.length > 0 ? apiUsers : TEAM_MEMBERS;
 
   // Handler to check for missing pricing tier or sales rep before viewing customer
   const handleSelectCustomer = (customer: Customer, contacts: Customer[] = []) => {
@@ -3637,27 +3649,9 @@ export default function ClientDatabase() {
                       <SelectValue placeholder={isLoadingUsers ? "Loading..." : "Choose a sales rep..."} />
                     </SelectTrigger>
                     <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
-                      {isLoadingUsers ? (
-                        <div className="p-2 text-sm text-gray-500">Loading sales reps...</div>
-                      ) : usersError ? (
-                        <div className="p-2 text-sm text-red-500">
-                          Session expired - please refresh the page and log in again
-                        </div>
-                      ) : teamUsers.length > 0 ? (
-                        teamUsers.map(user => (
-                          <SelectItem key={user.id} value={user.email}>{user.displayName}</SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-gray-500">
-                          No sales reps found. 
-                          <button 
-                            onClick={() => refetchUsers()} 
-                            className="ml-1 text-purple-600 underline"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      )}
+                      {teamUsers.map(user => (
+                        <SelectItem key={user.id} value={user.email}>{user.displayName}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
