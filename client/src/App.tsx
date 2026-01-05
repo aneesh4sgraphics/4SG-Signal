@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,6 +34,7 @@ import CRMJourneyDashboard from "@/pages/crm-journey";
 import EmailApp from "@/pages/email-app";
 import ObjectionsPage from "@/pages/objections";
 import ShopifySettingsPage from "@/pages/shopify-settings";
+import DemoPage from "@/pages/demo";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -66,6 +67,7 @@ const PendingPage = () => (
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location] = useLocation();
   // Removed: firecracker animation state and logic per user request
 
   // All useEffect hooks must be called at the top level consistently
@@ -80,6 +82,11 @@ function Router() {
       }
     }
   }, [isAuthenticated, isLoading, user]);
+
+  // Demo route - accessible without authentication
+  if (location === "/demo") {
+    return <DemoPage />;
+  }
 
   // Show loading state while checking authentication
   if (isLoading) {
