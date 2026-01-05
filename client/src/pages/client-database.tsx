@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -132,6 +133,7 @@ export default function ClientDatabase() {
   const initialHotFilter = urlParams.get('filter') === 'hot';
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -202,6 +204,14 @@ export default function ClientDatabase() {
     logPageView("Client Database");
   }, [logPageView]);
 
+  // Debounce search term to prevent excessive re-renders
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const { data: customers = [], isLoading, error, refetch } = useCustomers();
   
   // Sync selectedCustomer with updated customer data from refetch
@@ -229,19 +239,25 @@ export default function ClientDatabase() {
     }
   }, [customers, urlParams]);
   
-  // Fetch quote counts per customer (for individual customer badges)
+  // Fetch quote counts per customer - only after customers are loaded
   const { data: quoteCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ['/api/customers/quote-counts'],
+    enabled: customers.length > 0,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Fetch total sent quotes from the main sent-quotes endpoint (synced with QuickQuotes)
+  // Fetch total sent quotes - only after customers are loaded  
   const { data: sentQuotes = [] } = useQuery<any[]>({
     queryKey: ['/api/sent-quotes'],
+    enabled: customers.length > 0,
+    staleTime: 2 * 60 * 1000,
   });
   
-  // Fetch total samples sent count
+  // Fetch total samples sent count - only after customers are loaded
   const { data: sampleRequests = [] } = useQuery<any[]>({
     queryKey: ['/api/crm/sample-requests'],
+    enabled: customers.length > 0,
+    staleTime: 2 * 60 * 1000,
   });
   
   // Calculate week-to-date counts (last 7 days)
@@ -295,19 +311,25 @@ export default function ClientDatabase() {
   const totalQuotesSent = sentQuotes.length;
   const totalSamplesSent = sampleRequests.filter((s: any) => s.status === 'shipped' || s.status === 'completed').length;
 
-  // Fetch swatch book shipments
+  // Fetch swatch book shipments - lazy load after main data
   const { data: swatchBookShipments = [] } = useQuery<any[]>({
     queryKey: ['/api/crm/swatch-shipments'],
+    enabled: customers.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch press kit shipments
+  // Fetch press kit shipments - lazy load after main data
   const { data: pressKitShipments = [] } = useQuery<any[]>({
     queryKey: ['/api/crm/press-kit-shipments'],
+    enabled: customers.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch email sends for mailer count
+  // Fetch email sends for mailer count - lazy load after main data
   const { data: emailSends = [] } = useQuery<any[]>({
     queryKey: ['/api/email/sends'],
+    enabled: customers.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
   
   // Toggle card expansion
@@ -621,12 +643,12 @@ export default function ClientDatabase() {
         return false;
       }
     }
-    const matchesSearch = !searchTerm || 
-      customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.id?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !debouncedSearchTerm || 
+      customer.firstName?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      customer.lastName?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      customer.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      customer.company?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      customer.id?.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
 
     const matchesCity = !filters.city || customer.city?.toLowerCase().includes(filters.city.toLowerCase());
     const matchesProvince = !filters.province || customer.province?.toLowerCase().includes(filters.province.toLowerCase());
@@ -717,13 +739,13 @@ export default function ClientDatabase() {
       }
       
       // Fuzzy search filter - match against company name or any customer in the group
-      if (searchTerm) {
-        const matchesCompany = fuzzyMatch(group.companyName, searchTerm);
+      if (debouncedSearchTerm) {
+        const matchesCompany = fuzzyMatch(group.companyName, debouncedSearchTerm);
         const matchesAnyCustomer = group.customers.some(c => 
-          fuzzyMatch(c.firstName || '', searchTerm) ||
-          fuzzyMatch(c.lastName || '', searchTerm) ||
-          fuzzyMatch(c.email || '', searchTerm) ||
-          fuzzyMatch(c.company || '', searchTerm)
+          fuzzyMatch(c.firstName || '', debouncedSearchTerm) ||
+          fuzzyMatch(c.lastName || '', debouncedSearchTerm) ||
+          fuzzyMatch(c.email || '', debouncedSearchTerm) ||
+          fuzzyMatch(c.company || '', debouncedSearchTerm)
         );
         if (!matchesCompany && !matchesAnyCustomer) return false;
       }
@@ -792,7 +814,7 @@ export default function ClientDatabase() {
       
       return true;
     });
-  }, [groupedByCompany, selectedLetter, searchTerm, filters, missingDataFilters, showSamplesFilter, showDataCleanupFilter, quoteCounts, sampleRequests]);
+  }, [groupedByCompany, selectedLetter, debouncedSearchTerm, filters, missingDataFilters, showSamplesFilter, showDataCleanupFilter, quoteCounts, sampleRequests]);
   
   // Helper to get unique quote count for a company (dedupe by email)
   const getCompanyQuoteCount = (group: CompanyGroup): number => {
@@ -1440,6 +1462,60 @@ export default function ClientDatabase() {
   };
 
   const isAdmin = (user as any)?.role === 'admin';
+
+  // Show loading skeleton when data is being fetched
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="heading-lg text-gray-900 flex items-center gap-3">
+              <Building2 className="h-8 w-8 text-primary" />
+              Client Database
+            </h1>
+            <p className="body-base text-gray-600 mt-1">Loading client data...</p>
+          </div>
+        </div>
+        
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i} className="glass-card border-0">
+              <CardContent className="p-4">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Search bar skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+
+        {/* Table skeleton */}
+        <Card className="glass-card border-0">
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (selectedCustomer) {
     return (
