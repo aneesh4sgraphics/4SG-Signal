@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
@@ -105,6 +106,7 @@ export default function QuoteCalculator() {
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   const [sizeSortOrder, setSizeSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
   const [landedPriceRevealed, setLandedPriceRevealed] = useState<boolean>(false);
+  const [sentPricesOpen, setSentPricesOpen] = useState<boolean>(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -268,6 +270,34 @@ export default function QuoteCalculator() {
       return result.data || []; // Extract data from response wrapper
     },
     enabled: !isAuthLoading && isAuthenticated,
+  });
+
+  // Fetch PDF sent prices for the selected customer
+  const { data: sentPricesData } = useQuery<{
+    event: { id: number; eventDate: string; priceTier: string } | null;
+    items: Array<{
+      id: number;
+      itemCode: string;
+      productType: string;
+      size: string;
+      minQty: number;
+      pricePerUnit: string;
+      pricePerPack: string;
+      shippingCost: string | null;
+      priceTier: string;
+      category: string;
+    }>;
+  }>({
+    queryKey: ['/api/crm/price-list-items', selectedCustomer?.id],
+    queryFn: async () => {
+      if (!selectedCustomer?.id) return { event: null, items: [] };
+      const response = await fetch(`/api/crm/price-list-items/${selectedCustomer.id}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch sent prices');
+      return response.json();
+    },
+    enabled: !isAuthLoading && isAuthenticated && !!selectedCustomer?.id,
   });
 
   // Get unique categories (filter out empty/null values)
@@ -938,6 +968,67 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          {/* PDF Sent Prices Reference Panel */}
+          {selectedCustomer && sentPricesData?.items && sentPricesData.items.length > 0 && (
+            <Collapsible open={sentPricesOpen} onOpenChange={setSentPricesOpen} className="mb-6">
+              <div className="glass-card overflow-visible">
+                <CollapsibleTrigger className="w-full flex items-center justify-between cursor-pointer group">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <History className="h-4 w-4 text-amber-600" />
+                    <span>PDF Sent Prices</span>
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 ml-2">
+                      {sentPricesData.items.length} items
+                    </Badge>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {sentPricesData.event && (
+                      <span className="text-xs text-gray-500">
+                        {new Date(sentPricesData.event.eventDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    {sentPricesOpen ? (
+                      <ChevronDown className="h-4 w-4 text-gray-500 group-hover:text-gray-700 transition-colors" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-gray-500 group-hover:text-gray-700 transition-colors" />
+                    )}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs text-amber-600 mb-2 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      These prices were previously sent to this customer. Match them to avoid conflicts.
+                    </p>
+                    <div className="max-h-48 overflow-y-auto space-y-1.5">
+                      {sentPricesData.items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center text-xs py-1 px-2 bg-amber-50/50 rounded">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-gray-800 truncate block">{item.itemCode}</span>
+                            <span className="text-gray-500 text-[10px]">{item.size}</span>
+                          </div>
+                          <div className="text-right ml-2 flex items-center gap-1">
+                            <DollarSign className="h-3 w-3 text-green-600" />
+                            <span className="font-semibold text-green-700">
+                              {parseFloat(item.pricePerUnit).toFixed(2)}/unit
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {sentPricesData.event?.priceTier && (
+                      <div className="mt-2 pt-2 border-t border-gray-100">
+                        <span className="text-xs text-gray-500">Tier: </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {sentPricesData.event.priceTier}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
 
           {/* Product Selection Card */}
           <div className="glass-card mb-6 overflow-visible relative z-20">
