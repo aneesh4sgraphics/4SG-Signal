@@ -138,8 +138,23 @@ export default function QuoteCalculator() {
   const userRole = (user as any)?.role || getUserRoleFromEmail((user as any)?.email || '');
   const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
 
-  // Check if customer tags match a pricing tier label
+  // Check if customer has a pricing tier assigned or tags match a pricing tier label
   const getMatchingTierFromTags = (): string | null => {
+    if (!selectedCustomer) return null;
+    
+    // First check the dedicated pricingTier field (highest priority)
+    const customerPricingTier = (selectedCustomer as any).pricingTier;
+    if (customerPricingTier) {
+      // Find the tier that matches by label or key
+      for (const tier of pricingTiers) {
+        if (tier.label.toLowerCase() === customerPricingTier.toLowerCase() ||
+            tier.key.toLowerCase() === customerPricingTier.toLowerCase()) {
+          return tier.key;
+        }
+      }
+    }
+    
+    // Fallback to checking tags
     if (!selectedCustomer?.tags) return null;
     const customerTags = selectedCustomer.tags.toLowerCase().split(',').map((t: string) => t.trim());
     
