@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -1004,7 +1004,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       {sentPricesData.items.map((item) => (
                         <div key={item.id} className="flex justify-between items-center text-xs py-1 px-2 bg-amber-50/50 rounded">
                           <div className="flex-1 min-w-0">
-                            <span className="font-medium text-gray-800 truncate block">{item.itemCode}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium text-gray-800 truncate">{item.itemCode}</span>
+                              {item.shippingCost && parseFloat(item.shippingCost) > 0 && (
+                                <Truck className="h-3 w-3 text-amber-600" title="Shipping included" />
+                              )}
+                            </div>
                             <span className="text-gray-500 text-[10px]">{item.size}</span>
                           </div>
                           <div className="text-right ml-2 flex items-center gap-1">
