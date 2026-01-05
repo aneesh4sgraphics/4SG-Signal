@@ -3185,11 +3185,12 @@ export default function ClientDatabase() {
                     const valueB = (clientB as any)[key] || '';
                     const selectedValue = mergeFieldSelections[key];
                     const isDifferent = valueA !== valueB;
+                    const canKeepBoth = key === 'email' && valueA && valueB && valueA !== valueB;
                     
                     return (
                       <div 
                         key={key} 
-                        className={`grid grid-cols-3 gap-4 py-2 px-2 rounded ${isDifferent ? 'bg-amber-50' : ''}`}
+                        className={`grid ${canKeepBoth ? 'grid-cols-4' : 'grid-cols-3'} gap-4 py-2 px-2 rounded ${isDifferent ? 'bg-amber-50' : ''}`}
                       >
                         <div className="flex items-center">
                           <span className="text-sm font-medium text-gray-600">{label}</span>
@@ -3219,6 +3220,21 @@ export default function ClientDatabase() {
                           {valueB || <span className="text-gray-400 italic">Empty</span>}
                           {selectedValue === clientB.id && <Check className="inline ml-2 h-3 w-3 text-green-600" />}
                         </button>
+                        {canKeepBoth && (
+                          <button
+                            type="button"
+                            onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: 'both' }))}
+                            className={`p-2 text-center rounded border transition-all text-sm ${
+                              selectedValue === 'both' 
+                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            data-testid="button-keep-both-emails"
+                          >
+                            <span className="font-medium">Keep Both</span>
+                            {selectedValue === 'both' && <Check className="inline ml-2 h-3 w-3 text-blue-600" />}
+                          </button>
+                        )}
                       </div>
                     );
                   })}

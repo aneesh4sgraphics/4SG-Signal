@@ -119,6 +119,7 @@ export const customers = pgTable("customers", {
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
   email: varchar("email", { length: 255 }),
+  email2: varchar("email2", { length: 255 }), // Secondary email for contacts with multiple emails
   acceptsEmailMarketing: boolean("accepts_email_marketing").default(false),
   company: varchar("company", { length: 255 }),
   address1: varchar("address1", { length: 255 }),

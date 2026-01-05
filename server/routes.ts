@@ -1605,7 +1605,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const [fieldKey, selectedId] of Object.entries(fieldSelections)) {
           const dbField = fieldMapping[fieldKey] || fieldKey;
-          if (selectedId === sourceId) {
+          
+          // Special handling for "keep both" emails
+          if (fieldKey === 'email' && selectedId === 'both') {
+            // Keep target email as primary, source email as secondary
+            mergedData.email = targetCustomer.email || sourceCustomer.email;
+            mergedData.email2 = targetCustomer.email ? sourceCustomer.email : null;
+          } else if (selectedId === sourceId) {
             // User chose value from source customer
             mergedData[dbField] = (sourceCustomer as any)[dbField];
           }
