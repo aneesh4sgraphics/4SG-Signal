@@ -471,7 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userEmail = req.user?.email;
       const userId = req.user?.id;
-      const isAdmin = req.user?.role === 'admin';
+      const userRole = req.user?.role;
+      // Treat both admin and manager as privileged users who can see all customers
+      const isPrivileged = userRole === 'admin' || userRole === 'manager';
       
       // Get all relevant data for scoring
       const [pendingTasks, todayTasks, overdueTasks, customers] = await Promise.all([
@@ -514,9 +516,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       for (const customer of customers) {
-        // Filter by sales rep assignment (unless admin)
+        // Filter by sales rep assignment (unless admin/manager)
         // Check against both user ID and email for compatibility
-        if (!isAdmin && customer.salesRepId) {
+        if (!isPrivileged && customer.salesRepId) {
           const isAssignedToMe = customer.salesRepId === userId || customer.salesRepId === userEmail;
           if (!isAssignedToMe) {
             continue;
@@ -642,10 +644,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get customers not already in the list for hygiene tasks
         // PRIORITY: First show user's assigned customers, then company-wide tasks
         
-        // Step 1: Get remaining customers assigned to this user
+        // Step 1: Get remaining customers assigned to this user (or all if privileged)
         const myCustomers = customers.filter(c => {
           if (usedCustomerIds.has(c.id)) return false;
-          if (!isAdmin) {
+          if (!isPrivileged) {
             const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail;
             if (!isAssignedToMe) return false;
           }
@@ -684,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check various hygiene issues and outreach opportunities
           const isUnassigned = !customer.salesRepId || customer.salesRepId.trim() === '';
-          const isMyCustomer = !isAdmin && (customer.salesRepId === userId || customer.salesRepId === userEmail);
+          const isMyCustomer = !isPrivileged && (customer.salesRepId === userId || customer.salesRepId === userEmail);
           const hasPhone = customer.phone || customer.phone2 || customer.cell || customer.defaultAddressPhone;
           const hasAddress = customer.address1 && customer.city;
           
