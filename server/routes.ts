@@ -1608,9 +1608,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Special handling for "keep both" emails
           if (fieldKey === 'email' && selectedId === 'both') {
-            // Keep target email as primary, source email as secondary
-            mergedData.email = targetCustomer.email || sourceCustomer.email;
-            mergedData.email2 = targetCustomer.email ? sourceCustomer.email : null;
+            // Keep both emails - determine which goes where
+            const existingEmail2 = targetCustomer.email2 || sourceCustomer.email2;
+            if (targetCustomer.email && sourceCustomer.email && targetCustomer.email !== sourceCustomer.email) {
+              // Both have primary emails - target stays primary, source goes to email2
+              mergedData.email = targetCustomer.email;
+              mergedData.email2 = sourceCustomer.email;
+            } else if (!targetCustomer.email && sourceCustomer.email) {
+              // Target missing email - use source as primary, preserve any existing email2
+              mergedData.email = sourceCustomer.email;
+              mergedData.email2 = existingEmail2 || null;
+            } else if (targetCustomer.email && !sourceCustomer.email) {
+              // Source missing email - keep target, source might have email2
+              mergedData.email = targetCustomer.email;
+              mergedData.email2 = existingEmail2 || null;
+            } else {
+              // Preserve any existing email2
+              mergedData.email2 = existingEmail2 || null;
+            }
           } else if (selectedId === sourceId) {
             // User chose value from source customer
             mergedData[dbField] = (sourceCustomer as any)[dbField];
@@ -1620,7 +1635,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Fallback: auto-fill missing fields from source
         if (!mergedData.phone && sourceCustomer.phone) mergedData.phone = sourceCustomer.phone;
-        if (!mergedData.email && sourceCustomer.email) mergedData.email = sourceCustomer.email;
+        if (!mergedData.email && sourceCustomer.email) {
+          mergedData.email = sourceCustomer.email;
+        } else if (mergedData.email && sourceCustomer.email && mergedData.email !== sourceCustomer.email) {
+          // Both have different emails - auto-keep both
+          mergedData.email2 = sourceCustomer.email;
+        }
+        // Preserve any existing email2 from either customer
+        if (!mergedData.email2 && sourceCustomer.email2) {
+          mergedData.email2 = sourceCustomer.email2;
+        }
         if (!mergedData.company && sourceCustomer.company) mergedData.company = sourceCustomer.company;
         if (!mergedData.city && sourceCustomer.city) mergedData.city = sourceCustomer.city;
         if (!mergedData.province && sourceCustomer.province) mergedData.province = sourceCustomer.province;
