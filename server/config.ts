@@ -18,18 +18,25 @@ export const APP_CONFIG = {
   // Role-based pricing tier access
   ROLE_TIER_ACCESS: {
     admin: [
-      "Export", "Master Distributor", "Dealer", "Dealer2", 
-      "Approval Needed", "Stage 2.5", "Stage 2", "Stage 1.5", 
-      "Stage 1", "Retail"
+      "LANDED PRICE", "EXPORT ONLY", "DISTRIBUTOR", "DEALER-VIP", "DEALER",
+      "SHOPIFY LOWEST", "SHOPIFY3", "SHOPIFY2", "SHOPIFY1", "SHOPIFY-ACCOUNT", "RETAIL"
     ],
     manager: [
-      "Approval Needed", "Dealer", "Dealer2", "Master Distributor",
-      "Stage 2.5", "Stage 2", "Stage 1.5", "Stage 1", "Retail"
+      "EXPORT ONLY", "DISTRIBUTOR", "DEALER-VIP", "DEALER",
+      "SHOPIFY LOWEST", "SHOPIFY3", "SHOPIFY2", "SHOPIFY1", "SHOPIFY-ACCOUNT", "RETAIL"
     ],
     user: [
-      "Stage 2.5", "Stage 2", "Stage 1.5", "Stage 1", "Retail"
+      "SHOPIFY LOWEST", "SHOPIFY3", "SHOPIFY2", "SHOPIFY1", "SHOPIFY-ACCOUNT", "RETAIL"
     ]
   },
+
+  // Email-specific tier overrides (takes precedence over role-based access)
+  EMAIL_TIER_ACCESS: {
+    "patricio@4sgraphics.com": [
+      "EXPORT ONLY", "DISTRIBUTOR", "DEALER-VIP", "DEALER",
+      "SHOPIFY LOWEST", "SHOPIFY3", "SHOPIFY2", "SHOPIFY1", "SHOPIFY-ACCOUNT", "RETAIL"
+    ]
+  } as Record<string, string[]>,
 
   // Email-specific role mappings for automatic role assignment
   EMAIL_ROLE_MAP: {
@@ -61,7 +68,13 @@ export function getUserRoleFromEmail(email: string): string {
   return APP_CONFIG.EMAIL_ROLE_MAP[email] || 'user';
 }
 
-export function getAccessibleTiers(role: string): string[] {
+export function getAccessibleTiers(role: string, email?: string): string[] {
+  // Check for email-specific tier overrides first
+  if (email && APP_CONFIG.EMAIL_TIER_ACCESS[email]) {
+    return APP_CONFIG.EMAIL_TIER_ACCESS[email];
+  }
+  
+  // Fall back to role-based access
   const validRoles = ['admin', 'manager', 'user'] as const;
   type ValidRole = typeof validRoles[number];
   
