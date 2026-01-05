@@ -1007,7 +1007,9 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                             <div className="flex items-center gap-1">
                               <span className="font-medium text-gray-800 truncate">{item.itemCode}</span>
                               {item.shippingCost && parseFloat(item.shippingCost) > 0 && (
-                                <Truck className="h-3 w-3 text-amber-600" title="Shipping included" />
+                                <span title="Shipping included">
+                                  <Truck className="h-3 w-3 text-amber-600" />
+                                </span>
                               )}
                             </div>
                             <span className="text-gray-500 text-[10px]">{item.size}</span>

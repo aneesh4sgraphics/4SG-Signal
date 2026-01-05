@@ -479,6 +479,7 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
 
     // Priority 6: Cross-sell within same category group (adopted once → introduce others in group)
     for (const adopted of adoptedCategories) {
+      if (!adopted.categoryName) continue;
       const group = getCategoryGroup(adopted.categoryName);
       if (group) {
         const groupCategories = getGroupCategories(group);
@@ -992,7 +993,8 @@ export default function CustomerCoachPanel({ customer, onNavigateToPressProfiles
         isDistributor={machineProfiles.some(p => p.machineFamily === 'distributor' || p.machineFamily === 'dealer')}
         stalledCategories={categoryTrusts
           .filter(t => t.trustLevel === 'introduced' || t.trustLevel === 'evaluated')
-          .map(t => t.categoryName)}
+          .map(t => t.categoryName)
+          .filter((name): name is string => name !== null)}
       />
     </div>
   );
