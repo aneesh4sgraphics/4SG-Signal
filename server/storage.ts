@@ -59,6 +59,8 @@ import {
   type InsertQuoteEvent,
   type PriceListEvent,
   type InsertPriceListEvent,
+  type PriceListEventItem,
+  type InsertPriceListEventItem,
   // Journey Instance types
   type CustomerJourneyInstance,
   type InsertCustomerJourneyInstance,
@@ -103,6 +105,7 @@ import {
   customerJourney,
   quoteEvents,
   priceListEvents,
+  priceListEventItems,
   customerContacts,
   type CustomerContact,
   type InsertCustomerContact,
@@ -407,6 +410,10 @@ export interface IStorage {
   getPriceListEvents(customerId?: string): Promise<PriceListEvent[]>;
   createPriceListEvent(data: InsertPriceListEvent): Promise<PriceListEvent>;
   getPriceListCountsByCustomerId(): Promise<Record<string, number>>;
+  
+  // Price List Event Items
+  createPriceListEventItems(eventId: number, items: InsertPriceListEventItem[]): Promise<PriceListEventItem[]>;
+  getLatestPriceListItemsForCustomer(customerId: string): Promise<{ event: PriceListEvent; items: PriceListEventItem[] } | null>;
 
   // Customer Journey Instances (unified journey tracking)
   getJourneyInstances(customerId?: string): Promise<CustomerJourneyInstance[]>;
@@ -2123,6 +2130,33 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return counts;
+  }
+
+  async createPriceListEventItems(eventId: number, items: InsertPriceListEventItem[]): Promise<PriceListEventItem[]> {
+    if (items.length === 0) return [];
+    const itemsWithEventId = items.map(item => ({ ...item, eventId }));
+    const inserted = await db.insert(priceListEventItems).values(itemsWithEventId).returning();
+    return inserted;
+  }
+
+  async getLatestPriceListItemsForCustomer(customerId: string): Promise<{ event: PriceListEvent; items: PriceListEventItem[] } | null> {
+    // Get the most recent price list event for this customer
+    const events = await db.select()
+      .from(priceListEvents)
+      .where(eq(priceListEvents.customerId, customerId))
+      .orderBy(desc(priceListEvents.createdAt))
+      .limit(1);
+    
+    if (events.length === 0) return null;
+    
+    const event = events[0];
+    
+    // Get all items for this event
+    const items = await db.select()
+      .from(priceListEventItems)
+      .where(eq(priceListEventItems.eventId, event.id));
+    
+    return { event, items };
   }
 
   // Customer Journey Instances
