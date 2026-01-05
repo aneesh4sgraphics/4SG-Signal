@@ -110,13 +110,36 @@ export default function PriceList() {
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   const [includeShipping, setIncludeShipping] = useState<boolean>(false);
   const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
+  const [shippingInputs, setShippingInputs] = useState<Record<string, string>>({});
   
-  // Helper to update shipping cost for an item
-  const updateShippingCost = (itemCode: string, cost: number) => {
-    setShippingCosts(prev => ({
+  // Helper to update shipping cost input (string for intermediate typing)
+  const updateShippingInput = (itemCode: string, value: string) => {
+    setShippingInputs(prev => ({
       ...prev,
-      [itemCode]: cost
+      [itemCode]: value
     }));
+    // Also update the numeric value for calculations
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setShippingCosts(prev => ({
+        ...prev,
+        [itemCode]: numValue
+      }));
+    } else if (value === '' || value === '0' || value === '0.') {
+      setShippingCosts(prev => ({
+        ...prev,
+        [itemCode]: 0
+      }));
+    }
+  };
+  
+  // Get display value for shipping input
+  const getShippingInputValue = (itemCode: string): string => {
+    if (shippingInputs[itemCode] !== undefined) {
+      return shippingInputs[itemCode];
+    }
+    const cost = shippingCosts[itemCode];
+    return cost ? cost.toString() : '';
   };
 
   // Calculate adjusted prices with shipping included
@@ -738,6 +761,7 @@ export default function PriceList() {
                     setIncludeShipping(checked);
                     if (!checked) {
                       setShippingCosts({});
+                      setShippingInputs({});
                     }
                   }}
                   data-testid="switch-include-shipping"
@@ -892,11 +916,27 @@ export default function PriceList() {
                     <div className="flex items-center justify-center">
                       <span className="text-gray-500 mr-1">$</span>
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={shippingCost || ''}
-                        onChange={(e) => updateShippingCost(item.itemCode, parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        value={getShippingInputValue(item.itemCode)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // Allow empty, numbers, and decimals
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            updateShippingInput(item.itemCode, val);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Format on blur
+                          const val = e.target.value;
+                          const num = parseFloat(val);
+                          if (!isNaN(num) && num > 0) {
+                            updateShippingInput(item.itemCode, num.toFixed(2));
+                          } else if (val === '' || val === '0' || val === '0.' || val === '0.0' || val === '0.00') {
+                            setShippingInputs(prev => ({ ...prev, [item.itemCode]: '' }));
+                            setShippingCosts(prev => ({ ...prev, [item.itemCode]: 0 }));
+                          }
+                        }}
                         className="w-20 h-8 text-sm text-center px-2"
                         placeholder="0.00"
                         data-testid={`input-shipping-${item.itemCode}`}
