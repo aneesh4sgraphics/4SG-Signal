@@ -2029,15 +2029,26 @@ export default function ClientDatabase() {
                 </p>
               </div>
               {isAdmin && customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length > 0 && (
-                <Button 
-                  size="sm" 
-                  className="w-full mt-2 h-7 text-xs bg-red-500 hover:bg-red-600"
-                  onClick={(e) => { e.stopPropagation(); autoAssignSalesRepsMutation.mutate(); }}
-                  disabled={autoAssignSalesRepsMutation.isPending}
-                  data-testid="button-auto-assign-sales-reps"
-                >
-                  {autoAssignSalesRepsMutation.isPending ? 'Assigning...' : 'Auto-Assign'}
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="flex-1 h-7 text-xs"
+                    onClick={(e) => { e.stopPropagation(); setFilters({...filters, salesRep: filters.salesRep === 'unassigned' ? '' : 'unassigned'}); }}
+                    data-testid="button-filter-no-sales-rep"
+                  >
+                    {filters.salesRep === 'unassigned' ? 'Show All' : 'Filter'}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs bg-red-500 hover:bg-red-600"
+                    onClick={(e) => { e.stopPropagation(); autoAssignSalesRepsMutation.mutate(); }}
+                    disabled={autoAssignSalesRepsMutation.isPending}
+                    data-testid="button-auto-assign-sales-reps"
+                  >
+                    {autoAssignSalesRepsMutation.isPending ? 'Assigning...' : 'Auto-Assign'}
+                  </Button>
+                </div>
               )}
               {!isAdmin && <p className="text-[10px] text-gray-400 mt-1">Click to filter</p>}
             </CardContent>
