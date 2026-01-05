@@ -956,7 +956,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // Auto-assign sales reps based on location rules
+  app.post('/api/admin/auto-assign-sales-reps', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      console.log("=== AUTO-ASSIGN SALES REPS ===");
+      
+      // Sales rep assignments with user IDs
+      const SALES_REPS = {
+        santiago: { id: '45165274', name: 'Santiago', email: 'santiago@4sgraphics.com' },
+        patricio: { id: '45163473', name: 'Patricio', email: 'patricio@4sgraphics.com' },
+        aneesh: { id: '45980257', name: 'Aneesh', email: 'aneesh@4sgraphics.com' },
+      };
+      
+      // Latin American / Spanish-speaking countries
+      const LATIN_AMERICAN_COUNTRIES = [
+        'mexico', 'argentina', 'colombia', 'chile', 'peru', 'ecuador', 'venezuela',
+        'guatemala', 'cuba', 'bolivia', 'dominican republic', 'honduras', 'paraguay',
+        'el salvador', 'nicaragua', 'costa rica', 'panama', 'uruguay', 'puerto rico',
+        'spain', 'mx', 'ar', 'co', 'cl', 'pe', 'ec', 've', 'gt', 'cu', 'bo', 'do',
+        'hn', 'py', 'sv', 'ni', 'cr', 'pa', 'uy', 'pr', 'es'
+      ];
+      
+      // English-speaking countries (excluding US which is handled by state)
+      const ENGLISH_SPEAKING_COUNTRIES = [
+        'canada', 'jamaica', 'united kingdom', 'uk', 'australia', 'new zealand',
+        'ireland', 'bahamas', 'barbados', 'trinidad', 'trinidad and tobago',
+        'ca', 'jm', 'gb', 'au', 'nz', 'ie', 'bs', 'bb', 'tt'
+      ];
+      
+      // Florida state variations
+      const FLORIDA_STATES = ['fl', 'florida'];
+      
+      // US variations
+      const US_COUNTRIES = ['united states', 'usa', 'us', 'united states of america', 'u.s.', 'u.s.a.'];
+      
+      // Get all customers without a sales rep
+      const allCustomers = await storage.getCustomers();
+      const unassignedCustomers = allCustomers.filter(c => !c.salesRepId || c.salesRepId.trim() === '');
+      
+      console.log(`Found ${unassignedCustomers.length} customers without sales rep`);
+      
+      const results = {
+        santiago: 0,
+        patricio: 0,
+        aneesh: 0,
+        skipped: 0,
+        errors: 0,
+      };
+      
+      for (const customer of unassignedCustomers) {
+        try {
+          const country = (customer.country || '').toLowerCase().trim();
+          const province = (customer.province || '').toLowerCase().trim();
+          
+          let assignedRep: typeof SALES_REPS[keyof typeof SALES_REPS] | null = null;
+          
+          // Rule 1: Florida customers → Santiago
+          if (US_COUNTRIES.includes(country) || country === '') {
+            if (FLORIDA_STATES.includes(province)) {
+              assignedRep = SALES_REPS.santiago;
+              results.santiago++;
+            }
+          }
+          
+          // Rule 2: Latin American countries → Patricio
+          if (!assignedRep && LATIN_AMERICAN_COUNTRIES.includes(country)) {
+            assignedRep = SALES_REPS.patricio;
+            results.patricio++;
+          }
+          
+          // Rule 3: US outside Florida OR English-speaking countries → Aneesh
+          if (!assignedRep) {
+            const isUSOutsideFlorida = (US_COUNTRIES.includes(country) || country === '') && 
+                                        province && !FLORIDA_STATES.includes(province);
+            const isEnglishSpeaking = ENGLISH_SPEAKING_COUNTRIES.includes(country);
+            
+            if (isUSOutsideFlorida || isEnglishSpeaking) {
+              assignedRep = SALES_REPS.aneesh;
+              results.aneesh++;
+            }
+          }
+          
+          // If no match, skip (missing location data)
+          if (!assignedRep) {
+            results.skipped++;
+            continue;
+          }
+          
+          // Update customer with assigned sales rep
+          await storage.updateCustomer(customer.id, {
+            salesRepId: assignedRep.id,
+            salesRepName: assignedRep.name,
+          });
+          
+        } catch (err) {
+          console.error(`Error assigning sales rep to customer ${customer.id}:`, err);
+          results.errors++;
+        }
+      }
+      
+      console.log("Auto-assignment results:", results);
+      
+      // Clear customer cache
+      setCachedData("customers", null);
+      
+      res.json({
+        message: "Sales rep auto-assignment completed",
+        totalProcessed: unassignedCustomers.length,
+        results,
+      });
+      
+    } catch (error) {
+      console.error("Error in auto-assign sales reps:", error);
+      res.status(500).json({ error: "Failed to auto-assign sales reps" });
+    }
+  });
 
 
 

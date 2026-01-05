@@ -997,6 +997,26 @@ export default function ClientDatabase() {
     },
   });
 
+  const autoAssignSalesRepsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/admin/auto-assign-sales-reps");
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Auto-Assignment Complete",
+        description: `Assigned: Santiago=${data.results?.santiago || 0}, Patricio=${data.results?.patricio || 0}, Aneesh=${data.results?.aneesh || 0}. Skipped: ${data.results?.skipped || 0}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Auto-assignment failed",
+        description: error.message || "Failed to auto-assign sales reps",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFileUpload = async (file: File) => {
     if (!file.name.endsWith('.csv')) {
       toast({
@@ -1990,19 +2010,34 @@ export default function ClientDatabase() {
 
           {/* Missing Sales Rep */}
           <Card 
-            className={`glass-card border-0 cursor-pointer transition-all hover:shadow-md ${filters.salesRep === 'unassigned' ? 'ring-2 ring-red-500' : ''}`}
-            onClick={() => setFilters({...filters, salesRep: filters.salesRep === 'unassigned' ? '' : 'unassigned'})}
+            className={`glass-card border-0 transition-all hover:shadow-md ${filters.salesRep === 'unassigned' ? 'ring-2 ring-red-500' : ''}`}
             data-testid="card-missing-sales-rep"
           >
             <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-gray-500">No Sales Rep</p>
-                <UserX className="h-4 w-4 text-red-500" />
+              <div 
+                className="cursor-pointer"
+                onClick={() => setFilters({...filters, salesRep: filters.salesRep === 'unassigned' ? '' : 'unassigned'})}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-gray-500">No Sales Rep</p>
+                  <UserX className="h-4 w-4 text-red-500" />
+                </div>
+                <p className="text-2xl font-bold text-red-600" data-testid="text-missing-sales-rep-count">
+                  {customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length}
+                </p>
               </div>
-              <p className="text-2xl font-bold text-red-600" data-testid="text-missing-sales-rep-count">
-                {customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-1">Click to filter</p>
+              {isAdmin && customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length > 0 && (
+                <Button 
+                  size="sm" 
+                  className="w-full mt-2 h-7 text-xs bg-red-500 hover:bg-red-600"
+                  onClick={(e) => { e.stopPropagation(); autoAssignSalesRepsMutation.mutate(); }}
+                  disabled={autoAssignSalesRepsMutation.isPending}
+                  data-testid="button-auto-assign-sales-reps"
+                >
+                  {autoAssignSalesRepsMutation.isPending ? 'Assigning...' : 'Auto-Assign'}
+                </Button>
+              )}
+              {!isAdmin && <p className="text-[10px] text-gray-400 mt-1">Click to filter</p>}
             </CardContent>
           </Card>
         </div>
