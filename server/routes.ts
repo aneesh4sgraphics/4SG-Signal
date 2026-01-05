@@ -2805,18 +2805,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate totals (no tax)
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
       
-      // Save quote to database and link to categories
+      // Save quote to database SYNCHRONOUSLY before generating PDF
+      let savedQuote: any = null;
+      try {
+        console.log(`[Quote Save] Saving quote ${finalQuoteNumber} for ${customerName}`);
+        savedQuote = await storage.upsertSentQuote({
+          quoteNumber: finalQuoteNumber,
+          customerName,
+          customerEmail: customerEmail || null,
+          quoteItems: JSON.stringify(quoteItems),
+          totalAmount: totalAmount.toString(),
+          sentVia: sentVia || 'pdf',
+          status: 'sent'
+        });
+        console.log(`[Quote Save] Quote saved successfully with ID: ${savedQuote?.id}`);
+      } catch (saveError) {
+        console.error('[Quote Save] FAILED to save quote:', saveError);
+      }
+      
+      // Link quote to categories asynchronously (non-blocking)
       (async () => {
         try {
-          const savedQuote = await storage.upsertSentQuote({
-            quoteNumber: finalQuoteNumber,
-            customerName,
-            customerEmail: customerEmail || null,
-            quoteItems: JSON.stringify(quoteItems),
-            totalAmount: totalAmount.toString(),
-            sentVia: sentVia || 'pdf',
-            status: 'sent'
-          });
+          if (!savedQuote) {
+            console.log('[Quote Integration] Skipping category linking - quote not saved');
+            return;
+          }
 
           // === QUOTE-CATEGORY INTEGRATION ===
           let customerId = null;
