@@ -2627,18 +2627,20 @@ export default function ClientDatabase() {
                             {group.companyName}
                           </span>
                           
-                          {/* Price List sent indicator */}
+                          {/* Price List sent indicator - Warning to avoid conflicting pricing */}
                           {getPriceListCount(primary.id) > 0 && (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-0.5">
-                                    <FileText className="h-4 w-4 text-red-500" />
-                                    <span className="text-[10px] font-medium text-red-600">{getPriceListCount(primary.id)}</span>
+                                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 border border-amber-400 rounded text-amber-700">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <FileText className="h-3 w-3" />
+                                    <span className="text-[10px] font-semibold">{getPriceListCount(primary.id)}</span>
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                  {getPriceListCount(primary.id)} Price List{getPriceListCount(primary.id) > 1 ? 's' : ''} sent
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-semibold text-amber-600">Price List Already Sent!</p>
+                                  <p className="text-xs">{getPriceListCount(primary.id)} price list{getPriceListCount(primary.id) > 1 ? 's' : ''} previously sent. Check before sending new pricing to avoid customer confusion.</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>

@@ -797,13 +797,15 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 {priceListEvents.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center gap-0.5 text-red-600" data-testid="price-list-indicator">
-                        <FileText className="h-4 w-4" />
-                        <span className="text-xs font-medium">{priceListEvents.length}</span>
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-400 rounded-md text-amber-700" data-testid="price-list-indicator">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <FileText className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">{priceListEvents.length}</span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{priceListEvents.length} price list{priceListEvents.length !== 1 ? 's' : ''} sent</p>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold text-amber-600">Price List Already Sent!</p>
+                      <p className="text-sm">{priceListEvents.length} price list{priceListEvents.length !== 1 ? 's' : ''} previously sent. Check before sending new pricing to avoid customer confusion.</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
