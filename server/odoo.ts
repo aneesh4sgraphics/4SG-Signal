@@ -329,7 +329,7 @@ class OdooClient {
       'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
       'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
       'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'title', 'property_product_pricelist',
+      'property_product_pricelist',
     ], { limit: options.limit || 100, offset: options.offset || 0 });
   }
 
@@ -338,7 +338,7 @@ class OdooClient {
       'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
       'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
       'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'title', 'property_product_pricelist',
+      'property_product_pricelist',
     ]);
     return partners.length > 0 ? partners[0] : null;
   }
