@@ -42,6 +42,8 @@ interface OdooPartner {
   function?: string;
   title?: [number, string] | false;
   property_product_pricelist?: [number, string] | false;
+  type?: string; // 'contact', 'invoice', 'delivery', 'other', 'private'
+  parent_name?: string; // Parent company name (resolved)
 }
 
 interface OdooProduct {
@@ -329,7 +331,7 @@ class OdooClient {
       'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
       'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
       'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'property_product_pricelist',
+      'property_product_pricelist', 'type',
     ], { limit: options.limit || 100, offset: options.offset || 0 });
   }
 
@@ -338,7 +340,7 @@ class OdooClient {
       'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
       'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
       'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'property_product_pricelist',
+      'property_product_pricelist', 'type',
     ]);
     return partners.length > 0 ? partners[0] : null;
   }

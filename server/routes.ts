@@ -8953,6 +8953,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             salesRepName = partner.user_id[1] || null;
           }
           
+          // Extract parent relationship (format: [id, "Parent Name"] or false)
+          let odooParentId: number | null = null;
+          if (partner.parent_id && Array.isArray(partner.parent_id) && partner.parent_id.length >= 1) {
+            odooParentId = partner.parent_id[0];
+          }
+          
+          // Determine contact type based on Odoo company_type field
+          let contactType = 'contact';
+          if (partner.is_company) {
+            contactType = 'company';
+          } else if (partner.type === 'delivery') {
+            contactType = 'delivery';
+          } else if (partner.type === 'invoice') {
+            contactType = 'invoice';
+          } else if (partner.type === 'other') {
+            contactType = 'other';
+          }
+          
           // Create customer record
           const customerData = {
             id: crypto.randomUUID(),
@@ -8968,6 +8986,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             country: partner.country_id?.[1] || null,
             notes: partner.comment || null,
             odooPartnerId: partner.id,
+            odooParentId,
+            isCompany: partner.is_company || false,
+            contactType,
             salesRepId,
             salesRepName,
             accountState: 'prospect' as const,
@@ -8984,12 +9005,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.skipped} skipped, ${results.failed} failed`);
       
+      // Step 4: Resolve parent customer IDs (link children to their parent companies)
+      console.log("[Odoo Import] Resolving parent relationships...");
+      const customersWithParent = await db.select().from(customers).where(sql`${customers.odooParentId} IS NOT NULL`);
+      let parentLinksResolved = 0;
+      
+      for (const customer of customersWithParent) {
+        if (customer.odooParentId) {
+          // Find the parent customer by their Odoo partner ID
+          const parentCustomer = await db.select().from(customers)
+            .where(eq(customers.odooPartnerId, customer.odooParentId))
+            .limit(1);
+          
+          if (parentCustomer.length > 0) {
+            await db.update(customers)
+              .set({ parentCustomerId: parentCustomer[0].id })
+              .where(eq(customers.id, customer.id));
+            parentLinksResolved++;
+          }
+        }
+      }
+      console.log(`[Odoo Import] Resolved ${parentLinksResolved} parent relationships`);
+      
       // Clear customer cache to ensure fresh data is returned
       setCachedData("customers", null);
       
       res.json({
         success: true,
         message: `Imported ${results.imported} partners from Odoo`,
+        parentLinksResolved,
         ...results
       });
     } catch (error: any) {

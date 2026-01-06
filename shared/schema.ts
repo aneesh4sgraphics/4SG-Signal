@@ -147,6 +147,10 @@ export const customers = pgTable("customers", {
   salesRepName: varchar("sales_rep_name", { length: 255 }), // Assigned sales rep display name
   pricingTier: varchar("pricing_tier", { length: 50 }), // Mandatory pricing tier for quotes
   odooPartnerId: integer("odoo_partner_id"), // Linked Odoo res.partner ID
+  odooParentId: integer("odoo_parent_id"), // Parent partner ID in Odoo (for tree structure)
+  parentCustomerId: varchar("parent_customer_id"), // Local parent customer ID (resolved after import)
+  contactType: varchar("contact_type", { length: 50 }), // 'company', 'contact', 'delivery', 'invoice', 'other'
+  isCompany: boolean("is_company").default(false), // True if this is a company, false if individual/address
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
