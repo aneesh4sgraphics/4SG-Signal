@@ -146,6 +146,19 @@ export default function OdooSettingsPage() {
     conflicts: string[];
   } | null>(null);
 
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    totalProducts: number;
+    totalOdooProducts: number;
+    alreadyMapped: number;
+    proposedMappings: any[];
+  } | null>(null);
+  const [proposedMappings, setProposedMappings] = useState<any[]>([]);
+  const [previewSearchTerm, setPreviewSearchTerm] = useState("");
+  const [editingMapping, setEditingMapping] = useState<any>(null);
+  const [editOdooSearch, setEditOdooSearch] = useState("");
+
   // Query for QuickQuotes products with mapping status
   const { data: productsForMapping = [], isLoading: mappingProductsLoading, refetch: refetchMappingProducts } = useQuery<any[]>({
     queryKey: ['/api/odoo/products-for-mapping', mappingFilter],
@@ -238,23 +251,95 @@ export default function OdooSettingsPage() {
     },
   });
 
-  // Auto-map products mutation
-  const autoMapMutation = useMutation({
-    mutationFn: async (options: { overwriteExisting?: boolean }) => {
-      const res = await apiRequest('POST', '/api/odoo/product-mappings/auto', options);
+  // Preview auto-mapping mutation
+  const previewMappingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/odoo/product-mappings/auto/preview', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setPreviewData(data);
+      setProposedMappings(data.proposedMappings || []);
+      setShowPreviewModal(true);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to load preview", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Apply confirmed mappings mutation
+  const applyMappingsMutation = useMutation({
+    mutationFn: async (mappings: any[]) => {
+      const res = await apiRequest('POST', '/api/odoo/product-mappings/auto/apply', { mappings });
       return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/odoo/products-for-mapping'] });
-      setAutoMapResult(data);
+      setShowPreviewModal(false);
+      setPreviewData(null);
+      setProposedMappings([]);
       toast({ 
-        title: "Auto-mapping complete",
+        title: "Mappings applied",
         description: `${data.created} products mapped successfully`
       });
     },
     onError: (error: any) => {
-      toast({ title: "Auto-mapping failed", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to apply mappings", description: error.message, variant: "destructive" });
     },
+  });
+
+  // Query for Odoo products when editing a mapping
+  const { data: editOdooProducts = [], isLoading: editOdooProductsLoading } = useQuery<any[]>({
+    queryKey: ['/api/odoo/all-products', editOdooSearch, 'edit'],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (editOdooSearch) params.set('search', editOdooSearch);
+      params.set('limit', '100');
+      const res = await fetch(`/api/odoo/all-products?${params.toString()}`);
+      return res.json();
+    },
+    enabled: !!editingMapping,
+  });
+
+  // Helper functions for preview modal
+  const toggleMappingAccepted = (itemCode: string) => {
+    setProposedMappings(prev => prev.map(m => 
+      m.itemCode === itemCode ? { ...m, accepted: !m.accepted } : m
+    ));
+  };
+
+  const updateMappingOdooProduct = (itemCode: string, odooProduct: any) => {
+    setProposedMappings(prev => prev.map(m => 
+      m.itemCode === itemCode ? { 
+        ...m, 
+        suggestedOdooProduct: odooProduct,
+        matchType: 'manual',
+        accepted: true,
+      } : m
+    ));
+    setEditingMapping(null);
+    setEditOdooSearch("");
+  };
+
+  const getAcceptedMappingsForApply = () => {
+    return proposedMappings
+      .filter(m => m.accepted && m.suggestedOdooProduct)
+      .map(m => ({
+        itemCode: m.itemCode,
+        odooProductId: m.suggestedOdooProduct.id,
+        odooDefaultCode: m.suggestedOdooProduct.default_code,
+        odooProductName: m.suggestedOdooProduct.name,
+      }));
+  };
+
+  const filteredPreviewMappings = proposedMappings.filter(m => {
+    if (!previewSearchTerm) return true;
+    const searchLower = previewSearchTerm.toLowerCase();
+    return (
+      (m.itemCode || '').toLowerCase().includes(searchLower) ||
+      (m.productName || '').toLowerCase().includes(searchLower) ||
+      (m.suggestedOdooProduct?.name || '').toLowerCase().includes(searchLower)
+    );
   });
 
   // Filtered products for mapping based on search
@@ -787,24 +872,24 @@ export default function OdooSettingsPage() {
                     <div>
                       <h4 className="font-medium text-purple-900 dark:text-purple-100">Auto-Map by Item Code</h4>
                       <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                        Automatically match products where Item Code matches Odoo's Internal Reference
+                        Preview and confirm product matches before applying them
                       </p>
                     </div>
                     <Button 
-                      onClick={() => autoMapMutation.mutate({ overwriteExisting: false })}
-                      disabled={autoMapMutation.isPending}
+                      onClick={() => previewMappingMutation.mutate()}
+                      disabled={previewMappingMutation.isPending}
                       className="bg-purple-600 hover:bg-purple-700"
                       data-testid="btn-auto-map"
                     >
-                      {autoMapMutation.isPending ? (
+                      {previewMappingMutation.isPending ? (
                         <>
                           <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Mapping...
+                          Loading Preview...
                         </>
                       ) : (
                         <>
                           <ArrowRightLeft className="h-4 w-4 mr-2" />
-                          Auto Map Products
+                          Preview Mappings
                         </>
                       )}
                     </Button>
@@ -1204,6 +1289,264 @@ export default function OdooSettingsPage() {
           <DialogFooter>
             <Button onClick={() => setAutoMapResult(null)} data-testid="btn-close-automap-results">
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Mappings Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={(open) => !open && setShowPreviewModal(false)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5" />
+              Review Product Mappings
+            </DialogTitle>
+            <DialogDescription>
+              Review the suggested matches below. Accept, modify, or skip each mapping before applying.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewData && (
+            <div className="flex-1 overflow-hidden flex flex-col space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold">{previewData.totalProducts}</div>
+                  <div className="text-xs text-muted-foreground">Total Products</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold">{previewData.alreadyMapped}</div>
+                  <div className="text-xs text-muted-foreground">Already Mapped</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-green-600">
+                    {proposedMappings.filter(m => m.accepted && m.suggestedOdooProduct).length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">To Map</div>
+                </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-3 text-center">
+                  <div className="text-xl font-bold text-yellow-600">
+                    {proposedMappings.filter(m => !m.suggestedOdooProduct).length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">No Match</div>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by item code or product name..."
+                  value={previewSearchTerm}
+                  onChange={(e) => setPreviewSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-preview-search"
+                />
+              </div>
+
+              {/* Mappings Table */}
+              <div className="flex-1 border rounded-lg overflow-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <input
+                          type="checkbox"
+                          checked={filteredPreviewMappings.filter(m => m.suggestedOdooProduct).every(m => m.accepted)}
+                          onChange={(e) => {
+                            const newValue = e.target.checked;
+                            setProposedMappings(prev => prev.map(m => 
+                              m.suggestedOdooProduct ? { ...m, accepted: newValue } : m
+                            ));
+                          }}
+                          className="rounded"
+                          data-testid="checkbox-select-all"
+                        />
+                      </TableHead>
+                      <TableHead>Item Code</TableHead>
+                      <TableHead>QuickQuotes Product</TableHead>
+                      <TableHead>Suggested Odoo Product</TableHead>
+                      <TableHead>Match</TableHead>
+                      <TableHead className="w-20">Change</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPreviewMappings.slice(0, 100).map((mapping: any) => (
+                      <TableRow 
+                        key={mapping.itemCode} 
+                        className={mapping.accepted ? 'bg-green-50/50 dark:bg-green-950/20' : ''}
+                        data-testid={`preview-row-${mapping.itemCode}`}
+                      >
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={mapping.accepted}
+                            disabled={!mapping.suggestedOdooProduct}
+                            onChange={() => toggleMappingAccepted(mapping.itemCode)}
+                            className="rounded"
+                            data-testid={`checkbox-${mapping.itemCode}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{mapping.itemCode}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">{mapping.productName}</div>
+                          <div className="text-xs text-muted-foreground">{mapping.productType}</div>
+                        </TableCell>
+                        <TableCell>
+                          {mapping.suggestedOdooProduct ? (
+                            <div>
+                              <div className="text-sm font-medium">{mapping.suggestedOdooProduct.name}</div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {mapping.suggestedOdooProduct.default_code}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic text-sm">No match found</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            mapping.matchType === 'exact' ? 'default' :
+                            mapping.matchType === 'case_insensitive' ? 'secondary' :
+                            mapping.matchType === 'manual' ? 'outline' :
+                            'destructive'
+                          } className="text-xs">
+                            {mapping.matchType === 'exact' ? 'Exact' :
+                             mapping.matchType === 'case_insensitive' ? 'Case Match' :
+                             mapping.matchType === 'manual' ? 'Manual' :
+                             'No Match'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingMapping(mapping);
+                              setEditOdooSearch(mapping.itemCode);
+                            }}
+                            data-testid={`btn-change-${mapping.itemCode}`}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {filteredPreviewMappings.length > 100 && (
+                  <div className="text-center py-2 text-sm text-muted-foreground border-t">
+                    Showing first 100 of {filteredPreviewMappings.length} mappings
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowPreviewModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const mappingsToApply = getAcceptedMappingsForApply();
+                if (mappingsToApply.length > 0) {
+                  applyMappingsMutation.mutate(mappingsToApply);
+                } else {
+                  toast({ title: "No mappings selected", description: "Please select at least one mapping to apply", variant: "destructive" });
+                }
+              }}
+              disabled={applyMappingsMutation.isPending || proposedMappings.filter(m => m.accepted && m.suggestedOdooProduct).length === 0}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="btn-apply-mappings"
+            >
+              {applyMappingsMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Apply {proposedMappings.filter(m => m.accepted && m.suggestedOdooProduct).length} Mappings
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Mapping Dialog */}
+      <Dialog open={!!editingMapping} onOpenChange={(open) => !open && setEditingMapping(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Change Odoo Product</DialogTitle>
+            <DialogDescription>
+              Search and select a different Odoo product for this mapping.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingMapping && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">QuickQuotes Product</div>
+                <div className="font-medium">{editingMapping.productName}</div>
+                <div className="text-sm text-muted-foreground font-mono">{editingMapping.itemCode}</div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Search Odoo Products</label>
+                <Input
+                  placeholder="Type to search..."
+                  value={editOdooSearch}
+                  onChange={(e) => setEditOdooSearch(e.target.value)}
+                  data-testid="input-edit-odoo-search"
+                />
+              </div>
+
+              <div className="border rounded-lg max-h-[250px] overflow-auto">
+                {editOdooProductsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                    Searching...
+                  </div>
+                ) : editOdooProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No products found
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {editOdooProducts.slice(0, 50).map((odooProduct: any) => (
+                      <div
+                        key={odooProduct.id}
+                        className="p-3 cursor-pointer hover:bg-muted transition-colors"
+                        onClick={() => updateMappingOdooProduct(editingMapping.itemCode, {
+                          id: odooProduct.id,
+                          name: odooProduct.name,
+                          default_code: odooProduct.default_code,
+                          list_price: odooProduct.list_price,
+                        })}
+                        data-testid={`edit-odoo-product-${odooProduct.id}`}
+                      >
+                        <div className="font-medium">{odooProduct.name}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          {odooProduct.default_code && (
+                            <span className="font-mono">{odooProduct.default_code}</span>
+                          )}
+                          <span>• ${odooProduct.list_price?.toFixed(2) || '0.00'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMapping(null)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

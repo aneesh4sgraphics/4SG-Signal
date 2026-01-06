@@ -9244,7 +9244,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auto-map products by matching itemCode to Odoo default_code
+  // Preview auto-mapping: returns proposed matches without creating them
+  app.post("/api/odoo/product-mappings/auto/preview", requireAdmin, async (req: any, res) => {
+    try {
+      // 1. Get all QuickQuotes products
+      const quickquotesProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        productName: productPricingMaster.productName,
+        productType: productPricingMaster.productType,
+      }).from(productPricingMaster);
+      
+      // 2. Get existing mappings
+      const existingMappings = await db.select().from(productOdooMappings);
+      const existingMappingsByItemCode = new Map(
+        existingMappings.map(m => [m.itemCode, m])
+      );
+      
+      // 3. Get all Odoo products (templates + variants) with default_code
+      let odooProducts: any[] = [];
+      try {
+        odooProducts = await odooClient.getAllProductsWithVariants();
+      } catch (err: any) {
+        return res.status(500).json({ 
+          error: "Failed to fetch Odoo products", 
+          details: err.message 
+        });
+      }
+      
+      // Build a map of default_code -> odoo product
+      const odooByCode = new Map<string, any>();
+      const odooByCodeLower = new Map<string, any>(); // For case-insensitive fallback
+      for (const odooProduct of odooProducts) {
+        if (odooProduct.default_code) {
+          const code = odooProduct.default_code.trim();
+          const codeLower = code.toLowerCase();
+          if (!odooByCode.has(code)) {
+            odooByCode.set(code, odooProduct);
+          }
+          if (!odooByCodeLower.has(codeLower)) {
+            odooByCodeLower.set(codeLower, odooProduct);
+          }
+        }
+      }
+      
+      // 4. Build proposed mappings
+      const proposedMappings: any[] = [];
+      
+      for (const product of quickquotesProducts) {
+        const itemCode = product.itemCode?.trim();
+        if (!itemCode) continue;
+        
+        // Check if already mapped
+        const existingMapping = existingMappingsByItemCode.get(itemCode);
+        if (existingMapping) continue; // Skip already mapped
+        
+        // Try exact match first
+        let odooProduct = odooByCode.get(itemCode);
+        let matchType = 'exact';
+        
+        // Fall back to case-insensitive match
+        if (!odooProduct) {
+          odooProduct = odooByCodeLower.get(itemCode.toLowerCase());
+          matchType = 'case_insensitive';
+        }
+        
+        proposedMappings.push({
+          itemCode,
+          productName: product.productName,
+          productType: product.productType,
+          suggestedOdooProduct: odooProduct ? {
+            id: odooProduct.id,
+            name: odooProduct.name,
+            default_code: odooProduct.default_code,
+            list_price: odooProduct.list_price,
+            is_variant: odooProduct.is_variant,
+          } : null,
+          matchType: odooProduct ? matchType : 'no_match',
+          accepted: !!odooProduct, // Pre-accept if there's a match
+        });
+      }
+      
+      res.json({
+        success: true,
+        totalProducts: quickquotesProducts.length,
+        totalOdooProducts: odooProducts.length,
+        alreadyMapped: existingMappings.length,
+        proposedMappings,
+      });
+    } catch (error: any) {
+      console.error("Error previewing auto-mapping:", error);
+      res.status(500).json({ error: error.message || "Failed to preview auto-mapping" });
+    }
+  });
+
+  // Apply confirmed mappings from preview
+  app.post("/api/odoo/product-mappings/auto/apply", requireAdmin, async (req: any, res) => {
+    try {
+      const { mappings } = req.body;
+      
+      if (!mappings || !Array.isArray(mappings)) {
+        return res.status(400).json({ error: "mappings array is required" });
+      }
+      
+      let created = 0;
+      let failed = 0;
+      const errors: string[] = [];
+      
+      for (const mapping of mappings) {
+        if (!mapping.itemCode || !mapping.odooProductId) {
+          failed++;
+          errors.push(`Invalid mapping for ${mapping.itemCode || 'unknown'}`);
+          continue;
+        }
+        
+        try {
+          // Check if mapping already exists
+          const [existing] = await db.select().from(productOdooMappings)
+            .where(eq(productOdooMappings.itemCode, mapping.itemCode))
+            .limit(1);
+          
+          if (existing) {
+            // Update existing
+            await db.update(productOdooMappings)
+              .set({
+                odooProductId: mapping.odooProductId,
+                odooDefaultCode: mapping.odooDefaultCode,
+                odooProductName: mapping.odooProductName,
+                syncStatus: 'pending',
+                updatedAt: new Date(),
+              })
+              .where(eq(productOdooMappings.id, existing.id));
+          } else {
+            // Create new
+            await db.insert(productOdooMappings).values({
+              itemCode: mapping.itemCode,
+              odooProductId: mapping.odooProductId,
+              odooDefaultCode: mapping.odooDefaultCode,
+              odooProductName: mapping.odooProductName,
+              syncStatus: 'pending',
+            });
+          }
+          created++;
+        } catch (err: any) {
+          failed++;
+          errors.push(`Failed to map ${mapping.itemCode}: ${err.message}`);
+        }
+      }
+      
+      res.json({
+        success: true,
+        created,
+        failed,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error: any) {
+      console.error("Error applying mappings:", error);
+      res.status(500).json({ error: error.message || "Failed to apply mappings" });
+    }
+  });
+
+  // Legacy auto-map endpoint (kept for backward compatibility)
   app.post("/api/odoo/product-mappings/auto", requireAdmin, async (req: any, res) => {
     try {
       const { overwriteExisting = false, dryRun = false } = req.body;
