@@ -17,11 +17,35 @@ import {
   Download,
   Search,
   Building2,
-  Eye
+  Eye,
+  ArrowRightLeft,
+  Plus,
+  Trash2,
+  Clock,
+  Check,
+  X,
+  AlertCircle,
+  Upload
 } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
+import type { ProductOdooMapping, OdooPriceSyncQueue } from "@shared/schema";
 
 export default function OdooSettingsPage() {
   const { toast } = useToast();
@@ -102,6 +126,116 @@ export default function OdooSettingsPage() {
     errors: string[];
     skippedPartners?: string[];
   } | null>(null);
+
+  // Product Mapping state
+  const [mappingSearchTerm, setMappingSearchTerm] = useState("");
+  const [mappingFilter, setMappingFilter] = useState<"all" | "mapped" | "unmapped">("all");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedOdooProduct, setSelectedOdooProduct] = useState<string>("");
+  const [odooProductSearch, setOdooProductSearch] = useState("");
+
+  // Query for QuickQuotes products with mapping status
+  const { data: productsForMapping = [], isLoading: mappingProductsLoading, refetch: refetchMappingProducts } = useQuery<any[]>({
+    queryKey: ['/api/odoo/products-for-mapping', mappingFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (mappingFilter === 'mapped') params.set('mappedOnly', 'true');
+      if (mappingFilter === 'unmapped') params.set('unmappedOnly', 'true');
+      const res = await fetch(`/api/odoo/products-for-mapping?${params.toString()}`);
+      return res.json();
+    },
+  });
+
+  // Query for all Odoo products (for mapping selection)
+  const { data: allOdooProducts = [], isLoading: allOdooProductsLoading } = useQuery<any[]>({
+    queryKey: ['/api/odoo/all-products', odooProductSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (odooProductSearch) params.set('search', odooProductSearch);
+      params.set('limit', '200');
+      const res = await fetch(`/api/odoo/all-products?${params.toString()}`);
+      return res.json();
+    },
+    enabled: !!selectedProduct,
+  });
+
+  // Query for price sync queue
+  const { data: priceSyncQueue = [], isLoading: queueLoading, refetch: refetchQueue } = useQuery<OdooPriceSyncQueue[]>({
+    queryKey: ['/api/odoo/price-sync-queue'],
+  });
+
+  // Create mapping mutation
+  const createMappingMutation = useMutation({
+    mutationFn: async (data: { itemCode: string; odooProductId: number; odooDefaultCode?: string; odooProductName?: string }) => {
+      const res = await apiRequest('POST', '/api/odoo/product-mappings', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/products-for-mapping'] });
+      setSelectedProduct(null);
+      setSelectedOdooProduct("");
+      toast({ title: "Mapping created", description: "Product has been linked to Odoo" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to create mapping", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Delete mapping mutation
+  const deleteMappingMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/odoo/product-mappings/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/products-for-mapping'] });
+      toast({ title: "Mapping removed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to remove mapping", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Approve price sync mutation
+  const approveSyncMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('POST', `/api/odoo/price-sync-queue/${id}/approve`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/price-sync-queue'] });
+      toast({ title: "Price synced to Odoo", description: "The price has been updated in Odoo" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to sync price", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Reject price sync mutation
+  const rejectSyncMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('POST', `/api/odoo/price-sync-queue/${id}/reject`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/price-sync-queue'] });
+      toast({ title: "Price sync rejected" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to reject", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Filtered products for mapping based on search
+  const filteredMappingProducts = productsForMapping.filter((p: any) => {
+    if (!mappingSearchTerm) return true;
+    const searchLower = mappingSearchTerm.toLowerCase();
+    return (
+      (p.itemCode || '').toLowerCase().includes(searchLower) ||
+      (p.productName || '').toLowerCase().includes(searchLower) ||
+      (p.productType || '').toLowerCase().includes(searchLower)
+    );
+  });
 
   const filteredPartners = odooPartners.filter((p: any) => {
     if (!partnerSearchTerm) return true;
@@ -231,6 +365,19 @@ export default function OdooSettingsPage() {
           <TabsTrigger value="orders" data-testid="tab-orders">
             <FileText className="h-4 w-4 mr-2" />
             Orders
+          </TabsTrigger>
+          <TabsTrigger value="product-mapping" data-testid="tab-product-mapping">
+            <ArrowRightLeft className="h-4 w-4 mr-2" />
+            Product Mapping
+          </TabsTrigger>
+          <TabsTrigger value="price-sync" data-testid="tab-price-sync">
+            <Upload className="h-4 w-4 mr-2" />
+            Price Sync Queue
+            {priceSyncQueue.length > 0 && (
+              <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {priceSyncQueue.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -588,7 +735,339 @@ export default function OdooSettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Product Mapping Tab */}
+        <TabsContent value="product-mapping">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5" />
+                Map QuickQuotes Products to Odoo
+              </CardTitle>
+              <CardDescription>
+                Link your QuickQuotes products to their corresponding Odoo products to enable price syncing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by item code, name, or type..."
+                      value={mappingSearchTerm}
+                      onChange={(e) => setMappingSearchTerm(e.target.value)}
+                      className="pl-10"
+                      data-testid="input-mapping-search"
+                    />
+                  </div>
+                  <Select value={mappingFilter} onValueChange={(v: any) => setMappingFilter(v)}>
+                    <SelectTrigger className="w-40" data-testid="select-mapping-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Products</SelectItem>
+                      <SelectItem value="mapped">Mapped Only</SelectItem>
+                      <SelectItem value="unmapped">Unmapped Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" onClick={() => refetchMappingProducts()}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  {filteredMappingProducts.filter((p: any) => p.isMapped).length} of {filteredMappingProducts.length} products mapped
+                </div>
+
+                <div className="border rounded-lg max-h-[500px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Code</TableHead>
+                        <TableHead>QuickQuotes Product</TableHead>
+                        <TableHead>Product Type</TableHead>
+                        <TableHead>Odoo Product</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mappingProductsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                            Loading products...
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredMappingProducts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No products found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredMappingProducts.slice(0, 100).map((product: any) => (
+                          <TableRow key={product.id} data-testid={`row-mapping-${product.itemCode}`}>
+                            <TableCell className="font-mono text-sm">{product.itemCode}</TableCell>
+                            <TableCell>{product.productName}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{product.productType}</TableCell>
+                            <TableCell>
+                              {product.mapping ? (
+                                <div className="text-sm">
+                                  <div className="font-medium">{product.mapping.odooProductName}</div>
+                                  <div className="text-muted-foreground font-mono">
+                                    {product.mapping.odooDefaultCode || `ID: ${product.mapping.odooProductId}`}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic">Not mapped</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {product.mapping ? (
+                                <Badge variant={
+                                  product.mapping.syncStatus === 'synced' ? 'default' :
+                                  product.mapping.syncStatus === 'error' ? 'destructive' :
+                                  'secondary'
+                                }>
+                                  {product.mapping.syncStatus}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">Unmapped</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {product.mapping ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteMappingMutation.mutate(product.mapping.id)}
+                                  disabled={deleteMappingMutation.isPending}
+                                  data-testid={`btn-unmap-${product.itemCode}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedProduct(product)}
+                                  data-testid={`btn-map-${product.itemCode}`}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Price Sync Queue Tab */}
+        <TabsContent value="price-sync">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Price Sync Queue
+              </CardTitle>
+              <CardDescription>
+                Review and approve price updates before they are pushed to Odoo.
+                All price changes require admin approval before syncing.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {priceSyncQueue.length} pending price updates
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => refetchQueue()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+
+                {queueLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    Loading queue...
+                  </div>
+                ) : priceSyncQueue.length === 0 ? (
+                  <div className="text-center py-12 border rounded-lg">
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <h4 className="font-medium">No pending price updates</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      All price changes have been processed
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item Code</TableHead>
+                          <TableHead>Price Tier</TableHead>
+                          <TableHead>Current Odoo Price</TableHead>
+                          <TableHead>New Price</TableHead>
+                          <TableHead>Requested By</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="w-[140px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {priceSyncQueue.map((item: OdooPriceSyncQueue) => (
+                          <TableRow key={item.id} data-testid={`row-sync-${item.id}`}>
+                            <TableCell className="font-mono text-sm">{item.itemCode}</TableCell>
+                            <TableCell>{item.priceTier}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              ${parseFloat(item.currentOdooPrice || '0').toFixed(2)}
+                            </TableCell>
+                            <TableCell className="font-medium text-green-600">
+                              ${parseFloat(item.newPrice).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-sm">{item.requestedBy}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.requestedAt ? format(new Date(item.requestedAt), 'MMM d, HH:mm') : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => approveSyncMutation.mutate(item.id)}
+                                  disabled={approveSyncMutation.isPending}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  data-testid={`btn-approve-${item.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => rejectSyncMutation.mutate(item.id)}
+                                  disabled={rejectSyncMutation.isPending}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  data-testid={`btn-reject-${item.id}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Product Mapping Dialog */}
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Map Product to Odoo</DialogTitle>
+            <DialogDescription>
+              Select the corresponding Odoo product for this QuickQuotes item.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProduct && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="text-sm text-muted-foreground">QuickQuotes Product</div>
+                <div className="font-medium">{selectedProduct.productName}</div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Item Code: <span className="font-mono">{selectedProduct.itemCode}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Search Odoo Products</label>
+                <Input
+                  placeholder="Type to search Odoo products..."
+                  value={odooProductSearch}
+                  onChange={(e) => setOdooProductSearch(e.target.value)}
+                  data-testid="input-odoo-product-search"
+                />
+              </div>
+
+              <div className="border rounded-lg max-h-[250px] overflow-auto">
+                {allOdooProductsLoading ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                    Loading Odoo products...
+                  </div>
+                ) : allOdooProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No Odoo products found
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {allOdooProducts.map((odooProduct: any) => (
+                      <div
+                        key={odooProduct.id}
+                        className={`p-3 cursor-pointer hover:bg-muted transition-colors ${
+                          selectedOdooProduct === String(odooProduct.id) ? 'bg-purple-50 border-l-4 border-purple-500' : ''
+                        }`}
+                        onClick={() => setSelectedOdooProduct(String(odooProduct.id))}
+                        data-testid={`odoo-product-${odooProduct.id}`}
+                      >
+                        <div className="font-medium">{odooProduct.name}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          {odooProduct.default_code && (
+                            <span className="font-mono">{odooProduct.default_code}</span>
+                          )}
+                          <span>• ${odooProduct.list_price?.toFixed(2) || '0.00'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedProduct(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedProduct && selectedOdooProduct) {
+                  const odooProduct = allOdooProducts.find((p: any) => String(p.id) === selectedOdooProduct);
+                  createMappingMutation.mutate({
+                    itemCode: selectedProduct.itemCode,
+                    odooProductId: parseInt(selectedOdooProduct),
+                    odooDefaultCode: odooProduct?.default_code,
+                    odooProductName: odooProduct?.name,
+                  });
+                }
+              }}
+              disabled={!selectedOdooProduct || createMappingMutation.isPending}
+              data-testid="btn-save-mapping"
+            >
+              {createMappingMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="h-4 w-4 mr-2" />
+              )}
+              Create Mapping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
