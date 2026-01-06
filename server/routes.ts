@@ -8971,6 +8971,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contactType = 'other';
           }
           
+          // Build full address from street and street2
+          let fullAddress = partner.street || '';
+          if (partner.street2) {
+            fullAddress = fullAddress ? `${fullAddress}, ${partner.street2}` : partner.street2;
+          }
+          
           // Create customer record
           const customerData = {
             id: crypto.randomUUID(),
@@ -8979,9 +8985,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             company,
             email: partner.email || null,
             phone: partner.phone || null,
-            address: partner.street || null,
+            address: fullAddress || null,
             city: partner.city || null,
-            state: partner.state_id?.[1] || null,
+            province: partner.state_id?.[1] || null, // Full state/province name
             zip: partner.zip || null,
             country: partner.country_id?.[1] || null,
             notes: partner.comment || null,
