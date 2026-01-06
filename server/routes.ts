@@ -9264,10 +9264,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. Get all Odoo products (templates + variants) with default_code
       let odooProducts: any[] = [];
       try {
+        console.log("[Preview Mapping] Fetching Odoo products...");
         odooProducts = await odooClient.getAllProductsWithVariants();
+        console.log(`[Preview Mapping] Fetched ${odooProducts.length} Odoo products`);
       } catch (err: any) {
+        console.error("[Preview Mapping] Failed to fetch Odoo products:", err.message);
         return res.status(500).json({ 
-          error: "Failed to fetch Odoo products", 
+          error: "Could not connect to Odoo. Please check your connection settings.", 
           details: err.message 
         });
       }
