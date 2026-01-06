@@ -77,6 +77,13 @@ export default function OdooSettingsPage() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
       queryClient.invalidateQueries({ queryKey: ['/api/odoo/partners'] });
+      setImportResult({
+        imported: data.imported,
+        skipped: data.skipped,
+        failed: data.failed,
+        errors: data.errors || [],
+        skippedPartners: data.skippedPartners || []
+      });
       toast({ 
         title: "Import complete",
         description: `Imported: ${data.imported}, Skipped: ${data.skipped}, Failed: ${data.failed}`
@@ -88,6 +95,13 @@ export default function OdooSettingsPage() {
   });
 
   const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    skipped: number;
+    failed: number;
+    errors: string[];
+    skippedPartners?: string[];
+  } | null>(null);
 
   const filteredPartners = odooPartners.filter((p: any) => {
     if (!partnerSearchTerm) return true;
@@ -290,14 +304,53 @@ export default function OdooSettingsPage() {
                       )}
                     </div>
 
-                    {importFromOdooMutation.isSuccess && (
-                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                        <div className="font-semibold text-green-800 dark:text-green-200">
-                          Import Completed Successfully
+                    {importResult && (
+                      <div className="space-y-3">
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                          <div className="font-semibold text-green-800 dark:text-green-200">
+                            Import Completed
+                          </div>
+                          <div className="text-sm text-green-700 dark:text-green-300 mt-2 grid grid-cols-3 gap-4">
+                            <div className="text-center p-2 bg-green-100 rounded">
+                              <div className="text-2xl font-bold text-green-700">{importResult.imported}</div>
+                              <div className="text-xs">Imported</div>
+                            </div>
+                            <div className="text-center p-2 bg-yellow-100 rounded">
+                              <div className="text-2xl font-bold text-yellow-700">{importResult.skipped}</div>
+                              <div className="text-xs">Skipped</div>
+                            </div>
+                            <div className="text-center p-2 bg-red-100 rounded">
+                              <div className="text-2xl font-bold text-red-700">{importResult.failed}</div>
+                              <div className="text-xs">Failed</div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-green-700 dark:text-green-300 mt-1">
-                          Your customers are now synced with Odoo partners.
-                        </div>
+                        
+                        {(importResult.skippedPartners && importResult.skippedPartners.length > 0) && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div className="font-semibold text-yellow-800 mb-2">
+                              Skipped Partners (No Name)
+                            </div>
+                            <div className="text-sm text-yellow-700 max-h-32 overflow-y-auto">
+                              {importResult.skippedPartners.map((p, i) => (
+                                <div key={i} className="py-1 border-b border-yellow-100 last:border-0">{p}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {(importResult.errors && importResult.errors.length > 0) && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div className="font-semibold text-red-800 mb-2">
+                              Failed Imports
+                            </div>
+                            <div className="text-sm text-red-700 max-h-48 overflow-y-auto font-mono">
+                              {importResult.errors.map((err, i) => (
+                                <div key={i} className="py-1 border-b border-red-100 last:border-0">{err}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

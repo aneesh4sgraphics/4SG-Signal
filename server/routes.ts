@@ -8917,7 +8917,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imported: 0,
         skipped: 0,
         failed: 0,
-        errors: [] as string[]
+        errors: [] as string[],
+        skippedPartners: [] as string[]
       };
       
       // Step 3: Create each partner as a customer
@@ -8926,6 +8927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Skip partners without a name
           if (!partner.name || partner.name.trim() === '') {
             results.skipped++;
+            results.skippedPartners.push(`Partner ID ${partner.id}: No name provided`);
             continue;
           }
           
