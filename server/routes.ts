@@ -8945,6 +8945,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             company = partner.parent_name || '';
           }
           
+          // Extract sales rep info from Odoo user_id field (format: [id, "Name"] or false)
+          let salesRepId: string | null = null;
+          let salesRepName: string | null = null;
+          if (partner.user_id && Array.isArray(partner.user_id) && partner.user_id.length >= 2) {
+            salesRepId = String(partner.user_id[0]);
+            salesRepName = partner.user_id[1] || null;
+          }
+          
           // Create customer record
           const customerData = {
             id: crypto.randomUUID(),
@@ -8960,6 +8968,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             country: partner.country_id?.[1] || null,
             notes: partner.comment || null,
             odooPartnerId: partner.id,
+            salesRepId,
+            salesRepName,
             accountState: 'prospect' as const,
             createdAt: new Date(),
           };
