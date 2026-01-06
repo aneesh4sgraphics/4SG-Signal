@@ -9263,10 +9263,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingMappings.map(m => [m.itemCode, m])
       );
       
-      // 3. Get all Odoo products with default_code
+      // 3. Get all Odoo products (templates + variants) with default_code
       let odooProducts: any[] = [];
       try {
-        odooProducts = await odooClient.getAllProducts({ limit: 5000 });
+        // Use getAllProductsWithVariants to get both templates and variants
+        // This ensures we capture all Item Codes, as they're often on variants in Odoo
+        odooProducts = await odooClient.getAllProductsWithVariants();
       } catch (err: any) {
         return res.status(500).json({ 
           error: "Failed to fetch Odoo products", 

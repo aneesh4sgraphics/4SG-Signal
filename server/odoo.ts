@@ -392,6 +392,85 @@ class OdooClient {
     return allProducts;
   }
 
+  // Get product variants (product.product) - these often have the actual internal reference codes
+  async getProductVariants(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<any[]> {
+    return this.searchRead('product.product', options.domain || [['active', '=', true]], [
+      'id', 'name', 'default_code', 'list_price', 'standard_price', 
+      'product_tmpl_id', 'active', 'barcode',
+    ], { limit: options.limit || 100, offset: options.offset || 0 });
+  }
+
+  // Get ALL product variants with pagination - this is where Item Codes usually live in Odoo
+  async getAllProductVariants(): Promise<any[]> {
+    const allVariants: any[] = [];
+    const batchSize = 500;
+    let offset = 0;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const batch = await this.getProductVariants({ limit: batchSize, offset });
+      allVariants.push(...batch);
+      
+      if (batch.length < batchSize) {
+        hasMore = false;
+      } else {
+        offset += batchSize;
+      }
+    }
+    
+    return allVariants;
+  }
+
+  // Get combined products: templates + variants, prioritizing variant default_code
+  async getAllProductsWithVariants(): Promise<any[]> {
+    // Fetch both templates and variants
+    const [templates, variants] = await Promise.all([
+      this.getAllProducts(),
+      this.getAllProductVariants(),
+    ]);
+    
+    // Build a map of template ID to template for quick lookup
+    const templateMap = new Map(templates.map(t => [t.id, t]));
+    
+    // Combine: for each variant, use the variant's default_code if present
+    // Otherwise fall back to template's default_code
+    const combined: any[] = [];
+    const seenCodes = new Set<string>();
+    
+    // First, add all variants with their codes
+    for (const variant of variants) {
+      const code = variant.default_code?.trim();
+      if (code && !seenCodes.has(code)) {
+        combined.push({
+          id: variant.id,
+          name: variant.name,
+          default_code: code,
+          list_price: variant.list_price,
+          product_tmpl_id: variant.product_tmpl_id?.[0],
+          is_variant: true,
+        });
+        seenCodes.add(code);
+      }
+    }
+    
+    // Then add templates that have codes not already covered by variants
+    for (const template of templates) {
+      const code = template.default_code?.trim();
+      if (code && !seenCodes.has(code)) {
+        combined.push({
+          id: template.id,
+          name: template.name,
+          default_code: code,
+          list_price: template.list_price,
+          is_variant: false,
+        });
+        seenCodes.add(code);
+      }
+    }
+    
+    return combined;
+  }
+
   async getPricelists(options: { limit?: number; offset?: number } = {}): Promise<OdooPricelist[]> {
     return this.searchRead('product.pricelist', [['active', '=', true]], [
       'id', 'name', 'active', 'currency_id', 'item_ids',
