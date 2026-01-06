@@ -432,7 +432,9 @@ class OdooClient {
     
     // Add all variants with their codes
     for (const variant of variants) {
-      const code = variant.default_code?.trim();
+      // Odoo can return false instead of null for empty fields
+      const rawCode = variant.default_code;
+      const code = (typeof rawCode === 'string') ? rawCode.trim() : null;
       if (code && !seenCodes.has(code)) {
         combined.push({
           id: variant.id,
@@ -451,7 +453,9 @@ class OdooClient {
     if (combined.length < 50) {
       const templates = await this.getAllProducts();
       for (const template of templates) {
-        const code = template.default_code?.trim();
+        // Odoo can return false instead of null for empty fields
+        const rawCode = template.default_code;
+        const code = (typeof rawCode === 'string') ? rawCode.trim() : null;
         if (code && !seenCodes.has(code)) {
           combined.push({
             id: template.id,
