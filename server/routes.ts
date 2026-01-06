@@ -8971,6 +8971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.skipped} skipped, ${results.failed} failed`);
       
+      // Clear customer cache to ensure fresh data is returned
+      setCachedData("customers", null);
+      
       res.json({
         success: true,
         message: `Imported ${results.imported} partners from Odoo`,
