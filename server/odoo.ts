@@ -90,7 +90,7 @@ class OdooClient {
 
   constructor() {
     this.axiosInstance = axios.create({
-      timeout: 30000,
+      timeout: 120000, // 2 minutes timeout for large data fetches
       headers: {
         'Content-Type': 'application/json',
       },
@@ -422,22 +422,15 @@ class OdooClient {
   }
 
   // Get combined products: templates + variants, prioritizing variant default_code
+  // Optimized: fetch variants first (where Item Codes usually are), then templates
   async getAllProductsWithVariants(): Promise<any[]> {
-    // Fetch both templates and variants
-    const [templates, variants] = await Promise.all([
-      this.getAllProducts(),
-      this.getAllProductVariants(),
-    ]);
+    // First, try to get all variants - this is usually where Item Codes are stored
+    const variants = await this.getAllProductVariants();
     
-    // Build a map of template ID to template for quick lookup
-    const templateMap = new Map(templates.map(t => [t.id, t]));
-    
-    // Combine: for each variant, use the variant's default_code if present
-    // Otherwise fall back to template's default_code
     const combined: any[] = [];
     const seenCodes = new Set<string>();
     
-    // First, add all variants with their codes
+    // Add all variants with their codes
     for (const variant of variants) {
       const code = variant.default_code?.trim();
       if (code && !seenCodes.has(code)) {
@@ -453,18 +446,22 @@ class OdooClient {
       }
     }
     
-    // Then add templates that have codes not already covered by variants
-    for (const template of templates) {
-      const code = template.default_code?.trim();
-      if (code && !seenCodes.has(code)) {
-        combined.push({
-          id: template.id,
-          name: template.name,
-          default_code: code,
-          list_price: template.list_price,
-          is_variant: false,
-        });
-        seenCodes.add(code);
+    // If we found enough variants with codes, skip templates for speed
+    // Only fetch templates if we didn't find many variant codes
+    if (combined.length < 50) {
+      const templates = await this.getAllProducts();
+      for (const template of templates) {
+        const code = template.default_code?.trim();
+        if (code && !seenCodes.has(code)) {
+          combined.push({
+            id: template.id,
+            name: template.name,
+            default_code: code,
+            list_price: template.list_price,
+            is_variant: false,
+          });
+          seenCodes.add(code);
+        }
       }
     }
     
