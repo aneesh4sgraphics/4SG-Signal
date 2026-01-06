@@ -133,6 +133,18 @@ export default function OdooSettingsPage() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedOdooProduct, setSelectedOdooProduct] = useState<string>("");
   const [odooProductSearch, setOdooProductSearch] = useState("");
+  const [autoMapResult, setAutoMapResult] = useState<{
+    success: boolean;
+    totalProducts: number;
+    totalOdooProducts: number;
+    matched: number;
+    created: number;
+    skipped: number;
+    noMatchCount: number;
+    conflictCount: number;
+    noMatch: string[];
+    conflicts: string[];
+  } | null>(null);
 
   // Query for QuickQuotes products with mapping status
   const { data: productsForMapping = [], isLoading: mappingProductsLoading, refetch: refetchMappingProducts } = useQuery<any[]>({
@@ -223,6 +235,25 @@ export default function OdooSettingsPage() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to reject", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Auto-map products mutation
+  const autoMapMutation = useMutation({
+    mutationFn: async (options: { overwriteExisting?: boolean }) => {
+      const res = await apiRequest('POST', '/api/odoo/product-mappings/auto', options);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/products-for-mapping'] });
+      setAutoMapResult(data);
+      toast({ 
+        title: "Auto-mapping complete",
+        description: `${data.created} products mapped successfully`
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Auto-mapping failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -750,6 +781,36 @@ export default function OdooSettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* Auto-Map Banner */}
+                <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-purple-900 dark:text-purple-100">Auto-Map by Item Code</h4>
+                      <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                        Automatically match products where Item Code matches Odoo's Internal Reference
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => autoMapMutation.mutate({ overwriteExisting: false })}
+                      disabled={autoMapMutation.isPending}
+                      className="bg-purple-600 hover:bg-purple-700"
+                      data-testid="btn-auto-map"
+                    >
+                      {autoMapMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Mapping...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRightLeft className="h-4 w-4 mr-2" />
+                          Auto Map Products
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1064,6 +1125,85 @@ export default function OdooSettingsPage() {
                 <ArrowRightLeft className="h-4 w-4 mr-2" />
               )}
               Create Mapping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auto-Map Results Dialog */}
+      <Dialog open={!!autoMapResult} onOpenChange={(open) => !open && setAutoMapResult(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Auto-Mapping Complete
+            </DialogTitle>
+            <DialogDescription>
+              Products have been matched by Item Code to Odoo's Internal Reference.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {autoMapResult && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-green-600">{autoMapResult.created}</div>
+                  <div className="text-sm text-green-700 dark:text-green-300">Products Mapped</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-950 rounded-lg p-4 text-center">
+                  <div className="text-3xl font-bold text-gray-600">{autoMapResult.skipped}</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">Already Mapped</div>
+                </div>
+              </div>
+
+              <div className="text-sm space-y-2">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Total QuickQuotes Products</span>
+                  <span className="font-medium">{autoMapResult.totalProducts}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Total Odoo Products</span>
+                  <span className="font-medium">{autoMapResult.totalOdooProducts}</span>
+                </div>
+                {autoMapResult.noMatchCount > 0 && (
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4 text-yellow-500" />
+                      No Odoo Match Found
+                    </span>
+                    <span className="font-medium text-yellow-600">{autoMapResult.noMatchCount}</span>
+                  </div>
+                )}
+                {autoMapResult.conflictCount > 0 && (
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      Conflicts (Duplicate Codes)
+                    </span>
+                    <span className="font-medium text-red-600">{autoMapResult.conflictCount}</span>
+                  </div>
+                )}
+              </div>
+
+              {autoMapResult.noMatch.length > 0 && (
+                <div className="border rounded-lg p-3">
+                  <div className="text-sm font-medium mb-2">Sample unmatched Item Codes:</div>
+                  <div className="text-xs text-muted-foreground font-mono space-y-1 max-h-24 overflow-auto">
+                    {autoMapResult.noMatch.slice(0, 10).map((code, i) => (
+                      <div key={i}>{code}</div>
+                    ))}
+                    {autoMapResult.noMatch.length > 10 && (
+                      <div className="text-muted-foreground">...and {autoMapResult.noMatch.length - 10} more</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setAutoMapResult(null)} data-testid="btn-close-automap-results">
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -9244,6 +9244,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto-map products by matching itemCode to Odoo default_code
+  app.post("/api/odoo/product-mappings/auto", requireAdmin, async (req: any, res) => {
+    try {
+      const { overwriteExisting = false, dryRun = false } = req.body;
+      
+      // 1. Get all QuickQuotes products
+      const quickquotesProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        productName: productPricingMaster.productName,
+        productType: productPricingMaster.productType,
+      }).from(productPricingMaster);
+      
+      // 2. Get existing mappings
+      const existingMappings = await db.select().from(productOdooMappings);
+      const existingMappingsByItemCode = new Map(
+        existingMappings.map(m => [m.itemCode, m])
+      );
+      
+      // 3. Get all Odoo products with default_code
+      let odooProducts: any[] = [];
+      try {
+        odooProducts = await odooClient.getAllProducts({ limit: 5000 });
+      } catch (err: any) {
+        return res.status(500).json({ 
+          error: "Failed to fetch Odoo products", 
+          details: err.message 
+        });
+      }
+      
+      // Build a map of default_code -> odoo product (only those with codes)
+      const odooByCode = new Map<string, any>();
+      const duplicateCodes: string[] = [];
+      for (const odooProduct of odooProducts) {
+        if (odooProduct.default_code) {
+          const code = odooProduct.default_code.trim();
+          if (odooByCode.has(code)) {
+            duplicateCodes.push(code);
+          } else {
+            odooByCode.set(code, odooProduct);
+          }
+        }
+      }
+      
+      // 4. Match and create mappings
+      const results = {
+        matched: 0,
+        created: 0,
+        skipped: 0,
+        conflicts: [] as string[],
+        noMatch: [] as string[],
+        newMappings: [] as any[],
+      };
+      
+      for (const product of quickquotesProducts) {
+        const itemCode = product.itemCode?.trim();
+        if (!itemCode) continue;
+        
+        // Check if already mapped
+        const existingMapping = existingMappingsByItemCode.get(itemCode);
+        if (existingMapping && !overwriteExisting) {
+          results.skipped++;
+          continue;
+        }
+        
+        // Look for matching Odoo product
+        const odooProduct = odooByCode.get(itemCode);
+        if (!odooProduct) {
+          results.noMatch.push(itemCode);
+          continue;
+        }
+        
+        // Check for duplicate Odoo codes
+        if (duplicateCodes.includes(itemCode)) {
+          results.conflicts.push(`${itemCode} (multiple Odoo products with same code)`);
+          continue;
+        }
+        
+        results.matched++;
+        
+        if (!dryRun) {
+          if (existingMapping) {
+            // Update existing mapping
+            await db.update(productOdooMappings)
+              .set({
+                odooProductId: odooProduct.id,
+                odooDefaultCode: odooProduct.default_code,
+                odooProductName: odooProduct.name,
+                syncStatus: 'pending',
+                updatedAt: new Date(),
+              })
+              .where(eq(productOdooMappings.id, existingMapping.id));
+          } else {
+            // Create new mapping
+            const [newMapping] = await db.insert(productOdooMappings).values({
+              itemCode,
+              odooProductId: odooProduct.id,
+              odooDefaultCode: odooProduct.default_code,
+              odooProductName: odooProduct.name,
+              syncStatus: 'pending',
+            }).returning();
+            results.newMappings.push(newMapping);
+          }
+          results.created++;
+        }
+      }
+      
+      res.json({
+        success: true,
+        dryRun,
+        totalProducts: quickquotesProducts.length,
+        totalOdooProducts: odooProducts.length,
+        matched: results.matched,
+        created: results.created,
+        skipped: results.skipped,
+        conflicts: results.conflicts.slice(0, 20), // Limit to first 20
+        noMatch: results.noMatch.slice(0, 50), // Limit to first 50
+        noMatchCount: results.noMatch.length,
+        conflictCount: results.conflicts.length,
+      });
+    } catch (error: any) {
+      console.error("Error auto-mapping products:", error);
+      res.status(500).json({ error: error.message || "Failed to auto-map products" });
+    }
+  });
+
   // ========================================
   // ODOO PRICE SYNC QUEUE APIs
   // ========================================
