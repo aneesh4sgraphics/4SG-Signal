@@ -1022,17 +1022,14 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <Trash2 className="h-3 w-3" />
               </Button>
             )}
+            {/* Pricing Tier Tag */}
+            {customer.pricingTier && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white ml-2">
+                {customer.pricingTier}
+              </span>
+            )}
           </div>
         </div>
-        
-        {/* Pricing Tier Tag */}
-        {customer.pricingTier && (
-          <div className="mt-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-600 text-white">
-              {customer.pricingTier}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Compact Overview Bar */}
