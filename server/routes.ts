@@ -9536,6 +9536,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // ODOO MISSING PRODUCTS IMPORT APIs
+  // ========================================
+
+  // Get Odoo products that are NOT in local productPricingMaster
+  app.get("/api/odoo/missing-products", requireAdmin, async (req: any, res) => {
+    try {
+      const search = (req.query.search as string || '').toLowerCase();
+      
+      // Get all local item codes
+      const localProducts = await db.select({
+        itemCode: productPricingMaster.itemCode,
+      }).from(productPricingMaster);
+      const localItemCodes = new Set(localProducts.map(p => p.itemCode?.toLowerCase()));
+      
+      // Get all Odoo products
+      console.log("[Missing Products] Fetching Odoo products...");
+      const odooProducts = await odooClient.getAllProductsWithVariants();
+      console.log(`[Missing Products] Found ${odooProducts.length} Odoo products`);
+      
+      // Filter to products NOT in local app (by default_code)
+      const missingProducts = odooProducts.filter(p => {
+        if (!p.default_code) return false;
+        const code = p.default_code.toLowerCase();
+        const notInLocal = !localItemCodes.has(code);
+        if (!notInLocal) return false;
+        
+        // Apply search filter
+        if (search) {
+          return (
+            code.includes(search) ||
+            (p.name || '').toLowerCase().includes(search)
+          );
+        }
+        return true;
+      });
+      
+      res.json({
+        success: true,
+        totalOdooProducts: odooProducts.length,
+        totalLocalProducts: localProducts.length,
+        missingCount: missingProducts.length,
+        missingProducts: missingProducts.slice(0, 200), // Limit to 200 for UI performance
+      });
+    } catch (error: any) {
+      console.error("Error fetching missing products:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch missing products" });
+    }
+  });
+
+  // Import selected Odoo products into local productPricingMaster and auto-map
+  app.post("/api/odoo/import-products", requireAdmin, async (req: any, res) => {
+    try {
+      const { products } = req.body;
+      
+      if (!products || !Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ error: "products array is required" });
+      }
+      
+      let imported = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+      
+      for (const product of products) {
+        if (!product.default_code || !product.name) {
+          skipped++;
+          continue;
+        }
+        
+        const itemCode = product.default_code.trim();
+        
+        try {
+          // Check if product already exists
+          const [existing] = await db.select().from(productPricingMaster)
+            .where(eq(productPricingMaster.itemCode, itemCode))
+            .limit(1);
+          
+          if (existing) {
+            skipped++;
+            continue;
+          }
+          
+          // Create local product entry with default values
+          await db.insert(productPricingMaster).values({
+            itemCode,
+            productName: product.name,
+            productType: product.categ_name || 'Imported from Odoo',
+            size: 'Standard',
+            totalSqm: '0',
+            minQuantity: 1,
+            retailPrice: product.list_price?.toString() || '0',
+            dealerPrice: product.list_price?.toString() || '0',
+            uploadBatch: 'odoo-import-' + new Date().toISOString().split('T')[0],
+          });
+          
+          // Auto-create mapping
+          await db.insert(productOdooMappings).values({
+            itemCode,
+            odooProductId: product.id,
+            odooDefaultCode: itemCode,
+            odooProductName: product.name,
+            syncStatus: 'mapped',
+          }).onConflictDoNothing();
+          
+          imported++;
+        } catch (err: any) {
+          errors.push(`${itemCode}: ${err.message}`);
+        }
+      }
+      
+      res.json({
+        success: true,
+        imported,
+        skipped,
+        errors: errors.slice(0, 10),
+      });
+    } catch (error: any) {
+      console.error("Error importing products:", error);
+      res.status(500).json({ error: error.message || "Failed to import products" });
+    }
+  });
+
+  // ========================================
   // ODOO PRICE SYNC QUEUE APIs
   // ========================================
 

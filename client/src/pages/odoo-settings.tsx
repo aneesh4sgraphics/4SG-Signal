@@ -159,6 +159,49 @@ export default function OdooSettingsPage() {
   const [editingMapping, setEditingMapping] = useState<any>(null);
   const [editOdooSearch, setEditOdooSearch] = useState("");
 
+  // Import Products state
+  const [importProductSearch, setImportProductSearch] = useState("");
+  const [selectedImportProducts, setSelectedImportProducts] = useState<Set<number>>(new Set());
+
+  // Query for missing Odoo products (not in local app)
+  const { data: missingProductsData, isLoading: missingProductsLoading, refetch: refetchMissingProducts } = useQuery<{
+    success: boolean;
+    totalOdooProducts: number;
+    totalLocalProducts: number;
+    missingCount: number;
+    missingProducts: any[];
+  }>({
+    queryKey: ['/api/odoo/missing-products', importProductSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (importProductSearch) params.set('search', importProductSearch);
+      const res = await fetch(`/api/odoo/missing-products?${params.toString()}`);
+      return res.json();
+    },
+    enabled: false, // Only fetch when tab is active
+  });
+
+  // Import products mutation
+  const importProductsMutation = useMutation({
+    mutationFn: async (products: any[]) => {
+      const res = await apiRequest('POST', '/api/odoo/import-products', { products });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/products-for-mapping'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/missing-products'] });
+      setSelectedImportProducts(new Set());
+      toast({ 
+        title: "Products imported",
+        description: `${data.imported} products added successfully`
+      });
+      refetchMissingProducts();
+    },
+    onError: (error: any) => {
+      toast({ title: "Import failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   // Query for QuickQuotes products with mapping status
   const { data: productsForMapping = [], isLoading: mappingProductsLoading, refetch: refetchMappingProducts } = useQuery<any[]>({
     queryKey: ['/api/odoo/products-for-mapping', mappingFilter],
@@ -494,6 +537,10 @@ export default function OdooSettingsPage() {
                 {priceSyncQueue.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="import-products" data-testid="tab-import-products">
+            <Plus className="h-4 w-4 mr-2" />
+            Import Products
           </TabsTrigger>
         </TabsList>
 
@@ -1112,6 +1159,188 @@ export default function OdooSettingsPage() {
                       </TableBody>
                     </Table>
                   </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="import-products">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-5 w-5" />
+                    Import Products from Odoo
+                  </CardTitle>
+                  <CardDescription>
+                    Add Odoo products that are missing from your local Price List & QuickQuotes
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => refetchMissingProducts()}
+                  disabled={missingProductsLoading}
+                  variant="outline"
+                  data-testid="btn-load-missing-products"
+                >
+                  {missingProductsLoading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Load Missing Products
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {!missingProductsData ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Click "Load Missing Products" to find Odoo products not in your local app</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                        <div className="text-xl font-bold">{missingProductsData.totalLocalProducts}</div>
+                        <div className="text-xs text-muted-foreground">Local Products</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                        <div className="text-xl font-bold">{missingProductsData.totalOdooProducts}</div>
+                        <div className="text-xs text-muted-foreground">Odoo Products</div>
+                      </div>
+                      <div className="bg-yellow-50 dark:bg-yellow-900 rounded-lg p-3 text-center">
+                        <div className="text-xl font-bold text-yellow-600">{missingProductsData.missingCount}</div>
+                        <div className="text-xs text-muted-foreground">Missing from Local</div>
+                      </div>
+                    </div>
+
+                    {/* Search and Actions */}
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by item code or name..."
+                          value={importProductSearch}
+                          onChange={(e) => setImportProductSearch(e.target.value)}
+                          className="pl-10"
+                          data-testid="input-import-product-search"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          const productsToImport = missingProductsData.missingProducts.filter(p => selectedImportProducts.has(p.id));
+                          if (productsToImport.length > 0) {
+                            importProductsMutation.mutate(productsToImport);
+                          }
+                        }}
+                        disabled={importProductsMutation.isPending || selectedImportProducts.size === 0}
+                        className="bg-green-600 hover:bg-green-700"
+                        data-testid="btn-import-selected"
+                      >
+                        {importProductsMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Import Selected ({selectedImportProducts.size})
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Products Table */}
+                    <div className="border rounded-lg max-h-[400px] overflow-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background">
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  missingProductsData.missingProducts.length > 0 &&
+                                  missingProductsData.missingProducts.every(p => selectedImportProducts.has(p.id))
+                                }
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedImportProducts(new Set(missingProductsData.missingProducts.map(p => p.id)));
+                                  } else {
+                                    setSelectedImportProducts(new Set());
+                                  }
+                                }}
+                                className="rounded"
+                                data-testid="checkbox-select-all-import"
+                              />
+                            </TableHead>
+                            <TableHead>Item Code</TableHead>
+                            <TableHead>Product Name</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Type</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {missingProductsData.missingProducts
+                            .filter(p => {
+                              if (!importProductSearch) return true;
+                              const search = importProductSearch.toLowerCase();
+                              return (
+                                (p.default_code || '').toLowerCase().includes(search) ||
+                                (p.name || '').toLowerCase().includes(search)
+                              );
+                            })
+                            .map((product: any) => (
+                            <TableRow 
+                              key={product.id}
+                              className={selectedImportProducts.has(product.id) ? 'bg-green-50/50 dark:bg-green-950/20' : ''}
+                              data-testid={`import-row-${product.id}`}
+                            >
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedImportProducts.has(product.id)}
+                                  onChange={(e) => {
+                                    const newSet = new Set(selectedImportProducts);
+                                    if (e.target.checked) {
+                                      newSet.add(product.id);
+                                    } else {
+                                      newSet.delete(product.id);
+                                    }
+                                    setSelectedImportProducts(newSet);
+                                  }}
+                                  className="rounded"
+                                  data-testid={`checkbox-import-${product.id}`}
+                                />
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{product.default_code}</TableCell>
+                              <TableCell>{product.name}</TableCell>
+                              <TableCell>${product.list_price?.toFixed(2) || '0.00'}</TableCell>
+                              <TableCell>
+                                <Badge variant={product.is_variant ? 'secondary' : 'outline'}>
+                                  {product.is_variant ? 'Variant' : 'Template'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {missingProductsData.missingProducts.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          All Odoo products are already in your local app!
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </CardContent>
