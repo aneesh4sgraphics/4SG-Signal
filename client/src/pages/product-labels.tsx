@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -41,6 +42,7 @@ interface PalletLabelData {
   totalSheets: string;
   labelFormat: PalletLabelFormat;
   copies: number;
+  textScale: number;
 }
 
 const PRINT_TYPES = [
@@ -76,7 +78,8 @@ const defaultPalletLabel: PalletLabelData = {
   quantityInBoxes: "",
   totalSheets: "",
   labelFormat: "thermal4x6",
-  copies: 1
+  copies: 1,
+  textScale: 100
 };
 
 const labelFormatConfig: Record<LabelFormat, { width: string; height: string; name: string }> = {
@@ -613,6 +616,25 @@ export default function ProductLabels() {
                         data-testid="input-pallet-copies"
                       />
                     </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Text Size</Label>
+                        <span className="text-sm font-medium bg-gray-100 px-2 py-0.5 rounded">{palletData.textScale}%</span>
+                      </div>
+                      <Slider
+                        value={[palletData.textScale]}
+                        onValueChange={(value) => setPalletData({ ...palletData, textScale: value[0] })}
+                        min={50}
+                        max={150}
+                        step={5}
+                        data-testid="slider-text-scale"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Smaller</span>
+                        <span>Larger</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -730,6 +752,11 @@ function ProductLabelPreview({ data }: { data: ProductLabelData }) {
 function PalletLabelPreview({ data }: { data: PalletLabelData }) {
   const config = palletFormatConfig[data.labelFormat];
   const is4x8 = data.labelFormat === "thermal4x8";
+  const scale = (data.textScale || 100) / 100;
+  
+  const baseSizes = is4x8 
+    ? { line1: 36, line2: 24, line3: 20, line4: 16, line5: 18 }
+    : { line1: 30, line2: 20, line3: 18, line4: 14, line5: 16 };
   
   return (
     <div 
@@ -737,25 +764,40 @@ function PalletLabelPreview({ data }: { data: PalletLabelData }) {
       style={{ width: config.width, height: config.height, boxSizing: 'border-box' }}
     >
       <div className="space-y-2 text-center">
-        <div className={`font-black uppercase leading-tight ${is4x8 ? 'text-4xl' : 'text-3xl'}`}>
+        <div 
+          className="font-black uppercase leading-tight"
+          style={{ fontSize: `${baseSizes.line1 * scale}px` }}
+        >
           {data.productName || "PRODUCT NAME"}
         </div>
         
-        <div className={`font-semibold truncate ${is4x8 ? 'text-2xl' : 'text-xl'}`}>
+        <div 
+          className="font-semibold truncate"
+          style={{ fontSize: `${baseSizes.line2 * scale}px` }}
+        >
           {data.productDetail || " "}
         </div>
         
-        <div className={`font-mono font-bold ${is4x8 ? 'text-xl' : 'text-lg'}`}>
+        <div 
+          className="font-mono font-bold"
+          style={{ fontSize: `${baseSizes.line3 * scale}px` }}
+        >
           {data.itemCode || "ITEM-CODE"}
         </div>
         
         {data.batchCode && (
-          <div className={`font-medium ${is4x8 ? 'text-base' : 'text-sm'}`}>
+          <div 
+            className="font-medium"
+            style={{ fontSize: `${baseSizes.line4 * scale}px` }}
+          >
             Batch: {data.batchCode}
           </div>
         )}
         
-        <div className={`flex justify-center gap-6 ${is4x8 ? 'text-lg' : 'text-base'}`}>
+        <div 
+          className="flex justify-center gap-6"
+          style={{ fontSize: `${baseSizes.line5 * scale}px` }}
+        >
           <span><span className="font-semibold">Boxes:</span> {data.quantityInBoxes || "—"}</span>
           <span><span className="font-semibold">Sheets:</span> {data.totalSheets || "—"}</span>
         </div>
