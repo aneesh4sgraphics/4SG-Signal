@@ -1647,8 +1647,8 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                         minWidth: 120,
                         align: 'left' 
                       },
-                      // Only show $/m² column for admin users
-                      ...((user as any)?.role === 'admin' ? [{ 
+                      // Only show $/m² column for admin and manager users
+                      ...(['admin', 'manager'].includes((user as any)?.role) ? [{ 
                         key: 'pricePerSqM', 
                         title: '$/m²', 
                         weight: 1,
