@@ -600,7 +600,10 @@ export default function QuoteCalculator() {
 
     setIsPDFGenerating(true);
     
-    const totalAmount = quoteItems.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = quoteItems.reduce((sum, item) => sum + item.total, 0);
+    const enabledCharges = additionalCharges.filter(c => c.enabled && c.amount > 0);
+    const chargesTotal = enabledCharges.reduce((sum, c) => sum + c.amount, 0);
+    const grandTotal = subtotal + chargesTotal;
     const itemsToUse = orderedQuoteItems.length > 0 ? orderedQuoteItems : quoteItems;
     const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
     
@@ -626,7 +629,11 @@ export default function QuoteCalculator() {
             customerName,
             customerEmail: selectedCustomer?.email || null,
             quoteItems: itemsToUse,
-            totalAmount
+            totalAmount: grandTotal,
+            additionalCharges: enabledCharges.map(c => ({
+              label: c.label,
+              amount: c.amount
+            }))
           })
         });
         

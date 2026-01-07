@@ -22,11 +22,17 @@ interface QuoteItem {
   sortOrder?: number;
 }
 
+interface AdditionalCharge {
+  label: string;
+  amount: number;
+}
+
 interface PDFGenerationRequest {
   customerName: string;
   quoteItems: QuoteItem[];
   quoteNumber: string;
   totalAmount: number;
+  additionalCharges?: AdditionalCharge[];
 }
 
 const companyDetails = {
@@ -177,9 +183,14 @@ function getCategoryDisplayName(productType: string): string {
 }
 
 async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
-  const { customerName, quoteNumber, quoteItems, totalAmount } = data;
+  const { customerName, quoteNumber, quoteItems, totalAmount, additionalCharges = [] } = data;
   const logo = await getLogoBase64FromURL();
   const date = new Date().toLocaleDateString();
+  
+  // Calculate subtotal from quote items
+  const subtotal = quoteItems.reduce((sum, item) => sum + (item.minOrderQty * item.pricePerSheet), 0);
+  const chargesTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
+  const hasCharges = additionalCharges.length > 0 && chargesTotal > 0;
 
   // Group by productType
   const grouped = quoteItems.reduce(
@@ -316,7 +327,19 @@ async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
 
         ${tables}
 
+        ${hasCharges ? `
+        <div style="text-align: right; margin-top: 24px; font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+          <div style="font-size: 14px; color: #555; margin-bottom: 8px;">Subtotal: ${numberToWords(subtotal)}</div>
+          ${additionalCharges.map(c => `
+            <div style="font-size: 14px; color: #555; margin-bottom: 8px;">${c.label}: ${numberToWords(c.amount)}</div>
+          `).join('')}
+          <div style="font-size: 16px; font-weight: 700; border-top: 2px solid #333; padding-top: 8px; margin-top: 8px;">
+            Total Amount: ${numberToWords(totalAmount)}
+          </div>
+        </div>
+        ` : `
         <div class="total">Total Amount: ${numberToWords(totalAmount)}</div>
+        `}
 
         <div class="footer">
           <p><strong>Payment Instructions</strong></p>

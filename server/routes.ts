@@ -3040,7 +3040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('Request body keys:', Object.keys(req.body || {}));
     
     try {
-      const { customerName, customerEmail, quoteItems, sentVia } = req.body;
+      const { customerName, customerEmail, quoteItems, sentVia, additionalCharges = [] } = req.body;
       
       if (!customerName || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
         return res.status(400).json({ error: "Customer name and quote items are required" });
@@ -3056,8 +3056,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quoteNum = Math.floor(10000 + Math.random() * 90000);
       const finalQuoteNumber = `S0${quoteNum}`;
       
-      // Calculate totals (no tax)
-      const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      // Calculate totals (subtotal + additional charges)
+      const subtotal = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const chargesTotal = (additionalCharges as any[]).reduce((sum: number, c: any) => sum + (c.amount || 0), 0);
+      const totalAmount = subtotal + chargesTotal;
+      const hasCharges = additionalCharges.length > 0 && chargesTotal > 0;
       
       // Save quote to database SYNCHRONOUSLY before generating PDF
       // Set follow-up due date to 10 days from now
@@ -3352,6 +3355,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalsStartX = rightMargin - 200;
       const totalsLabelWidth = 120;
       const totalsAmountWidth = 80;
+      const rowHeightTotals = 20;
+      
+      // If there are additional charges, show subtotal and charges first
+      if (hasCharges) {
+        // Subtotal row
+        doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, rowHeightTotals).fill('#ffffff');
+        doc.lineWidth(0.5).strokeColor(borderColor).rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, rowHeightTotals).stroke();
+        doc.fontSize(9).font('Helvetica').fillColor(textDark);
+        doc.text('Subtotal', totalsStartX + 8, yPos + 5, { width: totalsLabelWidth - 10 });
+        doc.text(`$ ${subtotal.toFixed(2)}`, totalsStartX + totalsLabelWidth, yPos + 5, { width: totalsAmountWidth - 8, align: 'right' });
+        yPos += rowHeightTotals;
+        
+        // Additional charges rows
+        for (const charge of (additionalCharges as any[])) {
+          if (charge.amount > 0) {
+            doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, rowHeightTotals).fill('#ffffff');
+            doc.lineWidth(0.5).strokeColor(borderColor).rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, rowHeightTotals).stroke();
+            doc.fontSize(9).font('Helvetica').fillColor(textDark);
+            doc.text(charge.label || 'Charge', totalsStartX + 8, yPos + 5, { width: totalsLabelWidth - 10 });
+            doc.text(`$ ${charge.amount.toFixed(2)}`, totalsStartX + totalsLabelWidth, yPos + 5, { width: totalsAmountWidth - 8, align: 'right' });
+            yPos += rowHeightTotals;
+          }
+        }
+      }
       
       // Total row (green text)
       doc.rect(totalsStartX, yPos, totalsLabelWidth + totalsAmountWidth, 22).fill('#f5f5f5');
