@@ -720,45 +720,37 @@ function PalletLabelPreview({ data }: { data: PalletLabelData }) {
   
   return (
     <div 
-      className="bg-white border-2 border-black p-4 flex flex-col justify-between"
+      className="bg-white p-4 flex flex-col justify-between"
       style={{ width: config.width, height: config.height, boxSizing: 'border-box' }}
     >
-      <div className="space-y-3">
-        <div className={`font-bold uppercase text-center border-b-2 border-black pb-2 ${is4x8 ? 'text-2xl' : 'text-xl'}`}>
+      <div className="space-y-2 text-center">
+        <div className={`font-black uppercase leading-tight ${is4x8 ? 'text-4xl' : 'text-3xl'}`}>
           {data.productName || "PRODUCT NAME"}
         </div>
         
-        {data.productDetail && (
-          <div className={`text-center ${is4x8 ? 'text-lg' : 'text-base'}`}>
-            {data.productDetail}
-          </div>
-        )}
+        <div className={`font-semibold truncate ${is4x8 ? 'text-2xl' : 'text-xl'}`}>
+          {data.productDetail || " "}
+        </div>
         
-        <div className={`font-mono bg-gray-100 px-3 py-2 rounded text-center border ${is4x8 ? 'text-xl' : 'text-lg'}`}>
+        <div className={`font-mono font-bold ${is4x8 ? 'text-xl' : 'text-lg'}`}>
           {data.itemCode || "ITEM-CODE"}
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-50 p-2 rounded border text-center">
-            <div className={`font-semibold text-gray-600 ${is4x8 ? 'text-sm' : 'text-xs'}`}>BOXES</div>
-            <div className={`font-bold ${is4x8 ? 'text-2xl' : 'text-xl'}`}>{data.quantityInBoxes || "—"}</div>
-          </div>
-          <div className="bg-gray-50 p-2 rounded border text-center">
-            <div className={`font-semibold text-gray-600 ${is4x8 ? 'text-sm' : 'text-xs'}`}>SHEETS</div>
-            <div className={`font-bold ${is4x8 ? 'text-2xl' : 'text-xl'}`}>{data.totalSheets || "—"}</div>
-          </div>
+        <div className={`flex justify-center gap-6 ${is4x8 ? 'text-lg' : 'text-base'}`}>
+          <span><span className="font-semibold">Boxes:</span> {data.quantityInBoxes || "—"}</span>
+          <span><span className="font-semibold">Sheets:</span> {data.totalSheets || "—"}</span>
         </div>
       </div>
       
-      <div className="flex justify-center pt-3">
+      <div className="flex justify-center pt-2">
         {data.itemCode ? (
           <QRCodeSVG 
             value={data.itemCode} 
-            size={is4x8 ? 120 : 90} 
+            size={is4x8 ? 140 : 100} 
             level="M"
           />
         ) : (
-          <div className={`border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 ${is4x8 ? 'w-[120px] h-[120px]' : 'w-[90px] h-[90px]'}`}>
+          <div className={`border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 ${is4x8 ? 'w-[140px] h-[140px]' : 'w-[100px] h-[100px]'}`}>
             QR Code
           </div>
         )}
