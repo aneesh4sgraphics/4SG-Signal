@@ -267,21 +267,22 @@ export default function SavedQuotes() {
         const response = await apiRequest("POST", "/api/generate-pdf-quote", {
           customerName: quote.customerName,
           customerEmail: quote.customerEmail,
-          items: quoteItems,
+          quoteItems: quoteItems,
           quoteNumber: quote.quoteNumber
         });
         
         if (response.ok) {
-          const data = await response.json();
-          const blob = new Blob([data.html], { type: 'text/html' });
+          const blob = await response.blob();
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `quote_${quote.quoteNumber}.html`;
+          a.download = `quote_${quote.quoteNumber}.pdf`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
+        } else {
+          throw new Error('Failed to download PDF');
         }
       } else {
         const response = await apiRequest("POST", "/api/generate-quote-csv", {
