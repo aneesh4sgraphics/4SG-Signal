@@ -243,6 +243,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to initialize follow-up configs:", err);
   }
   
+  // Auto-generate daily check-in tasks if users have none
+  try {
+    const todayTasks = await storage.getTodayFollowUpTasks();
+    const pendingTasks = await storage.getPendingFollowUpTasks();
+    const totalTasks = todayTasks.length + pendingTasks.length;
+    
+    // If there are fewer than 5 tasks, auto-generate some
+    if (totalTasks < 5) {
+      console.log(`[Task Generator] Only ${totalTasks} tasks found, generating check-in tasks...`);
+      
+      // Get customers sorted by last activity (oldest first)
+      const customers = await storage.getAllCustomers();
+      const now = new Date();
+      const tasksNeeded = Math.max(5 - totalTasks, 5); // Generate at least 5 tasks
+      
+      // Filter customers that don't already have pending tasks
+      const customersWithTasks = new Set([
+        ...todayTasks.map(t => t.customerId),
+        ...pendingTasks.map(t => t.customerId)
+      ]);
+      
+      const eligibleCustomers = customers
+        .filter(c => !customersWithTasks.has(c.id) && (c.company || c.firstName || c.lastName))
+        .slice(0, tasksNeeded);
+      
+      const taskTypes = [
+        { type: 'check_in', title: 'Check in with customer', priority: 'normal' },
+        { type: 'reorder_check', title: 'Check if customer needs reorder', priority: 'normal' },
+        { type: 'relationship', title: 'Build relationship - quick call', priority: 'low' },
+      ];
+      
+      let tasksCreated = 0;
+      for (let i = 0; i < eligibleCustomers.length && tasksCreated < tasksNeeded; i++) {
+        const customer = eligibleCustomers[i];
+        const taskConfig = taskTypes[tasksCreated % taskTypes.length];
+        
+        // Spread due dates throughout the day and week
+        const dueDate = new Date(now);
+        dueDate.setHours(9 + (tasksCreated % 8), 0, 0, 0); // Between 9am and 5pm
+        if (tasksCreated >= 5) {
+          dueDate.setDate(dueDate.getDate() + Math.floor(tasksCreated / 5)); // Spread over days
+        }
+        
+        const customerName = customer.company || 
+          `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 
+          customer.email || 'Customer';
+        
+        await storage.createFollowUpTask({
+          customerId: customer.id,
+          title: `${taskConfig.title} - ${customerName}`,
+          description: `Auto-generated daily task for customer engagement`,
+          taskType: taskConfig.type,
+          priority: taskConfig.priority as 'low' | 'normal' | 'high' | 'urgent',
+          status: 'pending',
+          dueDate,
+        });
+        tasksCreated++;
+      }
+      
+      console.log(`✅ Generated ${tasksCreated} daily check-in tasks`);
+    }
+  } catch (err) {
+    console.error("Failed to auto-generate tasks:", err);
+  }
+  
   // Register public/debug routes BEFORE auth middleware
   // Test database connection (no auth required for debugging)
   app.get("/api/test-db", async (req: any, res) => {
