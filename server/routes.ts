@@ -10137,6 +10137,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // PRODUCT MAPPING TOOL APIs
+  // ========================================
+
+  // Get products that need mapping (unmapped or incomplete)
+  app.get("/api/products/unmapped", requireAdmin, async (req: any, res) => {
+    try {
+      const filter = (req.query.filter as string) || 'all';
+      const search = (req.query.search as string || '').toLowerCase();
+      
+      // Get all products with their category/type info
+      const allProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        odooItemCode: productPricingMaster.odooItemCode,
+        productName: productPricingMaster.productName,
+        productType: productPricingMaster.productType,
+        productTypeId: productPricingMaster.productTypeId,
+        catalogCategoryId: productPricingMaster.catalogCategoryId,
+        size: productPricingMaster.size,
+        totalSqm: productPricingMaster.totalSqm,
+        rollSheet: productPricingMaster.rollSheet,
+        unitOfMeasure: productPricingMaster.unitOfMeasure,
+        dealerPrice: productPricingMaster.dealerPrice,
+        retailPrice: productPricingMaster.retailPrice,
+        updatedAt: productPricingMaster.updatedAt,
+      }).from(productPricingMaster)
+        .orderBy(productPricingMaster.productName);
+      
+      // Get categories and types for reference
+      const categories = await db.select().from(productCategories);
+      const types = await db.select().from(productTypes);
+      
+      // Build type-to-category lookup
+      const typeToCategory = new Map<number, number>();
+      types.forEach(t => typeToCategory.set(t.id, t.categoryId));
+      
+      // Filter products based on criteria
+      let filtered = allProducts.filter(p => {
+        // Apply search filter first
+        if (search) {
+          const matchSearch = 
+            (p.itemCode || '').toLowerCase().includes(search) ||
+            (p.productName || '').toLowerCase().includes(search) ||
+            (p.productType || '').toLowerCase().includes(search);
+          if (!matchSearch) return false;
+        }
+        
+        // Apply status filter
+        const hasNoType = !p.productTypeId;
+        const hasNoCategory = !p.catalogCategoryId;
+        const hasDefaultSize = p.size === 'Standard' || !p.size;
+        const hasZeroSqm = !p.totalSqm || parseFloat(p.totalSqm.toString()) === 0;
+        
+        switch (filter) {
+          case 'unmapped':
+            return hasNoType || hasNoCategory;
+          case 'no-size':
+            return hasDefaultSize;
+          case 'no-sqm':
+            return hasZeroSqm;
+          case 'incomplete':
+            return hasNoType || hasNoCategory || hasDefaultSize || hasZeroSqm;
+          case 'all':
+          default:
+            return true;
+        }
+      });
+      
+      // Calculate counts for each filter
+      const counts = {
+        all: allProducts.length,
+        unmapped: allProducts.filter(p => !p.productTypeId || !p.catalogCategoryId).length,
+        noSize: allProducts.filter(p => p.size === 'Standard' || !p.size).length,
+        noSqm: allProducts.filter(p => !p.totalSqm || parseFloat(p.totalSqm.toString()) === 0).length,
+        incomplete: allProducts.filter(p => 
+          !p.productTypeId || !p.catalogCategoryId || 
+          p.size === 'Standard' || !p.size ||
+          !p.totalSqm || parseFloat(p.totalSqm.toString()) === 0
+        ).length,
+      };
+      
+      res.json({
+        success: true,
+        products: filtered.slice(0, 500), // Limit for performance
+        totalFiltered: filtered.length,
+        counts,
+        categories,
+        types,
+      });
+    } catch (error: any) {
+      console.error("Error fetching unmapped products:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch products" });
+    }
+  });
+
+  // Update single product mapping
+  app.patch("/api/products/:id/mapping", requireAdmin, async (req: any, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const { productTypeId, catalogCategoryId, size, totalSqm, rollSheet, unitOfMeasure } = req.body;
+      
+      // Build update object
+      const updates: any = { updatedAt: new Date() };
+      
+      if (productTypeId !== undefined) {
+        updates.productTypeId = productTypeId || null;
+        // If setting productTypeId, also derive catalogCategoryId from the type
+        if (productTypeId) {
+          const [typeInfo] = await db.select().from(productTypes)
+            .where(eq(productTypes.id, productTypeId))
+            .limit(1);
+          if (typeInfo) {
+            updates.catalogCategoryId = typeInfo.categoryId;
+            updates.productType = typeInfo.name; // Also update productType string
+          }
+        }
+      }
+      if (catalogCategoryId !== undefined) updates.catalogCategoryId = catalogCategoryId || null;
+      if (size !== undefined) updates.size = size;
+      if (totalSqm !== undefined) updates.totalSqm = totalSqm.toString();
+      if (rollSheet !== undefined) updates.rollSheet = rollSheet || null;
+      if (unitOfMeasure !== undefined) updates.unitOfMeasure = unitOfMeasure || null;
+      
+      const [updated] = await db.update(productPricingMaster)
+        .set(updates)
+        .where(eq(productPricingMaster.id, productId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      
+      res.json({ success: true, product: updated });
+    } catch (error: any) {
+      console.error("Error updating product mapping:", error);
+      res.status(500).json({ error: error.message || "Failed to update product" });
+    }
+  });
+
+  // Bulk update product mappings
+  app.post("/api/products/bulk-mapping", requireAdmin, async (req: any, res) => {
+    try {
+      const { productIds, updates } = req.body;
+      
+      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ error: "productIds array is required" });
+      }
+      
+      if (!updates || Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "updates object is required" });
+      }
+      
+      // Build update object
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (updates.productTypeId !== undefined) {
+        updateData.productTypeId = updates.productTypeId || null;
+        // Derive category from type
+        if (updates.productTypeId) {
+          const [typeInfo] = await db.select().from(productTypes)
+            .where(eq(productTypes.id, updates.productTypeId))
+            .limit(1);
+          if (typeInfo) {
+            updateData.catalogCategoryId = typeInfo.categoryId;
+            updateData.productType = typeInfo.name;
+          }
+        }
+      }
+      if (updates.catalogCategoryId !== undefined) updateData.catalogCategoryId = updates.catalogCategoryId || null;
+      if (updates.size !== undefined) updateData.size = updates.size;
+      if (updates.totalSqm !== undefined) updateData.totalSqm = updates.totalSqm.toString();
+      if (updates.rollSheet !== undefined) updateData.rollSheet = updates.rollSheet || null;
+      if (updates.unitOfMeasure !== undefined) updateData.unitOfMeasure = updates.unitOfMeasure || null;
+      
+      let updatedCount = 0;
+      for (const id of productIds) {
+        await db.update(productPricingMaster)
+          .set(updateData)
+          .where(eq(productPricingMaster.id, id));
+        updatedCount++;
+      }
+      
+      res.json({ success: true, updatedCount });
+    } catch (error: any) {
+      console.error("Error bulk updating products:", error);
+      res.status(500).json({ error: error.message || "Failed to bulk update products" });
+    }
+  });
+
+  // ========================================
   // ODOO SALES ORDER APIs
   // ========================================
 
