@@ -27,6 +27,7 @@ import { useEmailComposer } from "@/components/email-composer";
 interface ProductData {
   id: number;
   itemCode: string;
+  odooItemCode?: string; // Odoo code for display when available
   productName: string;
   productType: string;
   size: string;
@@ -68,6 +69,7 @@ interface QuoteItem {
   productType: string;
   size: string;
   itemCode: string;
+  odooItemCode?: string; // Odoo code for display
   quantity: number;
   pricePerSqM: number;
   pricePerSheet: number;
@@ -443,6 +445,7 @@ export default function QuoteCalculator() {
         productType: referenceProduct.productType,
         size: `${customWidth}" × ${customHeight}" (Custom)`,
         itemCode: `${referenceProduct.itemCode}-CUSTOM`,
+        odooItemCode: referenceProduct.odooItemCode ? `${referenceProduct.odooItemCode}-CUSTOM` : undefined,
         quantity: useQuantity,
         pricePerSqM: tierPrice,
         pricePerSheet: pricePerSheet,
@@ -488,6 +491,7 @@ export default function QuoteCalculator() {
       productType: selectedProduct.productType,
       size: selectedProduct.size,
       itemCode: selectedProduct.itemCode,
+      odooItemCode: selectedProduct.odooItemCode,
       quantity: useQuantity,
       pricePerSqM: tierPrice,
       pricePerSheet: pricePerSheet,
@@ -1942,11 +1946,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               renderCell={(item, column) => {
                 switch (column.key) {
                   case 'product':
+                    const displayCode = item.odooItemCode || item.itemCode;
                     return (
                       <div className="min-w-0">
                         <div className="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis" title={item.productName}>{item.productName}</div>
                         <div className="text-xs text-gray-500 whitespace-nowrap overflow-hidden text-ellipsis" title={item.productType}>{item.productType}</div>
-                        <div className="text-xs text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis" title={item.itemCode}>{item.itemCode}</div>
+                        <div className="text-xs text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis" title={displayCode}>{displayCode}</div>
                       </div>
                     );
                   case 'size':
