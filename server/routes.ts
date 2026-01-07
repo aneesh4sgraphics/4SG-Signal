@@ -438,7 +438,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Build daily data for the date range
       const dailyData: { date: string; quotedAmount: number; invoicedAmount: number; quoteCount: number }[] = [];
-      const quotesMap = new Map(quotesResult.map(q => [q.date, { amount: parseFloat(q.totalAmount) || 0, count: q.count }]));
+      
+      // Normalize date keys - PostgreSQL DATE can return Date objects or strings
+      const quotesMap = new Map(quotesResult.map(q => {
+        const dateKey = q.date instanceof Date 
+          ? q.date.toISOString().split('T')[0] 
+          : String(q.date).split('T')[0];
+        return [dateKey, { amount: parseFloat(q.totalAmount) || 0, count: Number(q.count) || 0 }];
+      }));
       const invoicesMap = new Map(odooInvoices.map(i => [i.date, i.invoicedAmount]));
       
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
