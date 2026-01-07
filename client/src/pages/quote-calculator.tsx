@@ -1856,38 +1856,51 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         </div>
       </div>
 
-      {/* Quote Items */}
+      {/* Quote Items - Odoo Style */}
       {quoteItems.length > 0 && (
-        <div className="glass-card mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-medium text-gray-800">Quote Items</h2>
-            <ProductOrderingDialog
-              items={quoteItems.map(item => ({
-                id: item.id,
-                productType: item.productType,
-                size: item.size,
-                itemCode: item.itemCode,
-                pricePerSheet: item.pricePerSheet,
-                total: item.total,
-                quantity: item.quantity
-              }))}
-              onReorder={handleQuoteItemReorder}
-              title="Reorder Quote Items"
-              description="Change the order of quote items for PDF generation based on customer requests"
-              trigger={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 border-gray-300 hover:border-gray-400"
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-6">
+          {/* Odoo-style tab header */}
+          <div className="border-b border-gray-200">
+            <div className="flex items-center justify-between px-4">
+              <div className="flex">
+                <div className="px-4 py-3 border-b-2 border-teal-600 text-teal-700 text-sm font-medium">
+                  Order Lines
+                </div>
+                <button
+                  className="px-4 py-3 text-gray-500 hover:text-gray-700 text-sm font-medium transition-colors"
+                  onClick={() => setShowAdditionalCharges(!showAdditionalCharges)}
                 >
-                  <ArrowUpDown className="h-4 w-4" />
-                  Order Items
-                </Button>
-              }
-            />
+                  Other Info
+                </button>
+              </div>
+              <ProductOrderingDialog
+                items={quoteItems.map(item => ({
+                  id: item.id,
+                  productType: item.productType,
+                  size: item.size,
+                  itemCode: item.itemCode,
+                  pricePerSheet: item.pricePerSheet,
+                  total: item.total,
+                  quantity: item.quantity
+                }))}
+                onReorder={handleQuoteItemReorder}
+                title="Reorder Quote Items"
+                description="Change the order of quote items for PDF generation based on customer requests"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                }
+              />
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mb-6">Items added to your current quote</p>
-          <div>
+          
+          {/* Table content area with padding */}
+          <div className="px-4 py-3">
             <AdaptiveTable
               columns={[
                 { 
@@ -2101,75 +2114,88 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-              <div className="text-base font-medium text-gray-800">
-                {additionalChargesTotal > 0 ? (
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-500">Subtotal: ${quoteSubtotal.toFixed(2)}</div>
-                    <div className="text-sm text-gray-500">+ Charges: ${additionalChargesTotal.toFixed(2)}</div>
-                    <div>Total: ${totalAmount.toFixed(2)}</div>
-                  </div>
-                ) : (
-                  <>Total: ${totalAmount.toFixed(2)}</>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    if (!selectedCustomer) {
-                      toast({
-                        title: "Please select a client first 😊",
-                        description: "Choose a client from the Customer Selection section above before downloading the PDF.",
-                      });
-                      return;
-                    }
-                    handleDownloadPDF();
-                  }}
-                  disabled={isPDFGenerating || !selectedCustomer}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Download className="h-4 w-4" />
-                  {isPDFGenerating ? 'Generating...' : 'Download PDF'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedCustomer) {
-                      toast({
-                        title: "Please select a client first 😊",
-                        description: "Choose a client from the Customer Selection section above before sending an email.",
-                      });
-                      return;
-                    }
-                    handleEmailQuote();
-                  }}
-                  disabled={!selectedCustomer}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Mail className="h-4 w-4" />
-                  Email Quote
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedCustomer) {
-                      toast({
-                        title: "Please select a client first 😊",
-                        description: "Choose a client from the Customer Selection section above before creating a sales order.",
-                      });
-                      return;
-                    }
-                    handleCreateOdooOrder();
-                  }}
-                  disabled={!selectedCustomer || isCreatingOdooOrder || quoteItems.length === 0}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  data-testid="btn-create-odoo-order"
-                >
-                  {isCreatingOdooOrder ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
+            {/* Odoo-style footer section */}
+            <div className="border-t border-gray-200 bg-gray-50/50">
+              <div className="flex justify-between items-start px-6 py-4">
+                {/* Left side - Action buttons row */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (!selectedCustomer) {
+                        toast({
+                          title: "Please select a client first 😊",
+                          description: "Choose a client from the Customer Selection section above before downloading the PDF.",
+                        });
+                        return;
+                      }
+                      handleDownloadPDF();
+                    }}
+                    disabled={isPDFGenerating || !selectedCustomer}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    {isPDFGenerating ? 'Generating...' : 'Download PDF'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedCustomer) {
+                        toast({
+                          title: "Please select a client first 😊",
+                          description: "Choose a client from the Customer Selection section above before sending an email.",
+                        });
+                        return;
+                      }
+                      handleEmailQuote();
+                    }}
+                    disabled={!selectedCustomer}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Email Quote
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedCustomer) {
+                        toast({
+                          title: "Please select a client first 😊",
+                          description: "Choose a client from the Customer Selection section above before creating a sales order.",
+                        });
+                        return;
+                      }
+                      handleCreateOdooOrder();
+                    }}
+                    disabled={!selectedCustomer || isCreatingOdooOrder || quoteItems.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    data-testid="btn-create-odoo-order"
+                  >
+                    {isCreatingOdooOrder ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {isCreatingOdooOrder ? 'Creating...' : 'Sales Order'}
+                  </button>
+                </div>
+                
+                {/* Right side - Odoo-style totals */}
+                <div className="text-right space-y-1">
+                  {additionalChargesTotal > 0 && (
+                    <>
+                      <div className="flex justify-end items-center gap-4">
+                        <span className="text-sm text-gray-600">Untaxed Amount:</span>
+                        <span className="text-sm font-medium text-gray-900 w-24 text-right">${quoteSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-end items-center gap-4">
+                        <span className="text-sm text-gray-600">+ Charges:</span>
+                        <span className="text-sm font-medium text-gray-900 w-24 text-right">${additionalChargesTotal.toFixed(2)}</span>
+                      </div>
+                    </>
                   )}
-                  {isCreatingOdooOrder ? 'Creating...' : 'Sales Order'}
-                </button>
+                  <div className="flex justify-end items-center gap-4 pt-1 border-t border-gray-300">
+                    <span className="text-sm font-medium text-gray-800">Total:</span>
+                    <span className="text-lg font-bold text-gray-900 w-24 text-right">${totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
