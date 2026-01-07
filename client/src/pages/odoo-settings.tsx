@@ -174,6 +174,9 @@ export default function OdooSettingsPage() {
     totalSqm: '',
     productCategory: '',
     productType: '',
+    minQuantity: '1',
+    dealerPrice: '',
+    retailPrice: '',
   });
   
   // Fetch product categories and types for wizard dropdown
@@ -231,6 +234,9 @@ export default function OdooSettingsPage() {
       totalSqm: calculateSqmFromSize(extractedSize),
       productCategory: '',
       productType: '',
+      minQuantity: '1',
+      dealerPrice: product.list_price?.toFixed(2) || '',
+      retailPrice: '',
     });
     setWizardOpen(true);
   };
@@ -247,6 +253,9 @@ export default function OdooSettingsPage() {
       totalSqm: wizardData.totalSqm || '0',
       productType: wizardData.productType || wizardProduct.categ_name || 'Imported from Odoo',
       catalogCategoryId: wizardData.productCategory ? parseInt(wizardData.productCategory) : null,
+      minQuantity: parseInt(wizardData.minQuantity) || 1,
+      dealerPrice: wizardData.dealerPrice ? parseFloat(wizardData.dealerPrice) : null,
+      retailPrice: wizardData.retailPrice ? parseFloat(wizardData.retailPrice) : null,
     };
     
     importProductsMutation.mutate([enrichedProduct]);
@@ -2038,6 +2047,52 @@ export default function OdooSettingsPage() {
                   data-testid="input-product-type"
                 />
                 <p className="text-xs text-muted-foreground">This will appear in QuickQuotes, Price List, and everywhere else</p>
+              </div>
+
+              {/* Step 7: Min Order Quantity */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Minimum Order Quantity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={wizardData.minQuantity}
+                  onChange={(e) => setWizardData({ ...wizardData, minQuantity: e.target.value })}
+                  placeholder="1"
+                  data-testid="input-min-qty"
+                />
+                <p className="text-xs text-muted-foreground">Minimum quantity per order (used in QuickQuotes)</p>
+              </div>
+
+              {/* Step 8: Pricing */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Pricing (Optional)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Dealer Price ($)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={wizardData.dealerPrice}
+                      onChange={(e) => setWizardData({ ...wizardData, dealerPrice: e.target.value })}
+                      placeholder="0.00"
+                      data-testid="input-dealer-price"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Retail Price ($)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={wizardData.retailPrice}
+                      onChange={(e) => setWizardData({ ...wizardData, retailPrice: e.target.value })}
+                      placeholder="0.00"
+                      data-testid="input-retail-price"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Pre-fill from Odoo price or enter manually</p>
               </div>
             </div>
           )}

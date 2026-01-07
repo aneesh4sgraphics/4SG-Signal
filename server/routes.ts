@@ -10057,6 +10057,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const productType = product.productType || product.categ_name || 'Imported from Odoo';
           const catalogCategoryId = product.catalogCategoryId || null;
           const catalogProductTypeId = product.catalogProductTypeId || null;
+          const minQuantity = product.minQuantity || 1;
+          const dealerPrice = product.dealerPrice?.toString() || product.list_price?.toString() || '0';
+          const retailPrice = product.retailPrice?.toString() || product.list_price?.toString() || '0';
           
           // Create local product entry with guided values
           await db.insert(productPricingMaster).values({
@@ -10069,11 +10072,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             catalogProductTypeId,
             size,
             totalSqm,
-            minQuantity: 1,
+            minQuantity,
             rollSheet,
             unitOfMeasure,
-            retailPrice: product.list_price?.toString() || '0',
-            dealerPrice: product.list_price?.toString() || '0',
+            retailPrice,
+            dealerPrice,
             uploadBatch: 'odoo-import-' + new Date().toISOString().split('T')[0],
           });
           
