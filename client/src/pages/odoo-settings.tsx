@@ -255,6 +255,7 @@ export default function OdooSettingsPage() {
   };
 
   // Query for missing Odoo products (not in local app)
+  // Note: Search filtering is done client-side to avoid losing data when typing
   const { data: missingProductsData, isLoading: missingProductsLoading, refetch: refetchMissingProducts } = useQuery<{
     success: boolean;
     totalOdooProducts: number;
@@ -262,14 +263,13 @@ export default function OdooSettingsPage() {
     missingCount: number;
     missingProducts: any[];
   }>({
-    queryKey: ['/api/odoo/missing-products', importProductSearch],
+    queryKey: ['/api/odoo/missing-products'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (importProductSearch) params.set('search', importProductSearch);
-      const res = await fetch(`/api/odoo/missing-products?${params.toString()}`);
+      const res = await fetch('/api/odoo/missing-products');
       return res.json();
     },
-    enabled: false, // Only fetch when tab is active
+    enabled: false, // Only fetch when button is clicked
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Import products mutation
