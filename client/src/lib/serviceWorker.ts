@@ -36,6 +36,7 @@ export class ServiceWorkerManager {
   
   private setupEventListeners(): void {
     if (!this.registration) return;
+    if (!('serviceWorker' in navigator)) return;
     
     // Listen for new service worker waiting
     this.registration.addEventListener('updatefound', () => {
@@ -44,7 +45,7 @@ export class ServiceWorkerManager {
       const newWorker = this.registration!.installing;
       if (newWorker) {
         newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          if (newWorker.state === 'installed' && navigator.serviceWorker?.controller) {
             console.log('[SW Manager] New service worker waiting');
             this.updateAvailable = true;
             this.notifyUpdateAvailable();
@@ -127,10 +128,12 @@ export class ServiceWorkerManager {
   }
   
   async clearCache(): Promise<void> {
-    if (!navigator.serviceWorker.controller) {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker?.controller) {
       console.log('[SW Manager] No active service worker');
       return;
     }
+    
+    const controller = navigator.serviceWorker.controller;
     
     return new Promise((resolve) => {
       const messageChannel = new MessageChannel();
@@ -142,7 +145,7 @@ export class ServiceWorkerManager {
         }
       };
       
-      navigator.serviceWorker.controller!.postMessage(
+      controller.postMessage(
         { type: 'CLEAR_CACHE' },
         [messageChannel.port2]
       );
@@ -150,9 +153,11 @@ export class ServiceWorkerManager {
   }
   
   async getVersion(): Promise<string | null> {
-    if (!navigator.serviceWorker.controller) {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker?.controller) {
       return null;
     }
+    
+    const controller = navigator.serviceWorker.controller;
     
     return new Promise((resolve) => {
       const messageChannel = new MessageChannel();
@@ -163,7 +168,7 @@ export class ServiceWorkerManager {
         }
       };
       
-      navigator.serviceWorker.controller!.postMessage(
+      controller.postMessage(
         { type: 'CHECK_VERSION' },
         [messageChannel.port2]
       );
@@ -190,7 +195,7 @@ export class ServiceWorkerManager {
   }
   
   hasActiveWorker(): boolean {
-    return !!navigator.serviceWorker.controller;
+    return !!('serviceWorker' in navigator && navigator.serviceWorker?.controller);
   }
 }
 
