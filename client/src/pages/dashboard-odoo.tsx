@@ -29,7 +29,9 @@ import {
   HardDrive,
   Gauge,
   AlertTriangle,
-  Flame
+  Flame,
+  Lightbulb,
+  Calendar
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import StartYourDayDashboard from "@/components/StartYourDayDashboard";
@@ -80,6 +82,12 @@ interface UsageStats {
     dbMaxSizeBytes: number;
   };
   timestamp: string;
+}
+
+interface ConnectionStatus {
+  odoo: { connected: boolean; error: string | null };
+  gmail: { connected: boolean; error: string | null };
+  calendar: { connected: boolean; error: string | null };
 }
 
 // Grouped app tiles by category
@@ -153,6 +161,13 @@ export default function Dashboard() {
 
   const { data: objections = [] } = useQuery<{ id: number; status: string }[]>({
     queryKey: ["/api/crm/objections"],
+    retry: 1,
+  });
+
+  const { data: connectionStatus } = useQuery<ConnectionStatus>({
+    queryKey: ['/api/integrations/status'],
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
@@ -305,6 +320,147 @@ export default function Dashboard() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
             <div>
+              {/* Connection Status Bulbs */}
+              <TooltipProvider>
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginBottom: '16px',
+                }}>
+                  {/* Odoo Connection */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          background: connectionStatus?.odoo?.connected 
+                            ? 'rgba(34, 197, 94, 0.15)' 
+                            : 'rgba(148, 163, 184, 0.15)',
+                          border: connectionStatus?.odoo?.connected
+                            ? '1px solid rgba(34, 197, 94, 0.3)'
+                            : '1px solid rgba(148, 163, 184, 0.3)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                        data-testid="connection-bulb-odoo"
+                      >
+                        <Lightbulb 
+                          size={16} 
+                          style={{
+                            color: connectionStatus?.odoo?.connected ? '#22c55e' : '#94a3b8',
+                            fill: connectionStatus?.odoo?.connected ? '#fef08a' : 'transparent',
+                            filter: connectionStatus?.odoo?.connected ? 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.6))' : 'none',
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: connectionStatus?.odoo?.connected ? '#16a34a' : '#64748b',
+                          letterSpacing: '0.3px',
+                        }}>
+                          Odoo
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{connectionStatus?.odoo?.connected ? 'Odoo connected' : 'Odoo disconnected'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Gmail Connection */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          background: connectionStatus?.gmail?.connected 
+                            ? 'rgba(34, 197, 94, 0.15)' 
+                            : 'rgba(148, 163, 184, 0.15)',
+                          border: connectionStatus?.gmail?.connected
+                            ? '1px solid rgba(34, 197, 94, 0.3)'
+                            : '1px solid rgba(148, 163, 184, 0.3)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                        data-testid="connection-bulb-gmail"
+                      >
+                        <Lightbulb 
+                          size={16} 
+                          style={{
+                            color: connectionStatus?.gmail?.connected ? '#22c55e' : '#94a3b8',
+                            fill: connectionStatus?.gmail?.connected ? '#fef08a' : 'transparent',
+                            filter: connectionStatus?.gmail?.connected ? 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.6))' : 'none',
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: connectionStatus?.gmail?.connected ? '#16a34a' : '#64748b',
+                          letterSpacing: '0.3px',
+                        }}>
+                          Gmail
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{connectionStatus?.gmail?.connected ? 'Gmail connected' : 'Gmail disconnected'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Google Calendar Connection */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          background: connectionStatus?.calendar?.connected 
+                            ? 'rgba(34, 197, 94, 0.15)' 
+                            : 'rgba(148, 163, 184, 0.15)',
+                          border: connectionStatus?.calendar?.connected
+                            ? '1px solid rgba(34, 197, 94, 0.3)'
+                            : '1px solid rgba(148, 163, 184, 0.3)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                        data-testid="connection-bulb-calendar"
+                      >
+                        <Lightbulb 
+                          size={16} 
+                          style={{
+                            color: connectionStatus?.calendar?.connected ? '#22c55e' : '#94a3b8',
+                            fill: connectionStatus?.calendar?.connected ? '#fef08a' : 'transparent',
+                            filter: connectionStatus?.calendar?.connected ? 'drop-shadow(0 0 4px rgba(250, 204, 21, 0.6))' : 'none',
+                          }}
+                        />
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: connectionStatus?.calendar?.connected ? '#16a34a' : '#64748b',
+                          letterSpacing: '0.3px',
+                        }}>
+                          Calendar
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{connectionStatus?.calendar?.connected ? 'Google Calendar connected' : 'Google Calendar disconnected'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
+
               <div style={{
                 fontSize: '13px',
                 fontWeight: '600',
