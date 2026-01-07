@@ -1211,7 +1211,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             <div className="space-y-6">
               {/* Product Category */}
               <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Product</label>
+                <label className="block label-medium text-gray-800">Product Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                   <SelectValue placeholder="Select product category">
