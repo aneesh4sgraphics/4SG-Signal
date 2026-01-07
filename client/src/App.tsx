@@ -35,6 +35,7 @@ import ObjectionsPage from "@/pages/objections";
 import ShopifySettingsPage from "@/pages/shopify-settings";
 import OdooSettingsPage from "@/pages/odoo-settings";
 import SalesAnalyticsPage from "@/pages/sales-analytics";
+import ReportsPage from "@/pages/reports";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -94,6 +95,7 @@ const AppRoutes = () => (
     <Route path="/shopify-settings" component={ShopifySettingsPage} />
     <Route path="/odoo-settings" component={OdooSettingsPage} />
     <Route path="/sales-analytics" component={SalesAnalyticsPage} />
+    <Route path="/reports" component={ReportsPage} />
     <Route><Redirect to="/" /></Route>
   </Switch>
 );
