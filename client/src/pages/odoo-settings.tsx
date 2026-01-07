@@ -1635,17 +1635,28 @@ export default function OdooSettingsPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={
-                            mapping.matchType === 'exact' ? 'default' :
-                            mapping.matchType === 'case_insensitive' ? 'secondary' :
-                            mapping.matchType === 'manual' ? 'outline' :
-                            'destructive'
-                          } className="text-xs">
-                            {mapping.matchType === 'exact' ? 'Exact' :
-                             mapping.matchType === 'case_insensitive' ? 'Case Match' :
-                             mapping.matchType === 'manual' ? 'Manual' :
-                             'No Match'}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={
+                              mapping.matchType === 'exact' ? 'default' :
+                              mapping.matchType === 'case_insensitive' ? 'secondary' :
+                              mapping.matchType === 'normalized' ? 'secondary' :
+                              mapping.matchType === 'fuzzy_prefix' ? 'outline' :
+                              mapping.matchType === 'manual' ? 'outline' :
+                              'destructive'
+                            } className="text-xs w-fit">
+                              {mapping.matchType === 'exact' ? 'Exact' :
+                               mapping.matchType === 'case_insensitive' ? 'Case Match' :
+                               mapping.matchType === 'normalized' ? 'Normalized' :
+                               mapping.matchType === 'fuzzy_prefix' ? 'Fuzzy Match' :
+                               mapping.matchType === 'manual' ? 'Manual' :
+                               'No Match'}
+                            </Badge>
+                            {mapping.matchConfidence && mapping.matchConfidence < 100 && (
+                              <span className={`text-xs ${mapping.matchConfidence >= 80 ? 'text-green-600' : mapping.matchConfidence >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {mapping.matchConfidence}% confidence
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Button

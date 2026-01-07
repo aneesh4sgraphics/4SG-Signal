@@ -9361,21 +9361,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Normalize code for fuzzy matching: remove dashes, x, spaces, make lowercase
+      const normalizeCode = (code: string): string => {
+        return code.toLowerCase().replace(/[-_xX\s]/g, '');
+      };
+      
       // Build a map of default_code -> odoo product
       const odooByCode = new Map<string, any>();
       const odooByCodeLower = new Map<string, any>(); // For case-insensitive fallback
+      const odooByNormalized = new Map<string, any[]>(); // For fuzzy matching (multiple matches possible)
+      
       for (const odooProduct of odooProducts) {
         if (odooProduct.default_code) {
           const code = odooProduct.default_code.trim();
           const codeLower = code.toLowerCase();
+          const codeNormalized = normalizeCode(code);
+          
           if (!odooByCode.has(code)) {
             odooByCode.set(code, odooProduct);
           }
           if (!odooByCodeLower.has(codeLower)) {
             odooByCodeLower.set(codeLower, odooProduct);
           }
+          // Store all products with this normalized code for fuzzy matching
+          if (!odooByNormalized.has(codeNormalized)) {
+            odooByNormalized.set(codeNormalized, []);
+          }
+          odooByNormalized.get(codeNormalized)!.push(odooProduct);
         }
       }
+      
+      // Find best fuzzy match based on prefix similarity
+      const findBestFuzzyMatch = (itemCode: string): { product: any; similarity: number } | null => {
+        const normalizedItem = normalizeCode(itemCode);
+        if (!normalizedItem) return null;
+        
+        let bestMatch: any = null;
+        let bestSimilarity = 0;
+        
+        for (const [normalizedOdoo, products] of odooByNormalized.entries()) {
+          // Check if one starts with the other (prefix match)
+          const shorter = normalizedItem.length <= normalizedOdoo.length ? normalizedItem : normalizedOdoo;
+          const longer = normalizedItem.length > normalizedOdoo.length ? normalizedItem : normalizedOdoo;
+          
+          if (longer.startsWith(shorter)) {
+            // Calculate similarity based on length ratio
+            const similarity = shorter.length / longer.length;
+            if (similarity > bestSimilarity && similarity >= 0.6) { // At least 60% match
+              bestSimilarity = similarity;
+              bestMatch = products[0];
+            }
+          }
+          
+          // Also check for common prefix match
+          let commonPrefix = 0;
+          const minLen = Math.min(normalizedItem.length, normalizedOdoo.length);
+          for (let i = 0; i < minLen; i++) {
+            if (normalizedItem[i] === normalizedOdoo[i]) {
+              commonPrefix++;
+            } else {
+              break;
+            }
+          }
+          
+          if (commonPrefix >= 4) { // At least 4 characters match at start
+            const similarity = commonPrefix / Math.max(normalizedItem.length, normalizedOdoo.length);
+            if (similarity > bestSimilarity) {
+              bestSimilarity = similarity;
+              bestMatch = products[0];
+            }
+          }
+        }
+        
+        return bestMatch ? { product: bestMatch, similarity: bestSimilarity } : null;
+      };
       
       // 4. Build proposed mappings
       const proposedMappings: any[] = [];
@@ -9391,11 +9450,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Try exact match first
         let odooProduct = odooByCode.get(itemCode);
         let matchType = 'exact';
+        let matchConfidence = 100;
         
         // Fall back to case-insensitive match
         if (!odooProduct) {
           odooProduct = odooByCodeLower.get(itemCode.toLowerCase());
           matchType = 'case_insensitive';
+          matchConfidence = 95;
+        }
+        
+        // Fall back to normalized match (ignoring dashes, x, etc.)
+        if (!odooProduct) {
+          const normalizedItem = normalizeCode(itemCode);
+          const normalizedMatches = odooByNormalized.get(normalizedItem);
+          if (normalizedMatches && normalizedMatches.length > 0) {
+            odooProduct = normalizedMatches[0];
+            matchType = 'normalized';
+            matchConfidence = 90;
+          }
+        }
+        
+        // Fall back to fuzzy prefix match
+        if (!odooProduct) {
+          const fuzzyResult = findBestFuzzyMatch(itemCode);
+          if (fuzzyResult) {
+            odooProduct = fuzzyResult.product;
+            matchType = 'fuzzy_prefix';
+            matchConfidence = Math.round(fuzzyResult.similarity * 100);
+          }
         }
         
         proposedMappings.push({
@@ -9410,7 +9492,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             is_variant: odooProduct.is_variant,
           } : null,
           matchType: odooProduct ? matchType : 'no_match',
-          accepted: !!odooProduct, // Pre-accept if there's a match
+          matchConfidence: odooProduct ? matchConfidence : 0,
+          accepted: matchType === 'exact' || matchType === 'case_insensitive', // Only auto-accept exact/case matches
         });
       }
       
