@@ -244,7 +244,8 @@ export default function QuoteCalculator() {
   const suggestedTier = !matchingTier ? getSuggestedTier() : null;
 
   // Product category icon mapping with colors
-  const getProductIcon = (productName: string) => {
+  const getProductIcon = (productName: string | undefined | null) => {
+    if (!productName) return FileText;
     if (productName.includes('CliQ')) return Monitor;
     if (productName.includes('DTF') || productName.includes('Film')) return Film;
     if (productName.includes('Graffiti Blended Poly')) return Palette;
@@ -259,7 +260,8 @@ export default function QuoteCalculator() {
   };
 
   // Product category color mapping
-  const getProductIconColor = (productName: string) => {
+  const getProductIconColor = (productName: string | undefined | null) => {
+    if (!productName) return 'text-gray-600';
     if (productName.includes('CliQ')) return 'text-blue-600';
     if (productName.includes('DTF') || productName.includes('Film')) return 'text-purple-600';
     if (productName.includes('Graffiti Blended Poly')) return 'text-pink-600';
