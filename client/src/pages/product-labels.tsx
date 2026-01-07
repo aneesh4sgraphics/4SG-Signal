@@ -920,12 +920,12 @@ function ProductLabelPreview({ data }: { data: ProductLabelData }) {
             <div className="flex flex-col">
               {data.price && <div className={`font-bold ${isAvery ? 'text-base' : 'text-lg'}`}>${data.price}</div>}
               {data.price && <div className="text-[6px] text-gray-500">Discount not included</div>}
-              {data.barcode && <Barcode value={data.barcode} width={isAvery ? 0.8 : 1} height={isAvery ? 18 : 22} fontSize={isAvery ? 6 : 7} margin={0} />}
+              {data.barcode && <Barcode value={data.barcode} width={isAvery ? 1.2 : 1.5} height={isAvery ? 30 : 40} fontSize={isAvery ? 8 : 10} margin={0} />}
             </div>
             {data.websiteUrl && (
               <div className="flex flex-col items-center">
                 <div className="text-[6px] font-bold text-gray-600 mb-0.5">SCAN TO BUY</div>
-                <QRCodeSVG value={data.websiteUrl} size={isAvery ? 28 : 35} />
+                <QRCodeSVG value={data.websiteUrl} size={isAvery ? 48 : 60} level="M" />
               </div>
             )}
           </div>
@@ -962,7 +962,7 @@ function ProductLabelPreview({ data }: { data: ProductLabelData }) {
           {data.price && <div className={`font-bold ${isAvery ? 'text-base' : 'text-lg'}`}>${data.price}</div>}
           {data.price && <div className="text-[6px] text-gray-500">Discount not included</div>}
           {data.barcode ? (
-            <Barcode value={data.barcode} width={isAvery ? 0.8 : 1} height={isAvery ? 20 : 25} fontSize={isAvery ? 6 : 8} margin={0} />
+            <Barcode value={data.barcode} width={isAvery ? 1.2 : 1.5} height={isAvery ? 35 : 45} fontSize={isAvery ? 9 : 11} margin={0} />
           ) : (
             <div className="text-xs text-gray-400">No barcode</div>
           )}
@@ -970,7 +970,7 @@ function ProductLabelPreview({ data }: { data: ProductLabelData }) {
         {data.websiteUrl && (
           <div className="flex flex-col items-center">
             <div className="text-[6px] font-bold text-gray-600 mb-0.5">SCAN TO BUY</div>
-            <QRCodeSVG value={data.websiteUrl} size={isAvery ? 32 : 40} />
+            <QRCodeSVG value={data.websiteUrl} size={isAvery ? 55 : 70} level="M" />
           </div>
         )}
       </div>
@@ -1104,11 +1104,11 @@ function PalletLabelPreview({ data }: { data: PalletLabelData }) {
         {data.itemCode ? (
           <QRCodeSVG 
             value={data.itemCode} 
-            size={is4x8 ? 120 : 80} 
+            size={is4x8 ? 150 : 110} 
             level="M"
           />
         ) : (
-          <div className={`border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 ${is4x8 ? 'w-[120px] h-[120px]' : 'w-[80px] h-[80px]'}`}>
+          <div className={`border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 ${is4x8 ? 'w-[150px] h-[150px]' : 'w-[110px] h-[110px]'}`}>
             QR Code
           </div>
         )}
