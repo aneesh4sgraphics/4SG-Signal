@@ -1967,8 +1967,8 @@ export default function OdooSettingsPage() {
 
       {/* Guided Product Creation Wizard */}
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
               Add Product from Odoo
@@ -1979,7 +1979,7 @@ export default function OdooSettingsPage() {
           </DialogHeader>
 
           {wizardProduct && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
               {/* Product Info Header */}
               <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="font-medium text-lg">{wizardProduct.name}</div>
@@ -2158,7 +2158,7 @@ export default function OdooSettingsPage() {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-shrink-0 border-t pt-4 mt-4">
             <Button variant="outline" onClick={() => setWizardOpen(false)}>
               Cancel
             </Button>
