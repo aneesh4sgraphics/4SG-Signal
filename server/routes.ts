@@ -390,6 +390,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sales Analytics - daily sales trendline data
+  app.get("/api/analytics/sales-trend", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      // Get quotes grouped by day
+      const quotesResult = await db.select({
+        date: sql<string>`DATE(${sentQuotes.createdAt})`,
+        totalAmount: sql<string>`SUM(CAST(${sentQuotes.totalAmount} AS NUMERIC))`,
+        count: sql<number>`COUNT(*)`,
+      })
+        .from(sentQuotes)
+        .where(gte(sentQuotes.createdAt, startDate))
+        .groupBy(sql`DATE(${sentQuotes.createdAt})`)
+        .orderBy(sql`DATE(${sentQuotes.createdAt})`);
+      
+      // Try to get invoices from Odoo (if available)
+      let odooInvoices: any[] = [];
+      try {
+        const invoicesRaw = await odooClient.searchRead('account.move', [
+          ['move_type', 'in', ['out_invoice']],
+          ['state', '=', 'posted'],
+          ['invoice_date', '>=', startDate.toISOString().split('T')[0]],
+        ], ['id', 'invoice_date', 'amount_total', 'state'], { limit: 500 });
+        
+        // Group invoices by date
+        const invoicesByDate = new Map<string, number>();
+        for (const inv of invoicesRaw) {
+          const date = inv.invoice_date;
+          if (date) {
+            const current = invoicesByDate.get(date) || 0;
+            invoicesByDate.set(date, current + (inv.amount_total || 0));
+          }
+        }
+        
+        odooInvoices = Array.from(invoicesByDate.entries()).map(([date, total]) => ({
+          date,
+          invoicedAmount: total,
+        }));
+      } catch (err) {
+        console.warn("Could not fetch Odoo invoices for analytics:", err);
+      }
+      
+      // Build daily data for the date range
+      const dailyData: { date: string; quotedAmount: number; invoicedAmount: number; quoteCount: number }[] = [];
+      const quotesMap = new Map(quotesResult.map(q => [q.date, { amount: parseFloat(q.totalAmount) || 0, count: q.count }]));
+      const invoicesMap = new Map(odooInvoices.map(i => [i.date, i.invoicedAmount]));
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const quoteData = quotesMap.get(dateStr) || { amount: 0, count: 0 };
+        dailyData.push({
+          date: dateStr,
+          quotedAmount: quoteData.amount,
+          invoicedAmount: invoicesMap.get(dateStr) || 0,
+          quoteCount: quoteData.count,
+        });
+      }
+      
+      // Calculate totals
+      const totalQuoted = dailyData.reduce((sum, d) => sum + d.quotedAmount, 0);
+      const totalInvoiced = dailyData.reduce((sum, d) => sum + d.invoicedAmount, 0);
+      const totalQuoteCount = dailyData.reduce((sum, d) => sum + d.quoteCount, 0);
+      
+      res.json({
+        success: true,
+        days,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        dailyData,
+        totals: {
+          quoted: totalQuoted,
+          invoiced: totalInvoiced,
+          quoteCount: totalQuoteCount,
+        },
+      });
+    } catch (error) {
+      console.error("Sales analytics error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ error: "Failed to fetch sales analytics", details: errorMessage });
+    }
+  });
+
   // Get all approved users (for sales rep selection)
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {

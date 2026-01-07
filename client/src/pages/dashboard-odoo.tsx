@@ -90,6 +90,7 @@ const appCategories = [
       { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: '#f59e0b', bgGradient: 'linear-gradient(135deg, rgba(253, 224, 71, 0.4), rgba(250, 204, 21, 0.3))' },
       { path: '/price-list', icon: DollarSign, label: 'Price List', color: '#8b5cf6', bgGradient: 'linear-gradient(135deg, rgba(167, 139, 250, 0.4), rgba(139, 92, 246, 0.3))' },
       { path: '/saved-quotes', icon: BarChart3, label: 'Saved Quotes', color: '#06b6d4', bgGradient: 'linear-gradient(135deg, rgba(103, 232, 249, 0.4), rgba(6, 182, 212, 0.3))' },
+      { path: '/sales-analytics', icon: TrendingUp, label: 'Sales Charts', color: '#8b5cf6', bgGradient: 'linear-gradient(135deg, rgba(167, 139, 250, 0.4), rgba(139, 92, 246, 0.3))' },
       { path: '/clients', icon: Users, label: 'Clients', color: '#10b981', bgGradient: 'linear-gradient(135deg, rgba(134, 239, 172, 0.4), rgba(110, 231, 183, 0.3))' },
       { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: '#3b82f6', bgGradient: 'linear-gradient(135deg, rgba(147, 197, 253, 0.4), rgba(96, 165, 250, 0.3))' },
       { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', color: '#ef4444', bgGradient: 'linear-gradient(135deg, rgba(252, 165, 165, 0.4), rgba(248, 113, 113, 0.3))' },
