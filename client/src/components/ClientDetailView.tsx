@@ -555,6 +555,30 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     },
   });
 
+  const resyncFromOdooMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/odoo/customer/${customer.id}/resync`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      if (data.customer) {
+        setEditAddress({
+          address1: data.customer.address1 || '',
+          address2: data.customer.address2 || '',
+          city: data.customer.city || '',
+          province: data.customer.province || '',
+          country: data.customer.country || '',
+          zip: data.customer.zip || '',
+        });
+      }
+      toast({ title: "Success", description: "Address synced from Odoo" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to sync from Odoo", variant: "destructive" });
+    },
+  });
+
   const toggleHotProspectMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest('PUT', `/api/customers/${customer.id}`, {
@@ -1552,6 +1576,25 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>Search address on Google Maps</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {!isEditingAddress && customer.odooPartnerId && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => resyncFromOdooMutation.mutate()}
+                            disabled={resyncFromOdooMutation.isPending}
+                            className="h-6 w-6 p-0 border-green-200"
+                            data-testid="btn-sync-address-odoo"
+                          >
+                            <RefreshCw className={`h-3 w-3 text-green-500 ${resyncFromOdooMutation.isPending ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Sync address from Odoo</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   )}

@@ -9408,6 +9408,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Resync a customer's data from Odoo (updates address and other fields)
+  app.post("/api/odoo/customer/:customerId/resync", requireApproval, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      // Get customer to find their odooPartnerId
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      if (!customer.odooPartnerId) {
+        return res.status(400).json({ error: "Customer is not linked to Odoo" });
+      }
+      
+      // Fetch partner data from Odoo
+      const partner = await odooClient.getPartnerById(customer.odooPartnerId);
+      if (!partner) {
+        return res.status(404).json({ error: "Partner not found in Odoo" });
+      }
+      
+      // Update customer with fresh Odoo data
+      const updateData = {
+        address1: partner.street || null,
+        address2: partner.street2 || null,
+        city: partner.city || null,
+        province: partner.state_id ? partner.state_id[1] : null,
+        zip: partner.zip || null,
+        country: partner.country_id ? partner.country_id[1] : null,
+        phone: partner.phone || partner.mobile || customer.phone,
+        cell: partner.mobile || customer.cell,
+        lastOdooSyncAt: new Date(),
+      };
+      
+      await db.update(customers).set(updateData).where(eq(customers.id, customerId));
+      
+      // Clear cache
+      setCachedData("customers", null);
+      
+      // Return updated customer
+      const [updatedCustomer] = await db.select().from(customers).where(eq(customers.id, customerId));
+      
+      res.json({ 
+        success: true, 
+        message: "Customer data synced from Odoo",
+        customer: updatedCustomer 
+      });
+    } catch (error: any) {
+      console.error("Error resyncing customer from Odoo:", error);
+      res.status(500).json({ error: error.message || "Failed to resync from Odoo" });
+    }
+  });
+
   // Get Odoo sync status - check if any Odoo-linked customers exist
   app.get("/api/odoo/sync-status", requireApproval, async (req: any, res) => {
     try {
