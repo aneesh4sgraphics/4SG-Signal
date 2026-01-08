@@ -10351,8 +10351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { odooClient } = await import('./odoo');
       
-      console.log("[Odoo Import] Fetching ALL products from Odoo...");
-      const odooProducts = await odooClient.getAllProducts();
+      console.log("[Odoo Import] Fetching ALL products (templates + variants) from Odoo...");
+      const odooProducts = await odooClient.getAllProductsWithVariants();
       console.log(`[Odoo Import] Found ${odooProducts.length} products in Odoo`);
       
       let imported = 0;
