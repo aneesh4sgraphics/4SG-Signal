@@ -346,18 +346,75 @@ export default function QuoteCalculator() {
     (issue.objectionType === 'price' || issue.objectionType === 'compatibility')
   ) || [];
 
-  // Get unique categories (filter out empty/null values)
-  const categories = Array.from(new Set(productData.map(item => item.productName).filter(Boolean))).sort();
-  
-  // Get product types for selected category (filter out empty/null values)
-  const productTypes = selectedCategory
-    ? Array.from(new Set(productData.filter(item => item.productName === selectedCategory).map(item => item.productType).filter(Boolean))).sort()
-    : [];
+  // Allowed Product Categories (curated list)
+  const ALLOWED_CATEGORIES = [
+    'Graffiti Polyester Paper',
+    'Graffiti Blended Poly',
+    'GraffitiSTICK',
+    'Solvit Sign & Display Media',
+    'CLiQ Aqueous Media',
+    'Rang Print Canvas',
+    'EiE Inkjet Film',
+    'eLe Laser Films',
+    'MXP Offset Plates',
+    'Rollers & Chemicals',
+  ];
+
+  // Get unique categories - filter to only allowed ones
+  const allCategories = Array.from(new Set(productData.map(item => item.productName).filter(Boolean)));
+  const categories = ALLOWED_CATEGORIES.filter(allowed => 
+    allCategories.some(cat => 
+      cat.toLowerCase().includes(allowed.toLowerCase()) || 
+      allowed.toLowerCase().includes(cat.toLowerCase())
+    )
+  );
+
+  // Helper to extract keywords from a category name
+  const extractCategoryKeywords = (text: string): string[] => {
+    const normalized = text
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_\-\/\\]/g, ' ')
+      .toLowerCase()
+      .trim();
+    const words = normalized.split(/\s+/).filter(w => w.length > 2);
+    const stopwords = ['the', 'and', 'for', 'with', 'paper', 'film', 'media', 'print'];
+    return words.filter(w => !stopwords.includes(w));
+  };
+
+  // Get product types for selected category - use keyword matching
+  const productTypes = (() => {
+    if (!selectedCategory) return [];
+    
+    const keywords = extractCategoryKeywords(selectedCategory);
+    
+    // Get all unique product types from the data
+    const allTypes = Array.from(new Set(productData.map(item => item.productType).filter(Boolean)));
+    
+    // Filter types that match ALL keywords from the category
+    const matchingTypes = allTypes.filter(type => {
+      const typeKeywords = extractCategoryKeywords(type);
+      return keywords.every(kw => 
+        typeKeywords.some(tk => tk.includes(kw) || kw.includes(tk))
+      );
+    });
+    
+    // If we found matches, use them; otherwise fall back to original behavior
+    if (matchingTypes.length > 0) {
+      return matchingTypes.sort();
+    }
+    
+    // Fallback: filter by productName match
+    return Array.from(new Set(
+      productData
+        .filter(item => item.productName === selectedCategory)
+        .map(item => item.productType)
+        .filter(Boolean)
+    )).sort();
+  })();
 
   // Get sizes for selected type with sorting
   const availableSizes = selectedCategory && selectedType
     ? productData.filter(item => 
-        item.productName === selectedCategory && 
         item.productType === selectedType
       ).sort((a, b) => {
         const sqmA = parseFloat(String(a.totalSqm || 0));
@@ -388,7 +445,6 @@ export default function QuoteCalculator() {
 
   // Get selected product details
   const selectedProduct = productData.find(item =>
-    item.productName === selectedCategory &&
     item.productType === selectedType &&
     item.size === selectedSize
   );

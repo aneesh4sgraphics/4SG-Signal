@@ -450,14 +450,36 @@ export default function PriceList() {
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
-  // Get unique categories - memoize to prevent re-renders and filter out empty values
+  // Allowed Product Categories (curated list)
+  const ALLOWED_CATEGORIES = [
+    'Graffiti Polyester Paper',
+    'Graffiti Blended Poly',
+    'GraffitiSTICK',
+    'Solvit Sign & Display Media',
+    'CLiQ Aqueous Media',
+    'Rang Print Canvas',
+    'EiE Inkjet Film',
+    'eLe Laser Films',
+    'MXP Offset Plates',
+    'Rollers & Chemicals',
+  ];
+
+  // Get unique categories - memoize to prevent re-renders and filter to allowed list
   const categories = useMemo(() => {
     if (!productData || productData.length === 0) return [];
-    // Try both productName and product_name fields (API uses productName, legacy uses product_name), filter out empty values
+    // Get all category names from data
     const categoryNames = productData
       .map(item => item.productName || item.product_name || '')
-      .filter(name => name && name.trim().length > 0); // Filter out empty/whitespace strings
-    return Array.from(new Set(categoryNames)).sort();
+      .filter(name => name && name.trim().length > 0);
+    const allCategories = Array.from(new Set(categoryNames));
+    
+    // Filter to only allowed categories
+    return ALLOWED_CATEGORIES.filter(allowed => 
+      allCategories.some(cat => 
+        cat.toLowerCase().includes(allowed.toLowerCase()) || 
+        allowed.toLowerCase().includes(cat.toLowerCase())
+      )
+    );
   }, [productData]);
 
   // Handle product reordering
