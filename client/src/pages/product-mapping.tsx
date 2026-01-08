@@ -366,30 +366,11 @@ export default function ProductMapping() {
   const counts = data?.counts || { all: 0, unmapped: 0, noSize: 0, noSqm: 0, incomplete: 0 };
 
   const getTypesForCategoryKeywords = (categoryId: number): ProductType[] => {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) {
-      return types
-        .filter(t => t.categoryId === categoryId)
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }
-    
-    const categoryKeywords = CATEGORY_TYPE_KEYWORDS[category.name];
-    if (!categoryKeywords) {
-      return types
-        .filter(t => t.categoryId === categoryId)
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }
-    
-    const matchingTypes = types.filter(t => {
-      const typeLower = t.name.toLowerCase();
-      return categoryKeywords.some(keyword => typeLower.includes(keyword.toLowerCase()));
-    });
-    
-    // Sort alphabetically for easier scanning
-    const sortedTypes = (matchingTypes.length > 0 ? matchingTypes : types.filter(t => t.categoryId === categoryId))
+    // Only return types that belong to this category in the database
+    // This ensures types don't appear under wrong categories
+    return types
+      .filter(t => t.categoryId === categoryId)
       .sort((a, b) => a.name.localeCompare(b.name));
-    
-    return sortedTypes;
   };
 
   const filteredTypesForEdit = useMemo(() => {
