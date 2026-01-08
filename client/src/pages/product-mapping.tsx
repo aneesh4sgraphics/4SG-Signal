@@ -153,7 +153,10 @@ export default function ProductMapping() {
 
   // Import from Odoo mutation
   const importFromOdoo = useMutation({
-    mutationFn: () => apiRequest('/api/products/import-all-from-odoo', { method: 'POST' }),
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/products/import-all-from-odoo');
+      return res.json();
+    },
     onSuccess: (data: any) => {
       toast({
         title: 'Import Complete',
@@ -173,17 +176,16 @@ export default function ProductMapping() {
 
   // Update product mapping mutation
   const updateMapping = useMutation({
-    mutationFn: (data: { productId: number; categoryId: number; typeId: number; size: string; totalSqm: string; rollSheet: string }) =>
-      apiRequest(`/api/products/${data.productId}/mapping`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          catalogCategoryId: data.categoryId,
-          productTypeId: data.typeId,
-          size: data.size,
-          totalSqm: data.totalSqm,
-          rollSheet: data.rollSheet,
-        }),
-      }),
+    mutationFn: async (data: { productId: number; categoryId: number; typeId: number; size: string; totalSqm: string; rollSheet: string }) => {
+      const res = await apiRequest('PATCH', `/api/products/${data.productId}/mapping`, {
+        catalogCategoryId: data.categoryId,
+        productTypeId: data.typeId,
+        size: data.size,
+        totalSqm: data.totalSqm,
+        rollSheet: data.rollSheet,
+      });
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: 'Product mapped successfully' });
       refetchProducts();
@@ -197,10 +199,10 @@ export default function ProductMapping() {
 
   // Add category mutation
   const addCategory = useMutation({
-    mutationFn: (name: string) => apiRequest('/api/product-categories', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
+    mutationFn: async (name: string) => {
+      const res = await apiRequest('POST', '/api/product-categories', { name });
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: 'Category added' });
       refetchCategories();
@@ -214,10 +216,10 @@ export default function ProductMapping() {
 
   // Add type mutation
   const addType = useMutation({
-    mutationFn: (data: { name: string; categoryId: number }) => apiRequest('/api/product-types', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: async (data: { name: string; categoryId: number }) => {
+      const res = await apiRequest('POST', '/api/product-types', data);
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: 'Type added' });
       refetchTypes();
