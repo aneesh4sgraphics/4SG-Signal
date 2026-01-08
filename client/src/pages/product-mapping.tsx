@@ -181,7 +181,26 @@ export default function ProductMapping() {
     },
   });
 
-  const categories = data?.categories || [];
+  const ALLOWED_CATEGORIES = [
+    'Graffiti Polyester Paper',
+    'Graffiti Blended Poly',
+    'GraffitiSTICK',
+    'Solvit Sign & Display Media',
+    'CLiQ Aqueous Media',
+    'Rang Print Canvas',
+    'EiE Inkjet Film',
+    'eLe Laser Films',
+    'MXP Offset Plates',
+    'Rollers & Chemicals',
+  ];
+
+  const allCategories = data?.categories || [];
+  const categories = allCategories.filter(c => 
+    ALLOWED_CATEGORIES.some(allowed => 
+      c.name.toLowerCase().includes(allowed.toLowerCase()) || 
+      allowed.toLowerCase().includes(c.name.toLowerCase())
+    )
+  );
   const types = data?.types || [];
   const products = data?.products || [];
   const counts = data?.counts || { all: 0, unmapped: 0, noSize: 0, noSqm: 0, incomplete: 0 };
