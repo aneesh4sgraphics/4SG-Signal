@@ -1783,7 +1783,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           }
                           return (
                             <span className="text-sm text-gray-600">
-                              ${item.price.toFixed(2)}
+                              ${Number(item.price || 0).toFixed(2)}
                             </span>
                           );
                         case 'pricePerSheet':
@@ -1792,7 +1792,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           }
                           return (
                             <span className="text-sm text-gray-600">
-                              ${item.pricePerSheet.toFixed(2)}
+                              ${Number(item.pricePerSheet || 0).toFixed(2)}
                             </span>
                           );
                         case 'minOrderQtyPrice':
@@ -1801,7 +1801,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           }
                           return (
                             <span className="text-sm text-gray-800 font-medium">
-                              ${item.total.toFixed(2)}
+                              ${Number(item.total || 0).toFixed(2)}
                             </span>
                           );
                         case 'add':
