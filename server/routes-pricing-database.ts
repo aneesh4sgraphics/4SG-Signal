@@ -592,7 +592,11 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
 // Get product codes for autocomplete (lightweight endpoint)
 router.get("/quickquotes/products", async (req, res) => {
   try {
-    const pricingData = await storage.getAllProductPricingMaster();
+    const allPricingData = await storage.getAllProductPricingMaster();
+    // Filter to only show MAPPED products (have catalogCategoryId) and not archived
+    const pricingData = allPricingData.filter(item => 
+      item.catalogCategoryId && !item.isArchived
+    );
     // Return only the fields needed for autocomplete
     const products = pricingData.map(item => ({
       id: item.id,
@@ -616,14 +620,19 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
     console.log("User authenticated:", !!req.user);
     
     console.log("Fetching product pricing from database...");
-    const pricingData = await storage.getAllProductPricingMaster();
-    console.log(`✓ Retrieved ${pricingData.length} pricing records from database in ${Date.now() - startTime}ms`);
+    const allPricingData = await storage.getAllProductPricingMaster();
+    
+    // Filter to only show MAPPED products (have catalogCategoryId) and not archived
+    const pricingData = allPricingData.filter(item => 
+      item.catalogCategoryId && !item.isArchived
+    );
+    console.log(`✓ Retrieved ${pricingData.length} mapped pricing records from database (${allPricingData.length} total) in ${Date.now() - startTime}ms`);
     
     if (pricingData.length === 0) {
-      console.warn("⚠ No pricing data found in database");
+      console.warn("⚠ No mapped pricing data found in database");
       return res.json({ 
         data: [],
-        warning: "No pricing data found. Please upload pricing data through the admin panel."
+        warning: "No mapped products found. Please map products in the Product Mapping page first."
       });
     }
     

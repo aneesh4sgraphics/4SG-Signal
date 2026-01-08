@@ -14,7 +14,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ArrowLeft, Search, RefreshCw, Download, CheckCircle2, 
-  Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2
+  Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2, Ban
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -232,6 +232,23 @@ export default function ProductMapping() {
     },
   });
 
+  // Do Not Map mutation - archives the product so it won't appear in QuickQuotes/Price List
+  const doNotMap = useMutation({
+    mutationFn: async (productId: number) => {
+      const res = await apiRequest('PATCH', `/api/products/${productId}/mapping`, {
+        isArchived: true,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Product excluded', description: 'Product will not appear in QuickQuotes or Price List' });
+      refetchProducts();
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to exclude product', description: error.message });
+    },
+  });
+
   const resetMappingForm = () => {
     setSelectedCategory('');
     setSelectedType('');
@@ -422,14 +439,27 @@ export default function ProductMapping() {
                               {product.productName}
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => openMappingDialog(product)}
-                            data-testid={`button-map-${product.id}`}
-                          >
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Map Product
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => openMappingDialog(product)}
+                              data-testid={`button-map-${product.id}`}
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Map
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => doNotMap.mutate(product.id)}
+                              disabled={doNotMap.isPending}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              data-testid={`button-exclude-${product.id}`}
+                            >
+                              <Ban className="h-4 w-4 mr-2" />
+                              Exclude
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
