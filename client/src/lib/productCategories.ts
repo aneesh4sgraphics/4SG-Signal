@@ -15,11 +15,12 @@ export const ALLOWED_CATEGORIES = [
   'Solvit Sign & Display Media',
   'CLiQ Aqueous Media',
   'Rang Print Canvas',
-  'EiE Inkjet Film',
-  'eLe Laser Films',
-  'MXP Offset Plates',
+  'DTF Film',
+  'Offset Printing Plates',
+  'Screen Printing Positives',
   'Rollers & Chemicals',
-  'COHO DTF Films',
+  'Misc Products',
+  'Swatch Books',
 ] as const;
 
 export type AllowedCategory = typeof ALLOWED_CATEGORIES[number];
