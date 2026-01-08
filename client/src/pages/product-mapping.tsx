@@ -98,8 +98,45 @@ interface DuplicatesResponse {
   totalDuplicateProducts: number;
 }
 
+interface MergeSuggestion {
+  id: number;
+  localProductId: number;
+  odooDefaultCode: string;
+  odooProductName: string | null;
+  odooProductId: number | null;
+  matchScore: string;
+  matchType: string;
+  status: string;
+  createdAt: string;
+  localProduct: {
+    itemCode: string;
+    odooItemCode: string | null;
+    productName: string;
+    productType: string;
+    size: string;
+    dealerPrice: string | null;
+  };
+}
+
+interface SuggestionsResponse {
+  success: boolean;
+  suggestions: MergeSuggestion[];
+  count: number;
+}
+
+interface GenerateSuggestionsResponse {
+  success: boolean;
+  generated: number;
+  missingFromLocal: Array<{
+    odooCode: string;
+    odooProductName: string;
+    odooProductId: number;
+  }>;
+  totalMissing: number;
+}
+
 type FilterType = 'incomplete' | 'unmapped' | 'no-size' | 'no-sqm' | 'all';
-type MainTab = 'mapping' | 'duplicates';
+type MainTab = 'mapping' | 'duplicates' | 'suggestions';
 
 export default function ProductMapping() {
   const { toast } = useToast();
@@ -207,6 +244,110 @@ export default function ProductMapping() {
   });
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
+  const [productToAdd, setProductToAdd] = useState<{ odooCode: string; odooProductName: string; odooProductId: number } | null>(null);
+  const [addProductForm, setAddProductForm] = useState({
+    productName: '',
+    productType: '',
+    size: '',
+    totalSqm: '',
+    minQuantity: '50',
+    rollSheet: '',
+    unitOfMeasure: '',
+  });
+
+  // Suggestions queries
+  const { data: suggestionsData, isLoading: suggestionsLoading, refetch: refetchSuggestions } = useQuery<SuggestionsResponse>({
+    queryKey: ['/api/products/merge-suggestions'],
+    queryFn: async () => {
+      const res = await fetch('/api/products/merge-suggestions');
+      if (!res.ok) throw new Error('Failed to fetch suggestions');
+      return res.json();
+    },
+    enabled: mainTab === 'suggestions',
+  });
+
+  const [missingProducts, setMissingProducts] = useState<GenerateSuggestionsResponse['missingFromLocal']>([]);
+  const [totalMissing, setTotalMissing] = useState(0);
+
+  const generateSuggestionsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/products/generate-suggestions', { minScore: 0.7 });
+      return res.json() as Promise<GenerateSuggestionsResponse>;
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: 'Suggestions Generated', 
+        description: `Found ${data.generated} fuzzy matches and ${data.totalMissing} missing products.` 
+      });
+      setMissingProducts(data.missingFromLocal);
+      setTotalMissing(data.totalMissing);
+      refetchSuggestions();
+    },
+    onError: (error: any) => {
+      toast({ title: 'Generate failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const acceptSuggestionMutation = useMutation({
+    mutationFn: async (suggestionId: number) => {
+      const res = await apiRequest('POST', `/api/products/merge-suggestions/${suggestionId}/accept`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Accepted', description: 'Odoo code applied to product.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/products/merge-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/products/unmapped'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Accept failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const rejectSuggestionMutation = useMutation({
+    mutationFn: async (suggestionId: number) => {
+      const res = await apiRequest('POST', `/api/products/merge-suggestions/${suggestionId}/reject`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Rejected', description: 'Suggestion dismissed.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/products/merge-suggestions'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Reject failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const addFromOdooMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest('POST', '/api/products/add-from-odoo', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Product Added', description: 'New product created from Odoo data.' });
+      setAddProductDialogOpen(false);
+      setProductToAdd(null);
+      setMissingProducts(prev => prev.filter(p => p.odooCode !== productToAdd?.odooCode));
+      queryClient.invalidateQueries({ queryKey: ['/api/products/unmapped'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Add failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const openAddProductDialog = (product: { odooCode: string; odooProductName: string; odooProductId: number }) => {
+    setProductToAdd(product);
+    setAddProductForm({
+      productName: product.odooProductName || '',
+      productType: '',
+      size: '',
+      totalSqm: '',
+      minQuantity: '50',
+      rollSheet: '',
+      unitOfMeasure: '',
+    });
+    setAddProductDialogOpen(true);
+  };
 
   // Use database categories but filter to show only the 10 allowed
   const ALLOWED_CATEGORY_NAMES = [
@@ -460,7 +601,7 @@ export default function ProductMapping() {
       </AlertDialog>
 
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as MainTab)} className="mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-xl grid-cols-3">
           <TabsTrigger value="mapping" className="flex items-center gap-2" data-testid="main-tab-mapping">
             <Layers className="h-4 w-4" />
             Product Mapping
@@ -468,6 +609,10 @@ export default function ProductMapping() {
           <TabsTrigger value="duplicates" className="flex items-center gap-2" data-testid="main-tab-duplicates">
             <Copy className="h-4 w-4" />
             Duplicates ({duplicatesData?.totalGroups || 0})
+          </TabsTrigger>
+          <TabsTrigger value="suggestions" className="flex items-center gap-2" data-testid="main-tab-suggestions">
+            <Merge className="h-4 w-4" />
+            Odoo Match ({suggestionsData?.count || 0})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -788,6 +933,266 @@ export default function ProductMapping() {
           </CardContent>
         </Card>
       )}
+
+      {mainTab === 'suggestions' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Merge className="h-5 w-5" />
+                  Odoo Code Matching
+                </CardTitle>
+                <CardDescription>
+                  Find matching products from Odoo using fuzzy code matching. Accept matches to apply Odoo codes, or add missing products.
+                </CardDescription>
+              </div>
+              <Button 
+                onClick={() => generateSuggestionsMutation.mutate()}
+                disabled={generateSuggestionsMutation.isPending}
+                data-testid="btn-generate-suggestions"
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", generateSuggestionsMutation.isPending && "animate-spin")} />
+                {generateSuggestionsMutation.isPending ? 'Scanning Odoo...' : 'Scan for Matches'}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {suggestionsLoading ? (
+              <div className="text-center py-12">
+                <RefreshCw className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+                <p className="mt-2 text-muted-foreground">Loading suggestions...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Fuzzy Match Suggestions */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Search className="h-5 w-5" />
+                    Fuzzy Matches ({suggestionsData?.count || 0})
+                  </h3>
+                  
+                  {(suggestionsData?.suggestions?.length || 0) === 0 ? (
+                    <div className="text-center py-8 border rounded-lg bg-gray-50 dark:bg-gray-900">
+                      <CheckCircle2 className="h-10 w-10 mx-auto text-green-500 mb-3" />
+                      <p className="font-medium">No pending suggestions</p>
+                      <p className="text-sm text-muted-foreground">Click "Scan for Matches" to find Odoo products that match local products.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {suggestionsData?.suggestions.map((suggestion) => (
+                        <div 
+                          key={suggestion.id}
+                          className="border rounded-lg p-4 bg-white dark:bg-gray-950"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  className={cn(
+                                    "text-xs",
+                                    parseFloat(suggestion.matchScore) >= 0.9 
+                                      ? "bg-green-600" 
+                                      : parseFloat(suggestion.matchScore) >= 0.8 
+                                        ? "bg-yellow-600" 
+                                        : "bg-orange-600"
+                                  )}
+                                >
+                                  {(parseFloat(suggestion.matchScore) * 100).toFixed(0)}% match
+                                </Badge>
+                                <Badge variant="outline">{suggestion.matchType}</Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4 mt-3">
+                                <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded">
+                                  <div className="text-xs text-muted-foreground mb-1">Local Product</div>
+                                  <div className="font-mono text-sm">{suggestion.localProduct?.itemCode}</div>
+                                  <div className="text-sm text-muted-foreground">{suggestion.localProduct?.productName}</div>
+                                </div>
+                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded">
+                                  <div className="text-xs text-muted-foreground mb-1">Odoo Product</div>
+                                  <div className="font-mono text-sm text-purple-700 dark:text-purple-300">{suggestion.odooDefaultCode}</div>
+                                  <div className="text-sm text-muted-foreground">{suggestion.odooProductName}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => acceptSuggestionMutation.mutate(suggestion.id)}
+                                disabled={acceptSuggestionMutation.isPending}
+                                data-testid={`btn-accept-${suggestion.id}`}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Accept
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => rejectSuggestionMutation.mutate(suggestion.id)}
+                                disabled={rejectSuggestionMutation.isPending}
+                                data-testid={`btn-reject-${suggestion.id}`}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Missing from Local */}
+                {missingProducts.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-500" />
+                      Missing from Local System ({totalMissing})
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      These Odoo products don't exist in your local system. Click "Add" to create them.
+                    </p>
+                    
+                    <div className="grid gap-3">
+                      {missingProducts.slice(0, 20).map((product, idx) => (
+                        <div 
+                          key={idx}
+                          className="flex items-center justify-between p-3 border rounded-lg bg-orange-50 dark:bg-orange-900/20"
+                        >
+                          <div>
+                            <div className="font-mono text-sm">{product.odooCode}</div>
+                            <div className="text-sm text-muted-foreground">{product.odooProductName}</div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openAddProductDialog(product)}
+                            data-testid={`btn-add-odoo-${idx}`}
+                          >
+                            <Package className="h-4 w-4 mr-1" />
+                            Add to System
+                          </Button>
+                        </div>
+                      ))}
+                      {missingProducts.length > 20 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          Showing 20 of {totalMissing} missing products
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add Product from Odoo Dialog */}
+      <Dialog open={addProductDialogOpen} onOpenChange={setAddProductDialogOpen}>
+        <DialogContent className="max-w-lg" data-testid="dialog-add-from-odoo">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Add Product from Odoo
+            </DialogTitle>
+            <DialogDescription>
+              Odoo Code: {productToAdd?.odooCode}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Product Name</Label>
+              <Input 
+                value={addProductForm.productName}
+                onChange={(e) => setAddProductForm(prev => ({ ...prev, productName: e.target.value }))}
+                placeholder="Enter product name"
+                data-testid="input-product-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Product Type</Label>
+              <Input 
+                value={addProductForm.productType}
+                onChange={(e) => setAddProductForm(prev => ({ ...prev, productType: e.target.value }))}
+                placeholder="Enter product type"
+                data-testid="input-product-type"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Size</Label>
+                <Input 
+                  value={addProductForm.size}
+                  onChange={(e) => setAddProductForm(prev => ({ ...prev, size: e.target.value }))}
+                  placeholder="e.g. 13x19"
+                  data-testid="input-size"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Total SqM</Label>
+                <Input 
+                  value={addProductForm.totalSqm}
+                  onChange={(e) => setAddProductForm(prev => ({ ...prev, totalSqm: e.target.value }))}
+                  placeholder="e.g. 0.1234"
+                  data-testid="input-sqm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Roll/Sheet</Label>
+                <Select
+                  value={addProductForm.rollSheet}
+                  onValueChange={(val) => setAddProductForm(prev => ({ ...prev, rollSheet: val }))}
+                >
+                  <SelectTrigger data-testid="select-roll-sheet">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sheet">Sheet</SelectItem>
+                    <SelectItem value="roll">Roll</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Min Quantity</Label>
+                <Input 
+                  value={addProductForm.minQuantity}
+                  onChange={(e) => setAddProductForm(prev => ({ ...prev, minQuantity: e.target.value }))}
+                  placeholder="50"
+                  data-testid="input-min-qty"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddProductDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={() => addFromOdooMutation.mutate({
+                odooCode: productToAdd?.odooCode,
+                odooProductName: productToAdd?.odooProductName,
+                odooProductId: productToAdd?.odooProductId,
+                productName: addProductForm.productName,
+                productType: addProductForm.productType,
+                size: addProductForm.size,
+                totalSqm: addProductForm.totalSqm,
+                minQuantity: parseInt(addProductForm.minQuantity) || 50,
+                rollSheet: addProductForm.rollSheet || null,
+              })}
+              disabled={addFromOdooMutation.isPending || !addProductForm.productName}
+              data-testid="btn-add-product"
+            >
+              {addFromOdooMutation.isPending ? 'Adding...' : 'Add Product'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
         <DialogContent className="max-w-lg" data-testid="dialog-edit-product">
