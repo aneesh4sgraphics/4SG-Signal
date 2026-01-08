@@ -350,6 +350,7 @@ export default function QuoteCalculator() {
   const categories = [
     'Graffiti Polyester Paper',
     'Graffiti Blended Poly',
+    'Graffiti SOFT Poly',
     'GraffitiSTICK',
     'Solvit Sign & Display Media',
     'CLiQ Aqueous Media',
@@ -363,14 +364,15 @@ export default function QuoteCalculator() {
   // Category to product type keyword mapping - defines what product types belong to each category
   const CATEGORY_TYPE_KEYWORDS: Record<string, string[]> = {
     'Graffiti Polyester Paper': ['graffiti polyester', 'graffiti polyester film'],
-    'Graffiti Blended Poly': ['graffiti blended poly', 'graffiti soft poly'],
-    'GraffitiSTICK': ['graffiti stick', 'graffiti slickstick', 'graffiti silverstick', 'graffitiSTICK'],
+    'Graffiti Blended Poly': ['graffiti blended poly'],
+    'Graffiti SOFT Poly': ['graffiti soft poly', 'soft poly'],
+    'GraffitiSTICK': ['stick', 'slickstick', 'coolstick', 'clearstick', 'silverstick', 'paperstick', 'durastick'],
     'Solvit Sign & Display Media': ['solvit'],
     'CLiQ Aqueous Media': ['cliq'],
     'Rang Print Canvas': ['rang'],
     'EiE Inkjet Film': ['eie'],
-    'eLe Laser Films': ['ele'],
-    'MXP Offset Plates': ['mxp'],
+    'eLe Laser Films': ['ele laser', 'ele polyester laser'],
+    'MXP Offset Plates': ['mxp', 'laser plate'],
     'Rollers & Chemicals': ['roller', 'chemical'],
   };
 
