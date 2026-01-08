@@ -84,7 +84,8 @@ export default function ProductMapping() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedSqm, setSelectedSqm] = useState<string>('0');
-  const [selectedRollSheet, setSelectedRollSheet] = useState<string>('');
+  const [selectedPackingType, setSelectedPackingType] = useState<string>('');
+  const [sheetsPerPack, setSheetsPerPack] = useState<string>('1');
   
   // Category/Type management
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -176,13 +177,14 @@ export default function ProductMapping() {
 
   // Update product mapping mutation
   const updateMapping = useMutation({
-    mutationFn: async (data: { productId: number; categoryId: number; typeId: number; size: string; totalSqm: string; rollSheet: string }) => {
+    mutationFn: async (data: { productId: number; categoryId: number; typeId: number; size: string; totalSqm: string; rollSheet: string; minQuantity: number }) => {
       const res = await apiRequest('PATCH', `/api/products/${data.productId}/mapping`, {
         catalogCategoryId: data.categoryId,
         productTypeId: data.typeId,
         size: data.size,
         totalSqm: data.totalSqm,
         rollSheet: data.rollSheet,
+        minQuantity: data.minQuantity,
       });
       return res.json();
     },
@@ -254,7 +256,8 @@ export default function ProductMapping() {
     setSelectedType('');
     setSelectedSize('');
     setSelectedSqm('0');
-    setSelectedRollSheet('');
+    setSelectedPackingType('');
+    setSheetsPerPack('1');
   };
 
   const openMappingDialog = (product: Product) => {
@@ -263,7 +266,8 @@ export default function ProductMapping() {
     setSelectedType(product.productTypeId?.toString() || '');
     setSelectedSize(product.size || '');
     setSelectedSqm(product.totalSqm || '0');
-    setSelectedRollSheet(product.rollSheet || '');
+    setSelectedPackingType(product.rollSheet || '');
+    setSheetsPerPack('1');
   };
 
   const handleSaveMapping = () => {
@@ -272,13 +276,19 @@ export default function ProductMapping() {
       return;
     }
     
+    // For Packet/Carton, sheets per pack becomes min order quantity
+    const minQuantity = (selectedPackingType === 'Packet' || selectedPackingType === 'Carton') 
+      ? parseInt(sheetsPerPack) || 1 
+      : 1;
+    
     updateMapping.mutate({
       productId: mappingProduct.id,
       categoryId: parseInt(selectedCategory),
       typeId: parseInt(selectedType),
       size: selectedSize || 'Standard',
       totalSqm: selectedSqm || '0',
-      rollSheet: selectedRollSheet,
+      rollSheet: selectedPackingType,
+      minQuantity: minQuantity,
     });
   };
 
@@ -718,19 +728,40 @@ export default function ProductMapping() {
                 </div>
               </div>
 
-              {/* Roll/Sheet */}
+              {/* Packing Type */}
               <div className="space-y-2">
-                <Label>Roll or Sheet</Label>
-                <Select value={selectedRollSheet} onValueChange={setSelectedRollSheet}>
-                  <SelectTrigger data-testid="select-rollsheet">
-                    <SelectValue placeholder="Select roll or sheet" />
+                <Label>Packing Type</Label>
+                <Select value={selectedPackingType} onValueChange={setSelectedPackingType}>
+                  <SelectTrigger data-testid="select-packing-type">
+                    <SelectValue placeholder="Select packing type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Roll">Roll</SelectItem>
-                    <SelectItem value="Sheet">Sheet</SelectItem>
+                    <SelectItem value="Sheets">Sheets</SelectItem>
+                    <SelectItem value="Packet">Packet</SelectItem>
+                    <SelectItem value="Carton">Carton</SelectItem>
+                    <SelectItem value="Unit">Unit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Sheets per Pack/Carton (conditional) */}
+              {(selectedPackingType === 'Packet' || selectedPackingType === 'Carton') && (
+                <div className="space-y-2">
+                  <Label>Sheets per {selectedPackingType}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={sheetsPerPack}
+                    onChange={(e) => setSheetsPerPack(e.target.value)}
+                    placeholder="Enter number of sheets"
+                    data-testid="input-sheets-per-pack"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This becomes the minimum order quantity
+                  </p>
+                </div>
+              )}
 
               {/* Square Meters */}
               <div className="space-y-2">

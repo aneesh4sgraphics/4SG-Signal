@@ -10523,13 +10523,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/products/:id/mapping", requireAdmin, async (req: any, res) => {
     try {
       const productId = parseInt(req.params.id);
-      const { productTypeId, catalogCategoryId, size, totalSqm, rollSheet, unitOfMeasure, isArchived } = req.body;
+      const { productTypeId, catalogCategoryId, size, totalSqm, rollSheet, unitOfMeasure, isArchived, minQuantity } = req.body;
       
       // Build update object
       const updates: any = { updatedAt: new Date() };
       
       // Handle archive/exclude
       if (isArchived !== undefined) updates.isArchived = isArchived;
+      
+      // Handle min quantity (used for packets/cartons)
+      if (minQuantity !== undefined) updates.minQuantity = minQuantity;
       
       if (productTypeId !== undefined) {
         updates.productTypeId = productTypeId || null;
