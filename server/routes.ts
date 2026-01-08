@@ -10330,6 +10330,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get duplicate/similar products for merging
+  app.get("/api/products/duplicates", requireAdmin, async (req: any, res) => {
+    try {
+      const allProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        odooItemCode: productPricingMaster.odooItemCode,
+        productName: productPricingMaster.productName,
+        productType: productPricingMaster.productType,
+        size: productPricingMaster.size,
+        totalSqm: productPricingMaster.totalSqm,
+        dealerPrice: productPricingMaster.dealerPrice,
+        retailPrice: productPricingMaster.retailPrice,
+      }).from(productPricingMaster)
+        .orderBy(productPricingMaster.itemCode);
+      
+      const normalizeCode = (code: string): string => {
+        return code
+          .toLowerCase()
+          .replace(/[\s\-_\/\\\.]+/g, '')
+          .replace(/\d+x\d+/gi, '')
+          .replace(/\d{2,}$/g, '')
+          .trim();
+      };
+      
+      const groupedByNormalized = new Map<string, typeof allProducts>();
+      
+      for (const product of allProducts) {
+        if (!product.itemCode) continue;
+        const normalized = normalizeCode(product.itemCode);
+        if (normalized.length < 3) continue;
+        
+        if (!groupedByNormalized.has(normalized)) {
+          groupedByNormalized.set(normalized, []);
+        }
+        groupedByNormalized.get(normalized)!.push(product);
+      }
+      
+      const duplicateGroups = Array.from(groupedByNormalized.entries())
+        .filter(([_, products]) => products.length > 1)
+        .map(([normalizedCode, products]) => ({
+          normalizedCode,
+          products,
+          hasOdooCode: products.some(p => p.odooItemCode),
+          conflictingPrices: new Set(products.map(p => p.dealerPrice)).size > 1,
+          conflictingSizes: new Set(products.map(p => p.size)).size > 1,
+        }))
+        .sort((a, b) => b.products.length - a.products.length);
+      
+      res.json({
+        success: true,
+        duplicateGroups,
+        totalGroups: duplicateGroups.length,
+        totalDuplicateProducts: duplicateGroups.reduce((sum, g) => sum + g.products.length, 0),
+      });
+    } catch (error: any) {
+      console.error("Error fetching duplicate products:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch duplicates" });
+    }
+  });
+
+  // Merge duplicate products (keep primary, deactivate others)
+  app.post("/api/products/merge", requireAdmin, async (req: any, res) => {
+    try {
+      const { primaryId, mergeIds } = req.body;
+      
+      if (!primaryId || !mergeIds || !Array.isArray(mergeIds) || mergeIds.length === 0) {
+        return res.status(400).json({ error: "primaryId and mergeIds array are required" });
+      }
+      
+      const [primary] = await db.select().from(productPricingMaster)
+        .where(eq(productPricingMaster.id, primaryId))
+        .limit(1);
+      
+      if (!primary) {
+        return res.status(404).json({ error: "Primary product not found" });
+      }
+      
+      let mergedCount = 0;
+      for (const mergeId of mergeIds) {
+        if (mergeId === primaryId) continue;
+        
+        await db.update(productPricingMaster)
+          .set({ 
+            isActive: false,
+            productName: `[MERGED → ${primary.itemCode}] ${primary.productName}`,
+            updatedAt: new Date()
+          })
+          .where(eq(productPricingMaster.id, mergeId));
+        mergedCount++;
+      }
+      
+      res.json({ 
+        success: true, 
+        mergedCount,
+        primaryProduct: primary 
+      });
+    } catch (error: any) {
+      console.error("Error merging products:", error);
+      res.status(500).json({ error: error.message || "Failed to merge products" });
+    }
+  });
+
   // ========================================
   // ODOO SALES ORDER APIs
   // ========================================
