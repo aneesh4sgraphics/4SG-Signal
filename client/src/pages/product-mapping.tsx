@@ -375,8 +375,12 @@ export default function ProductMapping() {
 
   const filteredTypesForEdit = useMemo(() => {
     if (!editForm.categoryId) return types;
-    return getTypesForCategoryKeywords(parseInt(editForm.categoryId));
-  }, [types, categories, editForm.categoryId]);
+    const categoryId = parseInt(editForm.categoryId);
+    // Filter types by their database category_id
+    return types
+      .filter(t => t.categoryId === categoryId)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [types, editForm.categoryId]);
 
   // Use keyword-based filtering for category → type matching
   const getTypesForCategory = (categoryId: number) => {
