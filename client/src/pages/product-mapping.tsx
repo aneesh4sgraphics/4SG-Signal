@@ -357,7 +357,7 @@ export default function ProductMapping() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-2xl font-bold text-orange-600">{counts.unmapped}</div>
+              <div className="text-2xl font-bold text-primary">{counts.unmapped}</div>
               <div className="text-sm text-muted-foreground">Unmapped</div>
             </CardContent>
           </Card>
@@ -431,7 +431,7 @@ export default function ProductMapping() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-sm font-medium">{product.itemCode}</span>
-                              <Badge variant="outline" className="text-orange-600 border-orange-600">
+                              <Badge variant="outline" className="text-amber-600 border-amber-600">
                                 Unmapped
                               </Badge>
                             </div>
@@ -453,7 +453,7 @@ export default function ProductMapping() {
                               variant="outline"
                               onClick={() => doNotMap.mutate(product.id)}
                               disabled={doNotMap.isPending}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              className="text-gray-600 border-gray-200 hover:bg-gray-50"
                               data-testid={`button-exclude-${product.id}`}
                             >
                               <Ban className="h-4 w-4 mr-2" />

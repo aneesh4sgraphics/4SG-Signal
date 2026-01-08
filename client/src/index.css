@@ -11,78 +11,79 @@
 }
 
 :root {
-  /* Contra Wireframe Kit Official Color System */
-  --background: #FDF9F9;
-  --foreground: #1A1819;
+  /* Odoo ERP Official Color System */
+  --background: #F7F6F9;
+  --foreground: #292524;
   
-  --muted: hsl(30, 10%, 94%);
-  --muted-foreground: #B7AEA3;
+  --muted: hsl(270, 5%, 94%);
+  --muted-foreground: #6B7280;
   
-  --popover: #FDF9F9;
-  --popover-foreground: #1A1819;
+  --popover: #FFFFFF;
+  --popover-foreground: #292524;
   
   --card: #FFFFFF;
-  --card-foreground: #1A1819;
+  --card-foreground: #292524;
   
-  --border: hsl(30, 10%, 85%);
-  --input: hsl(30, 10%, 85%);
+  --border: hsl(270, 5%, 85%);
+  --input: hsl(270, 5%, 85%);
   
-  /* Contra Orange Primary - Bright vivid orange */
-  --primary: #FE8505;
+  /* Odoo Purple Primary */
+  --primary: #875A7B;
   --primary-foreground: #FFFFFF;
   
-  /* Official Contra Wireframe Kit Colors */
-  --contra-orange: #FE8505;
-  --contra-orange-dark: #E37202;
-  --contra-pink: #FF8FAB;
-  --contra-coral: #E8927C;
-  --contra-yellow: #F4B854;
-  --contra-teal: #6A9291;
-  --contra-mint: #9ED0CE;
-  --contra-cream: #FDF9F9;
-  --contra-black: #1A1819;
-  --contra-gray: #B7AEA3;
-  --contra-lavender: #C4B5E0;
+  /* Official Odoo Color Palette */
+  --odoo-purple: #875A7B;
+  --odoo-purple-dark: #5F345C;
+  --odoo-purple-light: #C1A3B7;
+  --odoo-purple-hover: #714B67;
+  --odoo-success: #00A09D;
+  --odoo-warning: #FFAA4D;
+  --odoo-danger: #D9534F;
+  --odoo-info: #17A2B8;
+  --odoo-bg: #F7F6F9;
+  --odoo-text: #292524;
+  --odoo-gray: #6B7280;
+  --odoo-border: #DEE2E6;
   
-  --secondary: hsl(30, 10%, 95%);
-  --secondary-foreground: #1A1819;
+  --secondary: hsl(270, 5%, 95%);
+  --secondary-foreground: #292524;
   
-  --accent: hsl(30, 80%, 95%);
-  --accent-foreground: #E37202;
+  --accent: hsl(300, 15%, 95%);
+  --accent-foreground: #5F345C;
   
-  --destructive: #D35400;
+  --destructive: #D9534F;
   --destructive-foreground: #FFFFFF;
   
-  --success: #6A9291;
+  --success: #00A09D;
   --success-foreground: #FFFFFF;
   
-  --warning: #F4B854;
-  --warning-foreground: #1A1819;
+  --warning: #FFAA4D;
+  --warning-foreground: #292524;
   
-  --ring: #FE8505;
-  --radius: 16px;
+  --ring: #875A7B;
+  --radius: 4px;
 }
 
 .dark {
-  --background: #1A1819;
-  --foreground: #FDF9F9;
-  --muted: hsl(20, 8%, 18%);
-  --muted-foreground: #B7AEA3;
-  --popover: #1A1819;
-  --popover-foreground: #FDF9F9;
-  --card: hsl(20, 8%, 12%);
-  --card-foreground: #FDF9F9;
-  --border: hsl(20, 8%, 25%);
-  --input: hsl(20, 8%, 25%);
-  --primary: #FE8505;
+  --background: #1F1D2B;
+  --foreground: #F7F6F9;
+  --muted: hsl(270, 10%, 18%);
+  --muted-foreground: #9CA3AF;
+  --popover: #1F1D2B;
+  --popover-foreground: #F7F6F9;
+  --card: hsl(270, 10%, 12%);
+  --card-foreground: #F7F6F9;
+  --border: hsl(270, 10%, 25%);
+  --input: hsl(270, 10%, 25%);
+  --primary: #A77B9C;
   --primary-foreground: #FFFFFF;
-  --secondary: hsl(20, 8%, 20%);
-  --secondary-foreground: #FDF9F9;
-  --accent: hsl(30, 40%, 20%);
-  --accent-foreground: #F4B854;
-  --destructive: #EF1C07;
-  --destructive-foreground: #FDF9F9;
-  --ring: #FE8505;
+  --secondary: hsl(270, 10%, 20%);
+  --secondary-foreground: #F7F6F9;
+  --accent: hsl(300, 20%, 20%);
+  --accent-foreground: #C1A3B7;
+  --destructive: #EF4444;
+  --destructive-foreground: #F7F6F9;
+  --ring: #A77B9C;
 }
 
 @layer base {

@@ -847,7 +847,7 @@ export default function PriceList() {
               <Button
                 onClick={handleDownloadExcel}
                 disabled={downloadExcelMutation.isPending}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md flex items-center gap-2 label-small"
+                className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md flex items-center gap-2 label-small"
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 {downloadExcelMutation.isPending ? 'Generating...' : 'Excel Download'}
