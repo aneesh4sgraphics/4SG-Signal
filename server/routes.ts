@@ -434,12 +434,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             connectionStatus.gmail.connected = false;
             connectionStatus.gmail.error = 'Gmail not connected - please reconnect in Integrations panel';
           } else {
-            // Validate token by making a simple API call
+            // Validate token by making a simple API call using labels (which is included in scopes)
             const { google } = await import('googleapis');
             const oauth2Client = new google.auth.OAuth2();
             oauth2Client.setCredentials({ access_token: accessToken });
             const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-            await gmail.users.getProfile({ userId: 'me' });
+            // Use labels.list instead of getProfile since gmail.labels scope is available but gmail.readonly may not be
+            await gmail.users.labels.list({ userId: 'me' });
             connectionStatus.gmail.connected = true;
           }
         } catch (error: any) {

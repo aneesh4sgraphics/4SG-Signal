@@ -49,33 +49,48 @@ async function getGmailClient() {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
+// Get sender email from connection settings (avoids needing gmail.readonly scope)
+function getSenderEmailFromConnection(): string {
+  // Try to get email from connection settings
+  const email = connectionSettings?.settings?.email || 
+                connectionSettings?.settings?.oauth?.email ||
+                connectionSettings?.email ||
+                '';
+  return email;
+}
+
 export async function sendEmail(to: string, subject: string, body: string, htmlBody?: string, fromName?: string) {
   const gmail = await getGmailClient();
   
-  // Get sender's email address from profile
-  const profile = await gmail.users.getProfile({ userId: 'me' });
-  const senderEmail = profile.data.emailAddress || '';
+  // Get sender's email from connection settings (gmail.readonly scope not available)
+  // Fall back to sending without explicit From if email not available - Gmail will use authenticated account
+  let senderEmail = getSenderEmailFromConnection();
   const displayName = fromName || '4SG Quote System';
   
   // Generate unique Message-ID for proper threading and spam prevention
-  const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${senderEmail.split('@')[1] || 'localhost'}>`;
+  const domain = senderEmail ? senderEmail.split('@')[1] : '4sgraphics.com';
+  const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${domain}>`;
   
   // Format date in RFC 2822 format
   const dateStr = new Date().toUTCString().replace('GMT', '+0000');
   
-  const emailLines = [
-    `From: "${displayName}" <${senderEmail}>`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `Date: ${dateStr}`,
-    `Message-ID: ${messageId}`,
-    `Reply-To: ${senderEmail}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=utf-8',
-    'X-Mailer: 4SG-QuoteSystem/1.0',
-    '',
-    htmlBody || body.replace(/\n/g, '<br>')
-  ];
+  // Build email headers - only include From/Reply-To if we have sender email
+  const emailLines: string[] = [];
+  if (senderEmail) {
+    emailLines.push(`From: "${displayName}" <${senderEmail}>`);
+  }
+  emailLines.push(`To: ${to}`);
+  emailLines.push(`Subject: ${subject}`);
+  emailLines.push(`Date: ${dateStr}`);
+  emailLines.push(`Message-ID: ${messageId}`);
+  if (senderEmail) {
+    emailLines.push(`Reply-To: ${senderEmail}`);
+  }
+  emailLines.push('MIME-Version: 1.0');
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  emailLines.push('');
+  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
   
   const email = emailLines.join('\r\n');
   const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
