@@ -3,7 +3,8 @@ import { simpleParser, ParsedMail, AddressObject } from 'mailparser';
 
 interface ImapCredentials {
   user: string;
-  password: string;
+  password?: string;
+  accessToken?: string;
   host?: string;
   port?: number;
 }
@@ -21,8 +22,55 @@ interface EmailMessage {
 }
 
 let cachedClient: ImapFlow | null = null;
+let cachedConnectionSettings: any = null;
 
-function getCredentials(): ImapCredentials | null {
+async function getGmailOAuthCredentials(): Promise<ImapCredentials | null> {
+  try {
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    const xReplitToken = process.env.REPL_IDENTITY 
+      ? 'repl ' + process.env.REPL_IDENTITY 
+      : process.env.WEB_REPL_RENEWAL 
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+      : null;
+
+    if (!xReplitToken || !hostname) {
+      return null;
+    }
+
+    if (cachedConnectionSettings && cachedConnectionSettings.settings?.expires_at && 
+        new Date(cachedConnectionSettings.settings.expires_at).getTime() > Date.now()) {
+      const email = cachedConnectionSettings.settings?.email || cachedConnectionSettings.settings?.oauth?.email;
+      const accessToken = cachedConnectionSettings.settings?.access_token || cachedConnectionSettings.settings?.oauth?.credentials?.access_token;
+      if (email && accessToken) {
+        return { user: email, accessToken, host: 'imap.gmail.com', port: 993 };
+      }
+    }
+
+    cachedConnectionSettings = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
+      }
+    ).then(res => res.json()).then(data => data.items?.[0]);
+
+    const email = cachedConnectionSettings?.settings?.email || cachedConnectionSettings?.settings?.oauth?.email;
+    const accessToken = cachedConnectionSettings?.settings?.access_token || cachedConnectionSettings?.settings?.oauth?.credentials?.access_token;
+
+    if (email && accessToken) {
+      console.log('[IMAP] Using OAuth credentials from Gmail connector for:', email);
+      return { user: email, accessToken, host: 'imap.gmail.com', port: 993 };
+    }
+    return null;
+  } catch (error) {
+    console.error('[IMAP] Error getting OAuth credentials:', error);
+    return null;
+  }
+}
+
+function getAppPasswordCredentials(): ImapCredentials | null {
   const user = process.env.GMAIL_IMAP_USER;
   const password = process.env.GMAIL_IMAP_APP_PASSWORD;
   
@@ -39,30 +87,62 @@ function getCredentials(): ImapCredentials | null {
 }
 
 export function hasImapCredentials(): boolean {
-  return getCredentials() !== null;
+  return getAppPasswordCredentials() !== null;
+}
+
+export async function hasAnyImapCredentials(): Promise<boolean> {
+  if (hasImapCredentials()) return true;
+  const oauth = await getGmailOAuthCredentials();
+  return oauth !== null;
 }
 
 async function getClient(): Promise<ImapFlow> {
-  const credentials = getCredentials();
+  // First try OAuth from Gmail connector
+  let credentials = await getGmailOAuthCredentials();
   
+  // Fall back to app password
   if (!credentials) {
-    throw new Error('IMAP credentials not configured. Please set GMAIL_IMAP_USER and GMAIL_IMAP_APP_PASSWORD secrets.');
+    credentials = getAppPasswordCredentials();
   }
   
+  if (!credentials) {
+    throw new Error('IMAP credentials not available. Gmail connector not connected or GMAIL_IMAP_USER/GMAIL_IMAP_APP_PASSWORD not set.');
+  }
+  
+  // Close existing client if switching auth methods
   if (cachedClient && cachedClient.usable) {
     return cachedClient;
   }
   
-  const client = new ImapFlow({
-    host: credentials.host || 'imap.gmail.com',
-    port: credentials.port || 993,
-    secure: true,
-    auth: {
-      user: credentials.user,
-      pass: credentials.password
-    },
-    logger: false
-  });
+  let client: ImapFlow;
+  
+  if (credentials.accessToken) {
+    // Use OAuth2 XOAUTH2 authentication
+    console.log('[IMAP] Connecting with OAuth2 XOAUTH2 for:', credentials.user);
+    client = new ImapFlow({
+      host: credentials.host || 'imap.gmail.com',
+      port: credentials.port || 993,
+      secure: true,
+      auth: {
+        user: credentials.user,
+        accessToken: credentials.accessToken
+      },
+      logger: false
+    });
+  } else {
+    // Use regular password authentication
+    console.log('[IMAP] Connecting with app password for:', credentials.user);
+    client = new ImapFlow({
+      host: credentials.host || 'imap.gmail.com',
+      port: credentials.port || 993,
+      secure: true,
+      auth: {
+        user: credentials.user,
+        pass: credentials.password!
+      },
+      logger: false
+    });
+  }
   
   await client.connect();
   cachedClient = client;
