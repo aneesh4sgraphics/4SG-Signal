@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,9 +11,12 @@ import {
   FileText, 
   RefreshCw,
   BarChart3,
-  ArrowLeft
+  ArrowLeft,
+  Download
 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   LineChart, 
   Line, 
@@ -50,6 +53,7 @@ interface SalesTrendData {
 
 export default function SalesAnalyticsPage() {
   const [dateRange, setDateRange] = useState<string>("30");
+  const { toast } = useToast();
 
   const { data, isLoading, refetch, isFetching } = useQuery<SalesTrendData>({
     queryKey: ['/api/analytics/sales-trend', dateRange],
@@ -59,6 +63,32 @@ export default function SalesAnalyticsPage() {
       });
       if (!res.ok) throw new Error('Failed to fetch analytics');
       return res.json();
+    },
+  });
+
+  const syncSalesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/odoo/sync-sales');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to sync sales');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sales Synced",
+        description: data.message || `Imported ${data.imported} orders from Odoo`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/analytics/sales-trend'] });
+      refetch();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync sales from Odoo",
+        variant: "destructive",
+      });
     },
   });
 
@@ -149,6 +179,17 @@ export default function SalesAnalyticsPage() {
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => syncSalesMutation.mutate()}
+              disabled={syncSalesMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+              data-testid="btn-sync-sales"
+            >
+              <Download className={`h-4 w-4 mr-2 ${syncSalesMutation.isPending ? 'animate-spin' : ''}`} />
+              {syncSalesMutation.isPending ? 'Syncing...' : 'Sync from Odoo'}
             </Button>
           </div>
         </div>

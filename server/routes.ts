@@ -11555,6 +11555,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync Odoo sale orders into sent_quotes for reports
+  app.post("/api/odoo/sync-sales", requireAdmin, async (req: any, res) => {
+    try {
+      console.log("=== Starting Odoo Sales Sync ===");
+      
+      // Get existing quote numbers to avoid duplicates
+      const existingQuotes = await db.select({ quoteNumber: sentQuotes.quoteNumber })
+        .from(sentQuotes);
+      const existingQuoteNumbers = new Set(existingQuotes.map(q => q.quoteNumber));
+      
+      // Get partner mapping for customer names
+      const customers = await storage.getCustomers();
+      const customersByOdooId = new Map(
+        customers
+          .filter(c => c.odooPartnerId)
+          .map(c => [c.odooPartnerId, c])
+      );
+      
+      // Paginate through all sale orders from Odoo
+      const batchSize = 200;
+      let offset = 0;
+      let imported = 0;
+      let skipped = 0;
+      let totalFetched = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const saleOrders = await odooClient.getSaleOrders({ 
+          limit: batchSize, 
+          offset,
+          domain: [['state', 'in', ['sale', 'done']]] 
+        });
+        
+        totalFetched += saleOrders.length;
+        console.log(`Fetched batch: ${saleOrders.length} orders (offset ${offset})`);
+        
+        for (const order of saleOrders) {
+          const quoteNumber = order.name || `ODOO-${order.id}`;
+          
+          // Skip if already imported (check both existing and newly added)
+          if (existingQuoteNumbers.has(quoteNumber)) {
+            skipped++;
+            continue;
+          }
+          
+          // Get customer info
+          const partnerId = Array.isArray(order.partner_id) ? order.partner_id[0] : order.partner_id;
+          const partnerName = Array.isArray(order.partner_id) ? order.partner_id[1] : 'Unknown Customer';
+          const customer = customersByOdooId.get(partnerId);
+          
+          // Create quote record
+          await db.insert(sentQuotes).values({
+            quoteNumber,
+            customerName: customer?.name || partnerName,
+            customerEmail: customer?.email || null,
+            quoteItems: JSON.stringify([{ note: 'Imported from Odoo', orderId: order.id }]),
+            totalAmount: String(order.amount_total || 0),
+            createdAt: order.date_order ? new Date(order.date_order) : new Date(),
+            sentVia: 'odoo-sync',
+            status: order.state === 'done' ? 'completed' : 'sent',
+            ownerEmail: req.user?.email,
+            outcome: order.state === 'done' ? 'won' : 'pending',
+          });
+          
+          // Track this quote number to prevent duplicates within same sync
+          existingQuoteNumbers.add(quoteNumber);
+          imported++;
+        }
+        
+        // Check if there are more orders to fetch
+        if (saleOrders.length < batchSize) {
+          hasMore = false;
+        } else {
+          offset += batchSize;
+        }
+      }
+      
+      console.log(`=== Odoo Sales Sync Complete: ${imported} imported, ${skipped} skipped, ${totalFetched} total fetched ===`);
+      
+      res.json({
+        success: true,
+        message: `Imported ${imported} orders from Odoo (${skipped} already existed)`,
+        imported,
+        skipped,
+        total: totalFetched,
+      });
+    } catch (error: any) {
+      console.error("Error syncing Odoo sales:", error);
+      res.status(500).json({ error: error.message || "Failed to sync sales from Odoo" });
+    }
+  });
+
   // Get all Odoo products (with pagination for mapping UI)
   app.get("/api/odoo/all-products", requireApproval, async (req: any, res) => {
     try {
