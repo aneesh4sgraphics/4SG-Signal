@@ -167,18 +167,26 @@ export default function PriceList() {
   
   // Get user role and filter pricing tiers accordingly - memoize to prevent re-renders
   const userEmail = (user as any)?.email || '';
+  const userRole = (user as any)?.role || getUserRoleFromEmail(userEmail);
   const userAllowedTiers = (user as any)?.allowedTiers as string[] | null | undefined;
   const pricingTiers = useMemo(() => {
-    const userRole = getUserRoleFromEmail(userEmail);
+    const isAdmin = userRole === 'admin';
+    
     return allPricingTiers.filter(tier => {
+      // "Landed Price" is ONLY for Admin users - never show to non-admins
+      if (tier.key === 'Landed' && !isAdmin) {
+        return false;
+      }
+      
       // If user has specific allowed tiers set, use those (match on allowedTierKey)
       if (userAllowedTiers && userAllowedTiers.length > 0) {
         return userAllowedTiers.includes(tier.allowedTierKey);
       }
+      
       // Otherwise use role-based tier access
       return canAccessTier(tier.label, userRole);
     });
-  }, [userEmail, userAllowedTiers]);
+  }, [userRole, userAllowedTiers]);
 
   // Reset all filters
   const resetFilters = () => {
