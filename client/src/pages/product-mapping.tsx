@@ -175,16 +175,20 @@ export default function ProductMapping() {
     );
   }, [excludedProducts, excludedSearchQuery]);
 
-  // Get types for selected category (mapping dialog)
+  // Get types for selected category (mapping dialog) - sorted alphabetically
   const filteredTypes = useMemo(() => {
     if (!selectedCategory) return [];
-    return types.filter(t => t.categoryId.toString() === selectedCategory);
+    return types
+      .filter(t => t.categoryId.toString() === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [types, selectedCategory]);
 
-  // Get types filtered by selected category in Categories & Types tab
+  // Get types filtered by selected category in Categories & Types tab - sorted alphabetically
   const typesForCategoryTab = useMemo(() => {
-    if (selectedCategoryForTypes === null) return types;
-    return types.filter(t => t.categoryId === selectedCategoryForTypes);
+    const filtered = selectedCategoryForTypes === null 
+      ? types 
+      : types.filter(t => t.categoryId === selectedCategoryForTypes);
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }, [types, selectedCategoryForTypes]);
 
   // Import from Odoo mutation
