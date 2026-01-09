@@ -151,6 +151,7 @@ export const users = pgTable("users", {
   approvedAt: timestamp("approved_at"),
   loginCount: integer("login_count").default(0),
   lastLoginDate: varchar("last_login_date"),
+  allowedTiers: text("allowed_tiers").array(), // Array of tier keys user can see (null = all tiers for admins)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
