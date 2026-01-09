@@ -134,6 +134,36 @@ export default function OdooSettingsPage() {
     },
   });
 
+  const [salesRepSyncResult, setSalesRepSyncResult] = useState<{
+    updated: number;
+    alreadySet: number;
+    skipped: number;
+    totalProcessed: number;
+  } | null>(null);
+
+  const syncSalesRepsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/odoo/sync-sales-reps');
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      setSalesRepSyncResult({
+        updated: data.updated,
+        alreadySet: data.alreadySet,
+        skipped: data.skipped,
+        totalProcessed: data.totalProcessed,
+      });
+      toast({ 
+        title: "Sales rep sync complete",
+        description: `Updated ${data.updated} customers, ${data.alreadySet} already had reps, ${data.skipped} skipped (no rep in Odoo)`
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -716,6 +746,55 @@ export default function OdooSettingsPage() {
                         )}
                       </div>
                     )}
+
+                    {/* Sales Rep Sync Section */}
+                    <div className="border-t pt-6 mt-6">
+                      <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Sync Sales Reps from Odoo
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Update customers with their assigned sales person from Odoo. This will assign sales reps to customers who currently don't have one.
+                      </p>
+                      
+                      <Button
+                        onClick={() => syncSalesRepsMutation.mutate()}
+                        disabled={syncSalesRepsMutation.isPending}
+                        className="bg-[#875A7B] hover:bg-[#714b67] text-white"
+                      >
+                        {syncSalesRepsMutation.isPending && (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        )}
+                        <Users className="h-4 w-4 mr-2" />
+                        Sync Sales Reps Now
+                      </Button>
+
+                      {salesRepSyncResult && (
+                        <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                          <div className="font-semibold text-green-800 dark:text-green-200">
+                            Sales Rep Sync Complete
+                          </div>
+                          <div className="text-sm text-green-700 dark:text-green-300 mt-2 grid grid-cols-4 gap-4">
+                            <div className="text-center p-2 bg-green-100 rounded">
+                              <div className="text-2xl font-bold text-green-700">{salesRepSyncResult.updated}</div>
+                              <div className="text-xs">Updated</div>
+                            </div>
+                            <div className="text-center p-2 bg-blue-100 rounded">
+                              <div className="text-2xl font-bold text-blue-700">{salesRepSyncResult.alreadySet}</div>
+                              <div className="text-xs">Already Set</div>
+                            </div>
+                            <div className="text-center p-2 bg-yellow-100 rounded">
+                              <div className="text-2xl font-bold text-yellow-700">{salesRepSyncResult.skipped}</div>
+                              <div className="text-xs">Skipped</div>
+                            </div>
+                            <div className="text-center p-2 bg-gray-100 rounded">
+                              <div className="text-2xl font-bold text-gray-700">{salesRepSyncResult.totalProcessed}</div>
+                              <div className="text-xs">Total</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">

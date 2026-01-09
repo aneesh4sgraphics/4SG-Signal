@@ -14,6 +14,7 @@ import { z } from "zod";
 // Removed: parseProductData import - legacy CSV parser no longer used
 import { parseCustomerCSV } from "./customer-parser";
 import { parseOdooExcel } from "./odoo-parser";
+import { odooClient } from "./odoo";
 
 import { generateQuoteHTMLForDownload, generatePriceListHTML, validateQuoteNumber, generateQuoteNumber } from "./stub-functions";
 import { 
@@ -10106,6 +10107,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error importing partners from Odoo:", error);
       res.status(500).json({ error: error.message || "Failed to import partners from Odoo" });
+    }
+  });
+
+  // Sync sales reps from Odoo for existing customers
+  app.post("/api/odoo/sync-sales-reps", requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Sync] Starting sales rep sync from Odoo...");
+      
+      // Get all customers with Odoo partner IDs
+      const customersWithOdoo = await db.select({
+        id: customers.id,
+        odooPartnerId: customers.odooPartnerId,
+        salesRepId: customers.salesRepId,
+        salesRepName: customers.salesRepName,
+        company: customers.company,
+      }).from(customers)
+        .where(sql`${customers.odooPartnerId} IS NOT NULL`);
+      
+      console.log(`[Odoo Sync] Found ${customersWithOdoo.length} customers with Odoo partner IDs`);
+      
+      // Get unique Odoo partner IDs to fetch
+      const odooPartnerIds = [...new Set(customersWithOdoo.map(c => c.odooPartnerId).filter((id): id is number => id !== null))];
+      
+      if (odooPartnerIds.length === 0) {
+        return res.json({
+          success: true,
+          message: "No customers with Odoo partner IDs found",
+          updated: 0,
+          skipped: 0,
+        });
+      }
+      
+      // Fetch partners from Odoo in batches
+      const BATCH_SIZE = 100;
+      await odooClient.authenticate();
+      
+      const partnerMap = new Map<number, { userId: string | null; userName: string | null }>();
+      
+      for (let i = 0; i < odooPartnerIds.length; i += BATCH_SIZE) {
+        const batchIds = odooPartnerIds.slice(i, i + BATCH_SIZE);
+        console.log(`[Odoo Sync] Fetching batch ${Math.floor(i/BATCH_SIZE) + 1} (${batchIds.length} partners)`);
+        
+        try {
+          const partners = await odooClient.searchRead('res.partner', [['id', 'in', batchIds]], ['id', 'user_id']);
+          
+          for (const partner of partners) {
+            if (partner.user_id && Array.isArray(partner.user_id) && partner.user_id.length >= 2) {
+              partnerMap.set(partner.id, {
+                userId: String(partner.user_id[0]),
+                userName: partner.user_id[1] || null,
+              });
+            } else {
+              partnerMap.set(partner.id, { userId: null, userName: null });
+            }
+          }
+        } catch (batchError: any) {
+          console.error(`[Odoo Sync] Error fetching batch:`, batchError.message);
+        }
+      }
+      
+      console.log(`[Odoo Sync] Retrieved sales rep info for ${partnerMap.size} partners`);
+      
+      // Update customers with sales rep info
+      let updated = 0;
+      let skipped = 0;
+      let alreadySet = 0;
+      
+      for (const customer of customersWithOdoo) {
+        if (!customer.odooPartnerId) continue;
+        
+        const salesInfo = partnerMap.get(customer.odooPartnerId);
+        if (!salesInfo) {
+          skipped++;
+          continue;
+        }
+        
+        // Skip if customer already has a sales rep or Odoo has no sales rep
+        if (customer.salesRepId && customer.salesRepId.trim() !== '') {
+          alreadySet++;
+          continue;
+        }
+        
+        if (!salesInfo.userId) {
+          skipped++;
+          continue;
+        }
+        
+        // Update the customer with sales rep info
+        await db.update(customers)
+          .set({
+            salesRepId: salesInfo.userId,
+            salesRepName: salesInfo.userName,
+          })
+          .where(eq(customers.id, customer.id));
+        
+        updated++;
+      }
+      
+      console.log(`[Odoo Sync] Complete: ${updated} updated, ${alreadySet} already had sales rep, ${skipped} skipped (no sales rep in Odoo)`);
+      
+      // Clear customer cache
+      setCachedData("customers", null);
+      
+      res.json({
+        success: true,
+        message: `Updated ${updated} customers with sales rep info from Odoo`,
+        updated,
+        alreadySet,
+        skipped,
+        totalProcessed: customersWithOdoo.length,
+      });
+    } catch (error: any) {
+      console.error("Error syncing sales reps from Odoo:", error);
+      res.status(500).json({ error: error.message || "Failed to sync sales reps from Odoo" });
     }
   });
 
