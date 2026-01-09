@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck, Check, X } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck, Check, X, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -116,6 +116,9 @@ export default function PriceList() {
   const [includeShipping, setIncludeShipping] = useState<boolean>(false);
   const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
   const [shippingInputs, setShippingInputs] = useState<Record<string, string>>({});
+  const [productTypeOrder, setProductTypeOrder] = useState<string[]>([]);
+  const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
+  const [showTypeOrderDialog, setShowTypeOrderDialog] = useState(false);
   
   // Helper to update shipping cost input (string for intermediate typing)
   const updateShippingInput = (itemCode: string, value: string) => {
@@ -209,9 +212,20 @@ export default function PriceList() {
         ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
         : 'Customer';
 
-      // Use adjusted items with shipping costs applied
+      // Use adjusted items with shipping costs applied, sorted by productTypeOrder
       const itemsToUse = orderedItems.length > 0 ? orderedItems : priceListItems;
-      const adjustedItems = getAdjustedItems(itemsToUse);
+      
+      // Sort items by productTypeOrder for PDF
+      const sortedItems = [...itemsToUse].sort((a, b) => {
+        const aTypeIndex = productTypeOrder.indexOf(a.productType);
+        const bTypeIndex = productTypeOrder.indexOf(b.productType);
+        if (aTypeIndex === -1 && bTypeIndex === -1) return a.productType.localeCompare(b.productType);
+        if (aTypeIndex === -1) return 1;
+        if (bTypeIndex === -1) return -1;
+        return aTypeIndex - bTypeIndex;
+      });
+      
+      const adjustedItems = getAdjustedItems(sortedItems);
 
       const response = await fetch('/api/generate-price-list-pdf', {
         method: 'POST',
@@ -317,9 +331,17 @@ export default function PriceList() {
     mutationFn: async () => {
       const tierLabel = pricingTiers.find(t => t.key === selectedTier)?.label || selectedTier;
       
-      // Use adjusted items with shipping costs applied
+      // Use adjusted items with shipping costs applied, sorted by productTypeOrder
       const itemsToUse = orderedItems.length > 0 ? orderedItems : priceListItems;
-      const adjustedItems = getAdjustedItems(itemsToUse);
+      const sortedItems = [...itemsToUse].sort((a, b) => {
+        const aTypeIndex = productTypeOrder.indexOf(a.productType);
+        const bTypeIndex = productTypeOrder.indexOf(b.productType);
+        if (aTypeIndex === -1 && bTypeIndex === -1) return a.productType.localeCompare(b.productType);
+        if (aTypeIndex === -1) return 1;
+        if (bTypeIndex === -1) return -1;
+        return aTypeIndex - bTypeIndex;
+      });
+      const adjustedItems = getAdjustedItems(sortedItems);
       
       const response = await fetch('/api/generate-price-list-csv-odoo', {
         method: 'POST',
@@ -371,9 +393,17 @@ export default function PriceList() {
   // Excel Download Mutation (All visible columns)
   const downloadExcelMutation = useMutation({
     mutationFn: async () => {
-      // Use adjusted items with shipping costs applied
+      // Use adjusted items with shipping costs applied, sorted by productTypeOrder
       const itemsToUse = orderedItems.length > 0 ? orderedItems : priceListItems;
-      const adjustedItems = getAdjustedItems(itemsToUse);
+      const sortedItems = [...itemsToUse].sort((a, b) => {
+        const aTypeIndex = productTypeOrder.indexOf(a.productType);
+        const bTypeIndex = productTypeOrder.indexOf(b.productType);
+        if (aTypeIndex === -1 && bTypeIndex === -1) return a.productType.localeCompare(b.productType);
+        if (aTypeIndex === -1) return 1;
+        if (bTypeIndex === -1) return -1;
+        return aTypeIndex - bTypeIndex;
+      });
+      const adjustedItems = getAdjustedItems(sortedItems);
       
       const response = await fetch('/api/generate-price-list-excel', {
         method: 'POST',
@@ -510,6 +540,80 @@ export default function PriceList() {
       title: "Products Reordered",
       description: "Product order updated successfully for PDF generation"
     });
+  };
+
+  // Group items by product type
+  const groupedByType = useMemo(() => {
+    const itemsToGroup = orderedItems.length > 0 ? orderedItems : priceListItems;
+    const grouped: Record<string, PriceListItem[]> = {};
+    
+    itemsToGroup.forEach(item => {
+      const type = item.productType || 'Unknown';
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push(item);
+    });
+    
+    return grouped;
+  }, [priceListItems, orderedItems]);
+
+  // Get sorted product types based on user-defined order
+  const sortedProductTypes = useMemo(() => {
+    const types = Object.keys(groupedByType);
+    if (productTypeOrder.length === 0) {
+      return types.sort();
+    }
+    // Sort based on user-defined order, put unordered types at the end
+    return types.sort((a, b) => {
+      const aIndex = productTypeOrder.indexOf(a);
+      const bIndex = productTypeOrder.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  }, [groupedByType, productTypeOrder]);
+
+  // Initialize productTypeOrder when priceListItems changes
+  useEffect(() => {
+    if (priceListItems.length > 0) {
+      // Normalize product types to match groupedByType logic (use 'Unknown' for falsy values)
+      const types = Array.from(new Set(priceListItems.map(item => item.productType || 'Unknown'))).sort();
+      setProductTypeOrder(types);
+      setCollapsedTypes(new Set());
+    }
+  }, [priceListItems]);
+
+  // Toggle collapse state for a product type
+  const toggleTypeCollapse = (type: string) => {
+    setCollapsedTypes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      return newSet;
+    });
+  };
+
+  // Move product type up in order
+  const moveTypeUp = (type: string) => {
+    const index = productTypeOrder.indexOf(type);
+    // Guard against invalid index (-1 means type not in order array)
+    if (index <= 0) return;
+    const newOrder = [...productTypeOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    setProductTypeOrder(newOrder);
+  };
+
+  // Move product type down in order
+  const moveTypeDown = (type: string) => {
+    const index = productTypeOrder.indexOf(type);
+    // Guard against invalid index (-1 means type not in order array)
+    if (index < 0 || index >= productTypeOrder.length - 1) return;
+    const newOrder = [...productTypeOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    setProductTypeOrder(newOrder);
   };
 
   // Serialize pricingTiers keys for stable dependency
@@ -997,142 +1101,141 @@ export default function PriceList() {
               </Button>
             </div>
           </div>
-          <p className="body-small text-gray-500 mb-6">{priceListItems.length} products found</p>
-          <AdaptiveTable
-            columns={[
-              { 
-                key: 'itemCode', 
-                title: 'Item Code', 
-                weight: 1.5,
-                minWidth: 120,
-                align: 'left' 
-              },
-              { 
-                key: 'productType', 
-                title: 'Product Type', 
-                weight: 4,
-                minWidth: 200,
-                align: 'left' 
-              },
-              { 
-                key: 'size', 
-                title: 'Size', 
-                weight: 1.2,
-                minWidth: 80,
-                align: 'center' 
-              },
-              { 
-                key: 'minQty', 
-                title: 'Min Qty', 
-                weight: 0.8,
-                minWidth: 70,
-                align: 'center' 
-              },
-              // Only show Price/Sq.M column for admin users
-              ...((user as any)?.role === 'admin' ? [{ 
-                key: 'pricePerSqM', 
-                title: 'Price/Sq.M', 
-                weight: 1,
-                minWidth: 90,
-                align: 'right' as const
-              }] : []),
-              // Show Shipping Cost column when enabled
-              ...(includeShipping ? [{ 
-                key: 'shippingCost', 
-                title: 'Shipping/Unit', 
-                weight: 1,
-                minWidth: 100,
-                align: 'center' as const
-              }] : []),
-              { 
-                key: 'pricePerSheet', 
-                title: includeShipping ? 'Price/Unit (incl. shipping)' : 'Price/Unit', 
-                weight: 1.2,
-                minWidth: includeShipping ? 140 : 100,
-                align: 'right' 
-              },
-              { 
-                key: 'pricePerPack', 
-                title: 'Price Per Pack', 
-                weight: 1.3,
-                minWidth: 110,
-                align: 'right' 
-              }
-            ]}
-            data={priceListItems}
-            renderCell={(item, column) => {
-              const shippingCost = shippingCosts[item.itemCode] || 0;
-              const adjustedPricePerSheet = includeShipping ? item.pricePerSheet + shippingCost : item.pricePerSheet;
-              const adjustedPricePerPack = adjustedPricePerSheet * item.minQty;
+          <p className="body-small text-gray-500 mb-6">{priceListItems.length} products found across {sortedProductTypes.length} product types</p>
+          
+          {/* Grouped by Product Type Display */}
+          <div className="space-y-4">
+            {sortedProductTypes.map((productType, typeIndex) => {
+              const items = groupedByType[productType] || [];
+              const isCollapsed = collapsedTypes.has(productType);
               
-              switch (column.key) {
-                case 'itemCode':
-                  return <span className="font-mono text-sm text-gray-600">{item.itemCode}</span>;
-                case 'productType':
-                  return <span className="text-sm text-gray-800 leading-tight">{item.productType}</span>;
-                case 'size':
-                  return <span className="text-sm text-gray-600">{item.size}</span>;
-                case 'minQty':
-                  return <span className="text-sm text-gray-600">{item.minQty}</span>;
-                case 'pricePerSqM':
-                  return <span className="text-sm text-gray-600">${Number(item.pricePerSqM || 0).toFixed(2)}</span>;
-                case 'shippingCost':
-                  return (
-                    <div className="flex items-center justify-center">
-                      <span className="text-gray-500 mr-1">$</span>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={getShippingInputValue(item.itemCode)}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          // Allow empty, numbers, and decimals
-                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
-                            updateShippingInput(item.itemCode, val);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          // Format on blur
-                          const val = e.target.value;
-                          const num = parseFloat(val);
-                          if (!isNaN(num) && num > 0) {
-                            updateShippingInput(item.itemCode, num.toFixed(2));
-                          } else if (val === '' || val === '0' || val === '0.' || val === '0.0' || val === '0.00') {
-                            setShippingInputs(prev => ({ ...prev, [item.itemCode]: '' }));
-                            setShippingCosts(prev => ({ ...prev, [item.itemCode]: 0 }));
-                          }
-                        }}
-                        className="w-20 h-8 text-sm text-center px-2"
-                        placeholder="0.00"
-                        data-testid={`input-shipping-${item.itemCode}`}
-                      />
+              return (
+                <div key={productType} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Product Type Header */}
+                  <div 
+                    className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-50 to-white cursor-pointer hover:bg-purple-100/50 transition-colors"
+                    onClick={() => toggleTypeCollapse(productType)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => { e.stopPropagation(); toggleTypeCollapse(productType); }}
+                      >
+                        {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      </Button>
+                      <span className="font-semibold text-gray-800">{productType}</span>
+                      <Badge variant="secondary" className="text-xs">{items.length} items</Badge>
                     </div>
-                  );
-                case 'pricePerSheet':
-                  const unitLabel = item.minQty === 1 ? 'roll' : 'sheet';
-                  return (
-                    <div className="text-right">
-                      <span className={`text-sm ${includeShipping && shippingCost > 0 ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
-                        ${Number(adjustedPricePerSheet || 0).toFixed(2)}
-                      </span>
-                      <div className="text-xs text-gray-400">/{unitLabel}</div>
-                      {includeShipping && shippingCost > 0 && (
-                        <div className="text-xs text-gray-400">(+${Number(shippingCost || 0).toFixed(2)} ship)</div>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => { e.stopPropagation(); moveTypeUp(productType); }}
+                        disabled={typeIndex === 0}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => { e.stopPropagation(); moveTypeDown(productType); }}
+                        disabled={typeIndex === sortedProductTypes.length - 1}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
                     </div>
-                  );
-                case 'pricePerPack':
-                  return (
-                    <span className={`text-sm font-medium ${includeShipping && shippingCost > 0 ? 'text-blue-600' : 'text-green-600'}`}>
-                      ${Number(adjustedPricePerPack || 0).toFixed(2)}
-                    </span>
-                  );
-                default:
-                  return null;
-              }
-            }}
-            maxHeight="500px"
-          />
+                  </div>
+                  
+                  {/* Product Items Table */}
+                  {!isCollapsed && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="w-[140px]">Item Code</TableHead>
+                          <TableHead className="w-[100px] text-center">Size</TableHead>
+                          <TableHead className="w-[80px] text-center">Min Qty</TableHead>
+                          {(user as any)?.role === 'admin' && (
+                            <TableHead className="w-[100px] text-right">Price/Sq.M</TableHead>
+                          )}
+                          {includeShipping && (
+                            <TableHead className="w-[120px] text-center">Shipping/Unit</TableHead>
+                          )}
+                          <TableHead className="w-[120px] text-right">Price/Unit</TableHead>
+                          <TableHead className="w-[120px] text-right">Price Per Pack</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item, idx) => {
+                          const shippingCost = shippingCosts[item.itemCode] || 0;
+                          const adjustedPricePerSheet = includeShipping ? item.pricePerSheet + shippingCost : item.pricePerSheet;
+                          const adjustedPricePerPack = adjustedPricePerSheet * item.minQty;
+                          const unitLabel = item.minQty === 1 ? 'roll' : 'sheet';
+                          
+                          return (
+                            <TableRow key={item.itemCode} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                              <TableCell className="font-mono text-sm text-gray-600">{item.itemCode}</TableCell>
+                              <TableCell className="text-center text-sm text-gray-600">{item.size}</TableCell>
+                              <TableCell className="text-center text-sm text-gray-600">{item.minQty}</TableCell>
+                              {(user as any)?.role === 'admin' && (
+                                <TableCell className="text-right text-sm text-gray-600">${Number(item.pricePerSqM || 0).toFixed(2)}</TableCell>
+                              )}
+                              {includeShipping && (
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center">
+                                    <span className="text-gray-500 mr-1">$</span>
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={getShippingInputValue(item.itemCode)}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                                          updateShippingInput(item.itemCode, val);
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        const val = e.target.value;
+                                        const num = parseFloat(val);
+                                        if (!isNaN(num) && num > 0) {
+                                          updateShippingInput(item.itemCode, num.toFixed(2));
+                                        } else if (val === '' || val === '0' || val === '0.' || val === '0.0' || val === '0.00') {
+                                          setShippingInputs(prev => ({ ...prev, [item.itemCode]: '' }));
+                                          setShippingCosts(prev => ({ ...prev, [item.itemCode]: 0 }));
+                                        }
+                                      }}
+                                      className="w-16 h-7 text-sm text-center px-1"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                </TableCell>
+                              )}
+                              <TableCell className="text-right">
+                                <div>
+                                  <span className={`text-sm ${includeShipping && shippingCost > 0 ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                                    ${Number(adjustedPricePerSheet || 0).toFixed(2)}
+                                  </span>
+                                  <div className="text-xs text-gray-400">/{unitLabel}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={`text-sm font-medium ${includeShipping && shippingCost > 0 ? 'text-blue-600' : 'text-green-600'}`}>
+                                  ${Number(adjustedPricePerPack || 0).toFixed(2)}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg p-6 bg-white text-center">
