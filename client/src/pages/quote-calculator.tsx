@@ -385,7 +385,7 @@ export default function QuoteCalculator() {
     return Array.from(new Set(typesInCategory)).sort();
   })();
 
-  // Get sizes for selected type with sorting (deduplicated by size string)
+  // Get sizes for selected type with sorting (deduplicated by itemCode/SKU)
   const availableSizes = selectedCategory && selectedType
     ? (() => {
         const filtered = productData.filter(item => 
@@ -397,11 +397,12 @@ export default function QuoteCalculator() {
           if (sizeSortOrder === 'desc') return sqmB - sqmA;
           return sqmA - sqmB; // default is ascending by size
         });
-        // Deduplicate by size string - keep first occurrence
+        // Deduplicate by itemCode (SKU) - keep first occurrence of each unique product
         const seen = new Set<string>();
         return filtered.filter(item => {
-          if (seen.has(item.size)) return false;
-          seen.add(item.size);
+          const key = item.itemCode || item.size; // Use SKU as primary key, fallback to size
+          if (seen.has(key)) return false;
+          seen.add(key);
           return true;
         });
       })()
@@ -425,10 +426,10 @@ export default function QuoteCalculator() {
     return size.includes("'") || size.toLowerCase().includes("feet") || /\d+x\d+\'/.test(size);
   };
 
-  // Get selected product details
+  // Get selected product details (by itemCode or size depending on what was selected)
   const selectedProduct = productData.find(item =>
     item.productType === selectedType &&
-    item.size === selectedSize
+    (item.itemCode === selectedSize || item.size === selectedSize)
   );
 
   // Fetch inventory from Odoo for selected product
@@ -1375,8 +1376,11 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     </SelectTrigger>
                     <SelectContent className="max-w-none w-auto min-w-[200px]">
                       {availableSizes.map((product, index) => (
-                        <SelectItem key={`${product.size}-${product.id || index}`} value={product.size} className="max-w-none whitespace-nowrap">
-                          <span className="whitespace-nowrap">{product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)</span>
+                        <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size} className="max-w-none whitespace-nowrap">
+                          <span className="whitespace-nowrap">
+                            {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
+                            {product.itemCode?.includes('SAMPLE') && <span className="ml-1 text-purple-600 font-medium">[SAMPLE]</span>}
+                          </span>
                         </SelectItem>
                       ))}
                       {supportsCustomSize(selectedCategory) && (
