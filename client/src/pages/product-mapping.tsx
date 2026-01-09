@@ -78,6 +78,7 @@ export default function ProductMapping() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('unmapped');
   const [searchQuery, setSearchQuery] = useState('');
+  const [excludedSearchQuery, setExcludedSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   
   // Mapping dialog state
@@ -162,6 +163,17 @@ export default function ProductMapping() {
     
     return filtered;
   }, [products, activeTab, selectedCategoryFilter, searchQuery]);
+
+  // Filter excluded products by search
+  const filteredExcludedProducts = useMemo(() => {
+    if (!excludedSearchQuery) return excludedProducts;
+    const query = excludedSearchQuery.toLowerCase();
+    return excludedProducts.filter(p => 
+      p.itemCode.toLowerCase().includes(query) ||
+      p.productName.toLowerCase().includes(query) ||
+      p.productType.toLowerCase().includes(query)
+    );
+  }, [excludedProducts, excludedSearchQuery]);
 
   // Get types for selected category (mapping dialog)
   const filteredTypes = useMemo(() => {
@@ -713,14 +725,32 @@ export default function ProductMapping() {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Search Input */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search excluded products by SKU, name, or type..."
+                      className="pl-10"
+                      value={excludedSearchQuery}
+                      onChange={(e) => setExcludedSearchQuery(e.target.value)}
+                      data-testid="input-excluded-search"
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {filteredExcludedProducts.length} of {excludedProducts.length} products
+                  </div>
+                </div>
                 {loadingProducts ? (
                   <div className="text-center py-8 text-muted-foreground">Loading products...</div>
-                ) : excludedProducts.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No excluded products</div>
+                ) : filteredExcludedProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {excludedSearchQuery ? 'No products match your search' : 'No excluded products'}
+                  </div>
                 ) : (
                   <ScrollArea className="h-[500px]">
                     <div className="space-y-2">
-                      {excludedProducts.map((product) => (
+                      {filteredExcludedProducts.map((product) => (
                         <div
                           key={product.id}
                           className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
