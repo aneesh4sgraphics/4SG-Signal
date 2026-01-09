@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
@@ -104,8 +106,9 @@ const applyRetailRounding = (price: number, isRetail: boolean): number => {
 
 export default function PriceList() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<string>("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedTier, setSelectedTier] = useState<string>("");
+  const [typePopoverOpen, setTypePopoverOpen] = useState(false);
   const [priceListItems, setPriceListItems] = useState<PriceListItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [orderedItems, setOrderedItems] = useState<PriceListItem[]>([]);
@@ -180,7 +183,7 @@ export default function PriceList() {
   // Reset all filters
   const resetFilters = () => {
     setSelectedCategory("");
-    setSelectedType("");
+    setSelectedTypes([]);
     setSelectedTier("");
     setPriceListItems([]);
     setOrderedItems([]);
@@ -476,10 +479,10 @@ export default function PriceList() {
     return Array.from(new Set(typesForCategory)).sort();
   }, [selectedCategory, productData]);
   
-  // Reset selected type when category changes
+  // Reset selected types when category changes
   useEffect(() => {
     if (selectedCategory) {
-      setSelectedType("");
+      setSelectedTypes([]);
     }
   }, [selectedCategory]);
 
@@ -552,9 +555,9 @@ export default function PriceList() {
     }
   }, [selectedCategory, selectedTier, filtersInitialized]);
 
-  // Generate price list when category, type, or tier changes
+  // Generate price list when category, types, or tier changes
   useEffect(() => {
-    if (!selectedCategory || !selectedType || !selectedTier || !productData.length) {
+    if (!selectedCategory || selectedTypes.length === 0 || !selectedTier || !productData.length) {
       // Use functional update to avoid stale closure issues
       setPriceListItems(prev => prev.length > 0 ? [] : prev);
       setOrderedItems(prev => prev.length > 0 ? [] : prev);
@@ -564,7 +567,8 @@ export default function PriceList() {
     const filteredProducts = productData.filter(
       (item) => {
         const matchesCategory = (item.productName || item.product_name)?.toLowerCase() === selectedCategory?.toLowerCase();
-        const matchesType = (item.productType || item.ProductType)?.toLowerCase() === selectedType?.toLowerCase();
+        const itemType = (item.productType || item.ProductType || '').toLowerCase();
+        const matchesType = selectedTypes.some(t => t.toLowerCase() === itemType);
         return matchesCategory && matchesType;
       }
     );
@@ -621,7 +625,7 @@ export default function PriceList() {
     });
     
     setPriceListItems(sortedItems);
-  }, [selectedCategory, selectedType, selectedTier, productData]);
+  }, [selectedCategory, selectedTypes, selectedTier, productData]);
 
 
 
@@ -779,35 +783,88 @@ export default function PriceList() {
                 </Select>
               </div>
 
-              {/* Product Type */}
+              {/* Product Types (Multi-Select) */}
               <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Product Type</label>
-                <Select 
-                  value={selectedType} 
-                  onValueChange={setSelectedType}
-                  disabled={!selectedCategory}
-                >
-                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <SelectValue placeholder={selectedCategory ? "Select product type" : "Select category first"} />
-                  </SelectTrigger>
-                  <SelectContent className="w-full">
-                    {availableTypes.length > 0 ? (
-                      availableTypes.map(type => (
-                        <SelectItem 
-                          key={String(type)} 
-                          value={String(type)} 
-                          className="text-sm"
-                        >
-                          {String(type)}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-types" disabled className="text-sm text-gray-400">
-                        {selectedCategory ? "No types available" : "Select a category first"}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <label className="block label-medium text-gray-800">Product Types</label>
+                <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={typePopoverOpen}
+                      disabled={!selectedCategory}
+                      className="w-full h-10 justify-between bg-white border border-gray-300 hover:border-gray-400 text-sm font-normal disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="truncate">
+                        {!selectedCategory 
+                          ? "Select category first" 
+                          : selectedTypes.length === 0 
+                            ? "Select product types" 
+                            : selectedTypes.length === availableTypes.length 
+                              ? "All types selected"
+                              : `${selectedTypes.length} type${selectedTypes.length > 1 ? 's' : ''} selected`}
+                      </span>
+                      {selectedTypes.length > 0 && (
+                        <Badge variant="secondary" className="ml-2 rounded-full px-1.5 py-0.5 text-xs">
+                          {selectedTypes.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-0" align="start">
+                    <div className="p-2 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">{availableTypes.length} types available</span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setSelectedTypes([...availableTypes])}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setSelectedTypes([])}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto p-2">
+                      {availableTypes.length > 0 ? (
+                        availableTypes.map((type) => (
+                          <div
+                            key={type}
+                            className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                            onClick={() => {
+                              const isSelected = selectedTypes.includes(type);
+                              if (isSelected) {
+                                setSelectedTypes(selectedTypes.filter(t => t !== type));
+                              } else {
+                                setSelectedTypes([...selectedTypes, type]);
+                              }
+                            }}
+                          >
+                            <Checkbox
+                              checked={selectedTypes.includes(type)}
+                              className="pointer-events-none"
+                            />
+                            <span className="text-sm">{type}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-2 text-sm text-gray-400 text-center">
+                          No types available
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Pricing Tier */}
