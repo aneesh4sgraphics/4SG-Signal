@@ -11826,11 +11826,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/odoo/sync-sales", requireAdmin, async (req: any, res) => {
     try {
       console.log("=== Starting Odoo Sales Sync ===");
+      console.log("[Odoo Sync] Environment:", process.env.NODE_ENV);
+      console.log("[Odoo Sync] Database URL prefix:", process.env.DATABASE_URL?.substring(0, 30) + "...");
       
       // Get existing quote numbers to avoid duplicates
       const existingQuotes = await db.select({ quoteNumber: sentQuotes.quoteNumber })
         .from(sentQuotes);
       const existingQuoteNumbers = new Set(existingQuotes.map(q => q.quoteNumber));
+      console.log(`[Odoo Sync] Found ${existingQuotes.length} existing quotes in database`);
       
       // Get partner mapping for customer names
       const customers = await storage.getCustomers();
