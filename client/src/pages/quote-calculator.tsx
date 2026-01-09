@@ -385,17 +385,26 @@ export default function QuoteCalculator() {
     return Array.from(new Set(typesInCategory)).sort();
   })();
 
-  // Get sizes for selected type with sorting
+  // Get sizes for selected type with sorting (deduplicated by size string)
   const availableSizes = selectedCategory && selectedType
-    ? productData.filter(item => 
-        item.productType === selectedType
-      ).sort((a, b) => {
-        const sqmA = parseFloat(String(a.totalSqm || 0));
-        const sqmB = parseFloat(String(b.totalSqm || 0));
-        if (sizeSortOrder === 'asc') return sqmA - sqmB;
-        if (sizeSortOrder === 'desc') return sqmB - sqmA;
-        return sqmA - sqmB; // default is ascending by size
-      })
+    ? (() => {
+        const filtered = productData.filter(item => 
+          item.productType === selectedType
+        ).sort((a, b) => {
+          const sqmA = parseFloat(String(a.totalSqm || 0));
+          const sqmB = parseFloat(String(b.totalSqm || 0));
+          if (sizeSortOrder === 'asc') return sqmA - sqmB;
+          if (sizeSortOrder === 'desc') return sqmB - sqmA;
+          return sqmA - sqmB; // default is ascending by size
+        });
+        // Deduplicate by size string - keep first occurrence
+        const seen = new Set<string>();
+        return filtered.filter(item => {
+          if (seen.has(item.size)) return false;
+          seen.add(item.size);
+          return true;
+        });
+      })()
     : [];
 
   // Check if current filters produce no results
