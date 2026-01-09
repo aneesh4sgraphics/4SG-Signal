@@ -38,6 +38,7 @@ import IntegrationsSettingsPage from "@/pages/integrations-settings";
 import ProductMappingPage from "@/pages/product-mapping";
 import SalesAnalyticsPage from "@/pages/sales-analytics";
 import ReportsPage from "@/pages/reports";
+import GmailInsightsPage from "@/pages/gmail-insights";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -93,6 +94,7 @@ const AppRoutes = () => (
     <Route path="/product-labels" component={ProductLabels} />
     <Route path="/crm-journey" component={CRMJourneyDashboard} />
     <Route path="/email-app" component={EmailApp} />
+    <Route path="/email-insights" component={GmailInsightsPage} />
     <Route path="/objections" component={ObjectionsPage} />
     <Route path="/shopify-settings" component={ShopifySettingsPage} />
     <Route path="/odoo-settings" component={OdooSettingsPage} />
