@@ -34,6 +34,7 @@ interface ProductData {
   size: string;
   totalSqm: number;
   minQuantity: number;
+  unitOfMeasure?: string | null; // 'sheets', 'rolls', 'packets', 'cartons', etc.
   exportPrice: number;
   masterDistributorPrice: number;
   dealerPrice: number;
@@ -1702,7 +1703,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     <span className="text-sm text-gray-800">
                       {isCustomSize ? '1 Sheet' : 
                         (selectedProduct ? 
-                          `${selectedProduct.minQuantity} ${isRollFormat(selectedProduct.size) ? 'Roll' : 'Sheets'}` : 
+                          `${selectedProduct.minQuantity} ${selectedProduct.unitOfMeasure === 'rolls' ? 'Roll' : 'Sheets'}` : 
                           'Not Available'
                         )
                       }
