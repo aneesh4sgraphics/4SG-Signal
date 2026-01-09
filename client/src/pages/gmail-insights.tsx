@@ -25,8 +25,11 @@ import {
   ChevronUp,
   X,
   ExternalLink,
-  PartyPopper
+  PartyPopper,
+  PlugZap,
+  ArrowRight
 } from "lucide-react";
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -234,6 +237,62 @@ function ChampagneCelebration({ isVisible, onClose, customerName }: { isVisible:
   );
 }
 
+function GmailNotConnectedDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [, navigate] = useLocation();
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PlugZap className="h-5 w-5 text-[#875A7B]" />
+            Connect Gmail to Get Started
+          </DialogTitle>
+          <DialogDescription className="text-left">
+            Email Intelligence needs access to your Gmail to analyze emails and find sales opportunities.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+            <h4 className="font-medium text-sm">How to connect Gmail:</h4>
+            <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+              <li>Click the button below to go to Integrations</li>
+              <li>Find the <strong>Gmail</strong> section</li>
+              <li>Click <strong>"Connect Gmail"</strong> and sign in with your Google account</li>
+              <li>Allow the app to read your emails</li>
+              <li>Come back here and click "Sync Emails"</li>
+            </ol>
+          </div>
+          
+          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+            <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              We only read emails to find sales insights. We never store full email content or share your data.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Maybe Later
+          </Button>
+          <Button 
+            onClick={() => {
+              onClose();
+              navigate('/integrations');
+            }}
+            className="bg-[#875A7B] hover:bg-[#6d4863]"
+          >
+            Go to Integrations
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function GmailInsightsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -244,6 +303,7 @@ export default function GmailInsightsPage() {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [showPOCelebration, setShowPOCelebration] = useState(false);
   const [poCustomerName, setPOCustomerName] = useState<string | undefined>();
+  const [showGmailNotConnected, setShowGmailNotConnected] = useState(false);
   const celebratedPOsRef = useRef<Set<number>>(new Set());
 
   const { data: syncState, isLoading: syncStateLoading } = useQuery<SyncState>({
@@ -299,11 +359,21 @@ export default function GmailInsightsPage() {
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Could not sync emails. Make sure Gmail is connected.",
-        variant: "destructive",
-      });
+      const errorMessage = error.message?.toLowerCase() || '';
+      const isGmailNotConnected = errorMessage.includes('gmail') || 
+                                   errorMessage.includes('not connected') ||
+                                   errorMessage.includes('token') ||
+                                   errorMessage.includes('auth');
+      
+      if (isGmailNotConnected) {
+        setShowGmailNotConnected(true);
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: error.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -482,6 +552,10 @@ export default function GmailInsightsPage() {
         isVisible={showPOCelebration} 
         onClose={() => setShowPOCelebration(false)}
         customerName={poCustomerName}
+      />
+      <GmailNotConnectedDialog 
+        isOpen={showGmailNotConnected} 
+        onClose={() => setShowGmailNotConnected(false)} 
       />
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center justify-between">
