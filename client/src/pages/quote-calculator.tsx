@@ -1829,12 +1829,14 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                         const rawPrice = selectedProduct[tier.key as keyof ProductData] as number;
                         price = rawPrice || 0; // Default to 0 if no price data
                         totalSqm = parseFloat(String(selectedProduct.totalSqm || 0));
-                        minQty = selectedProduct.minQuantity;
+                        minQty = selectedProduct.minQuantity || 1;
                       } else {
                         return null;
                       }
                       
-                      const pricePerSheet = price * totalSqm;
+                      // For products sold in packs (minQty > 1), totalSqm represents the entire pack
+                      // Divide by minQty to get the per-unit (per-sheet) price
+                      const pricePerSheet = (price * totalSqm) / minQty;
                       const useQuantity = Math.max(quantity, minQty);
                       
                       // Apply retail rounding for RETAIL tier only to Min Order Qty Price (total)
