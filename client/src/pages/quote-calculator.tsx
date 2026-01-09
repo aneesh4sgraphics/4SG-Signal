@@ -1798,7 +1798,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       }] : []),
                       { 
                         key: 'pricePerSheet', 
-                        title: isCustomSize ? 'Price/Sheet' : (selectedProduct ? getPriceColumnHeader(selectedProduct.size) : 'Price/Sheet'), 
+                        title: isCustomSize ? 'Price/Sheet' : (selectedProduct ? (selectedProduct.rollSheet === 'Roll' ? 'Price/Roll' : getPriceColumnHeader(selectedProduct.size)) : 'Price/Sheet'), 
                         weight: 1.2,
                         minWidth: 100,
                         align: 'center' 
