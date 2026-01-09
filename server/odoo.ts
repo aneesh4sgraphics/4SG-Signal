@@ -614,6 +614,48 @@ class OdooClient {
       throw error;
     }
   }
+
+  // Get partner categories (res.partner.category) - used for filtering Vendors
+  async getPartnerCategories(): Promise<Array<{ id: number; name: string }>> {
+    return this.searchRead('res.partner.category', [], ['id', 'name'], { limit: 500 });
+  }
+
+  // Get the ID of the "Vendor" category - returns null if not found
+  async getVendorCategoryId(): Promise<number | null> {
+    try {
+      const categories = await this.searchRead('res.partner.category', [
+        ['name', 'ilike', 'vendor']
+      ], ['id', 'name'], { limit: 10 });
+      
+      // Look for exact or close match
+      for (const cat of categories) {
+        if (cat.name.toLowerCase() === 'vendor' || cat.name.toLowerCase() === 'vendors') {
+          console.log(`[Odoo] Found Vendor category ID: ${cat.id} (${cat.name})`);
+          return cat.id;
+        }
+      }
+      
+      // If no exact match, return first ilike match
+      if (categories.length > 0) {
+        console.log(`[Odoo] Found Vendor category ID (partial match): ${categories[0].id} (${categories[0].name})`);
+        return categories[0].id;
+      }
+      
+      console.log('[Odoo] Vendor category not found');
+      return null;
+    } catch (error: any) {
+      console.error('[Odoo] Error fetching Vendor category:', error.message);
+      return null;
+    }
+  }
+
+  // Check if a partner has the Vendor tag
+  hasVendorTag(partner: OdooPartner, vendorCategoryId: number): boolean {
+    if (!partner.category_id || !Array.isArray(partner.category_id)) {
+      return false;
+    }
+    return partner.category_id.includes(vendorCategoryId);
+  }
 }
 
 export const odooClient = new OdooClient();

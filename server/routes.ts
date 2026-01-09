@@ -9965,7 +9965,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers`);
       }
       
-      // Step 3: Fetch ALL partners from Odoo (companies and contacts) using pagination
+      // Step 3: Get Vendor category ID to filter out vendors
+      console.log("[Odoo Import] Fetching Vendor category ID...");
+      const vendorCategoryId = await odooClient.getVendorCategoryId();
+      console.log(`[Odoo Import] Vendor category ID: ${vendorCategoryId}`);
+      
+      // Step 4: Fetch ALL partners from Odoo (companies and contacts) using pagination
       console.log("[Odoo Import] Fetching all partners from Odoo (this may take a moment)...");
       const partners = await odooClient.getAllPartners();
       console.log(`[Odoo Import] Fetched ${partners.length} partners from Odoo`);
@@ -9973,6 +9978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = {
         imported: 0,
         skipped: 0,
+        skippedVendors: 0,
         alreadyExists: 0,
         failed: 0,
         errors: [] as string[],
@@ -9980,13 +9986,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mode: useFullReset ? 'full_reset' : 'add_new',
       };
       
-      // Step 4: Create each partner as a customer
+      // Step 5: Create each partner as a customer
       for (const partner of partners) {
         try {
           // Skip partners without a name
           if (!partner.name || partner.name.trim() === '') {
             results.skipped++;
             results.skippedPartners.push(`Partner ID ${partner.id}: No name provided`);
+            continue;
+          }
+          
+          // Skip partners with Vendor tag
+          if (vendorCategoryId && odooClient.hasVendorTag(partner, vendorCategoryId)) {
+            results.skippedVendors++;
             continue;
           }
           
@@ -10071,7 +10083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.failed} failed`);
+      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.failed} failed`);
       
       // Step 5: Resolve parent customer IDs (link children to their parent companies)
       console.log("[Odoo Import] Resolving parent relationships...");
@@ -10221,6 +10233,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error syncing sales reps from Odoo:", error);
       res.status(500).json({ error: error.message || "Failed to sync sales reps from Odoo" });
+    }
+  });
+
+  // Remove existing customers with Vendor tag from Odoo
+  app.post("/api/odoo/remove-vendors", requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Cleanup] Starting vendor customer removal...");
+      
+      // Step 1: Get Vendor category ID from Odoo
+      await odooClient.authenticate();
+      const vendorCategoryId = await odooClient.getVendorCategoryId();
+      
+      if (!vendorCategoryId) {
+        return res.status(400).json({ 
+          error: "Could not find 'Vendor' category in Odoo. Please check that a category named 'Vendor' exists." 
+        });
+      }
+      
+      console.log(`[Odoo Cleanup] Vendor category ID: ${vendorCategoryId}`);
+      
+      // Step 2: Get all customers with Odoo partner IDs
+      const odooCustomers = await db.select({
+        id: customers.id,
+        odooPartnerId: customers.odooPartnerId,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      }).from(customers)
+        .where(sql`${customers.odooPartnerId} IS NOT NULL`);
+      
+      console.log(`[Odoo Cleanup] Found ${odooCustomers.length} customers linked to Odoo`);
+      
+      // Step 3: Fetch partner category info from Odoo in batches
+      const BATCH_SIZE = 100;
+      const vendorCustomerIds: string[] = [];
+      const vendorNames: string[] = [];
+      
+      const odooPartnerIds = odooCustomers.map(c => c.odooPartnerId!);
+      
+      for (let i = 0; i < odooPartnerIds.length; i += BATCH_SIZE) {
+        const batchIds = odooPartnerIds.slice(i, i + BATCH_SIZE);
+        console.log(`[Odoo Cleanup] Checking batch ${Math.floor(i/BATCH_SIZE) + 1} (${batchIds.length} partners)`);
+        
+        try {
+          const partners = await odooClient.searchRead('res.partner', [['id', 'in', batchIds]], ['id', 'category_id', 'name']);
+          
+          for (const partner of partners) {
+            if (odooClient.hasVendorTag(partner as any, vendorCategoryId)) {
+              const customer = odooCustomers.find(c => c.odooPartnerId === partner.id);
+              if (customer) {
+                vendorCustomerIds.push(customer.id);
+                vendorNames.push(customer.company || `${customer.firstName} ${customer.lastName}`.trim() || partner.name);
+              }
+            }
+          }
+        } catch (batchError: any) {
+          console.error(`[Odoo Cleanup] Error checking batch:`, batchError.message);
+        }
+      }
+      
+      console.log(`[Odoo Cleanup] Found ${vendorCustomerIds.length} vendor customers to remove`);
+      
+      if (vendorCustomerIds.length === 0) {
+        return res.json({
+          success: true,
+          message: "No vendor customers found to remove",
+          removed: 0,
+          vendorNames: [],
+        });
+      }
+      
+      // Step 4: Delete vendor customers (cascade will handle related records)
+      let removed = 0;
+      for (const customerId of vendorCustomerIds) {
+        try {
+          await db.delete(customers).where(eq(customers.id, customerId));
+          removed++;
+        } catch (deleteError: any) {
+          console.error(`[Odoo Cleanup] Error deleting customer ${customerId}:`, deleteError.message);
+        }
+      }
+      
+      console.log(`[Odoo Cleanup] Removed ${removed} vendor customers`);
+      
+      // Clear customer cache
+      setCachedData("customers", null);
+      
+      res.json({
+        success: true,
+        message: `Removed ${removed} vendor customers from database`,
+        removed,
+        vendorNames: vendorNames.slice(0, 50), // Return first 50 names for reference
+        totalFound: vendorCustomerIds.length,
+      });
+    } catch (error: any) {
+      console.error("Error removing vendor customers:", error);
+      res.status(500).json({ error: error.message || "Failed to remove vendor customers" });
     }
   });
 

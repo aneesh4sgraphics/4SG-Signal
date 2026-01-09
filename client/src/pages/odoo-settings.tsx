@@ -164,6 +164,34 @@ export default function OdooSettingsPage() {
     },
   });
 
+  const [vendorRemovalResult, setVendorRemovalResult] = useState<{
+    removed: number;
+    vendorNames: string[];
+    totalFound: number;
+  } | null>(null);
+
+  const removeVendorsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/odoo/remove-vendors');
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      setVendorRemovalResult({
+        removed: data.removed,
+        vendorNames: data.vendorNames || [],
+        totalFound: data.totalFound || 0,
+      });
+      toast({ 
+        title: "Vendor removal complete",
+        description: `Removed ${data.removed} vendor contacts from the database`
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Removal failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -791,6 +819,51 @@ export default function OdooSettingsPage() {
                               <div className="text-2xl font-bold text-gray-700">{salesRepSyncResult.totalProcessed}</div>
                               <div className="text-xs">Total</div>
                             </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Vendor Removal Section */}
+                    <div className="border-t pt-6 mt-6">
+                      <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                        <Trash2 className="h-5 w-5 text-red-500" />
+                        Remove Vendor Contacts
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Remove contacts that have the "Vendor" tag in Odoo. These are suppliers, not customers. Future imports will also skip Vendor-tagged contacts.
+                      </p>
+                      
+                      <Button
+                        onClick={() => removeVendorsMutation.mutate()}
+                        disabled={removeVendorsMutation.isPending}
+                        variant="destructive"
+                      >
+                        {removeVendorsMutation.isPending && (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        )}
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove Vendor Contacts
+                      </Button>
+
+                      {vendorRemovalResult && (
+                        <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                          <div className="font-semibold text-red-800 dark:text-red-200">
+                            Vendor Removal Complete
+                          </div>
+                          <div className="text-sm text-red-700 dark:text-red-300 mt-2">
+                            <div className="text-2xl font-bold">{vendorRemovalResult.removed} vendors removed</div>
+                            {vendorRemovalResult.vendorNames.length > 0 && (
+                              <div className="mt-2 max-h-32 overflow-y-auto">
+                                <div className="font-medium mb-1">Removed contacts:</div>
+                                {vendorRemovalResult.vendorNames.map((name, i) => (
+                                  <div key={i} className="py-0.5 text-xs">{name}</div>
+                                ))}
+                                {vendorRemovalResult.totalFound > 50 && (
+                                  <div className="text-xs italic mt-1">...and {vendorRemovalResult.totalFound - 50} more</div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
