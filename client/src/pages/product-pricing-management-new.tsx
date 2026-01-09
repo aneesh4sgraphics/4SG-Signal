@@ -466,7 +466,7 @@ export default function ProductPricingManagementNew() {
     if (!firstItem) return;
     
     setBulkEditValues({
-      landedPrice: firstItem.landedPrice.toString(),
+      landedPrice: (firstItem.landedPrice ?? 0).toString(),
       exportPrice: firstItem.exportPrice.toString(),
       masterDistributorPrice: firstItem.masterDistributorPrice.toString(),
       dealerPrice: firstItem.dealerPrice.toString(),
@@ -525,7 +525,7 @@ export default function ProductPricingManagementNew() {
   const startEditing = (item: ProductPricingMaster) => {
     setEditingId(item.id);
     setEditValues({
-      landedPrice: item.landedPrice.toString(),
+      landedPrice: (item.landedPrice ?? 0).toString(),
       exportPrice: item.exportPrice.toString(),
       masterDistributorPrice: item.masterDistributorPrice.toString(),
       dealerPrice: item.dealerPrice.toString(),

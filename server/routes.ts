@@ -1411,6 +1411,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update a category name
+  app.patch("/api/product-categories/:categoryId", requireAdmin, async (req: any, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      if (isNaN(categoryId)) {
+        return res.status(400).json({ error: "Invalid category ID" });
+      }
+      
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+      
+      const [updated] = await db.update(productCategories)
+        .set({ name: name.trim() })
+        .where(eq(productCategories.id, categoryId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      setCachedData("product-categories", null);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ error: error.message || "Failed to update category" });
+    }
+  });
+
   // Add a new product type
   app.post("/api/product-types", requireAdmin, async (req: any, res) => {
     try {
@@ -1432,6 +1462,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error adding type:", error);
       res.status(500).json({ error: error.message || "Failed to add type" });
+    }
+  });
+
+  // Update a product type name
+  app.patch("/api/product-types/:typeId", requireAdmin, async (req: any, res) => {
+    try {
+      const typeId = parseInt(req.params.typeId);
+      if (isNaN(typeId)) {
+        return res.status(400).json({ error: "Invalid type ID" });
+      }
+      
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Type name is required" });
+      }
+      
+      const [updated] = await db.update(productTypes)
+        .set({ name: name.trim() })
+        .where(eq(productTypes.id, typeId))
+        .returning();
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Product type not found" });
+      }
+      
+      setCachedData("product-types", null);
+      setCachedData(`product-types-${updated.categoryId}`, null);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating product type:", error);
+      res.status(500).json({ error: error.message || "Failed to update product type" });
     }
   });
 

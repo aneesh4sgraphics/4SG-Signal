@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  ArrowLeft, Search, RefreshCw, Download, CheckCircle2, 
+  ArrowLeft, Search, RefreshCw, Download, CheckCircle2, Check,
   Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2, Ban, Merge
 } from 'lucide-react';
 import {
@@ -101,6 +101,15 @@ export default function ProductMapping() {
   const [typeToDelete, setTypeToDelete] = useState<ProductType | null>(null);
   const [typeToMerge, setTypeToMerge] = useState<ProductType | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  
+  // Category/Type editing
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [editTypeName, setEditTypeName] = useState('');
+  
+  // Category selection for filtering types in Categories & Types tab
+  const [selectedCategoryForTypes, setSelectedCategoryForTypes] = useState<number | null>(null);
 
   // Fetch unmapped products
   const { data: unmappedData, isLoading: loadingProducts, refetch: refetchProducts } = useQuery<UnmappedResponse>({
@@ -151,11 +160,17 @@ export default function ProductMapping() {
     return filtered;
   }, [products, activeTab, selectedCategoryFilter, searchQuery]);
 
-  // Get types for selected category
+  // Get types for selected category (mapping dialog)
   const filteredTypes = useMemo(() => {
     if (!selectedCategory) return [];
     return types.filter(t => t.categoryId.toString() === selectedCategory);
   }, [types, selectedCategory]);
+
+  // Get types filtered by selected category in Categories & Types tab
+  const typesForCategoryTab = useMemo(() => {
+    if (selectedCategoryForTypes === null) return types;
+    return types.filter(t => t.categoryId === selectedCategoryForTypes);
+  }, [types, selectedCategoryForTypes]);
 
   // Import from Odoo mutation
   const importFromOdoo = useMutation({
@@ -269,6 +284,40 @@ export default function ProductMapping() {
     },
     onError: (error: Error) => {
       toast({ variant: 'destructive', title: 'Failed to merge types', description: error.message });
+    },
+  });
+
+  // Update category name
+  const updateCategory = useMutation({
+    mutationFn: async (data: { id: number; name: string }) => {
+      const res = await apiRequest('PATCH', `/api/product-categories/${data.id}`, { name: data.name });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Category updated' });
+      refetchCategories();
+      setEditingCategoryId(null);
+      setEditCategoryName('');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to update category', description: error.message });
+    },
+  });
+
+  // Update type name
+  const updateType = useMutation({
+    mutationFn: async (data: { id: number; name: string }) => {
+      const res = await apiRequest('PATCH', `/api/product-types/${data.id}`, { name: data.name });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Type updated' });
+      refetchTypes();
+      setEditingTypeId(null);
+      setEditTypeName('');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to update type', description: error.message });
     },
   });
 
@@ -641,26 +690,98 @@ export default function ProductMapping() {
                       Add Category
                     </Button>
                   </div>
-                  <CardDescription>Product categories for organizing your catalog</CardDescription>
+                  <CardDescription>Click a category to filter types on the right</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[400px]">
+                  {/* Show All button */}
+                  <Button
+                    size="sm"
+                    variant={selectedCategoryForTypes === null ? "default" : "outline"}
+                    className="mb-3 w-full"
+                    onClick={() => setSelectedCategoryForTypes(null)}
+                  >
+                    Show All Types ({types.length})
+                  </Button>
+                  <ScrollArea className="h-[360px]">
                     <div className="space-y-2">
                       {categories.map((cat) => {
                         const typeCount = types.filter(t => t.categoryId === cat.id).length;
                         const productCount = products.filter(p => p.catalogCategoryId === cat.id).length;
+                        const isSelected = selectedCategoryForTypes === cat.id;
+                        const isEditing = editingCategoryId === cat.id;
+                        
                         return (
                           <div
                             key={cat.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                              isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                            }`}
+                            onClick={() => !isEditing && setSelectedCategoryForTypes(cat.id)}
                             data-testid={`category-row-${cat.id}`}
                           >
-                            <div>
-                              <div className="font-medium">{cat.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {typeCount} types • {productCount} products
-                              </div>
+                            <div className="flex-1">
+                              {isEditing ? (
+                                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <Input
+                                    value={editCategoryName}
+                                    onChange={(e) => setEditCategoryName(e.target.value)}
+                                    className="h-8"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && editCategoryName.trim()) {
+                                        updateCategory.mutate({ id: cat.id, name: editCategoryName });
+                                      } else if (e.key === 'Escape') {
+                                        setEditingCategoryId(null);
+                                        setEditCategoryName('');
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (editCategoryName.trim()) {
+                                        updateCategory.mutate({ id: cat.id, name: editCategoryName });
+                                      }
+                                    }}
+                                    disabled={updateCategory.isPending}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setEditingCategoryId(null);
+                                      setEditCategoryName('');
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="font-medium">{cat.name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {typeCount} types • {productCount} products
+                                  </div>
+                                </>
+                              )}
                             </div>
+                            {!isEditing && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingCategoryId(cat.id);
+                                  setEditCategoryName(cat.name);
+                                }}
+                                title="Edit category name"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         );
                       })}
@@ -673,20 +794,34 @@ export default function ProductMapping() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Product Types</CardTitle>
+                    <CardTitle>
+                      Product Types
+                      {selectedCategoryForTypes !== null && (
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          ({categories.find(c => c.id === selectedCategoryForTypes)?.name})
+                        </span>
+                      )}
+                    </CardTitle>
                     <Button size="sm" onClick={() => setShowAddType(true)} data-testid="button-add-type">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Type
                     </Button>
                   </div>
-                  <CardDescription>Product types within each category</CardDescription>
+                  <CardDescription>
+                    {selectedCategoryForTypes !== null 
+                      ? `Showing ${typesForCategoryTab.length} types for selected category`
+                      : `Showing all ${types.length} product types`
+                    }
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-2">
-                      {types.map((type) => {
+                      {typesForCategoryTab.map((type) => {
                         const category = categories.find(c => c.id === type.categoryId);
                         const productCount = products.filter(p => p.productTypeId === type.id).length;
+                        const isEditing = editingTypeId === type.id;
+                        
                         return (
                           <div
                             key={type.id}
@@ -694,32 +829,88 @@ export default function ProductMapping() {
                             data-testid={`type-row-${type.id}`}
                           >
                             <div className="flex-1">
-                              <div className="font-medium">{type.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {category?.name || 'Unknown'} • {productCount} products
+                              {isEditing ? (
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={editTypeName}
+                                    onChange={(e) => setEditTypeName(e.target.value)}
+                                    className="h-8"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && editTypeName.trim()) {
+                                        updateType.mutate({ id: type.id, name: editTypeName });
+                                      } else if (e.key === 'Escape') {
+                                        setEditingTypeId(null);
+                                        setEditTypeName('');
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (editTypeName.trim()) {
+                                        updateType.mutate({ id: type.id, name: editTypeName });
+                                      }
+                                    }}
+                                    disabled={updateType.isPending}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setEditingTypeId(null);
+                                      setEditTypeName('');
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="font-medium">{type.name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {category?.name || 'Unknown'} • {productCount} products
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            {!isEditing && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditingTypeId(type.id);
+                                    setEditTypeName(type.name);
+                                  }}
+                                  title="Edit type name"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setTypeToMerge(type)}
+                                  title="Merge into another type"
+                                  data-testid={`button-merge-type-${type.id}`}
+                                >
+                                  <Merge className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setTypeToDelete(type)}
+                                  className="text-destructive hover:text-destructive"
+                                  title="Delete type"
+                                  data-testid={`button-delete-type-${type.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setTypeToMerge(type)}
-                                title="Merge into another type"
-                                data-testid={`button-merge-type-${type.id}`}
-                              >
-                                <Merge className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setTypeToDelete(type)}
-                                className="text-destructive hover:text-destructive"
-                                title="Delete type"
-                                data-testid={`button-delete-type-${type.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
