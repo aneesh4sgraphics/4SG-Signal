@@ -6090,6 +6090,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error syncing Gmail:", error);
+      
+      // Check for insufficient permission error
+      if (error.message?.includes('Insufficient Permission') || error.code === 403) {
+        return res.status(403).json({ 
+          error: "Gmail permissions limited - the current Gmail integration only allows sending emails. Reading inbox requires reconnecting with full Gmail access permissions in the published app.",
+          code: "INSUFFICIENT_SCOPE"
+        });
+      }
+      
       res.status(500).json({ error: error.message || "Failed to sync Gmail" });
     }
   });

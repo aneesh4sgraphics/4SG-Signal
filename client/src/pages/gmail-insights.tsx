@@ -865,9 +865,18 @@ export default function GmailInsightsPage() {
                                    errorMessage.includes('not connected') ||
                                    errorMessage.includes('token') ||
                                    errorMessage.includes('auth');
+      const isPermissionError = errorMessage.includes('permission') || 
+                                 errorMessage.includes('insufficient') ||
+                                 errorMessage.includes('scope');
       
       if (isGmailNotConnected) {
         setShowGmailNotConnected(true);
+      } else if (isPermissionError) {
+        toast({
+          title: "Limited Gmail Access",
+          description: "Gmail Intelligence requires additional permissions. This feature works in the published app with full Gmail access.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Sync Failed",
