@@ -368,6 +368,12 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     },
   });
 
+  // Fetch Odoo base URL for constructing links
+  const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({
+    queryKey: ['/api/odoo/base-url'],
+  });
+  const odooBaseUrl = odooBaseUrlData?.baseUrl || '';
+
   // Fetch Shopify orders matched to this customer
   const { data: shopifyOrders = [] } = useQuery<any[]>({
     queryKey: ['/api/shopify/orders', 'customer', customer.id],
@@ -1066,7 +1072,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                       data-testid="btn-open-odoo"
                       onClick={() => {
                         const odooPartnerId = (customer as any).odooPartnerId;
-                        window.open(`https://4sgraphics.odoo.com/web#id=${odooPartnerId}&model=res.partner&view_type=form`, '_blank');
+                        window.open(`${odooBaseUrl}/web#id=${odooPartnerId}&model=res.partner&view_type=form`, '_blank');
                       }}
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -1935,7 +1941,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           <div className="text-right">
                             <p className="font-bold text-lg text-green-600">${parseFloat(order.amount_total || 0).toLocaleString()}</p>
                             <a 
-                              href={`https://4sgraphics.odoo.com/web#id=${order.id}&model=sale.order&view_type=form`}
+                              href={`${odooBaseUrl}/web#id=${order.id}&model=sale.order&view_type=form`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 justify-end mt-1"
@@ -1997,7 +2003,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                               <p className="text-xs text-orange-600">Due: ${parseFloat(invoice.amount_residual).toLocaleString()}</p>
                             )}
                             <a 
-                              href={`https://4sgraphics.odoo.com/web#id=${invoice.id}&model=account.move&view_type=form`}
+                              href={`${odooBaseUrl}/web#id=${invoice.id}&model=account.move&view_type=form`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 justify-end mt-1"
@@ -2265,7 +2271,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                                 {quote.state === 'draft' ? 'Draft' : quote.state === 'sent' ? 'Sent' : quote.state}
                               </Badge>
                               <a 
-                                href={`https://4sgraphics.odoo.com/web#id=${quote.id}&model=sale.order&view_type=form`}
+                                href={`${odooBaseUrl}/web#id=${quote.id}&model=sale.order&view_type=form`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-purple-600 hover:text-purple-800"
