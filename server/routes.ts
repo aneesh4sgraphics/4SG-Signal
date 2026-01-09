@@ -10581,6 +10581,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(or(eq(productPricingMaster.isArchived, false), isNull(productPricingMaster.isArchived)))
         .orderBy(productPricingMaster.productName);
       
+      // Get excluded/archived products separately
+      const excludedProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        odooItemCode: productPricingMaster.odooItemCode,
+        productName: productPricingMaster.productName,
+        productType: productPricingMaster.productType,
+        productTypeId: productPricingMaster.productTypeId,
+        catalogCategoryId: productPricingMaster.catalogCategoryId,
+        size: productPricingMaster.size,
+        totalSqm: productPricingMaster.totalSqm,
+        rollSheet: productPricingMaster.rollSheet,
+        unitOfMeasure: productPricingMaster.unitOfMeasure,
+        dealerPrice: productPricingMaster.dealerPrice,
+        retailPrice: productPricingMaster.retailPrice,
+        updatedAt: productPricingMaster.updatedAt,
+      }).from(productPricingMaster)
+        .where(eq(productPricingMaster.isArchived, true))
+        .orderBy(productPricingMaster.productName);
+      
       // Get categories and types for reference
       const categories = await db.select().from(productCategories);
       const types = await db.select().from(productTypes);
@@ -10632,11 +10652,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           p.size === 'Standard' || !p.size ||
           !p.totalSqm || parseFloat(p.totalSqm.toString()) === 0
         ).length,
+        excluded: excludedProducts.length,
       };
       
       res.json({
         success: true,
         products: filtered.slice(0, 500), // Limit for performance
+        excludedProducts: excludedProducts.slice(0, 500), // Excluded products for restore
         totalFiltered: filtered.length,
         counts,
         categories,

@@ -60,6 +60,7 @@ interface ProductType {
 interface UnmappedResponse {
   success: boolean;
   products: Product[];
+  excludedProducts: Product[];
   totalFiltered: number;
   counts: {
     all: number;
@@ -67,6 +68,7 @@ interface UnmappedResponse {
     noSize: number;
     noSqm: number;
     incomplete: number;
+    excluded: number;
   };
   categories: Category[];
   types: ProductType[];
@@ -129,7 +131,8 @@ export default function ProductMapping() {
   const categories = categoriesData || [];
   const types = typesData || [];
   const products = unmappedData?.products || [];
-  const counts = unmappedData?.counts || { all: 0, unmapped: 0, noSize: 0, noSqm: 0, incomplete: 0 };
+  const excludedProducts = unmappedData?.excludedProducts || [];
+  const counts = unmappedData?.counts || { all: 0, unmapped: 0, noSize: 0, noSqm: 0, incomplete: 0, excluded: 0 };
 
   // Filter products based on tab and search
   const filteredProducts = useMemo(() => {
@@ -338,6 +341,23 @@ export default function ProductMapping() {
     },
   });
 
+  // Restore mutation - unarchives the product so it can be mapped again
+  const restoreProduct = useMutation({
+    mutationFn: async (productId: number) => {
+      const res = await apiRequest('PATCH', `/api/products/${productId}/mapping`, {
+        isArchived: false,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Product restored', description: 'Product is now available for mapping' });
+      refetchProducts();
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to restore product', description: error.message });
+    },
+  });
+
   const resetMappingForm = () => {
     setSelectedCategory('');
     setSelectedType('');
@@ -512,6 +532,10 @@ export default function ProductMapping() {
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Mapped ({counts.all - counts.unmapped})
             </TabsTrigger>
+            <TabsTrigger value="excluded" data-testid="tab-excluded">
+              <Ban className="h-4 w-4 mr-2" />
+              Excluded ({counts.excluded})
+            </TabsTrigger>
             <TabsTrigger value="categories" data-testid="tab-categories">
               <Layers className="h-4 w-4 mr-2" />
               Categories & Types
@@ -670,6 +694,62 @@ export default function ProductMapping() {
                           </div>
                         );
                       })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Excluded Products Tab */}
+          <TabsContent value="excluded" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Excluded Products</CardTitle>
+                  <div className="text-sm text-muted-foreground">
+                    Products excluded from QuickQuotes and Price List. Restore to map them later.
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingProducts ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading products...</div>
+                ) : excludedProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No excluded products</div>
+                ) : (
+                  <ScrollArea className="h-[500px]">
+                    <div className="space-y-2">
+                      {excludedProducts.map((product) => (
+                        <div
+                          key={product.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                          data-testid={`product-row-excluded-${product.id}`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-medium">{product.itemCode}</span>
+                              <Badge variant="outline" className="text-gray-500 border-gray-400">
+                                Excluded
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {product.productName} | {product.productType}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => restoreProduct.mutate(product.id)}
+                            disabled={restoreProduct.isPending}
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            data-testid={`button-restore-${product.id}`}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Restore
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </ScrollArea>
                 )}
