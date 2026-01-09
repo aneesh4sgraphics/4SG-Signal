@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -1107,6 +1108,35 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
           </div>
         </div>
       </div>
+
+      {/* Data Cleanup Alert - Show when customer has incomplete email */}
+      {(() => {
+        const email = customer.email;
+        const hasIncompleteEmail = !email || 
+          email.trim() === '' || 
+          email.trim().toLowerCase() === 'n/a' || 
+          email.trim().toLowerCase() === 'na' ||
+          email.trim().toLowerCase() === 'none' ||
+          email.trim() === '-' ||
+          !email.includes('@');
+        
+        if (hasIncompleteEmail) {
+          return (
+            <Alert variant="destructive" className="bg-amber-50 border-amber-400 text-amber-800">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800 font-semibold">Data Cleanup Required</AlertTitle>
+              <AlertDescription className="text-amber-700">
+                <span className="font-medium">Issue: </span>
+                {!email ? 'Email address is missing' : 
+                 !email.includes('@') ? `Invalid email format: "${email}"` :
+                 `Email appears to be a placeholder: "${email}"`}
+                <span className="block mt-1">Please update the email address using the Edit button above.</span>
+              </AlertDescription>
+            </Alert>
+          );
+        }
+        return null;
+      })()}
 
       {/* Odoo-Style Stat Bar */}
       <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-2 overflow-x-auto">
