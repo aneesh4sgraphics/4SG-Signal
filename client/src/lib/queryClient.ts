@@ -3,8 +3,10 @@ import { toast } from "@/hooks/use-toast";
 
 let sessionExpiredToastShown = false;
 let lastSessionExpiredTime = 0;
+const appLoadTime = Date.now();
 
 function checkLoginGracePeriod(): boolean {
+  // Grace period after login
   const authTimestamp = sessionStorage.getItem('authTimestamp');
   if (authTimestamp) {
     const loginTime = parseInt(authTimestamp, 10);
@@ -13,6 +15,13 @@ function checkLoginGracePeriod(): boolean {
       return true;
     }
   }
+  
+  // Grace period for initial app load (5 seconds)
+  // This prevents "session expired" toast during initial page load race conditions
+  if (Date.now() - appLoadTime < 5000) {
+    return true;
+  }
+  
   return false;
 }
 
