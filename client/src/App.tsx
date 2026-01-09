@@ -94,8 +94,7 @@ const AppRoutes = () => (
     <Route path="/product-labels" component={ProductLabels} />
     <Route path="/crm-journey" component={CRMJourneyDashboard} />
     <Route path="/email-app" component={EmailApp} />
-    {/* Email Intelligence hidden until Gmail readonly scope is added - contact Replit support */}
-    {/* <Route path="/email-insights" component={GmailInsightsPage} /> */}
+    <Route path="/email-insights" component={GmailInsightsPage} />
     <Route path="/objections" component={ObjectionsPage} />
     <Route path="/shopify-settings" component={ShopifySettingsPage} />
     <Route path="/odoo-settings" component={OdooSettingsPage} />

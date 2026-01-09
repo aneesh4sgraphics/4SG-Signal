@@ -2,7 +2,10 @@ import { db } from "./db";
 import { gmailSyncState, gmailMessages, gmailInsights, customers, shipmentFollowUpTasks } from "@shared/schema";
 import { eq, and, desc, sql, inArray, lt, isNull, or } from "drizzle-orm";
 import { getMessages, getMessage } from "./gmail-client";
+import { getImapMessages, getImapMessage, hasImapCredentials } from "./imap-client";
 import OpenAI from "openai";
+
+const USE_IMAP = hasImapCredentials();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -48,13 +51,23 @@ export async function createOrUpdateSyncState(userId: string, updates: Partial<t
 }
 
 export async function syncGmailMessages(userId: string, userEmail: string, maxMessages: number = 50) {
-  console.log(`[Gmail Intelligence] Starting sync for user ${userId}`);
+  console.log(`[Gmail Intelligence] Starting sync for user ${userId}, using IMAP: ${USE_IMAP}`);
   
   await createOrUpdateSyncState(userId, { syncStatus: 'syncing' });
 
   try {
-    const inboxMessages = await getMessages('INBOX', maxMessages);
-    const sentMessages = await getMessages('SENT', maxMessages);
+    let inboxMessages: any[];
+    let sentMessages: any[];
+    
+    if (USE_IMAP) {
+      console.log('[Gmail Intelligence] Using IMAP client for email sync');
+      inboxMessages = await getImapMessages('INBOX', maxMessages);
+      sentMessages = await getImapMessages('SENT', maxMessages);
+    } else {
+      console.log('[Gmail Intelligence] Using Gmail API client for email sync');
+      inboxMessages = await getMessages('INBOX', maxMessages);
+      sentMessages = await getMessages('SENT', maxMessages);
+    }
     
     const allMessages = [
       ...inboxMessages.map(m => ({ ...m, direction: 'inbound' as const })),
@@ -80,7 +93,9 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     for (const msg of newMessages) {
       if (!msg.id) continue;
       
-      const fullMessage = await getMessage(msg.id);
+      const fullMessage = USE_IMAP 
+        ? await getImapMessage(msg.id) 
+        : await getMessage(msg.id);
       const fromParsed = parseEmailAddress(fullMessage.from);
       const toParsed = parseEmailAddress(fullMessage.to);
       
