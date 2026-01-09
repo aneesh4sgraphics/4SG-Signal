@@ -104,6 +104,7 @@ const applyRetailRounding = (price: number, isRetail: boolean): number => {
 
 export default function PriceList() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<string>("");
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [priceListItems, setPriceListItems] = useState<PriceListItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -179,6 +180,7 @@ export default function PriceList() {
   // Reset all filters
   const resetFilters = () => {
     setSelectedCategory("");
+    setSelectedType("");
     setSelectedTier("");
     setPriceListItems([]);
     setOrderedItems([]);
@@ -462,6 +464,25 @@ export default function PriceList() {
   // Use shared category constants (11 curated categories)
   const categories = [...ALLOWED_CATEGORIES];
 
+  // Get available product types for selected category
+  const availableTypes = useMemo(() => {
+    if (!selectedCategory || !productData.length) return [];
+    
+    const typesForCategory = productData
+      .filter(item => (item.productName || item.product_name)?.toLowerCase() === selectedCategory.toLowerCase())
+      .map(item => item.productType || item.ProductType || '')
+      .filter(type => type && type.trim().length > 0);
+    
+    return Array.from(new Set(typesForCategory)).sort();
+  }, [selectedCategory, productData]);
+  
+  // Reset selected type when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      setSelectedType("");
+    }
+  }, [selectedCategory]);
+
   // Handle product reordering
   const handleProductReorder = (reorderedItems: any[]) => {
     const updatedItems = reorderedItems.map(item => {
@@ -531,9 +552,9 @@ export default function PriceList() {
     }
   }, [selectedCategory, selectedTier, filtersInitialized]);
 
-  // Generate price list when category or tier changes
+  // Generate price list when category, type, or tier changes
   useEffect(() => {
-    if (!selectedCategory || !selectedTier || !productData.length) {
+    if (!selectedCategory || !selectedType || !selectedTier || !productData.length) {
       // Use functional update to avoid stale closure issues
       setPriceListItems(prev => prev.length > 0 ? [] : prev);
       setOrderedItems(prev => prev.length > 0 ? [] : prev);
@@ -541,7 +562,11 @@ export default function PriceList() {
     }
 
     const filteredProducts = productData.filter(
-      (item) => (item.productName || item.product_name)?.toLowerCase() === selectedCategory?.toLowerCase()
+      (item) => {
+        const matchesCategory = (item.productName || item.product_name)?.toLowerCase() === selectedCategory?.toLowerCase();
+        const matchesType = (item.productType || item.ProductType)?.toLowerCase() === selectedType?.toLowerCase();
+        return matchesCategory && matchesType;
+      }
     );
 
     const calculatedItems = filteredProducts.map((product) => {
@@ -596,7 +621,7 @@ export default function PriceList() {
     });
     
     setPriceListItems(sortedItems);
-  }, [selectedCategory, selectedTier, productData]);
+  }, [selectedCategory, selectedType, selectedTier, productData]);
 
 
 
@@ -726,7 +751,7 @@ export default function PriceList() {
         {/* Configuration - Optimized Layout */}
         <div className="glass-card mb-6 overflow-visible relative z-20">
           <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Product Category */}
               <div className="space-y-2">
                 <label className="block label-medium text-gray-800">Product Category</label>
@@ -748,6 +773,37 @@ export default function PriceList() {
                     ) : (
                       <SelectItem value="no-categories" disabled className="text-sm text-gray-400">
                         No categories available
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Product Type */}
+              <div className="space-y-2">
+                <label className="block label-medium text-gray-800">Product Type</label>
+                <Select 
+                  value={selectedType} 
+                  onValueChange={setSelectedType}
+                  disabled={!selectedCategory}
+                >
+                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <SelectValue placeholder={selectedCategory ? "Select product type" : "Select category first"} />
+                  </SelectTrigger>
+                  <SelectContent className="w-full">
+                    {availableTypes.length > 0 ? (
+                      availableTypes.map(type => (
+                        <SelectItem 
+                          key={String(type)} 
+                          value={String(type)} 
+                          className="text-sm"
+                        >
+                          {String(type)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-types" disabled className="text-sm text-gray-400">
+                        {selectedCategory ? "No types available" : "Select a category first"}
                       </SelectItem>
                     )}
                   </SelectContent>
