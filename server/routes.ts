@@ -1246,8 +1246,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = decodeURIComponent(req.params.userId);
       const { allowedTiers } = req.body;
       
-      // Validate allowedTiers is null or an array of valid tier keys
-      const validTiers = ['landedPrice', 'exportPrice', 'dealerPrice', 'wholesalePrice', 'distributorPrice', 'singleRollPrice', 'retailPrice'];
+      // Validate allowedTiers is null or an array of valid tier keys (must match quote-calculator keys)
+      const validTiers = [
+        'landedPrice', 'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
+        'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 'tierStage15Price', 
+        'tierStage1Price', 'retailPrice'
+      ];
       
       if (allowedTiers !== null && !Array.isArray(allowedTiers)) {
         return res.status(400).json({ message: "allowedTiers must be null or an array of tier keys" });

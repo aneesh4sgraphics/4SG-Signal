@@ -80,17 +80,17 @@ interface Customer {
 }
 
 const allPricingTiers = [
-  { key: 'Landed', label: 'Landed Price' },
-  { key: 'Export', label: 'Export Only' },
-  { key: 'M.Distributor', label: 'Distributor' },
-  { key: 'Dealer', label: 'Dealer-VIP' },
-  { key: 'Dealer2', label: 'Dealer' },
-  { key: 'ApprovalNeeded', label: 'Shopify Lowest' },
-  { key: 'TierStage25', label: 'Shopify3' },
-  { key: 'TierStage2', label: 'Shopify2' },
-  { key: 'TierStage15', label: 'Shopify1' },
-  { key: 'TierStage1', label: 'Shopify-Account' },
-  { key: 'Retail', label: 'Retail' }
+  { key: 'Landed', label: 'Landed Price', allowedTierKey: 'landedPrice' },
+  { key: 'Export', label: 'Export Only', allowedTierKey: 'exportPrice' },
+  { key: 'M.Distributor', label: 'Distributor', allowedTierKey: 'masterDistributorPrice' },
+  { key: 'Dealer', label: 'Dealer-VIP', allowedTierKey: 'dealerPrice' },
+  { key: 'Dealer2', label: 'Dealer', allowedTierKey: 'dealer2Price' },
+  { key: 'ApprovalNeeded', label: 'Shopify Lowest', allowedTierKey: 'approvalNeededPrice' },
+  { key: 'TierStage25', label: 'Shopify3', allowedTierKey: 'tierStage25Price' },
+  { key: 'TierStage2', label: 'Shopify2', allowedTierKey: 'tierStage2Price' },
+  { key: 'TierStage15', label: 'Shopify1', allowedTierKey: 'tierStage15Price' },
+  { key: 'TierStage1', label: 'Shopify-Account', allowedTierKey: 'tierStage1Price' },
+  { key: 'Retail', label: 'Retail', allowedTierKey: 'retailPrice' }
 ];
 
 // Utility function for retail pricing rounding (99-cent rounding)
@@ -163,10 +163,18 @@ export default function PriceList() {
   
   // Get user role and filter pricing tiers accordingly - memoize to prevent re-renders
   const userEmail = (user as any)?.email || '';
+  const userAllowedTiers = (user as any)?.allowedTiers as string[] | null | undefined;
   const pricingTiers = useMemo(() => {
     const userRole = getUserRoleFromEmail(userEmail);
-    return allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
-  }, [userEmail]);
+    return allPricingTiers.filter(tier => {
+      // If user has specific allowed tiers set, use those (match on allowedTierKey)
+      if (userAllowedTiers && userAllowedTiers.length > 0) {
+        return userAllowedTiers.includes(tier.allowedTierKey);
+      }
+      // Otherwise use role-based tier access
+      return canAccessTier(tier.label, userRole);
+    });
+  }, [userEmail, userAllowedTiers]);
 
   // Reset all filters
   const resetFilters = () => {

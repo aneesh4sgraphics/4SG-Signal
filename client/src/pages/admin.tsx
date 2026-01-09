@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useUsers } from "@/features/admin/useUsers";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { 
   Table, 
@@ -21,6 +27,20 @@ import {
 } from "@/components/ui/table";
 
 import type { User } from '@shared/schema';
+
+const PRICING_TIERS = [
+  { key: 'landedPrice', label: 'Landed Price' },
+  { key: 'exportPrice', label: 'Export Only' },
+  { key: 'masterDistributorPrice', label: 'Distributor' },
+  { key: 'dealerPrice', label: 'Dealer-VIP' },
+  { key: 'dealer2Price', label: 'Dealer' },
+  { key: 'approvalNeededPrice', label: 'Shopify Lowest' },
+  { key: 'tierStage25Price', label: 'Shopify3' },
+  { key: 'tierStage2Price', label: 'Shopify2' },
+  { key: 'tierStage15Price', label: 'Shopify1' },
+  { key: 'tierStage1Price', label: 'Shopify-Account' },
+  { key: 'retailPrice', label: 'Retail' }
+];
 
 interface RoleSelectProps {
   user: User;
@@ -52,6 +72,96 @@ function RoleSelect({ user, onRoleChange, isPending }: RoleSelectProps) {
       <option value="manager">Manager</option>
       <option value="admin">Admin</option>
     </select>
+  );
+}
+
+interface TierSelectProps {
+  user: User;
+  onTierChange: (userId: string, tiers: string[] | null) => void;
+  isPending: boolean;
+}
+
+function TierSelect({ user, onTierChange, isPending }: TierSelectProps) {
+  const [localTiers, setLocalTiers] = React.useState<string[]>(user.allowedTiers || []);
+  const [open, setOpen] = React.useState(false);
+  
+  React.useEffect(() => {
+    setLocalTiers(user.allowedTiers || []);
+  }, [user.allowedTiers]);
+
+  const handleTierToggle = (tierKey: string) => {
+    const newTiers = localTiers.includes(tierKey)
+      ? localTiers.filter(t => t !== tierKey)
+      : [...localTiers, tierKey];
+    setLocalTiers(newTiers);
+    onTierChange(user.id, newTiers.length > 0 ? newTiers : null);
+  };
+
+  const handleSelectAll = () => {
+    const allTiers = PRICING_TIERS.map(t => t.key);
+    setLocalTiers(allTiers);
+    onTierChange(user.id, allTiers);
+  };
+
+  const handleClearAll = () => {
+    setLocalTiers([]);
+    onTierChange(user.id, null);
+  };
+
+  const displayText = localTiers.length === 0 
+    ? 'All Tiers' 
+    : localTiers.length === PRICING_TIERS.length 
+      ? 'All Tiers' 
+      : `${localTiers.length} tiers`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isPending}
+          className="min-w-[100px] justify-between text-xs"
+        >
+          {displayText}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center border-b pb-2">
+            <span className="text-sm font-medium">Pricing Tiers</span>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" onClick={handleSelectAll} className="text-xs h-6 px-2">
+                All
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleClearAll} className="text-xs h-6 px-2">
+                Clear
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            {PRICING_TIERS.map((tier) => (
+              <div key={tier.key} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`tier-${user.id}-${tier.key}`}
+                  checked={localTiers.includes(tier.key)}
+                  onCheckedChange={() => handleTierToggle(tier.key)}
+                />
+                <label
+                  htmlFor={`tier-${user.id}-${tier.key}`}
+                  className="text-sm cursor-pointer flex-1"
+                >
+                  {tier.label}
+                </label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground pt-2 border-t">
+            Empty = All tiers visible
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -163,6 +273,47 @@ export default function Admin() {
     },
   });
 
+  const changeTiersMutation = useMutation({
+    mutationFn: async ({ userId, allowedTiers }: { userId: string; allowedTiers: string[] | null }) => {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/allowed-tiers`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ allowedTiers }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update allowed tiers');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data, { userId, allowedTiers }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      
+      const user = users?.find(u => u.id === userId);
+      const tiersText = allowedTiers && allowedTiers.length > 0 
+        ? `${allowedTiers.length} tiers` 
+        : 'all tiers';
+      logUserAction("CHANGED USER TIERS", `${user?.email || userId} to ${tiersText}`);
+      
+      toast({
+        title: "Allowed tiers updated",
+        description: "User's visible pricing tiers have been updated",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error updating tiers",
+        description: error instanceof Error ? error.message : "Failed to update allowed tiers",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Download all data as ZIP
   const handleDownloadData = async () => {
     try {
@@ -265,6 +416,7 @@ export default function Admin() {
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Allowed Tiers</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
@@ -288,6 +440,17 @@ export default function Admin() {
                             <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                               {user.role}
                             </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {user.status === 'approved' ? (
+                            <TierSelect 
+                              user={user}
+                              onTierChange={(userId, allowedTiers) => changeTiersMutation.mutate({ userId, allowedTiers })}
+                              isPending={changeTiersMutation.isPending}
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell>

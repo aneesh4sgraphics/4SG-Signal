@@ -179,7 +179,17 @@ export default function QuoteCalculator() {
   // Get user role and filter pricing tiers accordingly
   // Use role from user object directly, fallback to email-based detection
   const userRole = (user as any)?.role || getUserRoleFromEmail((user as any)?.email || '');
-  const pricingTiers = allPricingTiers.filter(tier => canAccessTier(tier.label, userRole));
+  const userAllowedTiers = (user as any)?.allowedTiers as string[] | null | undefined;
+  
+  // Filter tiers based on user's allowed tiers if set, otherwise use role-based access
+  const pricingTiers = allPricingTiers.filter(tier => {
+    // If user has specific allowed tiers set, use those
+    if (userAllowedTiers && userAllowedTiers.length > 0) {
+      return userAllowedTiers.includes(tier.key);
+    }
+    // Otherwise use role-based tier access
+    return canAccessTier(tier.label, userRole);
+  });
 
   // Check if customer has a pricing tier assigned or tags match a pricing tier label
   const getMatchingTierFromTags = (): string | null => {
