@@ -9,10 +9,31 @@ const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
+function getRedirectUri(): string {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI;
+  }
+  
+  // Production: use REPLIT_DEPLOYMENT_URL or REPLIT_APP_URL
+  if (process.env.REPLIT_DEPLOYMENT_URL) {
+    return `${process.env.REPLIT_DEPLOYMENT_URL}/api/gmail-oauth/callback`;
+  }
+  
+  // Development: use REPLIT_DEV_DOMAIN
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}/api/gmail-oauth/callback`;
+  }
+  
+  // Fallback to localhost
+  return 'http://localhost:5000/api/gmail-oauth/callback';
+}
+
 function getOAuth2Client() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.REPLIT_DEV_DOMAIN ? 'https://' + process.env.REPLIT_DEV_DOMAIN : 'http://localhost:5000'}/api/gmail-oauth/callback`;
+  const redirectUri = getRedirectUri();
+  
+  console.log('[Gmail OAuth] Redirect URI:', redirectUri);
   
   if (!clientId || !clientSecret) {
     throw new Error('Google OAuth credentials not configured (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');

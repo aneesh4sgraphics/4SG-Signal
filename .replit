@@ -43,3 +43,4 @@ integrations = ["javascript_database:1.0.0", "perplexity_v0:1.0.0", "javascript_
 [userenv.shared]
 SHOPIFY_SCOPES = "read_orders,read_customers,read_products,write_customers"
 SHOPIFY_APP_URL = "https://4sgraphics.replit.app"
+GOOGLE_REDIRECT_URI = "https://4sgraphics.replit.app/api/gmail-oauth/callback"
