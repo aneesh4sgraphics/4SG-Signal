@@ -8,6 +8,48 @@ import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Domains to exclude from email analysis (marketing, notifications, internal systems)
+const EXCLUDED_EMAIL_DOMAINS = [
+  // Google/System notifications
+  'google.com',
+  'accounts.google.com',
+  'calendar-notification.google.com',
+  'notifications.google.com',
+  
+  // Banks & Financial (transactional only)
+  'regions.com',
+  'alert.regions.com',
+  'chase.com',
+  'bankofamerica.com',
+  'wellsfargo.com',
+  'paypal.com',
+  
+  // Personal/Internal (user-specific)
+  'technovaindia.com',
+  
+  // Common marketing/transactional senders
+  'sunpass.com',
+  'microsoft.com',
+  'microsoftstore.microsoft.com',
+  'apple.com',
+  'amazon.com',
+  'noreply.github.com',
+  'replit.com',
+  'linkedin.com',
+  'facebook.com',
+  'twitter.com',
+  'instagram.com',
+];
+
+// Check if an email should be excluded based on sender domain
+function shouldExcludeEmail(fromEmail: string): boolean {
+  if (!fromEmail) return true;
+  const domain = fromEmail.toLowerCase().split('@')[1] || '';
+  return EXCLUDED_EMAIL_DOMAINS.some(excluded => 
+    domain === excluded || domain.endsWith('.' + excluded)
+  );
+}
+
 function parseEmailAddress(raw: string): { email: string; name: string } {
   const match = raw.match(/^(?:"?([^"<]*)"?\s*)?<?([^>]+)>?$/);
   if (match) {
@@ -109,6 +151,7 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     });
 
     let processed = 0;
+    let skipped = 0;
     for (const msg of newMessages) {
       if (!msg.id) continue;
       
@@ -122,6 +165,13 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       }
       const fromParsed = parseEmailAddress(fullMessage.from);
       const toParsed = parseEmailAddress(fullMessage.to);
+      
+      // Skip emails from excluded domains (marketing, notifications, banks, etc.)
+      if (shouldExcludeEmail(fromParsed.email)) {
+        skipped++;
+        console.log(`[Gmail Intelligence] Skipping email from excluded domain: ${fromParsed.email}`);
+        continue;
+      }
       
       const contactEmail = msg.direction === 'inbound' ? fromParsed.email : toParsed.email;
       const customerId = emailToCustomer[contactEmail.toLowerCase()] || null;
@@ -164,8 +214,8 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       lastError: null
     });
 
-    console.log(`[Gmail Intelligence] Sync complete. Processed ${processed} new messages`);
-    return { success: true, processedCount: processed };
+    console.log(`[Gmail Intelligence] Sync complete. Processed ${processed} new messages, skipped ${skipped} (excluded domains)`);
+    return { success: true, processedCount: processed, skippedCount: skipped };
   } catch (error: any) {
     console.error('[Gmail Intelligence] Sync error:', error);
     await createOrUpdateSyncState(userId, { 
