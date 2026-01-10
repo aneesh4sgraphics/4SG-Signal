@@ -1,8 +1,9 @@
 import { db } from "./db";
-import { gmailSyncState, gmailMessages, gmailInsights, customers, shipmentFollowUpTasks } from "@shared/schema";
+import { gmailSyncState, gmailMessages, gmailInsights, customers, shipmentFollowUpTasks, userGmailConnections } from "@shared/schema";
 import { eq, and, desc, sql, inArray, lt, isNull, or } from "drizzle-orm";
 import { getMessages, getMessage } from "./gmail-client";
 import { getImapMessages, getImapMessage, hasAnyImapCredentials } from "./imap-client";
+import { getUserGmailConnection, getUserGmailMessages, getUserGmailMessage } from "./user-gmail-oauth";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -49,24 +50,43 @@ export async function createOrUpdateSyncState(userId: string, updates: Partial<t
 }
 
 export async function syncGmailMessages(userId: string, userEmail: string, maxMessages: number = 50) {
-  const useImap = await hasAnyImapCredentials();
-  console.log(`[Gmail Intelligence] Starting sync for user ${userId}, using IMAP: ${useImap}`);
+  console.log(`[Gmail Intelligence] Starting sync for user ${userId}`);
   
   await createOrUpdateSyncState(userId, { syncStatus: 'syncing' });
 
   try {
     let inboxMessages: any[];
     let sentMessages: any[];
+    let useMethod: 'per-user-oauth' | 'imap' | 'shared-gmail' = 'shared-gmail';
     
-    if (useImap) {
+    // Priority 1: Check for per-user Gmail OAuth connection
+    const userGmailConn = await getUserGmailConnection(userId);
+    if (userGmailConn && userGmailConn.isActive) {
+      useMethod = 'per-user-oauth';
+      console.log(`[Gmail Intelligence] Using per-user OAuth for: ${userGmailConn.gmailAddress}`);
+      inboxMessages = await getUserGmailMessages(userId, 'INBOX', maxMessages);
+      sentMessages = await getUserGmailMessages(userId, 'SENT', maxMessages);
+      
+      // Update last sync time on user's connection
+      await db.update(userGmailConnections)
+        .set({ lastSyncAt: new Date(), lastError: null })
+        .where(eq(userGmailConnections.userId, userId));
+    } 
+    // Priority 2: Fall back to IMAP if configured
+    else if (await hasAnyImapCredentials()) {
+      useMethod = 'imap';
       console.log('[Gmail Intelligence] Using IMAP client for email sync');
       inboxMessages = await getImapMessages('INBOX', maxMessages);
       sentMessages = await getImapMessages('SENT', maxMessages);
-    } else {
-      console.log('[Gmail Intelligence] Using Gmail API client for email sync');
+    } 
+    // Priority 3: Fall back to shared Gmail API (may have limited permissions)
+    else {
+      console.log('[Gmail Intelligence] Using shared Gmail API client');
       inboxMessages = await getMessages('INBOX', maxMessages);
       sentMessages = await getMessages('SENT', maxMessages);
     }
+    
+    console.log(`[Gmail Intelligence] Method: ${useMethod}, Inbox: ${inboxMessages.length}, Sent: ${sentMessages.length}`);
     
     const allMessages = [
       ...inboxMessages.map(m => ({ ...m, direction: 'inbound' as const })),
@@ -92,9 +112,14 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     for (const msg of newMessages) {
       if (!msg.id) continue;
       
-      const fullMessage = useImap 
-        ? await getImapMessage(msg.id) 
-        : await getMessage(msg.id);
+      let fullMessage;
+      if (useMethod === 'per-user-oauth') {
+        fullMessage = await getUserGmailMessage(userId, msg.id);
+      } else if (useMethod === 'imap') {
+        fullMessage = await getImapMessage(msg.id);
+      } else {
+        fullMessage = await getMessage(msg.id);
+      }
       const fromParsed = parseEmailAddress(fullMessage.from);
       const toParsed = parseEmailAddress(fullMessage.to);
       

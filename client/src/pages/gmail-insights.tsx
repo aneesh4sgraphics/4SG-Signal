@@ -722,6 +722,17 @@ export default function GmailInsightsPage() {
   const celebratedApprovalsRef = useRef<Set<number>>(new Set());
   const celebratedSwatchbooksRef = useRef<Set<number>>(new Set());
 
+  // Check Gmail connection status
+  const { data: gmailConnection, isLoading: gmailConnectionLoading, refetch: refetchGmailConnection } = useQuery<{
+    connected: boolean;
+    email?: string;
+    needsReconnect?: boolean;
+    lastSyncAt?: string;
+    lastError?: string;
+  }>({
+    queryKey: ["/api/gmail-oauth/status"],
+  });
+
   const { data: syncState, isLoading: syncStateLoading } = useQuery<SyncState>({
     queryKey: ["/api/gmail-intelligence/sync-state"],
   });
@@ -847,6 +858,49 @@ export default function GmailInsightsPage() {
     }
   };
 
+  // Connect Gmail mutation
+  const connectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/gmail-oauth/connect");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to initiate connection");
+      return data;
+    },
+    onSuccess: (data: { authUrl: string }) => {
+      window.location.href = data.authUrl;
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Could not start Gmail connection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Disconnect Gmail mutation
+  const disconnectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/gmail-oauth/disconnect");
+      if (!res.ok) throw new Error("Failed to disconnect");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gmail-oauth/status"] });
+      toast({
+        title: "Gmail Disconnected",
+        description: "Your Gmail account has been disconnected",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect Gmail",
+        variant: "destructive",
+      });
+    },
+  });
+
   const syncMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/gmail-intelligence/sync", { maxMessages: 100 });
@@ -854,6 +908,7 @@ export default function GmailInsightsPage() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/gmail-intelligence"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/gmail-oauth/status"] });
       toast({
         title: "Email Sync Complete",
         description: `Processed ${data.sync?.processedCount || 0} messages, found ${data.analysis?.insights || 0} new insights`,
@@ -864,7 +919,8 @@ export default function GmailInsightsPage() {
       const isGmailNotConnected = errorMessage.includes('gmail') || 
                                    errorMessage.includes('not connected') ||
                                    errorMessage.includes('token') ||
-                                   errorMessage.includes('auth');
+                                   errorMessage.includes('auth') ||
+                                   errorMessage.includes('connect your gmail');
       const isPermissionError = errorMessage.includes('permission') || 
                                  errorMessage.includes('insufficient') ||
                                  errorMessage.includes('scope');
@@ -1098,6 +1154,63 @@ export default function GmailInsightsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Gmail Connection Card - show prominently if not connected */}
+      {!gmailConnectionLoading && !gmailConnection?.connected && (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <PlugZap className="h-5 w-5 text-amber-600" />
+              Connect Your Gmail
+            </CardTitle>
+            <CardDescription>
+              Connect your Gmail account to enable email intelligence for your inbox
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={() => connectGmailMutation.mutate()}
+                disabled={connectGmailMutation.isPending}
+                className="bg-[#875A7B] hover:bg-[#6d4863]"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {connectGmailMutation.isPending ? "Connecting..." : "Connect Gmail"}
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                We only read emails to find sales insights. Your data stays private.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connected Gmail Card */}
+      {gmailConnection?.connected && (
+        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-green-800 dark:text-green-200">Gmail Connected</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">{gmailConnection.email}</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => disconnectGmailMutation.mutate()}
+                disabled={disconnectGmailMutation.isPending}
+              >
+                Disconnect
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Daily Performance Card */}
       <div className="grid gap-4 md:grid-cols-3">
