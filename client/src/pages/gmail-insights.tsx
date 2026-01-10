@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 
 interface Insight {
   id: number;
@@ -718,6 +719,8 @@ export default function GmailInsightsPage() {
   const [showSwatchbookCelebration, setShowSwatchbookCelebration] = useState(false);
   const [swatchbookCustomerName, setSwatchbookCustomerName] = useState<string | undefined>();
   const [showGmailNotConnected, setShowGmailNotConnected] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState("");
   const celebratedPOsRef = useRef<Set<number>>(new Set());
   const celebratedApprovalsRef = useRef<Set<number>>(new Set());
   const celebratedSwatchbooksRef = useRef<Set<number>>(new Set());
@@ -903,10 +906,47 @@ export default function GmailInsightsPage() {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/gmail-intelligence/sync", { maxMessages: 100 });
-      return res.json();
+      setSyncProgress(0);
+      setSyncStatus("Connecting to Gmail...");
+      
+      // Simulate progress stages
+      const progressInterval = setInterval(() => {
+        setSyncProgress(prev => {
+          if (prev < 20) {
+            setSyncStatus("Fetching emails from Gmail...");
+            return prev + 2;
+          } else if (prev < 50) {
+            setSyncStatus("Processing email content...");
+            return prev + 1;
+          } else if (prev < 80) {
+            setSyncStatus("AI analyzing for insights...");
+            return prev + 0.5;
+          } else if (prev < 95) {
+            setSyncStatus("Extracting sales opportunities...");
+            return prev + 0.3;
+          }
+          return prev;
+        });
+      }, 200);
+      
+      try {
+        const res = await apiRequest("POST", "/api/gmail-intelligence/sync", { maxMessages: 100 });
+        clearInterval(progressInterval);
+        setSyncProgress(100);
+        setSyncStatus("Complete!");
+        return res.json();
+      } catch (error) {
+        clearInterval(progressInterval);
+        setSyncProgress(0);
+        setSyncStatus("");
+        throw error;
+      }
     },
     onSuccess: (data: any) => {
+      setTimeout(() => {
+        setSyncProgress(0);
+        setSyncStatus("");
+      }, 1500);
       queryClient.invalidateQueries({ queryKey: ["/api/gmail-intelligence"] });
       queryClient.invalidateQueries({ queryKey: ["/api/gmail-oauth/status"] });
       toast({
@@ -1148,12 +1188,34 @@ export default function GmailInsightsPage() {
           <Button
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
+            className="bg-[#875A7B] hover:bg-[#6d4863]"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
             {syncMutation.isPending ? "Syncing..." : "Sync Emails"}
           </Button>
         </div>
       </div>
+
+      {/* Progress Bar during sync */}
+      {syncMutation.isPending && (
+        <Card className="border-[#875A7B]/30 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+          <CardContent className="py-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin text-[#875A7B]" />
+                  <span className="font-medium text-[#875A7B]">{syncStatus}</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{Math.round(syncProgress)}%</span>
+              </div>
+              <Progress value={syncProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                This may take a minute. AI is analyzing your emails for sales opportunities...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Gmail Connection Card - show prominently if not connected */}
       {!gmailConnectionLoading && !gmailConnection?.connected && (
