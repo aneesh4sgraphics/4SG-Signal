@@ -420,10 +420,20 @@ Ignore auto-replies, newsletters, spam, and marketing emails.`;
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) return [];
+    if (!content) {
+      console.log(`[Gmail AI] No response content for message ${message.id}`);
+      return [];
+    }
 
     const parsed = JSON.parse(content);
-    const insights: ExtractedInsight[] = (parsed.insights || parsed || [])
+    const rawInsights = parsed.insights || parsed || [];
+    console.log(`[Gmail AI] Message ${message.id} "${message.subject?.substring(0, 40)}": AI found ${rawInsights.length} raw insights`);
+    
+    if (rawInsights.length > 0) {
+      console.log(`[Gmail AI] Raw insights:`, JSON.stringify(rawInsights.slice(0, 2)));
+    }
+    
+    const insights: ExtractedInsight[] = rawInsights
       .filter((i: any) => i.confidence >= 0.6)
       .map((i: any) => ({
         type: i.type,
@@ -434,6 +444,7 @@ Ignore auto-replies, newsletters, spam, and marketing emails.`;
         priority: i.priority || 'medium',
       }));
 
+    console.log(`[Gmail AI] After confidence filter: ${insights.length} insights`);
     return insights;
   } catch (error: any) {
     console.error('[Gmail Intelligence] OpenAI error:', error);
