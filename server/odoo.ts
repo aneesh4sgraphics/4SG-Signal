@@ -670,6 +670,63 @@ class OdooClient {
     
     return false;
   }
+
+  // Post a message to a partner's chatter (activity log)
+  // This creates an email-like record in Odoo's contact page
+  async postMessageToPartner(partnerId: number, options: {
+    subject: string;
+    body: string;
+    messageType?: 'email' | 'comment' | 'notification';
+    subtypeXmlid?: string;
+  }): Promise<number | null> {
+    try {
+      // Use message_post method on res.partner model
+      const messageId = await this.execute({
+        model: 'res.partner',
+        method: 'message_post',
+        args: [partnerId],
+        kwargs: {
+          subject: options.subject,
+          body: options.body,
+          message_type: options.messageType || 'email',
+          subtype_xmlid: options.subtypeXmlid || 'mail.mt_note',
+        },
+      });
+      
+      console.log(`[Odoo] Posted message to partner ${partnerId}, message ID: ${messageId}`);
+      return messageId as number;
+    } catch (error: any) {
+      console.error(`[Odoo] Error posting message to partner ${partnerId}:`, error.message);
+      return null;
+    }
+  }
+
+  // Log an outbound email to Odoo's contact chatter
+  async logEmailToPartner(partnerId: number, email: {
+    to: string;
+    subject: string;
+    body: string;
+    sentAt?: Date;
+  }): Promise<number | null> {
+    const formattedBody = `
+<div style="font-family: Arial, sans-serif;">
+  <div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 4px;">
+    <strong>To:</strong> ${email.to}<br/>
+    <strong>Date:</strong> ${(email.sentAt || new Date()).toLocaleString()}<br/>
+    <strong>Subject:</strong> ${email.subject}
+  </div>
+  <div style="margin-top: 12px;">
+    ${email.body}
+  </div>
+</div>
+    `.trim();
+
+    return this.postMessageToPartner(partnerId, {
+      subject: `Email: ${email.subject}`,
+      body: formattedBody,
+      messageType: 'email',
+    });
+  }
 }
 
 export const odooClient = new OdooClient();

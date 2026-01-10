@@ -6101,6 +6101,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (activityError) {
           console.error("Error logging email activity:", activityError);
         }
+        
+        // Sync email to Odoo contact's chatter (non-blocking)
+        try {
+          const customer = await storage.getCustomer(customerId);
+          if (customer?.odooPartnerId) {
+            const { odooClient } = await import("./odoo");
+            await odooClient.logEmailToPartner(customer.odooPartnerId, {
+              to,
+              subject,
+              body: htmlBody || body,
+              sentAt: new Date(),
+            });
+            console.log(`[Email Sync] Email logged to Odoo partner ${customer.odooPartnerId}`);
+          }
+        } catch (odooError: any) {
+          console.error("Error syncing email to Odoo (non-critical):", odooError.message);
+        }
       }
       
       res.json({ 
