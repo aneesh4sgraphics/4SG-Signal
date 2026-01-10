@@ -2316,6 +2316,32 @@ export type InsertMediaUpload = z.infer<typeof insertMediaUploadSchema>;
 
 // ===== GMAIL INTELLIGENCE =====
 
+// User Gmail Connections - per-user OAuth tokens for Gmail access
+export const userGmailConnections = pgTable("user_gmail_connections", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  gmailAddress: varchar("gmail_address", { length: 255 }).notNull(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  tokenExpiry: timestamp("token_expiry"),
+  scope: text("scope"),
+  isActive: boolean("is_active").default(true),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_gmail_connections_user_id_idx").on(table.userId),
+}));
+
+export const insertUserGmailConnectionSchema = createInsertSchema(userGmailConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type UserGmailConnection = typeof userGmailConnections.$inferSelect;
+export type InsertUserGmailConnection = z.infer<typeof insertUserGmailConnectionSchema>;
+
 // Gmail Sync State - track sync progress per user
 export const gmailSyncState = pgTable("gmail_sync_state", {
   id: serial("id").primaryKey(),

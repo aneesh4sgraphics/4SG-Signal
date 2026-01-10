@@ -6041,6 +6041,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // Per-User Gmail OAuth Routes
+  // ========================================
+
+  // Get user's Gmail connection status
+  app.get("/api/gmail-oauth/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getUserGmailConnection } = await import("./user-gmail-oauth");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const connection = await getUserGmailConnection(userId);
+      
+      if (connection && connection.isActive) {
+        res.json({
+          connected: true,
+          email: connection.gmailAddress,
+          lastSyncAt: connection.lastSyncAt,
+          lastError: connection.lastError,
+        });
+      } else if (connection && !connection.isActive) {
+        res.json({
+          connected: false,
+          needsReconnect: true,
+          email: connection.gmailAddress,
+          lastError: connection.lastError,
+        });
+      } else {
+        res.json({ connected: false });
+      }
+    } catch (error: any) {
+      console.error("Error checking Gmail connection:", error);
+      res.status(500).json({ error: "Failed to check Gmail connection" });
+    }
+  });
+
+  // Initiate Gmail OAuth flow
+  app.get("/api/gmail-oauth/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getAuthUrl } = await import("./user-gmail-oauth");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const authUrl = getAuthUrl(userId);
+      res.json({ authUrl });
+    } catch (error: any) {
+      console.error("Error initiating Gmail OAuth:", error);
+      if (error.message?.includes('not configured')) {
+        res.status(503).json({ 
+          error: "Gmail OAuth is not configured. Please contact admin.",
+          code: "NOT_CONFIGURED"
+        });
+      } else {
+        res.status(500).json({ error: error.message || "Failed to initiate Gmail connection" });
+      }
+    }
+  });
+
+  // OAuth callback
+  app.get("/api/gmail-oauth/callback", async (req: any, res) => {
+    try {
+      const { code, state: userId, error: oauthError } = req.query;
+      
+      if (oauthError) {
+        console.error("Gmail OAuth error:", oauthError);
+        return res.redirect("/?gmail_error=" + encodeURIComponent(oauthError as string));
+      }
+      
+      if (!code || !userId) {
+        return res.redirect("/?gmail_error=missing_params");
+      }
+      
+      const { handleCallback } = await import("./user-gmail-oauth");
+      const result = await handleCallback(code as string, userId as string);
+      
+      res.redirect(`/gmail-insights?connected=true&email=${encodeURIComponent(result.email)}`);
+    } catch (error: any) {
+      console.error("Error handling Gmail OAuth callback:", error);
+      res.redirect("/?gmail_error=" + encodeURIComponent(error.message || "callback_failed"));
+    }
+  });
+
+  // Disconnect Gmail
+  app.delete("/api/gmail-oauth/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const { disconnectUserGmail } = await import("./user-gmail-oauth");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      await disconnectUserGmail(userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error disconnecting Gmail:", error);
+      res.status(500).json({ error: "Failed to disconnect Gmail" });
+    }
+  });
+
+  // ========================================
   // Gmail Intelligence Routes
   // ========================================
 
