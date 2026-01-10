@@ -1196,26 +1196,6 @@ export default function GmailInsightsPage() {
         </div>
       </div>
 
-      {/* Progress Bar during sync */}
-      {syncMutation.isPending && (
-        <Card className="border-[#875A7B]/30 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-          <CardContent className="py-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-[#875A7B]" />
-                  <span className="font-medium text-[#875A7B]">{syncStatus}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{Math.round(syncProgress)}%</span>
-              </div>
-              <Progress value={syncProgress} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                This may take a minute. AI is analyzing your emails for sales opportunities...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Gmail Connection Card - show prominently if not connected */}
       {!gmailConnectionLoading && !gmailConnection?.connected && (
@@ -1292,15 +1272,26 @@ export default function GmailInsightsPage() {
                   : "Nice work getting that pricing approved! Strike while the iron is hot - send the quote today!"}
           />
         </div>
-        <Card className="md:col-span-1">
+        <Card className={`md:col-span-1 ${syncMutation.isPending ? 'border-[#875A7B]/50 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950' : ''}`}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? 'animate-spin text-[#875A7B]' : ''}`} />
               Sync Status
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {syncStateLoading ? (
+            {syncMutation.isPending ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-[#875A7B]">{syncStatus}</span>
+                  <span className="text-xs text-muted-foreground">{Math.round(syncProgress)}%</span>
+                </div>
+                <Progress value={syncProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  AI analyzing emails for insights...
+                </p>
+              </div>
+            ) : syncStateLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : (
               <>
