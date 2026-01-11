@@ -41,6 +41,17 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: `/shared/schema.ts`.
 - **System Design**: Comprehensive foreign key constraints with cascade delete, unified `productPricingMaster` table, NaN validation, and boolean parsing enhancements.
 - **Performance Optimizations**: Database indexes on foreign key columns and timestamps, lazy-loading for Client Detail tabs, server-side pagination, parallel query execution, and batch operations.
+- **Search Optimization**: pg_trgm extension with GIN trigram indexes on customer company, email, first_name, last_name columns for fast ILIKE searches.
+
+### Cost & Performance Optimizations (January 2026)
+- **Security Hardening**: Helmet middleware with custom CSP for Shopify embedding, HSTS, compression (gzip), x-powered-by disabled, strict CORS with explicit allowlist.
+- **Rate Limiting**: Auth endpoints (20 req/15min), webhook endpoints (100 req/min).
+- **Background Workers**: All workers (Drip Email, Quote Follow-up, Gmail Sync, Data Retention) use PostgreSQL advisory locks for singleton-safe execution in multi-instance deployments.
+- **Config Caching**: `server/config-cache.ts` provides TTL-based caching with version invalidation for read-mostly config (taxonomy, SKU mappings, timers, scripts, pricing).
+- **Customer Overview Endpoint**: `/api/customers/:id/overview` bundles customer data, recent activity, pending tasks, and stats for dashboard first paint, reducing API chattiness.
+- **PDF Caching**: Generated quote PDFs cached by content hash with 24-hour TTL in `uploads/pdf-cache/`.
+- **Data Retention**: `server/data-retention.ts` runs daily cleanup of events/files older than 180 days.
+- **Response Logging**: Only request metadata (method, path, status, duration) logged in production; no response body logging to avoid PII exposure.
 
 ## External Dependencies
 

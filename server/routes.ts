@@ -2105,6 +2105,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer overview endpoint - bundled data for first paint (reduces API chattiness)
+  app.get("/api/customers/:id/overview", isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      // Parallel fetch for first paint data only
+      const [customer, recentActivity, pendingTasks, recentQuotes] = await Promise.all([
+        storage.getCustomer(customerId),
+        storage.getActivityEventsByCustomer(customerId).then(events => events.slice(0, 5)),
+        storage.getFollowUpTasksByCustomer(customerId).then(tasks => tasks.filter(t => t.status === 'pending').slice(0, 3)),
+        db.select().from(sentQuotes).where(eq(sentQuotes.customerId, customerId)).orderBy(desc(sentQuotes.createdAt)).limit(3),
+      ]);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Compute quick stats
+      const stats = {
+        totalQuotes: await db.select({ count: sql<number>`count(*)` }).from(sentQuotes).where(eq(sentQuotes.customerId, customerId)).then(r => Number(r[0]?.count) || 0),
+        totalActivities: await db.select({ count: sql<number>`count(*)` }).from(customerActivityEvents).where(eq(customerActivityEvents.customerId, customerId)).then(r => Number(r[0]?.count) || 0),
+        pendingTaskCount: pendingTasks.length,
+      };
+      
+      res.json({
+        customer,
+        recentActivity,
+        pendingTasks,
+        recentQuotes,
+        stats,
+      });
+    } catch (error) {
+      console.error("Error fetching customer overview:", error);
+      res.status(500).json({ error: "Failed to fetch customer overview" });
+    }
+  });
+
   // Create new customer (Admin only)
   app.post("/api/customers", isAuthenticated, requireAdmin, async (req, res) => {
     try {

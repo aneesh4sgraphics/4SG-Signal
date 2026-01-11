@@ -3,8 +3,55 @@
 import pdf from "html-pdf-node";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import axios from "axios";
 import { generatePaymentInstructionsHTML } from "./config/paymentInstructions";
+
+// PDF cache directory
+const PDF_CACHE_DIR = path.join(process.cwd(), 'uploads', 'pdf-cache');
+
+// Ensure cache directory exists
+if (!fs.existsSync(PDF_CACHE_DIR)) {
+  fs.mkdirSync(PDF_CACHE_DIR, { recursive: true });
+}
+
+function generateCacheKey(request: PDFGenerationRequest): string {
+  const data = JSON.stringify({
+    customerName: request.customerName,
+    quoteNumber: request.quoteNumber,
+    totalAmount: request.totalAmount,
+    items: request.quoteItems.map(i => ({ code: i.itemCode, qty: i.quantity, price: i.pricePerSheet })),
+    charges: request.additionalCharges,
+  });
+  return crypto.createHash('md5').update(data).digest('hex');
+}
+
+export function getCachedPDF(request: PDFGenerationRequest): Buffer | null {
+  const cacheKey = generateCacheKey(request);
+  const cachePath = path.join(PDF_CACHE_DIR, `${cacheKey}.pdf`);
+  
+  if (fs.existsSync(cachePath)) {
+    const stats = fs.statSync(cachePath);
+    const ageHours = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60);
+    
+    // Cache valid for 24 hours
+    if (ageHours < 24) {
+      return fs.readFileSync(cachePath);
+    }
+  }
+  return null;
+}
+
+function cachePDF(request: PDFGenerationRequest, pdfBuffer: Buffer): void {
+  const cacheKey = generateCacheKey(request);
+  const cachePath = path.join(PDF_CACHE_DIR, `${cacheKey}.pdf`);
+  
+  try {
+    fs.writeFileSync(cachePath, pdfBuffer);
+  } catch (error) {
+    console.error('[PDF Cache] Failed to cache PDF:', error);
+  }
+}
 
 interface QuoteItem {
   id: string;
@@ -358,6 +405,13 @@ async function generateQuoteHTML(data: PDFGenerationRequest): Promise<string> {
 export async function generateQuotePDF(
   request: PDFGenerationRequest,
 ): Promise<Buffer> {
+  // Check cache first
+  const cached = getCachedPDF(request);
+  if (cached) {
+    console.log(`[PDF Cache] Cache hit for quote ${request.quoteNumber}`);
+    return cached;
+  }
+
   const html = await generateQuoteHTML(request);
 
   const pdfOptions = {
@@ -369,8 +423,13 @@ export async function generateQuotePDF(
   
   try {
     const pdfBuffer = await pdf.generatePdf(file, pdfOptions);
-    // Ensure we return a Buffer - cast if necessary for type safety
-    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer as any);
+    const buffer = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer as any);
+    
+    // Cache the generated PDF
+    cachePDF(request, buffer);
+    console.log(`[PDF Cache] Generated and cached PDF for quote ${request.quoteNumber}`);
+    
+    return buffer;
   } catch (error) {
     console.error('PDF generation error:', error);
     throw new Error('Failed to generate PDF');
