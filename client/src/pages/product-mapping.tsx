@@ -695,7 +695,7 @@ export default function ProductMapping() {
                                 </Badge>
                               </div>
                               <div className="text-sm text-muted-foreground mt-1">
-                                {product.productName} | Size: {product.size} | SqM: {product.totalSqm}
+                                {product.productName} | Size: {product.size} | Total SqM per Pack: {product.totalSqm}
                               </div>
                             </div>
                             <Button
@@ -1157,9 +1157,9 @@ export default function ProductMapping() {
                 </div>
               )}
 
-              {/* Square Meters */}
+              {/* Square Meters per Pack */}
               <div className="space-y-2">
-                <Label>Total SqM</Label>
+                <Label>Total SqM per Pack</Label>
                 <div className="flex gap-2">
                   <Input
                     value={selectedSqm}
@@ -1180,6 +1180,9 @@ export default function ProductMapping() {
                     Calculate
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Total square meters for the entire pack/carton (not per sheet)
+                </p>
               </div>
             </div>
           )}
