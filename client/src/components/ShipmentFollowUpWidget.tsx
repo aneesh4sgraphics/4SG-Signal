@@ -549,14 +549,22 @@ Best regards`);
               </div>
             </div>
 
-            {/* View Customer Link */}
+            {/* View Customer & Email Links */}
             {selectedTask?.customerId && (
-              <Button variant="ghost" size="sm" className="w-full" asChild>
-                <Link href={`/clients/${selectedTask.customerId}`}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Customer Profile
-                </Link>
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button variant="ghost" size="sm" className="w-full" asChild>
+                  <Link href={`/clients/${selectedTask.customerId}`}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View Customer Profile
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full" asChild>
+                  <Link href={`/clients/${selectedTask.customerId}?tab=emails`}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    View Sent Emails
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>
