@@ -915,9 +915,14 @@ export async function generatePriceListHTML(data: any): Promise<string> {
     </head>
     <body>
       <div class="page-container">
-        <!-- Header with Product Logo -->
+        <!-- Header with Product Logo and Category Name -->
         <div class="header-section">
           ${productLogo ? `<img src="${productLogo}" alt="Product Logo" class="product-logo" />` : ''}
+          
+          <!-- Category Title - directly below logo -->
+          <div style="background: linear-gradient(180deg, #875A7B 0%, #6d4763 100%); color: white; padding: 12px 16px; margin-bottom: 10px; border-radius: 4px;">
+            <h2 style="font-family: 'Roboto', sans-serif; margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${displayCategoryName}</h2>
+          </div>
           
           <!-- Features Banner -->
           <div class="features-banner">
@@ -945,11 +950,6 @@ export async function generatePriceListHTML(data: any): Promise<string> {
           <strong>Prepared for:</strong> ${customerName}
         </div>
         ` : ''}
-        
-        <!-- Category Title -->
-        <div style="background: linear-gradient(180deg, #875A7B 0%, #6d4763 100%); color: white; padding: 12px 16px; margin-bottom: 15px; border-radius: 4px;">
-          <h2 style="font-family: 'Roboto', sans-serif; margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${displayCategoryName}</h2>
-        </div>
         
         <!-- Product Tables by Type -->
         ${sections}
