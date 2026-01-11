@@ -2120,11 +2120,11 @@ export default function ClientDatabase() {
                 </p>
               </div>
               {isAdmin && customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length > 0 && (
-                <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <div className="flex flex-col gap-1.5 mt-2">
                   <Button 
                     size="sm" 
                     variant="outline"
-                    className="h-7 text-[10px] px-2"
+                    className="w-full h-7 text-xs"
                     onClick={(e) => { e.stopPropagation(); setFilters({...filters, salesRep: filters.salesRep === 'unassigned' ? '' : 'unassigned'}); }}
                     data-testid="button-filter-no-sales-rep"
                   >
@@ -2132,12 +2132,12 @@ export default function ClientDatabase() {
                   </Button>
                   <Button 
                     size="sm" 
-                    className="h-7 text-[10px] px-2 bg-red-500 hover:bg-red-600"
+                    className="w-full h-7 text-xs bg-red-500 hover:bg-red-600"
                     onClick={(e) => { e.stopPropagation(); autoAssignSalesRepsMutation.mutate(); }}
                     disabled={autoAssignSalesRepsMutation.isPending}
                     data-testid="button-auto-assign-sales-reps"
                   >
-                    {autoAssignSalesRepsMutation.isPending ? '...' : 'Auto-Assign'}
+                    {autoAssignSalesRepsMutation.isPending ? 'Assigning...' : 'Auto-Assign'}
                   </Button>
                 </div>
               )}
