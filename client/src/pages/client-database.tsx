@@ -1735,6 +1735,39 @@ export default function ClientDatabase() {
     );
   }
 
+  // Navigation helpers for prev/next customer
+  const currentCustomerIndex = selectedCustomer 
+    ? filteredCustomers.findIndex(c => c.id === selectedCustomer.id) 
+    : -1;
+  const hasPrevCustomer = currentCustomerIndex > 0;
+  const hasNextCustomer = currentCustomerIndex >= 0 && currentCustomerIndex < filteredCustomers.length - 1;
+  
+  const handlePrevCustomer = () => {
+    if (hasPrevCustomer) {
+      const prevCustomer = filteredCustomers[currentCustomerIndex - 1];
+      const contacts = customers.filter(c => 
+        c.company && prevCustomer.company && 
+        c.company.toLowerCase() === prevCustomer.company.toLowerCase() &&
+        c.id !== prevCustomer.id
+      );
+      setSelectedCustomer(prevCustomer);
+      setSelectedCompanyContacts(contacts);
+    }
+  };
+  
+  const handleNextCustomer = () => {
+    if (hasNextCustomer) {
+      const nextCustomer = filteredCustomers[currentCustomerIndex + 1];
+      const contacts = customers.filter(c => 
+        c.company && nextCustomer.company && 
+        c.company.toLowerCase() === nextCustomer.company.toLowerCase() &&
+        c.id !== nextCustomer.id
+      );
+      setSelectedCustomer(nextCustomer);
+      setSelectedCompanyContacts(contacts);
+    }
+  };
+
   if (selectedCustomer) {
     return (
       <>
@@ -1750,6 +1783,10 @@ export default function ClientDatabase() {
             setSelectedCustomer(null);
             setSelectedCompanyContacts([]);
           }}
+          onPrev={handlePrevCustomer}
+          onNext={handleNextCustomer}
+          hasPrev={hasPrevCustomer}
+          hasNext={hasNextCustomer}
         />
         {/* Edit Dialog - needs to be here so it renders when in detail view */}
         <Dialog open={isEditDialogOpen} onOpenChange={() => {

@@ -47,6 +47,7 @@ import {
   Trash2,
   Pencil,
   ChevronRight,
+  ChevronLeft,
   Check,
   Clock,
   Package,
@@ -111,9 +112,13 @@ interface ClientDetailViewProps {
   onBack: () => void;
   onEdit?: (customer: Customer) => void;
   onDelete?: (customerId: string) => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
-export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete }: ClientDetailViewProps) {
+export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete, onPrev, onNext, hasPrev = false, hasNext = false }: ClientDetailViewProps) {
   const [activeTab, setActiveTab] = useState("quotes-prices");
   const [isAddPressProfileOpen, setIsAddPressProfileOpen] = useState(false);
   const [isAddSampleOpen, setIsAddSampleOpen] = useState(false);
@@ -1113,6 +1118,33 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
             )}
           </div>
         </div>
+        {/* Prev/Next Navigation */}
+        {(onPrev || onNext) && (
+          <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPrev}
+              disabled={!hasPrev}
+              className="gap-1 h-7 px-3 text-xs font-odoo border-[#875A7B] text-[#875A7B] hover:bg-[#875A7B]/10 disabled:opacity-40"
+              data-testid="btn-prev-client"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNext}
+              disabled={!hasNext}
+              className="gap-1 h-7 px-3 text-xs font-odoo border-[#875A7B] text-[#875A7B] hover:bg-[#875A7B]/10 disabled:opacity-40"
+              data-testid="btn-next-client"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Data Cleanup Alert - Show when customer has incomplete email */}
