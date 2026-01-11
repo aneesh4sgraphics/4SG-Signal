@@ -81,6 +81,7 @@ import {
   Truck,
   User,
   Receipt,
+  BarChart2,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import {
@@ -186,6 +187,7 @@ export default function ClientDatabase() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // For bulk actions
   const [showSamplesFilter, setShowSamplesFilter] = useState(false); // Filter for samples sent card
   const [showDataCleanupFilter, setShowDataCleanupFilter] = useState(false); // Filter for incomplete data
+  const [statsOpen, setStatsOpen] = useState(true); // Collapsible stats tray
   const [kanbanCardOrder, setKanbanCardOrder] = useState<Record<string, string[]>>({}); // Custom card order per column
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     const saved = localStorage.getItem('clientDatabaseRecentSearches');
@@ -1913,10 +1915,26 @@ export default function ClientDatabase() {
         </div>
       </div>
 
-      {/* Data Health Score & Coaching Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Data Health Gauge */}
-        <Card className="glass-card border-0 lg:col-span-1">
+      {/* Data Health Score & Coaching Section - Collapsible */}
+      <Collapsible open={statsOpen} onOpenChange={setStatsOpen}>
+        <div className="glass-card border-0 rounded-lg overflow-hidden">
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-gray-900">Stats & Health</span>
+              </div>
+              <ChevronDown 
+                className={`h-5 w-5 text-gray-500 transition-transform ${statsOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {/* Data Health Gauge */}
+                <Card className="glass-card border-0 lg:col-span-1">
           <CardContent className="p-4">
             <div className="flex flex-col items-center">
               <p className="text-xs font-medium text-gray-500 mb-2">Database Health</p>
@@ -2144,8 +2162,12 @@ export default function ClientDatabase() {
               {!isAdmin && <p className="text-[10px] text-gray-400 mt-1">Click to filter</p>}
             </CardContent>
           </Card>
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
         </div>
-      </div>
+      </Collapsible>
 
       {/* Filter Presets Row */}
       <div className="flex flex-wrap items-center gap-2">
