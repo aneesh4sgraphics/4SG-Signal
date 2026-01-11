@@ -193,7 +193,6 @@ import {
   type InsertCoachingMoment,
   dailyMomentCaps,
   type DailyMomentCap,
-  followUpTasks,
   customerCoachState,
 } from "@shared/schema";
 import { parseCustomerCSV } from "./customer-parser";
@@ -3382,7 +3381,7 @@ export class DatabaseStorage implements IStorage {
       };
       
       const action = actionMap[task.taskType] || 'schedule_call';
-      const whyNow = task.notes || `${task.taskType.replace(/_/g, ' ')} is overdue`;
+      const whyNow = task.description || `${task.taskType.replace(/_/g, ' ')} is overdue`;
       
       const [moment] = await db.insert(coachingMoments).values({
         customerId: task.customerId,

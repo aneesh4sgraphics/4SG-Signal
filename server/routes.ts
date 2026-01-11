@@ -14607,6 +14607,142 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     }
   });
 
+  // ========================================
+  // Now Mode Coaching Moments
+  // ========================================
+
+  app.get("/api/now-mode/current", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      await storage.generateMomentsForUser(userId);
+      
+      const moment = await storage.getCurrentMoment(userId);
+      
+      if (!moment) {
+        const dateKey = new Date().toISOString().split('T')[0];
+        const completed = await storage.getDailyMomentCount(userId, dateKey);
+        return res.json({ 
+          moment: null, 
+          completed,
+          dailyCap: 6,
+          allDone: completed >= 6,
+          message: completed >= 6 ? "All done for today!" : "No moments available right now"
+        });
+      }
+
+      const customer = await storage.getCustomer(moment.customerId);
+      const dateKey = new Date().toISOString().split('T')[0];
+      const completed = await storage.getDailyMomentCount(userId, dateKey);
+
+      res.json({
+        moment: {
+          ...moment,
+          customer: customer ? {
+            id: customer.id,
+            company: customer.company,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+          } : null,
+        },
+        completed,
+        dailyCap: 6,
+        remaining: Math.max(0, 6 - completed),
+      });
+    } catch (error) {
+      console.error("Error getting current moment:", error);
+      res.status(500).json({ error: "Failed to get current moment" });
+    }
+  });
+
+  app.post("/api/now-mode/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { momentId, outcome, notes } = req.body;
+      
+      if (!momentId || !outcome) {
+        return res.status(400).json({ error: "momentId and outcome are required" });
+      }
+
+      const moment = await storage.completeMoment(momentId, outcome, notes);
+      
+      if (!moment) {
+        return res.status(404).json({ error: "Moment not found" });
+      }
+
+      const dateKey = new Date().toISOString().split('T')[0];
+      await storage.incrementDailyMomentCount(userId, dateKey);
+
+      if (moment.sourceType === 'follow_up_task' && moment.sourceId) {
+        await storage.completeFollowUpTask(moment.sourceId, userId, `Completed via Now Mode: ${outcome}`);
+      }
+
+      await storage.logActivity({
+        userId,
+        actionType: 'now_mode_complete',
+        entityType: 'coaching_moment',
+        entityId: String(momentId),
+        details: { outcome, notes, customerId: moment.customerId },
+      });
+
+      if (outcome === 'pause') {
+        const pauseUntil = new Date();
+        pauseUntil.setDate(pauseUntil.getDate() + 7);
+        await storage.updateCustomer(moment.customerId, { pausedUntil: pauseUntil });
+      }
+
+      const nextMoment = await storage.getCurrentMoment(userId);
+      const completed = await storage.getDailyMomentCount(userId, dateKey);
+
+      res.json({
+        success: true,
+        completedMoment: moment,
+        nextMoment: nextMoment || null,
+        completed,
+        dailyCap: 6,
+        remaining: Math.max(0, 6 - completed),
+        allDone: completed >= 6,
+      });
+    } catch (error) {
+      console.error("Error completing moment:", error);
+      res.status(500).json({ error: "Failed to complete moment" });
+    }
+  });
+
+  app.get("/api/now-mode/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const dateKey = new Date().toISOString().split('T')[0];
+      const completed = await storage.getDailyMomentCount(userId, dateKey);
+      const pending = await storage.getMomentsForUser(userId, 'pending');
+
+      res.json({
+        today: {
+          completed,
+          dailyCap: 6,
+          remaining: Math.max(0, 6 - completed),
+          allDone: completed >= 6,
+        },
+        pending: pending.length,
+      });
+    } catch (error) {
+      console.error("Error getting now mode stats:", error);
+      res.status(500).json({ error: "Failed to get stats" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });
