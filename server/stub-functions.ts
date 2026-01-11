@@ -593,20 +593,43 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   // Generate list number if not provided
   const listNumber = quoteNumber || `PL-${Date.now().toString().slice(-6)}`;
 
-  // Get tier display name for header
+  // Get tier display name for header - support both key formats (e.g., "ApprovalNeeded" and "approvalNeededPrice")
   const tierDisplayNames: Record<string, string> = {
-    'exportPrice': 'EXPORT PRICING',
-    'masterDistributorPrice': 'MASTER DISTRIBUTOR PRICING',
-    'dealerPrice': 'DEALER-VIP PRICING',
-    'dealer2Price': 'DEALER PRICING',
-    'approvalNeededPrice': 'SHOPIFY LOWEST PRICING',
-    'tierStage25Price': 'SHOPIFY 3 PRICING',
-    'tierStage2Price': 'SHOPIFY 2 PRICING',
-    'tierStage15Price': 'SHOPIFY 1 PRICING',
-    'tierStage1Price': 'SHOPIFY-ACCOUNT PRICING',
-    'retailPrice': 'RETAIL PRICING',
+    'Export': 'EXPORT ONLY',
+    'exportPrice': 'EXPORT ONLY',
+    'M.Distributor': 'MASTER DISTRIBUTOR',
+    'masterDistributorPrice': 'MASTER DISTRIBUTOR',
+    'Dealer': 'DEALER-VIP',
+    'dealerPrice': 'DEALER-VIP',
+    'Dealer2': 'DEALER',
+    'dealer2Price': 'DEALER',
+    'ApprovalNeeded': 'SHOPIFY LOWEST',
+    'approvalNeededPrice': 'SHOPIFY LOWEST',
+    'TierStage25': 'SHOPIFY 3',
+    'tierStage25Price': 'SHOPIFY 3',
+    'TierStage2': 'SHOPIFY 2',
+    'tierStage2Price': 'SHOPIFY 2',
+    'TierStage15': 'SHOPIFY 1',
+    'tierStage15Price': 'SHOPIFY 1',
+    'TierStage1': 'SHOPIFY-ACCOUNT',
+    'tierStage1Price': 'SHOPIFY-ACCOUNT',
+    'Retail': 'RETAIL',
+    'retailPrice': 'RETAIL',
+    'Landed': 'LANDED COST',
+    'landedPrice': 'LANDED COST',
   };
-  const tierDisplay = tierDisplayNames[tierName] || tierName?.toUpperCase() || 'PRICING';
+  const tierDisplay = tierDisplayNames[tierName] || tierName?.toUpperCase()?.replace(/_/g, ' ') || 'PRICING';
+  
+  // Format category name for display (replace underscores with spaces, add spacing)
+  const formatCategoryName = (name: string): string => {
+    if (!name) return 'Price List';
+    // Replace underscores with spaces
+    let formatted = name.replace(/_/g, ' ');
+    // Add space before capitals in camelCase (e.g., "GraffitiStick" -> "Graffiti Stick")
+    formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+    return formatted;
+  };
+  const displayCategoryName = formatCategoryName(categoryName);
 
   // Group items by product type
   const grouped = items.reduce((acc: any, item: any) => {
@@ -888,7 +911,7 @@ export async function generatePriceListHTML(data: any): Promise<string> {
         
         <!-- Category Title -->
         <div style="background: linear-gradient(180deg, #875A7B 0%, #6d4763 100%); color: white; padding: 12px 16px; margin-bottom: 15px; border-radius: 4px;">
-          <h2 style="font-family: 'Roboto', sans-serif; margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${categoryName ? categoryName.replace(/_/g, ' ') : 'Price List'}</h2>
+          <h2 style="font-family: 'Roboto', sans-serif; margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${displayCategoryName}</h2>
           <div style="font-size: 10px; opacity: 0.9; margin-top: 4px;">${tierDisplay}</div>
         </div>
         
