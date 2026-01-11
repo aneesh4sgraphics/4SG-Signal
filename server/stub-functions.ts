@@ -643,10 +643,16 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   const sections = sortedProductTypes.map((type) => {
     const rows = grouped[type];
     const rowHtml = (rows as any[]).map((row: any, index: number) => {
-      const minQtyValue = row.minOrderQty || row.minQty || row.minQuantity || row.min_quantity || 1;
+      // Parse all numeric values properly to ensure correct calculations
+      const minQtyValue = Number(row.minOrderQty || row.minQty || row.minQuantity || row.min_quantity) || 1;
       const unitLabel = minQtyValue === 1 ? 'roll' : 'sheet';
-      const pricePerSheet = row.pricePerSheet || 0;
-      const pricePerPack = row.total || row.pricePerPack || (pricePerSheet * minQtyValue);
+      
+      // Price per sheet = price of ONE sheet at selected size
+      const pricePerSheet = Number(row.pricePerSheet) || 0;
+      
+      // Price per pack = pricePerSheet × packing quantity (minQty)
+      // Use provided total/pricePerPack if available, otherwise calculate
+      const pricePerPack = Number(row.total || row.pricePerPack) || (pricePerSheet * minQtyValue);
       
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f5f5f5'}; border-bottom: 1px solid #ddd;">
