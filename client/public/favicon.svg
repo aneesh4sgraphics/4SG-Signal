@@ -1,26 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="signalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#7E57C2;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#5E35B1;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <!-- Background circle -->
-  <circle cx="16" cy="16" r="15" fill="url(#grad1)" stroke="#4527A0" stroke-width="1"/>
-  
-  <!-- 4S Graphics symbol -->
-  <g fill="white" font-family="Arial, sans-serif" font-weight="bold">
-    <!-- "4" -->
-    <text x="8" y="14" font-size="12" text-anchor="middle">4</text>
-    <!-- "S" -->
-    <text x="24" y="14" font-size="12" text-anchor="middle">S</text>
-    <!-- "G" for Graphics -->
-    <text x="16" y="26" font-size="10" text-anchor="middle">G</text>
+  <circle cx="16" cy="16" r="15" fill="url(#signalGrad)" stroke="#4527A0" stroke-width="1"/>
+  <g fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+    <path d="M16 20 L16 12" opacity="1"/>
+    <path d="M12 18 Q12 14 16 12 Q20 14 20 18" opacity="0.9"/>
+    <path d="M8 20 Q8 12 16 8 Q24 12 24 20" opacity="0.7"/>
   </g>
-  
-  <!-- Small accent dots -->
-  <circle cx="6" cy="6" r="1.5" fill="white" opacity="0.8"/>
-  <circle cx="26" cy="6" r="1.5" fill="white" opacity="0.8"/>
-  <circle cx="6" cy="26" r="1.5" fill="white" opacity="0.8"/>
-  <circle cx="26" cy="26" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="16" cy="23" r="2" fill="white"/>
 </svg>
