@@ -13,10 +13,12 @@ import { sendEmail } from "./gmail-client";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
 import crypto from "crypto";
 import { odooClient } from "./odoo";
+import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
 
 const POLL_INTERVAL_MS = 60000;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 let isProcessing = false;
+let hasLock = false;
 
 interface ScheduledEmail {
   statusId: number;
@@ -34,13 +36,19 @@ interface ScheduledEmail {
   odooPartnerId: number | null;
 }
 
-export function startDripEmailWorker() {
+export async function startDripEmailWorker() {
   if (intervalHandle !== null) {
     console.log("[Drip Worker] Already running, skipping start");
     return;
   }
   
-  console.log("[Drip Worker] Starting drip email worker...");
+  hasLock = await tryAcquireAdvisoryLock('DRIP_EMAIL_WORKER');
+  if (!hasLock) {
+    console.log("[Drip Worker] Another instance holds the lock, skipping start");
+    return;
+  }
+  
+  console.log("[Drip Worker] Acquired lock, starting drip email worker...");
   
   processScheduledEmails();
   
@@ -49,10 +57,14 @@ export function startDripEmailWorker() {
   }, POLL_INTERVAL_MS);
 }
 
-export function stopDripEmailWorker() {
+export async function stopDripEmailWorker() {
   if (intervalHandle !== null) {
     clearInterval(intervalHandle);
     intervalHandle = null;
+  }
+  if (hasLock) {
+    await releaseAdvisoryLock('DRIP_EMAIL_WORKER');
+    hasLock = false;
   }
   console.log("[Drip Worker] Stopped drip email worker");
 }

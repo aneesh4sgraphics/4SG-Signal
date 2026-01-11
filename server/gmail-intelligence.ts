@@ -6,6 +6,7 @@ import { getImapMessages, getImapMessage, hasAnyImapCredentials } from "./imap-c
 import { getUserGmailConnection, getUserGmailMessages, getUserGmailMessage } from "./user-gmail-oauth";
 import OpenAI from "openai";
 import { logApiCost } from "./cost-tracker";
+import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -818,10 +819,18 @@ export async function syncAllConnectedUsers(): Promise<{ synced: number; failed:
 
 // Schedule daily sync at 6 AM
 let dailySyncInterval: NodeJS.Timeout | null = null;
+let dailySyncTimeout: NodeJS.Timeout | null = null;
+let hasGmailSyncLock = false;
 
-export function startDailyEmailSync() {
-  if (dailySyncInterval) {
+export async function startDailyEmailSync() {
+  if (dailySyncInterval || dailySyncTimeout) {
     console.log('[Gmail Auto-Sync] Daily sync already running');
+    return;
+  }
+  
+  hasGmailSyncLock = await tryAcquireAdvisoryLock('GMAIL_SYNC_WORKER');
+  if (!hasGmailSyncLock) {
+    console.log('[Gmail Auto-Sync] Another instance holds the lock, skipping start');
     return;
   }
   
@@ -838,7 +847,7 @@ export function startDailyEmailSync() {
   console.log(`[Gmail Auto-Sync] Scheduling daily sync. First run in ${Math.round(msUntil6AM / 1000 / 60)} minutes at ${next6AM.toLocaleString()}`);
   
   // Schedule first run at 6 AM
-  setTimeout(() => {
+  dailySyncTimeout = setTimeout(() => {
     syncAllConnectedUsers();
     // Then run every 24 hours
     dailySyncInterval = setInterval(() => {
@@ -849,10 +858,18 @@ export function startDailyEmailSync() {
   console.log('[Gmail Auto-Sync] Daily email sync scheduler started');
 }
 
-export function stopDailyEmailSync() {
+export async function stopDailyEmailSync() {
+  if (dailySyncTimeout) {
+    clearTimeout(dailySyncTimeout);
+    dailySyncTimeout = null;
+  }
   if (dailySyncInterval) {
     clearInterval(dailySyncInterval);
     dailySyncInterval = null;
-    console.log('[Gmail Auto-Sync] Daily sync stopped');
   }
+  if (hasGmailSyncLock) {
+    await releaseAdvisoryLock('GMAIL_SYNC_WORKER');
+    hasGmailSyncLock = false;
+  }
+  console.log('[Gmail Auto-Sync] Daily sync stopped');
 }

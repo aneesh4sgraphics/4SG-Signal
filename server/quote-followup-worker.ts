@@ -2,32 +2,42 @@ import { db } from "./db";
 import { sentQuotes } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { sendEmail } from "./gmail-client";
+import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
 
 const POLL_INTERVAL_MS = 60000 * 60; // Check hourly
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 let isProcessing = false;
+let hasLock = false;
 
-export function startQuoteFollowUpWorker() {
+export async function startQuoteFollowUpWorker() {
   if (intervalHandle !== null) {
     console.log("[Quote Follow-up Worker] Already running, skipping start");
     return;
   }
   
-  console.log("[Quote Follow-up Worker] Starting quote follow-up worker...");
+  hasLock = await tryAcquireAdvisoryLock('QUOTE_FOLLOWUP_WORKER');
+  if (!hasLock) {
+    console.log("[Quote Follow-up Worker] Another instance holds the lock, skipping start");
+    return;
+  }
   
-  // Run immediately on startup
+  console.log("[Quote Follow-up Worker] Acquired lock, starting quote follow-up worker...");
+  
   processOverdueQuotes();
   
-  // Then poll hourly
   intervalHandle = setInterval(() => {
     processOverdueQuotes();
   }, POLL_INTERVAL_MS);
 }
 
-export function stopQuoteFollowUpWorker() {
+export async function stopQuoteFollowUpWorker() {
   if (intervalHandle !== null) {
     clearInterval(intervalHandle);
     intervalHandle = null;
+  }
+  if (hasLock) {
+    await releaseAdvisoryLock('QUOTE_FOLLOWUP_WORKER');
+    hasLock = false;
   }
   console.log("[Quote Follow-up Worker] Stopped quote follow-up worker");
 }

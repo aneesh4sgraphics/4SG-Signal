@@ -167,8 +167,8 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
-    // Start background workers
-    startDripEmailWorker();
-    startQuoteFollowUpWorker();
+    // Start background workers (async, acquire advisory locks for singleton execution)
+    startDripEmailWorker().catch(err => console.error('[Drip Worker] Failed to start:', err.message));
+    startQuoteFollowUpWorker().catch(err => console.error('[Quote Follow-up Worker] Failed to start:', err.message));
   });
 })();
