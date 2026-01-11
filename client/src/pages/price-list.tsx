@@ -6,13 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck, Check, X, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { FileText, Download, FileSpreadsheet, ArrowUpDown, RefreshCw, Truck, Check, X, ChevronDown, ChevronUp, GripVertical, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
 import { useAuth } from "@/hooks/useAuth";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
@@ -120,6 +122,8 @@ export default function PriceList() {
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
   const [showTypeOrderDialog, setShowTypeOrderDialog] = useState(false);
   const [selectedForPDF, setSelectedForPDF] = useState<Set<string>>(new Set());
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [showPdfProgress, setShowPdfProgress] = useState(false);
   
   // Helper to update shipping cost input (string for intermediate typing)
   const updateShippingInput = (itemCode: string, value: string) => {
@@ -206,9 +210,21 @@ export default function PriceList() {
     });
   };
 
-  // PDF Download Mutation
+  // PDF Download Mutation with progress tracking
   const downloadPDFMutation = useMutation({
     mutationFn: async () => {
+      // Show progress dialog and start animation
+      setShowPdfProgress(true);
+      setPdfProgress(0);
+      
+      // Simulate progress while waiting for PDF generation
+      const progressInterval = setInterval(() => {
+        setPdfProgress(prev => {
+          if (prev >= 90) return prev; // Cap at 90% until complete
+          return prev + Math.random() * 15;
+        });
+      }, 300);
+
       const customerName = selectedCustomer 
         ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
         : 'Customer';
@@ -231,34 +247,49 @@ export default function PriceList() {
       
       const adjustedItems = getAdjustedItems(sortedItems);
 
-      const response = await fetch('/api/generate-price-list-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName,
-          selectedCategory,
-          selectedTier,
-          includeShipping,
-          priceListItems: adjustedItems.map(item => ({
-            itemCode: item.itemCode,
-            productType: item.productType,
-            size: item.size,
-            minOrderQty: item.minQty,
-            pricePerSheet: item.pricePerSheet,
-            total: item.pricePerPack,
-            sortOrder: item.sortOrder,
-            shippingCost: includeShipping ? (shippingCosts[item.itemCode] || 0) : undefined
-          }))
-        })
-      });
+      try {
+        const response = await fetch('/api/generate-price-list-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName,
+            selectedCategory,
+            selectedTier,
+            includeShipping,
+            priceListItems: adjustedItems.map(item => ({
+              itemCode: item.itemCode,
+              productType: item.productType,
+              size: item.size,
+              minOrderQty: item.minQty,
+              pricePerSheet: item.pricePerSheet,
+              total: item.pricePerPack,
+              sortOrder: item.sortOrder,
+              shippingCost: includeShipping ? (shippingCosts[item.itemCode] || 0) : undefined
+            }))
+          })
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+          throw new Error('Failed to generate PDF');
+        }
+
+        // Complete progress to 100%
+        setPdfProgress(100);
+
+        return response.blob();
+      } catch (error) {
+        clearInterval(progressInterval);
+        throw error;
       }
-
-      return response.blob();
     },
     onSuccess: async (blob) => {
+      // Brief delay to show 100% before closing
+      setTimeout(() => {
+        setShowPdfProgress(false);
+        setPdfProgress(0);
+      }, 500);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -310,6 +341,8 @@ export default function PriceList() {
       });
     },
     onError: () => {
+      setShowPdfProgress(false);
+      setPdfProgress(0);
       toast({
         title: "Error",
         description: "Failed to generate PDF",
@@ -1333,6 +1366,27 @@ export default function PriceList() {
         </div>
       )}
       </div>
+
+      {/* PDF Generation Progress Dialog */}
+      <Dialog open={showPdfProgress} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <div className="flex flex-col items-center py-6">
+            <div className="mb-4 relative">
+              <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 text-purple-600 animate-spin" />
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Generating PDF</h3>
+            <p className="text-sm text-gray-500 mb-4 text-center">
+              Please wait while we create your price list...
+            </p>
+            <div className="w-full px-4">
+              <Progress value={pdfProgress} className="h-2" />
+              <p className="text-xs text-gray-400 mt-2 text-center">{Math.round(pdfProgress)}% complete</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
