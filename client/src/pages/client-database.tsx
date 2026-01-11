@@ -3273,25 +3273,24 @@ export default function ClientDatabase() {
               <Label htmlFor="bulkPricingTier">Pricing Tier</Label>
               <Select value={bulkEditPricingTier} onValueChange={setBulkEditPricingTier}>
                 <SelectTrigger id="bulkPricingTier">
-                  <SelectValue placeholder="Select pricing tier..." />
+                  <SelectValue placeholder="-- Keep Existing --" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">-- Keep Existing --</SelectItem>
                   {PRICING_TIERS.map(tier => (
                     <SelectItem key={tier} value={tier}>{tier}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Leave unselected to keep existing values</p>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="bulkSalesRep">Sales Rep</Label>
               <Select value={bulkEditSalesRep} onValueChange={setBulkEditSalesRep}>
                 <SelectTrigger id="bulkSalesRep">
-                  <SelectValue placeholder="Select sales rep..." />
+                  <SelectValue placeholder="-- Keep Existing --" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">-- Keep Existing --</SelectItem>
                   {apiUsers
                     .filter(u => u.role === 'sales' || u.role === 'admin')
                     .map(user => (
@@ -3301,6 +3300,7 @@ export default function ClientDatabase() {
                     ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Leave unselected to keep existing values</p>
             </div>
           </div>
           
