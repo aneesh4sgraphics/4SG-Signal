@@ -879,10 +879,33 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-odoo-heading text-xl font-semibold text-[#2C2C2C]" data-testid="client-name">{customerName}</h1>
-                {countryFlag && (
-                  <span className="text-lg" data-testid="country-flag">{countryFlag}</span>
+                {/* Flag + Pricing Tier Combo - Creative Ribbon Style */}
+                {(countryFlag || customer.pricingTier) && (
+                  <div className="flex items-center" data-testid="flag-tier-combo">
+                    {countryFlag && (
+                      <span className="text-lg px-1.5 py-0.5 bg-gray-50 rounded-l-md border border-r-0 border-gray-200" data-testid="country-flag">{countryFlag}</span>
+                    )}
+                    {customer.pricingTier && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span 
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold tracking-wide uppercase text-white shadow-sm cursor-default ${
+                              countryFlag ? 'rounded-r-md' : 'rounded-md'
+                            } bg-gradient-to-r from-[#875A7B] to-[#714B67]`}
+                            data-testid="pricing-tier-badge"
+                          >
+                            <Tag className="h-3 w-3" />
+                            {customer.pricingTier}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Pricing Tier: {customer.pricingTier}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 )}
                 {priceListEvents.length > 0 && (
                   <Tooltip>
@@ -905,15 +928,6 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                   </Badge>
                 )}
               </div>
-              {/* Pricing Tier Badge */}
-              {customer.tags && (
-                <div className="flex items-center gap-2 mt-1" data-testid="pricing-tier-badge">
-                  <Tag className="h-4 w-4 text-indigo-600" />
-                  <span className="px-3 py-0.5 bg-indigo-600 text-white text-sm font-semibold rounded-md shadow-sm">
-                    {customer.tags}
-                  </span>
-                </div>
-              )}
               {/* Sales Rep Assignment */}
               <div className="flex items-center gap-2 mt-1" data-testid="sales-rep-assignment">
                 <UserCog className="h-4 w-4 text-green-600" />
@@ -1109,12 +1123,6 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onDelete(customer.id)} data-testid="btn-delete-client">
                 <Trash2 className="h-3 w-3" />
               </Button>
-            )}
-            {/* Pricing Tier Tag - Odoo Style */}
-            {customer.pricingTier && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-[#875A7B] text-white ml-2">
-                {customer.pricingTier}
-              </span>
             )}
           </div>
         </div>
