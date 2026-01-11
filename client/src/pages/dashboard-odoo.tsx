@@ -577,25 +577,53 @@ export default function Dashboard() {
               background: '#FFFFFF',
               borderRadius: '2px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              padding: '32px',
+              padding: '24px',
               marginBottom: '32px',
             }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#2C2C54', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Settings size={24} style={{ color: '#6B6B8C' }} />
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#2C2C54', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Settings size={20} style={{ color: '#6B6B8C' }} />
                 Admin Tools
               </h2>
               
-              <div 
-                className="app-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(6, 1fr)',
-                  gap: '24px',
-                }}
-              >
-                {adminApps.map((app, index) => (
-                  <AppTile key={app.path} app={app} index={100 + index} />
-                ))}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '16px',
+              }}>
+                {adminApps.map((app, index) => {
+                  const Icon = app.icon;
+                  return (
+                    <Link
+                      key={app.path}
+                      href={app.path}
+                      onClick={() => trackUsage(app.path)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px 12px',
+                        background: '#FFFFFF',
+                        borderRadius: '2px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        transition: 'all 0.2s ease-in-out',
+                      }}
+                    >
+                      <Icon size={32} style={{ color: app.color, marginBottom: '8px' }} />
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#2C2C54',
+                        textAlign: 'center',
+                      }}>
+                        {app.label}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
 
               {/* Usage Stats */}
