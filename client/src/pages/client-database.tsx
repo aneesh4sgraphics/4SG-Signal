@@ -1736,15 +1736,24 @@ export default function ClientDatabase() {
   }
 
   // Navigation helpers for prev/next customer
+  // Use the full sorted customer list (not filtered) to allow navigation even when filters change
+  const sortedCustomerList = useMemo(() => {
+    return [...customers].sort((a, b) => {
+      const companyA = getCompanyDisplayName(a).toLowerCase();
+      const companyB = getCompanyDisplayName(b).toLowerCase();
+      return companyA.localeCompare(companyB);
+    });
+  }, [customers]);
+  
   const currentCustomerIndex = selectedCustomer 
-    ? filteredCustomers.findIndex(c => c.id === selectedCustomer.id) 
+    ? sortedCustomerList.findIndex(c => c.id === selectedCustomer.id) 
     : -1;
   const hasPrevCustomer = currentCustomerIndex > 0;
-  const hasNextCustomer = currentCustomerIndex >= 0 && currentCustomerIndex < filteredCustomers.length - 1;
+  const hasNextCustomer = currentCustomerIndex >= 0 && currentCustomerIndex < sortedCustomerList.length - 1;
   
   const handlePrevCustomer = () => {
     if (hasPrevCustomer) {
-      const prevCustomer = filteredCustomers[currentCustomerIndex - 1];
+      const prevCustomer = sortedCustomerList[currentCustomerIndex - 1];
       const contacts = customers.filter(c => 
         c.company && prevCustomer.company && 
         c.company.toLowerCase() === prevCustomer.company.toLowerCase() &&
@@ -1757,7 +1766,7 @@ export default function ClientDatabase() {
   
   const handleNextCustomer = () => {
     if (hasNextCustomer) {
-      const nextCustomer = filteredCustomers[currentCustomerIndex + 1];
+      const nextCustomer = sortedCustomerList[currentCustomerIndex + 1];
       const contacts = customers.filter(c => 
         c.company && nextCustomer.company && 
         c.company.toLowerCase() === nextCustomer.company.toLowerCase() &&
@@ -1983,41 +1992,50 @@ export default function ClientDatabase() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 font-odoo">
+      {/* Header - Odoo Style */}
+      <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-[#E6E1EB] p-4">
         <div>
-          <h1 className="heading-lg text-gray-900 flex items-center gap-3">
-            <Building2 className="h-8 w-8 text-primary" />
+          <h1 className="font-odoo-heading text-2xl font-semibold text-[#2C2C2C] flex items-center gap-3">
+            <Building2 className="h-7 w-7 text-[#875A7B]" />
             Client Database
           </h1>
-          <p className="body-base text-gray-600 mt-1">
+          <p className="text-sm text-[#6B7280] mt-1">
             Manage your client information and contacts
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')} variant="outline" data-testid="button-toggle-view">
+          <Button 
+            onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')} 
+            variant="outline" 
+            className="border-[#DEE2E6] hover:bg-[#F7F6F9] text-[#2C2C2C]"
+            data-testid="button-toggle-view"
+          >
             {viewMode === 'cards' ? <List className="h-4 w-4 mr-2" /> : <Grid3X3 className="h-4 w-4 mr-2" />}
             {viewMode === 'cards' ? 'Table View' : 'Card View'}
           </Button>
-          <Button onClick={handleCreateCustomer} data-testid="button-create-client">
+          <Button 
+            onClick={handleCreateCustomer} 
+            className="bg-[#00A09D] hover:bg-[#008F8C] text-white"
+            data-testid="button-create-client"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Client
           </Button>
         </div>
       </div>
 
-      {/* Data Health Score & Coaching Section - Collapsible */}
+      {/* Data Health Score & Coaching Section - Collapsible - Odoo Style */}
       <Collapsible open={statsOpen} onOpenChange={setStatsOpen}>
-        <div className="glass-card border-0 rounded-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-[#E6E1EB] overflow-hidden">
           <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+            <button className="w-full flex items-center justify-between p-4 hover:bg-[#F7F6F9] transition-colors">
               <div className="flex items-center gap-2">
-                <BarChart2 className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-gray-900">Stats & Health</span>
+                <BarChart2 className="h-5 w-5 text-[#875A7B]" />
+                <span className="font-semibold text-[#2C2C2C]">Stats & Health</span>
               </div>
               <ChevronDown 
-                className={`h-5 w-5 text-gray-500 transition-transform ${statsOpen ? 'rotate-180' : ''}`}
+                className={`h-5 w-5 text-[#6B7280] transition-transform ${statsOpen ? 'rotate-180' : ''}`}
               />
             </button>
           </CollapsibleTrigger>

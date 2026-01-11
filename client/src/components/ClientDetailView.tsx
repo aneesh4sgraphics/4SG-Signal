@@ -866,21 +866,21 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   };
 
   return (
-    <div className="space-y-4" data-testid="client-detail-view">
-      {/* Sticky Header with Client Name & Contacts */}
-      <div className={`sticky top-0 z-20 backdrop-blur-sm border-b -mx-4 px-4 py-2 mb-2 shadow-sm ${
+    <div className="space-y-4 font-odoo" data-testid="client-detail-view">
+      {/* Sticky Header with Client Name & Contacts - Odoo Style */}
+      <div className={`sticky top-0 z-20 backdrop-blur-sm border-b -mx-4 px-4 py-3 mb-2 shadow-sm ${
         customer.isHotProspect 
           ? 'bg-orange-100/95 border-orange-300' 
-          : 'bg-white/95'
+          : 'bg-white/95 border-[#E6E1EB]'
       }`}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 mt-0.5" data-testid="btn-back">
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 mt-0.5 text-[#875A7B] hover:bg-[#875A7B]/10" data-testid="btn-back">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-gray-900" data-testid="client-name">{customerName}</h1>
+                <h1 className="font-odoo-heading text-xl font-semibold text-[#2C2C2C]" data-testid="client-name">{customerName}</h1>
                 {countryFlag && (
                   <span className="text-lg" data-testid="country-flag">{countryFlag}</span>
                 )}
@@ -1073,7 +1073,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-purple-100 text-purple-700 hover:bg-purple-200 gap-1 h-8 px-3 border-purple-200"
+                      className="bg-[#00A09D]/10 text-[#00A09D] hover:bg-[#00A09D]/20 gap-1 h-8 px-3 border-[#00A09D]/30"
                       data-testid="btn-open-odoo"
                       onClick={() => {
                         const odooPartnerId = (customer as any).odooPartnerId;
@@ -1094,7 +1094,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               variant="outline" 
               size="sm"
               onClick={() => setIsJourneyPanelOpen(true)} 
-              className="gap-1 h-8"
+              className="gap-1 h-8 border-[#875A7B]/30 text-[#875A7B] hover:bg-[#875A7B]/10"
               data-testid="btn-journey-panel"
             >
               <Route className="h-3 w-3" />
@@ -1110,9 +1110,9 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <Trash2 className="h-3 w-3" />
               </Button>
             )}
-            {/* Pricing Tier Tag */}
+            {/* Pricing Tier Tag - Odoo Style */}
             {customer.pricingTier && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white ml-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium bg-[#875A7B] text-white ml-2">
                 {customer.pricingTier}
               </span>
             )}
