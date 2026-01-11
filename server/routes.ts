@@ -4043,10 +4043,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add page numbers to top right of all pages
       const range = doc.bufferedPageRange();
-      for (let i = 0; i < range.count; i++) {
+      for (let i = range.start; i < range.start + range.count; i++) {
         doc.switchToPage(i);
         doc.fontSize(9).font('Helvetica').fillColor(textMuted);
-        doc.text(`Page ${i + 1} / ${range.count}`, rightMargin - 80, 15, { width: 80, align: 'right' });
+        doc.text(`Page ${i - range.start + 1} / ${range.count}`, rightMargin - 80, 15, { width: 80, align: 'right' });
       }
       
       // Finalize PDF
