@@ -658,6 +658,18 @@ export default function QuoteCalculator() {
   };
 
   const quoteSubtotal = quoteItems.reduce((sum, item) => sum + item.total, 0);
+  
+  // Auto-calculate credit card fee based on percentage
+  useEffect(() => {
+    setAdditionalCharges(prev => prev.map(charge => {
+      if (charge.type === 'credit_card' && charge.percentage) {
+        const ccAmount = (quoteSubtotal + (prev.find(c => c.type === 'shipping' && c.enabled)?.amount || 0)) * (charge.percentage / 100);
+        return { ...charge, amount: Math.round(ccAmount * 100) / 100 };
+      }
+      return charge;
+    }));
+  }, [quoteSubtotal]);
+  
   const additionalChargesTotal = additionalCharges
     .filter(c => c.enabled && c.amount > 0)
     .reduce((sum, c) => sum + c.amount, 0);

@@ -12447,10 +12447,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log the activity
       await db.insert(activityLogs).values({
         userId: req.user.id,
-        actionType: 'odoo_order_created',
-        entityType: 'customer',
-        entityId: customerId,
-        details: {
+        userEmail: req.user.email || 'unknown',
+        userName: req.user.name || req.user.email || 'Unknown',
+        userRole: req.user.role || 'user',
+        action: 'ODOO_ORDER_CREATED',
+        actionType: 'odoo',
+        description: `Created Odoo sales order #${orderId} for customer ${customer.company || customer.email}`,
+        targetId: String(customerId),
+        targetType: 'customer',
+        metadata: {
           odooOrderId: orderId,
           itemCount: orderLines.length,
           unmappedCount: unmappedItems.length,
