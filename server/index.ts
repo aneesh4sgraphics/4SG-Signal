@@ -34,40 +34,32 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 app.use(cookieParser());
 
-// --- CORS ---
-const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN || '',
+// --- CORS (strict: only known origins with credentials) ---
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = new Set([
+  // Production
+  'https://4sgraphics.replit.app',
+  'https://quote.4sgraphics.com',
+  // Localhost development
   'http://localhost:5173',
   'http://localhost:5000',
   'http://127.0.0.1:5000',
-  // Support both old and new Replit URL formats
-  process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : '',
-  process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : '',
-  // Add the deployed URL directly as fallback
-  'https://4sgraphics.replit.app',
-  // Custom domain
-  'https://quote.4sgraphics.com',
-].filter(Boolean);
+].filter(Boolean));
 
 app.use(cors({
   origin: (origin, cb) => {
     // Allow requests with no origin (same-origin requests, mobile apps, curl, etc.)
     if (!origin) return cb(null, true);
     
-    // Allow any replit.dev domain (development environments)
-    if (origin.endsWith('.replit.dev') || origin.endsWith('.repl.co') || origin.endsWith('.replit.app')) {
+    // Only allow explicit known origins (no wildcards with credentials: true)
+    if (allowedOrigins.has(origin)) return cb(null, true);
+    
+    // In development, allow the dynamic Replit dev domain (same-origin only)
+    if (!isProduction && (origin.endsWith('.replit.dev') || origin.endsWith('.spock.replit.dev'))) {
       return cb(null, true);
     }
     
-    // Allow custom 4sgraphics domains
-    if (origin.endsWith('.4sgraphics.com') || origin === 'https://4sgraphics.com') {
-      return cb(null, true);
-    }
-    
-    // Allow explicit allowed origins
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    
-    // Block other origins
+    // Block all other origins to reduce CSRF risk
     return cb(new Error(`CORS blocked origin: ${origin}`));
   },
   credentials: true,

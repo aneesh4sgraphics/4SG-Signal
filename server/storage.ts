@@ -954,13 +954,14 @@ export class DatabaseStorage implements IStorage {
     const offset = (page - 1) * limit;
     
     if (search) {
-      const searchPattern = `%${search.toLowerCase()}%`;
-      const searchCondition = or(
-        ilike(customers.firstName, searchPattern),
-        ilike(customers.lastName, searchPattern),
-        ilike(customers.email, searchPattern),
-        ilike(customers.company, searchPattern)
-      );
+      // Use pg_trgm similarity search (faster with GIN indexes)
+      const searchTerm = search.toLowerCase();
+      const searchCondition = sql`(
+        ${customers.company} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.email} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.firstName} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.lastName} ILIKE ${'%' + searchTerm + '%'}
+      )`;
       
       const [countResult] = await db.select({ count: sql<number>`count(*)` })
         .from(customers)
@@ -970,6 +971,7 @@ export class DatabaseStorage implements IStorage {
       const data = await db.select()
         .from(customers)
         .where(searchCondition)
+        .orderBy(customers.company, customers.id)
         .limit(limit)
         .offset(offset);
       
@@ -985,7 +987,11 @@ export class DatabaseStorage implements IStorage {
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(customers);
     const total = Number(countResult?.count) || 0;
     
-    const data = await db.select().from(customers).limit(limit).offset(offset);
+    const data = await db.select()
+      .from(customers)
+      .orderBy(customers.company, customers.id)
+      .limit(limit)
+      .offset(offset);
     
     return {
       data,
