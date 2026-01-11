@@ -92,6 +92,7 @@ interface AdditionalCharge {
   odooProductCode: string;
   amount: number;
   enabled: boolean;
+  percentage?: number; // For credit card fee percentage calculation
 }
 
 const allPricingTiers = [
@@ -125,8 +126,8 @@ export default function QuoteCalculator() {
   const [sentPricesOpen, setSentPricesOpen] = useState<boolean>(false);
   const [isCreatingOdooOrder, setIsCreatingOdooOrder] = useState(false);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([
-    { id: 'cc', type: 'credit_card', label: 'Credit Card Fee', odooProductCode: 'CC-FEE', amount: 0, enabled: false },
-    { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 0, enabled: false },
+    { id: 'cc', type: 'credit_card', label: 'Credit Card Fee (4.5%)', odooProductCode: 'CC-FEE', amount: 0, enabled: true, percentage: 4.5 },
+    { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 55, enabled: true },
   ]);
   const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
   
