@@ -635,8 +635,6 @@ export async function generatePriceListHTML(data: any): Promise<string> {
     }
     return formatted;
   };
-  const displayCategoryName = formatCategoryName(categoryName);
-
   // Group items by product type
   const grouped = items.reduce((acc: any, item: any) => {
     if (!acc[item.productType]) acc[item.productType] = [];
@@ -665,6 +663,9 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   const dbCategories = await getPdfCategoryDetailsFromDb();
   const dbCategory = dbCategories.find(c => c.categoryKey === categoryKey);
   const compatibleWith = dbCategory?.compatibleWith || 'Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh, Fuji Inkjet and others';
+  
+  // Use displayName from PDF settings if available, otherwise format category name
+  const displayCategoryName = dbCategory?.displayName || formatCategoryName(categoryName);
 
   // Calculate total items for page numbering
   const totalItems = items.length;
