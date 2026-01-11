@@ -628,6 +628,12 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   const primaryProductType = sortedProductTypes[0] || categoryName || '';
   const productLogo = await getProductLogoBase64(primaryProductType);
   const productFeatures = await getProductFeatures(primaryProductType);
+  
+  // Get compatibleWith text from database (for the header info)
+  const categoryKey = findMatchingCategoryKey(primaryProductType);
+  const dbCategories = await getPdfCategoryDetailsFromDb();
+  const dbCategory = dbCategories.find(c => c.categoryKey === categoryKey);
+  const compatibleWith = dbCategory?.compatibleWith || 'Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh, Fuji Inkjet and others';
 
   // Calculate total items for page numbering
   const totalItems = items.length;
@@ -842,11 +848,10 @@ export async function generatePriceListHTML(data: any): Promise<string> {
         <!-- Info Row -->
         <div class="info-row">
           <div class="info-left">
-            <div style="font-size: 10px; color: #495057; margin-bottom: 3px;">Compatible with All Digital Toner Press - HP Indigo, Xerox, Konica Minolta, Ricoh, Fuji Inkjet and others</div>
+            <div style="font-size: 10px; color: #495057; margin-bottom: 3px;">${compatibleWith}</div>
             <div style="font-size: 9px; color: #6c757d;">List #: <strong style="color: #495057;">${listNumber}</strong></div>
           </div>
           <div class="info-right">
-            <div class="tier-badge">${tierDisplay}</div>
             <div class="date-info">
               <div><strong>Date of Issue:</strong> ${issueDateStr}</div>
               <div><strong>Valid Until:</strong> ${validUntilStr}</div>
