@@ -1508,6 +1508,37 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
+
+                  {/* Daily Spending */}
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.5)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.6)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <Calendar size={16} style={{ color: '#0ea5e9' }} />
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Daily Spending</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                      {apiCosts.daily && apiCosts.daily.length > 0 ? (
+                        apiCosts.daily.slice(0, 7).map((day, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#475569' }}>
+                              {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                            <span style={{ fontSize: '11px', color: parseFloat(day.daily_cost || '0') > 0 ? '#22c55e' : '#94a3b8', fontWeight: '600' }}>
+                              ${parseFloat(day.daily_cost || '0').toFixed(2)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                          No daily data yet
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ marginTop: '12px', fontSize: '10px', color: '#94a3b8', textAlign: 'right' }}>

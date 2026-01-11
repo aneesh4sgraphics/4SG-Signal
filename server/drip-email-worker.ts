@@ -12,6 +12,7 @@ import { eq, and, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./gmail-client";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
 import crypto from "crypto";
+import { odooClient } from "./odoo";
 
 const POLL_INTERVAL_MS = 60000;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -30,6 +31,7 @@ interface ScheduledEmail {
   customerFirstName: string | null;
   customerLastName: string | null;
   customerCompany: string | null;
+  odooPartnerId: number | null;
 }
 
 export function startDripEmailWorker() {
@@ -108,6 +110,7 @@ async function processScheduledEmails() {
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
           customerCompany: customers.company,
+          odooPartnerId: customers.odooPartnerId,
         })
         .from(dripCampaignStepStatus)
         .innerJoin(dripCampaignSteps, eq(dripCampaignStepStatus.stepId, dripCampaignSteps.id))
@@ -230,6 +233,21 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         });
       } catch (trackingError) {
         console.error("[Drip Worker] Error creating tracking token:", trackingError);
+      }
+    }
+
+    // Sync email to Odoo contact's chatter (non-blocking)
+    if (email.odooPartnerId) {
+      try {
+        await odooClient.logEmailToPartner(email.odooPartnerId, {
+          to: email.customerEmail || '',
+          subject: `[Drip Campaign: ${email.campaignName}] ${processedSubject}`,
+          body: processedBody,
+          sentAt: new Date(),
+        });
+        console.log(`[Drip Worker] Synced email to Odoo partner ${email.odooPartnerId}`);
+      } catch (odooError: any) {
+        console.error("[Drip Worker] Error syncing to Odoo (non-critical):", odooError.message);
       }
     }
 
