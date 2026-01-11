@@ -20,6 +20,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Customer {
   id: string;
@@ -63,6 +64,7 @@ const MOMENT_ACTIONS: Record<string, { label: string; icon: string }> = {
 export default function NowMode() {
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  const { toast } = useToast();
 
   const { data, isLoading, refetch } = useQuery<NowModeResponse>({
     queryKey: ["/api/now-mode/current"],
@@ -79,6 +81,13 @@ export default function NowMode() {
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
       refetch();
     },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete moment",
+        variant: "destructive",
+      });
+    },
   });
 
   const handleOutcome = (outcome: string) => {
@@ -90,7 +99,7 @@ export default function NowMode() {
     });
   };
 
-  const progress = data ? (data.completed / data.dailyCap) * 100 : 0;
+  const progress = data && data.dailyCap > 0 ? (data.completed / data.dailyCap) * 100 : 0;
 
   if (isLoading) {
     return (
