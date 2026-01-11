@@ -25,6 +25,8 @@ import {
   AlertTriangle,
   Timer,
   XCircle,
+  Lightbulb,
+  Sparkles,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -187,6 +189,27 @@ export default function EmailSyncDebug() {
     onSuccess: () => {
       toast({ title: "Email Ignored" });
       queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/unmatched"] });
+    },
+  });
+
+  const enrichMutation = useMutation({
+    mutationFn: () => apiRequest("/api/email-intelligence/events/enrich", { 
+      method: "POST",
+      body: JSON.stringify({ limit: 30 }) 
+    }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "AI Coaching Added",
+        description: `Generated coaching tips for ${data.enriched || 0} events`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/events"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Enrichment Failed",
+        description: error.message || "Failed to generate coaching tips",
+        variant: "destructive",
+      });
     },
   });
 
@@ -370,6 +393,23 @@ export default function EmailSyncDebug() {
             </div>
           )}
 
+          {salesEvents && salesEvents.length > 0 && salesEvents.some(e => !e.coachingTip) && (
+            <div className="mb-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => enrichMutation.mutate()} 
+                disabled={enrichMutation.isPending}
+              >
+                {enrichMutation.isPending ? (
+                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Add AI Coaching Tips
+              </Button>
+            </div>
+          )}
+
           {eventsLoading ? (
             <Skeleton className="h-64" />
           ) : salesEvents && salesEvents.length > 0 ? (
@@ -380,6 +420,7 @@ export default function EmailSyncDebug() {
                     <TableHead>Event Type</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Trigger</TableHead>
+                    <TableHead>Coaching Tip</TableHead>
                     <TableHead>Confidence</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
@@ -401,6 +442,16 @@ export default function EmailSyncDebug() {
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-sm">
                           {event.triggerText || "-"}
+                        </TableCell>
+                        <TableCell className="max-w-sm">
+                          {event.coachingTip ? (
+                            <div className="flex items-start gap-2 text-sm">
+                              <Lightbulb className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                              <span className="text-muted-foreground line-clamp-2">{event.coachingTip}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">

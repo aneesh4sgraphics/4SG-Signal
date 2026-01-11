@@ -6699,6 +6699,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enrich events with AI coaching tips
+  app.post("/api/email-intelligence/events/enrich", isAuthenticated, async (req: any, res) => {
+    try {
+      const { enrichEventsWithCoaching } = await import("./email-event-extractor");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const limit = parseInt(req.body.limit) || 20;
+      
+      const enriched = await enrichEventsWithCoaching(userId, limit);
+      res.json({ success: true, enriched });
+    } catch (error: any) {
+      console.error("Error enriching events:", error);
+      res.status(500).json({ error: "Failed to enrich events" });
+    }
+  });
+
   // ========================================
   // Shipment Follow-up Tasks Routes
   // ========================================

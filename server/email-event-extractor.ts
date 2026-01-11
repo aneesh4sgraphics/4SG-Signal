@@ -485,3 +485,93 @@ export async function createFollowUpTasksFromEvents(userId: string, limit: numbe
   console.log(`[Email Events] Created ${tasksCreated} follow-up tasks from ${unprocessedEvents.length} events`);
   return tasksCreated;
 }
+
+const AI_COACHING_TEMPLATES: Record<string, string> = {
+  quote_requested: "Customer is actively seeking pricing. Respond within 4 hours with a tailored quote. Ask qualifying questions about volume, timeline, and specific needs to customize your offering.",
+  quote_sent: "Quote delivered. Schedule a follow-up call in 2-3 days to address questions and move toward close. Prepare answers for common objections.",
+  sample_requested: "Sample interest shows purchase intent. Fast sample delivery builds trust. Follow up within a week to gather feedback and convert to order.",
+  objection_price: "Price resistance detected. Focus on value, ROI, and total cost of ownership. Consider offering volume discounts, payment terms, or showcasing quality differences.",
+  objection_compatibility: "Technical concerns need addressing. Offer free testing, provide spec sheets, or arrange a technical call. Demonstrating compatibility removes a major purchase barrier.",
+  ready_to_buy: "Hot lead! Prioritize this customer immediately. Remove any friction from the purchase process. Confirm delivery timeline and payment options.",
+  timing_delay: "Customer not ready now. Set a calendar reminder for their stated timeframe. Keep them warm with occasional value-add content without being pushy.",
+  stale_thread: "Conversation has stalled. Re-engage with a value-add: new product info, industry news, or a simple check-in. Ask an open-ended question to restart dialogue.",
+};
+
+export async function generateAICoachingSummary(eventId: number): Promise<string | null> {
+  try {
+    const [event] = await db.select({
+      event: emailSalesEvents,
+      customer: customers,
+    })
+      .from(emailSalesEvents)
+      .leftJoin(customers, eq(emailSalesEvents.customerId, customers.id))
+      .where(eq(emailSalesEvents.id, eventId));
+    
+    if (!event) return null;
+    
+    const template = AI_COACHING_TEMPLATES[event.event.eventType];
+    if (!template) return null;
+    
+    const customerName = event.customer?.company || 'the customer';
+    const triggerText = event.event.triggerText || '';
+    
+    let coachingTip = template;
+    
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const OpenAI = (await import('openai')).default;
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        
+        const prompt = `You are a sales coach for a specialty printing and graphics company. Based on this detected sales event, provide a brief, actionable coaching tip (2-3 sentences max).
+
+Event Type: ${event.event.eventType}
+Customer: ${customerName}
+Trigger Text: "${triggerText}"
+
+Base guidance: ${template}
+
+Personalize this coaching tip for this specific situation. Be concise and action-oriented.`;
+        
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 150,
+          temperature: 0.7,
+        });
+        
+        coachingTip = response.choices[0]?.message?.content?.trim() || template;
+      } catch (aiError) {
+        console.error('[AI Coach] OpenAI error, using template:', aiError);
+      }
+    }
+    
+    await db.update(emailSalesEvents)
+      .set({ coachingTip })
+      .where(eq(emailSalesEvents.id, eventId));
+    
+    return coachingTip;
+  } catch (error) {
+    console.error('[AI Coach] Error generating coaching summary:', error);
+    return null;
+  }
+}
+
+export async function enrichEventsWithCoaching(userId: string, limit: number = 20): Promise<number> {
+  const eventsNeedingCoaching = await db.select()
+    .from(emailSalesEvents)
+    .where(and(
+      eq(emailSalesEvents.userId, userId),
+      isNull(emailSalesEvents.coachingTip),
+    ))
+    .orderBy(desc(emailSalesEvents.occurredAt))
+    .limit(limit);
+  
+  let enriched = 0;
+  for (const event of eventsNeedingCoaching) {
+    const tip = await generateAICoachingSummary(event.id);
+    if (tip) enriched++;
+  }
+  
+  console.log(`[AI Coach] Enriched ${enriched}/${eventsNeedingCoaching.length} events with coaching tips`);
+  return enriched;
+}
