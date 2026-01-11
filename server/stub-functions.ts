@@ -873,7 +873,13 @@ export async function generatePriceListHTML(data: any): Promise<string> {
         </div>
         ` : ''}
         
-        <!-- Product Tables -->
+        <!-- Category Title -->
+        <div style="background: linear-gradient(180deg, #875A7B 0%, #6d4763 100%); color: white; padding: 12px 16px; margin-bottom: 15px; border-radius: 4px;">
+          <h2 style="font-family: 'Roboto', sans-serif; margin: 0; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">${categoryName ? categoryName.replace(/_/g, ' ') : 'Price List'}</h2>
+          <div style="font-size: 10px; opacity: 0.9; margin-top: 4px;">${tierDisplay}</div>
+        </div>
+        
+        <!-- Product Tables by Type -->
         ${sections}
         
         <!-- Footer -->
