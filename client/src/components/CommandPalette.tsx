@@ -11,7 +11,30 @@ import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import { resetAppData } from '@/lib/cache';
 
-type IconComponent = typeof Home;
+type IconComponent = typeof Home | React.FC<{ className?: string }>;
+
+export const QuickQuotesIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <text x="2" y="17" fontSize="14" fontWeight="bold" fill="currentColor" stroke="none">QQ</text>
+  </svg>
+);
+
+export const SavedQuotesIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <text x="8" y="17" fontSize="9" fontWeight="bold" fill="currentColor" stroke="none">$</text>
+  </svg>
+);
+
+export const PdfSettingsIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <circle cx="16" cy="18" r="3" strokeWidth="1.5" />
+    <path d="M16 16v1h1" strokeWidth="1.5" />
+  </svg>
+);
 
 interface NavItem {
   path: string;
@@ -23,11 +46,11 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { path: '/', icon: Home, label: 'Dashboard', keywords: ['home', 'main', 'overview'] },
-  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', keywords: ['quote', 'estimate', 'pricing'] },
+  { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', keywords: ['quote', 'estimate', 'pricing'] },
   { path: '/clients', icon: Users, label: 'Clients', keywords: ['customers', 'contacts', 'database'] },
   { path: '/reports', icon: BarChart3, label: 'Reports', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'] },
   { path: '/price-list', icon: DollarSign, label: 'Price List', keywords: ['prices', 'costs', 'rates'] },
-  { path: '/saved-quotes', icon: FileText, label: 'Saved Quotes', keywords: ['history', 'saved', 'previous'] },
+  { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', keywords: ['history', 'saved', 'previous'] },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', keywords: ['area', 'square meter', 'calculate'] },
   { path: '/competitor-pricing', icon: TrendingUp, label: 'Market Prices', keywords: ['competitors', 'market', 'comparison'] },
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping', keywords: ['delivery', 'freight', 'transport'] },
@@ -44,7 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/admin', icon: Users, label: 'Users', keywords: ['admin', 'management', 'roles'], adminOnly: true },
   { path: '/activity-logs', icon: Activity, label: 'Activity', keywords: ['logs', 'history', 'audit'], adminOnly: true },
   { path: '/product-pricing-management', icon: Database, label: 'Products', keywords: ['inventory', 'catalog', 'items'], adminOnly: true },
-  { path: '/pdf-settings', icon: FileText, label: 'PDF Settings', keywords: ['pdf', 'export', 'documents'], adminOnly: true },
+  { path: '/pdf-settings', icon: PdfSettingsIcon, label: 'PDF Settings', keywords: ['pdf', 'export', 'documents'], adminOnly: true },
 ];
 
 interface CommandPaletteProps {

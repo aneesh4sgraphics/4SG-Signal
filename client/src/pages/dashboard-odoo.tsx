@@ -5,7 +5,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   Calculator, 
-  FileText, 
   Database, 
   Users, 
   BarChart3, 
@@ -36,6 +35,7 @@ import {
   Calendar,
   Zap
 } from "lucide-react";
+import { QuickQuotesIcon, SavedQuotesIcon, PdfSettingsIcon } from "@/components/CommandPalette";
 import { useAuth } from "@/hooks/useAuth";
 import StartYourDayDashboard from "@/components/StartYourDayDashboard";
 import ShipmentFollowUpWidget from "@/components/ShipmentFollowUpWidget";
@@ -110,9 +110,9 @@ interface ApiCostStats {
 }
 
 const allApps = [
-  { path: '/quick-quotes', icon: FileText, label: 'QuickQuotes', color: '#17A2B8' },
+  { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', color: '#17A2B8' },
   { path: '/price-list', icon: DollarSign, label: 'Price List', color: '#6F42C1' },
-  { path: '/saved-quotes', icon: BarChart3, label: 'Saved Quotes', color: '#0D6EFD' },
+  { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', color: '#0D6EFD' },
   { path: '/sales-analytics', icon: TrendingUp, label: 'Sales Charts', color: '#28A745' },
   { path: '/clients', icon: Users, label: 'Clients', color: '#28A745' },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', color: '#0D6EFD' },
@@ -132,7 +132,7 @@ const adminApps = [
   { path: '/admin', icon: Users, label: 'Users', color: '#6F42C1' },
   { path: '/activity-logs', icon: Activity, label: 'Activity', color: '#17A2B8' },
   { path: '/product-pricing-management', icon: Database, label: 'Products', color: '#0D6EFD' },
-  { path: '/pdf-settings', icon: FileText, label: 'PDF Settings', color: '#28A745' },
+  { path: '/pdf-settings', icon: PdfSettingsIcon, label: 'PDF Settings', color: '#28A745' },
 ];
 
 export default function Dashboard() {
