@@ -18,6 +18,8 @@ export default {
         poly: ['Roboto', 'sans-serif'],
         stick: ['Roboto', 'sans-serif'],
         sans: ['Inter', 'sans-serif'],
+        odoo: ['"Source Sans Pro"', 'sans-serif'],
+        'odoo-heading': ['Montserrat', 'sans-serif'],
         // Roboto variants for different text placements
         'roboto-light': ['Roboto', 'sans-serif'],
         'roboto-regular': ['Roboto', 'sans-serif'],
