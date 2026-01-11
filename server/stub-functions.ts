@@ -698,9 +698,22 @@ export async function generatePriceListHTML(data: any): Promise<string> {
     <head>
       <meta charset="utf-8" />
       <title>${title} - ${categoryName}</title>
+      <!-- Preload Roboto font for faster loading -->
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap');
+        
+        /* Ensure Roboto is applied universally */
+        * {
+          font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+        }
+        
+        /* Monospace exception for product codes */
+        .mono-font {
+          font-family: 'Roboto Mono', 'Courier New', monospace !important;
+        }
         
         @page {
           size: letter;

@@ -5281,12 +5281,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('📏 HTML Size:', html.length, 'characters');
 
-      // Configure html-pdf-node for MAXIMUM SPEED in Replit environment
+      // Configure html-pdf-node for Replit environment with font loading
       const options = {
         format: 'A4',
         margin: { top: "15px", right: "15px", bottom: "15px", left: "15px" },
         printBackground: true,
         preferCSSPageSize: true,
+        waitUntil: 'networkidle0', // Wait for fonts to load
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox', 
