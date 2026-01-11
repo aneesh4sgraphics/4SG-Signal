@@ -45,9 +45,15 @@ export default {
         'roboto-black': '900',
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: "0",
+        DEFAULT: "2px",
+        sm: "2px",
+        md: "2px",
+        lg: "2px",
+        xl: "2px",
+        "2xl": "2px",
+        "3xl": "2px",
+        full: "9999px",
       },
       colors: {
         background: "var(--background)",

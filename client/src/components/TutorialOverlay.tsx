@@ -143,7 +143,7 @@ export default function TutorialOverlay({ tutorial, onComplete, onSkip, onStepCh
       width: targetRect.width + (padding * 2),
       height: targetRect.height + (padding * 2),
       border: '3px solid hsl(var(--primary))',
-      borderRadius: '8px',
+      borderRadius: '2px',
       boxShadow: '0 0 0 4px rgba(var(--primary), 0.2), 0 0 30px rgba(var(--primary), 0.3)',
       pointerEvents: 'none' as const,
       zIndex: 10001,

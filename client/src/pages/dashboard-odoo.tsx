@@ -227,7 +227,7 @@ export default function Dashboard() {
       }}>
         <div style={{
           background: '#FFFFFF',
-          borderRadius: '12px',
+          borderRadius: '2px',
           padding: '48px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
           textAlign: 'center',
@@ -245,7 +245,7 @@ export default function Dashboard() {
             style={{
               background: '#6F42C1',
               color: '#FFFFFF',
-              borderRadius: '8px',
+              borderRadius: '2px',
               padding: '12px 24px',
               fontWeight: 600,
               border: 'none',
@@ -283,7 +283,7 @@ export default function Dashboard() {
           justifyContent: 'center',
           padding: '24px',
           background: '#FFFFFF',
-          borderRadius: '12px',
+          borderRadius: '2px',
           boxShadow: isHovered 
             ? '0 4px 16px rgba(0,0,0,0.12)' 
             : '0 2px 8px rgba(0,0,0,0.08)',
@@ -339,7 +339,7 @@ export default function Dashboard() {
           {/* Header Card */}
           <div style={{
             background: '#FFFFFF',
-            borderRadius: '12px',
+            borderRadius: '2px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             padding: '32px',
             marginBottom: '32px',
@@ -356,7 +356,7 @@ export default function Dashboard() {
                           alignItems: 'center',
                           gap: '6px',
                           padding: '6px 12px',
-                          borderRadius: '20px',
+                          borderRadius: '2px',
                           background: connectionStatus?.odoo?.connected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(108, 117, 125, 0.1)',
                           border: `1px solid ${connectionStatus?.odoo?.connected ? 'rgba(40, 167, 69, 0.3)' : 'rgba(108, 117, 125, 0.3)'}`,
                           cursor: 'pointer',
@@ -382,7 +382,7 @@ export default function Dashboard() {
                           alignItems: 'center',
                           gap: '6px',
                           padding: '6px 12px',
-                          borderRadius: '20px',
+                          borderRadius: '2px',
                           background: connectionStatus?.gmail?.connected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(108, 117, 125, 0.1)',
                           border: `1px solid ${connectionStatus?.gmail?.connected ? 'rgba(40, 167, 69, 0.3)' : 'rgba(108, 117, 125, 0.3)'}`,
                           cursor: 'pointer',
@@ -408,7 +408,7 @@ export default function Dashboard() {
                           alignItems: 'center',
                           gap: '6px',
                           padding: '6px 12px',
-                          borderRadius: '20px',
+                          borderRadius: '2px',
                           background: connectionStatus?.calendar?.connected ? 'rgba(40, 167, 69, 0.1)' : 'rgba(108, 117, 125, 0.1)',
                           border: `1px solid ${connectionStatus?.calendar?.connected ? 'rgba(40, 167, 69, 0.3)' : 'rgba(108, 117, 125, 0.3)'}`,
                           cursor: 'pointer',
@@ -462,7 +462,7 @@ export default function Dashboard() {
           <Collapsible open={appsOpen} onOpenChange={setAppsOpen}>
             <div style={{
               background: '#FFFFFF',
-              borderRadius: '12px',
+              borderRadius: '2px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               marginBottom: '24px',
               overflow: 'hidden',
@@ -537,7 +537,7 @@ export default function Dashboard() {
             <Link href="/objections" style={{ textDecoration: 'none', display: 'block', marginBottom: '32px' }}>
               <div style={{
                 background: '#FFFFFF',
-                borderRadius: '12px',
+                borderRadius: '2px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                 padding: '16px 24px',
                 display: 'flex',
@@ -563,7 +563,7 @@ export default function Dashboard() {
           {crmStats && (
             <div style={{
               background: '#FFFFFF',
-              borderRadius: '12px',
+              borderRadius: '2px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               padding: '32px',
               marginBottom: '32px',
@@ -580,25 +580,25 @@ export default function Dashboard() {
                 gap: '16px',
                 marginBottom: '24px',
               }}>
-                <div style={{ background: 'rgba(111, 66, 193, 0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(111, 66, 193, 0.1)', borderRadius: '2px', padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: '28px', fontWeight: 700, color: '#6F42C1' }}>{crmStats.totalCustomers}</div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#6B6B8C' }}>Total Customers</div>
                 </div>
-                <div style={{ background: 'rgba(40, 167, 69, 0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(40, 167, 69, 0.1)', borderRadius: '2px', padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: '28px', fontWeight: 700, color: '#28A745' }}>{crmStats.totalActiveJourneys}</div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#6B6B8C' }}>Active Journeys</div>
                 </div>
-                <div style={{ background: 'rgba(13, 110, 253, 0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(13, 110, 253, 0.1)', borderRadius: '2px', padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: '28px', fontWeight: 700, color: '#0D6EFD' }}>{crmStats.totalQuotesSent}</div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#6B6B8C' }}>Quotes Sent</div>
                 </div>
-                <div style={{ background: 'rgba(255, 193, 7, 0.1)', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(255, 193, 7, 0.1)', borderRadius: '2px', padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFC107' }}>{crmStats.newCustomersLast30Days}</div>
                   <div style={{ fontSize: '12px', fontWeight: 500, color: '#6B6B8C' }}>New (30 Days)</div>
                 </div>
                 {crmStats.hotProspects > 0 && (
                   <Link href="/client-database?filter=hot" style={{ textDecoration: 'none' }}>
-                    <div style={{ background: 'rgba(253, 126, 20, 0.15)', borderRadius: '12px', padding: '20px', textAlign: 'center', border: '2px solid rgba(253, 126, 20, 0.3)', cursor: 'pointer' }}>
+                    <div style={{ background: 'rgba(253, 126, 20, 0.15)', borderRadius: '2px', padding: '20px', textAlign: 'center', border: '2px solid rgba(253, 126, 20, 0.3)', cursor: 'pointer' }}>
                       <div style={{ fontSize: '28px', fontWeight: 700, color: '#FD7E14', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         <Flame size={24} />
                         {crmStats.hotProspects}
@@ -635,7 +635,7 @@ export default function Dashboard() {
                       <div style={{
                         background: `${stageColors[stage.stage]}15`,
                         border: `1px solid ${stageColors[stage.stage]}40`,
-                        borderRadius: '12px',
+                        borderRadius: '2px',
                         padding: '12px 20px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -688,7 +688,7 @@ export default function Dashboard() {
           {isAdmin && (
             <div style={{
               background: '#FFFFFF',
-              borderRadius: '12px',
+              borderRadius: '2px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               padding: '32px',
               marginBottom: '32px',
@@ -713,14 +713,14 @@ export default function Dashboard() {
 
               {/* Usage Stats */}
               {usageStats && (
-                <div style={{ marginTop: '32px', padding: '24px', background: 'rgba(0,0,0,0.02)', borderRadius: '12px' }}>
+                <div style={{ marginTop: '32px', padding: '24px', background: 'rgba(0,0,0,0.02)', borderRadius: '2px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                     <Gauge size={20} style={{ color: '#28A745' }} />
                     <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#2C2C54', margin: 0 }}>Resource Usage</h3>
                   </div>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-                    <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: '#FFFFFF', borderRadius: '2px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <HardDrive size={16} style={{ color: '#0D6EFD' }} />
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B6B8C' }}>Database</span>
@@ -730,7 +730,7 @@ export default function Dashboard() {
                       <div style={{ fontSize: '11px', color: '#6B6B8C', marginTop: '4px' }}>of {usageStats.limits.dbMaxSize}</div>
                     </div>
                     
-                    <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: '#FFFFFF', borderRadius: '2px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <Database size={16} style={{ color: '#6F42C1' }} />
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B6B8C' }}>Records</span>
@@ -760,14 +760,14 @@ export default function Dashboard() {
 
               {/* API Cost Tracking */}
               {apiCosts && (
-                <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(0,0,0,0.02)', borderRadius: '12px' }}>
+                <div style={{ marginTop: '24px', padding: '24px', background: 'rgba(0,0,0,0.02)', borderRadius: '2px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                     <DollarSign size={20} style={{ color: '#6F42C1' }} />
                     <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#2C2C54', margin: 0 }}>API Spending ({apiCosts.summary.periodDays} days)</h3>
                   </div>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-                    <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: '#FFFFFF', borderRadius: '2px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <DollarSign size={16} style={{ color: '#28A745' }} />
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B6B8C' }}>Total Spend</span>
@@ -776,7 +776,7 @@ export default function Dashboard() {
                       <div style={{ fontSize: '11px', color: '#6B6B8C' }}>{apiCosts.summary.totalCalls.toLocaleString()} calls</div>
                     </div>
                     
-                    <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: '#FFFFFF', borderRadius: '2px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <Activity size={16} style={{ color: '#FD7E14' }} />
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#6B6B8C' }}>Top Spenders</span>

@@ -60,7 +60,7 @@ export const RippleButton = ({ children, className, onClick, ...props }: any) =>
 // Floating success indicator
 export const FloatingSuccess = ({ message, onComplete }: { message: string; onComplete: () => void }) => (
   <motion.div
-    className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2"
+    className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 flex items-center gap-2"
     initial={{ opacity: 0, y: -50, scale: 0.8 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
     exit={{ opacity: 0, y: -20 }}
@@ -286,7 +286,7 @@ export const MorphingButton = ({
   return (
     <motion.button
       onClick={onClick}
-      className={cn("p-2 rounded-lg", className)}
+      className={cn("p-2 rounded", className)}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
     >
