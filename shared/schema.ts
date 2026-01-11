@@ -2352,6 +2352,15 @@ export const gmailSyncState = pgTable("gmail_sync_state", {
   lastError: text("last_error"),
   messagesProcessed: integer("messages_processed").default(0),
   insightsExtracted: integer("insights_extracted").default(0),
+  // Enhanced tracking for debug panel
+  lastQuery: text("last_query"), // The Gmail query used (e.g. "in:inbox after:...")
+  threadsFound: integer("threads_found").default(0),
+  messagesStored: integer("messages_stored").default(0),
+  matchedToCustomers: integer("matched_to_customers").default(0),
+  unmatchedCount: integer("unmatched_count").default(0),
+  eventsExtracted: integer("events_extracted").default(0),
+  syncStartedAt: timestamp("sync_started_at"),
+  syncCompletedAt: timestamp("sync_completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2453,6 +2462,103 @@ export const insertGmailDeliverabilityStatsSchema = createInsertSchema(gmailDeli
 });
 export type GmailDeliverabilityStats = typeof gmailDeliverabilityStats.$inferSelect;
 export type InsertGmailDeliverabilityStats = z.infer<typeof insertGmailDeliverabilityStatsSchema>;
+
+// Gmail Message Matches - link emails to customers with confidence scoring
+export const gmailMessageMatches = pgTable("gmail_message_matches", {
+  id: serial("id").primaryKey(),
+  gmailMessageId: integer("gmail_message_id").notNull().references(() => gmailMessages.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  matchType: varchar("match_type", { length: 20 }).notNull(), // 'exact_email', 'domain', 'manual'
+  matchedEmail: varchar("matched_email", { length: 255 }),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(), // 0.00 - 1.00
+  isConfirmed: boolean("is_confirmed").default(false),
+  confirmedBy: varchar("confirmed_by", { length: 255 }),
+  confirmedAt: timestamp("confirmed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  messageIdIdx: index("gmail_message_matches_message_idx").on(table.gmailMessageId),
+  customerIdIdx: index("gmail_message_matches_customer_idx").on(table.customerId),
+}));
+
+export const insertGmailMessageMatchSchema = createInsertSchema(gmailMessageMatches).omit({
+  id: true,
+  createdAt: true,
+});
+export type GmailMessageMatch = typeof gmailMessageMatches.$inferSelect;
+export type InsertGmailMessageMatch = z.infer<typeof insertGmailMessageMatchSchema>;
+
+// Gmail Unmatched Emails - queue for manual customer linking
+export const gmailUnmatchedEmails = pgTable("gmail_unmatched_emails", {
+  id: serial("id").primaryKey(),
+  gmailMessageId: integer("gmail_message_id").notNull().references(() => gmailMessages.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 255 }).notNull(),
+  domain: varchar("domain", { length: 255 }),
+  senderName: varchar("sender_name", { length: 255 }),
+  messageDate: timestamp("message_date"),
+  subject: varchar("subject", { length: 500 }),
+  matchAttempts: integer("match_attempts").default(1),
+  lastAttemptAt: timestamp("last_attempt_at").defaultNow(),
+  status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'linked', 'ignored'
+  linkedCustomerId: varchar("linked_customer_id").references(() => customers.id, { onDelete: "set null" }),
+  linkedBy: varchar("linked_by", { length: 255 }),
+  linkedAt: timestamp("linked_at"),
+  ignoredReason: text("ignored_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  emailIdx: index("gmail_unmatched_email_idx").on(table.email),
+  domainIdx: index("gmail_unmatched_domain_idx").on(table.domain),
+  statusIdx: index("gmail_unmatched_status_idx").on(table.status),
+}));
+
+export const insertGmailUnmatchedEmailSchema = createInsertSchema(gmailUnmatchedEmails).omit({
+  id: true,
+  createdAt: true,
+});
+export type GmailUnmatchedEmail = typeof gmailUnmatchedEmails.$inferSelect;
+export type InsertGmailUnmatchedEmail = z.infer<typeof insertGmailUnmatchedEmailSchema>;
+
+// Email Sales Events - rule-based extracted events from emails
+export const EMAIL_SALES_EVENT_TYPES = [
+  'quote_requested',
+  'quote_sent',
+  'sample_requested',
+  'objection_price',
+  'objection_compatibility',
+  'ready_to_buy',
+  'timing_delay',
+  'stale_thread',
+] as const;
+
+export const emailSalesEvents = pgTable("email_sales_events", {
+  id: serial("id").primaryKey(),
+  gmailMessageId: integer("gmail_message_id").notNull().references(() => gmailMessages.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // from EMAIL_SALES_EVENT_TYPES
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(), // 0.00 - 1.00
+  triggerText: text("trigger_text"), // The text that triggered this event
+  triggerKeywords: text("trigger_keywords"), // Matched keywords (comma-separated)
+  occurredAt: timestamp("occurred_at").notNull(),
+  followUpTaskId: integer("follow_up_task_id"), // Link to generated follow-up task
+  coachingTip: text("coaching_tip"), // AI-generated tip (added later)
+  isProcessed: boolean("is_processed").default(false),
+  processedAt: timestamp("processed_at"),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  messageIdIdx: index("email_sales_events_message_idx").on(table.gmailMessageId),
+  userIdIdx: index("email_sales_events_user_idx").on(table.userId),
+  customerIdIdx: index("email_sales_events_customer_idx").on(table.customerId),
+  eventTypeIdx: index("email_sales_events_type_idx").on(table.eventType),
+  occurredAtIdx: index("email_sales_events_occurred_idx").on(table.occurredAt),
+}));
+
+export const insertEmailSalesEventSchema = createInsertSchema(emailSalesEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type EmailSalesEvent = typeof emailSalesEvents.$inferSelect;
+export type InsertEmailSalesEvent = z.infer<typeof insertEmailSalesEventSchema>;
 
 // Daily User Performance - track achievements and wins per day
 export const dailyUserPerformance = pgTable("daily_user_performance", {
