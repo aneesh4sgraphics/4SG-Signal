@@ -593,40 +593,64 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   // Generate list number if not provided
   const listNumber = quoteNumber || `PL-${Date.now().toString().slice(-6)}`;
 
-  // Get tier display name for header - support both key formats (e.g., "ApprovalNeeded" and "approvalNeededPrice")
+  // Get tier display name for header - normalize tier key to lowercase for matching
   const tierDisplayNames: Record<string, string> = {
-    'Export': 'EXPORT ONLY',
-    'exportPrice': 'EXPORT ONLY',
-    'M.Distributor': 'MASTER DISTRIBUTOR',
-    'masterDistributorPrice': 'MASTER DISTRIBUTOR',
-    'Dealer': 'DEALER-VIP',
-    'dealerPrice': 'DEALER-VIP',
-    'Dealer2': 'DEALER',
-    'dealer2Price': 'DEALER',
-    'ApprovalNeeded': 'SHOPIFY LOWEST',
-    'approvalNeededPrice': 'SHOPIFY LOWEST',
-    'TierStage25': 'SHOPIFY 3',
-    'tierStage25Price': 'SHOPIFY 3',
-    'TierStage2': 'SHOPIFY 2',
-    'tierStage2Price': 'SHOPIFY 2',
-    'TierStage15': 'SHOPIFY 1',
-    'tierStage15Price': 'SHOPIFY 1',
-    'TierStage1': 'SHOPIFY-ACCOUNT',
-    'tierStage1Price': 'SHOPIFY-ACCOUNT',
-    'Retail': 'RETAIL',
-    'retailPrice': 'RETAIL',
-    'Landed': 'LANDED COST',
-    'landedPrice': 'LANDED COST',
+    'export': 'EXPORT ONLY',
+    'landed': 'LANDED COST',
+    'm.distributor': 'MASTER DISTRIBUTOR',
+    'masterdistributor': 'MASTER DISTRIBUTOR',
+    'dealer': 'DEALER-VIP',
+    'dealer2': 'DEALER',
+    'approvalneeded': 'SHOPIFY LOWEST',
+    'tierstage25': 'SHOPIFY 3',
+    'tierstage2': 'SHOPIFY 2',
+    'tierstage15': 'SHOPIFY 1',
+    'tierstage1': 'SHOPIFY-ACCOUNT',
+    'retail': 'RETAIL',
   };
-  const tierDisplay = tierDisplayNames[tierName] || tierName?.toUpperCase()?.replace(/_/g, ' ') || 'PRICING';
+  const normalizedTierName = tierName?.toLowerCase()?.replace(/price$/i, '') || '';
+  const tierDisplay = tierDisplayNames[normalizedTierName] || tierName?.toUpperCase()?.replace(/_/g, ' ') || 'PRICING';
   
-  // Format category name for display (replace underscores with spaces, add spacing)
+  // Format category name for display
   const formatCategoryName = (name: string): string => {
     if (!name) return 'Price List';
+    
+    // Known category mappings for special cases
+    const categoryMappings: Record<string, string> = {
+      'graffitistick': 'Graffiti STICK',
+      'graffiti_stick': 'Graffiti STICK',
+      'graffiti_polyester_paper': 'Graffiti Polyester Paper',
+      'graffitipolyesterpaper': 'Graffiti Polyester Paper',
+      'cliq_aqueous_media': 'CLiQ Aqueous Media',
+      'cliqaqueousmedia': 'CLiQ Aqueous Media',
+      'solvit_media': 'SolVit Media',
+      'solvitmedia': 'SolVit Media',
+      'rang_print_canvas': 'Rang Print Canvas',
+      'rangprintcanvas': 'Rang Print Canvas',
+    };
+    
+    // Check for known category mapping (case-insensitive)
+    const normalizedName = name.toLowerCase().replace(/[_\s]/g, '');
+    if (categoryMappings[normalizedName]) {
+      return categoryMappings[normalizedName];
+    }
+    
     // Replace underscores with spaces
     let formatted = name.replace(/_/g, ' ');
     // Add space before capitals in camelCase (e.g., "GraffitiStick" -> "Graffiti Stick")
     formatted = formatted.replace(/([a-z])([A-Z])/g, '$1 $2');
+    // For all uppercase strings, try to add spaces at word boundaries
+    if (formatted === formatted.toUpperCase() && formatted.length > 5) {
+      // Insert space before common uppercase word patterns
+      formatted = formatted
+        .replace(/GRAFFITI/g, 'GRAFFITI ')
+        .replace(/STICK/g, 'STICK')
+        .replace(/POLYESTER/g, 'POLYESTER ')
+        .replace(/PAPER/g, 'PAPER')
+        .replace(/MEDIA/g, 'MEDIA')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
     return formatted;
   };
   const displayCategoryName = formatCategoryName(categoryName);
