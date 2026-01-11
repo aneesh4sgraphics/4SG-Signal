@@ -3670,6 +3670,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         compress: true
       });
       
+      // Track page count for page numbering
+      let pageCount = 1;
+      const pageNumbers: number[] = [1];
+      
+      // Listen for new pages to track count
+      doc.on('pageAdded', () => {
+        pageCount++;
+        pageNumbers.push(pageCount);
+      });
+      
       // Collect PDF into buffer
       const chunks: Buffer[] = [];
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -3830,7 +3840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add new page if needed
         if (yPos > 620) {
           doc.addPage();
-          yPos = 50;
+          yPos = 60;
         }
       });
 
@@ -3934,7 +3944,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.moveTo(leftMargin, footerY).lineTo(rightMargin, footerY).strokeColor(borderColor).stroke();
       doc.fontSize(9).font('Helvetica').fillColor(textMuted);
       doc.text('+1 954-493-6484 | info@4sgraphics.com | www.4sgraphics.com', leftMargin, footerY + 12, { align: 'center', width: contentWidth });
-      doc.text('Page 1 / 1', leftMargin, footerY + 26, { align: 'center', width: contentWidth });
+      
+      // Add page numbers to top right of all pages
+      const range = doc.bufferedPageRange();
+      for (let i = 0; i < range.count; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(9).font('Helvetica').fillColor(textMuted);
+        doc.text(`Page ${i + 1} / ${range.count}`, rightMargin - 80, 15, { width: 80, align: 'right' });
+      }
       
       // Finalize PDF
       doc.end();
