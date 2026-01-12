@@ -1916,6 +1916,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customerId = req.params.id;
       const customerData = { ...req.body };
       
+      // Get existing customer to check if pricing tier changed
+      const existingCustomer = await storage.getCustomerById(customerId);
+      const oldPricingTier = existingCustomer?.pricingTier;
+      const newPricingTier = customerData.pricingTier;
+      
       // Convert date strings to Date objects for all timestamp fields
       const timestampFields = ['pausedUntil', 'updatedAt', 'createdAt', 'pricingTierSetAt', 'lastOdooSyncAt'];
       for (const field of timestampFields) {
@@ -1930,6 +1935,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Sync pricing tier to Odoo/Shopify if tier changed
+      if (newPricingTier && newPricingTier !== oldPricingTier && customer.sources) {
+        const sources = customer.sources || [];
+        const tierTag = `Tier: ${newPricingTier}`;
+        
+        // Sync to Odoo if customer is from Odoo
+        if (sources.includes('odoo') && customer.odooPartnerId) {
+          try {
+            // Update the comment field with pricing tier info or use category_id
+            // Using comment field to store tier info in a visible way
+            const existingComment = customer.note || '';
+            const tierRegex = /Tier:\s*[^\n]*/gi;
+            const cleanedComment = existingComment.replace(tierRegex, '').trim();
+            const newComment = cleanedComment ? `${cleanedComment}\n${tierTag}` : tierTag;
+            
+            await odooClient.updatePartner(customer.odooPartnerId, {
+              comment: newComment
+            });
+            console.log(`[Pricing Tier Sync] Updated Odoo partner ${customer.odooPartnerId} with tier: ${newPricingTier}`);
+          } catch (odooError) {
+            console.error(`[Pricing Tier Sync] Failed to sync to Odoo:`, odooError);
+          }
+        }
+        
+        // Sync to Shopify if customer is from Shopify
+        if (sources.includes('shopify')) {
+          try {
+            const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+            const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
+            
+            if (SHOPIFY_ACCESS_TOKEN && SHOPIFY_STORE_DOMAIN) {
+              // Extract Shopify customer ID from our customer ID (format: shopify_XXXXX)
+              const shopifyCustomerId = customer.id.startsWith('shopify_') 
+                ? customer.id.replace('shopify_', '')
+                : null;
+              
+              if (shopifyCustomerId) {
+                const axios = (await import('axios')).default;
+                
+                // Get current customer tags from Shopify
+                const getResponse = await axios.get(
+                  `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers/${shopifyCustomerId}.json`,
+                  {
+                    headers: {
+                      'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
+                
+                const currentTags = getResponse.data.customer?.tags || '';
+                const tagArray = currentTags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+                
+                // Remove any existing tier tags and add the new one
+                const filteredTags = tagArray.filter((t: string) => !t.startsWith('Tier:'));
+                filteredTags.push(tierTag);
+                const newTags = filteredTags.join(', ');
+                
+                // Update customer tags in Shopify
+                await axios.put(
+                  `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers/${shopifyCustomerId}.json`,
+                  {
+                    customer: {
+                      id: shopifyCustomerId,
+                      tags: newTags
+                    }
+                  },
+                  {
+                    headers: {
+                      'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                      'Content-Type': 'application/json',
+                    },
+                  }
+                );
+                console.log(`[Pricing Tier Sync] Updated Shopify customer ${shopifyCustomerId} with tier: ${newPricingTier}`);
+              }
+            }
+          } catch (shopifyError) {
+            console.error(`[Pricing Tier Sync] Failed to sync to Shopify:`, shopifyError);
+          }
+        }
       }
       
       // Clear cache to ensure fresh data
@@ -2543,6 +2631,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Clear cache
       setCachedData("customers", null);
+      
+      // Sync pricing tier to Odoo/Shopify for each customer if tier was updated
+      if (pricingTier !== undefined) {
+        const tierTag = `Tier: ${pricingTier}`;
+        let odooSynced = 0;
+        let shopifySynced = 0;
+        
+        // Get all updated customers to check their sources
+        for (const customerId of customerIds) {
+          try {
+            const customer = await storage.getCustomerById(customerId);
+            if (!customer || !customer.sources) continue;
+            
+            const sources = customer.sources || [];
+            
+            // Sync to Odoo
+            if (sources.includes('odoo') && customer.odooPartnerId) {
+              try {
+                const existingComment = customer.note || '';
+                const tierRegex = /Tier:\s*[^\n]*/gi;
+                const cleanedComment = existingComment.replace(tierRegex, '').trim();
+                const newComment = cleanedComment ? `${cleanedComment}\n${tierTag}` : tierTag;
+                
+                await odooClient.updatePartner(customer.odooPartnerId, {
+                  comment: newComment
+                });
+                odooSynced++;
+              } catch (odooError) {
+                console.error(`[Bulk Tier Sync] Failed to sync customer ${customerId} to Odoo:`, odooError);
+              }
+            }
+            
+            // Sync to Shopify
+            if (sources.includes('shopify')) {
+              try {
+                const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+                const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
+                
+                if (SHOPIFY_ACCESS_TOKEN && SHOPIFY_STORE_DOMAIN) {
+                  const shopifyCustomerId = customer.id.startsWith('shopify_') 
+                    ? customer.id.replace('shopify_', '')
+                    : null;
+                  
+                  if (shopifyCustomerId) {
+                    const axios = (await import('axios')).default;
+                    
+                    const getResponse = await axios.get(
+                      `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers/${shopifyCustomerId}.json`,
+                      {
+                        headers: {
+                          'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                          'Content-Type': 'application/json',
+                        },
+                      }
+                    );
+                    
+                    const currentTags = getResponse.data.customer?.tags || '';
+                    const tagArray = currentTags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+                    const filteredTags = tagArray.filter((t: string) => !t.startsWith('Tier:'));
+                    filteredTags.push(tierTag);
+                    const newTags = filteredTags.join(', ');
+                    
+                    await axios.put(
+                      `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers/${shopifyCustomerId}.json`,
+                      {
+                        customer: {
+                          id: shopifyCustomerId,
+                          tags: newTags
+                        }
+                      },
+                      {
+                        headers: {
+                          'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                          'Content-Type': 'application/json',
+                        },
+                      }
+                    );
+                    shopifySynced++;
+                  }
+                }
+              } catch (shopifyError) {
+                console.error(`[Bulk Tier Sync] Failed to sync customer ${customerId} to Shopify:`, shopifyError);
+              }
+            }
+          } catch (customerError) {
+            console.error(`[Bulk Tier Sync] Failed to get customer ${customerId}:`, customerError);
+          }
+        }
+        
+        console.log(`[Bulk Tier Sync] Synced pricing tier to ${odooSynced} Odoo partners and ${shopifySynced} Shopify customers`);
+      }
       
       // Log activity
       const user = req.user as any;
