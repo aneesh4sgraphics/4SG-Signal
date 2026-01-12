@@ -125,6 +125,7 @@ export default function QuoteCalculator() {
   const [landedPriceRevealed, setLandedPriceRevealed] = useState<boolean>(false);
   const [sentPricesOpen, setSentPricesOpen] = useState<boolean>(false);
   const [isCreatingOdooOrder, setIsCreatingOdooOrder] = useState(false);
+  const [isCreatingShopifyDraft, setIsCreatingShopifyDraft] = useState(false);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([
     { id: 'cc', type: 'credit_card', label: 'Credit Card Fee (4.5%)', odooProductCode: 'CC-FEE', amount: 0, enabled: true, percentage: 4.5 },
     { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 55, enabled: true },
@@ -900,6 +901,98 @@ export default function QuoteCalculator() {
       });
     } finally {
       setIsCreatingOdooOrder(false);
+    }
+  };
+
+  const handleCreateShopifyDraft = async () => {
+    if (quoteItems.length === 0) {
+      toast({
+        title: "No Items in Quote",
+        description: "Please add items to your quote before creating a draft order",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedCustomer) {
+      toast({
+        title: "No Client Selected",
+        description: "Please select a client first before creating a Shopify draft order",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingShopifyDraft(true);
+
+    try {
+      // Get shipping cost from additional charges
+      const shippingCharge = additionalCharges.find(c => c.type === 'shipping' && c.enabled);
+      const shippingCost = shippingCharge?.amount || 0;
+
+      // Get other charges (like CC fee)
+      const otherCharges = additionalCharges.filter(c => c.type !== 'shipping' && c.enabled && c.amount > 0);
+
+      // Build line items with SKU, price per packet (pricePerSheet), and quantity
+      const lineItems = quoteItems.map(item => ({
+        itemCode: item.itemCode, // SKU for matching
+        productName: item.productName,
+        size: item.size,
+        quantity: item.quantity,
+        unitPrice: item.pricePerSheet, // Price per packet (min order qty pricing)
+      }));
+
+      const response = await fetch('/api/shopify/draft-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          quoteNumber: `QQ-${Date.now()}`,
+          customerEmail: selectedCustomer.email,
+          customerId: String(selectedCustomer.id),
+          customerName: selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+          lineItems,
+          shippingCost,
+          additionalCharges: otherCharges,
+          note: `QuickQuote for ${selectedCustomer.company || selectedCustomer.email}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Failed to create draft order');
+      }
+
+      toast({
+        title: "Draft Order Created!",
+        description: `Shopify Draft ${data.shopifyDraftOrderNumber} - $${data.totalPrice}`,
+      });
+
+      // Show info about unmapped items if any
+      if (data.unmappedItems && data.unmappedItems.length > 0) {
+        toast({
+          title: "Note: Some Items Not Mapped",
+          description: `${data.unmappedItems.length} item(s) created as custom line items`,
+        });
+      }
+
+      // Log activity
+      logUserAction('Created Shopify Draft Order', `Draft ${data.shopifyDraftOrderNumber}`);
+
+      // Open the draft order in Shopify admin
+      if (data.adminUrl) {
+        window.open(data.adminUrl, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Error creating Shopify draft order:', error);
+      toast({
+        title: "Failed to Create Draft Order",
+        description: error.message || "Could not create draft order in Shopify",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingShopifyDraft(false);
     }
   };
 
@@ -2341,6 +2434,28 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       <Send className="h-4 w-4" />
                     )}
                     {isCreatingOdooOrder ? 'Creating...' : 'Sales Order'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedCustomer) {
+                        toast({
+                          title: "Please select a client first 😊",
+                          description: "Choose a client from the Customer Selection section above before creating a Shopify draft.",
+                        });
+                        return;
+                      }
+                      handleCreateShopifyDraft();
+                    }}
+                    disabled={!selectedCustomer || isCreatingShopifyDraft || quoteItems.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    data-testid="btn-create-shopify-draft"
+                  >
+                    {isCreatingShopifyDraft ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )}
+                    {isCreatingShopifyDraft ? 'Creating...' : 'Shopify Draft'}
                   </button>
                 </div>
                 
