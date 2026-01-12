@@ -14079,9 +14079,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Shopify] Loaded ${allMappings.length} SKU mappings from database`);
 
-      // Fetch all Shopify variants with their SKUs for auto-matching
+      // Fetch all Shopify variants with their SKUs and prices for auto-matching
       // Use GraphQL to get variants with SKUs efficiently
-      let shopifyVariantsBySku = new Map<string, { variantId: string; productTitle: string; variantTitle: string }>();
+      let shopifyVariantsBySku = new Map<string, { variantId: string; productTitle: string; variantTitle: string; price: number }>();
       try {
         const graphqlResponse = await axios.post(
           `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/graphql.json`,
@@ -14093,6 +14093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     id
                     sku
                     title
+                    price
                     product {
                       title
                     }
@@ -14117,6 +14118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               variantId: variant.id,
               productTitle: variant.product?.title || '',
               variantTitle: variant.title || '',
+              price: parseFloat(variant.price) || 0,
             });
           }
         }
@@ -14133,7 +14135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const item of lineItems) {
         const sku = (item.itemCode || item.sku || '').trim();
         const itemTitle = `${item.productName || item.title}${item.size ? ` - ${item.size}` : ''}`;
-        const pricePerPacket = item.unitPrice || item.pricePerPacket || 0;
+        const qqPrice = item.unitPrice || item.pricePerPacket || 0; // QuickQuote price per unit
         const quantity = item.quantity || 1;
         const skuLower = sku.toLowerCase();
 
@@ -14151,13 +14153,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(mapping.shopifyVariantId, 10);
           }
           
-          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId}`);
+          // Get Shopify's original price for discount calculation
+          const shopifyVariant = shopifyVariantsBySku.get(skuLower);
+          const shopifyPrice = shopifyVariant?.price || 0;
+          const discountAmount = shopifyPrice - qqPrice;
           
-          shopifyLineItems.push({
+          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify: $${shopifyPrice}, QQ: $${qqPrice}, Discount: $${discountAmount.toFixed(2)})`);
+          
+          const lineItem: any = {
             variant_id: variantId,
             quantity: quantity,
-            price: String(pricePerPacket.toFixed(2)),
-          });
+          };
+          
+          // Apply discount if QQ price is lower than Shopify price
+          if (discountAmount > 0) {
+            lineItem.applied_discount = {
+              description: 'QQ Discount',
+              value_type: 'fixed_amount',
+              value: String(discountAmount.toFixed(2)),
+              amount: String(discountAmount.toFixed(2)),
+              title: 'QQ Discount',
+            };
+          } else if (qqPrice !== shopifyPrice) {
+            // QQ price is higher or Shopify price not found - override the price
+            lineItem.price = String(qqPrice.toFixed(2));
+          }
+          
+          shopifyLineItems.push(lineItem);
           mappedItems.push(`${itemTitle} (SKU: ${sku})`);
         } else if (sku && shopifyVariantsBySku.has(skuLower)) {
           // Auto-match by SKU from Shopify
@@ -14170,20 +14192,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(gidMatch[1], 10);
           }
           
-          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle})`);
+          // Calculate discount: Shopify price - QQ price
+          const shopifyPrice = shopifyVariant.price;
+          const discountAmount = shopifyPrice - qqPrice;
           
-          shopifyLineItems.push({
+          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify: $${shopifyPrice}, QQ: $${qqPrice}, Discount: $${discountAmount.toFixed(2)}`);
+          
+          const lineItem: any = {
             variant_id: variantId,
             quantity: quantity,
-            price: String(pricePerPacket.toFixed(2)),
-          });
+          };
+          
+          // Apply discount if QQ price is lower than Shopify price
+          if (discountAmount > 0) {
+            lineItem.applied_discount = {
+              description: 'QQ Discount',
+              value_type: 'fixed_amount',
+              value: String(discountAmount.toFixed(2)),
+              amount: String(discountAmount.toFixed(2)),
+              title: 'QQ Discount',
+            };
+          } else if (qqPrice !== shopifyPrice) {
+            // QQ price is higher or equal - just override the price
+            lineItem.price = String(qqPrice.toFixed(2));
+          }
+          
+          shopifyLineItems.push(lineItem);
           mappedItems.push(`${itemTitle} (SKU: ${sku})`);
         } else {
           // No mapping found - create custom line item with SKU reference
-          console.log(`[Shopify] No mapping for SKU: ${sku} - creating custom item`);
+          console.log(`[Shopify] No mapping for SKU: ${sku} - creating custom item at QQ price $${qqPrice}`);
           shopifyLineItems.push({
             title: itemTitle,
-            price: String(pricePerPacket.toFixed(2)),
+            price: String(qqPrice.toFixed(2)),
             quantity: quantity,
             sku: sku || undefined,
             taxable: true,
