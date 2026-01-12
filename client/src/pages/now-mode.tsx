@@ -187,6 +187,10 @@ export default function NowMode() {
       setOptimisticCompleted(null);
       setOptimisticEfficiency(null);
       setShowSuccessAnimation(false);
+      setEfficiencyDelta(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/efficiency"] });
+      refetch();
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to complete card",
