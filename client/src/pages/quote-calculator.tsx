@@ -895,11 +895,12 @@ export default function QuoteCalculator() {
 
     try {
       // Build items array including additional charges
+      // Use total/quantity to ensure correct line totals (respects retail rounding)
       const productItems = quoteItems.map(item => ({
         itemCode: item.itemCode,
         productName: item.productName,
         quantity: item.quantity,
-        pricePerSheet: item.pricePerSheet,
+        pricePerSheet: item.total / item.quantity, // Use calculated total price
       }));
       
       // Add enabled additional charges as items
@@ -978,14 +979,15 @@ export default function QuoteCalculator() {
     setIsCreatingShopifyDraft(true);
 
     try {
-      // Build line items with SKU, price per packet (pricePerSheet), and quantity
+      // Build line items with SKU and the total line price (not per-unit price)
       // Note: Shipping and CC fees are not sent to Shopify draft - those are handled separately in Shopify
       const lineItems = quoteItems.map(item => ({
         itemCode: item.itemCode, // SKU for matching
         productName: item.productName,
         size: item.size,
         quantity: item.quantity,
-        unitPrice: item.pricePerSheet, // Price per packet (min order qty pricing)
+        unitPrice: item.total / item.quantity, // Price that results in correct line total
+        lineTotal: item.total, // The total from the quote
       }));
 
       const customerEmail = emailToUse || selectedCustomer.email;
