@@ -207,11 +207,14 @@ export default function QuoteCalculator() {
     setIsCustomSize(false);
     setCustomWidth("");
     setCustomHeight("");
+    setSelectedCustomer(null);
+    setAvailableContactEmails([]);
+    setQuoteItems([]);
     // Clear stored filters
     localStorage.removeItem("quoteCalculatorFilters");
     toast({
-      title: "Filters Reset",
-      description: "All filters have been cleared",
+      title: "Selections Reset",
+      description: "All filters and customer selection have been cleared",
     });
   };
 
