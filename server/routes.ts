@@ -14135,7 +14135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const item of lineItems) {
         const sku = (item.itemCode || item.sku || '').trim();
         const itemTitle = `${item.productName || item.title}${item.size ? ` - ${item.size}` : ''}`;
-        const qqPrice = item.unitPrice || item.pricePerPacket || 0; // QuickQuote price per unit
+        const qqUnitPrice = item.unitPrice || item.pricePerPacket || 0;
+        const qqLineTotal = item.lineTotal || 0; // Total from QuickQuotes (handles MOQ pricing)
         const quantity = item.quantity || 1;
         const skuLower = sku.toLowerCase();
 
@@ -14155,19 +14156,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Get Shopify's original price for discount calculation
           const shopifyVariant = shopifyVariantsBySku.get(skuLower);
-          const shopifyPrice = shopifyVariant?.price || 0;
-          const perUnitDiscount = shopifyPrice - qqPrice;
-          const totalLineDiscount = perUnitDiscount * quantity;
+          const shopifyUnitPrice = shopifyVariant?.price || 0;
+          const shopifyLineTotal = shopifyUnitPrice * quantity;
+          // Use QQ line total directly (handles MOQ pricing correctly)
+          const effectiveQQTotal = qqLineTotal > 0 ? qqLineTotal : (qqUnitPrice * quantity);
+          const totalLineDiscount = shopifyLineTotal - effectiveQQTotal;
           
-          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify: $${shopifyPrice}/unit, QQ: $${qqPrice}/unit, Qty: ${quantity}, Total Discount: $${totalLineDiscount.toFixed(2)})`);
+          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify Total: $${shopifyLineTotal.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)})`);
           
           const lineItem: any = {
             variant_id: variantId,
             quantity: quantity,
           };
           
-          // Apply discount if QQ price is lower than Shopify price
-          if (totalLineDiscount > 0) {
+          // Apply discount if QQ total is lower than Shopify total
+          if (totalLineDiscount > 0.01) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
@@ -14175,9 +14178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
-          } else if (qqPrice !== shopifyPrice) {
-            // QQ price is higher or Shopify price not found - override the price
-            lineItem.price = String(qqPrice.toFixed(2));
+          } else if (effectiveQQTotal !== shopifyLineTotal) {
+            // QQ total is higher or Shopify price not found - override the price
+            lineItem.price = String(qqUnitPrice.toFixed(2));
           }
           
           shopifyLineItems.push(lineItem);
@@ -14193,20 +14196,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(gidMatch[1], 10);
           }
           
-          // Calculate discount: Shopify price - QQ price (total for line item)
-          const shopifyPrice = shopifyVariant.price;
-          const perUnitDiscount = shopifyPrice - qqPrice;
-          const totalLineDiscount = perUnitDiscount * quantity;
+          // Calculate discount using QQ line total (handles MOQ pricing)
+          const shopifyUnitPrice = shopifyVariant.price;
+          const shopifyLineTotal = shopifyUnitPrice * quantity;
+          const effectiveQQTotal = qqLineTotal > 0 ? qqLineTotal : (qqUnitPrice * quantity);
+          const totalLineDiscount = shopifyLineTotal - effectiveQQTotal;
           
-          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify: $${shopifyPrice}/unit, QQ: $${qqPrice}/unit, Qty: ${quantity}, Total Discount: $${totalLineDiscount.toFixed(2)}`);
+          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify Total: $${shopifyLineTotal.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)}`);
           
           const lineItem: any = {
             variant_id: variantId,
             quantity: quantity,
           };
           
-          // Apply discount if QQ price is lower than Shopify price
-          if (totalLineDiscount > 0) {
+          // Apply discount if QQ total is lower than Shopify total
+          if (totalLineDiscount > 0.01) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
@@ -14214,19 +14218,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
-          } else if (qqPrice !== shopifyPrice) {
-            // QQ price is higher or equal - just override the price
-            lineItem.price = String(qqPrice.toFixed(2));
+          } else if (effectiveQQTotal !== shopifyLineTotal) {
+            // QQ total is higher or equal - just override the price
+            lineItem.price = String(qqUnitPrice.toFixed(2));
           }
           
           shopifyLineItems.push(lineItem);
           mappedItems.push(`${itemTitle} (SKU: ${sku})`);
         } else {
           // No mapping found - create custom line item with SKU reference
-          console.log(`[Shopify] No mapping for SKU: ${sku} - creating custom item at QQ price $${qqPrice}`);
+          console.log(`[Shopify] No mapping for SKU: ${sku} - creating custom item at QQ price $${qqUnitPrice}`);
           shopifyLineItems.push({
             title: itemTitle,
-            price: String(qqPrice.toFixed(2)),
+            price: String(qqUnitPrice.toFixed(2)),
             quantity: quantity,
             sku: sku || undefined,
             taxable: true,
