@@ -109,9 +109,9 @@ export default function OdooSettingsPage() {
   });
 
   // Start animated progress for import
-  const startImportProgress = (mode: 'add_new' | 'full_reset') => {
+  const startImportProgress = (mode: 'add_new' | 'full_reset' | 'sync_with_deletions') => {
     setImportProgress(0);
-    setImportStage(mode === 'full_reset' ? "Preparing full reset..." : "Connecting to Odoo...");
+    setImportStage(mode === 'full_reset' ? "Preparing full reset..." : mode === 'sync_with_deletions' ? "Starting full sync..." : "Connecting to Odoo...");
     
     // Simulate progress stages
     const stages = mode === 'full_reset' 
@@ -121,6 +121,15 @@ export default function OdooSettingsPage() {
           { progress: 50, stage: "Processing customer data..." },
           { progress: 75, stage: "Saving to database..." },
           { progress: 90, stage: "Finalizing import..." },
+        ]
+      : mode === 'sync_with_deletions'
+      ? [
+          { progress: 10, stage: "Checking existing customers..." },
+          { progress: 25, stage: "Fetching partners from Odoo..." },
+          { progress: 45, stage: "Identifying new customers..." },
+          { progress: 60, stage: "Importing new customers..." },
+          { progress: 75, stage: "Detecting deleted partners..." },
+          { progress: 90, stage: "Removing deleted customers..." },
         ]
       : [
           { progress: 15, stage: "Checking existing customers..." },
@@ -168,7 +177,7 @@ export default function OdooSettingsPage() {
   }, []);
 
   const importFromOdooMutation = useMutation({
-    mutationFn: async (params: { importMode: 'add_new' | 'full_reset' }) => {
+    mutationFn: async (params: { importMode: 'add_new' | 'full_reset' | 'sync_with_deletions' }) => {
       startImportProgress(params.importMode);
       const res = await apiRequest('POST', '/api/odoo/import/partners', { 
         importMode: params.importMode,
@@ -179,21 +188,25 @@ export default function OdooSettingsPage() {
     onSuccess: (data: any) => {
       stopImportProgress(true);
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers/count'] });
       queryClient.invalidateQueries({ queryKey: ['/api/odoo/partners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/odoo/sync-status'] });
       setImportResult({
         imported: data.imported,
         skipped: data.skipped,
         alreadyExists: data.alreadyExists || 0,
+        deleted: data.deleted || 0,
         failed: data.failed,
         errors: data.errors || [],
         skippedPartners: data.skippedPartners || [],
+        deletedCustomers: data.deletedCustomers || [],
         mode: data.mode || 'add_new',
       });
-      const modeText = data.mode === 'full_reset' ? 'Full import' : 'Incremental import';
+      const modeText = data.mode === 'full_reset' ? 'Full import' : data.mode === 'sync_with_deletions' ? 'Full sync' : 'Incremental import';
+      const deletedText = data.deleted > 0 ? `, Deleted: ${data.deleted}` : '';
       toast({ 
         title: `${modeText} complete`,
-        description: `New: ${data.imported}, Already existed: ${data.alreadyExists || 0}, Skipped: ${data.skipped}, Failed: ${data.failed}`
+        description: `New: ${data.imported}, Already existed: ${data.alreadyExists || 0}, Skipped: ${data.skipped}${deletedText}, Failed: ${data.failed}`
       });
     },
     onError: (error: any) => {
@@ -262,13 +275,16 @@ export default function OdooSettingsPage() {
 
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
+  const [showSyncWithDeletionsConfirm, setShowSyncWithDeletionsConfirm] = useState(false);
   const [importResult, setImportResult] = useState<{
     imported: number;
     skipped: number;
     alreadyExists: number;
+    deleted: number;
     failed: number;
     errors: string[];
     skippedPartners?: string[];
+    deletedCustomers?: string[];
     mode?: string;
   } | null>(null);
 
@@ -756,6 +772,53 @@ export default function OdooSettingsPage() {
                       </div>
                     )}
 
+                    {/* Full Sync with Deletions Option (Recommended for updates) */}
+                    {syncStatus?.hasPreviousSync && (
+                      <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-blue-800 dark:text-blue-200">Full Sync (Recommended)</div>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                              Import new partners AND remove customers deleted from Odoo
+                            </p>
+                          </div>
+                          {!showSyncWithDeletionsConfirm ? (
+                            <Button 
+                              variant="outline"
+                              className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                              onClick={() => setShowSyncWithDeletionsConfirm(true)}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Full Sync
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowSyncWithDeletionsConfirm(false)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={() => {
+                                  importFromOdooMutation.mutate({ importMode: 'sync_with_deletions' });
+                                  setShowSyncWithDeletionsConfirm(false);
+                                }}
+                                disabled={importFromOdooMutation.isPending}
+                              >
+                                {importFromOdooMutation.isPending && (
+                                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                )}
+                                Yes, Sync Now
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Advanced: Full Reset Option (hidden by default for incremental users) */}
                     {syncStatus?.hasPreviousSync && (
                       <details className="border rounded-lg p-3">
@@ -810,9 +873,9 @@ export default function OdooSettingsPage() {
                       <div className="space-y-3">
                         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                           <div className="font-semibold text-green-800 dark:text-green-200">
-                            {importResult.mode === 'full_reset' ? 'Full Import Completed' : 'Incremental Import Completed'}
+                            {importResult.mode === 'full_reset' ? 'Full Import Completed' : importResult.mode === 'sync_with_deletions' ? 'Full Sync Completed' : 'Incremental Import Completed'}
                           </div>
-                          <div className="text-sm text-green-700 dark:text-green-300 mt-2 grid grid-cols-4 gap-4">
+                          <div className={`text-sm text-green-700 dark:text-green-300 mt-2 grid gap-4 ${importResult.deleted > 0 ? 'grid-cols-5' : 'grid-cols-4'}`}>
                             <div className="text-center p-2 bg-green-100 rounded">
                               <div className="text-2xl font-bold text-green-700">{importResult.imported}</div>
                               <div className="text-xs">New</div>
@@ -825,12 +888,32 @@ export default function OdooSettingsPage() {
                               <div className="text-2xl font-bold text-yellow-700">{importResult.skipped}</div>
                               <div className="text-xs">Skipped</div>
                             </div>
+                            {importResult.deleted > 0 && (
+                              <div className="text-center p-2 bg-orange-100 rounded">
+                                <div className="text-2xl font-bold text-orange-700">{importResult.deleted}</div>
+                                <div className="text-xs">Removed</div>
+                              </div>
+                            )}
                             <div className="text-center p-2 bg-red-100 rounded">
                               <div className="text-2xl font-bold text-red-700">{importResult.failed}</div>
                               <div className="text-xs">Failed</div>
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Deleted Customers List */}
+                        {(importResult.deletedCustomers && importResult.deletedCustomers.length > 0) && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                            <div className="font-semibold text-orange-800 mb-2">
+                              Removed Customers (Deleted from Odoo)
+                            </div>
+                            <div className="text-sm text-orange-700 max-h-32 overflow-y-auto">
+                              {importResult.deletedCustomers.map((c, i) => (
+                                <div key={i} className="py-1 border-b border-orange-100 last:border-0">{c}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         
                         {(importResult.skippedPartners && importResult.skippedPartners.length > 0) && (
                           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

@@ -10631,13 +10631,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import partners from Odoo as customers with import mode support
-  // importMode: 'add_new' (default) = only add missing, 'full_reset' = delete all and re-import
+  // importMode: 'add_new' (default) = only add missing, 'full_reset' = delete all and re-import, 'sync_with_deletions' = add/update + remove deleted
   app.post("/api/odoo/import/partners", requireAdmin, async (req: any, res) => {
     try {
       const { deleteExisting = false, importMode = 'add_new' } = req.body;
       const useFullReset = deleteExisting || importMode === 'full_reset';
+      const useSyncWithDeletions = importMode === 'sync_with_deletions';
       
-      console.log(`[Odoo Import] Starting partner import from Odoo (mode: ${useFullReset ? 'full_reset' : 'add_new'})...`);
+      console.log(`[Odoo Import] Starting partner import from Odoo (mode: ${useFullReset ? 'full_reset' : useSyncWithDeletions ? 'sync_with_deletions' : 'add_new'})...`);
       
       // Step 1: If full reset, delete all existing customers
       if (useFullReset) {
@@ -10648,12 +10649,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Step 2: Get existing Odoo partner IDs to check for duplicates (for incremental mode)
       const existingOdooIds = new Set<number>();
+      const existingOdooCustomers = new Map<number, string>(); // odooPartnerId -> customerId
       if (!useFullReset) {
-        const existing = await db.select({ odooPartnerId: customers.odooPartnerId })
+        const existing = await db.select({ id: customers.id, odooPartnerId: customers.odooPartnerId })
           .from(customers)
           .where(sql`${customers.odooPartnerId} IS NOT NULL`);
         existing.forEach(c => {
-          if (c.odooPartnerId) existingOdooIds.add(c.odooPartnerId);
+          if (c.odooPartnerId) {
+            existingOdooIds.add(c.odooPartnerId);
+            existingOdooCustomers.set(c.odooPartnerId, c.id);
+          }
         });
         console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers`);
       }
@@ -10677,11 +10682,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skipped: 0,
         skippedVendors: 0,
         alreadyExists: 0,
+        deleted: 0,
         failed: 0,
         errors: [] as string[],
         skippedPartners: [] as string[],
-        mode: useFullReset ? 'full_reset' : 'add_new',
+        deletedCustomers: [] as string[],
+        mode: useFullReset ? 'full_reset' : useSyncWithDeletions ? 'sync_with_deletions' : 'add_new',
       };
+      
+      // Track which Odoo partner IDs are still active in Odoo
+      const activeOdooPartnerIds = new Set<number>();
       
       // Step 5: Create each partner as a customer
       for (const partner of partners) {
@@ -10698,6 +10708,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             results.skippedVendors++;
             continue;
           }
+          
+          // Track this as an active partner in Odoo (for deletion sync)
+          activeOdooPartnerIds.add(partner.id);
           
           // In incremental mode, skip partners that already exist
           if (!useFullReset && existingOdooIds.has(partner.id)) {
@@ -10804,12 +10817,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`[Odoo Import] Resolved ${parentLinksResolved} parent relationships`);
       
+      // Step 6: If sync_with_deletions mode, delete customers that no longer exist in Odoo
+      if (useSyncWithDeletions && existingOdooCustomers.size > 0) {
+        console.log(`[Odoo Import] Checking for deleted partners (sync mode)...`);
+        console.log(`[Odoo Import] Active Odoo partners: ${activeOdooPartnerIds.size}, Local Odoo-linked customers: ${existingOdooCustomers.size}`);
+        
+        for (const [odooPartnerId, customerId] of existingOdooCustomers) {
+          // If this local customer's Odoo partner ID is NOT in the active set, it was deleted from Odoo
+          if (!activeOdooPartnerIds.has(odooPartnerId)) {
+            try {
+              // Get customer name for logging before deletion
+              const [customerToDelete] = await db.select({ 
+                company: customers.company, 
+                firstName: customers.firstName,
+                lastName: customers.lastName 
+              })
+                .from(customers)
+                .where(eq(customers.id, customerId))
+                .limit(1);
+              
+              const customerName = customerToDelete?.company || 
+                `${customerToDelete?.firstName || ''} ${customerToDelete?.lastName || ''}`.trim() || 
+                'Unknown';
+              
+              await db.delete(customers).where(eq(customers.id, customerId));
+              results.deleted++;
+              results.deletedCustomers.push(`${customerName} (Odoo ID: ${odooPartnerId})`);
+              console.log(`[Odoo Import] Deleted customer: ${customerName} (Odoo partner ${odooPartnerId} no longer exists)`);
+            } catch (error: any) {
+              results.errors.push(`Failed to delete customer ${customerId}: ${error.message}`);
+            }
+          }
+        }
+        
+        console.log(`[Odoo Import] Deletion sync complete: ${results.deleted} customers removed`);
+      }
+      
       // Clear customer cache to ensure fresh data is returned
       setCachedData("customers", null);
       
       res.json({
         success: true,
-        message: `Imported ${results.imported} partners from Odoo`,
+        message: `Imported ${results.imported} partners from Odoo${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
         parentLinksResolved,
         ...results
       });
