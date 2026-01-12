@@ -1,99 +1,149 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { 
   Phone, 
   Mail, 
   PhoneMissed, 
-  PauseCircle,
   CheckCircle2,
   ArrowLeft,
   Building2,
   User,
-  Clock,
   Zap,
   Trophy,
-  Sparkles,
   SkipForward,
   AlertCircle,
-  MapPin,
-  Tag,
   Send,
   BookOpen,
-  TestTube,
   FileText,
   Gauge,
   RefreshCw,
   Heart,
-  Settings,
   Calendar,
   MessageCircle,
   Layers,
   Package,
+  UserX,
+  Voicemail,
+  Check,
+  Clock,
+  Target,
+  AlertTriangle,
   LucideIcon
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Customer {
   id: string;
-  company: string;
-  name: string;
-  email: string;
-  phone: string;
+  company: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  salesRepName: string | null;
+  pricingTier: string | null;
 }
 
-interface CoachingMoment {
-  id: number;
+interface OutcomeButton {
+  outcome: string;
+  label: string;
+  icon: string;
+  color: string;
+  schedulesFollowUp?: boolean;
+  followUpDays?: number;
+}
+
+interface NowModeCard {
   customerId: string;
-  action: string;
+  cardType: string;
+  bucket: string;
   whyNow: string;
-  priority: number;
-  customer: Customer | null;
+  isHardCard: boolean;
+  outcomeButtons: OutcomeButton[];
+  customer: Customer;
+}
+
+interface BucketProgress {
+  bucket: string;
+  completed: number;
+  quota: number;
+  remaining: number;
 }
 
 interface NowModeResponse {
-  moment: CoachingMoment | null;
+  card: NowModeCard | null;
   completed: number;
-  dailyCap: number;
+  dailyTarget: number;
   remaining: number;
   allDone?: boolean;
   message?: string;
-  efficiencyScore?: number;
-  callsToday?: number;
-  callsRemaining?: number;
+  efficiencyScore: number;
+  bucketProgress: BucketProgress[];
+  skipPenaltyApplied: boolean;
+  totalSkips: number;
 }
 
-const MOMENT_ACTIONS: Record<string, { label: string; Icon: LucideIcon; color: string }> = {
-  update_customer_data: { label: 'Update Customer Information', Icon: User, color: '#0D6EFD' },
-  sync_address: { label: 'Sync Address from Odoo', Icon: MapPin, color: '#17A2B8' },
-  sync_email: { label: 'Sync Email from Odoo', Icon: Mail, color: '#17A2B8' },
-  identify_no_contact: { label: 'Identify No-Contact Customer', Icon: AlertCircle, color: '#FD7E14' },
-  send_marketing_email: { label: 'Send Marketing Email', Icon: Send, color: '#28A745' },
-  send_swatchbook: { label: 'Send Swatchbook', Icon: BookOpen, color: '#6F42C1' },
-  send_press_test: { label: 'Send Press Test', Icon: TestTube, color: '#D63384' },
-  send_price_list: { label: 'Send Price List', Icon: FileText, color: '#0D6EFD' },
-  follow_up_quote: { label: 'Follow Up on Quote', Icon: Phone, color: '#28A745' },
-  follow_up_sample: { label: 'Follow Up on Sample', Icon: Package, color: '#6F42C1' },
-  daily_call: { label: 'Daily Call', Icon: Phone, color: '#28A745' },
-  check_reorder: { label: 'Check Reorder Status', Icon: RefreshCw, color: '#17A2B8' },
-  win_back: { label: 'Win Back Customer', Icon: Heart, color: '#DC3545' },
-  send_sample: { label: 'Send Sample', Icon: Package, color: '#6F42C1' },
-  send_quote: { label: 'Send Quote', Icon: FileText, color: '#0D6EFD' },
-  confirm_machine: { label: 'Confirm Machine Type', Icon: Settings, color: '#FD7E14' },
-  schedule_call: { label: 'Schedule a Call', Icon: Calendar, color: '#6F42C1' },
-  check_feedback: { label: 'Check Sample Feedback', Icon: MessageCircle, color: '#17A2B8' },
-  introduce_category: { label: 'Introduce New Category', Icon: Layers, color: '#6F42C1' },
+const BUCKET_LABELS: Record<string, { label: string; color: string }> = {
+  calls: { label: "Calls", color: "#28A745" },
+  follow_ups: { label: "Follow-ups", color: "#FD7E14" },
+  outreach: { label: "Outreach", color: "#6F42C1" },
+  data_hygiene: { label: "Data Hygiene", color: "#17A2B8" },
+  enablement: { label: "Enablement", color: "#D63384" },
 };
+
+const CARD_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
+  set_pricing_tier: { label: "Set Pricing Tier", Icon: Target },
+  set_sales_rep: { label: "Assign Sales Rep", Icon: User },
+  set_primary_email: { label: "Add Primary Email", Icon: Mail },
+  daily_call: { label: "Daily Call", Icon: Phone },
+  follow_up_call: { label: "Follow-up Call", Icon: Phone },
+  send_swatchbook: { label: "Send Swatchbook", Icon: BookOpen },
+  send_press_test: { label: "Send Press Test", Icon: Package },
+  send_marketing_email: { label: "Send Marketing Email", Icon: Send },
+  send_price_list: { label: "Send Price List", Icon: FileText },
+  follow_up_quote: { label: "Follow Up on Quote", Icon: Phone },
+  follow_up_sample: { label: "Follow Up on Sample", Icon: Package },
+  follow_up_materials: { label: "Follow Up on Materials", Icon: MessageCircle },
+  check_feedback: { label: "Check Feedback", Icon: MessageCircle },
+  introduce_category: { label: "Introduce New Category", Icon: Layers },
+  check_reorder: { label: "Check Reorder Status", Icon: RefreshCw },
+  win_back: { label: "Win Back Customer", Icon: Heart },
+};
+
+const OUTCOME_ICONS: Record<string, LucideIcon> = {
+  check: CheckCircle2,
+  phone: Phone,
+  voicemail: Voicemail,
+  "phone-missed": PhoneMissed,
+  mail: Mail,
+  send: Send,
+  "file-text": FileText,
+  calendar: Calendar,
+  "user-x": UserX,
+};
+
+const SKIP_REASONS = [
+  { value: "customer_unavailable", label: "Customer unavailable" },
+  { value: "wrong_timing", label: "Wrong timing" },
+  { value: "already_contacted", label: "Already contacted recently" },
+  { value: "missing_info", label: "Missing required info" },
+  { value: "not_relevant", label: "Not relevant for this customer" },
+  { value: "other", label: "Other reason" },
+];
 
 export default function NowMode() {
   const [notes, setNotes] = useState("");
-  const [showNotes, setShowNotes] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [skipReason, setSkipReason] = useState("");
+  const [skipNotes, setSkipNotes] = useState("");
   const { toast } = useToast();
 
   const { data, isLoading, refetch } = useQuery<NowModeResponse>({
@@ -102,12 +152,13 @@ export default function NowMode() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: async ({ momentId, outcome, notes }: { momentId: number; outcome: string; notes?: string }) => {
-      return apiRequest("POST", "/api/now-mode/complete", { momentId, outcome, notes });
+    mutationFn: async ({ customerId, cardType, outcome, notes }: { customerId: string; cardType: string; outcome: string; notes?: string }) => {
+      return apiRequest("POST", "/api/now-mode/complete", { customerId, cardType, outcome, notes });
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       setNotes("");
-      setShowNotes(false);
+      const outcome = response.nextFollowUpAt ? "Completed! Follow-up scheduled." : "Completed!";
+      toast({ title: outcome, description: "Moving to next card..." });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/efficiency"] });
       refetch();
@@ -115,23 +166,29 @@ export default function NowMode() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to complete moment",
+        description: error instanceof Error ? error.message : "Failed to complete card",
         variant: "destructive",
       });
     },
   });
 
   const skipMutation = useMutation({
-    mutationFn: async ({ momentId }: { momentId: number }) => {
-      return apiRequest("POST", "/api/now-mode/complete", { momentId, outcome: 'skipped' });
+    mutationFn: async ({ customerId, cardType, skipReason, notes }: { customerId: string; cardType: string; skipReason: string; notes?: string }) => {
+      return apiRequest("POST", "/api/now-mode/skip", { customerId, cardType, skipReason, notes });
     },
-    onSuccess: () => {
-      setNotes("");
-      setShowNotes(false);
-      toast({
-        title: "Skipped",
-        description: "Task skipped. A new task has been added to maintain your daily target.",
-      });
+    onSuccess: (response: any) => {
+      setShowSkipModal(false);
+      setSkipReason("");
+      setSkipNotes("");
+      if (response.penaltyApplied) {
+        toast({
+          title: "Skip Penalty Applied",
+          description: "You've skipped 3+ times today. Fewer difficult cards will be shown.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Skipped", description: "Moving to next card..." });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/efficiency"] });
       refetch();
@@ -139,434 +196,315 @@ export default function NowMode() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to skip moment",
+        description: error instanceof Error ? error.message : "Failed to skip card",
         variant: "destructive",
       });
     },
   });
 
   const handleOutcome = (outcome: string) => {
-    if (!data?.moment) return;
+    if (!data?.card) return;
     completeMutation.mutate({
-      momentId: data.moment.id,
+      customerId: data.card.customerId,
+      cardType: data.card.cardType,
       outcome,
       notes: notes || undefined,
     });
   };
 
-  const handleSkip = () => {
-    if (!data?.moment) return;
-    skipMutation.mutate({ momentId: data.moment.id });
+  const handleSkipConfirm = () => {
+    if (!data?.card || !skipReason) return;
+    skipMutation.mutate({
+      customerId: data.card.customerId,
+      cardType: data.card.cardType,
+      skipReason,
+      notes: skipNotes || undefined,
+    });
   };
 
-  const progress = data && data.dailyCap > 0 ? (data.completed / data.dailyCap) * 100 : 0;
+  const progress = data ? (data.completed / data.dailyTarget) * 100 : 0;
+  const efficiencyColor = (data?.efficiencyScore || 100) >= 80 ? "#28A745" : 
+                          (data?.efficiencyScore || 100) >= 50 ? "#FD7E14" : "#DC3545";
 
   if (isLoading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '16px',
-        }}>
-          <Zap size={48} style={{ color: '#6F42C1', animation: 'pulse 1.5s infinite' }} />
-          <span style={{ color: '#6B6B8C', fontSize: '16px', fontWeight: 500 }}>Loading Now Mode...</span>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading NOW MODE...</p>
         </div>
       </div>
     );
   }
-
-  if (data?.allDone) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
-        padding: '40px 24px',
-      }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <Button variant="ghost" style={{ marginBottom: '24px', gap: '8px' }}>
-              <ArrowLeft size={18} />
-              Back to Dashboard
-            </Button>
-          </Link>
-
-          <Card style={{ 
-            borderRadius: '2px', 
-            overflow: 'hidden',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-          }}>
-            <CardContent style={{ 
-              padding: '60px 40px', 
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #28A745 0%, #20c997 100%)',
-            }}>
-              <Trophy size={80} style={{ color: '#FFFFFF', marginBottom: '24px' }} />
-              <h1 style={{ fontSize: '32px', fontWeight: 700, color: '#FFFFFF', marginBottom: '16px' }}>
-                All Done for Today!
-              </h1>
-              <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.9)', marginBottom: '24px' }}>
-                You completed {data.completed} coaching moments. Great work!
-              </p>
-              <div style={{
-                background: 'rgba(255,255,255,0.2)',
-                borderRadius: '2px',
-                padding: '16px 24px',
-                display: 'inline-block',
-              }}>
-                <Sparkles size={24} style={{ color: '#FFFFFF' }} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data?.moment) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
-        padding: '40px 24px',
-      }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <Button variant="ghost" style={{ marginBottom: '24px', gap: '8px' }}>
-              <ArrowLeft size={18} />
-              Back to Dashboard
-            </Button>
-          </Link>
-
-          <Card style={{ 
-            borderRadius: '2px', 
-            overflow: 'hidden',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-          }}>
-            <CardContent style={{ 
-              padding: '60px 40px', 
-              textAlign: 'center',
-            }}>
-              <Clock size={64} style={{ color: '#6B6B8C', marginBottom: '24px' }} />
-              <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#2C2C54', marginBottom: '16px' }}>
-                No Moments Right Now
-              </h1>
-              <p style={{ fontSize: '16px', color: '#6B6B8C', marginBottom: '24px' }}>
-                {data?.message || "Check back later for new coaching moments."}
-              </p>
-              <Progress value={progress} className="h-3" style={{ maxWidth: '300px', margin: '0 auto' }} />
-              <p style={{ fontSize: '14px', color: '#6B6B8C', marginTop: '12px' }}>
-                {data?.completed || 0} of {data?.dailyCap || 6} completed today
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  const moment = data.moment;
-  const actionInfo = MOMENT_ACTIONS[moment.action] || { label: moment.action, Icon: Zap, color: '#6F42C1' };
-  const ActionIcon = actionInfo.Icon;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
-      padding: '40px 24px',
-    }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <Button variant="ghost" style={{ gap: '8px' }}>
-              <ArrowLeft size={18} />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Efficiency Score Badge */}
-            {data.efficiencyScore !== undefined && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    background: data.efficiencyScore >= 80 ? 'rgba(40, 167, 69, 0.1)' : 
-                               data.efficiencyScore >= 50 ? 'rgba(255, 193, 7, 0.1)' : 
-                               'rgba(220, 53, 69, 0.1)',
-                    border: `1px solid ${data.efficiencyScore >= 80 ? 'rgba(40, 167, 69, 0.3)' : 
-                                         data.efficiencyScore >= 50 ? 'rgba(255, 193, 7, 0.3)' : 
-                                         'rgba(220, 53, 69, 0.3)'}`,
-                    cursor: 'pointer',
-                  }}>
-                    <Gauge size={16} style={{ 
-                      color: data.efficiencyScore >= 80 ? '#28A745' : 
-                             data.efficiencyScore >= 50 ? '#FFC107' : '#DC3545' 
-                    }} />
-                    <span style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: data.efficiencyScore >= 80 ? '#28A745' : 
-                             data.efficiencyScore >= 50 ? '#FFC107' : '#DC3545',
-                    }}>
-                      {data.efficiencyScore}%
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your 7-day efficiency score</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {/* Daily Calls Tracker */}
-            {data.callsRemaining !== undefined && data.callsRemaining > 0 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                background: 'rgba(40, 167, 69, 0.1)',
-                border: '1px solid rgba(40, 167, 69, 0.3)',
-              }}>
-                <Phone size={14} style={{ color: '#28A745' }} />
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#28A745' }}>
-                  {data.callsRemaining} calls left
-                </span>
-              </div>
-            )}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#2C2C54' }}>
-                {data.completed} / {data.dailyCap}
-              </div>
-              <div style={{ fontSize: '12px', color: '#6B6B8C' }}>tasks today</div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm">
+              <Gauge className="h-4 w-4" style={{ color: efficiencyColor }} />
+              <span className="font-semibold" style={{ color: efficiencyColor }}>
+                {data?.efficiencyScore || 100}
+              </span>
+              <span className="text-xs text-gray-500">Efficiency</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm">
+              <Trophy className="h-4 w-4 text-purple-600" />
+              <span className="font-semibold text-purple-600">
+                {data?.completed || 0}/{data?.dailyTarget || 10}
+              </span>
+              <span className="text-xs text-gray-500">Today</span>
             </div>
           </div>
         </div>
 
-        <Progress value={progress} className="h-2 mb-6" />
-
-        <Card style={{ 
-          borderRadius: '2px', 
-          overflow: 'hidden',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #6F42C1 0%, #8B5CF6 100%)',
-            padding: '24px',
-            color: '#FFFFFF',
-          }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', opacity: 0.8 }}>
-              Coaching Moment
-            </div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
-              {actionInfo.label}
-            </h2>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">Daily Progress</span>
+            <span className="text-sm text-gray-500">{data?.remaining || 0} remaining</span>
           </div>
+          <Progress value={progress} className="h-3" />
+        </div>
 
-          <CardContent style={{ padding: '24px' }}>
-            <div style={{ 
-              background: 'rgba(111, 66, 193, 0.08)', 
-              borderRadius: '2px', 
-              padding: '20px',
-              marginBottom: '24px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <Building2 size={20} style={{ color: '#6F42C1' }} />
-                <span style={{ fontSize: '18px', fontWeight: 600, color: '#2C2C54' }}>
-                  {moment.customer?.company || 'Unknown Company'}
-                </span>
+        {data?.skipPenaltyApplied && (
+          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <span className="text-sm text-orange-700">
+              Skip penalty active ({data?.totalSkips || 0} skips today). Fewer difficult cards shown.
+            </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-5 gap-2 mb-6">
+          {data?.bucketProgress?.map((bp) => {
+            const bucketInfo = BUCKET_LABELS[bp.bucket] || { label: bp.bucket, color: "#6B7280" };
+            const isComplete = bp.completed >= bp.quota;
+            return (
+              <div
+                key={bp.bucket}
+                className={`p-2 rounded-lg text-center ${isComplete ? "bg-green-100 border-green-300" : "bg-white"} border`}
+              >
+                <div className="text-xs font-medium" style={{ color: bucketInfo.color }}>
+                  {bucketInfo.label}
+                </div>
+                <div className="text-lg font-bold" style={{ color: isComplete ? "#28A745" : bucketInfo.color }}>
+                  {bp.completed}/{bp.quota}
+                </div>
               </div>
-              {moment.customer?.name && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <User size={16} style={{ color: '#6B6B8C' }} />
-                  <span style={{ fontSize: '14px', color: '#6B6B8C' }}>{moment.customer.name}</span>
-                </div>
-              )}
-              {moment.customer?.phone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <Phone size={16} style={{ color: '#6B6B8C' }} />
-                  <a href={`tel:${moment.customer.phone}`} style={{ fontSize: '14px', color: '#0D6EFD', textDecoration: 'none' }}>
-                    {moment.customer.phone}
-                  </a>
-                </div>
-              )}
-              {moment.customer?.email && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Mail size={16} style={{ color: '#6B6B8C' }} />
-                  <a href={`mailto:${moment.customer.email}`} style={{ fontSize: '14px', color: '#0D6EFD', textDecoration: 'none' }}>
-                    {moment.customer.email}
-                  </a>
-                </div>
-              )}
-            </div>
+            );
+          })}
+        </div>
 
-            <div style={{ 
-              background: '#FFF8E5', 
-              borderRadius: '2px', 
-              padding: '16px',
-              marginBottom: '24px',
-              border: '1px solid rgba(255, 193, 7, 0.3)',
-            }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#B8860B', marginBottom: '4px', textTransform: 'uppercase' }}>
-                Why Now
+        {data?.allDone || !data?.card ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle2 className="h-10 w-10 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {data?.allDone ? "All Done for Today!" : "No Cards Available"}
+                </h2>
+                <p className="text-gray-600 max-w-md">
+                  {data?.allDone 
+                    ? `Great work! You've completed ${data?.completed || 0} tasks today with an efficiency score of ${data?.efficiencyScore || 100}.`
+                    : data?.message || "Check back later for more tasks."}
+                </p>
+                <Link href="/">
+                  <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+                    Return to Dashboard
+                  </Button>
+                </Link>
               </div>
-              <p style={{ fontSize: '14px', color: '#2C2C54', margin: 0, lineHeight: 1.5 }}>
-                {moment.whyNow}
-              </p>
-            </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="shadow-lg">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Badge 
+                  variant="secondary"
+                  style={{ 
+                    backgroundColor: BUCKET_LABELS[data.card.bucket]?.color + "20",
+                    color: BUCKET_LABELS[data.card.bucket]?.color,
+                  }}
+                >
+                  {BUCKET_LABELS[data.card.bucket]?.label || data.card.bucket}
+                </Badge>
+                {data.card.isHardCard && (
+                  <Badge variant="outline" className="text-orange-600 border-orange-300">
+                    <Zap className="h-3 w-3 mr-1" />
+                    High Value
+                  </Badge>
+                )}
+              </div>
+              <CardTitle className="flex items-center gap-2 mt-2">
+                {(() => {
+                  const cardInfo = CARD_TYPE_LABELS[data.card.cardType];
+                  const Icon = cardInfo?.Icon || Target;
+                  return (
+                    <>
+                      <Icon className="h-5 w-5 text-purple-600" />
+                      <span>{cardInfo?.label || data.card.cardType}</span>
+                    </>
+                  );
+                })()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">
+                      {data.card.customer.company || data.card.customer.name || "Unknown"}
+                    </h3>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+                      {data.card.customer.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {data.card.customer.email}
+                        </span>
+                      )}
+                      {data.card.customer.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {data.card.customer.phone}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {data.card.customer.pricingTier && (
+                        <Badge variant="outline" className="text-xs">
+                          {data.card.customer.pricingTier}
+                        </Badge>
+                      )}
+                      {data.card.customer.salesRepName && (
+                        <Badge variant="outline" className="text-xs">
+                          Rep: {data.card.customer.salesRepName}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            {showNotes && (
-              <div style={{ marginBottom: '24px' }}>
+              <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <p className="text-sm text-purple-800">
+                  <span className="font-medium">Why now: </span>
+                  {data.card.whyNow}
+                </p>
+              </div>
+
+              <div>
                 <Textarea
                   placeholder="Add notes (optional)..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  style={{ borderRadius: '2px', minHeight: '80px' }}
+                  className="min-h-[60px]"
                 />
               </div>
-            )}
 
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(2, 1fr)', 
-              gap: '12px',
-            }}>
-              <Button
-                onClick={() => handleOutcome('called')}
-                disabled={completeMutation.isPending}
-                style={{
-                  background: '#28A745',
-                  color: '#FFFFFF',
-                  borderRadius: '2px',
-                  padding: '16px',
-                  height: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <Phone size={24} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Called</span>
-              </Button>
-
-              <Button
-                onClick={() => handleOutcome('emailed')}
-                disabled={completeMutation.isPending}
-                style={{
-                  background: '#0D6EFD',
-                  color: '#FFFFFF',
-                  borderRadius: '2px',
-                  padding: '16px',
-                  height: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <Mail size={24} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Emailed</span>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                {data.card.outcomeButtons.map((btn) => {
+                  const Icon = OUTCOME_ICONS[btn.icon] || Check;
+                  const bgColor = btn.color === "green" ? "bg-green-600 hover:bg-green-700" :
+                                  btn.color === "blue" ? "bg-blue-600 hover:bg-blue-700" :
+                                  btn.color === "yellow" ? "bg-yellow-600 hover:bg-yellow-700" :
+                                  btn.color === "orange" ? "bg-orange-600 hover:bg-orange-700" :
+                                  btn.color === "red" ? "bg-red-600 hover:bg-red-700" :
+                                  "bg-gray-600 hover:bg-gray-700";
+                  return (
+                    <Button
+                      key={btn.outcome}
+                      onClick={() => handleOutcome(btn.outcome)}
+                      disabled={completeMutation.isPending}
+                      className={`${bgColor} text-white gap-2 py-6`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm">{btn.label}</span>
+                      {btn.schedulesFollowUp && (
+                        <Clock className="h-3 w-3 opacity-70" />
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
 
               <Button
-                onClick={() => handleOutcome('no_answer')}
-                disabled={completeMutation.isPending}
-                variant="outline"
-                style={{
-                  borderRadius: '2px',
-                  padding: '16px',
-                  height: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  borderColor: '#FD7E14',
-                  color: '#FD7E14',
-                }}
+                variant="ghost"
+                onClick={() => setShowSkipModal(true)}
+                disabled={skipMutation.isPending}
+                className="w-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               >
-                <PhoneMissed size={24} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>No Answer</span>
+                <SkipForward className="h-4 w-4 mr-2" />
+                Skip this card
+                {(data?.totalSkips || 0) >= 2 && (
+                  <span className="ml-2 text-xs text-orange-500">
+                    ({3 - (data?.totalSkips || 0)} skips until penalty)
+                  </span>
+                )}
               </Button>
 
-              <Button
-                onClick={() => handleOutcome('pause')}
-                disabled={completeMutation.isPending}
-                variant="outline"
-                style={{
-                  borderRadius: '2px',
-                  padding: '16px',
-                  height: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  borderColor: '#6B6B8C',
-                  color: '#6B6B8C',
-                }}
-              >
-                <PauseCircle size={24} />
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Pause</span>
-              </Button>
-            </div>
-
-            {/* Skip Button - adds replacement task */}
-            <Button
-              onClick={handleSkip}
-              disabled={skipMutation.isPending || completeMutation.isPending}
-              variant="ghost"
-              style={{
-                width: '100%',
-                marginTop: '12px',
-                color: '#DC3545',
-                borderColor: 'rgba(220, 53, 69, 0.3)',
-                border: '1px solid rgba(220, 53, 69, 0.2)',
-              }}
-            >
-              <SkipForward size={18} style={{ marginRight: '8px' }} />
-              Skip Task (adds replacement)
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => setShowNotes(!showNotes)}
-              style={{ width: '100%', marginTop: '16px', color: '#6B6B8C' }}
-            >
-              {showNotes ? 'Hide Notes' : 'Add Notes'}
-            </Button>
-
-            <Link 
-              href={`/client-detail/${moment.customerId}`} 
-              style={{ 
-                display: 'block', 
-                textAlign: 'center', 
-                marginTop: '16px',
-                fontSize: '14px',
-                color: '#6F42C1',
-                textDecoration: 'none',
-              }}
-            >
-              View Full Customer Profile
-            </Link>
-          </CardContent>
-        </Card>
-
-        <p style={{ 
-          textAlign: 'center', 
-          fontSize: '14px', 
-          color: '#6B6B8C', 
-          marginTop: '24px',
-        }}>
-          {data.remaining} more moment{data.remaining !== 1 ? 's' : ''} remaining today
-        </p>
+              <div className="text-center">
+                <Link href={`/customer/${data.card.customerId}`}>
+                  <Button variant="link" className="text-purple-600">
+                    View Full Customer Profile
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <Dialog open={showSkipModal} onOpenChange={setShowSkipModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Skip this card?</DialogTitle>
+            <DialogDescription>
+              Please select a reason for skipping. After 3 skips, fewer difficult cards will be shown.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <RadioGroup value={skipReason} onValueChange={setSkipReason}>
+              {SKIP_REASONS.map((reason) => (
+                <div key={reason.value} className="flex items-center space-x-2 py-2">
+                  <RadioGroupItem value={reason.value} id={reason.value} />
+                  <Label htmlFor={reason.value}>{reason.label}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+            {skipReason === "other" && (
+              <Textarea
+                placeholder="Please explain..."
+                value={skipNotes}
+                onChange={(e) => setSkipNotes(e.target.value)}
+                className="mt-3"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSkipModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSkipConfirm} 
+              disabled={!skipReason || skipMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Skip Card
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
