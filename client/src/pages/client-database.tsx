@@ -1817,6 +1817,7 @@ export default function ClientDatabase() {
           onNext={handleNextCustomer}
           hasPrev={hasPrevCustomer}
           hasNext={hasNextCustomer}
+          fromNowMode={urlParams.get('from') === 'now-mode'}
         />
         {/* Edit Dialog - needs to be here so it renders when in detail view */}
         <Dialog open={isEditDialogOpen} onOpenChange={() => {

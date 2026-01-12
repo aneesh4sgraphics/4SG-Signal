@@ -124,6 +124,7 @@ interface ClientDetailViewProps {
   onNext?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  fromNowMode?: boolean; // Show "Back to NOW MODE" button
 }
 
 function NowModeActivitiesTab({ customerId }: { customerId: string }) {
@@ -210,7 +211,7 @@ function NowModeActivitiesTab({ customerId }: { customerId: string }) {
   );
 }
 
-export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete, onPrev, onNext, hasPrev = false, hasNext = false }: ClientDetailViewProps) {
+export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete, onPrev, onNext, hasPrev = false, hasNext = false, fromNowMode = false }: ClientDetailViewProps) {
   const [activeTab, setActiveTab] = useState("quotes-prices");
   const [isAddPressProfileOpen, setIsAddPressProfileOpen] = useState(false);
   const [isAddSampleOpen, setIsAddSampleOpen] = useState(false);
@@ -1003,9 +1004,18 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       }`}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 mt-0.5 text-[#875A7B] hover:bg-[#875A7B]/10" data-testid="btn-back">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            {fromNowMode ? (
+              <Link href="/now-mode">
+                <Button variant="outline" size="sm" className="h-8 text-purple-600 border-purple-300 hover:bg-purple-50" data-testid="btn-back-now-mode">
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back to NOW MODE
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 mt-0.5 text-[#875A7B] hover:bg-[#875A7B]/10" data-testid="btn-back">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-odoo-heading text-xl font-semibold text-[#2C2C2C]" data-testid="client-name">{customerName}</h1>

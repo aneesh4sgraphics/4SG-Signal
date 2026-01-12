@@ -730,7 +730,7 @@ export default function NowMode() {
               </Button>
 
               <div className="text-center">
-                <Link href={`/customer/${data.card.customerId}`}>
+                <Link href={`/clients?customerId=${data.card.customerId}&from=now-mode`}>
                   <Button variant="link" className="text-purple-600">
                     View Full Customer Profile
                   </Button>
