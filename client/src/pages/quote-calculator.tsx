@@ -128,9 +128,11 @@ export default function QuoteCalculator() {
   const [isCreatingOdooOrder, setIsCreatingOdooOrder] = useState(false);
   const [isCreatingShopifyDraft, setIsCreatingShopifyDraft] = useState(false);
   const [emailSelectDialogOpen, setEmailSelectDialogOpen] = useState(false);
-  const [emailSelectAction, setEmailSelectAction] = useState<'set_primary' | null>(null);
+  const [emailSelectAction, setEmailSelectAction] = useState<'set_primary' | 'fix_missing' | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string>('');
   const [pendingCustomer, setPendingCustomer] = useState<Customer | null>(null);
+  const [availableContactEmails, setAvailableContactEmails] = useState<{ email: string; source: string }[]>([]);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([
     { id: 'cc', type: 'credit_card', label: 'Credit Card Fee (4.5%)', odooProductCode: 'CC-FEE', amount: 0, enabled: true, percentage: 4.5 },
     { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 55, enabled: true },
@@ -808,31 +810,122 @@ export default function QuoteCalculator() {
     return emails;
   };
 
+  // Check if email is missing or invalid
+  const isEmailMissing = (email: string | null | undefined): boolean => {
+    if (!email) return true;
+    const trimmed = email.trim().toLowerCase();
+    return trimmed === '' || 
+           trimmed === 'n/a' || 
+           trimmed === 'na' || 
+           trimmed === 'none' || 
+           trimmed === '-' || 
+           !email.includes('@');
+  };
+
+  // Fetch contact emails for a customer
+  const fetchContactEmails = async (customerId: string): Promise<{ email: string; source: string }[]> => {
+    const emails: { email: string; source: string }[] = [];
+    
+    try {
+      // Fetch customer contacts
+      const contactsRes = await fetch(`/api/crm/customer-contacts?customerId=${customerId}`, { credentials: 'include' });
+      if (contactsRes.ok) {
+        const contacts = await contactsRes.json();
+        for (const c of contacts) {
+          if (c.email && c.email.includes('@')) {
+            emails.push({ email: c.email, source: c.name || 'Contact' });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching contacts:', err);
+    }
+    
+    // Deduplicate by email
+    return emails.filter((e, i, arr) => 
+      arr.findIndex(x => x.email.toLowerCase() === e.email.toLowerCase()) === i
+    );
+  };
+
   // Handle customer selection - check for multiple emails and prompt if needed
-  const handleCustomerSelect = (customer: Customer | null) => {
+  const handleCustomerSelect = async (customer: Customer | null) => {
     if (!customer) {
       setSelectedCustomer(null);
       return;
     }
 
     const emails = getCustomerEmails(customer);
+    
+    // Check for multiple emails first
     if (emails.length > 1) {
-      // Customer has multiple emails - prompt user to select primary
       setPendingCustomer(customer);
       setSelectedEmail(customer.email || emails[0]);
       setEmailSelectAction('set_primary');
       setEmailSelectDialogOpen(true);
-    } else {
-      // Single email or no email - just select directly
-      setSelectedCustomer(customer);
+      return;
     }
+    
+    // Check for missing/invalid email
+    if (isEmailMissing(customer.email)) {
+      setIsLoadingContacts(true);
+      setPendingCustomer(customer);
+      
+      const contactEmails = await fetchContactEmails(customer.id);
+      setIsLoadingContacts(false);
+      
+      if (contactEmails.length > 0) {
+        // Show dialog to pick from contact emails
+        setAvailableContactEmails(contactEmails);
+        setSelectedEmail(contactEmails[0].email);
+        setEmailSelectAction('fix_missing');
+        setEmailSelectDialogOpen(true);
+        return;
+      }
+      // No contact emails available - just proceed without email
+    }
+    
+    // Single valid email or no options - just select directly
+    setSelectedCustomer(customer);
   };
 
   // Handle email selection confirmation - update customer's primary email in database
   const handleEmailSelectConfirm = async () => {
     setEmailSelectDialogOpen(false);
     
-    if (emailSelectAction === 'set_primary' && pendingCustomer) {
+    if (emailSelectAction === 'fix_missing' && pendingCustomer && selectedEmail) {
+      // Fix missing email - set selected contact email as primary
+      try {
+        const response = await fetch(`/api/customers/${pendingCustomer.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email: selectedEmail }),
+        });
+
+        if (response.ok) {
+          const updatedCustomer = await response.json();
+          setSelectedCustomer(updatedCustomer);
+          queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+          toast({
+            title: "Email Added",
+            description: `${selectedEmail} is now the primary email for this customer`,
+          });
+        } else {
+          setSelectedCustomer(pendingCustomer);
+          toast({
+            title: "Note",
+            description: "Could not update email, proceeding without primary email",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error updating customer email:', error);
+        setSelectedCustomer(pendingCustomer);
+      }
+      
+      setPendingCustomer(null);
+      setAvailableContactEmails([]);
+    } else if (emailSelectAction === 'set_primary' && pendingCustomer) {
       const currentPrimary = pendingCustomer.email;
       const currentSecondary = pendingCustomer.email2;
       
@@ -2567,50 +2660,94 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
       )}
 
       {/* Email Selection Dialog */}
-      <Dialog open={emailSelectDialogOpen} onOpenChange={setEmailSelectDialogOpen}>
+      <Dialog open={emailSelectDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEmailSelectDialogOpen(false);
+          setPendingCustomer(null);
+          setAvailableContactEmails([]);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Select Primary Email</DialogTitle>
+            <DialogTitle>
+              {emailSelectAction === 'fix_missing' ? 'Fix Missing Email' : 'Select Primary Email'}
+            </DialogTitle>
             <DialogDescription>
-              This customer has multiple email addresses. Please select which email to use as the primary email for Shopify drafts and Odoo orders.
+              {emailSelectAction === 'fix_missing' 
+                ? 'This customer is missing an email address. Select an email from their contacts to set as the primary email.'
+                : 'This customer has multiple email addresses. Please select which email to use as the primary email for Shopify drafts and Odoo orders.'
+              }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
-            {pendingCustomer && getCustomerEmails(pendingCustomer).map((email, index) => (
-              <label
-                key={email}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  selectedEmail === email 
-                    ? 'border-purple-500 bg-purple-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="emailSelect"
-                  value={email}
-                  checked={selectedEmail === email}
-                  onChange={(e) => setSelectedEmail(e.target.value)}
-                  className="h-4 w-4 text-purple-600"
-                />
-                <div className="flex-1">
-                  <span className="font-medium text-gray-900">{email}</span>
-                  {index === 0 && (
-                    <span className="ml-2 text-xs text-gray-500">(Current Primary)</span>
-                  )}
-                  {index === 1 && (
-                    <span className="ml-2 text-xs text-gray-500">(Secondary)</span>
-                  )}
-                </div>
-              </label>
-            ))}
+            {emailSelectAction === 'fix_missing' ? (
+              availableContactEmails.map((emailInfo, index) => (
+                <label
+                  key={emailInfo.email}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedEmail === emailInfo.email 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="emailSelect"
+                    value={emailInfo.email}
+                    checked={selectedEmail === emailInfo.email}
+                    onChange={(e) => setSelectedEmail(e.target.value)}
+                    className="h-4 w-4 text-purple-600"
+                  />
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-900">{emailInfo.email}</span>
+                    <span className="ml-2 text-xs text-gray-500">({emailInfo.source})</span>
+                  </div>
+                </label>
+              ))
+            ) : (
+              pendingCustomer && getCustomerEmails(pendingCustomer).map((email, index) => (
+                <label
+                  key={email}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedEmail === email 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="emailSelect"
+                    value={email}
+                    checked={selectedEmail === email}
+                    onChange={(e) => setSelectedEmail(e.target.value)}
+                    className="h-4 w-4 text-purple-600"
+                  />
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-900">{email}</span>
+                    {index === 0 && (
+                      <span className="ml-2 text-xs text-gray-500">(Current Primary)</span>
+                    )}
+                    {index === 1 && (
+                      <span className="ml-2 text-xs text-gray-500">(Secondary)</span>
+                    )}
+                  </div>
+                </label>
+              ))
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setEmailSelectDialogOpen(false); setPendingCustomer(null); }}>
-              Cancel
+            <Button variant="outline" onClick={() => { 
+              setEmailSelectDialogOpen(false); 
+              setPendingCustomer(null); 
+              setAvailableContactEmails([]);
+              if (emailSelectAction === 'fix_missing' && pendingCustomer) {
+                setSelectedCustomer(pendingCustomer);
+              }
+            }}>
+              {emailSelectAction === 'fix_missing' ? 'Skip' : 'Cancel'}
             </Button>
             <Button onClick={handleEmailSelectConfirm} disabled={!selectedEmail}>
-              Set as Primary
+              {emailSelectAction === 'fix_missing' ? 'Set Email' : 'Set as Primary'}
             </Button>
           </DialogFooter>
         </DialogContent>
