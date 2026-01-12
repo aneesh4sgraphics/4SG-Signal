@@ -13962,7 +13962,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const axios = (await import('axios')).default;
 
-      // Helper function to search Shopify for a variant by SKU
+      // Helper function to search Shopify for a variant by exact SKU match
       async function findShopifyVariantBySku(sku: string): Promise<number | null> {
         try {
           // Search Shopify products for variants matching this SKU
@@ -13977,10 +13977,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           const variants = searchResponse.data?.variants || [];
-          if (variants.length > 0) {
-            console.log(`[Shopify] Found variant ID ${variants[0].id} for SKU: ${sku}`);
-            return variants[0].id;
+          
+          // IMPORTANT: Filter for EXACT SKU match (case-insensitive)
+          // Shopify's API may return partial matches, so we must verify
+          const exactMatch = variants.find((v: any) => 
+            v.sku && v.sku.toLowerCase() === sku.toLowerCase()
+          );
+          
+          if (exactMatch) {
+            console.log(`[Shopify] Found exact SKU match: variant ID ${exactMatch.id} for SKU: ${sku} (Shopify SKU: ${exactMatch.sku})`);
+            return exactMatch.id;
           }
+          
+          if (variants.length > 0) {
+            console.log(`[Shopify] No exact match for SKU: ${sku}. API returned ${variants.length} variants with SKUs: ${variants.map((v: any) => v.sku).join(', ')}`);
+          }
+          
           return null;
         } catch (error: any) {
           console.log(`[Shopify] SKU lookup failed for ${sku}:`, error.message);
