@@ -827,11 +827,17 @@ export default function QuoteCalculator() {
     }
 
     const emails = getCustomerEmails(selectedCustomer);
+    console.log('DEBUG handleShopifyDraftClick - selectedCustomer:', selectedCustomer);
+    console.log('DEBUG handleShopifyDraftClick - email:', selectedCustomer.email, 'email2:', selectedCustomer.email2);
+    console.log('DEBUG handleShopifyDraftClick - emails array:', emails);
+    
     if (emails.length > 1) {
+      console.log('DEBUG: Multiple emails detected, opening dialog');
       setSelectedEmail(emails[0]);
       setEmailSelectAction('shopify');
       setEmailSelectDialogOpen(true);
     } else {
+      console.log('DEBUG: Single email, proceeding directly');
       setSelectedEmail(emails[0] || '');
       handleCreateShopifyDraft(emails[0] || '');
     }
