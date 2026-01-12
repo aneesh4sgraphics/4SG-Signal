@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import SearchableCustomerSelect from "@/components/SearchableCustomerSelect";
 import { HeaderDivider, SimpleCardFrame, FloatingElements, IconBadge, SectionDivider } from "@/components/NotionLineArt";
 import { getUserRoleFromEmail, canAccessTier } from "@/utils/roleBasedTiers";
@@ -148,6 +149,30 @@ export default function QuoteCalculator() {
   const { logPageView, logQuoteGeneration, logQuoteDownload, logUserAction } = useActivityLogger();
   const { open: openEmailComposer } = useEmailComposer();
   const [location] = useLocation();
+
+  // Mutation to update customer's primary email
+  const updatePrimaryEmailMutation = useMutation({
+    mutationFn: async ({ customerId, email }: { customerId: string; email: string }) => {
+      const res = await fetch(`/api/customers/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error('Failed to update email');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      if (selectedCustomer) {
+        setSelectedCustomer({ ...selectedCustomer, email: data.email });
+      }
+      toast({ title: "Success", description: "Primary email updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update email", variant: "destructive" });
+    },
+  });
 
   // Pre-fill customer from URL parameter if provided
   useEffect(() => {
@@ -1876,12 +1901,71 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       <span className="text-sm text-gray-600">{selectedCustomer.company}</span>
                     </div>
                   )}
-                  {selectedCustomer.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">{selectedCustomer.email}</span>
-                    </div>
-                  )}
+                  {(() => {
+                    const allEmails: { email: string; source: string }[] = [];
+                    if (selectedCustomer.email) allEmails.push({ email: selectedCustomer.email, source: 'Primary' });
+                    if (selectedCustomer.email2) allEmails.push({ email: selectedCustomer.email2, source: 'Secondary' });
+                    availableContactEmails.forEach(c => {
+                      if (c.email && !allEmails.find(e => e.email.toLowerCase() === c.email.toLowerCase())) {
+                        allEmails.push({ email: c.email, source: c.source || 'Contact' });
+                      }
+                    });
+                    
+                    if (allEmails.length === 0) {
+                      return (
+                        <div className="flex items-center gap-2 text-amber-600">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm italic">No email address</span>
+                        </div>
+                      );
+                    }
+                    
+                    if (allEmails.length > 1) {
+                      return (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center gap-2 text-blue-600 hover:underline">
+                              <Mail className="h-4 w-4" />
+                              <span className="text-sm">{selectedCustomer.email || <span className="text-amber-600 italic">No primary email</span>}</span>
+                              <ChevronsUpDown className="h-3 w-3 text-gray-400" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-2" align="start">
+                            <div className="text-xs text-gray-500 mb-2 font-medium">Select Primary Email for Shopify/Odoo</div>
+                            <div className="space-y-1">
+                              {allEmails.map((item, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => {
+                                    if (item.email !== selectedCustomer.email) {
+                                      updatePrimaryEmailMutation.mutate({ customerId: String(selectedCustomer.id), email: item.email });
+                                    }
+                                  }}
+                                  className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between hover:bg-gray-100 ${item.email === selectedCustomer.email ? 'bg-blue-50 border border-blue-200' : ''}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="h-3 w-3 text-gray-400" />
+                                    <span className="truncate">{item.email}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-400">{item.source}</span>
+                                    {item.email === selectedCustomer.email && <Check className="h-3 w-3 text-blue-600" />}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    }
+                    
+                    return (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">{selectedCustomer.email}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-2">
                   {selectedCustomer.phone && (
