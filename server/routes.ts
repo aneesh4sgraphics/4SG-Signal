@@ -14069,15 +14069,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allMappings = await db.select().from(shopifyVariantMappings)
         .where(eq(shopifyVariantMappings.isActive, true));
       
-      // Build lookup map by itemCode (Signal SKU)
+      // Build lookup map by itemCode (Signal SKU) - normalize with trim and lowercase
       const mappingsBySku = new Map<string, typeof allMappings[0]>();
       for (const mapping of allMappings) {
         if (mapping.itemCode) {
-          mappingsBySku.set(mapping.itemCode.toLowerCase(), mapping);
+          mappingsBySku.set(mapping.itemCode.trim().toLowerCase(), mapping);
         }
       }
 
       console.log(`[Shopify] Loaded ${allMappings.length} SKU mappings from database`);
+
+      // Fetch all Shopify variants with their SKUs for auto-matching
+      // Use GraphQL to get variants with SKUs efficiently
+      let shopifyVariantsBySku = new Map<string, { variantId: string; productTitle: string; variantTitle: string }>();
+      try {
+        const graphqlResponse = await axios.post(
+          `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/graphql.json`,
+          {
+            query: `{
+              productVariants(first: 250) {
+                edges {
+                  node {
+                    id
+                    sku
+                    title
+                    product {
+                      title
+                    }
+                  }
+                }
+              }
+            }`
+          },
+          {
+            headers: {
+              'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        const variants = graphqlResponse.data?.data?.productVariants?.edges || [];
+        for (const edge of variants) {
+          const variant = edge.node;
+          if (variant.sku) {
+            shopifyVariantsBySku.set(variant.sku.trim().toLowerCase(), {
+              variantId: variant.id,
+              productTitle: variant.product?.title || '',
+              variantTitle: variant.title || '',
+            });
+          }
+        }
+        console.log(`[Shopify] Loaded ${shopifyVariantsBySku.size} Shopify variants by SKU for auto-matching`);
+      } catch (err: any) {
+        console.error('[Shopify] Failed to fetch variants for SKU matching:', err.message);
+      }
 
       // Build Shopify line items
       const shopifyLineItems: any[] = [];
@@ -14085,17 +14131,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unmappedItems: string[] = [];
 
       for (const item of lineItems) {
-        const sku = item.itemCode || item.sku || '';
+        const sku = (item.itemCode || item.sku || '').trim();
         const itemTitle = `${item.productName || item.title}${item.size ? ` - ${item.size}` : ''}`;
         const pricePerPacket = item.unitPrice || item.pricePerPacket || 0;
         const quantity = item.quantity || 1;
+        const skuLower = sku.toLowerCase();
 
-        // First check our mapping table
-        const mapping = sku ? mappingsBySku.get(sku.toLowerCase()) : null;
+        // First check our manual mapping table
+        const mapping = sku ? mappingsBySku.get(skuLower) : null;
         
         if (mapping && mapping.shopifyVariantId) {
-          // Use mapped Shopify variant
-          // Handle both numeric IDs and GraphQL GIDs (gid://shopify/ProductVariant/123)
+          // Use mapped Shopify variant from database
           let variantId: string | number = mapping.shopifyVariantId;
           
           const gidMatch = mapping.shopifyVariantId.match(/ProductVariant\/(\d+)/);
@@ -14105,7 +14151,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(mapping.shopifyVariantId, 10);
           }
           
-          console.log(`[Shopify] Using mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (${mapping.shopifyProductTitle})`);
+          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId}`);
+          
+          shopifyLineItems.push({
+            variant_id: variantId,
+            quantity: quantity,
+            price: String(pricePerPacket.toFixed(2)),
+          });
+          mappedItems.push(`${itemTitle} (SKU: ${sku})`);
+        } else if (sku && shopifyVariantsBySku.has(skuLower)) {
+          // Auto-match by SKU from Shopify
+          const shopifyVariant = shopifyVariantsBySku.get(skuLower)!;
+          
+          // Extract numeric ID from GraphQL GID (gid://shopify/ProductVariant/123)
+          let variantId: number | string = shopifyVariant.variantId;
+          const gidMatch = shopifyVariant.variantId.match(/ProductVariant\/(\d+)/);
+          if (gidMatch) {
+            variantId = parseInt(gidMatch[1], 10);
+          }
+          
+          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle})`);
           
           shopifyLineItems.push({
             variant_id: variantId,
