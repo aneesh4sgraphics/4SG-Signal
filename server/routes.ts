@@ -2336,45 +2336,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: 'firstName',
           lastName: 'lastName',
           email: 'email',
+          email2: 'email2',
           phone: 'phone',
           company: 'company',
+          salesRep: 'salesRep',
+          pricingTier: 'pricingTier',
           address1: 'address1',
           city: 'city',
           province: 'province',
           country: 'country',
           postalCode: 'zip',
+          zip: 'zip',
           notes: 'note',
+          note: 'note',
           tags: 'tags',
         };
         
-        for (const [fieldKey, selectedId] of Object.entries(fieldSelections)) {
+        for (const [fieldKey, selectedValue] of Object.entries(fieldSelections)) {
           const dbField = fieldMapping[fieldKey] || fieldKey;
           
-          // Special handling for "keep both" emails
-          if (fieldKey === 'email' && selectedId === 'both') {
-            // Keep both emails - determine which goes where
-            const existingEmail2 = targetCustomer.email2 || sourceCustomer.email2;
-            if (targetCustomer.email && sourceCustomer.email && targetCustomer.email !== sourceCustomer.email) {
-              // Both have primary emails - target stays primary, source goes to email2
-              mergedData.email = targetCustomer.email;
-              mergedData.email2 = sourceCustomer.email;
-            } else if (!targetCustomer.email && sourceCustomer.email) {
-              // Target missing email - use source as primary, preserve any existing email2
-              mergedData.email = sourceCustomer.email;
-              mergedData.email2 = existingEmail2 || null;
-            } else if (targetCustomer.email && !sourceCustomer.email) {
-              // Source missing email - keep target, source might have email2
-              mergedData.email = targetCustomer.email;
-              mergedData.email2 = existingEmail2 || null;
-            } else {
-              // Preserve any existing email2
-              mergedData.email2 = existingEmail2 || null;
+          // Special handling for email fields - value is the actual email string
+          if (fieldKey === 'email' || fieldKey === 'email2') {
+            if (selectedValue === 'none') {
+              // User chose to clear this email field
+              mergedData[dbField] = null;
+            } else if (typeof selectedValue === 'string' && selectedValue.includes('@')) {
+              // User selected a specific email address
+              mergedData[dbField] = selectedValue;
+            } else if (selectedValue === sourceId) {
+              // Legacy: user chose value from source customer
+              mergedData[dbField] = (sourceCustomer as any)[dbField];
             }
-          } else if (selectedId === sourceId) {
+            // If selectedValue === targetId, keep target's value (already in mergedData)
+          } else if (selectedValue === sourceId) {
             // User chose value from source customer
             mergedData[dbField] = (sourceCustomer as any)[dbField];
           }
-          // If selectedId === targetId, keep target's value (already in mergedData)
+          // If selectedValue === targetId, keep target's value (already in mergedData)
         }
       } else {
         // Fallback: auto-fill missing fields from source

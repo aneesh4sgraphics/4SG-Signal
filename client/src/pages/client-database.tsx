@@ -1126,9 +1126,12 @@ export default function ClientDatabase() {
   const mergeFields = [
     { key: 'firstName', label: 'First Name' },
     { key: 'lastName', label: 'Last Name' },
-    { key: 'email', label: 'Email' },
+    { key: 'email', label: 'Primary Email', isEmail: true },
+    { key: 'email2', label: 'Secondary Email', isEmail: true },
     { key: 'phone', label: 'Phone' },
     { key: 'company', label: 'Company' },
+    { key: 'salesRep', label: 'Sales Rep' },
+    { key: 'pricingTier', label: 'Pricing Tier' },
     { key: 'address1', label: 'Address' },
     { key: 'city', label: 'City' },
     { key: 'province', label: 'Province/State' },
@@ -1137,6 +1140,15 @@ export default function ClientDatabase() {
     { key: 'tags', label: 'Tags' },
     { key: 'note', label: 'Notes' },
   ];
+
+  const getAllEmailsFromClients = (clientA: Customer, clientB: Customer): string[] => {
+    const emails = new Set<string>();
+    if (clientA.email) emails.add(clientA.email);
+    if (clientA.email2) emails.add(clientA.email2);
+    if (clientB.email) emails.add(clientB.email);
+    if (clientB.email2) emails.add(clientB.email2);
+    return Array.from(emails).filter(Boolean);
+  };
 
   const deleteCustomerMutation = useMutation({
     mutationFn: async (customerId: string) => {
@@ -3384,17 +3396,63 @@ export default function ClientDatabase() {
                 
                 {/* Field Comparison Rows */}
                 <div className="space-y-2">
-                  {mergeFields.map(({ key, label }) => {
+                  {mergeFields.map(({ key, label, isEmail }) => {
                     const valueA = (clientA as any)[key] || '';
                     const valueB = (clientB as any)[key] || '';
                     const selectedValue = mergeFieldSelections[key];
                     const isDifferent = valueA !== valueB;
-                    const canKeepBoth = key === 'email' && valueA && valueB && valueA !== valueB;
+                    
+                    // For email fields, show all available emails as options
+                    if (isEmail) {
+                      const allEmails = getAllEmailsFromClients(clientA, clientB);
+                      if (allEmails.length === 0) return null;
+                      
+                      return (
+                        <div 
+                          key={key} 
+                          className="py-2 px-2 rounded bg-blue-50/50"
+                        >
+                          <div className="flex items-center mb-2">
+                            <span className="text-sm font-medium text-gray-600">{label}</span>
+                            {allEmails.length > 1 && <span className="ml-2 text-xs text-blue-600">{allEmails.length} emails available</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {allEmails.map((email) => (
+                              <button
+                                key={email}
+                                type="button"
+                                onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: email }))}
+                                className={`p-2 text-left rounded border transition-all text-sm ${
+                                  selectedValue === email 
+                                    ? 'border-green-500 bg-green-50 ring-1 ring-green-500' 
+                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                }`}
+                              >
+                                {email}
+                                {selectedValue === email && <Check className="inline ml-2 h-3 w-3 text-green-600" />}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: 'none' }))}
+                              className={`p-2 text-left rounded border transition-all text-sm ${
+                                selectedValue === 'none' 
+                                  ? 'border-gray-500 bg-gray-50 ring-1 ring-gray-500' 
+                                  : 'border-gray-200 hover:border-gray-300 bg-white'
+                              }`}
+                            >
+                              <span className="text-gray-400 italic">None</span>
+                              {selectedValue === 'none' && <Check className="inline ml-2 h-3 w-3 text-gray-600" />}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
                     
                     return (
                       <div 
                         key={key} 
-                        className={`grid ${canKeepBoth ? 'grid-cols-4' : 'grid-cols-3'} gap-4 py-2 px-2 rounded ${isDifferent ? 'bg-amber-50' : ''}`}
+                        className={`grid grid-cols-3 gap-4 py-2 px-2 rounded ${isDifferent ? 'bg-amber-50' : ''}`}
                       >
                         <div className="flex items-center">
                           <span className="text-sm font-medium text-gray-600">{label}</span>
@@ -3424,21 +3482,6 @@ export default function ClientDatabase() {
                           {valueB || <span className="text-gray-400 italic">Empty</span>}
                           {selectedValue === clientB.id && <Check className="inline ml-2 h-3 w-3 text-green-600" />}
                         </button>
-                        {canKeepBoth && (
-                          <button
-                            type="button"
-                            onClick={() => setMergeFieldSelections(prev => ({ ...prev, [key]: 'both' }))}
-                            className={`p-2 text-center rounded border transition-all text-sm ${
-                              selectedValue === 'both' 
-                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            data-testid="button-keep-both-emails"
-                          >
-                            <span className="font-medium">Keep Both</span>
-                            {selectedValue === 'both' && <Check className="inline ml-2 h-3 w-3 text-blue-600" />}
-                          </button>
-                        )}
                       </div>
                     );
                   })}
