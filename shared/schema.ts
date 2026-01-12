@@ -214,6 +214,14 @@ export const customers = pgTable("customers", {
   parentCustomerId: varchar("parent_customer_id"), // Local parent customer ID (resolved after import)
   contactType: varchar("contact_type", { length: 50 }), // 'company', 'contact', 'delivery', 'invoice', 'other'
   isCompany: boolean("is_company").default(false), // True if this is a company, false if individual/address
+  doNotContact: boolean("do_not_contact").default(false), // Mark as bad fit / do not contact - excludes from NOW MODE cards
+  doNotContactReason: varchar("do_not_contact_reason", { length: 255 }), // Why marked as DNC
+  doNotContactSetBy: varchar("do_not_contact_set_by", { length: 255 }), // Who set the DNC flag
+  doNotContactSetAt: timestamp("do_not_contact_set_at"), // When DNC was set
+  lastOutboundEmailAt: timestamp("last_outbound_email_at"), // Track last outbound email for eligibility
+  swatchbookSentAt: timestamp("swatchbook_sent_at"), // Track swatchbook send date
+  pressTestSentAt: timestamp("press_test_sent_at"), // Track press test send date
+  priceListSentAt: timestamp("price_list_sent_at"), // Track price list send date
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -2744,3 +2752,190 @@ export const dailyMomentCaps = pgTable("daily_moment_caps", {
 }));
 
 export type DailyMomentCap = typeof dailyMomentCaps.$inferSelect;
+
+// ========================================
+// NOW MODE V2 - Moment Engine Tables
+// ========================================
+
+// Card bucket types for quota system
+export const NOW_MODE_BUCKETS = ['calls', 'follow_ups', 'outreach', 'data_hygiene', 'enablement'] as const;
+export type NowModeBucket = typeof NOW_MODE_BUCKETS[number];
+
+// Bucket quotas per day (total = 10 completions)
+export const BUCKET_QUOTAS: Record<NowModeBucket, number> = {
+  calls: 2,
+  follow_ups: 2,
+  outreach: 2,
+  data_hygiene: 2,
+  enablement: 2,
+};
+
+// Card types mapped to buckets
+export const CARD_TYPE_BUCKETS: Record<string, NowModeBucket> = {
+  // Calls bucket
+  daily_call: 'calls',
+  follow_up_call: 'calls',
+  // Follow-ups bucket
+  follow_up_quote: 'follow_ups',
+  follow_up_sample: 'follow_ups',
+  follow_up_materials: 'follow_ups',
+  check_feedback: 'follow_ups',
+  // Outreach bucket
+  send_swatchbook: 'outreach',
+  send_press_test: 'outreach',
+  send_marketing_email: 'outreach',
+  identify_no_contact: 'outreach',
+  // Data Hygiene bucket
+  update_customer_data: 'data_hygiene',
+  set_pricing_tier: 'data_hygiene',
+  set_sales_rep: 'data_hygiene',
+  set_primary_email: 'data_hygiene',
+  mark_do_not_contact: 'data_hygiene',
+  // Enablement bucket
+  send_price_list: 'enablement',
+  introduce_category: 'enablement',
+  check_reorder: 'enablement',
+  win_back: 'enablement',
+};
+
+// Skip reason options
+export const SKIP_REASONS = [
+  'customer_unavailable',
+  'wrong_timing',
+  'already_contacted',
+  'missing_info',
+  'not_relevant',
+  'other',
+] as const;
+export type SkipReason = typeof SKIP_REASONS[number];
+
+// Outcome types for cards
+export const CARD_OUTCOMES = [
+  'completed',
+  'called_connected',
+  'called_voicemail',
+  'called_no_answer',
+  'emailed',
+  'scheduled_follow_up',
+  'marked_dnc',
+  'data_updated',
+  'sample_sent',
+  'quote_sent',
+  'paused',
+  'skipped',
+] as const;
+export type CardOutcome = typeof CARD_OUTCOMES[number];
+
+// High-value outcomes that boost efficiency score
+export const HIGH_VALUE_OUTCOMES: CardOutcome[] = [
+  'called_connected',
+  'emailed',
+  'sample_sent',
+  'quote_sent',
+  'data_updated',
+];
+
+// NOW MODE Sessions - daily tracking per rep
+export const nowModeSessions = pgTable("now_mode_sessions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  dateKey: varchar("date_key", { length: 10 }).notNull(), // YYYY-MM-DD
+  // Completion tracking
+  totalCompleted: integer("total_completed").default(0),
+  dailyTarget: integer("daily_target").default(10),
+  // Bucket progress tracking
+  callsCompleted: integer("calls_completed").default(0),
+  followUpsCompleted: integer("follow_ups_completed").default(0),
+  outreachCompleted: integer("outreach_completed").default(0),
+  dataHygieneCompleted: integer("data_hygiene_completed").default(0),
+  enablementCompleted: integer("enablement_completed").default(0),
+  // Skip tracking
+  totalSkips: integer("total_skips").default(0),
+  skipPenaltyApplied: boolean("skip_penalty_applied").default(false),
+  // Efficiency tracking
+  efficiencyScore: integer("efficiency_score").default(100),
+  highValueOutcomes: integer("high_value_outcomes").default(0),
+  // Session timing
+  lastActivityAt: timestamp("last_activity_at"),
+  startedAt: timestamp("started_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userDateIdx: index("now_mode_sessions_user_date_idx").on(table.userId, table.dateKey),
+}));
+
+export const insertNowModeSessionSchema = createInsertSchema(nowModeSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NowModeSession = typeof nowModeSessions.$inferSelect;
+export type InsertNowModeSession = z.infer<typeof insertNowModeSessionSchema>;
+
+// NOW MODE Activities - log of all actions taken
+export const nowModeActivities = pgTable("now_mode_activities", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => nowModeSessions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  // Card info
+  cardType: varchar("card_type", { length: 50 }).notNull(),
+  bucket: varchar("bucket", { length: 20 }).notNull(),
+  isHardCard: boolean("is_hard_card").default(false),
+  // Outcome
+  outcome: varchar("outcome", { length: 50 }).notNull(),
+  outcomeNotes: text("outcome_notes"),
+  isSkip: boolean("is_skip").default(false),
+  skipReason: varchar("skip_reason", { length: 50 }),
+  // Follow-up scheduling
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  nextFollowUpType: varchar("next_follow_up_type", { length: 50 }),
+  // Timing
+  completedAt: timestamp("completed_at").defaultNow(),
+  durationSeconds: integer("duration_seconds"), // How long the rep spent on this card
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  sessionIdx: index("now_mode_activities_session_idx").on(table.sessionId),
+  userIdx: index("now_mode_activities_user_idx").on(table.userId),
+  customerIdx: index("now_mode_activities_customer_idx").on(table.customerId),
+  completedAtIdx: index("now_mode_activities_completed_at_idx").on(table.completedAt),
+}));
+
+export const insertNowModeActivitySchema = createInsertSchema(nowModeActivities).omit({
+  id: true,
+  createdAt: true,
+});
+export type NowModeActivity = typeof nowModeActivities.$inferSelect;
+export type InsertNowModeActivity = z.infer<typeof insertNowModeActivitySchema>;
+
+// NOW MODE Admin Daily Report - aggregated stats per rep per day
+export const nowModeAdminReports = pgTable("now_mode_admin_reports", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userEmail: varchar("user_email", { length: 255 }),
+  dateKey: varchar("date_key", { length: 10 }).notNull(), // YYYY-MM-DD
+  // Completion stats
+  completions: integer("completions").default(0),
+  skips: integer("skips").default(0),
+  skipRate: decimal("skip_rate", { precision: 5, scale: 2 }).default('0'), // percentage
+  // Bucket breakdown
+  callsCompleted: integer("calls_completed").default(0),
+  followUpsCompleted: integer("follow_ups_completed").default(0),
+  outreachCompleted: integer("outreach_completed").default(0),
+  dataHygieneCompleted: integer("data_hygiene_completed").default(0),
+  enablementCompleted: integer("enablement_completed").default(0),
+  // Outcome breakdown (JSON for flexibility)
+  outcomeBreakdown: jsonb("outcome_breakdown").$type<Record<string, number>>().default({}),
+  // Efficiency
+  efficiencyScore: integer("efficiency_score").default(100),
+  highValueOutcomes: integer("high_value_outcomes").default(0),
+  // Timing
+  firstActivityAt: timestamp("first_activity_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userDateIdx: index("now_mode_admin_reports_user_date_idx").on(table.userId, table.dateKey),
+  dateIdx: index("now_mode_admin_reports_date_idx").on(table.dateKey),
+}));
+
+export type NowModeAdminReport = typeof nowModeAdminReports.$inferSelect;
