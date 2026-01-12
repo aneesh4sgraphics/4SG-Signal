@@ -7,6 +7,7 @@ import {
   Target, AlertTriangle, Mail, Building2, BarChart3, Plug, Layers, Sparkles
 } from 'lucide-react';
 import { SiShopify } from 'react-icons/si';
+import odooLogoPath from '@assets/Odoo_idrS-IC4Vn_0_1768250561474.jpeg';
 import { useAppUsage } from '@/hooks/useAppUsage';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
@@ -38,9 +39,7 @@ export const PdfSettingsIcon: React.FC<{ className?: string }> = ({ className })
 );
 
 export const OdooIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <text x="5" y="18" fontSize="16" fontWeight="bold" fill="#714B67" stroke="none">O</text>
-  </svg>
+  <img src={odooLogoPath} alt="Odoo" className={className} style={{ objectFit: 'contain' }} />
 );
 
 interface NavItem {
