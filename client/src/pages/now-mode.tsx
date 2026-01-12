@@ -37,6 +37,11 @@ import {
   Clock,
   Target,
   AlertTriangle,
+  Coffee,
+  Play,
+  TrendingUp,
+  TrendingDown,
+  Minus,
   LucideIcon
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -159,7 +164,68 @@ export default function NowMode() {
   const [optimisticCompleted, setOptimisticCompleted] = useState<number | null>(null);
   const [optimisticEfficiency, setOptimisticEfficiency] = useState<number | null>(null);
   const [efficiencyDelta, setEfficiencyDelta] = useState<number | null>(null);
+  const [showDormancyPopup, setShowDormancyPopup] = useState(false);
+  const [dormancyDismissed, setDormancyDismissed] = useState(false);
   const { toast } = useToast();
+
+  // Dormancy check with empathetic messaging
+  const { data: dormancyData } = useQuery<{
+    isDormant: boolean;
+    isPaused: boolean;
+    coachingMessage: string;
+    todayCompleted: number;
+    yesterdayCompleted?: number;
+    aheadOfYesterday?: boolean;
+    efficiencyScore: number;
+  }>({
+    queryKey: ["/api/now-mode/dormancy-check"],
+    refetchInterval: 60000, // Check every minute
+  });
+
+  // Rolling 7-day efficiency with social proof
+  const { data: rollingData } = useQuery<{
+    rolling7DayScore: number;
+    todayScore: number;
+    percentile: number;
+    socialProof: string;
+    trend: string;
+    trendMessage: string;
+  }>({
+    queryKey: ["/api/now-mode/rolling-efficiency"],
+  });
+
+  // Show dormancy popup when user has been idle for 3+ hours
+  useEffect(() => {
+    if (dormancyData?.isDormant && !dormancyDismissed && !dormancyData?.isPaused) {
+      setShowDormancyPopup(true);
+    }
+  }, [dormancyData?.isDormant, dormancyDismissed, dormancyData?.isPaused]);
+
+  // Pause session mutation
+  const pauseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/now-mode/pause");
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowDormancyPopup(false);
+      toast({ title: "Session Paused", description: "Your efficiency is frozen. Resume anytime." });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/dormancy-check"] });
+    },
+  });
+
+  // Resume session mutation
+  const resumeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/now-mode/resume");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Welcome Back!", description: "Let's continue where you left off." });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/dormancy-check"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
+    },
+  });
 
   const { data, isLoading, refetch } = useQuery<NowModeResponse>({
     queryKey: ["/api/now-mode/current"],
@@ -271,10 +337,13 @@ export default function NowMode() {
   };
 
   const displayCompleted = optimisticCompleted ?? (data?.completed || 0);
-  const displayEfficiency = optimisticEfficiency ?? (data?.efficiencyScore || 100);
+  const displayEfficiency = optimisticEfficiency ?? (data?.efficiencyScore || 0);
   const progress = data ? (displayCompleted / data.dailyTarget) * 100 : 0;
   const efficiencyColor = displayEfficiency >= 80 ? "#28A745" : 
-                          displayEfficiency >= 50 ? "#FD7E14" : "#DC3545";
+                          displayEfficiency >= 50 ? "#FD7E14" : 
+                          displayEfficiency >= 20 ? "#FD7E14" : "#DC3545";
+  const trendIcon = rollingData?.trend === "improving" ? TrendingUp : 
+                    rollingData?.trend === "declining" ? TrendingDown : Minus;
 
   if (isLoading) {
     return (
@@ -335,6 +404,34 @@ export default function NowMode() {
             <Progress value={progress} className={`h-3 transition-all duration-500 ${showSuccessAnimation ? 'ring-2 ring-green-400' : ''}`} />
           </div>
         </div>
+
+        {/* Rolling 7-Day Efficiency with Social Proof */}
+        {rollingData && (
+          <div className="mb-4 p-3 bg-white border rounded-lg shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-xl font-bold" style={{ color: rollingData.rolling7DayScore >= 70 ? "#28A745" : rollingData.rolling7DayScore >= 40 ? "#FD7E14" : "#6B7280" }}>
+                    {rollingData.rolling7DayScore}
+                  </div>
+                  <div className="text-xs text-gray-500">7-Day Score</div>
+                </div>
+                <div className="flex items-center gap-1 text-sm text-gray-600">
+                  {trendIcon && (() => {
+                    const TrendIconComponent = trendIcon;
+                    const trendColor = rollingData.trend === "improving" ? "#28A745" : rollingData.trend === "declining" ? "#DC3545" : "#6B7280";
+                    return <TrendIconComponent className="h-4 w-4" style={{ color: trendColor }} />;
+                  })()}
+                  <span>{rollingData.trendMessage}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-purple-700">{rollingData.socialProof}</div>
+                <div className="text-xs text-gray-500">Top {100 - rollingData.percentile}% this week</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {data?.skipPenaltyApplied && (
           <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-2">
@@ -536,6 +633,88 @@ export default function NowMode() {
             <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
               <CheckCircle2 className="h-12 w-12 text-white" />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dormancy Popup - empathetic, not naggy */}
+      <Dialog open={showDormancyPopup} onOpenChange={setShowDormancyPopup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-700">
+              <Coffee className="h-5 w-5" />
+              Taking a Break?
+            </DialogTitle>
+            <DialogDescription className="pt-4 space-y-3">
+              <p className="text-base text-gray-700">
+                {dormancyData?.coachingMessage || "Ready to continue?"}
+              </p>
+              {dormancyData?.aheadOfYesterday && (
+                <p className="text-sm text-green-600 flex items-center gap-1">
+                  <TrendingUp className="h-4 w-4" />
+                  You're ahead of yesterday's pace!
+                </p>
+              )}
+              <div className="flex items-center gap-4 pt-2">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{dormancyData?.todayCompleted || 0}</div>
+                  <div className="text-xs text-gray-500">Done today</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-400">{dormancyData?.yesterdayCompleted || 0}</div>
+                  <div className="text-xs text-gray-500">Yesterday</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{dormancyData?.efficiencyScore || 0}</div>
+                  <div className="text-xs text-gray-500">Efficiency</div>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button 
+              onClick={() => {
+                setShowDormancyPopup(false);
+                setDormancyDismissed(true);
+              }}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Give me 2 easy tasks
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => pauseMutation.mutate()}
+              disabled={pauseMutation.isPending}
+              className="w-full"
+            >
+              <Coffee className="h-4 w-4 mr-2" />
+              Pause for today
+            </Button>
+            <p className="text-xs text-gray-400 text-center pt-1">
+              Pausing freezes your efficiency — no penalty for taking a break.
+            </p>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Paused state banner */}
+      {dormancyData?.isPaused && (
+        <div className="fixed bottom-4 right-4 z-40 bg-amber-50 border border-amber-200 rounded-lg p-4 shadow-lg max-w-sm">
+          <div className="flex items-center gap-3">
+            <Coffee className="h-8 w-8 text-amber-600" />
+            <div>
+              <p className="font-medium text-amber-800">Session Paused</p>
+              <p className="text-sm text-amber-600">Efficiency frozen at {dormancyData.efficiencyScore}</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => resumeMutation.mutate()}
+              disabled={resumeMutation.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Resume
+            </Button>
           </div>
         </div>
       )}

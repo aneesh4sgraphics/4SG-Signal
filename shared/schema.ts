@@ -2855,9 +2855,14 @@ export const nowModeSessions = pgTable("now_mode_sessions", {
   // Skip tracking
   totalSkips: integer("total_skips").default(0),
   skipPenaltyApplied: boolean("skip_penalty_applied").default(false),
-  // Efficiency tracking
-  efficiencyScore: integer("efficiency_score").default(100),
+  // Efficiency tracking - earned points system
+  efficiencyScore: integer("efficiency_score").default(0), // Daily earned points (capped at 100)
+  earnedPoints: integer("earned_points").default(0), // Raw earned points before cap
   highValueOutcomes: integer("high_value_outcomes").default(0),
+  dormancyWarningsIgnored: integer("dormancy_warnings_ignored").default(0), // -3 per ignored warning
+  // Pause functionality
+  pausedIntentionally: boolean("paused_intentionally").default(false),
+  pausedAt: timestamp("paused_at"),
   // Session timing
   lastActivityAt: timestamp("last_activity_at"),
   startedAt: timestamp("started_at").defaultNow(),
@@ -2866,6 +2871,17 @@ export const nowModeSessions = pgTable("now_mode_sessions", {
 }, (table) => ({
   userDateIdx: index("now_mode_sessions_user_date_idx").on(table.userId, table.dateKey),
 }));
+
+// Efficiency point values per action
+export const EFFICIENCY_POINTS = {
+  calls: 5,          // Call completed: +5
+  follow_ups: 4,     // Follow-up completed: +4
+  enablement: 3,     // Enablement sent: +3
+  outreach: 3,       // Outreach: +3
+  data_hygiene: 2,   // Data hygiene: +2
+  skip: -2,          // Skip: -2
+  dormancy_ignored: -3, // Dormancy warning ignored: -3
+} as const;
 
 // Time estimates per bucket in minutes (for UI display)
 export const BUCKET_TIME_ESTIMATES: Record<string, number> = {

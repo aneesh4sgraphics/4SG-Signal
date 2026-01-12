@@ -12,16 +12,17 @@ import {
   BUCKET_QUOTAS,
   CARD_TYPE_BUCKETS,
   HIGH_VALUE_OUTCOMES,
+  EFFICIENCY_POINTS,
   type NowModeBucket,
   type CardOutcome,
   type NowModeSession,
   type InsertNowModeActivity,
 } from "@shared/schema";
-import { eq, and, or, isNull, lt, gt, desc, sql, ne, lte } from "drizzle-orm";
+import { eq, and, or, isNull, lt, gt, gte, desc, sql, ne, lte } from "drizzle-orm";
 
 const DAILY_TARGET = 10;
 const SKIP_PENALTY_THRESHOLD = 3;
-const DORMANCY_MINUTES = 90;
+const DORMANCY_MINUTES = 180; // Changed to 3 hours as per user request
 
 interface Customer {
   id: string;
@@ -101,8 +102,11 @@ export class NowModeEngine {
         enablementCompleted: 0,
         totalSkips: 0,
         skipPenaltyApplied: false,
-        efficiencyScore: 100,
+        efficiencyScore: 0, // Start at 0, earn points through actions
+        earnedPoints: 0,
         highValueOutcomes: 0,
+        dormancyWarningsIgnored: 0,
+        pausedIntentionally: false,
         lastActivityAt: new Date(),
         startedAt: new Date(),
       })
@@ -486,12 +490,17 @@ export class NowModeEngine {
 
     const newCompleted = (session.totalCompleted || 0) + 1;
     const newHighValue = (session.highValueOutcomes || 0) + (isHighValue ? 1 : 0);
-    const newEfficiency = this.calculateEfficiency(newCompleted, session.totalSkips || 0, newHighValue);
+
+    // Build updated session for efficiency calculation
+    const updatedSessionData = {
+      ...session,
+      totalCompleted: newCompleted,
+      highValueOutcomes: newHighValue,
+    };
 
     const updateData: Record<string, any> = {
       totalCompleted: newCompleted,
       highValueOutcomes: newHighValue,
-      efficiencyScore: newEfficiency,
       lastActivityAt: new Date(),
       updatedAt: new Date(),
     };
@@ -518,7 +527,28 @@ export class NowModeEngine {
     updateData.lastBucket = bucket;
     if (newCompleted <= 5 && bucket === "calls") {
       updateData.callsInFirstFive = (session.callsInFirstFive || 0) + 1;
+      updatedSessionData.callsInFirstFive = (session.callsInFirstFive || 0) + 1;
     }
+
+    // Recalculate efficiency with new bucket counts
+    switch (bucket) {
+      case "calls":
+        updatedSessionData.callsCompleted = (session.callsCompleted || 0) + 1;
+        break;
+      case "follow_ups":
+        updatedSessionData.followUpsCompleted = (session.followUpsCompleted || 0) + 1;
+        break;
+      case "outreach":
+        updatedSessionData.outreachCompleted = (session.outreachCompleted || 0) + 1;
+        break;
+      case "data_hygiene":
+        updatedSessionData.dataHygieneCompleted = (session.dataHygieneCompleted || 0) + 1;
+        break;
+      case "enablement":
+        updatedSessionData.enablementCompleted = (session.enablementCompleted || 0) + 1;
+        break;
+    }
+    updateData.efficiencyScore = this.calculateEfficiency(updatedSessionData as NowModeSession);
 
     await db.update(nowModeSessions).set(updateData).where(eq(nowModeSessions.id, session.id));
 
@@ -592,7 +622,10 @@ export class NowModeEngine {
 
     const newSkips = (session.totalSkips || 0) + 1;
     const applyPenalty = newSkips >= SKIP_PENALTY_THRESHOLD;
-    const newEfficiency = this.calculateEfficiency(session.totalCompleted || 0, newSkips, session.highValueOutcomes || 0);
+    
+    // Calculate new efficiency with updated skip count
+    const updatedSessionData = { ...session, totalSkips: newSkips };
+    const newEfficiency = this.calculateEfficiency(updatedSessionData as NowModeSession);
 
     await db.update(nowModeSessions).set({
       totalSkips: newSkips,
@@ -606,19 +639,149 @@ export class NowModeEngine {
     return { success: true, session: updatedSession, penaltyApplied: applyPenalty };
   }
 
-  private calculateEfficiency(completed: number, skips: number, highValueOutcomes: number): number {
-    let score = 100;
+  // Calculate efficiency based on earned points from actions
+  private calculateEfficiency(session: NowModeSession): number {
+    // Points earned from completed actions
+    const callPoints = (session.callsCompleted || 0) * EFFICIENCY_POINTS.calls;
+    const followUpPoints = (session.followUpsCompleted || 0) * EFFICIENCY_POINTS.follow_ups;
+    const outreachPoints = (session.outreachCompleted || 0) * EFFICIENCY_POINTS.outreach;
+    const dataHygienePoints = (session.dataHygieneCompleted || 0) * EFFICIENCY_POINTS.data_hygiene;
+    const enablementPoints = (session.enablementCompleted || 0) * EFFICIENCY_POINTS.enablement;
     
-    const completionRatio = completed / DAILY_TARGET;
-    score = Math.min(100, 50 + (completionRatio * 50));
+    // Penalties
+    const skipPenalty = (session.totalSkips || 0) * Math.abs(EFFICIENCY_POINTS.skip);
+    const dormancyPenalty = (session.dormancyWarningsIgnored || 0) * Math.abs(EFFICIENCY_POINTS.dormancy_ignored);
     
-    score += highValueOutcomes * 5;
+    // Calculate total earned (can go negative from penalties)
+    const totalEarned = callPoints + followUpPoints + outreachPoints + dataHygienePoints + enablementPoints;
+    const totalPenalty = skipPenalty + dormancyPenalty;
+    const rawScore = totalEarned - totalPenalty;
     
-    if (skips > 2) {
-      score -= (skips - 2) * 10;
+    // Cap at 0-100
+    return Math.max(0, Math.min(100, rawScore));
+  }
+
+  // Calculate rolling 7-day weighted efficiency score
+  async getRolling7DayEfficiency(userId: string): Promise<{ score: number; percentile: number; trend: string }> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const dateKey = sevenDaysAgo.toISOString().split("T")[0];
+
+    // Get user's sessions from last 7 days
+    const userSessions = await db
+      .select()
+      .from(nowModeSessions)
+      .where(and(
+        eq(nowModeSessions.userId, userId),
+        gte(nowModeSessions.dateKey, dateKey)
+      ))
+      .orderBy(desc(nowModeSessions.dateKey));
+
+    // Calculate weighted average (recent days weigh more)
+    const weights = [1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9]; // Today = 1.5x, 7 days ago = 0.9x
+    let weightedSum = 0;
+    let totalWeight = 0;
+    
+    userSessions.forEach((session, index) => {
+      const weight = weights[Math.min(index, weights.length - 1)];
+      const dailyScore = this.calculateEfficiency(session);
+      weightedSum += dailyScore * weight;
+      totalWeight += weight;
+    });
+
+    const score = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+
+    // Calculate percentile compared to other reps
+    const allRecentSessions = await db
+      .select()
+      .from(nowModeSessions)
+      .where(gte(nowModeSessions.dateKey, dateKey));
+
+    // Group by user and calculate their averages
+    const userScores: Record<string, number[]> = {};
+    for (const session of allRecentSessions) {
+      if (!userScores[session.userId]) userScores[session.userId] = [];
+      userScores[session.userId].push(this.calculateEfficiency(session));
     }
+
+    const averages = Object.values(userScores).map(scores => 
+      scores.reduce((a, b) => a + b, 0) / scores.length
+    );
     
-    return Math.max(0, Math.min(100, Math.round(score)));
+    const belowCount = averages.filter(avg => avg < score).length;
+    const percentile = averages.length > 1 ? Math.round((belowCount / (averages.length - 1)) * 100) : 50;
+
+    // Determine trend
+    let trend = "steady";
+    if (userSessions.length >= 2) {
+      const recentAvg = userSessions.slice(0, 3).reduce((sum, s) => sum + this.calculateEfficiency(s), 0) / Math.min(3, userSessions.length);
+      const olderAvg = userSessions.slice(3).reduce((sum, s) => sum + this.calculateEfficiency(s), 0) / Math.max(1, userSessions.length - 3);
+      if (recentAvg > olderAvg + 5) trend = "improving";
+      else if (recentAvg < olderAvg - 5) trend = "declining";
+    }
+
+    return { score, percentile, trend };
+  }
+
+  // Get yesterday's completion count for comparison
+  async getYesterdayStats(userId: string): Promise<{ completed: number; efficiency: number }> {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateKey = yesterday.toISOString().split("T")[0];
+
+    const [session] = await db
+      .select()
+      .from(nowModeSessions)
+      .where(and(eq(nowModeSessions.userId, userId), eq(nowModeSessions.dateKey, dateKey)))
+      .limit(1);
+
+    return {
+      completed: session?.totalCompleted || 0,
+      efficiency: session ? this.calculateEfficiency(session) : 0,
+    };
+  }
+
+  // Pause session intentionally - no penalty
+  async pauseSession(userId: string): Promise<{ success: boolean; session: NowModeSession }> {
+    const session = await this.getOrCreateSession(userId);
+    
+    await db.update(nowModeSessions).set({
+      pausedIntentionally: true,
+      pausedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(nowModeSessions.id, session.id));
+
+    const updatedSession = await this.getOrCreateSession(userId);
+    return { success: true, session: updatedSession };
+  }
+
+  // Resume from pause
+  async resumeSession(userId: string): Promise<{ success: boolean; session: NowModeSession }> {
+    const session = await this.getOrCreateSession(userId);
+    
+    await db.update(nowModeSessions).set({
+      pausedIntentionally: false,
+      pausedAt: null,
+      lastActivityAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(nowModeSessions.id, session.id));
+
+    const updatedSession = await this.getOrCreateSession(userId);
+    return { success: true, session: updatedSession };
+  }
+
+  // Record that user ignored dormancy warning
+  async recordDormancyIgnored(userId: string): Promise<void> {
+    const session = await this.getOrCreateSession(userId);
+    
+    await db.update(nowModeSessions).set({
+      dormancyWarningsIgnored: (session.dormancyWarningsIgnored || 0) + 1,
+      efficiencyScore: this.calculateEfficiency({
+        ...session,
+        dormancyWarningsIgnored: (session.dormancyWarningsIgnored || 0) + 1,
+      }),
+      updatedAt: new Date(),
+    }).where(eq(nowModeSessions.id, session.id));
   }
 
   async checkDormancy(userId: string): Promise<{ isDormant: boolean; minutesSinceActivity: number; session: NowModeSession }> {

@@ -16191,32 +16191,160 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
       }
       
       const { isDormant, minutesSinceActivity, session } = await nowModeEngine.checkDormancy(userId);
+      const yesterdayStats = await nowModeEngine.getYesterdayStats(userId);
       
+      // Check if paused intentionally
+      if (session.pausedIntentionally) {
+        return res.json({
+          isDormant: false,
+          isPaused: true,
+          pausedAt: session.pausedAt,
+          todayCompleted: session.totalCompleted || 0,
+          efficiencyScore: session.efficiencyScore || 0,
+          message: "Session paused. Your efficiency is frozen until you resume.",
+        });
+      }
+      
+      // Empathetic messaging based on progress
       let coachingMessage = "";
-      const score = session.efficiencyScore || 100;
-      if (score >= 80) {
-        coachingMessage = "You're doing great! Just a few more tasks to finish strong today.";
-      } else if (score >= 50) {
-        coachingMessage = "Good progress! Try completing 2-3 more tasks to boost your efficiency score.";
-      } else if (score >= 25) {
-        coachingMessage = "Let's get back on track! Focus on high-priority tasks.";
+      const todayCompleted = session.totalCompleted || 0;
+      const aheadOfYesterday = todayCompleted > yesterdayStats.completed;
+      
+      if (isDormant) {
+        if (aheadOfYesterday && todayCompleted > 0) {
+          coachingMessage = `Long day? You've completed ${todayCompleted} actions today — that already puts you ahead of yesterday. Want to finish strong with 2 quick wins?`;
+        } else if (todayCompleted > 0) {
+          coachingMessage = `Taking a break? You've made progress with ${todayCompleted} actions. Ready to knock out a couple more?`;
+        } else {
+          coachingMessage = "Looks like you haven't started yet today. Want to tackle a few easy wins to get momentum?";
+        }
       } else {
-        coachingMessage = "Every task counts! Start with something quick.";
+        coachingMessage = todayCompleted > 0 
+          ? `Great momentum! ${todayCompleted} done today.` 
+          : "Ready to start today's tasks?";
       }
       
       res.json({
         isDormant,
+        isPaused: false,
         minutesSinceActivity,
-        dormancyThreshold: 90,
+        dormancyThreshold: 180, // 3 hours
         lastActivityAt: session.lastActivityAt,
-        efficiencyScore: score,
-        todayCompleted: session.totalCompleted || 0,
-        todayRemaining: Math.max(0, DAILY_TARGET - (session.totalCompleted || 0)),
+        efficiencyScore: session.efficiencyScore || 0,
+        todayCompleted,
+        todayRemaining: Math.max(0, DAILY_TARGET - todayCompleted),
+        yesterdayCompleted: yesterdayStats.completed,
+        aheadOfYesterday,
         coachingMessage,
       });
     } catch (error) {
       console.error("Error checking dormancy:", error);
       res.status(500).json({ error: "Failed to check dormancy" });
+    }
+  });
+
+  // Rolling 7-day efficiency with social proof
+  app.get("/api/now-mode/rolling-efficiency", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const rolling = await nowModeEngine.getRolling7DayEfficiency(userId);
+      const session = await nowModeEngine.getOrCreateSession(userId);
+      
+      // Social proof message
+      let socialProof = "";
+      if (rolling.percentile >= 75) {
+        socialProof = `You're more consistent than ${rolling.percentile}% of reps this week. Keep it up!`;
+      } else if (rolling.percentile >= 50) {
+        socialProof = `You're in the top half of the team. A few more completed tasks could bump you higher.`;
+      } else if (rolling.percentile >= 25) {
+        socialProof = `You're building momentum. Consistency compounds — even small daily progress adds up.`;
+      } else {
+        socialProof = `Every completed task builds your efficiency score. Start with quick wins.`;
+      }
+      
+      // Trend message
+      let trendMessage = "";
+      if (rolling.trend === "improving") {
+        trendMessage = "Your consistency is improving this week!";
+      } else if (rolling.trend === "declining") {
+        trendMessage = "Let's get back on track — a few focused sessions can turn this around.";
+      }
+      
+      res.json({
+        rolling7DayScore: rolling.score,
+        todayScore: session.efficiencyScore || 0,
+        percentile: rolling.percentile,
+        trend: rolling.trend,
+        socialProof,
+        trendMessage,
+      });
+    } catch (error) {
+      console.error("Error getting rolling efficiency:", error);
+      res.status(500).json({ error: "Failed to get rolling efficiency" });
+    }
+  });
+
+  // Pause session intentionally - no penalty
+  app.post("/api/now-mode/pause", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const result = await nowModeEngine.pauseSession(userId);
+      
+      res.json({
+        success: true,
+        message: "Session paused. Your efficiency is frozen — no penalty for taking a break.",
+        pausedAt: result.session.pausedAt,
+        efficiencyScore: result.session.efficiencyScore,
+      });
+    } catch (error) {
+      console.error("Error pausing session:", error);
+      res.status(500).json({ error: "Failed to pause session" });
+    }
+  });
+
+  // Resume from pause
+  app.post("/api/now-mode/resume", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const result = await nowModeEngine.resumeSession(userId);
+      
+      res.json({
+        success: true,
+        message: "Welcome back! Let's continue where you left off.",
+        efficiencyScore: result.session.efficiencyScore,
+      });
+    } catch (error) {
+      console.error("Error resuming session:", error);
+      res.status(500).json({ error: "Failed to resume session" });
+    }
+  });
+
+  // Record dormancy warning ignored
+  app.post("/api/now-mode/dormancy-ignored", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      await nowModeEngine.recordDormancyIgnored(userId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error recording dormancy ignored:", error);
+      res.status(500).json({ error: "Failed to record" });
     }
   });
 
