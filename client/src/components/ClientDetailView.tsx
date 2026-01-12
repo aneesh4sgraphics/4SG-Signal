@@ -84,7 +84,7 @@ import {
 import { Link } from "wouter";
 import type { Customer, CustomerJourney, PressProfile, SampleRequest, TestOutcome, SwatchBookShipment, SwatchSelection, ProductCategory, QuoteEvent, PriceListEvent, SentQuote, CustomerJourneyInstance, CustomerContact, EmailSend } from "@shared/schema";
 import { EmailLaunchIcon } from "@/components/email-composer";
-import { Send, Zap } from "lucide-react";
+import { Send, Zap, Wrench } from "lucide-react";
 import type { DripCampaign } from "@shared/schema";
 
 const JOURNEY_STAGE_CONFIG = [
@@ -609,6 +609,20 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update hot prospect status", variant: "destructive" });
+    },
+  });
+
+  const fixEmailMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest('PUT', `/api/customers/${customer.id}`, { email });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      toast({ title: "Success", description: "Email address updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update email", variant: "destructive" });
     },
   });
 
@@ -1173,16 +1187,76 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
           !email.includes('@');
         
         if (hasIncompleteEmail) {
+          const availableEmails: { email: string; source: string }[] = [];
+          
+          companyContacts.forEach(c => {
+            if (c.email && c.email.includes('@') && c.id !== customer.id) {
+              availableEmails.push({ 
+                email: c.email, 
+                source: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.company || 'Contact'
+              });
+            }
+          });
+          
+          customerContacts.forEach(c => {
+            if (c.email && c.email.includes('@')) {
+              availableEmails.push({ 
+                email: c.email, 
+                source: c.name || 'Contact'
+              });
+            }
+          });
+          
+          const uniqueEmails = availableEmails.filter((e, i, arr) => 
+            arr.findIndex(x => x.email.toLowerCase() === e.email.toLowerCase()) === i
+          );
+
           return (
             <Alert variant="destructive" className="bg-amber-50 border-amber-400 text-amber-800">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <AlertTitle className="text-amber-800 font-semibold">Data Cleanup Required</AlertTitle>
               <AlertDescription className="text-amber-700">
-                <span className="font-medium">Issue: </span>
-                {!email ? 'Email address is missing' : 
-                 !email.includes('@') ? `Invalid email format: "${email}"` :
-                 `Email appears to be a placeholder: "${email}"`}
-                <span className="block mt-1">Please update the email address using the Edit button above.</span>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="font-medium">Issue: </span>
+                    {!email ? 'Email address is missing' : 
+                     !email.includes('@') ? `Invalid email format: "${email}"` :
+                     `Email appears to be a placeholder: "${email}"`}
+                    {uniqueEmails.length === 0 && (
+                      <span className="block mt-1">Please update the email address using the Edit button above.</span>
+                    )}
+                  </div>
+                  {uniqueEmails.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="shrink-0 bg-white border-amber-500 text-amber-700 hover:bg-amber-100"
+                          disabled={fixEmailMutation.isPending}
+                        >
+                          <Wrench className="h-3.5 w-3.5 mr-1.5" />
+                          {fixEmailMutation.isPending ? 'Fixing...' : 'Fix'}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-72">
+                        <div className="px-2 py-1.5 text-xs font-medium text-gray-500">
+                          Select email to use:
+                        </div>
+                        {uniqueEmails.map((e, idx) => (
+                          <DropdownMenuItem 
+                            key={idx}
+                            onClick={() => fixEmailMutation.mutate(e.email)}
+                            className="flex flex-col items-start gap-0.5 cursor-pointer"
+                          >
+                            <span className="text-sm font-medium">{e.email}</span>
+                            <span className="text-xs text-gray-500">from {e.source}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
           );
