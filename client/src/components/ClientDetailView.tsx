@@ -126,6 +126,90 @@ interface ClientDetailViewProps {
   hasNext?: boolean;
 }
 
+function NowModeActivitiesTab({ customerId }: { customerId: string }) {
+  const { data: activities = [], isLoading } = useQuery<any[]>({
+    queryKey: [`/api/customers/${customerId}/now-mode-activities`],
+  });
+
+  const getOutcomeBadgeColor = (outcome: string) => {
+    if (outcome.includes('connected') || outcome.includes('ordered')) return 'bg-green-100 text-green-800';
+    if (outcome.includes('left_voicemail') || outcome.includes('callback')) return 'bg-blue-100 text-blue-800';
+    if (outcome.includes('no_answer') || outcome.includes('bad_number')) return 'bg-orange-100 text-orange-800';
+    if (outcome.includes('complete') || outcome.includes('verified')) return 'bg-purple-100 text-purple-800';
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  const getBucketLabel = (bucket: string) => {
+    const labels: Record<string, string> = {
+      calls: 'Call',
+      followups: 'Follow-up',
+      outreach: 'Outreach',
+      data_hygiene: 'Data Hygiene',
+      enablement: 'Enablement',
+    };
+    return labels[bucket] || bucket;
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="glass-card">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="glass-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Zap className="h-5 w-5 text-indigo-600" />
+          NOW MODE Activity History
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6 pt-2">
+        {activities.length > 0 ? (
+          <div className="space-y-3">
+            {activities.map((activity: any) => (
+              <div key={activity.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs">
+                      {getBucketLabel(activity.bucket)}
+                    </Badge>
+                    <Badge className={`text-xs ${getOutcomeBadgeColor(activity.outcome)}`}>
+                      {activity.outcome?.replace(/_/g, ' ')}
+                    </Badge>
+                    {activity.isSkip && (
+                      <Badge variant="destructive" className="text-xs">Skipped</Badge>
+                    )}
+                  </div>
+                  {activity.notes && (
+                    <p className="text-sm text-gray-600 mt-1">{activity.notes}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : ''}
+                    {activity.userId && ` • Rep ID: ${activity.userId}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Zap className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No NOW MODE activities recorded for this customer</p>
+            <p className="text-sm text-gray-400 mt-1">Activities appear when reps interact with this customer in NOW MODE</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ClientDetailView({ customer, companyContacts = [], onBack, onEdit, onDelete, onPrev, onNext, hasPrev = false, hasNext = false }: ClientDetailViewProps) {
   const [activeTab, setActiveTab] = useState("quotes-prices");
   const [isAddPressProfileOpen, setIsAddPressProfileOpen] = useState(false);
@@ -2022,7 +2106,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       </Collapsible>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-gray-100 p-1 rounded-lg">
+        <TabsList className="grid w-full grid-cols-7 max-w-5xl bg-gray-100 p-1 rounded-lg">
           <TabsTrigger 
             value="quotes-prices" 
             className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-orange-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
@@ -2075,6 +2159,14 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Press</span>
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{pressProfiles.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="now-mode" 
+            className="flex items-center gap-1 data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm data-[state=active]:font-medium transition-all text-xs"
+            data-testid="tab-now-mode"
+          >
+            <Zap className="h-4 w-4" />
+            <span className="hidden sm:inline">NOW</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2627,6 +2719,10 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="now-mode" className="mt-4">
+          <NowModeActivitiesTab customerId={customer.id} />
         </TabsContent>
       </Tabs>
 

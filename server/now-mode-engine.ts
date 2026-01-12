@@ -58,6 +58,8 @@ interface OutcomeButton {
   color: string;
   schedulesFollowUp?: boolean;
   followUpDays?: number;
+  assistText?: string; // Coaching tip shown under button
+  updatesCustomerState?: string; // Field to update on customer record
 }
 
 interface BucketProgress {
@@ -137,8 +139,51 @@ export class NowModeEngine {
     const unfilled = progress.filter((p) => p.remaining > 0);
     
     if (unfilled.length === 0) return null;
-    
-    return unfilled[0].bucket;
+
+    const totalCompleted = session.totalCompleted || 0;
+    const lastBucket = (session as any).lastBucket as NowModeBucket | null;
+    const callsInFirstFive = (session as any).callsInFirstFive || 0;
+
+    // Anti-monotony rules:
+    // 1. Never show same category twice in a row
+    // 2. Max 2 calls in first 5 cards
+    // 3. End with easy win (data_hygiene or enablement) for last 2 cards
+
+    // Rule 3: Last 2 cards should be easy wins
+    if (totalCompleted >= 8) {
+      const easyBuckets = unfilled.filter(p => 
+        p.bucket === "data_hygiene" || p.bucket === "enablement"
+      );
+      if (easyBuckets.length > 0) {
+        // Still respect rule 1 (no same bucket twice)
+        const nonRepeat = easyBuckets.filter(p => p.bucket !== lastBucket);
+        if (nonRepeat.length > 0) return nonRepeat[0].bucket;
+        return easyBuckets[0].bucket;
+      }
+    }
+
+    // Filter out last bucket (Rule 1: no same category twice)
+    let candidates = lastBucket 
+      ? unfilled.filter(p => p.bucket !== lastBucket)
+      : unfilled;
+
+    // If no candidates after filtering, fall back to all unfilled
+    if (candidates.length === 0) candidates = unfilled;
+
+    // Rule 2: Max 2 calls in first 5 cards
+    if (totalCompleted < 5 && callsInFirstFive >= 2) {
+      const nonCallCandidates = candidates.filter(p => p.bucket !== "calls");
+      if (nonCallCandidates.length > 0) candidates = nonCallCandidates;
+    }
+
+    // Prioritize order: follow_ups > outreach > calls > enablement > data_hygiene
+    const priorityOrder: NowModeBucket[] = ["follow_ups", "outreach", "calls", "enablement", "data_hygiene"];
+    for (const bucket of priorityOrder) {
+      const match = candidates.find(p => p.bucket === bucket);
+      if (match) return match.bucket;
+    }
+
+    return candidates[0]?.bucket || null;
   }
 
   async getEligibleCard(userId: string): Promise<{ card: EligibleCard | null; session: NowModeSession; allDone: boolean }> {
@@ -332,61 +377,75 @@ export class NowModeEngine {
   private getOutcomeButtons(cardType: string): OutcomeButton[] {
     switch (cardType) {
       case "set_pricing_tier":
+        return [
+          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Check order history to determine appropriate tier level." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
+        ];
       case "set_sales_rep":
+        return [
+          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Assign based on territory or product specialty." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
+        ];
       case "set_primary_email":
         return [
-          { outcome: "data_updated", label: "Updated", icon: "check", color: "green" },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Find email on their website or ask during next call." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
 
       case "daily_call":
         return [
-          { outcome: "called_connected", label: "Connected", icon: "phone", color: "green" },
-          { outcome: "called_voicemail", label: "Left Voicemail", icon: "voicemail", color: "yellow", schedulesFollowUp: true, followUpDays: 3 },
-          { outcome: "called_no_answer", label: "No Answer", icon: "phone-missed", color: "orange", schedulesFollowUp: true, followUpDays: 2 },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "called_connected", label: "Connected", icon: "phone", color: "green", assistText: "Ask about current material usage and next print run.", updatesCustomerState: "lastContactAt" },
+          { outcome: "called_voicemail", label: "Left Voicemail", icon: "voicemail", color: "yellow", schedulesFollowUp: true, followUpDays: 3, assistText: "Leave your name, company, and a specific reason to call back." },
+          { outcome: "called_no_answer", label: "No Answer", icon: "phone-missed", color: "orange", schedulesFollowUp: true, followUpDays: 2, assistText: "Try again at a different time of day." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if number is invalid or customer requests no contact." },
         ];
 
       case "send_swatchbook":
+        return [
+          { outcome: "sample_sent", label: "Sent", icon: "send", color: "green", schedulesFollowUp: true, followUpDays: 7, assistText: "Include a personalized note mentioning their business.", updatesCustomerState: "swatchbookSentAt" },
+          { outcome: "emailed", label: "Emailed First", icon: "mail", color: "blue", schedulesFollowUp: true, followUpDays: 3, assistText: "Confirm shipping address before sending samples." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
+        ];
+
       case "send_press_test":
         return [
-          { outcome: "sample_sent", label: "Sent", icon: "send", color: "green", schedulesFollowUp: true, followUpDays: 7 },
-          { outcome: "emailed", label: "Emailed First", icon: "mail", color: "blue", schedulesFollowUp: true, followUpDays: 3 },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "sample_sent", label: "Sent", icon: "send", color: "green", schedulesFollowUp: true, followUpDays: 7, assistText: "Ask about their current print workflow first.", updatesCustomerState: "pressTestSentAt" },
+          { outcome: "emailed", label: "Emailed First", icon: "mail", color: "blue", schedulesFollowUp: true, followUpDays: 3, assistText: "Send specs and confirm they have compatible equipment." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
 
       case "send_marketing_email":
         return [
-          { outcome: "emailed", label: "Email Sent", icon: "mail", color: "green", schedulesFollowUp: true, followUpDays: 7 },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "emailed", label: "Email Sent", icon: "mail", color: "green", schedulesFollowUp: true, followUpDays: 7, assistText: "Reference a recent order or inquiry to personalize.", updatesCustomerState: "lastOutboundEmailAt" },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if email bounced or customer unsubscribed." },
         ];
 
       case "send_price_list":
         return [
-          { outcome: "quote_sent", label: "Price List Sent", icon: "file-text", color: "green", schedulesFollowUp: true, followUpDays: 5 },
-          { outcome: "emailed", label: "Emailed First", icon: "mail", color: "blue", schedulesFollowUp: true, followUpDays: 3 },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "quote_sent", label: "Price List Sent", icon: "file-text", color: "green", schedulesFollowUp: true, followUpDays: 5, assistText: "Highlight products they've shown interest in.", updatesCustomerState: "priceListSentAt" },
+          { outcome: "emailed", label: "Emailed First", icon: "mail", color: "blue", schedulesFollowUp: true, followUpDays: 3, assistText: "Ask about their volume needs to recommend right tier." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
 
       case "follow_up_quote":
         return [
-          { outcome: "called_connected", label: "Connected", icon: "phone", color: "green" },
-          { outcome: "quote_sent", label: "Re-sent Quote", icon: "file-text", color: "blue", schedulesFollowUp: true, followUpDays: 5 },
-          { outcome: "scheduled_follow_up", label: "Schedule Later", icon: "calendar", color: "yellow", schedulesFollowUp: true, followUpDays: 7 },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "called_connected", label: "Connected", icon: "phone", color: "green", assistText: "Ask if they had questions about specific line items.", updatesCustomerState: "lastContactAt" },
+          { outcome: "quote_sent", label: "Re-sent Quote", icon: "file-text", color: "blue", schedulesFollowUp: true, followUpDays: 5, assistText: "Offer to walk them through the quote on a call." },
+          { outcome: "scheduled_follow_up", label: "Schedule Later", icon: "calendar", color: "yellow", schedulesFollowUp: true, followUpDays: 7, assistText: "Ask when is a better time to discuss." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer explicitly declined." },
         ];
 
       case "introduce_category":
         return [
-          { outcome: "emailed", label: "Intro Sent", icon: "mail", color: "green", schedulesFollowUp: true, followUpDays: 7 },
-          { outcome: "called_connected", label: "Discussed", icon: "phone", color: "blue" },
-          { outcome: "scheduled_follow_up", label: "Schedule Later", icon: "calendar", color: "yellow", schedulesFollowUp: true, followUpDays: 14 },
+          { outcome: "emailed", label: "Intro Sent", icon: "mail", color: "green", schedulesFollowUp: true, followUpDays: 7, assistText: "Mention how this category complements what they already buy." },
+          { outcome: "called_connected", label: "Discussed", icon: "phone", color: "blue", assistText: "Ask about pain points with their current supplier.", updatesCustomerState: "lastContactAt" },
+          { outcome: "scheduled_follow_up", label: "Schedule Later", icon: "calendar", color: "yellow", schedulesFollowUp: true, followUpDays: 14, assistText: "Book a specific time to present the category." },
         ];
 
       default:
         return [
-          { outcome: "completed", label: "Done", icon: "check", color: "green" },
-          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red" },
+          { outcome: "completed", label: "Done", icon: "check", color: "green", assistText: "Mark complete when the action is finished." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
     }
   }
@@ -455,7 +514,18 @@ export class NowModeEngine {
         break;
     }
 
+    // Track lastBucket and calls in first five for anti-monotony
+    updateData.lastBucket = bucket;
+    if (newCompleted <= 5 && bucket === "calls") {
+      updateData.callsInFirstFive = (session.callsInFirstFive || 0) + 1;
+    }
+
     await db.update(nowModeSessions).set(updateData).where(eq(nowModeSessions.id, session.id));
+
+    // Update customer lastContactAt for call outcomes
+    if (outcome === "called_connected" || outcome === "called_voicemail" || outcome === "called_no_answer") {
+      await db.update(customers).set({ lastContactAt: new Date(), updatedAt: new Date() }).where(eq(customers.id, customerId));
+    }
 
     if (outcome === "marked_dnc") {
       await db.update(customers).set({

@@ -56,7 +56,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { eq, sql, and, or, desc, ilike, gte, isNull } from "drizzle-orm";
+import { eq, sql, and, or, desc, ilike, gte, gt, isNull } from "drizzle-orm";
 import { 
   customers,
   customerContacts, 
@@ -131,6 +131,8 @@ import {
   emailSalesEvents,
   gmailMessages,
   gmailMessageMatches,
+  nowModeActivities,
+  nowModeSessions,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -16263,6 +16265,127 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     } catch (error) {
       console.error("Error updating DNC status:", error);
       res.status(500).json({ error: "Failed to update DNC status" });
+    }
+  });
+
+  // Get NOW MODE activities for a specific customer (for Client Detail Page)
+  app.get("/api/customers/:id/now-mode-activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      const activities = await db
+        .select()
+        .from(nowModeActivities)
+        .where(eq(nowModeActivities.customerId, customerId))
+        .orderBy(desc(nowModeActivities.createdAt))
+        .limit(50);
+      
+      res.json(activities);
+    } catch (error) {
+      console.error("Error getting customer now mode activities:", error);
+      res.status(500).json({ error: "Failed to get activities" });
+    }
+  });
+
+  // Enhanced admin metrics for NOW MODE
+  app.get("/api/now-mode/admin/metrics", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      // Get all sessions from last 7 days
+      const sessions = await db
+        .select()
+        .from(nowModeSessions)
+        .where(gt(nowModeSessions.createdAt, sevenDaysAgo));
+      
+      // Calculate metrics
+      const repDays: Record<string, { completions: number; skips: number; days: Set<string>; firstActivityTimes: number[] }> = {};
+      
+      for (const session of sessions) {
+        if (!repDays[session.userId]) {
+          repDays[session.userId] = { completions: 0, skips: 0, days: new Set(), firstActivityTimes: [] };
+        }
+        repDays[session.userId].completions += session.totalCompleted || 0;
+        repDays[session.userId].skips += session.totalSkips || 0;
+        repDays[session.userId].days.add(session.dateKey);
+        
+        // Approximate time to first action (startedAt to lastActivityAt)
+        if (session.startedAt && session.lastActivityAt) {
+          const firstActionTime = (new Date(session.lastActivityAt).getTime() - new Date(session.startedAt).getTime()) / 60000;
+          if (firstActionTime > 0 && firstActionTime < 120) {
+            repDays[session.userId].firstActivityTimes.push(firstActionTime);
+          }
+        }
+      }
+      
+      // Calculate averages per rep
+      const repMetrics = Object.entries(repDays).map(([userId, data]) => ({
+        userId,
+        avgTasksPerDay: data.days.size > 0 ? Math.round(data.completions / data.days.size * 10) / 10 : 0,
+        totalCompletions: data.completions,
+        totalSkips: data.skips,
+        skipRate: data.completions + data.skips > 0 
+          ? Math.round((data.skips / (data.completions + data.skips)) * 100) 
+          : 0,
+        avgTimeToFirstAction: data.firstActivityTimes.length > 0
+          ? Math.round(data.firstActivityTimes.reduce((a, b) => a + b, 0) / data.firstActivityTimes.length)
+          : null,
+        daysActive: data.days.size,
+      }));
+      
+      // Get outcomes breakdown
+      const outcomes = await db
+        .select({
+          outcome: nowModeActivities.outcome,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(nowModeActivities)
+        .where(and(
+          gt(nowModeActivities.createdAt, sevenDaysAgo),
+          eq(nowModeActivities.isSkip, false)
+        ))
+        .groupBy(nowModeActivities.outcome);
+      
+      // Identify red flags
+      const redFlags = {
+        highActivityLowOutcomes: repMetrics.filter(r => 
+          r.totalCompletions >= 20 && r.skipRate > 30
+        ).map(r => ({ userId: r.userId, reason: "High activity but high skip rate - coaching needed" })),
+        lowActivity: repMetrics.filter(r => 
+          r.daysActive >= 3 && r.avgTasksPerDay < 3
+        ).map(r => ({ userId: r.userId, reason: "Low activity - workflow issue or disengagement" })),
+      };
+      
+      // Summary metrics
+      const summary = {
+        avgTasksPerRepPerDay: repMetrics.length > 0
+          ? Math.round(repMetrics.reduce((sum, r) => sum + r.avgTasksPerDay, 0) / repMetrics.length * 10) / 10
+          : 0,
+        overallSkipRate: sessions.length > 0
+          ? Math.round(sessions.reduce((sum, s) => sum + (s.totalSkips || 0), 0) / 
+                      (sessions.reduce((sum, s) => sum + (s.totalCompleted || 0) + (s.totalSkips || 0), 0)) * 100)
+          : 0,
+        avgTimeToFirstAction: repMetrics.filter(r => r.avgTimeToFirstAction).length > 0
+          ? Math.round(repMetrics.filter(r => r.avgTimeToFirstAction)
+                      .reduce((sum, r) => sum + (r.avgTimeToFirstAction || 0), 0) / 
+                      repMetrics.filter(r => r.avgTimeToFirstAction).length)
+          : null,
+        totalReps: repMetrics.length,
+        totalCompletionsWeek: repMetrics.reduce((sum, r) => sum + r.totalCompletions, 0),
+      };
+      
+      res.json({
+        summary,
+        repMetrics,
+        outcomeBreakdown: outcomes,
+        redFlags,
+        periodDays: 7,
+      });
+    } catch (error) {
+      console.error("Error getting admin metrics:", error);
+      res.status(500).json({ error: "Failed to get admin metrics" });
     }
   });
 

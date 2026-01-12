@@ -2849,6 +2849,9 @@ export const nowModeSessions = pgTable("now_mode_sessions", {
   outreachCompleted: integer("outreach_completed").default(0),
   dataHygieneCompleted: integer("data_hygiene_completed").default(0),
   enablementCompleted: integer("enablement_completed").default(0),
+  // Anti-monotony tracking
+  lastBucket: varchar("last_bucket", { length: 20 }), // Last bucket served to prevent same-category twice
+  callsInFirstFive: integer("calls_in_first_five").default(0), // Track calls in first 5 cards
   // Skip tracking
   totalSkips: integer("total_skips").default(0),
   skipPenaltyApplied: boolean("skip_penalty_applied").default(false),
@@ -2863,6 +2866,15 @@ export const nowModeSessions = pgTable("now_mode_sessions", {
 }, (table) => ({
   userDateIdx: index("now_mode_sessions_user_date_idx").on(table.userId, table.dateKey),
 }));
+
+// Time estimates per bucket in minutes (for UI display)
+export const BUCKET_TIME_ESTIMATES: Record<string, number> = {
+  calls: 4,
+  follow_ups: 3,
+  outreach: 2,
+  data_hygiene: 1,
+  enablement: 2,
+};
 
 export const insertNowModeSessionSchema = createInsertSchema(nowModeSessions).omit({
   id: true,

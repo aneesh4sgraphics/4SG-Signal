@@ -59,7 +59,17 @@ interface OutcomeButton {
   color: string;
   schedulesFollowUp?: boolean;
   followUpDays?: number;
+  assistText?: string;
 }
+
+// Time estimates per bucket in minutes
+const BUCKET_TIME_ESTIMATES: Record<string, number> = {
+  calls: 4,
+  follow_ups: 3,
+  outreach: 2,
+  data_hygiene: 1,
+  enablement: 2,
+};
 
 interface NowModeCard {
   customerId: string;
@@ -311,7 +321,15 @@ export default function NowMode() {
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-600">Daily Progress</span>
-            <span className="text-sm text-gray-500">{Math.max(0, (data?.dailyTarget || 10) - displayCompleted)} remaining</span>
+            <span className="text-sm text-gray-500">
+              {displayCompleted} done • {Math.max(0, (data?.dailyTarget || 10) - displayCompleted)} to go • ~{(() => {
+                const remaining = (data?.bucketProgress || []).reduce((total, bp) => {
+                  const timePerTask = BUCKET_TIME_ESTIMATES[bp.bucket] || 2;
+                  return total + (bp.remaining * timePerTask);
+                }, 0);
+                return remaining;
+              })()} mins left
+            </span>
           </div>
           <div className={`transition-all duration-500 ${showSuccessAnimation ? 'scale-[1.02]' : ''}`}>
             <Progress value={progress} className={`h-3 transition-all duration-500 ${showSuccessAnimation ? 'ring-2 ring-green-400' : ''}`} />
@@ -457,7 +475,7 @@ export default function NowMode() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {data.card.outcomeButtons.map((btn) => {
                   const Icon = OUTCOME_ICONS[btn.icon] || Check;
                   const bgColor = btn.color === "green" ? "bg-green-600 hover:bg-green-700" :
@@ -467,18 +485,24 @@ export default function NowMode() {
                                   btn.color === "red" ? "bg-red-600 hover:bg-red-700" :
                                   "bg-gray-600 hover:bg-gray-700";
                   return (
-                    <Button
-                      key={btn.outcome}
-                      onClick={() => handleOutcome(btn.outcome)}
-                      disabled={completeMutation.isPending}
-                      className={`${bgColor} text-white gap-2 py-6`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="text-sm">{btn.label}</span>
-                      {btn.schedulesFollowUp && (
-                        <Clock className="h-3 w-3 opacity-70" />
+                    <div key={btn.outcome} className="flex flex-col">
+                      <Button
+                        onClick={() => handleOutcome(btn.outcome)}
+                        disabled={completeMutation.isPending}
+                        className={`${bgColor} text-white gap-2 py-6 w-full`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="text-sm">{btn.label}</span>
+                        {btn.schedulesFollowUp && (
+                          <Clock className="h-3 w-3 opacity-70" />
+                        )}
+                      </Button>
+                      {btn.assistText && (
+                        <p className="text-xs text-gray-500 italic mt-1 text-center px-1">
+                          {btn.assistText}
+                        </p>
                       )}
-                    </Button>
+                    </div>
                   );
                 })}
               </div>
