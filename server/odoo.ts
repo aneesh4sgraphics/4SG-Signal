@@ -701,25 +701,38 @@ class OdooClient {
     }
   }
 
-  // Log an outbound email to Odoo's contact chatter
+  // Log an outbound email to Odoo's contact chatter (plain text format)
   async logEmailToPartner(partnerId: number, email: {
     to: string;
     subject: string;
     body: string;
     sentAt?: Date;
   }): Promise<number | null> {
-    const formattedBody = `
-<div style="font-family: Arial, sans-serif;">
-  <div style="margin-bottom: 8px; padding: 8px; background: #f3f4f6; border-radius: 4px;">
-    <strong>To:</strong> ${email.to}<br/>
-    <strong>Date:</strong> ${(email.sentAt || new Date()).toLocaleString()}<br/>
-    <strong>Subject:</strong> ${email.subject}
-  </div>
-  <div style="margin-top: 12px;">
-    ${email.body}
-  </div>
-</div>
-    `.trim();
+    // Strip HTML tags and convert to plain text
+    const stripHtml = (html: string): string => {
+      return html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '• ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    };
+
+    const plainTextBody = stripHtml(email.body);
+    const formattedBody = `To: ${email.to}
+Date: ${(email.sentAt || new Date()).toLocaleString()}
+Subject: ${email.subject}
+
+${plainTextBody}`;
 
     return this.postMessageToPartner(partnerId, {
       subject: `Email: ${email.subject}`,
