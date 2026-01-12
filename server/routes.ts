@@ -13822,6 +13822,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync customers from Shopify
+  app.post("/api/shopify/sync-customers", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
+        return res.status(400).json({ error: "Shopify direct access not configured. Please add SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE_DOMAIN to your secrets." });
+      }
+
+      const axios = (await import('axios')).default;
+      
+      // Fetch all customers from Shopify (paginated)
+      let allShopifyCustomers: any[] = [];
+      let pageInfo: string | null = null;
+      let hasNextPage = true;
+      
+      while (hasNextPage) {
+        const url = pageInfo 
+          ? `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers.json?limit=250&page_info=${pageInfo}`
+          : `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers.json?limit=250`;
+        
+        const response = await axios.get(url, {
+          headers: {
+            'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        allShopifyCustomers = allShopifyCustomers.concat(response.data.customers || []);
+        
+        // Check for pagination
+        const linkHeader = response.headers['link'];
+        if (linkHeader && linkHeader.includes('rel="next"')) {
+          const nextMatch = linkHeader.match(/<[^>]*page_info=([^>&]*)[^>]*>;\s*rel="next"/);
+          pageInfo = nextMatch ? nextMatch[1] : null;
+          hasNextPage = !!pageInfo;
+        } else {
+          hasNextPage = false;
+        }
+      }
+
+      console.log(`Fetched ${allShopifyCustomers.length} customers from Shopify`);
+
+      // Get all existing customers with their emails for matching
+      const existingCustomers = await db.select().from(customers);
+      const emailToCustomerMap = new Map<string, typeof existingCustomers[0]>();
+      
+      for (const customer of existingCustomers) {
+        if (customer.email) {
+          emailToCustomerMap.set(customer.email.toLowerCase(), customer);
+        }
+        if (customer.email2) {
+          emailToCustomerMap.set(customer.email2.toLowerCase(), customer);
+        }
+      }
+
+      let matched = 0;
+      let imported = 0;
+      let skipped = 0;
+      let primaryEmailsSet = 0;
+      const matchedCustomers: string[] = [];
+      const importedCustomers: string[] = [];
+
+      for (const shopifyCustomer of allShopifyCustomers) {
+        const shopifyEmail = shopifyCustomer.email?.toLowerCase();
+        
+        if (!shopifyEmail) {
+          // Skip customers without email
+          skipped++;
+          continue;
+        }
+
+        const existingCustomer = emailToCustomerMap.get(shopifyEmail);
+        
+        if (existingCustomer) {
+          // Customer exists - add 'shopify' to sources if not already there
+          const currentSources = existingCustomer.sources || [];
+          if (!currentSources.includes('shopify')) {
+            const updatedSources = [...currentSources, 'shopify'];
+            
+            // Also check if we need to set primary email
+            let emailUpdate: { email?: string } = {};
+            if (!existingCustomer.email && shopifyEmail) {
+              emailUpdate.email = shopifyCustomer.email;
+              primaryEmailsSet++;
+            }
+            
+            await db.update(customers)
+              .set({ 
+                sources: updatedSources,
+                ...emailUpdate,
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, existingCustomer.id));
+            
+            matched++;
+            matchedCustomers.push(existingCustomer.company || `${existingCustomer.firstName} ${existingCustomer.lastName}`.trim() || existingCustomer.email || 'Unknown');
+          } else {
+            // Already has shopify source, check if we need to set primary email
+            if (!existingCustomer.email && shopifyEmail) {
+              await db.update(customers)
+                .set({ 
+                  email: shopifyCustomer.email,
+                  updatedAt: new Date()
+                })
+                .where(eq(customers.id, existingCustomer.id));
+              primaryEmailsSet++;
+            }
+            skipped++; // Already synced
+          }
+        } else {
+          // Customer doesn't exist - import with full details
+          const newId = `shopify_${shopifyCustomer.id}`;
+          
+          // Get default address
+          const defaultAddress = shopifyCustomer.default_address || shopifyCustomer.addresses?.[0] || {};
+          
+          await db.insert(customers).values({
+            id: newId,
+            firstName: shopifyCustomer.first_name || null,
+            lastName: shopifyCustomer.last_name || null,
+            email: shopifyCustomer.email || null,
+            company: defaultAddress.company || null,
+            phone: shopifyCustomer.phone || defaultAddress.phone || null,
+            address1: defaultAddress.address1 || null,
+            address2: defaultAddress.address2 || null,
+            city: defaultAddress.city || null,
+            province: defaultAddress.province || null,
+            country: defaultAddress.country || null,
+            zip: defaultAddress.zip || null,
+            acceptsEmailMarketing: shopifyCustomer.accepts_marketing || false,
+            acceptsSmsMarketing: shopifyCustomer.accepts_marketing_updated_at ? true : false,
+            totalSpent: shopifyCustomer.total_spent || "0",
+            totalOrders: shopifyCustomer.orders_count || 0,
+            note: shopifyCustomer.note || null,
+            tags: shopifyCustomer.tags || null,
+            taxExempt: shopifyCustomer.tax_exempt || false,
+            sources: ['shopify'],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          
+          imported++;
+          importedCustomers.push(defaultAddress.company || `${shopifyCustomer.first_name || ''} ${shopifyCustomer.last_name || ''}`.trim() || shopifyCustomer.email || 'Unknown');
+        }
+      }
+
+      res.json({
+        success: true,
+        total: allShopifyCustomers.length,
+        matched,
+        imported,
+        skipped,
+        primaryEmailsSet,
+        matchedCustomers: matchedCustomers.slice(0, 20), // Limit to first 20 for display
+        importedCustomers: importedCustomers.slice(0, 20),
+      });
+    } catch (error: any) {
+      console.error("Error syncing Shopify customers:", error.response?.data || error);
+      res.status(500).json({ error: "Failed to sync customers", details: error.response?.data?.errors || error.message });
+    }
+  });
+
+  // Get Shopify customers (for preview before sync)
+  app.get("/api/shopify/customers", isAuthenticated, async (req, res) => {
+    try {
+      if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
+        return res.status(400).json({ error: "Shopify credentials not configured" });
+      }
+
+      const axios = (await import('axios')).default;
+      
+      const response = await axios.get(
+        `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/customers.json?limit=50`,
+        {
+          headers: {
+            'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      res.json({
+        customers: response.data.customers || [],
+        total: response.data.customers?.length || 0,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Shopify customers:", error.response?.data || error);
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
   // Get product mappings
   app.get("/api/shopify/product-mappings", isAuthenticated, async (req, res) => {
     try {

@@ -91,6 +91,35 @@ export default function ShopifySettingsPage() {
     },
   });
 
+  const [customerSyncResult, setCustomerSyncResult] = useState<{
+    total: number;
+    matched: number;
+    imported: number;
+    skipped: number;
+    primaryEmailsSet: number;
+    matchedCustomers: string[];
+    importedCustomers: string[];
+  } | null>(null);
+
+  const syncCustomersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/shopify/sync-customers', {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers/count'] });
+      setCustomerSyncResult(data);
+      toast({ 
+        title: "Customers synced!", 
+        description: `Matched: ${data.matched}, Imported: ${data.imported}, Skipped: ${data.skipped}` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Customer sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const { data: orders = [] } = useQuery<any[]>({
     queryKey: ['/api/shopify/orders'],
   });
@@ -419,6 +448,82 @@ export default function ShopifySettingsPage() {
                       )}
                       Sync Orders from Shopify
                     </Button>
+
+                    {/* Sync Customers Button */}
+                    <Button 
+                      variant="outline"
+                      className="w-full border-green-200 text-green-700 hover:bg-green-50"
+                      onClick={() => syncCustomersMutation.mutate()}
+                      disabled={syncCustomersMutation.isPending}
+                      data-testid="button-sync-customers"
+                    >
+                      {syncCustomersMutation.isPending ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Users className="h-4 w-4 mr-2" />
+                      )}
+                      Sync Customers from Shopify
+                    </Button>
+
+                    {/* Customer Sync Result */}
+                    {customerSyncResult && (
+                      <div className="space-y-3">
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                          <div className="font-semibold text-green-800 dark:text-green-200">
+                            Customer Sync Complete
+                          </div>
+                          <div className="text-sm text-green-700 dark:text-green-300 mt-2 grid grid-cols-4 gap-2">
+                            <div className="text-center p-2 bg-green-100 rounded">
+                              <div className="text-xl font-bold text-green-700">{customerSyncResult.imported}</div>
+                              <div className="text-xs">Imported</div>
+                            </div>
+                            <div className="text-center p-2 bg-blue-100 rounded">
+                              <div className="text-xl font-bold text-blue-700">{customerSyncResult.matched}</div>
+                              <div className="text-xs">Matched</div>
+                            </div>
+                            <div className="text-center p-2 bg-yellow-100 rounded">
+                              <div className="text-xl font-bold text-yellow-700">{customerSyncResult.skipped}</div>
+                              <div className="text-xs">Skipped</div>
+                            </div>
+                            <div className="text-center p-2 bg-purple-100 rounded">
+                              <div className="text-xl font-bold text-purple-700">{customerSyncResult.primaryEmailsSet}</div>
+                              <div className="text-xs">Emails Set</div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-green-600 mt-2">
+                            Total Shopify customers: {customerSyncResult.total}
+                          </p>
+                        </div>
+
+                        {customerSyncResult.matchedCustomers.length > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="font-medium text-blue-800 text-sm mb-1">
+                              Existing Customers Tagged as Shopify ({customerSyncResult.matched})
+                            </div>
+                            <div className="text-xs text-blue-700 max-h-20 overflow-y-auto">
+                              {customerSyncResult.matchedCustomers.map((c, i) => (
+                                <span key={i}>{c}{i < customerSyncResult.matchedCustomers.length - 1 ? ', ' : ''}</span>
+                              ))}
+                              {customerSyncResult.matched > 20 && <span>... and {customerSyncResult.matched - 20} more</span>}
+                            </div>
+                          </div>
+                        )}
+
+                        {customerSyncResult.importedCustomers.length > 0 && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="font-medium text-green-800 text-sm mb-1">
+                              Newly Imported Customers ({customerSyncResult.imported})
+                            </div>
+                            <div className="text-xs text-green-700 max-h-20 overflow-y-auto">
+                              {customerSyncResult.importedCustomers.map((c, i) => (
+                                <span key={i}>{c}{i < customerSyncResult.importedCustomers.length - 1 ? ', ' : ''}</span>
+                              ))}
+                              {customerSyncResult.imported > 20 && <span>... and {customerSyncResult.imported - 20} more</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <Button variant="outline" className="w-full" asChild>
                       <a 
