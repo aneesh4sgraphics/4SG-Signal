@@ -68,31 +68,19 @@ export default function SearchableCustomerSelect({
     staleTime: 2 * 60 * 1000,
   });
 
-  // Group customers by company - pick one representative per company
-  const companiesMap = new Map<string, Customer>();
-  customers.forEach(customer => {
-    const companyKey = (customer.company || "").toLowerCase().trim();
-    if (companyKey && !companiesMap.has(companyKey)) {
-      companiesMap.set(companyKey, customer);
-    }
-  });
-
-  // Filter companies based on search term (search by company name OR contact name)
-  const filteredCompanies = Array.from(companiesMap.values()).filter(customer => {
+  // Filter customers based on search term - show all customers, search by company, name, or email
+  const filteredCustomers = customers.filter(customer => {
     if (!debouncedSearchTerm) return true;
     
     const searchLower = debouncedSearchTerm.toLowerCase();
     const company = customer.company?.toLowerCase() || "";
+    const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.toLowerCase().trim();
+    const email = customer.email?.toLowerCase() || "";
     
-    // Also search by contact names within this company
-    const matchingContacts = customers.filter(c => 
-      (c.company?.toLowerCase() || "") === company &&
-      (`${c.firstName} ${c.lastName}`.toLowerCase().includes(searchLower) ||
-       c.email?.toLowerCase().includes(searchLower))
-    );
-    
-    return company.includes(searchLower) || matchingContacts.length > 0;
-  }).slice(0, 10);
+    return company.includes(searchLower) || 
+           fullName.includes(searchLower) || 
+           email.includes(searchLower);
+  }).slice(0, 15);
 
   // Set search term when customer is selected externally
   useEffect(() => {
@@ -206,24 +194,35 @@ export default function SearchableCustomerSelect({
               <div className="p-3 text-center text-sm text-gray-500">
                 Loading customers...
               </div>
-            ) : filteredCompanies.length > 0 ? (
+            ) : filteredCustomers.length > 0 ? (
               <div className="space-y-1">
-                {filteredCompanies.map((customer) => (
-                  <div
-                    key={customer.id}
-                    onClick={() => handleCustomerSelect(customer)}
-                    className="p-2 hover:bg-gray-50 cursor-pointer rounded-lg border border-transparent hover:border-blue-200 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Building className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-gray-900">
-                          {customer.company}
+                {filteredCustomers.map((customer) => {
+                  const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Unknown';
+                  const subtitle = customer.company 
+                    ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email
+                    : customer.email;
+                  return (
+                    <div
+                      key={customer.id}
+                      onClick={() => handleCustomerSelect(customer)}
+                      className="p-2 hover:bg-gray-50 cursor-pointer rounded-lg border border-transparent hover:border-blue-200 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Building className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-gray-900 truncate">
+                            {displayName}
+                          </div>
+                          {subtitle && subtitle !== displayName && (
+                            <div className="text-xs text-gray-500 truncate">
+                              {subtitle}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : debouncedSearchTerm ? (
               <div className="p-3 text-center text-sm text-gray-500">
