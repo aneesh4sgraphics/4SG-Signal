@@ -6732,10 +6732,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email Intelligence V2 Routes (Sync Debug Panel)
   // ========================================
 
-  // Get comprehensive sync status for debug panel
+  // Get comprehensive sync status for debug panel (legacy route)
   app.get("/api/email-intelligence/sync-status", isAuthenticated, async (req: any, res) => {
     try {
-      const { getSyncStatus, ensureSyncState, getGmailConnectionInfo } = await import("./gmail-sync-worker");
+      const { getSyncStatus, ensureSyncState } = await import("./gmail-sync-worker");
       const userId = req.user?.claims?.sub || req.user?.id;
       
       await ensureSyncState(userId);
@@ -6744,6 +6744,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching sync status:", error);
       res.status(500).json({ error: error.message || "Failed to fetch sync status" });
+    }
+  });
+
+  // NEW: /api/email/sync/status - detailed sync status with all debug info
+  app.get("/api/email/sync/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const { getSyncStatus, ensureSyncState } = await import("./gmail-sync-worker");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      
+      await ensureSyncState(userId);
+      const status = await getSyncStatus(userId);
+      
+      // Get skip reasons breakdown
+      const skipReasons = await db.select({
+        reason: gmailUnmatchedEmails.ignoredReason,
+        count: sql<number>`count(*)::int`,
+      })
+        .from(gmailUnmatchedEmails)
+        .where(eq(gmailUnmatchedEmails.status, 'ignored'))
+        .groupBy(gmailUnmatchedEmails.ignoredReason);
+      
+      // Get task creation counts
+      const [tasksFromEvents] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(followUpTasks)
+        .where(sql`${followUpTasks.source} = 'email_event'`);
+      
+      res.json({
+        ...status,
+        skipReasonBreakdown: skipReasons.reduce((acc: Record<string, number>, r) => {
+          acc[r.reason || 'unknown'] = r.count;
+          return acc;
+        }, {}),
+        tasksCreatedFromEvents: tasksFromEvents?.count || 0,
+      });
+    } catch (error: any) {
+      console.error("Error fetching sync status:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch sync status" });
+    }
+  });
+
+  // NEW: /api/email/sync/run - force sync now and return counts
+  app.post("/api/email/sync/run", isAuthenticated, async (req: any, res) => {
+    try {
+      const { syncGmailMessages, ensureSyncState, getSyncStatus } = await import("./gmail-sync-worker");
+      const { processUnanalyzedMessages, detectStaleThreads, createFollowUpTasksFromEvents } = await import("./email-event-extractor");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const userEmail = req.user?.email || req.user?.claims?.email;
+      
+      console.log(`[Email Sync] Manual sync triggered by ${userEmail}`);
+      
+      // Ensure user exists
+      const [existingUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!existingUser) {
+        await db.insert(users).values({
+          id: userId,
+          email: userEmail,
+          role: req.user?.role || 'user',
+          status: 'approved',
+        }).onConflictDoNothing();
+      }
+      
+      await ensureSyncState(userId);
+      
+      // Run the full sync pipeline
+      const syncStats = await syncGmailMessages(userId);
+      console.log(`[Email Sync] Fetched ${syncStats.messagesStored} messages`);
+      
+      const eventsExtracted = await processUnanalyzedMessages(userId, 200);
+      console.log(`[Email Sync] Extracted ${eventsExtracted} events`);
+      
+      const staleThreads = await detectStaleThreads(userId);
+      console.log(`[Email Sync] Detected ${staleThreads} stale threads`);
+      
+      const tasksCreated = await createFollowUpTasksFromEvents(userId, 100);
+      console.log(`[Email Sync] Created ${tasksCreated} tasks`);
+      
+      // Get updated status after sync
+      const finalStatus = await getSyncStatus(userId);
+      
+      res.json({ 
+        success: true, 
+        sync: syncStats,
+        eventsExtracted,
+        staleThreadsDetected: staleThreads,
+        tasksCreated,
+        counts: finalStatus.counts,
+      });
+    } catch (error: any) {
+      console.error("[Email Sync] Error:", error);
+      if (error.message?.includes('Insufficient Permission') || error.code === 403) {
+        return res.status(403).json({ 
+          error: "Gmail permissions limited - reading inbox requires full Gmail access permissions.",
+          code: "INSUFFICIENT_SCOPE"
+        });
+      }
+      res.status(500).json({ error: error.message || "Failed to sync Gmail" });
     }
   });
 

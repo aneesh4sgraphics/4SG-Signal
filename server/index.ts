@@ -75,31 +75,41 @@ app.use(cors({
   credentials: true,
 }));
 
-// Helmet security headers (with custom CSP for Shopify embedding)
+// Helmet security headers (with custom CSP for Shopify and OAuth embedding)
 app.use((req, res, next) => {
   const isShopifyEmbedded = req.path.startsWith('/app') || 
                              req.query.embedded === 'true' || 
                              Boolean(req.query.shop);
+  // Allow framing for OAuth callbacks and Gmail integration
+  const isOAuthPath = req.path.includes('/oauth') || 
+                      req.path.includes('/callback') || 
+                      req.path.includes('/gmail');
+  const allowFraming = isShopifyEmbedded || isOAuthPath;
   
   // Use Helmet with context-specific CSP
+  // IMPORTANT: frameguard (X-Frame-Options) and frame-ancestors must be consistent
+  // When allowing frames, disable frameguard to avoid XFO DENY overriding CSP frame-ancestors
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.shopify.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.shopify.com", "https://accounts.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
         connectSrc: ["'self'", "https:", "wss:"],
-        frameAncestors: isShopifyEmbedded 
-          ? ["'self'", "https://*.myshopify.com", "https://admin.shopify.com", "https://*.replit.app", "https://*.replit.dev"]
+        frameSrc: ["'self'", "https://accounts.google.com", "https://*.myshopify.com"],
+        frameAncestors: allowFraming 
+          ? ["'self'", "https://*.myshopify.com", "https://admin.shopify.com", "https://*.replit.app", "https://*.replit.dev", "https://accounts.google.com"]
           : ["'self'", "https://*.replit.app", "https://*.replit.dev"],
       },
     },
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    frameguard: isShopifyEmbedded ? false : { action: 'sameorigin' },
+    // Disable X-Frame-Options when CSP frame-ancestors is set to avoid conflicts
+    // CSP frame-ancestors takes precedence in modern browsers, XFO is legacy fallback
+    frameguard: false,
   })(req, res, next);
 });
 

@@ -374,15 +374,60 @@ export async function getSyncStatus(userId: string): Promise<any> {
     .from(gmailMessages)
     .where(eq(gmailMessages.userId, userId));
   
+  const [matchedCount] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(gmailMessages)
+    .where(and(
+      eq(gmailMessages.userId, userId),
+      sql`${gmailMessages.customerId} IS NOT NULL`
+    ));
+  
   const [unmatchedCount] = await db.select({ count: sql<number>`count(*)::int` })
     .from(gmailUnmatchedEmails)
     .where(eq(gmailUnmatchedEmails.status, 'pending'));
   
+  const [linkedCount] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(gmailUnmatchedEmails)
+    .where(eq(gmailUnmatchedEmails.status, 'linked'));
+  
+  const [ignoredCount] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(gmailUnmatchedEmails)
+    .where(eq(gmailUnmatchedEmails.status, 'ignored'));
+  
+  const [pendingAnalysis] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(gmailMessages)
+    .where(and(
+      eq(gmailMessages.userId, userId),
+      eq(gmailMessages.analyzed, false)
+    ));
+  
+  const [processedAnalysis] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(gmailMessages)
+    .where(and(
+      eq(gmailMessages.userId, userId),
+      eq(gmailMessages.analyzed, true)
+    ));
+  
+  const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(emailSalesEvents);
+  
   return {
     connection: connectionInfo,
     syncState: syncState || null,
-    totalMessages: messageCount?.count || 0,
-    pendingUnmatched: unmatchedCount?.count || 0,
+    lastSyncAt: syncState?.lastSyncAt || null,
+    accountEmail: connectionInfo?.email || null,
+    queryUsed: `after:${new Date(Date.now() - SYNC_DAYS * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`,
+    lastError: syncState?.lastError || null,
+    counts: {
+      fetched: messageCount?.count || 0,
+      stored: messageCount?.count || 0,
+      matched: matchedCount?.count || 0,
+      unmatched: unmatchedCount?.count || 0,
+      linked: linkedCount?.count || 0,
+      ignored: ignoredCount?.count || 0,
+      pending: pendingAnalysis?.count || 0,
+      processed: processedAnalysis?.count || 0,
+      events: eventsCount?.count || 0,
+    },
   };
 }
 
