@@ -137,6 +137,7 @@ export default function QuoteCalculator() {
   const [pendingCustomer, setPendingCustomer] = useState<Customer | null>(null);
   const [availableContactEmails, setAvailableContactEmails] = useState<{ email: string; source: string }[]>([]);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+  const [emailDropdownOpen, setEmailDropdownOpen] = useState(false);
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([
     { id: 'cc', type: 'credit_card', label: 'Credit Card Fee (4.5%)', odooProductCode: 'CC-FEE', amount: 0, enabled: true, percentage: 4.5 },
     { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 55, enabled: true },
@@ -167,6 +168,7 @@ export default function QuoteCalculator() {
       if (selectedCustomer) {
         setSelectedCustomer({ ...selectedCustomer, email: data.email });
       }
+      setEmailDropdownOpen(false);
       toast({ title: "Success", description: "Primary email updated" });
     },
     onError: (error: any) => {
@@ -1922,7 +1924,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     
                     if (allEmails.length > 1) {
                       return (
-                        <Popover>
+                        <Popover open={emailDropdownOpen} onOpenChange={setEmailDropdownOpen}>
                           <PopoverTrigger asChild>
                             <button className="flex items-center gap-2 text-blue-600 hover:underline">
                               <Mail className="h-4 w-4" />
@@ -1939,6 +1941,8 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                                   onClick={() => {
                                     if (item.email !== selectedCustomer.email) {
                                       updatePrimaryEmailMutation.mutate({ customerId: String(selectedCustomer.id), email: item.email });
+                                    } else {
+                                      setEmailDropdownOpen(false);
                                     }
                                   }}
                                   className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between hover:bg-gray-100 ${item.email === selectedCustomer.email ? 'bg-blue-50 border border-blue-200' : ''}`}

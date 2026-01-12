@@ -14174,49 +14174,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Shopify] Loaded ${allMappings.length} SKU mappings from database`);
 
-      // Fetch all Shopify variants with their SKUs and prices for auto-matching
-      // Use GraphQL to get variants with SKUs efficiently
+      // Fetch ALL Shopify variants with pagination for SKU matching
       let shopifyVariantsBySku = new Map<string, { variantId: string; productTitle: string; variantTitle: string; price: number }>();
       try {
-        const graphqlResponse = await axios.post(
-          `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/graphql.json`,
-          {
-            query: `{
-              productVariants(first: 250) {
-                edges {
-                  node {
-                    id
-                    sku
-                    title
-                    price
-                    product {
+        let hasNextPage = true;
+        let cursor: string | null = null;
+        
+        while (hasNextPage) {
+          const graphqlResponse = await axios.post(
+            `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/graphql.json`,
+            {
+              query: `{
+                productVariants(first: 250${cursor ? `, after: "${cursor}"` : ''}) {
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                  edges {
+                    node {
+                      id
+                      sku
                       title
+                      price
+                      product {
+                        title
+                      }
                     }
                   }
                 }
-              }
-            }`
-          },
-          {
-            headers: {
-              'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
-              'Content-Type': 'application/json',
+              }`
             },
+            {
+              headers: {
+                'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          
+          const data = graphqlResponse.data?.data?.productVariants;
+          const variants = data?.edges || [];
+          
+          for (const edge of variants) {
+            const variant = edge.node;
+            if (variant.sku) {
+              shopifyVariantsBySku.set(variant.sku.trim().toLowerCase(), {
+                variantId: variant.id,
+                productTitle: variant.product?.title || '',
+                variantTitle: variant.title || '',
+                price: parseFloat(variant.price) || 0,
+              });
+            }
           }
-        );
-        
-        const variants = graphqlResponse.data?.data?.productVariants?.edges || [];
-        for (const edge of variants) {
-          const variant = edge.node;
-          if (variant.sku) {
-            shopifyVariantsBySku.set(variant.sku.trim().toLowerCase(), {
-              variantId: variant.id,
-              productTitle: variant.product?.title || '',
-              variantTitle: variant.title || '',
-              price: parseFloat(variant.price) || 0,
-            });
-          }
+          
+          hasNextPage = data?.pageInfo?.hasNextPage || false;
+          cursor = data?.pageInfo?.endCursor || null;
         }
+        
         console.log(`[Shopify] Loaded ${shopifyVariantsBySku.size} Shopify variants by SKU for auto-matching`);
       } catch (err: any) {
         console.error('[Shopify] Failed to fetch variants for SKU matching:', err.message);
