@@ -18,23 +18,23 @@ const EVENT_TO_TASK_CONFIG: Record<string, {
   dueDaysFromNow: number;
   minConfidence: number;
 }> = {
-  quote_requested: {
-    taskType: 'quote_follow_up',
-    titleTemplate: 'Quote requested from {customer}',
-    descriptionTemplate: 'Customer requested a quote. Trigger: {trigger}',
-    priority: 'high',
-    dueDaysFromNow: 1,
-    minConfidence: 0.75,
-  },
-  ready_to_buy: {
-    taskType: 'close_sale',
-    titleTemplate: 'Ready to buy: {customer}',
-    descriptionTemplate: 'Customer appears ready to purchase. Trigger: {trigger}',
+  po: {
+    taskType: 'process_order',
+    titleTemplate: 'PO received from {customer}',
+    descriptionTemplate: 'Customer has sent a purchase order. Process immediately. Trigger: {trigger}',
     priority: 'urgent',
     dueDaysFromNow: 0,
-    minConfidence: 0.85,
+    minConfidence: 0.80,
   },
-  sample_requested: {
+  approval: {
+    taskType: 'finalize_order',
+    titleTemplate: 'Approval received: {customer}',
+    descriptionTemplate: 'Customer has approved pricing/quote. Follow up to finalize. Trigger: {trigger}',
+    priority: 'high',
+    dueDaysFromNow: 0,
+    minConfidence: 0.80,
+  },
+  samples: {
     taskType: 'sample_follow_up',
     titleTemplate: 'Sample request from {customer}',
     descriptionTemplate: 'Customer requested samples. Trigger: {trigger}',
@@ -42,29 +42,45 @@ const EVENT_TO_TASK_CONFIG: Record<string, {
     dueDaysFromNow: 1,
     minConfidence: 0.75,
   },
-  objection_price: {
-    taskType: 'handle_objection',
-    titleTemplate: 'Price objection: {customer}',
-    descriptionTemplate: 'Customer raised a price concern. Consider discount or value pitch. Trigger: {trigger}',
-    priority: 'high',
-    dueDaysFromNow: 1,
+  urgent: {
+    taskType: 'urgent_response',
+    titleTemplate: 'URGENT: {customer} needs immediate attention',
+    descriptionTemplate: 'Time-sensitive request from customer. Trigger: {trigger}',
+    priority: 'urgent',
+    dueDaysFromNow: 0,
     minConfidence: 0.80,
   },
-  objection_compatibility: {
-    taskType: 'handle_objection',
-    titleTemplate: 'Compatibility question: {customer}',
-    descriptionTemplate: 'Customer has compatibility concerns. Trigger: {trigger}',
+  opportunity: {
+    taskType: 'nurture_lead',
+    titleTemplate: 'New opportunity: {customer}',
+    descriptionTemplate: 'Customer showing interest in products/services. Trigger: {trigger}',
+    priority: 'normal',
+    dueDaysFromNow: 1,
+    minConfidence: 0.70,
+  },
+  commitment: {
+    taskType: 'track_commitment',
+    titleTemplate: 'Commitment from {customer}',
+    descriptionTemplate: 'Customer has made a commitment or scheduled something. Trigger: {trigger}',
+    priority: 'normal',
+    dueDaysFromNow: 1,
+    minConfidence: 0.75,
+  },
+  action: {
+    taskType: 'follow_up_action',
+    titleTemplate: 'Action needed for {customer}',
+    descriptionTemplate: 'Customer is requesting a specific action. Trigger: {trigger}',
+    priority: 'high',
+    dueDaysFromNow: 1,
+    minConfidence: 0.55,
+  },
+  feedback: {
+    taskType: 'review_feedback',
+    titleTemplate: 'Feedback from {customer}',
+    descriptionTemplate: 'Customer has provided feedback. Trigger: {trigger}',
     priority: 'normal',
     dueDaysFromNow: 2,
     minConfidence: 0.70,
-  },
-  stale_thread: {
-    taskType: 'reengagement',
-    titleTemplate: 'Follow up: No response from {customer}',
-    descriptionTemplate: 'Thread has gone stale. Re-engage customer. Trigger: {trigger}',
-    priority: 'normal',
-    dueDaysFromNow: 1,
-    minConfidence: 0.55,
   },
 };
 
@@ -78,134 +94,163 @@ interface EventRule {
 
 const EVENT_RULES: EventRule[] = [
   {
-    eventType: 'quote_requested',
+    eventType: 'po',
     keywords: [
-      'quote', 'pricing', 'price list', 'cost', 'how much', 
-      'estimate', 'quotation', 'pricing info', 'rates',
-      'can you send me pricing', 'need a quote', 'requesting quote'
+      'purchase order', 'PO', 'po#', 'order number', 'place order',
+      'ready to order', 'proceed with order', 'confirm order', 'order confirmed',
+      'submit order', 'placing an order', 'order placed', 'invoice',
+      'billing', 'payment', 'ready to purchase', 'finalize order'
     ],
     regexPatterns: [
-      /can you (send|provide|give).*(quote|pricing|estimate)/i,
-      /need.*(quote|pricing|estimate)/i,
-      /what.*(price|cost)/i,
-      /interested in.*(pricing|quote)/i,
-      /please (send|provide).*(quote|pricing)/i,
-    ],
-    baseConfidence: 0.75,
-    direction: 'inbound',
-  },
-  {
-    eventType: 'quote_sent',
-    keywords: [
-      'attached quote', 'here is your quote', 'quote attached',
-      'pricing attached', 'please find attached', 'quotation',
-      'as quoted', 'per your request', 'proposal attached'
-    ],
-    regexPatterns: [
-      /attached.*(quote|pricing|proposal)/i,
-      /here is.*(quote|pricing|estimate)/i,
-      /please (find|see) attached/i,
-      /sending.*(quote|pricing)/i,
-    ],
-    baseConfidence: 0.80,
-    direction: 'outbound',
-  },
-  {
-    eventType: 'sample_requested',
-    keywords: [
-      'sample', 'samples', 'swatch', 'swatchbook', 'press test',
-      'test material', 'sample order', 'send samples', 'sample kit',
-      'need samples', 'request samples'
-    ],
-    regexPatterns: [
-      /send.*(sample|swatch)/i,
-      /need.*(sample|swatch|test)/i,
-      /can (you|we) (get|have|order).*(sample|swatch)/i,
-      /request.*(sample|swatch)/i,
-      /interested in.*(sample|testing)/i,
-    ],
-    baseConfidence: 0.80,
-    direction: 'inbound',
-  },
-  {
-    eventType: 'objection_price',
-    keywords: [
-      'too expensive', 'too high', 'budget', 'cheaper', 'lower price',
-      'price too', 'cost prohibitive', 'out of budget', 'discount',
-      'competitive pricing', 'better price', 'price match'
-    ],
-    regexPatterns: [
-      /too (expensive|high|much)/i,
-      /out of.*(budget|range)/i,
-      /(need|want).*(discount|lower|cheaper)/i,
-      /price.*(too|is) (high|expensive)/i,
-      /can.*(reduce|lower|discount)/i,
-      /competitor.*(cheaper|better price)/i,
+      /PO\s?#?\s?\d+/i,
+      /purchase order\s?#?\s?\d*/i,
+      /ready to (order|buy|purchase|proceed)/i,
+      /go ahead.*(order|purchase)/i,
+      /place.*(order|PO)/i,
+      /confirm.*(order|purchase)/i,
+      /want to (order|buy|purchase)/i,
+      /send.*(PO|purchase order)/i,
+      /order\s?#\s?\d+/i,
     ],
     baseConfidence: 0.85,
     direction: 'inbound',
   },
   {
-    eventType: 'objection_compatibility',
+    eventType: 'approval',
     keywords: [
-      'compatible', 'compatibility', 'work with', 'printer',
-      'won\'t work', 'doesn\'t work', 'not compatible', 'machine',
-      'press', 'ink', 'adhesion', 'lamination'
+      'approved', 'approve', 'approval', 'sign off', 'signed off',
+      'green light', 'go ahead', 'confirmed', 'authorization',
+      'authorize', 'accepted', 'accept', 'looks good', 'agreed',
+      'proceed', 'confirmation', 'authorized'
     ],
     regexPatterns: [
-      /will.*(work|compatible).*(printer|press|machine)/i,
-      /(not|doesn't|won't) (work|compatible)/i,
-      /compatibility.*(issue|concern|question)/i,
-      /tested.*(printer|press|machine)/i,
-      /(adhesion|lamination|ink).*(issue|problem)/i,
+      /(have|got|received).*(approval|authorization)/i,
+      /approved.*(pricing|quote|order)/i,
+      /(sign|signed)\s*(off|on)/i,
+      /give.*(green light|go ahead)/i,
+      /(we|I) (approve|accept|confirm)/i,
+      /looks good.*(proceed|order)/i,
     ],
-    baseConfidence: 0.75,
+    baseConfidence: 0.80,
     direction: 'inbound',
   },
   {
-    eventType: 'ready_to_buy',
+    eventType: 'samples',
     keywords: [
-      'purchase order', 'PO', 'order', 'ready to order', 'proceed',
-      'go ahead', 'place order', 'confirm order', 'buy', 'purchasing',
-      'ready to purchase', 'finalize order', 'submit order'
+      'sample', 'samples', 'swatch', 'swatchbook', 'press test',
+      'test material', 'sample order', 'send samples', 'sample kit',
+      'need samples', 'request samples', 'testing', 'trial',
+      'test print', 'color sample', 'product sample'
     ],
     regexPatterns: [
-      /ready to (order|buy|purchase|proceed)/i,
-      /go ahead.*(order|purchase)/i,
-      /place.*(order|PO)/i,
-      /purchase order.*#?\d+/i,
-      /confirm.*(order|purchase)/i,
-      /want to (order|buy|purchase)/i,
-      /send.*(PO|purchase order)/i,
+      /send.*(sample|swatch)/i,
+      /need.*(sample|swatch|test)/i,
+      /can (you|we) (get|have|order|send).*(sample|swatch)/i,
+      /request.*(sample|swatch)/i,
+      /interested in.*(sample|testing)/i,
+      /(sample|swatch).*(request|order)/i,
     ],
-    baseConfidence: 0.90,
+    baseConfidence: 0.80,
     direction: 'inbound',
   },
   {
-    eventType: 'timing_delay',
+    eventType: 'urgent',
     keywords: [
-      'next month', 'next quarter', 'later', 'not now', 'hold off',
-      'delay', 'postpone', 'wait', 'busy', 'not ready', 'circle back',
-      'touch base later', 'reach out later', 'on hold'
+      'urgent', 'asap', 'rush', 'immediately', 'critical', 'emergency',
+      'time sensitive', 'deadline', 'eod', 'end of day', 'today',
+      'right away', 'priority', 'expedite', 'fast', 'quickly',
+      'as soon as possible', 'immediate attention', 'pressing'
     ],
     regexPatterns: [
-      /not (ready|now|yet)/i,
-      /next (month|quarter|year|week)/i,
-      /(hold|put).*(off|on hold)/i,
-      /circle back.*(later|next)/i,
-      /reach out.*(later|next|when)/i,
-      /(busy|swamped).*(right now|currently)/i,
-      /revisit.*(later|next)/i,
+      /\burgent\b/i,
+      /\basap\b/i,
+      /need.*(immediately|today|now|asap)/i,
+      /deadline.*(today|tomorrow|eod)/i,
+      /(rush|expedite).*(order|delivery)/i,
+      /critical.*(need|request|issue)/i,
+      /time.?sensitive/i,
+    ],
+    baseConfidence: 0.85,
+    direction: 'inbound',
+  },
+  {
+    eventType: 'opportunity',
+    keywords: [
+      'interested', 'looking for', 'new project', 'expanding',
+      'quote', 'pricing', 'price list', 'inquiry', 'considering',
+      'evaluate', 'option', 'partnership', 'potential', 'exploring',
+      'information about', 'tell me about', 'learn more'
+    ],
+    regexPatterns: [
+      /interested in.*(product|service|pricing|quote)/i,
+      /looking for.*(supplier|vendor|partner|product)/i,
+      /new.*(project|opportunity|business)/i,
+      /can you (send|provide).*(info|pricing|quote)/i,
+      /want to (learn|know) more/i,
+      /exploring.*(option|solution)/i,
+      /considering.*(purchase|order|partnership)/i,
     ],
     baseConfidence: 0.70,
     direction: 'inbound',
   },
   {
-    eventType: 'stale_thread',
-    keywords: [],
-    regexPatterns: [],
-    baseConfidence: 0.60,
-    direction: 'both',
+    eventType: 'commitment',
+    keywords: [
+      'scheduled', 'confirmed', 'meeting', 'call', 'appointment',
+      'we will', 'timeline', 'delivery date', 'agreed', 'promise',
+      'committed', 'follow up', 'next steps', 'plan to', 'intend to',
+      'definitely', 'certainly', 'expect to', 'looking forward'
+    ],
+    regexPatterns: [
+      /(scheduled|confirmed).*(meeting|call|delivery)/i,
+      /we (will|shall).*(send|follow|deliver|complete)/i,
+      /(delivery|timeline).*(confirmed|agreed)/i,
+      /plan to.*(order|purchase|proceed)/i,
+      /looking forward to.*(working|order)/i,
+      /expect.*(delivery|arrival|shipment)/i,
+    ],
+    baseConfidence: 0.75,
+    direction: 'inbound',
+  },
+  {
+    eventType: 'action',
+    keywords: [
+      'please', 'can you', 'need you to', 'send me', 'follow up',
+      'next steps', 'action required', 'to do', 'task', 'request',
+      'could you', 'would you', 'update on', 'status of', 'waiting for',
+      'reminder', 'don\'t forget', 'make sure'
+    ],
+    regexPatterns: [
+      /please (send|provide|confirm|update|follow)/i,
+      /can you (send|check|update|confirm|follow)/i,
+      /need you to.*(send|check|update|confirm)/i,
+      /waiting for.*(response|update|confirmation)/i,
+      /follow up on/i,
+      /action (required|needed)/i,
+      /update.*(on|regarding|about)/i,
+    ],
+    baseConfidence: 0.70,
+    direction: 'inbound',
+  },
+  {
+    eventType: 'feedback',
+    keywords: [
+      'feedback', 'review', 'concern', 'issue', 'problem', 'complaint',
+      'suggestion', 'love', 'great', 'excellent', 'terrible', 'poor',
+      'happy', 'unhappy', 'satisfied', 'dissatisfied', 'impressed',
+      'disappointed', 'thank you', 'thanks', 'appreciate'
+    ],
+    regexPatterns: [
+      /(positive|negative|constructive).?feedback/i,
+      /(love|like|enjoy).*(product|service|work)/i,
+      /(issue|problem|concern).*(with|about|regarding)/i,
+      /thank (you|s) for/i,
+      /(great|excellent|amazing) (job|work|service)/i,
+      /(disappointed|unhappy|frustrated) (with|about)/i,
+      /appreciate.*(help|support|service)/i,
+    ],
+    baseConfidence: 0.70,
+    direction: 'inbound',
   },
 ];
 
@@ -251,7 +296,6 @@ export function extractEventsFromEmail(
   const fullText = `${subject}\n${bodyText}`;
   
   for (const rule of EVENT_RULES) {
-    if (rule.eventType === 'stale_thread') continue;
     
     if (rule.direction && rule.direction !== 'both' && rule.direction !== direction) {
       continue;
@@ -358,7 +402,8 @@ export async function detectStaleThreads(userId: string, staleDays: number = 7):
         SELECT 1 FROM email_sales_events e
         JOIN gmail_messages m ON e.gmail_message_id = m.id
         WHERE m.thread_id = thread_activity.thread_id
-          AND e.event_type = 'stale_thread'
+          AND e.event_type = 'action'
+          AND e.trigger_text LIKE '%No response%'
           AND e.created_at > ${cutoffDate}
       )
   `);
@@ -379,9 +424,9 @@ export async function detectStaleThreads(userId: string, staleDays: number = 7):
         gmailMessageId: latestMessage.id,
         userId,
         customerId: thread.customer_id,
-        eventType: 'stale_thread',
-        confidence: '0.60',
-        triggerText: `No response for ${staleDays}+ days`,
+        eventType: 'action',
+        confidence: '0.75',
+        triggerText: `No response for ${staleDays}+ days - follow up needed`,
         occurredAt: new Date(),
         isProcessed: false,
       });
@@ -487,14 +532,14 @@ export async function createFollowUpTasksFromEvents(userId: string, limit: numbe
 }
 
 const AI_COACHING_TEMPLATES: Record<string, string> = {
-  quote_requested: "Customer is actively seeking pricing. Respond within 4 hours with a tailored quote. Ask qualifying questions about volume, timeline, and specific needs to customize your offering.",
-  quote_sent: "Quote delivered. Schedule a follow-up call in 2-3 days to address questions and move toward close. Prepare answers for common objections.",
-  sample_requested: "Sample interest shows purchase intent. Fast sample delivery builds trust. Follow up within a week to gather feedback and convert to order.",
-  objection_price: "Price resistance detected. Focus on value, ROI, and total cost of ownership. Consider offering volume discounts, payment terms, or showcasing quality differences.",
-  objection_compatibility: "Technical concerns need addressing. Offer free testing, provide spec sheets, or arrange a technical call. Demonstrating compatibility removes a major purchase barrier.",
-  ready_to_buy: "Hot lead! Prioritize this customer immediately. Remove any friction from the purchase process. Confirm delivery timeline and payment options.",
-  timing_delay: "Customer not ready now. Set a calendar reminder for their stated timeframe. Keep them warm with occasional value-add content without being pushy.",
-  stale_thread: "Conversation has stalled. Re-engage with a value-add: new product info, industry news, or a simple check-in. Ask an open-ended question to restart dialogue.",
+  po: "Purchase order received! Process immediately. Confirm receipt, verify quantities and pricing, and provide expected delivery timeline. This is a committed sale - prioritize fulfillment.",
+  approval: "Pricing/quote approval received! Strike while the iron is hot. Reach out within hours to finalize the order. Confirm details and get the PO moving.",
+  samples: "Sample request indicates strong interest. Send samples within 24-48 hours. Include pricing information and a personalized note. Schedule follow-up for feedback in 5-7 days.",
+  urgent: "Time-sensitive request! Respond immediately. Acknowledge the urgency, provide a realistic timeline, and keep the customer updated throughout. Speed builds trust.",
+  opportunity: "New opportunity detected! Research the customer's needs before responding. Ask qualifying questions about volume, timeline, and application to tailor your approach.",
+  commitment: "Customer has made a commitment. Document it and set reminders for follow-up. Prepare for the next step and ensure you deliver on time to build trust.",
+  action: "Customer needs action from you. Prioritize this request and respond clearly. Confirm what you're doing and when they can expect completion.",
+  feedback: "Customer provided feedback. Thank them regardless of sentiment. For positive feedback, ask for testimonial/referral. For concerns, address promptly and document for improvement.",
 };
 
 export async function generateAICoachingSummary(eventId: number): Promise<string | null> {

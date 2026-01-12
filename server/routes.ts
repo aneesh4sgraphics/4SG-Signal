@@ -6788,6 +6788,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Re-analyze all emails with new event rules
+  app.post("/api/email-intelligence/reanalyze", isAuthenticated, async (req: any, res) => {
+    try {
+      const { processUnanalyzedMessages, detectStaleThreads, createFollowUpTasksFromEvents } = await import("./email-event-extractor");
+      const userId = req.user?.claims?.sub || req.user?.id;
+      const limit = parseInt(req.body.limit) || 500;
+      
+      await db.delete(emailSalesEvents).where(eq(emailSalesEvents.userId, userId));
+      
+      await db.update(gmailMessages)
+        .set({ analysisStatus: 'pending' })
+        .where(eq(gmailMessages.userId, userId));
+      
+      const eventsExtracted = await processUnanalyzedMessages(userId, limit);
+      const staleThreads = await detectStaleThreads(userId);
+      const tasksCreated = await createFollowUpTasksFromEvents(userId, 100);
+      
+      res.json({ 
+        success: true, 
+        eventsExtracted,
+        staleThreadsDetected: staleThreads,
+        tasksCreated,
+      });
+    } catch (error: any) {
+      console.error("Error re-analyzing emails:", error);
+      res.status(500).json({ error: error.message || "Failed to re-analyze emails" });
+    }
+  });
+
   // ========================================
   // Shipment Follow-up Tasks Routes
   // ========================================

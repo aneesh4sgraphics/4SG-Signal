@@ -108,14 +108,14 @@ interface Customer {
 }
 
 const eventTypeConfig: Record<string, { icon: any; label: string; color: string }> = {
-  quote_requested: { icon: FileQuestion, label: "Quote Requested", color: "bg-blue-100 text-blue-800" },
-  quote_sent: { icon: DollarSign, label: "Quote Sent", color: "bg-green-100 text-green-800" },
-  sample_requested: { icon: Package, label: "Sample Requested", color: "bg-purple-100 text-purple-800" },
-  objection_price: { icon: AlertTriangle, label: "Price Objection", color: "bg-orange-100 text-orange-800" },
-  objection_compatibility: { icon: AlertCircle, label: "Compatibility Concern", color: "bg-amber-100 text-amber-800" },
-  ready_to_buy: { icon: Target, label: "Ready to Buy", color: "bg-emerald-100 text-emerald-800" },
-  timing_delay: { icon: Timer, label: "Timing Delay", color: "bg-yellow-100 text-yellow-800" },
-  stale_thread: { icon: XCircle, label: "Stale Thread", color: "bg-red-100 text-red-800" },
+  po: { icon: DollarSign, label: "Purchase Order", color: "bg-green-100 text-green-800" },
+  approval: { icon: CheckCircle2, label: "Approval", color: "bg-emerald-100 text-emerald-800" },
+  samples: { icon: Package, label: "Samples", color: "bg-purple-100 text-purple-800" },
+  urgent: { icon: AlertTriangle, label: "Urgent", color: "bg-red-100 text-red-800" },
+  opportunity: { icon: Target, label: "Opportunity", color: "bg-blue-100 text-blue-800" },
+  commitment: { icon: Clock, label: "Commitment", color: "bg-cyan-100 text-cyan-800" },
+  action: { icon: Zap, label: "Action", color: "bg-orange-100 text-orange-800" },
+  feedback: { icon: Lightbulb, label: "Feedback", color: "bg-yellow-100 text-yellow-800" },
 };
 
 export default function EmailSyncDebug() {
@@ -236,6 +236,31 @@ export default function EmailSyncDebug() {
       toast({
         title: "Re-match Failed",
         description: error.message || "Failed to re-match emails",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const reanalyzeMutation = useMutation({
+    mutationFn: () => apiRequest("/api/email-intelligence/reanalyze", { 
+      method: "POST",
+      body: JSON.stringify({ limit: 500 }) 
+    }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Re-analysis Complete",
+        description: `Extracted ${data.eventsExtracted || 0} events, detected ${data.staleThreadsDetected || 0} stale threads, created ${data.tasksCreated || 0} tasks`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/unmatched"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/sync-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/email-intelligence/events/summary"] });
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Re-analysis Failed",
+        description: error.message || "Failed to re-analyze emails",
         variant: "destructive",
       });
     },
@@ -362,6 +387,18 @@ export default function EmailSyncDebug() {
           <p className="text-muted-foreground">Monitor Gmail sync, customer matching, and event extraction</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={() => reanalyzeMutation.mutate()} 
+            disabled={reanalyzeMutation.isPending}
+            variant="outline"
+          >
+            {reanalyzeMutation.isPending ? (
+              <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            Re-analyze Emails
+          </Button>
           <Button 
             onClick={() => rematchMutation.mutate()} 
             disabled={rematchMutation.isPending}

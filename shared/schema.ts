@@ -2519,14 +2519,14 @@ export type InsertGmailUnmatchedEmail = z.infer<typeof insertGmailUnmatchedEmail
 
 // Email Sales Events - rule-based extracted events from emails
 export const EMAIL_SALES_EVENT_TYPES = [
-  'quote_requested',
-  'quote_sent',
-  'sample_requested',
-  'objection_price',
-  'objection_compatibility',
-  'ready_to_buy',
-  'timing_delay',
-  'stale_thread',
+  'po',           // Purchase Orders - customer placing/confirming orders
+  'approval',     // Approval - pricing/quote approvals, sign-offs
+  'samples',      // Samples - sample requests, swatch requests
+  'urgent',       // Urgent - time-sensitive requests, ASAP needs
+  'opportunity',  // Opportunities - new projects, interest expressions
+  'commitment',   // Commitments - scheduled meetings, confirmed timelines
+  'action',       // Actions - specific tasks or follow-ups requested
+  'feedback',     // Feedback - reviews, concerns, praise, issues
 ] as const;
 
 export const emailSalesEvents = pgTable("email_sales_events", {
