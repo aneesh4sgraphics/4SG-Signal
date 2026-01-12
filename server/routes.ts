@@ -14156,9 +14156,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get Shopify's original price for discount calculation
           const shopifyVariant = shopifyVariantsBySku.get(skuLower);
           const shopifyPrice = shopifyVariant?.price || 0;
-          const discountAmount = shopifyPrice - qqPrice;
+          const perUnitDiscount = shopifyPrice - qqPrice;
+          const totalLineDiscount = perUnitDiscount * quantity;
           
-          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify: $${shopifyPrice}, QQ: $${qqPrice}, Discount: $${discountAmount.toFixed(2)})`);
+          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify: $${shopifyPrice}/unit, QQ: $${qqPrice}/unit, Qty: ${quantity}, Total Discount: $${totalLineDiscount.toFixed(2)})`);
           
           const lineItem: any = {
             variant_id: variantId,
@@ -14166,12 +14167,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           // Apply discount if QQ price is lower than Shopify price
-          if (discountAmount > 0) {
+          if (totalLineDiscount > 0) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
-              value: String(discountAmount.toFixed(2)),
-              amount: String(discountAmount.toFixed(2)),
+              value: String(totalLineDiscount.toFixed(2)),
+              amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
           } else if (qqPrice !== shopifyPrice) {
@@ -14192,11 +14193,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(gidMatch[1], 10);
           }
           
-          // Calculate discount: Shopify price - QQ price
+          // Calculate discount: Shopify price - QQ price (total for line item)
           const shopifyPrice = shopifyVariant.price;
-          const discountAmount = shopifyPrice - qqPrice;
+          const perUnitDiscount = shopifyPrice - qqPrice;
+          const totalLineDiscount = perUnitDiscount * quantity;
           
-          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify: $${shopifyPrice}, QQ: $${qqPrice}, Discount: $${discountAmount.toFixed(2)}`);
+          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify: $${shopifyPrice}/unit, QQ: $${qqPrice}/unit, Qty: ${quantity}, Total Discount: $${totalLineDiscount.toFixed(2)}`);
           
           const lineItem: any = {
             variant_id: variantId,
@@ -14204,12 +14206,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           // Apply discount if QQ price is lower than Shopify price
-          if (discountAmount > 0) {
+          if (totalLineDiscount > 0) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
-              value: String(discountAmount.toFixed(2)),
-              amount: String(discountAmount.toFixed(2)),
+              value: String(totalLineDiscount.toFixed(2)),
+              amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
           } else if (qqPrice !== shopifyPrice) {
