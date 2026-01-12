@@ -13951,54 +13951,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/shopify/draft-orders", isAuthenticated, async (req: any, res) => {
     try {
       if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
-        return res.status(400).json({ error: "Shopify not configured" });
+        return res.status(400).json({ error: "Shopify not configured. Please add SHOPIFY_ACCESS_TOKEN and SHOPIFY_STORE_DOMAIN to your secrets." });
       }
 
-      const { quoteNumber, customerEmail, customerId, lineItems, note } = req.body;
+      const { quoteNumber, customerEmail, customerId, customerName, lineItems, note, shippingCost, additionalCharges } = req.body;
 
       if (!lineItems || lineItems.length === 0) {
         return res.status(400).json({ error: "At least one line item is required" });
       }
 
-      // Get variant mappings for the quote items
-      const allMappings = await db.select().from(shopifyVariantMappings)
-        .where(eq(shopifyVariantMappings.isActive, true));
-
-      // Build Shopify line items
-      const shopifyLineItems: { variant_id: string; quantity: number; price?: string }[] = [];
-      const unmappedItems: string[] = [];
+      // Build Shopify line items as custom items (no variant mapping needed)
+      // Each item gets: title, price (per packet), quantity
+      const shopifyLineItems: { title: string; price: string; quantity: number; taxable?: boolean }[] = [];
 
       for (const item of lineItems) {
-        const mapping = allMappings.find(m => 
-          m.itemCode === item.itemCode || 
-          m.productName?.toLowerCase() === item.productName?.toLowerCase()
-        );
+        // Use packet price (min order quantity pricing) and the quantity from the quote
+        const itemTitle = `${item.productName || item.title}${item.size ? ` - ${item.size}` : ''}`;
+        const pricePerPacket = item.unitPrice || item.pricePerPacket || 0;
+        const quantity = item.quantity || 1;
 
-        if (mapping) {
-          shopifyLineItems.push({
-            variant_id: mapping.shopifyVariantId,
-            quantity: item.quantity || 1,
-            price: item.unitPrice ? String(item.unitPrice) : undefined,
-          });
-        } else {
-          unmappedItems.push(item.productName || item.itemCode);
-        }
-      }
-
-      if (shopifyLineItems.length === 0) {
-        return res.status(400).json({ 
-          error: "No products could be mapped to Shopify variants",
-          unmappedItems,
-          suggestion: "Map products in Shopify Settings → Product Mappings first"
+        shopifyLineItems.push({
+          title: itemTitle,
+          price: String(pricePerPacket.toFixed(2)),
+          quantity: quantity,
+          taxable: true,
         });
       }
 
-      // Create draft order in Shopify
+      // Add shipping as a line item if provided
+      if (shippingCost && shippingCost > 0) {
+        shopifyLineItems.push({
+          title: 'Shipping',
+          price: String(shippingCost.toFixed(2)),
+          quantity: 1,
+          taxable: false,
+        });
+      }
+
+      // Add additional charges (like CC fee) as line items if provided
+      if (additionalCharges && Array.isArray(additionalCharges)) {
+        for (const charge of additionalCharges) {
+          if (charge.enabled && charge.amount > 0) {
+            shopifyLineItems.push({
+              title: charge.label || charge.type || 'Additional Charge',
+              price: String(charge.amount.toFixed(2)),
+              quantity: 1,
+              taxable: false,
+            });
+          }
+        }
+      }
+
+      // Create draft order in Shopify using custom line items
       const axios = (await import('axios')).default;
       const draftOrderPayload: any = {
         draft_order: {
           line_items: shopifyLineItems,
-          note: note || `QuickQuote: ${quoteNumber}`,
+          note: note || `QuickQuote: ${quoteNumber || 'Draft'}`,
           use_customer_default_address: true,
         }
       };
@@ -14007,6 +14016,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (customerEmail) {
         draftOrderPayload.draft_order.email = customerEmail;
       }
+
+      console.log(`[Shopify] Creating draft order with ${shopifyLineItems.length} line items for ${customerEmail || 'no email'}`);
 
       const response = await axios.post(
         `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/draft_orders.json`,
@@ -14023,7 +14034,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save to our database
       const savedDraft = await db.insert(shopifyDraftOrders).values({
-        quoteNumber,
+        quoteNumber: quoteNumber || `QQ-${Date.now()}`,
         customerId,
         customerEmail,
         shopifyDraftOrderId: String(draftOrder.id),
@@ -14034,12 +14045,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lineItemsCount: draftOrder.line_items?.length || 0,
       }).returning();
 
+      console.log(`[Shopify] Draft order created: ${draftOrder.name} - $${draftOrder.total_price}`);
+
       res.json({
         success: true,
         draftOrder: savedDraft[0],
+        shopifyDraftOrderNumber: draftOrder.name,
         invoiceUrl: draftOrder.invoice_url,
         adminUrl: `https://${SHOPIFY_STORE_DOMAIN}/admin/draft_orders/${draftOrder.id}`,
-        unmappedItems: unmappedItems.length > 0 ? unmappedItems : undefined,
+        totalPrice: draftOrder.total_price,
       });
     } catch (error: any) {
       console.error("Error creating draft order:", error.response?.data || error);
