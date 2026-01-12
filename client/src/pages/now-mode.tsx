@@ -153,12 +153,13 @@ export default function NowMode() {
 
   const completeMutation = useMutation({
     mutationFn: async ({ customerId, cardType, outcome, notes }: { customerId: string; cardType: string; outcome: string; notes?: string }) => {
-      return apiRequest("POST", "/api/now-mode/complete", { customerId, cardType, outcome, notes });
+      const res = await apiRequest("POST", "/api/now-mode/complete", { customerId, cardType, outcome, notes });
+      return res.json();
     },
     onSuccess: (response: any) => {
       setNotes("");
-      const outcome = response.nextFollowUpAt ? "Completed! Follow-up scheduled." : "Completed!";
-      toast({ title: outcome, description: "Moving to next card..." });
+      const resultMsg = response.nextFollowUpAt ? "Completed! Follow-up scheduled." : "Completed!";
+      toast({ title: resultMsg, description: "Moving to next card..." });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/efficiency"] });
       refetch();
@@ -174,7 +175,8 @@ export default function NowMode() {
 
   const skipMutation = useMutation({
     mutationFn: async ({ customerId, cardType, skipReason, notes }: { customerId: string; cardType: string; skipReason: string; notes?: string }) => {
-      return apiRequest("POST", "/api/now-mode/skip", { customerId, cardType, skipReason, notes });
+      const res = await apiRequest("POST", "/api/now-mode/skip", { customerId, cardType, skipReason, notes });
+      return res.json();
     },
     onSuccess: (response: any) => {
       setShowSkipModal(false);
