@@ -14264,32 +14264,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Get Shopify's original price for discount calculation
+          // Note: Shopify variants are priced per PACK (e.g., $51.99 for 25 sheets)
+          // QQ sends sheet quantity but we order 1 pack from Shopify
           const shopifyVariant = shopifyVariantsBySku.get(skuLower);
-          const shopifyUnitPrice = shopifyVariant?.price || 0;
-          const shopifyLineTotal = shopifyUnitPrice * quantity;
-          // Use QQ line total directly (handles MOQ pricing correctly)
+          const shopifyPackPrice = shopifyVariant?.price || 0;
+          // QQ line total is the total for all sheets (which equals 1 pack price with discount)
           const effectiveQQTotal = qqLineTotal > 0 ? qqLineTotal : (qqUnitPrice * quantity);
-          const totalLineDiscount = shopifyLineTotal - effectiveQQTotal;
+          // Discount is the difference between Shopify pack price and QQ total
+          const totalLineDiscount = shopifyPackPrice - effectiveQQTotal;
           
-          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify Total: $${shopifyLineTotal.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)})`);
+          console.log(`[Shopify] Using DB mapped variant: Signal SKU ${sku} -> Shopify variant ${variantId} (Shopify Pack Price: $${shopifyPackPrice.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Sheet Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)})`);
           
           const lineItem: any = {
             variant_id: variantId,
-            quantity: quantity,
+            quantity: 1, // Order 1 pack (which contains the sheet quantity)
           };
           
-          // Apply discount if QQ total is lower than Shopify total
+          // Apply discount if QQ total is lower than Shopify pack price
           if (totalLineDiscount > 0.01) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
               value: String(totalLineDiscount.toFixed(2)),
-              amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
-          } else if (effectiveQQTotal !== shopifyLineTotal) {
-            // QQ total is higher or Shopify price not found - override the price
-            lineItem.price = String(qqUnitPrice.toFixed(2));
+          } else if (effectiveQQTotal > shopifyPackPrice) {
+            // QQ total is higher than Shopify price - use custom pricing
+            lineItem.price = String(effectiveQQTotal.toFixed(2));
           }
           
           shopifyLineItems.push(lineItem);
@@ -14305,31 +14306,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             variantId = parseInt(gidMatch[1], 10);
           }
           
-          // Calculate discount using QQ line total (handles MOQ pricing)
-          const shopifyUnitPrice = shopifyVariant.price;
-          const shopifyLineTotal = shopifyUnitPrice * quantity;
+          // Calculate discount using pack pricing
+          // Note: Shopify variants are priced per PACK (e.g., $484.99 for 400 sheets)
+          // QQ sends sheet quantity but we order 1 pack from Shopify
+          const shopifyPackPrice = shopifyVariant.price;
           const effectiveQQTotal = qqLineTotal > 0 ? qqLineTotal : (qqUnitPrice * quantity);
-          const totalLineDiscount = shopifyLineTotal - effectiveQQTotal;
+          // Discount is the difference between Shopify pack price and QQ total
+          const totalLineDiscount = shopifyPackPrice - effectiveQQTotal;
           
-          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify Total: $${shopifyLineTotal.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)}`);
+          console.log(`[Shopify] Auto-matched by SKU: ${sku} -> Shopify variant ${variantId} (${shopifyVariant.productTitle}) - Shopify Pack Price: $${shopifyPackPrice.toFixed(2)}, QQ Total: $${effectiveQQTotal.toFixed(2)}, Sheet Qty: ${quantity}, Discount: $${totalLineDiscount.toFixed(2)}`);
           
           const lineItem: any = {
             variant_id: variantId,
-            quantity: quantity,
+            quantity: 1, // Order 1 pack (which contains the sheet quantity)
           };
           
-          // Apply discount if QQ total is lower than Shopify total
+          // Apply discount if QQ total is lower than Shopify pack price
           if (totalLineDiscount > 0.01) {
             lineItem.applied_discount = {
               description: 'QQ Discount',
               value_type: 'fixed_amount',
               value: String(totalLineDiscount.toFixed(2)),
-              amount: String(totalLineDiscount.toFixed(2)),
               title: 'QQ Discount',
             };
-          } else if (effectiveQQTotal !== shopifyLineTotal) {
-            // QQ total is higher or equal - just override the price
-            lineItem.price = String(qqUnitPrice.toFixed(2));
+          } else if (effectiveQQTotal > shopifyPackPrice) {
+            // QQ total is higher than Shopify price - use custom pricing
+            lineItem.price = String(effectiveQQTotal.toFixed(2));
           }
           
           shopifyLineItems.push(lineItem);
