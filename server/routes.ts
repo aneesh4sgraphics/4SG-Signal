@@ -1901,20 +1901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
-    try {
-      const customerData = req.body;
-      const customer = await storage.createCustomer(customerData);
-      
-      // Clear cache to ensure fresh data
-      setCachedData("customers", null);
-      
-      res.json(customer);
-    } catch (error) {
-      console.error("Error creating customer:", error);
-      res.status(500).json({ error: "Failed to create customer" });
-    }
-  });
+  // NOTE: Customer creation route with full validation is defined later (line ~2268)
+  // This simple version removed to prevent route conflicts.
 
   app.put("/api/customers/:id", async (req, res) => {
     try {
@@ -3586,35 +3574,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get pricing data for Price Management
-  app.get("/api/pricing-data", async (req, res) => {
-    try {
-      const pricingData = await storage.getProductPricingMaster();
-      res.json(pricingData);
-    } catch (error) {
-      console.error("Error fetching pricing data:", error);
-      res.status(500).json({ error: "Failed to fetch pricing data" });
-    }
-  });
-
-  // Update pricing data entry
-  app.patch("/api/pricing-data/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
-      
-      const updatedEntry = await storage.upsertProductPricingMaster({ id: parseInt(id), ...updates });
-      
-      if (!updatedEntry) {
-        return res.status(404).json({ error: "Pricing entry not found" });
-      }
-      
-      res.json(updatedEntry);
-    } catch (error) {
-      console.error("Error updating pricing data:", error);
-      res.status(500).json({ error: "Failed to update pricing data" });
-    }
-  });
+  // NOTE: Pricing data routes with auth are defined later (line ~5233)
+  // These simple versions removed to prevent route conflicts and ensure auth.
 
   // Export pricing data as CSV
   app.get("/api/pricing-data/export", isAuthenticated, async (req, res) => {
