@@ -4,7 +4,6 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import archiver from "archiver";
-import pdf from 'html-pdf-node';
 import puppeteer from 'puppeteer';
 import PDFDocument from 'pdfkit';
 import OpenAI from 'openai';
@@ -5609,53 +5608,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('📏 HTML Size:', html.length, 'characters');
 
-      // Configure html-pdf-node for Replit environment with font loading
-      const options = {
-        format: 'A4',
-        margin: { top: "15px", right: "15px", bottom: "15px", left: "15px" },
-        printBackground: true,
-        preferCSSPageSize: true,
-        waitUntil: 'networkidle0', // Wait for fonts to load
+      console.log('🖥️ Starting Chromium PDF generation with path:', process.env.PUPPETEER_EXECUTABLE_PATH);
+
+      // Generate PDF using puppeteer directly
+      const browser = await puppeteer.launch({
+        headless: true,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox', 
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-software-rasterizer',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI',
-          '--disable-ipc-flooding-protection',
-          '--disable-default-apps',
-          '--disable-extensions',
-          '--disable-plugins',
-          '--disable-sync',
-          '--disable-translate',
-          '--hide-scrollbars',
-          '--mute-audio',
-          '--no-first-run',
-          '--disable-infobars',
-          '--disable-breakpad',
-          '--disable-canvas-aa',
-          '--disable-2d-canvas-clip-aa',
-          '--disable-gl-drawing-for-tests',
-          '--disable-threaded-animation',
-          '--disable-threaded-scrolling',
-          '--disable-in-process-stack-traces',
-          '--disable-histogram-customizer',
-          '--disable-gl-extensions',
-          '--disable-composited-antialiasing'
         ],
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-        timeout: 15000 // 15 second timeout instead of default 30s
-      };
+      });
 
-      console.log('🖥️ Starting Chromium PDF generation with path:', process.env.PUPPETEER_EXECUTABLE_PATH);
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        margin: { top: "15px", right: "15px", bottom: "15px", left: "15px" },
+        printBackground: true,
+      });
 
-      // Generate PDF
-      const file = { content: html };
-      const pdfBuffer = await pdf.generatePdf(file, options);
+      await browser.close();
 
       console.log('📦 PDF Buffer size:', pdfBuffer.length, 'bytes');
 

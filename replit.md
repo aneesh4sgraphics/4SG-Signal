@@ -21,7 +21,7 @@ Preferred communication style: Simple, everyday language.
 - **API Style**: RESTful API.
 - **Database**: PostgreSQL with Drizzle ORM.
 - **Session Management**: PostgreSQL session store.
-- **Technical Implementations**: Server-side PDF generation (html-pdf-node), robust authentication with role-based access control, comprehensive CSV upload/synchronization with hash-based change detection, and dynamic logo fetching.
+- **Technical Implementations**: Server-side PDF generation (puppeteer), robust authentication with role-based access control, comprehensive CSV upload/synchronization with hash-based change detection, and dynamic logo fetching.
 - **Error Handling**: Production-ready error logging, performance tracking, and detailed error responses with actionable suggestions, exposing sanitized error fields. Includes a `/api/diagnostics` health check.
 - **AI Chatbot**: Hybrid RAG system using OpenAI GPT-4o with fallback to local BM25 search. Provides context-only answers, product retrieval, strict "no guessing" policy, source citations, and guidance to app sections. Works offline.
 - **CRM Integration**: Comprehensive customer journey tracking system, including account states, machine profile tracking, category trust grid, reorder intelligence, and "Next Best Move" coaching nudges.
@@ -70,6 +70,6 @@ Preferred communication style: Simple, everyday language.
 - **Database**: Drizzle ORM, Neon Database client, pg, connect-pg-simple.
 - **Validation**: Zod.
 - **File Handling**: Multer.
-- **PDF Generation**: html-pdf-node.
+- **PDF Generation**: puppeteer (direct browser-based PDF rendering).
 - **AI/NLP**: OpenAI.
 - **Other**: axios, csv-parse, pdf-lib, pug, puppeteer, zod-validation-error.

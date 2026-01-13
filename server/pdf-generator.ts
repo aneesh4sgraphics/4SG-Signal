@@ -1,6 +1,6 @@
 // pdf-generator.ts (Complete Drop-in Replacement)
 
-import pdf from "html-pdf-node";
+import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -414,15 +414,28 @@ export async function generateQuotePDF(
 
   const html = await generateQuoteHTML(request);
 
-  const pdfOptions = {
-    format: "A4" as const,
-    printBackground: true,
-  };
-
-  const file = { content: html };
-  
   try {
-    const pdfBuffer = await pdf.generatePdf(file, pdfOptions);
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+    });
+
+    await browser.close();
+
     const buffer = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer as any);
     
     // Cache the generated PDF
