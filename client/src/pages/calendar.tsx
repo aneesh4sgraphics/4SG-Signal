@@ -275,6 +275,12 @@ export default function CalendarPage() {
           </Button>
         </CardHeader>
         <CardContent className="p-2">
+          {eventsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <span className="ml-3 text-gray-500">Loading events...</span>
+            </div>
+          ) : (
           <div className="grid grid-cols-7 gap-1">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
               <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
@@ -325,6 +331,7 @@ export default function CalendarPage() {
               );
             })}
           </div>
+          )}
         </CardContent>
       </Card>
 
