@@ -10487,6 +10487,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add or toggle machine profile (one-click)
+  // Auto-assigns customer to Aneesh if Distributor or Dealer is selected
+  const ANEESH_USER_ID = "45980257";
+  const AUTO_ASSIGN_MACHINE_TYPES = ['distributor', 'dealer'];
+  
   app.post("/api/crm/machine-profiles", isAuthenticated, async (req: any, res) => {
     try {
       const { customerId, machineFamily, status, source } = req.body;
@@ -10523,6 +10527,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           confirmedAt: status === 'confirmed' ? new Date() : null,
           confirmedBy: status === 'confirmed' ? req.user?.email : null,
         }).returning();
+      }
+
+      // Auto-assign to Aneesh if Distributor or Dealer is selected
+      if (AUTO_ASSIGN_MACHINE_TYPES.includes(machineFamily.toLowerCase())) {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+        const previousSalesRepId = customer?.salesRepId;
+        
+        // Only update if not already assigned to Aneesh
+        if (previousSalesRepId !== ANEESH_USER_ID) {
+          await db.update(customers)
+            .set({ 
+              salesRepId: ANEESH_USER_ID,
+              salesRepName: 'Aneesh',
+              updatedAt: new Date()
+            })
+            .where(eq(customers.id, customerId));
+          
+          // Log the auto-assignment
+          await storage.logActivity({
+            userId: req.user?.id,
+            userEmail: req.user?.email || 'system',
+            userRole: req.user?.role || 'user',
+            action: 'auto_assign_sales_rep',
+            actionType: 'customer_update',
+            description: `Customer auto-assigned to Aneesh (${machineFamily} selected)`,
+            targetId: customerId,
+            targetType: 'customer',
+            metadata: { 
+              previousSalesRepId, 
+              newSalesRepId: ANEESH_USER_ID, 
+              machineFamily,
+              reason: 'distributor_dealer_auto_assign'
+            },
+          });
+          
+          console.log(`[Machine Profile] Auto-assigned customer ${customerId} to Aneesh (${machineFamily} selected)`);
+        }
       }
 
       res.json(result[0]);

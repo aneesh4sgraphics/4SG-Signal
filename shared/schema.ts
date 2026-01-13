@@ -1524,7 +1524,12 @@ export const MACHINE_FAMILIES = [
   { id: 'wide_format', label: 'Wide Format', brands: ['HP Latex', 'Roland', 'Mimaki', 'Canon'] },
   { id: 'flexo', label: 'Flexo', brands: ['Mark Andy', 'Nilpeter', 'Gallus'] },
   { id: 'label', label: 'Label Press', brands: ['HP Indigo', 'Epson', 'Durst'] },
+  { id: 'distributor', label: 'Distributor', brands: [], autoAssignToAneesh: true },
+  { id: 'dealer', label: 'Dealer', brands: [], autoAssignToAneesh: true },
 ] as const;
+
+// Machine families that should auto-assign customer to Aneesh
+export const ANEESH_AUTO_ASSIGN_MACHINE_TYPES = ['distributor', 'dealer'] as const;
 
 export type MachineFamily = typeof MACHINE_FAMILIES[number]['id'];
 

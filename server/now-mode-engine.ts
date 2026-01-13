@@ -9,6 +9,7 @@ import {
   customerActivityEvents,
   customerJourney,
   coachingMoments,
+  customerMachineProfiles,
   NOW_MODE_BUCKETS,
   BUCKET_QUOTAS,
   CARD_TYPE_BUCKETS,
@@ -20,7 +21,7 @@ import {
   type NowModeEventType,
   type InsertNowModeActivity,
 } from "@shared/schema";
-import { eq, and, or, isNull, lt, gt, gte, desc, asc, sql, ne, lte, count } from "drizzle-orm";
+import { eq, and, or, isNull, lt, gt, gte, desc, asc, sql, ne, lte, count, exists } from "drizzle-orm";
 
 const DAILY_TARGET = 10;
 const SKIP_PENALTY_THRESHOLD = 3;
@@ -43,6 +44,7 @@ interface Customer {
   priceListSentAt: Date | null;
   doNotContact: boolean | null;
   pausedUntil: Date | null;
+  hasMachineProfile: boolean;  // Whether customer has any machine profile set
 }
 
 interface EligibleCard {
@@ -335,9 +337,33 @@ export class NowModeEngine {
     
     console.log(`[NOW MODE] Load balancing: fetching Aneesh's customers for user ${userId}`);
     
-    // Get Aneesh's customers that aren't paused or DNC
+    // Use a subquery to check if customer has any machine profile
+    const machineProfileSubquery = db
+      .select({ customerId: customerMachineProfiles.customerId })
+      .from(customerMachineProfiles)
+      .where(eq(customerMachineProfiles.customerId, customers.id))
+      .limit(1);
+    
+    // Get Aneesh's customers that aren't paused or DNC, with machine profile status
     const aneeshCustomers = await db
-      .select()
+      .select({
+        id: customers.id,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+        email: customers.email,
+        phone: customers.phone,
+        salesRepId: customers.salesRepId,
+        salesRepName: customers.salesRepName,
+        pricingTier: customers.pricingTier,
+        lastOutboundEmailAt: customers.lastOutboundEmailAt,
+        swatchbookSentAt: customers.swatchbookSentAt,
+        pressTestSentAt: customers.pressTestSentAt,
+        priceListSentAt: customers.priceListSentAt,
+        doNotContact: customers.doNotContact,
+        pausedUntil: customers.pausedUntil,
+        hasMachineProfile: sql<boolean>`EXISTS (${machineProfileSubquery})`.as('has_machine_profile'),
+      })
       .from(customers)
       .where(
         and(
@@ -396,8 +422,32 @@ export class NowModeEngine {
     
     console.log(`[NOW MODE] Getting eligible customers for userId: ${userId}`);
     
-    let query = db
-      .select()
+    // Use a subquery to check if customer has any machine profile
+    const machineProfileSubquery = db
+      .select({ customerId: customerMachineProfiles.customerId })
+      .from(customerMachineProfiles)
+      .where(eq(customerMachineProfiles.customerId, customers.id))
+      .limit(1);
+    
+    const result = await db
+      .select({
+        id: customers.id,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+        email: customers.email,
+        phone: customers.phone,
+        salesRepId: customers.salesRepId,
+        salesRepName: customers.salesRepName,
+        pricingTier: customers.pricingTier,
+        lastOutboundEmailAt: customers.lastOutboundEmailAt,
+        swatchbookSentAt: customers.swatchbookSentAt,
+        pressTestSentAt: customers.pressTestSentAt,
+        priceListSentAt: customers.priceListSentAt,
+        doNotContact: customers.doNotContact,
+        pausedUntil: customers.pausedUntil,
+        hasMachineProfile: sql<boolean>`EXISTS (${machineProfileSubquery})`.as('has_machine_profile'),
+      })
       .from(customers)
       .where(
         and(
@@ -409,7 +459,6 @@ export class NowModeEngine {
       .orderBy(desc(customers.totalSpent), desc(customers.totalOrders))
       .limit(100);
 
-    const result = await query;
     console.log(`[NOW MODE] Found ${result.length} eligible customers (before exclusion), excluding ${excludeIds.length} recently seen`);
     
     const filtered = result.filter((c) => !excludeIds.includes(c.id));
@@ -424,8 +473,10 @@ export class NowModeEngine {
 
     switch (bucket) {
       case "data_hygiene":
+        // Critical data fields in priority order
         if (!customer.pricingTier) return "set_pricing_tier";
         if (!customer.salesRepId) return "set_sales_rep";
+        if (!customer.hasMachineProfile) return "set_machine_profile";  // Critical: collect machine info
         if (!customer.email) return "set_primary_email";
         return null;
 
@@ -489,6 +540,8 @@ export class NowModeEngine {
         return `Why now: ${name} has no pricing tier. Accounts with tiers convert 34% faster on quotes.`;
       case "set_sales_rep":
         return `Why now: ${name} is unassigned. Unowned accounts have 67% lower engagement rates.`;
+      case "set_machine_profile":
+        return `Why now: ${name} has no machine info. Knowing their equipment helps target the right products and identify distributors/dealers.`;
       case "set_primary_email":
         return `Why now: ${name} has no email on file. Email outreach drives 3x more quote requests than cold calls.`;
       case "daily_call":
@@ -533,6 +586,12 @@ export class NowModeEngine {
       case "set_pricing_tier":
         return [
           { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Check order history to determine appropriate tier level." },
+          { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
+        ];
+      case "set_machine_profile":
+        return [
+          { outcome: "data_updated", label: "Machine Set", icon: "settings", color: "green", assistText: "Select their equipment type. Distributors/Dealers will be auto-assigned to Aneesh." },
+          { outcome: "called_no_answer", label: "Need to Call", icon: "phone-missed", color: "amber", schedulesFollowUp: true, followUpDays: 1, assistText: "Schedule a call to gather machine information." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
       case "set_sales_rep":
