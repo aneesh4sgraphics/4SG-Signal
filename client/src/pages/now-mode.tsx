@@ -911,28 +911,30 @@ export default function NowMode() {
               <Coffee className="h-5 w-5" />
               Taking a Break?
             </DialogTitle>
-            <DialogDescription className="pt-4 space-y-3">
-              <p className="text-base text-gray-700">
-                {dormancyData?.coachingMessage || "Ready to continue?"}
-              </p>
-              {dormancyData?.aheadOfYesterday && (
-                <p className="text-sm text-green-600 flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  You're ahead of yesterday's pace!
+            <DialogDescription asChild>
+              <div className="pt-4 space-y-3">
+                <p className="text-base text-gray-700">
+                  {dormancyData?.coachingMessage || "Ready to continue?"}
                 </p>
-              )}
-              <div className="flex items-center gap-4 pt-2">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{dormancyData?.todayCompleted || 0}</div>
-                  <div className="text-xs text-gray-500">Done today</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-400">{dormancyData?.yesterdayCompleted || 0}</div>
-                  <div className="text-xs text-gray-500">Yesterday</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{dormancyData?.efficiencyScore || 0}</div>
-                  <div className="text-xs text-gray-500">Efficiency</div>
+                {dormancyData?.aheadOfYesterday && (
+                  <p className="text-sm text-green-600 flex items-center gap-1">
+                    <TrendingUp className="h-4 w-4" />
+                    You're ahead of yesterday's pace!
+                  </p>
+                )}
+                <div className="flex items-center gap-4 pt-2">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{dormancyData?.todayCompleted || 0}</div>
+                    <div className="text-xs text-gray-500">Done today</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-400">{dormancyData?.yesterdayCompleted || 0}</div>
+                    <div className="text-xs text-gray-500">Yesterday</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{dormancyData?.efficiencyScore || 0}</div>
+                    <div className="text-xs text-gray-500">Efficiency</div>
+                  </div>
                 </div>
               </div>
             </DialogDescription>
@@ -957,9 +959,9 @@ export default function NowMode() {
               <Coffee className="h-4 w-4 mr-2" />
               Pause for today
             </Button>
-            <p className="text-xs text-gray-400 text-center pt-1">
+            <span className="text-xs text-gray-400 text-center pt-1 block">
               Pausing freezes your efficiency — no penalty for taking a break.
-            </p>
+            </span>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -992,15 +994,17 @@ export default function NowMode() {
               <AlertTriangle className="h-5 w-5" />
               Are you sure?
             </DialogTitle>
-            <DialogDescription className="pt-2">
-              <span className="text-lg font-semibold text-gray-900">
-                Skipping reduces today's efficiency by 2 points.
-              </span>
-              <br />
-              <span className="text-sm text-gray-500 mt-2 block">
-                Current efficiency: <span className="font-bold">{displayEfficiency}</span> → 
-                After skip: <span className="font-bold text-orange-600">{Math.max(0, displayEfficiency - 2)}</span>
-              </span>
+            <DialogDescription asChild>
+              <div className="pt-2">
+                <span className="text-lg font-semibold text-gray-900">
+                  Skipping reduces today's efficiency by 2 points.
+                </span>
+                <br />
+                <span className="text-sm text-gray-500 mt-2 block">
+                  Current efficiency: <span className="font-bold">{displayEfficiency}</span> → 
+                  After skip: <span className="font-bold text-orange-600">{Math.max(0, displayEfficiency - 2)}</span>
+                </span>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
