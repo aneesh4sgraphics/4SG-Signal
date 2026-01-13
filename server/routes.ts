@@ -14321,7 +14321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             skipped++; // Already synced
           }
         } else {
-          // Customer doesn't exist - import with full details
+          // Customer doesn't exist by email - check if exists by Shopify ID
           const newId = `shopify_${shopifyCustomer.id}`;
           
           // Get default address
@@ -14331,8 +14331,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hasCompany = defaultAddress.company && defaultAddress.company.trim().length > 0;
           const personName = `${shopifyCustomer.first_name || ''} ${shopifyCustomer.last_name || ''}`.trim();
           
-          await db.insert(customers).values({
-            id: newId,
+          // Check if customer already exists by Shopify ID
+          const existingByShopifyId = await db.select({ id: customers.id })
+            .from(customers)
+            .where(eq(customers.id, newId))
+            .limit(1);
+          
+          const customerData = {
             firstName: shopifyCustomer.first_name || null,
             lastName: shopifyCustomer.last_name || null,
             email: shopifyCustomer.email || null,
@@ -14351,31 +14356,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             note: shopifyCustomer.note || null,
             tags: shopifyCustomer.tags || null,
             taxExempt: shopifyCustomer.tax_exempt || false,
-            sources: ['shopify'],
             isCompany: hasCompany,
             contactType: hasCompany ? 'company' : 'contact',
-            createdAt: new Date(),
             updatedAt: new Date(),
-          });
+          };
+
+          if (existingByShopifyId.length > 0) {
+            // Update existing Shopify customer
+            await db.update(customers)
+              .set(customerData)
+              .where(eq(customers.id, newId));
+            matched++;
+            matchedCustomers.push(defaultAddress.company || personName || shopifyCustomer.email || 'Unknown');
+          } else {
+            // Insert new customer
+            await db.insert(customers).values({
+              id: newId,
+              ...customerData,
+              sources: ['shopify'],
+              createdAt: new Date(),
+            });
           
-          // Create a contact for the person if this is a company
-          if (hasCompany && personName) {
-            try {
-              await db.insert(customerContacts).values({
-                customerId: newId,
-                name: personName,
-                email: shopifyCustomer.email || null,
-                phone: shopifyCustomer.phone || defaultAddress.phone || null,
-                role: 'Primary Contact',
-                isPrimary: true,
-              });
-            } catch (contactError) {
-              console.error(`Failed to create contact for ${newId}:`, contactError);
+            // Create a contact for the person if this is a company
+            if (hasCompany && personName) {
+              try {
+                await db.insert(customerContacts).values({
+                  customerId: newId,
+                  name: personName,
+                  email: shopifyCustomer.email || null,
+                  phone: shopifyCustomer.phone || defaultAddress.phone || null,
+                  role: 'Primary Contact',
+                  isPrimary: true,
+                });
+              } catch (contactError) {
+                console.error(`Failed to create contact for ${newId}:`, contactError);
+              }
             }
-          }
           
-          imported++;
-          importedCustomers.push(defaultAddress.company || personName || shopifyCustomer.email || 'Unknown');
+            imported++;
+            importedCustomers.push(defaultAddress.company || personName || shopifyCustomer.email || 'Unknown');
+          }
         }
       }
 
