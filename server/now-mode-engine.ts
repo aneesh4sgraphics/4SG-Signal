@@ -238,8 +238,9 @@ export class NowModeEngine {
       if (nonCallCandidates.length > 0) candidates = nonCallCandidates;
     }
 
-    // Prioritize order: follow_ups > outreach > calls > enablement > data_hygiene
-    const priorityOrder: NowModeBucket[] = ["follow_ups", "outreach", "calls", "enablement", "data_hygiene"];
+    // Prioritize order: data_hygiene (critical info) > follow_ups > outreach > calls > enablement
+    // Data hygiene is critical because pricing tier and sales rep are essential for business operations
+    const priorityOrder: NowModeBucket[] = ["data_hygiene", "follow_ups", "outreach", "calls", "enablement"];
     for (const bucket of priorityOrder) {
       const match = candidates.find(p => p.bucket === bucket);
       if (match) return match.bucket;

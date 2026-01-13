@@ -2762,12 +2762,13 @@ export const NOW_MODE_BUCKETS = ['calls', 'follow_ups', 'outreach', 'data_hygien
 export type NowModeBucket = typeof NOW_MODE_BUCKETS[number];
 
 // Bucket quotas per day (total = 10 completions)
+// Data hygiene is prioritized because pricing tier & sales rep are critical info
 export const BUCKET_QUOTAS: Record<NowModeBucket, number> = {
   calls: 2,
   follow_ups: 2,
   outreach: 2,
-  data_hygiene: 2,
-  enablement: 2,
+  data_hygiene: 3,  // Increased: pricing tier & sales rep are critical
+  enablement: 1,
 };
 
 // Card types mapped to buckets
