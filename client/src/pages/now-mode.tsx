@@ -252,6 +252,8 @@ export default function NowMode() {
   const { data, isLoading, refetch } = useQuery<NowModeResponse>({
     queryKey: ["/api/now-mode/current"],
     refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // Day recap query - for end-of-day closure (must be after main data query)
