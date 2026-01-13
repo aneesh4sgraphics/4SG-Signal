@@ -25,6 +25,7 @@ import { ApiError } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useEmailComposer } from "@/components/email-composer";
 import { ALLOWED_CATEGORIES } from "@/lib/productCategories";
+import { PRICING_TIERS } from "@shared/schema";
 
 interface ProductData {
   id: number;
@@ -68,6 +69,8 @@ interface Customer {
   phone: string;
   note: string;
   tags: string;
+  pricingTier?: string | null;
+  salesRepName?: string | null;
 }
 
 interface QuoteItem {
@@ -143,6 +146,10 @@ export default function QuoteCalculator() {
     { id: 'ship', type: 'shipping', label: 'Shipping Cost', odooProductCode: 'SHIPPING', amount: 55, enabled: true },
   ]);
   const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
+  const [showCustomerGateDialog, setShowCustomerGateDialog] = useState(false);
+  const [gatePricingTier, setGatePricingTier] = useState("");
+  const [gateSalesRep, setGateSalesRep] = useState("");
+  const [gateCustomer, setGateCustomer] = useState<Customer | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -150,6 +157,11 @@ export default function QuoteCalculator() {
   const { logPageView, logQuoteGeneration, logQuoteDownload, logUserAction } = useActivityLogger();
   const { open: openEmailComposer } = useEmailComposer();
   const [location] = useLocation();
+
+  // Fetch users for sales rep dropdown in gate dialog
+  const { data: usersData } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
+    queryKey: ["/api/users"],
+  });
 
   // Mutation to update customer's primary email
   const updatePrimaryEmailMutation = useMutation({
@@ -927,7 +939,18 @@ export default function QuoteCalculator() {
       // No contact emails available - just proceed without email
     }
     
-    // Single valid email or no options - just select directly
+    // Check for missing pricing tier or sales rep - show gate dialog if needed
+    const missingTier = !customer.pricingTier;
+    const missingRep = !customer.salesRepName;
+    if (missingTier || missingRep) {
+      setGateCustomer(customer);
+      setGatePricingTier(customer.pricingTier || "");
+      setGateSalesRep(customer.salesRepName || "");
+      setShowCustomerGateDialog(true);
+      return;
+    }
+    
+    // All good - select directly
     setSelectedCustomer(customer);
   };
 
@@ -1016,6 +1039,54 @@ export default function QuoteCalculator() {
     }
     
     setEmailSelectAction(null);
+  };
+
+  // Handle customer gate dialog save - update pricing tier and sales rep
+  const handleCustomerGateSave = async () => {
+    if (!gateCustomer) return;
+    if (!gatePricingTier || !gateSalesRep) {
+      toast({
+        title: "Missing Fields",
+        description: "Please select both a pricing tier and sales rep",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/customers/${gateCustomer.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ pricingTier: gatePricingTier, salesRepName: gateSalesRep }),
+      });
+      
+      if (response.ok) {
+        const updatedCustomer = await response.json();
+        setSelectedCustomer(updatedCustomer);
+        queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+        toast({
+          title: "Customer Updated",
+          description: "Pricing tier and sales rep have been assigned",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update customer",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update customer",
+        variant: "destructive",
+      });
+    }
+    
+    setShowCustomerGateDialog(false);
+    setGateCustomer(null);
   };
 
   // Handle Shopify draft click - validates SKUs first and shows warning if any are unmapped
@@ -2943,6 +3014,72 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             </Button>
             <Button onClick={handleEmailSelectConfirm} disabled={!selectedEmail}>
               {emailSelectAction === 'fix_missing' ? 'Set Email' : 'Set as Primary'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Gate Dialog - collect missing pricing tier / sales rep */}
+      <Dialog open={showCustomerGateDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowCustomerGateDialog(false);
+          setGateCustomer(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-700">
+              <User className="h-5 w-5" />
+              Complete Customer Setup
+            </DialogTitle>
+            <DialogDescription>
+              Please assign a pricing tier and sales rep for this customer before creating a quote.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="gate-pricing-tier">Pricing Tier</Label>
+              <Select value={gatePricingTier} onValueChange={setGatePricingTier}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRICING_TIERS.map((tier) => (
+                    <SelectItem key={tier} value={tier}>
+                      {tier}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gate-sales-rep">Sales Rep</Label>
+              <Select value={gateSalesRep} onValueChange={setGateSalesRep}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sales rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usersData?.map((user) => (
+                    <SelectItem key={user.id} value={user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}>
+                      {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowCustomerGateDialog(false);
+              setGateCustomer(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCustomerGateSave}
+              disabled={!gatePricingTier || !gateSalesRep}
+            >
+              Save & Continue
             </Button>
           </DialogFooter>
         </DialogContent>
