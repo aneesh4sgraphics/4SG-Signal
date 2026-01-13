@@ -213,7 +213,18 @@ export async function setupAuth(app: Express) {
       }
     };
 
-    for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+    // Collect all domains: production domains from REPLIT_DOMAINS, dev domain from REPLIT_DEV_DOMAIN
+    const allDomains: string[] = [];
+    if (process.env.REPLIT_DOMAINS) {
+      allDomains.push(...process.env.REPLIT_DOMAINS.split(",").map(d => d.trim()).filter(Boolean));
+    }
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      allDomains.push(...process.env.REPLIT_DEV_DOMAIN.split(",").map(d => d.trim()).filter(Boolean));
+    }
+    
+    console.log(`[Auth] Registering strategies for domains: ${allDomains.join(", ")}`);
+    
+    for (const domain of allDomains) {
       const strategy = new Strategy(
         {
           name: `replitauth:${domain}`,
@@ -228,7 +239,16 @@ export async function setupAuth(app: Express) {
 
     app.get("/api/login", (req, res, next) => {
       console.log(`[Auth] Login initiated from ${req.hostname}`);
-      passport.authenticate(`replitauth:${req.hostname}`, {
+      console.log(`[Auth] Available strategies - REPLIT_DOMAINS: ${process.env.REPLIT_DOMAINS}, DEV_DOMAIN: ${process.env.REPLIT_DEV_DOMAIN}`);
+      
+      // Check if strategy exists for this hostname
+      const strategyName = `replitauth:${req.hostname}`;
+      if (!passport._strategies[strategyName]) {
+        console.error(`[Auth] No strategy registered for ${req.hostname}. Available domains: ${process.env.REPLIT_DOMAINS}`);
+        return res.redirect("/?error=domain_not_configured");
+      }
+      
+      passport.authenticate(strategyName, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
       })(req, res, next);
@@ -236,9 +256,11 @@ export async function setupAuth(app: Express) {
 
     app.get("/api/callback", (req, res, next) => {
       const callbackStart = Date.now();
+      console.log(`[Auth] Callback received from ${req.hostname}`);
       passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any, info: any) => {
         const authTime = Date.now() - callbackStart;
         console.log(`[Auth] OIDC authentication took ${authTime}ms`);
+        console.log(`[Auth] Callback details - err: ${err ? err.message || err : 'none'}, user: ${user ? 'present' : 'null'}, info: ${JSON.stringify(info)}`);
         
         if (err) {
           console.error("[Auth] Callback error:", err);
@@ -246,7 +268,8 @@ export async function setupAuth(app: Express) {
         }
 
         if (!user) {
-          console.log("[Auth] No user returned from OIDC - redirecting to home with error");
+          console.log("[Auth] No user returned from OIDC - info:", info);
+          console.log("[Auth] Hostname:", req.hostname, "REPLIT_DOMAINS:", process.env.REPLIT_DOMAINS);
           return res.redirect("/?error=no_user");
         }
 
@@ -309,6 +332,10 @@ export async function setupAuth(app: Express) {
       const isAuth = req.isAuthenticated ? req.isAuthenticated() : false;
       const hasUser = !!req.user;
       const userEmail = req.user?.claims?.email || req.user?.email || null;
+      const configuredDomains = process.env.REPLIT_DOMAINS?.split(",") || [];
+      const currentHostname = req.hostname;
+      const isDomainConfigured = configuredDomains.includes(currentHostname);
+      const registeredStrategies = Object.keys(passport._strategies || {}).filter(s => s.startsWith('replitauth:'));
       const userId = req.user?.claims?.sub || null;
       const expiresAt = req.user?.expires_at ? new Date(req.user.expires_at * 1000).toISOString() : null;
       const isExpired = req.user?.expires_at ? (Date.now() / 1000) > req.user.expires_at : null;
