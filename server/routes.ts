@@ -10493,7 +10493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/crm/machine-profiles", isAuthenticated, async (req: any, res) => {
     try {
-      const { customerId, machineFamily, status, source } = req.body;
+      const { customerId, machineFamily, status, source, otherDetails } = req.body;
       
       if (!customerId || !machineFamily) {
         return res.status(400).json({ error: "customerId and machineFamily are required" });
@@ -10512,6 +10512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             confirmedAt: status === 'confirmed' ? new Date() : existing[0].confirmedAt,
             confirmedBy: status === 'confirmed' ? req.user?.email : existing[0].confirmedBy,
             touchCount: (existing[0].touchCount || 0) + 1,
+            otherDetails: otherDetails || existing[0].otherDetails,
             updatedAt: new Date()
           })
           .where(eq(customerMachineProfiles.id, existing[0].id))
@@ -10524,6 +10525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: status || 'inferred',
           source: source || 'user_added',
           touchCount: 1,
+          otherDetails: otherDetails || null,
           confirmedAt: status === 'confirmed' ? new Date() : null,
           confirmedBy: status === 'confirmed' ? req.user?.email : null,
         }).returning();
