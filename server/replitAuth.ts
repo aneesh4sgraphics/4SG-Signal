@@ -284,8 +284,22 @@ export async function setupAuth(app: Express) {
           console.log(`[Auth] Session save took ${Date.now() - saveStart}ms`);
 
           const totalTime = Date.now() - callbackStart;
+          const isProduction = process.env.NODE_ENV === 'production' || !!process.env.REPLIT_DEPLOYMENT;
           console.log(`[Auth] Login successful in ${totalTime}ms. Session ID: ${req.sessionID}`);
           console.log(`[Auth] Session cookie should be set. User claims email: ${req.user?.claims?.email}`);
+          console.log(`[Auth] Production mode: ${isProduction}, Cookie secure: ${isProduction}`);
+
+          // Set a test cookie to verify cookies work
+          res.cookie('auth_test', 'success', {
+            httpOnly: false,
+            secure: isProduction,
+            sameSite: 'lax',
+            maxAge: 60000, // 1 minute
+            path: '/',
+          });
+          
+          // Log the response headers for debugging
+          console.log(`[Auth] Response headers set. Session ID in session: ${req.session?.id || 'none'}`);
 
           // Small delay page to ensure cookie is set before redirect
           // Also set a localStorage flag to help with session detection
@@ -295,6 +309,7 @@ export async function setupAuth(app: Express) {
             <script>
               sessionStorage.setItem('authComplete', 'true');
               sessionStorage.setItem('authTimestamp', Date.now().toString());
+              console.log('Auth callback - cookies:', document.cookie);
               setTimeout(function(){window.location.replace('/');},500);
             </script>
             </body></html>`);
@@ -328,6 +343,8 @@ export async function setupAuth(app: Express) {
     app.get("/api/auth/debug", (req: any, res) => {
       const hasCookie = !!req.headers.cookie;
       const hasSessionCookie = req.headers.cookie?.includes('connect.sid') || false;
+      const hasAuthTestCookie = req.headers.cookie?.includes('auth_test') || false;
+      const rawCookies = req.headers.cookie || 'none';
       const hasSession = !!req.session;
       const hasSessionId = !!req.sessionID;
       const isAuth = req.isAuthenticated ? req.isAuthenticated() : false;
@@ -365,8 +382,11 @@ export async function setupAuth(app: Express) {
         diagnostics: {
           hasCookie,
           hasSessionCookie,
+          hasAuthTestCookie,
+          rawCookies: rawCookies.substring(0, 200),
           hasSession,
           hasSessionId,
+          sessionId: req.sessionID?.substring(0, 10) + '...',
           isAuthenticated: isAuth,
           hasUser,
           userEmail,
