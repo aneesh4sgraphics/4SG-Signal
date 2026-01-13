@@ -270,17 +270,38 @@ export class NowModeEngine {
 
     const skipPenalty = session.skipPenaltyApplied || false;
     
+    // First attempt: try with current penalty state
     const card = await this.findCardForBucket(userId, targetBucket, recentCustomerIds, skipPenalty);
     
     if (card) {
       return { card, session, allDone: false };
     }
 
+    // Try other buckets with penalty
     for (const bucket of NOW_MODE_BUCKETS) {
       if (bucket === targetBucket) continue;
       const spilloverCard = await this.findCardForBucket(userId, bucket, recentCustomerIds, skipPenalty);
       if (spilloverCard) {
         return { card: spilloverCard, session, allDone: false };
+      }
+    }
+
+    // FALLBACK: If penalty is applied but no cards found, try again WITHOUT penalty
+    // This ensures users always see some cards even after skipping
+    if (skipPenalty) {
+      console.log(`[NOW MODE] No cards found with skip penalty - trying fallback without penalty`);
+      
+      const fallbackCard = await this.findCardForBucket(userId, targetBucket, recentCustomerIds, false);
+      if (fallbackCard) {
+        return { card: fallbackCard, session, allDone: false };
+      }
+
+      for (const bucket of NOW_MODE_BUCKETS) {
+        if (bucket === targetBucket) continue;
+        const spilloverCard = await this.findCardForBucket(userId, bucket, recentCustomerIds, false);
+        if (spilloverCard) {
+          return { card: spilloverCard, session, allDone: false };
+        }
       }
     }
 
@@ -295,18 +316,26 @@ export class NowModeEngine {
   ): Promise<EligibleCard | null> {
     const eligibleCustomers = await this.getEligibleCustomers(userId, excludeCustomerIds);
     
+    console.log(`[NOW MODE] Searching bucket '${bucket}' with ${eligibleCustomers.length} customers, skipHardCards=${skipHardCards}`);
+    
+    let matchedCount = 0;
     for (const customer of eligibleCustomers) {
       const cardType = this.matchCardType(customer, bucket, skipHardCards);
       if (cardType) {
+        matchedCount++;
+        console.log(`[NOW MODE] Found card type '${cardType}' for customer ${customer.id} in bucket '${bucket}'`);
         return this.buildCard(customer, cardType, bucket);
       }
     }
     
+    console.log(`[NOW MODE] No matching card found in bucket '${bucket}' after checking ${eligibleCustomers.length} customers`);
     return null;
   }
 
   private async getEligibleCustomers(userId: string, excludeIds: string[]): Promise<Customer[]> {
     const now = new Date();
+    
+    console.log(`[NOW MODE] Getting eligible customers for userId: ${userId}`);
     
     let query = db
       .select()
@@ -322,7 +351,12 @@ export class NowModeEngine {
       .limit(100);
 
     const result = await query;
-    return result.filter((c) => !excludeIds.includes(c.id));
+    console.log(`[NOW MODE] Found ${result.length} eligible customers (before exclusion), excluding ${excludeIds.length} recently seen`);
+    
+    const filtered = result.filter((c) => !excludeIds.includes(c.id));
+    console.log(`[NOW MODE] After exclusion: ${filtered.length} customers available`);
+    
+    return filtered;
   }
 
   private matchCardType(customer: Customer, bucket: NowModeBucket, skipHardCards: boolean): string | null {
