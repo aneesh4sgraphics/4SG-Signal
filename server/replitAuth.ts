@@ -233,7 +233,11 @@ export async function setupAuth(app: Express) {
     });
 
     app.get("/api/callback", (req, res, next) => {
+      const callbackStart = Date.now();
       passport.authenticate(`replitauth:${req.hostname}`, async (err: any, user: any, info: any) => {
+        const authTime = Date.now() - callbackStart;
+        console.log(`[Auth] OIDC authentication took ${authTime}ms`);
+        
         if (err) {
           console.error("[Auth] Callback error:", err);
           return res.redirect("/?error=auth_failed");
@@ -245,35 +249,19 @@ export async function setupAuth(app: Express) {
         }
 
         try {
-          // Don't regenerate session - it can cause issues with cookie persistence
-          // Just login the user directly to preserve the session
+          const loginStart = Date.now();
           await promisifiedLogin(req, user);
+          console.log(`[Auth] Login took ${Date.now() - loginStart}ms`);
+          
+          const saveStart = Date.now();
           await promisifiedSessionSave(req);
+          console.log(`[Auth] Session save took ${Date.now() - saveStart}ms`);
 
-          console.log(`[Auth] Login successful, session saved. Session ID: ${req.sessionID}`);
+          const totalTime = Date.now() - callbackStart;
+          console.log(`[Auth] Login successful in ${totalTime}ms. Session ID: ${req.sessionID}`);
 
-          // Use a small delay page to ensure cookie is set before redirect
-          res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Logging in...</title>
-              <meta http-equiv="refresh" content="1;url=/">
-            </head>
-            <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;">
-              <div style="text-align:center;">
-                <div style="width:40px;height:40px;border:3px solid #e5e7eb;border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;"></div>
-                <p>Logging you in...</p>
-              </div>
-              <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-              <script>
-                sessionStorage.setItem('authComplete', 'true');
-                sessionStorage.setItem('authTimestamp', Date.now().toString());
-                setTimeout(function() { window.location.replace('/'); }, 800);
-              </script>
-            </body>
-            </html>
-          `);
+          // Immediate redirect - no delay page needed
+          res.redirect('/');
         } catch (loginErr) {
           console.error("[Auth] Login/session save failed:", loginErr);
           res.redirect("/?error=session_failed");
