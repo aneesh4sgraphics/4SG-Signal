@@ -86,6 +86,7 @@ function createSessionMiddleware(): ReturnType<typeof session> {
   // Cookie configuration for production Replit deployments
   // Using 'lax' sameSite allows first-party cookies while preventing CSRF
   // 'secure: true' required for HTTPS in production
+  // Note: Do NOT set 'domain' - let the browser infer it from the request
   const cookieConfig: session.CookieOptions = {
     httpOnly: true,
     secure: isProduction,
@@ -93,6 +94,8 @@ function createSessionMiddleware(): ReturnType<typeof session> {
     maxAge: SESSION_TTL,
     path: "/",
   };
+  
+  console.log(`[Auth] Cookie config: httpOnly=${cookieConfig.httpOnly}, secure=${cookieConfig.secure}, sameSite=${cookieConfig.sameSite}, maxAge=${cookieConfig.maxAge}, path=${cookieConfig.path}`);
 
   return session({
     secret: process.env.SESSION_SECRET,
@@ -259,12 +262,18 @@ export async function setupAuth(app: Express) {
 
           const totalTime = Date.now() - callbackStart;
           console.log(`[Auth] Login successful in ${totalTime}ms. Session ID: ${req.sessionID}`);
+          console.log(`[Auth] Session cookie should be set. User claims email: ${req.user?.claims?.email}`);
 
           // Small delay page to ensure cookie is set before redirect
+          // Also set a localStorage flag to help with session detection
           res.send(`<!DOCTYPE html><html><head><title>Logging in...</title></head>
             <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;">
             <p>Logging you in...</p>
-            <script>setTimeout(function(){window.location.replace('/');},300);</script>
+            <script>
+              sessionStorage.setItem('authComplete', 'true');
+              sessionStorage.setItem('authTimestamp', Date.now().toString());
+              setTimeout(function(){window.location.replace('/');},500);
+            </script>
             </body></html>`);
         } catch (loginErr) {
           console.error("[Auth] Login/session save failed:", loginErr);
