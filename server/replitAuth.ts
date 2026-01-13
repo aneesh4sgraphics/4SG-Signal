@@ -244,8 +244,8 @@ export async function setupAuth(app: Express) {
         }
 
         if (!user) {
-          console.log("[Auth] No user returned from OIDC");
-          return res.redirect("/api/login");
+          console.log("[Auth] No user returned from OIDC - redirecting to home with error");
+          return res.redirect("/?error=no_user");
         }
 
         try {
@@ -260,8 +260,12 @@ export async function setupAuth(app: Express) {
           const totalTime = Date.now() - callbackStart;
           console.log(`[Auth] Login successful in ${totalTime}ms. Session ID: ${req.sessionID}`);
 
-          // Immediate redirect - no delay page needed
-          res.redirect('/');
+          // Small delay page to ensure cookie is set before redirect
+          res.send(`<!DOCTYPE html><html><head><title>Logging in...</title></head>
+            <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;">
+            <p>Logging you in...</p>
+            <script>setTimeout(function(){window.location.replace('/');},300);</script>
+            </body></html>`);
         } catch (loginErr) {
           console.error("[Auth] Login/session save failed:", loginErr);
           res.redirect("/?error=session_failed");
