@@ -226,16 +226,6 @@ export default function NowMode() {
     }
   }, [dormancyData?.isDormant, dormancyDismissed, dormancyData?.isPaused]);
 
-  // Reset inline edit values when card changes
-  useEffect(() => {
-    if (data?.card) {
-      setInlineEmail("");
-      setInlinePricingTier("");
-      setInlineSalesRep("");
-      setNotes("");
-    }
-  }, [data?.card?.customerId, data?.card?.cardType]);
-
   // Pause session mutation
   const pauseMutation = useMutation({
     mutationFn: async () => {
@@ -268,6 +258,16 @@ export default function NowMode() {
     staleTime: 0,
     refetchOnMount: 'always',
   });
+
+  // Reset inline edit values when card changes
+  useEffect(() => {
+    if (data?.card) {
+      setInlineEmail("");
+      setInlinePricingTier("");
+      setInlineSalesRep("");
+      setNotes("");
+    }
+  }, [data?.card?.customerId, data?.card?.cardType]);
   
   // Check if the error is a session/auth error (401 only)
   // Only show session expired for actual 401 status - not for other errors that might mention "session"
