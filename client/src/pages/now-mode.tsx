@@ -294,7 +294,15 @@ export default function NowMode() {
   const [inlineCity, setInlineCity] = useState("");
   const [inlineState, setInlineState] = useState("");
   const [inlineZip, setInlineZip] = useState("");
-  const [scriptsTrayOpen, setScriptsTrayOpen] = useState(true);
+  const [scriptsTrayOpen, setScriptsTrayOpen] = useState(() => {
+    const saved = localStorage.getItem('nowModeScriptsTrayOpen');
+    return saved !== null ? saved === 'true' : true;
+  });
+  
+  // Persist scripts tray preference
+  useEffect(() => {
+    localStorage.setItem('nowModeScriptsTrayOpen', String(scriptsTrayOpen));
+  }, [scriptsTrayOpen]);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { open: openEmailComposer } = useEmailComposer();
@@ -791,27 +799,39 @@ export default function NowMode() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-4">
       <div className="flex gap-4 max-w-6xl mx-auto">
-        {/* Scripts Tray - Left Sidebar */}
-        <div className={`transition-all duration-300 ${scriptsTrayOpen ? 'w-80' : 'w-12'} flex-shrink-0`}>
-          <div className="sticky top-4">
-            <div className={`bg-white rounded-lg shadow-lg border overflow-hidden ${scriptsTrayOpen ? '' : 'p-2'}`}>
-              {/* Toggle Button */}
+        {/* Scripts Tray - Left Sidebar (Collapsible) */}
+        <div className="flex-shrink-0 relative">
+          {/* Collapsed toggle button - always visible */}
+          {!scriptsTrayOpen && (
+            <div className="sticky top-4">
               <button
-                onClick={() => setScriptsTrayOpen(!scriptsTrayOpen)}
-                className="w-full flex items-center gap-2 p-3 bg-purple-100 hover:bg-purple-200 transition-colors"
+                onClick={() => setScriptsTrayOpen(true)}
+                className="flex items-center justify-center w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-lg transition-all duration-200 hover:scale-105"
+                title="Open Scripts & Tips"
               >
-                {scriptsTrayOpen ? (
-                  <>
-                    <ChevronLeft className="h-4 w-4 text-purple-700" />
-                    <ScrollText className="h-4 w-4 text-purple-700" />
-                    <span className="text-sm font-medium text-purple-700">Scripts & Tips</span>
-                  </>
-                ) : (
-                  <ScrollText className="h-5 w-5 text-purple-700 mx-auto" />
-                )}
+                <ChevronRight className="h-5 w-5" />
               </button>
+            </div>
+          )}
+          
+          {/* Expanded tray with slide animation */}
+          <div 
+            className={`transition-all duration-300 ease-in-out ${scriptsTrayOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-full absolute'}`}
+            style={{ overflow: scriptsTrayOpen ? 'visible' : 'hidden' }}
+          >
+            <div className="sticky top-4">
+              <div className="bg-white rounded-lg shadow-lg border overflow-hidden w-80">
+                {/* Toggle Button */}
+                <button
+                  onClick={() => setScriptsTrayOpen(false)}
+                  className="w-full flex items-center gap-2 p-3 bg-purple-100 hover:bg-purple-200 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4 text-purple-700" />
+                  <ScrollText className="h-4 w-4 text-purple-700" />
+                  <span className="text-sm font-medium text-purple-700">Scripts & Tips</span>
+                </button>
 
-              {scriptsTrayOpen && (
+                {scriptsTrayOpen && (
                 <div className="p-3 space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto">
                   {/* Quick Tips */}
                   <div>
