@@ -48,6 +48,7 @@ import {
   Settings,
   MapPin,
   Printer,
+  ExternalLink,
   LucideIcon
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -923,41 +924,57 @@ export default function NowMode() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">
-                      {data.card.customer.company || data.card.customer.name || "Unknown"}
-                    </h3>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
-                      {data.card.customer.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {data.card.customer.email}
-                        </span>
-                      )}
-                      {data.card.customer.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {data.card.customer.phone}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {data.card.customer.pricingTier && (
-                        <Badge variant="outline" className="text-xs">
-                          {data.card.customer.pricingTier}
-                        </Badge>
-                      )}
-                      {data.card.customer.salesRepName && (
-                        <Badge variant="outline" className="text-xs">
-                          Rep: {data.card.customer.salesRepName}
-                        </Badge>
-                      )}
+              <div className="flex gap-3">
+                <div className="flex-1 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">
+                        {data.card.customer.company || data.card.customer.name || "Unknown"}
+                      </h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+                        {data.card.customer.email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {data.card.customer.email}
+                          </span>
+                        )}
+                        {data.card.customer.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {data.card.customer.phone}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {data.card.customer.pricingTier && (
+                          <Badge variant="outline" className="text-xs">
+                            {data.card.customer.pricingTier}
+                          </Badge>
+                        )}
+                        {data.card.customer.salesRepName && (
+                          <Badge variant="outline" className="text-xs">
+                            Rep: {data.card.customer.salesRepName}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                {/* View Quote button for follow_up_quote cards */}
+                {data.card.cardType === "follow_up_quote" && (
+                  <Link href={`/clients/${data.card.customerId}?tab=quotes`}>
+                    <Button
+                      variant="outline"
+                      className="h-full px-4 border-purple-300 text-purple-700 hover:bg-purple-50 flex flex-col items-center justify-center gap-1"
+                    >
+                      <FileText className="h-5 w-5" />
+                      <span className="text-xs">View</span>
+                      <span className="text-xs">Quote</span>
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
