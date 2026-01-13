@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,11 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Mail, Plus, Edit2, Trash2, Send, Eye, Copy, Search, Users, 
-  FileText, Variable, ChevronRight, CheckCircle, AlertCircle, Clock, Zap
+  FileText, Variable, ChevronRight, CheckCircle, AlertCircle, Clock, Zap, PenTool, Save, Loader2
 } from "lucide-react";
-import type { EmailTemplate, Customer, ProductPricingMaster } from "@shared/schema";
+import type { EmailTemplate, Customer, ProductPricingMaster, EmailSignature } from "@shared/schema";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
 import DripCampaignBuilder from "@/components/DripCampaignBuilder";
+import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 
 type VariableKey = keyof typeof EMAIL_TEMPLATE_VARIABLES;
 
@@ -73,6 +74,43 @@ export default function EmailApp() {
   const { data: products = [] } = useQuery<ProductPricingMaster[]>({
     queryKey: ["/api/product-pricing-master"],
   });
+
+  const { data: userSignature } = useQuery<EmailSignature | null>({
+    queryKey: ["/api/email/signature"],
+  });
+
+  const [signatureForm, setSignatureForm] = useState({
+    name: "",
+    title: "",
+    phone: "",
+    signatureHtml: "",
+  });
+
+  useEffect(() => {
+    if (userSignature) {
+      setSignatureForm({
+        name: userSignature.name || "",
+        title: userSignature.title || "",
+        phone: userSignature.phone || "",
+        signatureHtml: userSignature.signatureHtml || "",
+      });
+    }
+  }, [userSignature]);
+
+  const saveSignatureMutation = useMutation({
+    mutationFn: async (data: typeof signatureForm) => {
+      return await apiRequest("POST", "/api/email/signature", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email/signature"] });
+      toast({ title: "Signature saved successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to save signature", variant: "destructive" });
+    },
+  });
+
+  const editorRef = useRef<EmailRichTextEditorRef>(null);
 
   const createTemplateMutation = useMutation({
     mutationFn: async (data: typeof templateForm) => {
@@ -160,9 +198,11 @@ export default function EmailApp() {
   };
 
   const insertVariable = (variable: string) => {
+    if (editorRef.current) {
+      editorRef.current.insertContent(`{{${variable}}}`);
+    }
     setTemplateForm(prev => ({
       ...prev,
-      body: prev.body + `{{${variable}}}`,
       variables: prev.variables.includes(variable) ? prev.variables : [...prev.variables, variable],
     }));
   };
@@ -184,6 +224,8 @@ export default function EmailApp() {
           return selectedCustomer.company || '';
         case 'client.email':
           return selectedCustomer.email || '';
+        case 'client.salesRep':
+          return selectedCustomer.salesRepName || '';
       }
     }
     
@@ -218,6 +260,8 @@ export default function EmailApp() {
           return fullName || (user as any)?.email?.split('@')[0] || '';
         case 'user.email':
           return (user as any)?.email || '';
+        case 'user.signature':
+          return userSignature?.signatureHtml || '';
       }
     }
     
@@ -319,6 +363,10 @@ export default function EmailApp() {
           <TabsTrigger value="drip" data-testid="tab-drip">
             <Zap className="h-4 w-4 mr-2" />
             Drip Emails
+          </TabsTrigger>
+          <TabsTrigger value="signature" data-testid="tab-signature">
+            <PenTool className="h-4 w-4 mr-2" />
+            Signature
           </TabsTrigger>
         </TabsList>
 
@@ -634,6 +682,87 @@ export default function EmailApp() {
         <TabsContent value="drip" className="space-y-4">
           <DripCampaignBuilder />
         </TabsContent>
+
+        <TabsContent value="signature" className="space-y-4">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PenTool className="h-5 w-5 text-purple-600" />
+                Email Signature
+              </CardTitle>
+              <CardDescription>
+                Create your personal email signature. This will be automatically appended to emails when you use the {`{{user.signature}}`} variable.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Your Name</Label>
+                  <Input
+                    value={signatureForm.name}
+                    onChange={(e) => setSignatureForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="John Smith"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Title/Role</Label>
+                  <Input
+                    value={signatureForm.title}
+                    onChange={(e) => setSignatureForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Sales Representative"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number</Label>
+                <Input
+                  value={signatureForm.phone}
+                  onChange={(e) => setSignatureForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Signature Content</Label>
+                <EmailRichTextEditor
+                  content={signatureForm.signatureHtml}
+                  onChange={(html) => setSignatureForm(prev => ({ ...prev, signatureHtml: html }))}
+                  placeholder="Best regards,
+
+John Smith
+Sales Representative
+4S Graphics, Inc.
++1 (555) 123-4567"
+                />
+              </div>
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-gray-500">
+                  Use {`{{user.signature}}`} in your templates to insert this signature automatically.
+                </p>
+                <Button
+                  onClick={() => saveSignatureMutation.mutate(signatureForm)}
+                  disabled={saveSignatureMutation.isPending || !signatureForm.signatureHtml}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {saveSignatureMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Signature
+                </Button>
+              </div>
+              {signatureForm.signatureHtml && (
+                <div className="pt-4 border-t">
+                  <Label className="text-sm text-gray-500">Preview:</Label>
+                  <div 
+                    className="mt-2 p-4 bg-gray-50 rounded-lg border prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: signatureForm.signatureHtml }}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Template Editor Dialog */}
@@ -715,19 +844,15 @@ export default function EmailApp() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Email Body</Label>
-                <span className="text-xs text-gray-500">Click a variable below to insert it</span>
+                <span className="text-xs text-gray-500">Use the toolbar to format text, or click a variable below to insert it</span>
               </div>
-              <Textarea
-                value={templateForm.body}
-                onChange={(e) => setTemplateForm(prev => ({ ...prev, body: e.target.value }))}
+              <EmailRichTextEditor
+                content={templateForm.body}
+                onChange={(html) => setTemplateForm(prev => ({ ...prev, body: html }))}
                 placeholder="Hello {{client.name}},
 
-Did you know our price of {{product.type}} is {{price.dealer}}? Let me know if you would like to see some samples.
-
-Best regards,
-{{user.name}}"
-                className="min-h-[200px] font-mono text-sm"
-                data-testid="textarea-template-body"
+Start typing your email content here. Use the toolbar above to format text, add links, or insert images."
+                ref={editorRef}
               />
             </div>
 
