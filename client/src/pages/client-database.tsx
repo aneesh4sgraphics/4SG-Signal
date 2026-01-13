@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -133,9 +133,13 @@ const fuzzyMatch = (text: string, search: string): boolean => {
 };
 
 export default function ClientDatabase() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [, routeParams] = useRoute("/clients/:id");
   const urlParams = new URLSearchParams(window.location.search);
   const initialHotFilter = urlParams.get('filter') === 'hot';
+  
+  // Extract customer ID from either route param (/clients/:id) or query param (?customer=...)
+  const customerIdFromUrl = routeParams?.id || urlParams.get('customer');
   
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -234,11 +238,10 @@ export default function ClientDatabase() {
     }
   }, [customers, selectedCustomer]);
   
-  // Handle customer query parameter to auto-select customer from URL
+  // Handle customer ID from URL (either route param /clients/:id or query param ?customer=...)
   useEffect(() => {
-    const customerId = urlParams.get('customer');
-    if (customerId && customers.length > 0 && !selectedCustomer) {
-      const customer = customers.find(c => c.id === customerId);
+    if (customerIdFromUrl && customers.length > 0 && !selectedCustomer) {
+      const customer = customers.find(c => c.id === customerIdFromUrl);
       if (customer) {
         const companyContacts = customer.company 
           ? customers.filter(c => c.company === customer.company && c.id !== customer.id)
@@ -247,7 +250,7 @@ export default function ClientDatabase() {
         setSelectedCompanyContacts(companyContacts);
       }
     }
-  }, [customers, urlParams]);
+  }, [customers, customerIdFromUrl]);
   
   // Fetch Odoo base URL for constructing partner links
   const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({

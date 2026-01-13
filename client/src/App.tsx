@@ -80,6 +80,7 @@ const AppRoutes = () => (
     <Route path="/competitor-pricing" component={CompetitorPricing} />
     <Route path="/saved-quotes" component={SavedQuotes} />
     <Route path="/clients" component={ClientDatabase} />
+    <Route path="/clients/:id" component={ClientDatabase} />
     <Route path="/customer-management" component={CustomerManagement} />
     <Route path="/customer-table" component={CustomerTable} />
     <Route path="/customers" component={ClientDatabase} />

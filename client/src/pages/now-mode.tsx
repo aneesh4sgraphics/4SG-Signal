@@ -382,6 +382,14 @@ export default function NowMode() {
     const missingTier = !customer.pricingTier;
     const missingRep = !customer.salesRepName;
     
+    console.log('[NOW MODE] handleViewProfile:', { 
+      customerId: data.card.customerId, 
+      pricingTier: customer.pricingTier, 
+      salesRepName: customer.salesRepName,
+      missingTier,
+      missingRep
+    });
+    
     if (missingTier || missingRep) {
       // Pre-fill with existing values if any
       setSelectedPricingTier(customer.pricingTier || "");
@@ -389,7 +397,9 @@ export default function NowMode() {
       setShowProfileGateDialog(true);
     } else {
       // Navigate directly if both are set
-      setLocation(`/clients/${data.card.customerId}?from=now-mode`);
+      const targetPath = `/clients/${data.card.customerId}?from=now-mode`;
+      console.log('[NOW MODE] Navigating to:', targetPath);
+      setLocation(targetPath);
     }
   };
 
