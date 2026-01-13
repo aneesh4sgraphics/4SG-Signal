@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PRICING_TIERS } from "@shared/schema";
 import { 
   Phone, 
   Mail, 
@@ -166,7 +168,16 @@ export default function NowMode() {
   const [efficiencyDelta, setEfficiencyDelta] = useState<number | null>(null);
   const [showDormancyPopup, setShowDormancyPopup] = useState(false);
   const [dormancyDismissed, setDormancyDismissed] = useState(false);
+  const [showProfileGateDialog, setShowProfileGateDialog] = useState(false);
+  const [selectedPricingTier, setSelectedPricingTier] = useState("");
+  const [selectedSalesRep, setSelectedSalesRep] = useState("");
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Fetch users for sales rep dropdown
+  const { data: usersData } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
+    queryKey: ["/api/users"],
+  });
 
   // Dormancy check with empathetic messaging
   const { data: dormancyData } = useQuery<{
@@ -339,6 +350,65 @@ export default function NowMode() {
       });
     },
   });
+
+  // Mutation to update customer with missing pricing tier / sales rep
+  const updateCustomerMutation = useMutation({
+    mutationFn: async ({ customerId, pricingTier, salesRepName }: { customerId: string; pricingTier: string; salesRepName: string }) => {
+      const res = await apiRequest("PUT", `/api/customers/${customerId}`, { pricingTier, salesRepName });
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowProfileGateDialog(false);
+      toast({ title: "Customer Updated", description: "Navigating to customer profile..." });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
+      if (data?.card) {
+        setLocation(`/clients/${data.card.customerId}?from=now-mode`);
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler for View Full Customer Profile button
+  const handleViewProfile = () => {
+    if (!data?.card) return;
+    
+    const customer = data.card.customer;
+    const missingTier = !customer.pricingTier;
+    const missingRep = !customer.salesRepName;
+    
+    if (missingTier || missingRep) {
+      // Pre-fill with existing values if any
+      setSelectedPricingTier(customer.pricingTier || "");
+      setSelectedSalesRep(customer.salesRepName || "");
+      setShowProfileGateDialog(true);
+    } else {
+      // Navigate directly if both are set
+      setLocation(`/clients/${data.card.customerId}?from=now-mode`);
+    }
+  };
+
+  const handleProfileGateSave = () => {
+    if (!data?.card) return;
+    if (!selectedPricingTier || !selectedSalesRep) {
+      toast({
+        title: "Missing Fields",
+        description: "Please select both a pricing tier and sales rep",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateCustomerMutation.mutate({
+      customerId: data.card.customerId,
+      pricingTier: selectedPricingTier,
+      salesRepName: selectedSalesRep,
+    });
+  };
 
   const handleOutcome = (outcome: string) => {
     if (!data?.card) return;
@@ -730,16 +800,76 @@ export default function NowMode() {
               </Button>
 
               <div className="text-center">
-                <Link href={`/clients/${data.card.customerId}?from=now-mode`}>
-                  <Button variant="link" className="text-purple-600">
-                    View Full Customer Profile
-                  </Button>
-                </Link>
+                <Button 
+                  variant="link" 
+                  className="text-purple-600"
+                  onClick={handleViewProfile}
+                >
+                  View Full Customer Profile
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
       </div>
+
+      {/* Profile Gate Dialog - collect missing pricing tier / sales rep before navigation */}
+      <Dialog open={showProfileGateDialog} onOpenChange={setShowProfileGateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-700">
+              <User className="h-5 w-5" />
+              Complete Customer Setup
+            </DialogTitle>
+            <DialogDescription>
+              Please assign a pricing tier and sales rep before viewing this customer's full profile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="pricing-tier">Pricing Tier</Label>
+              <Select value={selectedPricingTier} onValueChange={setSelectedPricingTier}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRICING_TIERS.map((tier) => (
+                    <SelectItem key={tier} value={tier}>
+                      {tier}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sales-rep">Sales Rep</Label>
+              <Select value={selectedSalesRep} onValueChange={setSelectedSalesRep}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sales rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usersData?.map((user) => (
+                    <SelectItem key={user.id} value={user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}>
+                      {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProfileGateDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleProfileGateSave}
+              disabled={updateCustomerMutation.isPending || !selectedPricingTier || !selectedSalesRep}
+            >
+              {updateCustomerMutation.isPending ? "Saving..." : "Save & View Profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showSuccessAnimation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
