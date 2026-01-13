@@ -4,7 +4,7 @@ import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, Comma
 import { 
   Home, FileText, DollarSign, Users, Database, Settings, LogOut,
   Activity, Calculator, TrendingUp, Truck, Package, Tag, Search, Clock,
-  Target, AlertTriangle, Mail, Building2, BarChart3, Plug, Layers, Sparkles
+  Target, AlertTriangle, Mail, Building2, BarChart3, Plug, Layers, Sparkles, CalendarDays
 } from 'lucide-react';
 import { SiShopify } from 'react-icons/si';
 import odooLogoPath from '@assets/Odoo_idrS-IC4Vn_0_1768250561474.jpeg';
@@ -55,6 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', keywords: ['quote', 'estimate', 'pricing'] },
   { path: '/clients', icon: Users, label: 'Clients', keywords: ['customers', 'contacts', 'database'] },
   { path: '/reports', icon: BarChart3, label: 'Reports', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'] },
+  { path: '/calendar', icon: CalendarDays, label: 'Calendar', keywords: ['calendar', 'tasks', 'events', 'schedule', 'google', 'meetings'] },
   { path: '/price-list', icon: DollarSign, label: 'Price List', keywords: ['prices', 'costs', 'rates'] },
   { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', keywords: ['history', 'saved', 'previous'] },
   { path: '/area-pricer', icon: Calculator, label: 'SqM Calculator', keywords: ['area', 'square meter', 'calculate'] },
