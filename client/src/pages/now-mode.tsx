@@ -256,13 +256,10 @@ export default function NowMode() {
     refetchOnMount: 'always',
   });
   
-  // Check if the error is a session/auth error (401)
-  // Safely check error properties - the error could be an ApiError object or a string
-  const isSessionExpired = isError && error && (
-    (typeof error === 'object' && (error as any)?.status === 401) ||
-    (typeof error === 'object' && typeof (error as any)?.message === 'string' && (error as any).message.toLowerCase().includes('session')) ||
-    (typeof error === 'string' && error.toLowerCase().includes('session'))
-  );
+  // Check if the error is a session/auth error (401 only)
+  // Only show session expired for actual 401 status - not for other errors that might mention "session"
+  const isSessionExpired = isError && error && 
+    typeof error === 'object' && (error as any)?.status === 401;
 
   // Day recap query - for end-of-day closure (must be after main data query)
   const { data: recapData } = useQuery<{
