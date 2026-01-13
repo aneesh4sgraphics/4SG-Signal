@@ -133,12 +133,15 @@ import {
   gmailMessageMatches,
   nowModeActivities,
   nowModeSessions,
+  followUpTasks,
+  insertFollowUpTaskSchema,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
 import pricingDatabaseRoutes from "./routes-pricing-database";
 import { APP_CONFIG, isAdminEmail, getUserRoleFromEmail, getAccessibleTiers, debugLog } from "./config";
 import { searchNotionProducts } from "./notion";
+import * as googleCalendar from "./google-calendar-client";
 import { autoTrackQuoteSent, autoTrackPriceListSent, autoTrackSampleShipped, findCustomerIdByEmail, findCustomerIdByName } from "./activity-tracker";
 
 // Simple in-memory cache for frequently accessed data
@@ -16596,6 +16599,379 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     } catch (error) {
       console.error("Error getting admin metrics:", error);
       res.status(500).json({ error: "Failed to get admin metrics" });
+    }
+  });
+
+  // ============================================
+  // Calendar Hub API Routes
+  // ============================================
+
+  // Check if Google Calendar is connected
+  app.get("/api/calendar/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const connected = await googleCalendar.isGoogleCalendarConnected();
+      res.json({ connected });
+    } catch (error) {
+      res.json({ connected: false });
+    }
+  });
+
+  // Get all calendar events and tasks for a date range
+  app.get("/api/calendar/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const { start, end } = req.query;
+      if (!start || !end) {
+        return res.status(400).json({ error: "start and end dates are required" });
+      }
+
+      const startDate = new Date(start as string);
+      const endDate = new Date(end as string);
+      
+      // Get Google Calendar events
+      let googleEvents: googleCalendar.CalendarEvent[] = [];
+      try {
+        googleEvents = await googleCalendar.getEventsInRange(startDate, endDate);
+      } catch (error) {
+        console.log('[Calendar] Google Calendar not connected, skipping Google events');
+      }
+      
+      // Get internal follow-up tasks
+      const tasks = await db
+        .select({
+          id: followUpTasks.id,
+          customerId: followUpTasks.customerId,
+          title: followUpTasks.title,
+          description: followUpTasks.description,
+          taskType: followUpTasks.taskType,
+          priority: followUpTasks.priority,
+          status: followUpTasks.status,
+          dueDate: followUpTasks.dueDate,
+          assignedTo: followUpTasks.assignedTo,
+          assignedToName: followUpTasks.assignedToName,
+          calendarEventId: followUpTasks.calendarEventId,
+          createdAt: followUpTasks.createdAt,
+        })
+        .from(followUpTasks)
+        .where(
+          and(
+            gte(followUpTasks.dueDate, startDate),
+            sql`${followUpTasks.dueDate} <= ${endDate}`
+          )
+        )
+        .orderBy(followUpTasks.dueDate);
+
+      // Get customer names for tasks
+      const customerIds = [...new Set(tasks.map(t => t.customerId).filter(Boolean))];
+      const customerNames: Record<string, string> = {};
+      if (customerIds.length > 0) {
+        const customerData = await db
+          .select({ id: customers.id, company: customers.company })
+          .from(customers)
+          .where(sql`${customers.id} IN ${customerIds}`);
+        customerData.forEach(c => { customerNames[c.id] = c.company || 'Unknown'; });
+      }
+
+      // Convert tasks to calendar event format
+      const taskEvents = tasks.map(task => ({
+        id: `task-${task.id}`,
+        title: task.title,
+        description: task.description,
+        start: task.dueDate,
+        end: task.dueDate,
+        allDay: false,
+        source: 'app' as const,
+        sourceType: 'follow_up_task',
+        sourceId: task.id,
+        priority: task.priority,
+        status: task.status,
+        taskType: task.taskType,
+        customerId: task.customerId,
+        customerName: customerNames[task.customerId] || undefined,
+        assignedTo: task.assignedTo,
+        assignedToName: task.assignedToName,
+        calendarEventId: task.calendarEventId,
+      }));
+
+      // Combine and return all events
+      const allEvents = [
+        ...googleEvents.map(e => ({ ...e, sourceType: 'google_calendar' })),
+        ...taskEvents,
+      ];
+
+      res.json({ events: allEvents });
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      res.status(500).json({ error: "Failed to fetch calendar events" });
+    }
+  });
+
+  // Get events for a specific day
+  app.get("/api/calendar/day/:date", isAuthenticated, async (req: any, res) => {
+    try {
+      const { date } = req.params;
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      // Get Google Calendar events for this day
+      let googleEvents: googleCalendar.CalendarEvent[] = [];
+      try {
+        googleEvents = await googleCalendar.getEventsInRange(dayStart, dayEnd);
+      } catch (error) {
+        console.log('[Calendar] Google Calendar not connected');
+      }
+
+      // Get internal tasks for this day
+      const tasks = await db
+        .select({
+          id: followUpTasks.id,
+          customerId: followUpTasks.customerId,
+          title: followUpTasks.title,
+          description: followUpTasks.description,
+          taskType: followUpTasks.taskType,
+          priority: followUpTasks.priority,
+          status: followUpTasks.status,
+          dueDate: followUpTasks.dueDate,
+          assignedTo: followUpTasks.assignedTo,
+          assignedToName: followUpTasks.assignedToName,
+          calendarEventId: followUpTasks.calendarEventId,
+          completedAt: followUpTasks.completedAt,
+          completionNotes: followUpTasks.completionNotes,
+        })
+        .from(followUpTasks)
+        .where(
+          and(
+            gte(followUpTasks.dueDate, dayStart),
+            sql`${followUpTasks.dueDate} <= ${dayEnd}`
+          )
+        )
+        .orderBy(followUpTasks.dueDate);
+
+      // Get customer info
+      const customerIds = [...new Set(tasks.map(t => t.customerId).filter(Boolean))];
+      const customerData: Record<string, { company: string; email?: string }> = {};
+      if (customerIds.length > 0) {
+        const customersResult = await db
+          .select({ id: customers.id, company: customers.company, email: customers.email })
+          .from(customers)
+          .where(sql`${customers.id} IN ${customerIds}`);
+        customersResult.forEach(c => { 
+          customerData[c.id] = { company: c.company || 'Unknown', email: c.email || undefined }; 
+        });
+      }
+
+      res.json({
+        date,
+        googleEvents: googleEvents.map(e => ({ ...e, sourceType: 'google_calendar' })),
+        tasks: tasks.map(t => ({
+          ...t,
+          customerName: customerData[t.customerId]?.company,
+          customerEmail: customerData[t.customerId]?.email,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching day events:", error);
+      res.status(500).json({ error: "Failed to fetch day events" });
+    }
+  });
+
+  // Create a new task
+  app.post("/api/calendar/tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const { title, description, dueDate, customerId, priority, taskType, assignedTo, syncToGoogle } = req.body;
+      
+      if (!title || !dueDate) {
+        return res.status(400).json({ error: "Title and due date are required" });
+      }
+
+      const taskData = {
+        customerId: customerId || null,
+        title,
+        description: description || null,
+        taskType: taskType || 'general',
+        priority: priority || 'normal',
+        status: 'pending',
+        dueDate: new Date(dueDate),
+        assignedTo: assignedTo || req.user?.claims?.email || null,
+        assignedToName: assignedTo || req.user?.claims?.email || null,
+        isAutoGenerated: false,
+      };
+
+      // Validate the task data
+      const validated = insertFollowUpTaskSchema.parse(taskData);
+
+      // Create the task
+      const [newTask] = await db
+        .insert(followUpTasks)
+        .values(validated)
+        .returning();
+
+      // Optionally sync to Google Calendar
+      if (syncToGoogle) {
+        try {
+          const calendarEventId = await googleCalendar.syncTaskToCalendar({
+            id: newTask.id,
+            title: newTask.title,
+            description: newTask.description,
+            dueDate: newTask.dueDate,
+          });
+          
+          if (calendarEventId) {
+            await db
+              .update(followUpTasks)
+              .set({ calendarEventId })
+              .where(eq(followUpTasks.id, newTask.id));
+            newTask.calendarEventId = calendarEventId;
+          }
+        } catch (error) {
+          console.log('[Calendar] Failed to sync task to Google Calendar:', error);
+        }
+      }
+
+      res.json(newTask);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  // Update a task
+  app.patch("/api/calendar/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { title, description, dueDate, priority, status, assignedTo, syncToGoogle } = req.body;
+
+      const updateData: any = { updatedAt: new Date() };
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined) updateData.description = description;
+      if (dueDate !== undefined) updateData.dueDate = new Date(dueDate);
+      if (priority !== undefined) updateData.priority = priority;
+      if (status !== undefined) {
+        updateData.status = status;
+        if (status === 'completed') {
+          updateData.completedAt = new Date();
+          updateData.completedBy = req.user?.claims?.email;
+        }
+      }
+      if (assignedTo !== undefined) {
+        updateData.assignedTo = assignedTo;
+        updateData.assignedToName = assignedTo;
+      }
+
+      const [updated] = await db
+        .update(followUpTasks)
+        .set(updateData)
+        .where(eq(followUpTasks.id, parseInt(id)))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Sync changes to Google Calendar if requested and task has a calendar event
+      if (syncToGoogle && updated.calendarEventId) {
+        try {
+          await googleCalendar.updateCalendarEvent(updated.calendarEventId, {
+            title: updated.title,
+            description: updated.description || undefined,
+            start: updated.dueDate,
+          });
+        } catch (error) {
+          console.log('[Calendar] Failed to sync update to Google Calendar:', error);
+        }
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // Delete a task
+  app.delete("/api/calendar/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get the task first to check for calendar event
+      const [task] = await db
+        .select()
+        .from(followUpTasks)
+        .where(eq(followUpTasks.id, parseInt(id)));
+
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Delete from Google Calendar if synced
+      if (task.calendarEventId) {
+        try {
+          await googleCalendar.deleteCalendarEvent(task.calendarEventId);
+        } catch (error) {
+          console.log('[Calendar] Failed to delete from Google Calendar:', error);
+        }
+      }
+
+      // Delete the task
+      await db
+        .delete(followUpTasks)
+        .where(eq(followUpTasks.id, parseInt(id)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
+  });
+
+  // Get all users for task assignment
+  app.get("/api/calendar/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const allUsers = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(eq(users.role, 'approved'));
+
+      res.json(allUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Create a Google Calendar event directly
+  app.post("/api/calendar/google-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const { title, description, start, end, allDay, location, attendees } = req.body;
+
+      if (!title || !start) {
+        return res.status(400).json({ error: "Title and start time are required" });
+      }
+
+      const event = await googleCalendar.createCalendarEvent({
+        title,
+        description,
+        start: new Date(start),
+        end: end ? new Date(end) : undefined,
+        allDay,
+        location,
+        attendees,
+      });
+
+      if (!event) {
+        return res.status(500).json({ error: "Failed to create Google Calendar event" });
+      }
+
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating Google Calendar event:", error);
+      res.status(500).json({ error: "Failed to create event" });
     }
   });
 
