@@ -436,8 +436,9 @@ export default function NowMode() {
     return emails;
   }, [data?.card, customerContacts]);
 
-  // Show dormancy popup when user has been idle for 3+ hours
+  // Show dormancy popup when user has been idle for 3+ hours (disabled in development)
   useEffect(() => {
+    if (import.meta.env.DEV) return; // Skip dormancy popup in development mode
     if (dormancyData?.isDormant && !dormancyDismissed && !dormancyData?.isPaused) {
       setShowDormancyPopup(true);
     }
