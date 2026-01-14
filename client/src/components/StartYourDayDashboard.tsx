@@ -101,9 +101,12 @@ export default function StartYourDayDashboard() {
     queryKey: ["/api/customer-activity/events"],
   });
 
-  const { data: customers } = useQuery<Customer[]>({
+  const { data: customersData } = useQuery<Customer[] | { data: Customer[] }>({
     queryKey: ["/api/customers"],
   });
+  
+  // Normalize customers data - handle both array and paginated response formats
+  const customers = Array.isArray(customersData) ? customersData : (customersData?.data || []);
 
   const { data: dashboardStats } = useQuery<DashboardStats>({
     queryKey: ["/api/customer-activity/dashboard-stats"],

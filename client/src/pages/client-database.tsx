@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
-import { useCustomers } from "@/features/customers/useCustomers";
+import { useCustomersPaginated, type CustomerFilters, type PaginatedCustomersResponse } from "@/features/customers/useCustomers";
 import { useAuth } from "@/hooks/useAuth";
 import ClientDetailView from "@/components/ClientDetailView";
 import { getSalesRepDisplayName } from "@/lib/utils";
@@ -206,6 +206,10 @@ export default function ClientDatabase() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+  
   // Alphabet for tabs
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const specialFilters = ['All', '#'];
@@ -223,11 +227,38 @@ export default function ClientDatabase() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
+      // Reset to page 1 when search changes
+      setCurrentPage(1);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const { data: customers = [], isLoading, error, refetch } = useCustomers();
+  // Build server-side filters from local filter state
+  const serverFilters: CustomerFilters = useMemo(() => {
+    const f: CustomerFilters = {};
+    if (debouncedSearchTerm) f.search = debouncedSearchTerm;
+    if (filters.pricingTier && filters.pricingTier !== 'all') f.pricingTier = filters.pricingTier;
+    if (filters.province) f.province = filters.province;
+    if (filters.salesRep === 'unassigned') {
+      // Server doesn't support 'unassigned' filter yet - will handle client-side
+    } else if (filters.salesRep) {
+      f.salesRepId = filters.salesRep;
+    }
+    if (showHotOnly) f.isHotProspect = true;
+    return f;
+  }, [debouncedSearchTerm, filters.pricingTier, filters.province, filters.salesRep, showHotOnly]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [serverFilters.pricingTier, serverFilters.province, serverFilters.salesRepId, serverFilters.isHotProspect]);
+
+  const { data: paginatedData, isLoading, error, refetch } = useCustomersPaginated(currentPage, pageSize, serverFilters);
+  
+  // Extract customers array from paginated response
+  const customers = (paginatedData?.data || []) as Partial<Customer>[];
+  const totalCustomers = paginatedData?.total || 0;
+  const totalPages = paginatedData?.totalPages || 1;
   
   // Sync selectedCustomer with updated customer data from refetch
   useEffect(() => {
@@ -3285,6 +3316,52 @@ export default function ClientDatabase() {
             </DragDropContext>
           )}
         </CardContent>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50/50">
+            <div className="text-sm text-gray-600">
+              Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCustomers)} of {totalCustomers.toLocaleString()} clients
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+              >
+                First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-3 py-1 text-sm bg-white border rounded">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                Last
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Bulk Edit Dialog */}

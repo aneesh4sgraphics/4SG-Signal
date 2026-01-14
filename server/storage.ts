@@ -241,7 +241,19 @@ export interface IStorage {
   
   // Customers
   getCustomers(): Promise<Customer[]>;
-  getCustomersPaginated(page: number, limit: number, search?: string): Promise<{ data: Customer[]; total: number; page: number; limit: number; totalPages: number }>;
+  getCustomersPaginated(
+    page: number, 
+    limit: number, 
+    search?: string,
+    filters?: {
+      salesRepId?: string;
+      pricingTier?: string;
+      province?: string;
+      isHotProspect?: boolean;
+      isCompany?: boolean;
+      doNotContact?: boolean;
+    }
+  ): Promise<{ data: Partial<Customer>[]; total: number; page: number; limit: number; totalPages: number }>;
   getAllCustomers(): Promise<Customer[]>; // Alias for getCustomers for clarity
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerCount(): Promise<number>;
@@ -963,45 +975,95 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(customers);
   }
 
-  async getCustomersPaginated(page: number, limit: number, search?: string): Promise<{ data: Customer[]; total: number; page: number; limit: number; totalPages: number }> {
+  // List-only fields for customer list views (excludes notes, large text fields)
+  private customerListFields = {
+    id: customers.id,
+    firstName: customers.firstName,
+    lastName: customers.lastName,
+    email: customers.email,
+    company: customers.company,
+    city: customers.city,
+    province: customers.province,
+    country: customers.country,
+    phone: customers.phone,
+    totalSpent: customers.totalSpent,
+    totalOrders: customers.totalOrders,
+    pricingTier: customers.pricingTier,
+    salesRepId: customers.salesRepId,
+    salesRepName: customers.salesRepName,
+    isHotProspect: customers.isHotProspect,
+    isCompany: customers.isCompany,
+    contactType: customers.contactType,
+    doNotContact: customers.doNotContact,
+    sources: customers.sources,
+    odooPartnerId: customers.odooPartnerId,
+    parentCustomerId: customers.parentCustomerId,
+    updatedAt: customers.updatedAt,
+    createdAt: customers.createdAt,
+  };
+
+  async getCustomersPaginated(
+    page: number, 
+    limit: number, 
+    search?: string,
+    filters?: {
+      salesRepId?: string;
+      pricingTier?: string;
+      province?: string;
+      isHotProspect?: boolean;
+      isCompany?: boolean;
+      doNotContact?: boolean;
+    }
+  ): Promise<{ data: Partial<Customer>[]; total: number; page: number; limit: number; totalPages: number }> {
     const offset = (page - 1) * limit;
+    const conditions: any[] = [];
     
+    // Build search condition
     if (search) {
-      // Use pg_trgm similarity search (faster with GIN indexes)
       const searchTerm = search.toLowerCase();
-      const searchCondition = sql`(
+      conditions.push(sql`(
         ${customers.company} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.email} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.firstName} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.lastName} ILIKE ${'%' + searchTerm + '%'}
-      )`;
-      
-      const [countResult] = await db.select({ count: sql<number>`count(*)` })
-        .from(customers)
-        .where(searchCondition);
-      const total = Number(countResult?.count) || 0;
-      
-      const data = await db.select()
-        .from(customers)
-        .where(searchCondition)
-        .orderBy(customers.company, customers.id)
-        .limit(limit)
-        .offset(offset);
-      
-      return {
-        data,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      };
+      )`);
     }
     
-    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(customers);
+    // Build filter conditions
+    if (filters?.salesRepId) {
+      conditions.push(eq(customers.salesRepId, filters.salesRepId));
+    }
+    if (filters?.pricingTier) {
+      conditions.push(eq(customers.pricingTier, filters.pricingTier));
+    }
+    if (filters?.province) {
+      conditions.push(eq(customers.province, filters.province));
+    }
+    if (filters?.isHotProspect !== undefined) {
+      conditions.push(eq(customers.isHotProspect, filters.isHotProspect));
+    }
+    if (filters?.isCompany !== undefined) {
+      conditions.push(eq(customers.isCompany, filters.isCompany));
+    }
+    if (filters?.doNotContact !== undefined) {
+      conditions.push(eq(customers.doNotContact, filters.doNotContact));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    // Count query
+    const countQuery = whereClause 
+      ? db.select({ count: sql<number>`count(*)` }).from(customers).where(whereClause)
+      : db.select({ count: sql<number>`count(*)` }).from(customers);
+    const [countResult] = await countQuery;
     const total = Number(countResult?.count) || 0;
     
-    const data = await db.select()
-      .from(customers)
+    // Data query - only select list fields (lean payload)
+    const dataQuery = whereClause
+      ? db.select(this.customerListFields).from(customers).where(whereClause)
+      : db.select(this.customerListFields).from(customers);
+    
+    const data = await dataQuery
       .orderBy(customers.company, customers.id)
       .limit(limit)
       .offset(offset);

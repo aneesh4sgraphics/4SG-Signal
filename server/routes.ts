@@ -1874,28 +1874,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/customers", async (req, res) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const search = req.query.search as string | undefined;
+      // Check if pagination mode is explicitly requested
+      const usePagination = req.query.page !== undefined || req.query.limit !== undefined || req.query.paginated === 'true';
       
-      // For backward compatibility, if no pagination params, use cache
-      if (!req.query.page && !req.query.limit && !search) {
-        const cacheKey = "customers";
-        const cachedData = getCachedData(cacheKey);
+      if (usePagination) {
+        // Paginated mode - return lean payload with pagination metadata
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+        const search = req.query.search as string | undefined;
         
-        if (cachedData) {
-          return res.json(cachedData);
-        }
+        // Parse filter params
+        const filters: {
+          salesRepId?: string;
+          pricingTier?: string;
+          province?: string;
+          isHotProspect?: boolean;
+          isCompany?: boolean;
+          doNotContact?: boolean;
+        } = {};
         
-        const customers = await storage.getCustomers();
-        setCachedData(cacheKey, customers);
-        return res.json(customers);
+        if (req.query.salesRepId) filters.salesRepId = req.query.salesRepId as string;
+        if (req.query.pricingTier) filters.pricingTier = req.query.pricingTier as string;
+        if (req.query.province) filters.province = req.query.province as string;
+        if (req.query.isHotProspect === 'true') filters.isHotProspect = true;
+        if (req.query.isHotProspect === 'false') filters.isHotProspect = false;
+        if (req.query.isCompany === 'true') filters.isCompany = true;
+        if (req.query.isCompany === 'false') filters.isCompany = false;
+        if (req.query.doNotContact === 'true') filters.doNotContact = true;
+        if (req.query.doNotContact === 'false') filters.doNotContact = false;
+        
+        const hasFilters = Object.keys(filters).length > 0;
+        
+        const result = await storage.getCustomersPaginated(page, limit, search, hasFilters ? filters : undefined);
+        return res.json(result);
       }
       
-      // Paginated response
-      const result = await storage.getCustomersPaginated(page, limit, search);
-      res.json(result);
+      // Legacy mode - return full customer array (for backward compatibility)
+      // Used by components that need all customers (dropdowns, search, dashboard stats)
+      const cacheKey = "customers";
+      const cachedData = getCachedData(cacheKey);
+      
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+      
+      const customers = await storage.getCustomers();
+      setCachedData(cacheKey, customers);
+      return res.json(customers);
     } catch (error) {
+      console.error("Error fetching customers:", error);
       res.status(500).json({ error: "Failed to fetch customers" });
     }
   });
