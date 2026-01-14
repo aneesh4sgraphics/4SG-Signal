@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   PhoneMissed, 
   CheckCircle2,
   ArrowLeft,
+  ArrowRight,
   Building2,
   User,
   Zap,
@@ -310,6 +311,7 @@ export default function NowMode() {
     const saved = localStorage.getItem('nowModeScriptsTrayOpen');
     return saved !== null ? saved === 'true' : true;
   });
+  const [awaitingNext, setAwaitingNext] = useState(false);
   
   // Persist scripts tray preference
   useEffect(() => {
@@ -629,6 +631,65 @@ export default function NowMode() {
       });
     },
   });
+
+  // Email completion mutation - completes task but stays on screen with "Next" button
+  const emailCompleteMutation = useMutation({
+    mutationFn: async ({ customerId, cardType, outcome, notes }: { customerId: string; cardType: string; outcome: string; notes?: string }) => {
+      const res = await apiRequest("POST", "/api/now-mode/complete", { customerId, cardType, outcome, notes });
+      return res.json();
+    },
+    onMutate: async () => {
+      const currentCompleted = data?.completed || 0;
+      const currentEfficiency = data?.efficiencyScore || 100;
+      setOptimisticCompleted(currentCompleted + 1);
+      setOptimisticEfficiency(Math.min(100, currentEfficiency + 3));
+      setEfficiencyDelta(3);
+      setShowSuccessAnimation(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+        setEfficiencyDelta(null);
+      }, 1500);
+    },
+    onSuccess: () => {
+      setNotes("");
+      setOptimisticCompleted(null);
+      setOptimisticEfficiency(null);
+      setAwaitingNext(true); // Stay on screen, show Next button
+      toast({ title: "Email Sent!", description: "Task completed. Click Next when ready to continue." });
+      queryClient.invalidateQueries({ queryKey: ["/api/now-mode/efficiency"] });
+      // Don't refetch current card - wait for user to click Next
+    },
+    onError: (error) => {
+      setOptimisticCompleted(null);
+      setOptimisticEfficiency(null);
+      setShowSuccessAnimation(false);
+      setEfficiencyDelta(null);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete card",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler for when email is sent from composer
+  const handleEmailSent = useCallback(() => {
+    if (data?.card) {
+      emailCompleteMutation.mutate({
+        customerId: data.card.customerId,
+        cardType: data.card.cardType,
+        outcome: "email_sent",
+        notes: notes || undefined,
+      });
+    }
+  }, [data?.card, notes, emailCompleteMutation]);
+
+  // Handler to proceed to next card after email completion
+  const handleNextCard = useCallback(() => {
+    setAwaitingNext(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
+    refetch();
+  }, [refetch]);
 
   // Handler for printing address label
   const handlePrintAddressLabel = () => {
@@ -1397,6 +1458,7 @@ export default function NowMode() {
                                 'client.name': data.card!.customer.company || data.card!.customer.name || '',
                                 'client.email': data.card!.customer.email || '',
                               },
+                              onSent: handleEmailSent,
                             });
                           }}
                         >
@@ -1599,32 +1661,55 @@ export default function NowMode() {
                 })}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant={data.card.customer.isHotProspect ? "default" : "outline"}
-                  onClick={() => markHotMutation.mutate({ 
-                    customerId: data.card!.customerId, 
-                    isHot: !data.card!.customer.isHotProspect 
-                  })}
-                  disabled={markHotMutation.isPending}
-                  className={data.card.customer.isHotProspect 
-                    ? "flex-1 bg-orange-500 hover:bg-orange-600 text-white" 
-                    : "flex-1 text-orange-500 border-orange-300 hover:bg-orange-50"
-                  }
-                >
-                  <Flame className="h-4 w-4 mr-2" />
-                  {data.card.customer.isHotProspect ? "HOT 🔥" : "Mark as Hot"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={handleSkipClick}
-                  disabled={skipMutation.isPending}
-                  className="flex-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                >
-                  <SkipForward className="h-4 w-4 mr-2" />
-                  Skip
-                </Button>
-              </div>
+              {/* Awaiting Next state - show after email sent */}
+              {awaitingNext ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-green-700 font-medium">
+                      <CheckCircle2 className="h-5 w-5" />
+                      Task Completed!
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      Email sent successfully. You can view the customer profile or click Next to continue.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleNextCard}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3"
+                    size="lg"
+                  >
+                    <ArrowRight className="h-5 w-5 mr-2" />
+                    Next Customer
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    variant={data.card.customer.isHotProspect ? "default" : "outline"}
+                    onClick={() => markHotMutation.mutate({ 
+                      customerId: data.card!.customerId, 
+                      isHot: !data.card!.customer.isHotProspect 
+                    })}
+                    disabled={markHotMutation.isPending}
+                    className={data.card.customer.isHotProspect 
+                      ? "flex-1 bg-orange-500 hover:bg-orange-600 text-white" 
+                      : "flex-1 text-orange-500 border-orange-300 hover:bg-orange-50"
+                    }
+                  >
+                    <Flame className="h-4 w-4 mr-2" />
+                    {data.card.customer.isHotProspect ? "HOT 🔥" : "Mark as Hot"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleSkipClick}
+                    disabled={skipMutation.isPending}
+                    className="flex-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  >
+                    <SkipForward className="h-4 w-4 mr-2" />
+                    Skip
+                  </Button>
+                </div>
+              )}
 
               <div className="flex justify-between items-center">
                 <Button 

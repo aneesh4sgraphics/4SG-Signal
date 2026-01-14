@@ -20,6 +20,7 @@ interface EmailComposeConfig {
   templateId?: number;
   variables?: Record<string, string>;
   usageType?: string; // quick_quotes, price_list, client_email, marketing
+  onSent?: () => void; // Callback when email is successfully sent
 }
 
 interface EmailComposerContextType {
@@ -58,7 +59,8 @@ export function EmailComposerProvider({ children }: { children: React.ReactNode 
       <EmailComposePopup 
         isOpen={isOpen} 
         onClose={close} 
-        initialConfig={config} 
+        initialConfig={config}
+        onSent={config.onSent}
       />
     </EmailComposerContext.Provider>
   );
@@ -68,9 +70,10 @@ interface EmailComposePopupProps {
   isOpen: boolean;
   onClose: () => void;
   initialConfig: EmailComposeConfig;
+  onSent?: () => void;
 }
 
-function EmailComposePopup({ isOpen, onClose, initialConfig }: EmailComposePopupProps) {
+function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComposePopupProps) {
   const { toast } = useToast();
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
@@ -102,6 +105,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig }: EmailComposePopup
         description: "Your email has been sent successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/email/sends"] });
+      onSent?.();
       onClose();
     },
     onError: (error: Error) => {
