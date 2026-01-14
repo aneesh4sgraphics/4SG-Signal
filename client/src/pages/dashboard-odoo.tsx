@@ -241,7 +241,7 @@ export default function Dashboard() {
     return (
       <div className="dashboard-container" style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
+        background: '#F7F7F7',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -255,12 +255,12 @@ export default function Dashboard() {
           <div style={{
             width: '48px',
             height: '48px',
-            border: '3px solid #6F42C1',
+            border: '3px solid #111111',
             borderTop: '3px solid transparent',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
           }} />
-          <span style={{ color: '#6B6B8C', fontSize: '14px', fontWeight: 500 }}>Loading...</span>
+          <span style={{ color: '#666666', fontSize: '14px', fontWeight: 500 }}>Loading...</span>
         </div>
         <style>{`
           @keyframes spin {
@@ -275,7 +275,7 @@ export default function Dashboard() {
     return (
       <div className="dashboard-container" style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
+        background: '#F7F7F7',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -283,27 +283,27 @@ export default function Dashboard() {
       }}>
         <div style={{
           background: '#FFFFFF',
-          borderRadius: '2px',
+          borderRadius: '12px',
           padding: '48px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          border: '1px solid #EAEAEA',
           textAlign: 'center',
           maxWidth: '400px',
         }}>
-          <AlertCircle style={{ width: '48px', height: '48px', color: '#6B6B8C', marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#2C2C54', marginBottom: '8px' }}>
+          <AlertCircle style={{ width: '48px', height: '48px', color: '#999999', marginBottom: '16px' }} />
+          <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#111111', marginBottom: '8px' }}>
             Sign in required
           </h3>
-          <p style={{ fontSize: '14px', color: '#6B6B8C', marginBottom: '24px' }}>
+          <p style={{ fontSize: '14px', color: '#666666', marginBottom: '24px' }}>
             Please sign in to access your dashboard
           </p>
           <Button 
             onClick={() => window.location.href = "/api/login"}
             style={{
-              background: '#6F42C1',
+              background: '#111111',
               color: '#FFFFFF',
-              borderRadius: '2px',
+              borderRadius: '10px',
               padding: '12px 24px',
-              fontWeight: 600,
+              fontWeight: 500,
               border: 'none',
               cursor: 'pointer',
             }}
@@ -339,33 +339,31 @@ export default function Dashboard() {
           justifyContent: 'center',
           padding: '24px',
           background: '#FFFFFF',
-          borderRadius: '2px',
-          boxShadow: isHovered 
-            ? '0 4px 16px rgba(0,0,0,0.12)' 
-            : '0 2px 8px rgba(0,0,0,0.08)',
+          borderRadius: '12px',
+          border: '1px solid #EAEAEA',
           cursor: 'pointer',
           textDecoration: 'none',
-          transition: 'all 0.2s ease-in-out',
-          transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+          transition: 'all 0.15s ease',
+          transform: isHovered ? 'translateY(-2px)' : 'translateY(0)',
           aspectRatio: '1',
           minHeight: '140px',
         }}
         data-testid={`tile-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <div style={{
-          width: '64px',
-          height: '64px',
+          width: '48px',
+          height: '48px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '16px',
+          marginBottom: '12px',
         }}>
-          <Icon size={48} style={{ color: app.color }} />
+          <Icon size={32} style={{ color: '#111111' }} />
         </div>
         <span style={{
           fontSize: '14px',
           fontWeight: 500,
-          color: '#2C2C54',
+          color: '#111111',
           textAlign: 'center',
           lineHeight: 1.3,
           overflow: 'hidden',
@@ -385,28 +383,28 @@ export default function Dashboard() {
       <ConnectionPrompt />
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #E8E5F0 0%, #F0EDF7 100%)',
-        fontFamily: 'Inter, SF Pro, Segoe UI, system-ui, sans-serif',
+        background: '#F7F7F7',
+        fontFamily: 'Roboto, ui-sans-serif, system-ui, sans-serif',
         margin: '-24px',
         padding: '40px 24px',
       }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1152px', margin: '0 auto' }}>
           
           {/* Header Card */}
           <div style={{
             background: '#FFFFFF',
-            borderRadius: '2px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            padding: '32px',
-            marginBottom: '32px',
+            borderRadius: '12px',
+            border: '1px solid #EAEAEA',
+            padding: '24px',
+            marginBottom: '24px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
               <div>
-                <p style={{ fontSize: '12px', fontWeight: 600, color: '#6B6B8C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 500, color: '#666666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                   4S Graphics Dashboard
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
-                  <h1 style={{ fontSize: '32px', fontWeight: 700, color: '#2C2C54', margin: 0 }}>
+                  <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#111111', margin: 0 }}>
                     Welcome back, {firstName}
                   </h1>
                   {/* Efficiency Score Badge */}
@@ -573,8 +571,8 @@ export default function Dashboard() {
           <Collapsible open={appsOpen} onOpenChange={setAppsOpen}>
             <div style={{
               background: '#FFFFFF',
-              borderRadius: '2px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              borderRadius: '12px',
+              border: '1px solid #EAEAEA',
               marginBottom: '24px',
               overflow: 'hidden',
             }}>
@@ -589,25 +587,25 @@ export default function Dashboard() {
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
-                    transition: 'background 0.2s ease',
+                    transition: 'background 0.15s ease',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(111, 66, 193, 0.05)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#FAFAFA'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Grid3X3 size={20} style={{ color: '#6F42C1' }} />
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#2C2C54' }}>
-                      APPS
+                    <Grid3X3 size={18} style={{ color: '#111111' }} />
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#111111' }}>
+                      Apps
                     </span>
-                    <span style={{ fontSize: '12px', color: '#6B6B8C' }}>
-                      ({allApps.length} apps)
+                    <span style={{ fontSize: '12px', color: '#666666' }}>
+                      ({allApps.length})
                     </span>
                   </div>
                   <ChevronDown 
-                    size={20} 
+                    size={18} 
                     style={{ 
-                      color: '#6B6B8C',
-                      transition: 'transform 0.2s ease',
+                      color: '#999999',
+                      transition: 'transform 0.15s ease',
                       transform: appsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                     }} 
                   />
@@ -636,38 +634,37 @@ export default function Dashboard() {
           {/* Now Mode Entry Card */}
           <Link href="/now-mode" style={{ textDecoration: 'none', display: 'block', marginBottom: '24px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #6F42C1 0%, #8B5CF6 100%)',
-              borderRadius: '2px',
-              boxShadow: '0 4px 16px rgba(111, 66, 193, 0.3)',
-              padding: '24px 32px',
+              background: '#111111',
+              borderRadius: '12px',
+              padding: '20px 24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               cursor: 'pointer',
-              transition: 'all 0.2s ease-in-out',
+              transition: 'all 0.15s ease',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '2px',
-                  background: 'rgba(255,255,255,0.2)',
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                  <Zap size={28} style={{ color: '#FFFFFF' }} />
+                  <Zap size={24} style={{ color: '#FFFFFF' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF', marginBottom: '2px' }}>
                     Now Mode
                   </div>
-                  <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
+                  <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
                     One customer. One action. Right now.
                   </div>
                 </div>
               </div>
-              <ChevronRight size={24} style={{ color: '#FFFFFF' }} />
+              <ChevronRight size={20} style={{ color: '#FFFFFF' }} />
             </div>
           </Link>
 
@@ -683,27 +680,26 @@ export default function Dashboard() {
 
           {/* Objection Alert */}
           {openObjections > 0 && (
-            <Link href="/objections" style={{ textDecoration: 'none', display: 'block', marginBottom: '32px' }}>
+            <Link href="/objections" style={{ textDecoration: 'none', display: 'block', marginBottom: '24px' }}>
               <div style={{
                 background: '#FFFFFF',
-                borderRadius: '2px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                borderRadius: '12px',
+                border: '1px solid #EAEAEA',
                 padding: '16px 24px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                border: '1px solid rgba(253, 126, 20, 0.3)',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease-in-out',
+                transition: 'all 0.15s ease',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <AlertTriangle size={24} style={{ color: '#FD7E14' }} />
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#2C2C54' }}>Objection Summary</div>
-                    <div style={{ fontSize: '12px', color: '#6B6B8C' }}>{openObjections} open objections need attention</div>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#111111' }}>Objection Summary</div>
+                    <div style={{ fontSize: '12px', color: '#666666' }}>{openObjections} open objections need attention</div>
                   </div>
                 </div>
-                <ChevronRight size={20} style={{ color: '#FD7E14' }} />
+                <ChevronRight size={18} style={{ color: '#999999' }} />
               </div>
             </Link>
           )}

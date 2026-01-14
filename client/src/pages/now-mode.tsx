@@ -142,11 +142,11 @@ interface NowModeResponse {
 }
 
 const BUCKET_LABELS: Record<string, { label: string; color: string }> = {
-  calls: { label: "Calls", color: "#28A745" },
-  follow_ups: { label: "Follow-ups", color: "#FD7E14" },
-  outreach: { label: "Outreach", color: "#6F42C1" },
-  data_hygiene: { label: "Data Hygiene", color: "#17A2B8" },
-  enablement: { label: "Enablement", color: "#D63384" },
+  calls: { label: "Calls", color: "#111111" },
+  follow_ups: { label: "Follow-ups", color: "#444444" },
+  outreach: { label: "Outreach", color: "#666666" },
+  data_hygiene: { label: "Data Hygiene", color: "#888888" },
+  enablement: { label: "Enablement", color: "#999999" },
 };
 
 const CARD_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
@@ -1028,9 +1028,9 @@ export default function NowMode() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#111111] mx-auto mb-4"></div>
           <p className="text-gray-600">Loading NOW MODE...</p>
         </div>
       </div>
@@ -1040,7 +1040,7 @@ export default function NowMode() {
   // Session expired banner
   if (isSessionExpired) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 p-3 bg-amber-100 rounded-full w-fit">
@@ -1053,7 +1053,7 @@ export default function NowMode() {
               Your session has expired. Please log in again to continue using NOW MODE.
             </p>
             <div className="flex flex-col gap-2">
-              <Button asChild className="w-full bg-purple-600 hover:bg-purple-700">
+              <Button asChild className="w-full bg-[#111111] hover:bg-[#333333]">
                 <a href="/api/login">Log In Again</a>
               </Button>
               <Link href="/">
@@ -1076,7 +1076,7 @@ export default function NowMode() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 p-4">
+    <div className="min-h-screen bg-[#F7F7F7] p-6">
       <div className="flex gap-4 max-w-6xl mx-auto">
         {/* Scripts Tray - Left Sidebar (Collapsible) */}
         <div className="flex-shrink-0 relative">
@@ -1085,7 +1085,7 @@ export default function NowMode() {
             <div className="sticky top-4">
               <button
                 onClick={() => setScriptsTrayOpen(true)}
-                className="flex items-center justify-center w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-lg transition-all duration-200 hover:scale-105"
+                className="flex items-center justify-center w-10 h-10 bg-[#111111] hover:bg-[#333333] text-white rounded-lg border border-[#EAEAEA] transition-all duration-200 hover:scale-105"
                 title="Open Scripts & Tips"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -1099,15 +1099,15 @@ export default function NowMode() {
             style={{ overflow: scriptsTrayOpen ? 'visible' : 'hidden' }}
           >
             <div className="sticky top-4">
-              <div className="bg-white rounded-lg shadow-lg border overflow-hidden w-80">
+              <div className="bg-white rounded-lg border border-[#EAEAEA] border overflow-hidden w-80">
                 {/* Toggle Button */}
                 <button
                   onClick={() => setScriptsTrayOpen(false)}
-                  className="w-full flex items-center gap-2 p-3 bg-purple-100 hover:bg-purple-200 transition-colors"
+                  className="w-full flex items-center gap-2 p-3 bg-[#FAFAFA] hover:bg-[#F2F2F2] transition-colors"
                 >
-                  <ChevronLeft className="h-4 w-4 text-purple-700" />
-                  <ScrollText className="h-4 w-4 text-purple-700" />
-                  <span className="text-sm font-medium text-purple-700">Scripts & Tips</span>
+                  <ChevronLeft className="h-4 w-4 text-[#111111]" />
+                  <ScrollText className="h-4 w-4 text-[#111111]" />
+                  <span className="text-sm font-medium text-[#111111]">Scripts & Tips</span>
                 </button>
 
                 {scriptsTrayOpen && (
@@ -1196,9 +1196,9 @@ export default function NowMode() {
                 )}
                 <span className="text-xs text-gray-500">Efficiency</span>
               </div>
-              <div className={`flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm transition-all duration-300 ${showSuccessAnimation ? 'ring-2 ring-purple-400 scale-105' : ''}`}>
-                <Trophy className={`h-4 w-4 text-purple-600 transition-transform duration-300 ${showSuccessAnimation ? 'scale-125' : ''}`} />
-                <span className="font-semibold text-purple-600">
+              <div className={`flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm transition-all duration-300 ${showSuccessAnimation ? 'ring-2 ring-[#111111] scale-105' : ''}`}>
+                <Trophy className={`h-4 w-4 text-[#111111] transition-transform duration-300 ${showSuccessAnimation ? 'scale-125' : ''}`} />
+                <span className="font-semibold text-[#111111]">
                   {displayCompleted}/{data?.dailyTarget || 10}
                 </span>
                 <span className="text-xs text-gray-500">Today</span>
@@ -1245,7 +1245,7 @@ export default function NowMode() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-purple-700">{rollingData.socialProof}</div>
+                  <div className="text-sm font-medium text-[#111111]">{rollingData.socialProof}</div>
                   <div className="text-xs text-gray-500">Top {100 - rollingData.percentile}% this week</div>
                 </div>
               </div>
@@ -1284,7 +1284,7 @@ export default function NowMode() {
           {data?.allDone || !data?.card ? (
           data?.allDone ? (
             // End-of-Day Closure Recap Card
-            <Card className="shadow-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+            <Card className="border border-[#EAEAEA] bg-white">
               <CardHeader className="text-center pb-2">
                 <div className="mx-auto w-24 h-24 rounded-full bg-green-100 flex items-center justify-center mb-4 animate-pulse">
                   <Trophy className="h-12 w-12 text-green-600" />
@@ -1305,7 +1305,7 @@ export default function NowMode() {
                     <div className="text-sm text-gray-500">Calls Made</div>
                   </div>
                   <div className="bg-white rounded-lg p-4 text-center shadow-sm border">
-                    <Calendar className="h-6 w-6 mx-auto text-purple-600 mb-2" />
+                    <Calendar className="h-6 w-6 mx-auto text-[#111111] mb-2" />
                     <div className="text-2xl font-bold text-gray-800">{recapData?.followUpsScheduled || 0}</div>
                     <div className="text-sm text-gray-500">Follow-ups Scheduled</div>
                   </div>
@@ -1346,7 +1346,7 @@ export default function NowMode() {
                   <Button
                     onClick={() => endDayMutation.mutate()}
                     disabled={endDayMutation.isPending}
-                    className="w-full bg-green-600 hover:bg-green-700 text-lg py-6"
+                    className="w-full bg-[#111111] hover:bg-[#333333] text-lg py-6"
                   >
                     <CheckCircle2 className="h-5 w-5 mr-2" />
                     {endDayMutation.isPending ? "Ending Day..." : "End Day"}
@@ -1357,7 +1357,7 @@ export default function NowMode() {
                       <p className="text-green-800 font-medium">Day officially closed. Rest up!</p>
                     </div>
                     <Link href="/">
-                      <Button className="bg-purple-600 hover:bg-purple-700">
+                      <Button className="bg-[#111111] hover:bg-[#333333]">
                         Return to Dashboard
                       </Button>
                     </Link>
@@ -1378,7 +1378,7 @@ export default function NowMode() {
                     {data?.message || "Check back later for more tasks."}
                   </p>
                   <Link href="/">
-                    <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+                    <Button className="mt-4 bg-[#111111] hover:bg-[#333333]">
                       Return to Dashboard
                     </Button>
                   </Link>
@@ -1387,7 +1387,7 @@ export default function NowMode() {
             </Card>
           )
         ) : (
-          <Card className="shadow-lg">
+          <Card className="border border-[#EAEAEA]">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <Badge 
@@ -1412,7 +1412,7 @@ export default function NowMode() {
                   const Icon = cardInfo?.Icon || Target;
                   return (
                     <>
-                      <Icon className="h-5 w-5 text-purple-600" />
+                      <Icon className="h-5 w-5 text-[#111111]" />
                       <span>{cardInfo?.label || data.card.cardType}</span>
                     </>
                   );
@@ -1463,7 +1463,7 @@ export default function NowMode() {
                   <Link href={`/clients/${data.card.customerId}?tab=quotes`}>
                     <Button
                       variant="outline"
-                      className="h-full px-4 border-purple-300 text-purple-700 hover:bg-purple-50 flex flex-col items-center justify-center gap-1"
+                      className="h-full px-4 border-purple-300 text-[#111111] hover:bg-purple-50 flex flex-col items-center justify-center gap-1"
                     >
                       <FileText className="h-5 w-5" />
                       <span className="text-xs">View</span>
@@ -1506,7 +1506,7 @@ export default function NowMode() {
                           </Button>
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-[#111111] hover:bg-[#333333]"
                             onClick={() => {
                               window.location.href = `tel:${data.card!.customer.phone}`;
                             }}
@@ -1550,7 +1550,7 @@ export default function NowMode() {
                         </Button>
                         <Button
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700"
+                          className="bg-[#111111] hover:bg-[#333333]"
                           onClick={() => {
                             window.location.href = `tel:${data.card!.customer.phone}`;
                           }}
@@ -1776,7 +1776,7 @@ export default function NowMode() {
               <div className="grid grid-cols-2 gap-3">
                 {data.card.outcomeButtons.map((btn) => {
                   const Icon = OUTCOME_ICONS[btn.icon] || Check;
-                  const bgColor = btn.color === "green" ? "bg-green-600 hover:bg-green-700" :
+                  const bgColor = btn.color === "green" ? "bg-[#111111] hover:bg-[#333333]" :
                                   btn.color === "blue" ? "bg-blue-600 hover:bg-blue-700" :
                                   btn.color === "yellow" ? "bg-yellow-600 hover:bg-yellow-700" :
                                   btn.color === "orange" ? "bg-orange-600 hover:bg-orange-700" :
@@ -1819,7 +1819,7 @@ export default function NowMode() {
                   </div>
                   <Button
                     onClick={handleNextCard}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3"
+                    className="w-full bg-[#111111] hover:bg-[#333333] text-white py-3"
                     size="lg"
                   >
                     <ArrowRight className="h-5 w-5 mr-2" />
@@ -1858,7 +1858,7 @@ export default function NowMode() {
               <div className="flex justify-between items-center">
                 <Button 
                   variant="link" 
-                  className="text-purple-600"
+                  className="text-[#111111]"
                   onClick={handleViewProfile}
                 >
                   View Full Customer Profile
@@ -1895,7 +1895,7 @@ export default function NowMode() {
       <Dialog open={showProfileGateDialog} onOpenChange={setShowProfileGateDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-purple-700">
+            <DialogTitle className="flex items-center gap-2 text-[#111111]">
               <User className="h-5 w-5" />
               Complete Customer Setup
             </DialogTitle>
@@ -2051,7 +2051,7 @@ export default function NowMode() {
             <Button 
               onClick={handleConfirmPrintLabel}
               disabled={!printLabelType || createSwatchShipmentMutation.isPending}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-[#111111] hover:bg-[#333333]"
             >
               <Printer className="h-4 w-4 mr-2" />
               Print Label
@@ -2064,7 +2064,7 @@ export default function NowMode() {
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="relative">
             <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" style={{ width: 120, height: 120 }} />
-            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center border border-[#EAEAEA] animate-bounce">
               <CheckCircle2 className="h-12 w-12 text-white" />
             </div>
           </div>
@@ -2075,7 +2075,7 @@ export default function NowMode() {
       <Dialog open={showDormancyPopup} onOpenChange={setShowDormancyPopup}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-purple-700">
+            <DialogTitle className="flex items-center gap-2 text-[#111111]">
               <Coffee className="h-5 w-5" />
               Taking a Break?
             </DialogTitle>
@@ -2092,7 +2092,7 @@ export default function NowMode() {
                 )}
                 <div className="flex items-center gap-4 pt-2">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">{dormancyData?.todayCompleted || 0}</div>
+                    <div className="text-2xl font-bold text-[#111111]">{dormancyData?.todayCompleted || 0}</div>
                     <div className="text-xs text-gray-500">Done today</div>
                   </div>
                   <div className="text-center">
@@ -2113,7 +2113,7 @@ export default function NowMode() {
                 setShowDormancyPopup(false);
                 setDormancyDismissed(true);
               }}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="w-full bg-[#111111] hover:bg-[#333333]"
             >
               <Play className="h-4 w-4 mr-2" />
               Give me 2 easy tasks
@@ -2136,7 +2136,7 @@ export default function NowMode() {
 
       {/* Paused state banner */}
       {dormancyData?.isPaused && (
-        <div className="fixed bottom-4 right-4 z-40 bg-amber-50 border border-amber-200 rounded-lg p-4 shadow-lg max-w-sm">
+        <div className="fixed bottom-4 right-4 z-40 bg-amber-50 border border-amber-200 rounded-lg p-4 border border-[#EAEAEA] max-w-sm">
           <div className="flex items-center gap-3">
             <Coffee className="h-8 w-8 text-amber-600" />
             <div>
@@ -2185,7 +2185,7 @@ export default function NowMode() {
             </Button>
             <Button 
               onClick={() => setShowSkipWarning(false)}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-[#111111] hover:bg-[#333333]"
             >
               Do it now
             </Button>
