@@ -224,7 +224,19 @@ export const customers = pgTable("customers", {
   priceListSentAt: timestamp("price_list_sent_at"), // Track price list send date
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Performance indexes for list view filters and search
+  index("IDX_customers_sales_rep_id").on(table.salesRepId),
+  index("IDX_customers_email").on(table.email),
+  index("IDX_customers_company").on(table.company),
+  index("IDX_customers_province").on(table.province),
+  index("IDX_customers_pricing_tier").on(table.pricingTier),
+  index("IDX_customers_updated_at").on(table.updatedAt),
+  index("IDX_customers_is_hot_prospect").on(table.isHotProspect),
+  index("IDX_customers_is_company").on(table.isCompany),
+  index("IDX_customers_do_not_contact").on(table.doNotContact),
+  index("IDX_customers_odoo_partner_id").on(table.odooPartnerId),
+]);
 
 // Predefined pricing tiers - every customer must have one
 export const PRICING_TIERS = [

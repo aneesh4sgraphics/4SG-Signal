@@ -44,6 +44,8 @@ Preferred communication style: Simple, everyday language.
 - **Schema**: `/shared/schema.ts`.
 - **System Design**: Comprehensive foreign key constraints with cascade delete, unified `productPricingMaster` table, NaN validation, and boolean parsing enhancements.
 - **Performance Optimizations**: Database indexes on foreign key columns and timestamps, lazy-loading for Client Detail tabs, server-side pagination, parallel query execution, and batch operations.
+- **Customer List Indexes**: B-tree indexes on customers table for list view filters: salesRepId, email, company, province, pricingTier, updatedAt, isHotProspect, isCompany, doNotContact, odooPartnerId.
+- **Task Indexes**: B-tree indexes on follow_up_tasks table: assignedTo, dueDate, status, customerId.
 - **Search Optimization**: pg_trgm extension with GIN trigram indexes on customer company, email, first_name, last_name columns for fast ILIKE searches.
 
 ### Cost & Performance Optimizations (January 2026)
