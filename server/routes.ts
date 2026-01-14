@@ -4354,17 +4354,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send email quote
+  // Send email quote (saves quote to database after email is sent via email composer)
   app.post("/api/send-email-quote", isAuthenticated, async (req: any, res) => {
     try {
-      const { customerName, customerEmail, quoteItems, customerId } = req.body;
+      const { customerName, customerEmail, quoteItems, customerId, quoteNumber: providedQuoteNumber } = req.body;
       
       if (!customerName || !customerEmail || !quoteItems || !Array.isArray(quoteItems) || quoteItems.length === 0) {
         return res.status(400).json({ error: "Customer name, email, and quote items are required" });
       }
 
-      // Generate quote number using the utility function
-      const quoteNumber = generateQuoteNumber();
+      // Use provided quote number or generate a new one
+      const quoteNumber = providedQuoteNumber || generateQuoteNumber();
       
       // Calculate total
       const totalAmount = quoteItems.reduce((sum: number, item: any) => sum + item.total, 0);

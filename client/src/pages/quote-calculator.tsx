@@ -21,7 +21,7 @@ import { AdaptiveTable } from "@/components/OdooTable";
 import { getPriceColumnHeader } from "@/utils/sizeUtils";
 import ProductOrderingDialog from "@/components/ProductOrderingDialog";
 import { EmptyState, getErrorType, getErrorMessage, getErrorDetails } from "@/components/EmptyState";
-import { ApiError } from "@/lib/queryClient";
+import { ApiError, apiRequest, queryClient } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useEmailComposer } from "@/components/email-composer";
 import { ALLOWED_CATEGORIES } from "@/lib/productCategories";
@@ -1456,6 +1456,31 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         'client.company': selectedCustomer?.company || '',
         'quote.number': quoteNumber,
         'quote.total': `$${calculatedTotalAmount.toFixed(2)}`,
+      },
+      onSent: async () => {
+        try {
+          const quoteItemsForSave = quoteItems.map(item => ({
+            itemCode: item.itemCode,
+            productType: item.productType,
+            size: item.size,
+            quantity: Math.max(item.minOrderQty || 0, item.quantity),
+            pricePerSheet: item.pricePerSheet,
+            total: Math.max(item.minOrderQty || 0, item.quantity) * item.pricePerSheet
+          }));
+          
+          await apiRequest('POST', '/api/send-email-quote', {
+            customerName,
+            customerEmail,
+            quoteItems: quoteItemsForSave,
+            customerId: selectedCustomer?.id,
+            quoteNumber,
+          });
+          
+          queryClient.invalidateQueries({ queryKey: ['/api/sent-quotes'] });
+          logQuoteGeneration(quoteNumber, customerName);
+        } catch (err) {
+          console.error('Failed to save quote to database:', err);
+        }
       }
     });
     
