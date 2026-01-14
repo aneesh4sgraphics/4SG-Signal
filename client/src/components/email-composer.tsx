@@ -1,15 +1,15 @@
-import { useState, createContext, useContext, useCallback, useEffect } from "react";
+import { useState, createContext, useContext, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Send, X, FileText, Loader2 } from "lucide-react";
 import type { EmailTemplate, Customer } from "@shared/schema";
+import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 
 interface EmailComposeConfig {
   to?: string;
@@ -80,6 +80,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
   const [body, setBody] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const editorRef = useRef<EmailRichTextEditorRef>(null);
 
   const { data: templates = [] } = useQuery<EmailTemplate[]>({
     queryKey: ["/api/email/templates"],
@@ -91,6 +92,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
       to: string; 
       subject: string; 
       body: string; 
+      htmlBody?: string;
       customerId?: string; 
       templateId?: number;
       recipientName?: string;
@@ -148,6 +150,13 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
     }
   };
 
+  // Helper to strip HTML tags for plain text version
+  const stripHtml = (html: string): string => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
   const handleSend = () => {
     if (!to.trim()) {
       toast({
@@ -167,10 +176,12 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
     }
 
     const allVariables = { ...initialConfig.variables, ...variables };
+    const plainTextBody = stripHtml(body);
     sendMutation.mutate({
       to: to.trim(),
       subject: subject.trim(),
-      body: body.trim(),
+      body: plainTextBody.trim(),
+      htmlBody: body.trim(),
       customerId: initialConfig.customerId,
       templateId: selectedTemplateId && selectedTemplateId !== "none" ? parseInt(selectedTemplateId) : undefined,
       recipientName: initialConfig.customerName,
@@ -256,13 +267,12 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
 
           <div className="space-y-2">
             <Label htmlFor="email-body">Message</Label>
-            <Textarea
-              id="email-body"
-              data-testid="input-email-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
+            <EmailRichTextEditor
+              ref={editorRef}
+              content={body}
+              onChange={setBody}
               placeholder="Write your message..."
-              className="min-h-[200px] resize-y"
+              className="min-h-[200px]"
             />
           </div>
 

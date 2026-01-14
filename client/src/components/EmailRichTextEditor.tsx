@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Extension } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -27,7 +27,118 @@ import {
   Palette,
   Undo,
   Redo,
+  Type,
+  AlignVerticalSpaceAround,
 } from 'lucide-react';
+
+// Custom extension for line height
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  
+  addOptions() {
+    return {
+      types: ['paragraph'],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          lineHeight: {
+            default: null,
+            parseHTML: element => element.style.lineHeight || null,
+            renderHTML: attributes => {
+              if (!attributes.lineHeight) {
+                return {};
+              }
+              return {
+                style: `line-height: ${attributes.lineHeight}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setLineHeight: (lineHeight: string) => ({ commands }: any) => {
+        return this.options.types.every((type: string) => 
+          commands.updateAttributes(type, { lineHeight })
+        );
+      },
+      unsetLineHeight: () => ({ commands }: any) => {
+        return this.options.types.every((type: string) => 
+          commands.updateAttributes(type, { lineHeight: null })
+        );
+      },
+    };
+  },
+});
+
+// Custom extension for font family
+const FontFamily = Extension.create({
+  name: 'fontFamily',
+
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontFamily: {
+            default: null,
+            parseHTML: element => element.style.fontFamily?.replace(/['"]/g, ''),
+            renderHTML: attributes => {
+              if (!attributes.fontFamily) {
+                return {};
+              }
+              return {
+                style: `font-family: ${attributes.fontFamily}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setFontFamily: (fontFamily: string) => ({ chain }: any) => {
+        return chain().setMark('textStyle', { fontFamily }).run();
+      },
+      unsetFontFamily: () => ({ chain }: any) => {
+        return chain().setMark('textStyle', { fontFamily: null }).removeEmptyTextStyle().run();
+      },
+    };
+  },
+});
+
+const FONT_FAMILIES = [
+  { value: 'Arial', label: 'Arial' },
+  { value: 'Helvetica', label: 'Helvetica' },
+  { value: 'Times New Roman', label: 'Times New Roman' },
+  { value: 'Georgia', label: 'Georgia' },
+  { value: 'Verdana', label: 'Verdana' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+];
+
+const LINE_HEIGHT_OPTIONS = [
+  { value: '1', label: 'Single' },
+  { value: '1.5', label: '1.5' },
+  { value: '2', label: 'Double' },
+  { value: '2.5', label: '2.5' },
+];
 
 interface EmailRichTextEditorProps {
   content: string;
@@ -68,6 +179,8 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
       Underline,
       TextStyle,
       Color,
+      LineHeight,
+      FontFamily,
       TextAlign.configure({
         types: ['paragraph'],
       }),
@@ -243,6 +356,91 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
         >
           <AlignRight className="h-4 w-4" />
         </Button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        {/* Font Family Selector */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs gap-1"
+              title="Font Family"
+            >
+              <Type className="h-3 w-3" />
+              <span className="max-w-16 truncate">Font</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-2">
+            <div className="space-y-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-7"
+                onClick={() => (editor.commands as any).unsetFontFamily()}
+              >
+                Default
+              </Button>
+              {FONT_FAMILIES.map((font) => (
+                <Button
+                  key={font.value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs h-7"
+                  style={{ fontFamily: font.value }}
+                  onClick={() => (editor.commands as any).setFontFamily(font.value)}
+                >
+                  {font.label}
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Line Spacing Selector */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs gap-1"
+              title="Line Spacing"
+            >
+              <AlignVerticalSpaceAround className="h-3 w-3" />
+              <span>Line</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-32 p-2">
+            <div className="space-y-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-7"
+                onClick={() => (editor.commands as any).unsetLineHeight()}
+              >
+                Default
+              </Button>
+              {LINE_HEIGHT_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs h-7"
+                  onClick={() => (editor.commands as any).setLineHeight(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 

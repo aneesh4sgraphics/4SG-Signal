@@ -8935,6 +8935,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to auto-detect variables from template content
+  const extractTemplateVariables = (subject: string, body: string): string[] => {
+    const variablePattern = /\{\{([^}]+)\}\}/g;
+    const foundVars = new Set<string>();
+    
+    // Extract from subject
+    let match;
+    while ((match = variablePattern.exec(subject)) !== null) {
+      foundVars.add(match[1].trim());
+    }
+    
+    // Reset regex state and extract from body
+    variablePattern.lastIndex = 0;
+    while ((match = variablePattern.exec(body)) !== null) {
+      foundVars.add(match[1].trim());
+    }
+    
+    return Array.from(foundVars);
+  };
+
   // Create email template (admin only)
   app.post("/api/email/templates", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
@@ -8944,13 +8964,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Name, subject, and body are required" });
       }
       
+      // Auto-detect variables from content - always scan the body/subject
+      const detectedVars = extractTemplateVariables(subject, body);
+      // Merge with provided variables, preferring detected ones
+      const providedVars = Array.isArray(variables) ? variables : [];
+      const finalVariables = [...new Set([...detectedVars, ...providedVars])];
+      
       const template = await storage.createEmailTemplate({
         name,
         description,
         subject,
         body,
         category: category || "general",
-        variables: variables || [],
+        variables: finalVariables,
         isActive: isActive !== false,
         createdBy: req.user?.email,
       });
@@ -8974,8 +9000,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (subject !== undefined) updateData.subject = subject;
       if (body !== undefined) updateData.body = body;
       if (category !== undefined) updateData.category = category;
-      if (variables !== undefined) updateData.variables = variables;
       if (isActive !== undefined) updateData.isActive = isActive;
+      
+      // Get current template to preserve existing variables and merge with detected ones
+      const currentTemplate = await storage.getEmailTemplate(id);
+      if (currentTemplate) {
+        const finalSubject = subject !== undefined ? subject : currentTemplate.subject;
+        const finalBody = body !== undefined ? body : currentTemplate.body;
+        const detectedVars = extractTemplateVariables(finalSubject, finalBody);
+        const existingVars = Array.isArray(currentTemplate.variables) ? currentTemplate.variables as string[] : [];
+        const providedVars = Array.isArray(variables) ? variables : [];
+        // Merge: detected from content + explicitly provided + existing stored variables
+        updateData.variables = [...new Set([...detectedVars, ...providedVars, ...existingVars])];
+      } else if (variables !== undefined) {
+        updateData.variables = variables;
+      }
       
       const template = await storage.updateEmailTemplate(id, updateData);
       if (!template) {
