@@ -52,6 +52,7 @@ interface Customer {
   pausedUntil: Date | null;
   hasMachineProfile: boolean;  // Whether customer has any machine profile set
   isHotProspect: boolean | null;  // Priority hot lead status
+  odooPartnerId: number | null;  // Odoo partner ID for external link
 }
 
 interface EligibleCard {
@@ -377,6 +378,7 @@ export class NowModeEngine {
         pausedUntil: customers.pausedUntil,
         hasMachineProfile: sql<boolean>`EXISTS (${machineProfileSubquery})`.as('has_machine_profile'),
         isHotProspect: customers.isHotProspect,
+        odooPartnerId: customers.odooPartnerId,
       })
       .from(customers)
       .where(
@@ -468,6 +470,7 @@ export class NowModeEngine {
         pausedUntil: customers.pausedUntil,
         hasMachineProfile: sql<boolean>`EXISTS (${machineProfileSubquery})`.as('has_machine_profile'),
         isHotProspect: customers.isHotProspect,
+        odooPartnerId: customers.odooPartnerId,
       })
       .from(customers)
       .where(

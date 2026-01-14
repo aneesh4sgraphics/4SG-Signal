@@ -79,6 +79,7 @@ interface Customer {
   state?: string | null;
   zip?: string | null;
   isHotProspect?: boolean;
+  odooPartnerId?: number | null;
 }
 
 interface CustomerContact {
@@ -382,6 +383,30 @@ export default function NowMode() {
     queryKey: ["/api/crm/customer-contacts", { customerId: data?.card?.customerId }],
     enabled: !!data?.card?.customerId && data?.card?.cardType === "set_primary_email",
   });
+
+  // Fetch Odoo base URL for external links
+  const { data: odooBaseUrl } = useQuery<string>({
+    queryKey: ['/api/odoo/base-url'],
+    staleTime: 1000 * 60 * 30, // Cache for 30 minutes
+  });
+
+  // Helper to open customer in Odoo
+  const handleOpenInOdoo = useCallback(() => {
+    if (!data?.card?.customer) return;
+    
+    const customer = data.card.customer;
+    
+    if (customer.odooPartnerId && odooBaseUrl) {
+      window.open(`${odooBaseUrl}/web#id=${customer.odooPartnerId}&model=res.partner&view_type=form`, '_blank');
+      return;
+    }
+    
+    toast({ 
+      title: "Not linked to Odoo", 
+      description: "This customer is not linked to Odoo.",
+      variant: "destructive"
+    });
+  }, [data?.card?.customer, odooBaseUrl, toast]);
 
   // Build list of available emails for selection
   const availableEmails = useMemo(() => {
@@ -1821,6 +1846,17 @@ export default function NowMode() {
                 >
                   View Full Customer Profile
                 </Button>
+                {data.card.customer.odooPartnerId && (
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                    onClick={handleOpenInOdoo}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in Odoo
+                  </Button>
+                )}
                 {data.card.cardType === "send_swatchbook" && data.card.customer.address1 && (
                   <Button 
                     variant="outline"
