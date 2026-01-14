@@ -91,7 +91,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
   const { trackUsage } = useAppUsage();
@@ -104,15 +103,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
     }
   }, [location, trackUsage]);
 
-  useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('4s-seen-welcome');
-    if (!hasSeenWelcome && user) {
-      const timer = setTimeout(() => {
-        setShowWelcome(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
   
   const logout = () => {
     if (isLoggingOut) return;
@@ -482,44 +472,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
         onOpenCommandPalette={() => setCommandOpen(true)}
       />
       <TutorialCenter open={tutorialOpen} onOpenChange={setTutorialOpen} />
-
-      <AlertDialog open={showWelcome} onOpenChange={(open) => {
-        if (!open) {
-          localStorage.setItem('4s-seen-welcome', 'true');
-        }
-        setShowWelcome(open);
-      }}>
-        <AlertDialogContent className="glass-card max-w-lg">
-          <AlertDialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 rounded-xl bg-emerald-100">
-                <GraduationCap className="h-6 w-6 text-emerald-600" />
-              </div>
-              <AlertDialogTitle className="text-xl font-bold">Welcome to 4S Graphics Portal!</AlertDialogTitle>
-            </div>
-            <AlertDialogDescription asChild>
-              <div className="text-gray-600 space-y-3">
-                <p>We're excited to have you here. This portal helps you create quotes, manage customers, and track your sales activities.</p>
-                <p className="font-medium text-gray-800">Would you like a quick tour to learn the basics?</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="glass-btn">
-              Maybe Later
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => {
-                setTutorialOpen(true);
-              }}
-              className="glass-btn-primary bg-emerald-600 hover:bg-emerald-700"
-            >
-              <GraduationCap className="h-4 w-4 mr-2" />
-              Start Tour
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
