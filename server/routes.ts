@@ -14253,6 +14253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Fetched ${allShopifyCustomers.length} customers from Shopify`);
 
+      // Build a set of all active Shopify customer IDs for deletion/merge detection
+      const activeShopifyCustomerIds = new Set<string>(
+        allShopifyCustomers.map(c => String(c.id))
+      );
+
       // Get all existing customers with their emails for matching
       const existingCustomers = await db.select().from(customers);
       const emailToCustomerMap = new Map<string, typeof existingCustomers[0]>();
@@ -14266,10 +14271,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Get existing Shopify customer mappings for update/deactivation
+      const existingMappings = await db.select().from(shopifyCustomerMappings);
+      const shopifyIdToMappingMap = new Map(
+        existingMappings.map(m => [m.shopifyCustomerId, m])
+      );
+
       let matched = 0;
       let imported = 0;
       let skipped = 0;
       let primaryEmailsSet = 0;
+      let mappingsCreated = 0;
+      let mappingsUpdated = 0;
+      let mappingsDeactivated = 0;
       const matchedCustomers: string[] = [];
       const importedCustomers: string[] = [];
 
@@ -14320,6 +14334,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             skipped++; // Already synced
           }
+          
+          // Create or update Shopify customer mapping
+          const shopifyCustomerId = String(shopifyCustomer.id);
+          const existingMapping = shopifyIdToMappingMap.get(shopifyCustomerId);
+          const customerDisplayName = existingCustomer.company || `${existingCustomer.firstName} ${existingCustomer.lastName}`.trim();
+          
+          if (existingMapping) {
+            // Update existing mapping if needed
+            if (!existingMapping.isActive || existingMapping.crmCustomerId !== existingCustomer.id) {
+              await db.update(shopifyCustomerMappings)
+                .set({
+                  crmCustomerId: existingCustomer.id,
+                  crmCustomerName: customerDisplayName,
+                  shopifyEmail: shopifyCustomer.email,
+                  shopifyCompanyName: shopifyCustomer.default_address?.company || null,
+                  isActive: true,
+                  updatedAt: new Date(),
+                })
+                .where(eq(shopifyCustomerMappings.id, existingMapping.id));
+              mappingsUpdated++;
+            }
+          } else {
+            // Create new mapping
+            await db.insert(shopifyCustomerMappings).values({
+              shopifyCustomerId,
+              shopifyEmail: shopifyCustomer.email,
+              shopifyCompanyName: shopifyCustomer.default_address?.company || null,
+              crmCustomerId: existingCustomer.id,
+              crmCustomerName: customerDisplayName,
+              isActive: true,
+            });
+            mappingsCreated++;
+          }
         } else {
           // Customer doesn't exist by email - check if exists by Shopify ID
           const newId = `shopify_${shopifyCustomer.id}`;
@@ -14361,6 +14408,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             updatedAt: new Date(),
           };
 
+          const shopifyCustomerId = String(shopifyCustomer.id);
+          const existingMapping = shopifyIdToMappingMap.get(shopifyCustomerId);
+          const customerDisplayName = defaultAddress.company || personName;
+
           if (existingByShopifyId.length > 0) {
             // Update existing Shopify customer
             await db.update(customers)
@@ -14396,6 +14447,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
             imported++;
             importedCustomers.push(defaultAddress.company || personName || shopifyCustomer.email || 'Unknown');
           }
+          
+          // Create or update Shopify customer mapping for imported customers
+          if (existingMapping) {
+            if (!existingMapping.isActive || existingMapping.crmCustomerId !== newId) {
+              await db.update(shopifyCustomerMappings)
+                .set({
+                  crmCustomerId: newId,
+                  crmCustomerName: customerDisplayName,
+                  shopifyEmail: shopifyCustomer.email,
+                  shopifyCompanyName: defaultAddress.company || null,
+                  isActive: true,
+                  updatedAt: new Date(),
+                })
+                .where(eq(shopifyCustomerMappings.id, existingMapping.id));
+              mappingsUpdated++;
+            }
+          } else {
+            await db.insert(shopifyCustomerMappings).values({
+              shopifyCustomerId,
+              shopifyEmail: shopifyCustomer.email,
+              shopifyCompanyName: defaultAddress.company || null,
+              crmCustomerId: newId,
+              crmCustomerName: customerDisplayName,
+              isActive: true,
+            });
+            mappingsCreated++;
+          }
+        }
+      }
+
+      // Deactivate mappings for deleted or merged Shopify customers
+      // Any Shopify customer ID in our mappings that's NOT in the active list was deleted/merged
+      for (const mapping of existingMappings) {
+        if (mapping.shopifyCustomerId && mapping.isActive && !activeShopifyCustomerIds.has(mapping.shopifyCustomerId)) {
+          await db.update(shopifyCustomerMappings)
+            .set({
+              isActive: false,
+              updatedAt: new Date(),
+            })
+            .where(eq(shopifyCustomerMappings.id, mapping.id));
+          mappingsDeactivated++;
+          console.log(`Deactivated mapping for deleted/merged Shopify customer ${mapping.shopifyCustomerId} (CRM: ${mapping.crmCustomerName})`);
         }
       }
 
@@ -14406,6 +14499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imported,
         skipped,
         primaryEmailsSet,
+        mappingsCreated,
+        mappingsUpdated,
+        mappingsDeactivated,
         matchedCustomers: matchedCustomers.slice(0, 20), // Limit to first 20 for display
         importedCustomers: importedCustomers.slice(0, 20),
       });
