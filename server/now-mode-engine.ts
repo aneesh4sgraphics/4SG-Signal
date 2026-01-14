@@ -34,6 +34,7 @@ interface Customer {
   firstName: string | null;
   lastName: string | null;
   email: string | null;
+  email2: string | null;  // Secondary email
   phone: string | null;
   address1: string | null;
   address2: string | null;
@@ -358,6 +359,7 @@ export class NowModeEngine {
         firstName: customers.firstName,
         lastName: customers.lastName,
         email: customers.email,
+        email2: customers.email2,
         phone: customers.phone,
         address1: customers.address1,
         address2: customers.address2,
@@ -448,6 +450,7 @@ export class NowModeEngine {
         firstName: customers.firstName,
         lastName: customers.lastName,
         email: customers.email,
+        email2: customers.email2,
         phone: customers.phone,
         address1: customers.address1,
         address2: customers.address2,

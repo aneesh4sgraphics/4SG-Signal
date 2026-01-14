@@ -66,6 +66,7 @@ interface Customer {
   company: string | null;
   name: string | null;
   email: string | null;
+  email2: string | null;
   phone: string | null;
   salesRepName: string | null;
   pricingTier: string | null;
@@ -75,6 +76,15 @@ interface Customer {
   state?: string | null;
   zip?: string | null;
   isHotProspect?: boolean;
+}
+
+interface CustomerContact {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  isPrimary: boolean;
 }
 
 interface OutcomeButton {
@@ -350,6 +360,48 @@ export default function NowMode() {
     queryKey: ["/api/now-mode/rolling-efficiency"],
   });
 
+  // Fetch main NOW MODE data first to get customer ID
+  const { data, isLoading, isError, error, refetch } = useQuery<NowModeResponse>({
+    queryKey: ["/api/now-mode/current"],
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
+  // Fetch customer contacts when set_primary_email card is shown
+  const { data: customerContacts } = useQuery<CustomerContact[]>({
+    queryKey: ["/api/crm/customer-contacts", { customerId: data?.card?.customerId }],
+    enabled: !!data?.card?.customerId && data?.card?.cardType === "set_primary_email",
+  });
+
+  // Build list of available emails for selection
+  const availableEmails = useMemo(() => {
+    if (!data?.card) return [];
+    const emails: { email: string; source: string }[] = [];
+    
+    // Add existing customer emails
+    if (data.card.customer.email) {
+      emails.push({ email: data.card.customer.email, source: "Current primary" });
+    }
+    if (data.card.customer.email2) {
+      emails.push({ email: data.card.customer.email2, source: "Secondary" });
+    }
+    
+    // Add emails from contacts
+    if (customerContacts) {
+      customerContacts.forEach(contact => {
+        if (contact.email && !emails.some(e => e.email === contact.email)) {
+          emails.push({ 
+            email: contact.email, 
+            source: `Contact: ${contact.name}${contact.role ? ` (${contact.role})` : ''}`
+          });
+        }
+      });
+    }
+    
+    return emails;
+  }, [data?.card, customerContacts]);
+
   // Show dormancy popup when user has been idle for 3+ hours
   useEffect(() => {
     if (dormancyData?.isDormant && !dormancyDismissed && !dormancyData?.isPaused) {
@@ -381,13 +433,6 @@ export default function NowMode() {
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/dormancy-check"] });
       queryClient.invalidateQueries({ queryKey: ["/api/now-mode/current"] });
     },
-  });
-
-  const { data, isLoading, isError, error, refetch } = useQuery<NowModeResponse>({
-    queryKey: ["/api/now-mode/current"],
-    refetchOnWindowFocus: false,
-    staleTime: 0,
-    refetchOnMount: 'always',
   });
 
   // Reset inline edit values when card changes
@@ -1412,13 +1457,39 @@ export default function NowMode() {
                   )}
 
                   {data.card.cardType === "set_primary_email" && (
-                    <div className="space-y-2">
-                      <Label className="text-sm text-gray-700">Enter Email Address</Label>
+                    <div className="space-y-3">
+                      {availableEmails.length > 0 ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-sm text-gray-700">Select Primary Email</Label>
+                            <Select value={inlineEmail} onValueChange={setInlineEmail}>
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="Choose an email..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableEmails.map((emailOption, idx) => (
+                                  <SelectItem key={idx} value={emailOption.email}>
+                                    <div className="flex flex-col">
+                                      <span>{emailOption.email}</span>
+                                      <span className="text-xs text-gray-500">{emailOption.source}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Or enter a new email below:
+                          </div>
+                        </>
+                      ) : (
+                        <Label className="text-sm text-gray-700">Enter Email Address</Label>
+                      )}
                       <input
                         type="email"
-                        value={inlineEmail}
+                        value={availableEmails.some(e => e.email === inlineEmail) ? "" : inlineEmail}
                         onChange={(e) => setInlineEmail(e.target.value)}
-                        placeholder="customer@example.com"
+                        placeholder={availableEmails.length > 0 ? "Or enter new email..." : "customer@example.com"}
                         className="w-full px-3 py-2 border rounded-md bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
