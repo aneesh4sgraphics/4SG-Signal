@@ -1997,7 +1997,7 @@ export default function ClientDatabase() {
                             <Badge
                               key={tag}
                               variant="outline"
-                              className="cursor-pointer border-purple-300 text-purple-700 hover:bg-purple-100 transition-colors"
+                              className="cursor-pointer border-[#EAEAEA] text-[#111111] hover:bg-[#F2F2F2] transition-colors"
                               onClick={() => {
                                 setEditingCustomer(prev => prev ? {...prev, tags: addTagToCustomer(prev.tags || '', tag)} : null);
                               }}
@@ -2205,10 +2205,10 @@ export default function ClientDatabase() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">SwatchBooks</p>
-                    <p className="text-xl font-bold text-purple-600">{swatchBookShipments.length}</p>
+                    <p className="text-xl font-bold text-[#111111]">{swatchBookShipments.length}</p>
                   </div>
-                  <div className="h-7 w-7 rounded-full bg-purple-50 flex items-center justify-center">
-                    <BookOpen className="h-3.5 w-3.5 text-purple-500" />
+                  <div className="h-7 w-7 rounded-full bg-[#FAFAFA] flex items-center justify-center">
+                    <BookOpen className="h-3.5 w-3.5 text-[#666666]" />
                   </div>
                 </div>
               </div>
@@ -2251,7 +2251,7 @@ export default function ClientDatabase() {
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs font-medium text-gray-500">Quotes This Week</p>
-                <FileText className="h-4 w-4 text-purple-500" />
+                <FileText className="h-4 w-4 text-[#666666]" />
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold text-gray-900">{quotesThisWeek}</span>
@@ -2262,7 +2262,7 @@ export default function ClientDatabase() {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <p className="text-[10px] text-purple-600 mt-1 cursor-help underline decoration-dotted">Pro tip: Send quotes</p>
+                      <p className="text-[10px] text-[#111111] mt-1 cursor-help underline decoration-dotted">Pro tip: Send quotes</p>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
                       <p>Go to QuickQuotes to create and send professional quotes to customers.</p>
@@ -2586,7 +2586,7 @@ export default function ClientDatabase() {
                           <span className="flex items-center gap-2"><SiShopify className="h-3 w-3 text-green-600" /> Shopify</span>
                         </SelectItem>
                         <SelectItem value="odoo">
-                          <span className="flex items-center gap-2"><SiOdoo className="h-3 w-3 text-purple-600" /> Odoo</span>
+                          <span className="flex items-center gap-2"><SiOdoo className="h-3 w-3 text-[#111111]" /> Odoo</span>
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -2780,7 +2780,7 @@ export default function ClientDatabase() {
                   <TooltipTrigger asChild>
                     <Button 
                       size="sm" 
-                      className="gap-1 bg-purple-600 hover:bg-purple-700 text-white"
+                      className="gap-1 bg-[#111111] hover:bg-[#333333] text-white"
                       onClick={() => setShowBulkEditDialog(true)}
                       data-testid="button-bulk-edit"
                     >
@@ -3034,7 +3034,7 @@ export default function ClientDatabase() {
                         {/* Source badges */}
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {customer.sources?.includes('odoo') && (
-                            <SiOdoo className="h-4 w-4 text-purple-600" title="Odoo" />
+                            <SiOdoo className="h-4 w-4 text-[#111111]" title="Odoo" />
                           )}
                           {customer.sources?.includes('shopify') && (
                             <SiShopify className="h-4 w-4 text-green-600" title="Shopify" />
@@ -3061,7 +3061,7 @@ export default function ClientDatabase() {
                                     className="h-7 w-7 p-0"
                                     onClick={() => window.open(`${odooBaseUrl}/web#id=${customer.odooPartnerId}&model=res.partner&view_type=form`, '_blank')}
                                   >
-                                    <ExternalLink className="h-3.5 w-3.5 text-purple-500" />
+                                    <ExternalLink className="h-3.5 w-3.5 text-[#666666]" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Open in Odoo</TooltipContent>
@@ -3166,7 +3166,7 @@ export default function ClientDatabase() {
                       </div>
                       <div className="flex items-center gap-1">
                         {customer.sources?.includes('shopify') && <SiShopify className="h-4 w-4 text-green-600" />}
-                        {customer.sources?.includes('odoo') && <SiOdoo className="h-4 w-4 text-purple-600" />}
+                        {customer.sources?.includes('odoo') && <SiOdoo className="h-4 w-4 text-[#111111]" />}
                       </div>
                     </div>
                     
@@ -3242,7 +3242,7 @@ export default function ClientDatabase() {
               <div className="flex gap-4 overflow-x-auto pb-4">
                 {(['both', 'quotes', 'samples', 'none', 'missing'] as const).map((category) => {
                   const config = {
-                    both: { title: 'Quote & Sample Sent', color: 'purple', bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+                    both: { title: 'Quote & Sample Sent', color: 'gray', bg: 'bg-[#FAFAFA]', border: 'border-[#EAEAEA]', text: 'text-[#111111]' },
                     quotes: { title: 'Quotes Sent', color: 'blue', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
                     samples: { title: 'Samples Sent', color: 'green', bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
                     none: { title: 'None', color: 'gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
@@ -3284,7 +3284,7 @@ export default function ClientDatabase() {
                                           <GripVertical className="h-3 w-3 text-gray-400" />
                                         </div>
                                         {customer.sources?.includes('shopify') && <SiShopify className="h-3 w-3 text-green-600" />}
-                                        {customer.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-purple-600" />}
+                                        {customer.sources?.includes('odoo') && <SiOdoo className="h-3 w-3 text-[#111111]" />}
                                         <span className="font-medium text-sm text-gray-900 truncate hover:text-blue-600 hover:underline">{getCompanyDisplayName(customer)}</span>
                                       </div>
                                       {customer.company && (customer.firstName || customer.lastName) && (
@@ -3375,7 +3375,7 @@ export default function ClientDatabase() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5 text-purple-600" />
+              <Edit className="h-5 w-5 text-[#111111]" />
               Bulk Edit Clients
             </DialogTitle>
             <DialogDescription>
@@ -3424,7 +3424,7 @@ export default function ClientDatabase() {
             <Button 
               onClick={handleBulkEdit}
               disabled={bulkUpdateMutation.isPending || (!bulkEditPricingTier && !bulkEditSalesRep)}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-[#111111] hover:bg-[#333333]"
             >
               {bulkUpdateMutation.isPending ? 'Updating...' : `Update ${bulkSelected.size} Client${bulkSelected.size > 1 ? 's' : ''}`}
             </Button>
@@ -4002,7 +4002,7 @@ export default function ClientDatabase() {
                           <Badge
                             key={tag}
                             variant="outline"
-                            className="cursor-pointer border-purple-300 text-purple-700 hover:bg-purple-100 transition-colors"
+                            className="cursor-pointer border-[#EAEAEA] text-[#111111] hover:bg-[#F2F2F2] transition-colors"
                             onClick={() => {
                               setEditingCustomer(prev => prev ? {...prev, tags: addTagToCustomer(prev.tags || '', tag)} : null);
                             }}

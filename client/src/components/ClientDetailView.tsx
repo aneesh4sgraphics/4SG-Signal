@@ -102,7 +102,7 @@ const JOURNEY_STAGE_CONFIG = [
   { id: 'supplier_pushback', label: 'Supplier Pushback', icon: Handshake, color: 'bg-yellow-500', description: 'Challenging current supplier' },
   { id: 'pilot_alignment', label: 'Pilot Alignment', icon: Users, color: 'bg-blue-500', description: 'Approval to trial' },
   { id: 'controlled_trial', label: 'Controlled Trial', icon: FlaskConical, color: 'bg-indigo-500', description: 'Samples in press' },
-  { id: 'validation_proof', label: 'Validation & Proof', icon: CheckCircle, color: 'bg-purple-500', description: 'Gate sign-off' },
+  { id: 'validation_proof', label: 'Validation & Proof', icon: CheckCircle, color: 'bg-[#666666]', description: 'Gate sign-off' },
   { id: 'conversion', label: 'Conversion', icon: Rocket, color: 'bg-green-500', description: 'Supplier committed' },
 ];
 
@@ -137,7 +137,7 @@ function NowModeActivitiesTab({ customerId }: { customerId: string }) {
     if (outcome.includes('connected') || outcome.includes('ordered')) return 'bg-green-100 text-green-800';
     if (outcome.includes('left_voicemail') || outcome.includes('callback')) return 'bg-blue-100 text-blue-800';
     if (outcome.includes('no_answer') || outcome.includes('bad_number')) return 'bg-orange-100 text-orange-800';
-    if (outcome.includes('complete') || outcome.includes('verified') || outcome.includes('email_sent') || outcome.includes('data_updated')) return 'bg-purple-100 text-purple-800';
+    if (outcome.includes('complete') || outcome.includes('verified') || outcome.includes('email_sent') || outcome.includes('data_updated')) return 'bg-[#F2F2F2] text-[#111111]';
     return 'bg-gray-100 text-gray-800';
   };
 
@@ -1130,7 +1130,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
           <div className="flex items-start gap-3">
             {fromNowMode ? (
               <Link href="/now-mode">
-                <Button variant="outline" size="sm" className="h-8 text-purple-600 border-purple-300 hover:bg-purple-50" data-testid="btn-back-now-mode">
+                <Button variant="outline" size="sm" className="h-8 text-[#111111] border-[#EAEAEA] hover:bg-[#F2F2F2]" data-testid="btn-back-now-mode">
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to NOW MODE
                 </Button>
@@ -1155,7 +1155,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                           <span 
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold tracking-wide uppercase text-white shadow-sm cursor-default ${
                               countryFlag ? 'rounded-r-md' : 'rounded-md'
-                            } bg-gradient-to-r from-[#875A7B] to-[#714B67]`}
+                            } bg-[#111111]`}
                             data-testid="pricing-tier-badge"
                           >
                             <Tag className="h-3 w-3" />
@@ -2772,7 +2772,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                         {odooQuotes.map((quote: any) => (
                           <div 
                             key={quote.id} 
-                            className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                            className="flex items-center justify-between p-3 bg-[#FAFAFA] rounded-lg hover:bg-[#F2F2F2] transition-colors"
                           >
                             <div>
                               <p className="font-medium">{quote.name}</p>
