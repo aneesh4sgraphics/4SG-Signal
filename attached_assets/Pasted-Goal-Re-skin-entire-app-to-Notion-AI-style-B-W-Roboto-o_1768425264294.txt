@@ -1,0 +1,164 @@
+Goal: Re-skin entire app to “Notion AI style” (B&W, Roboto only, minimal borders, subtle separators, quiet hierarchy). Apply globally across Dashboard, Client Detail, Now Mode, QuickQuotes, Admin, etc.
+
+1) Global theme + typography (one source of truth)
+
+Use Roboto everywhere. No other font fallbacks besides system sans.
+
+Define a design token file and import it everywhere.
+
+Colors: pure grayscale only (no purple/orange/green UI chrome except status chips).
+
+Background: #ffffff and #f7f7f7 only.
+
+Text: #111, secondary #666, muted #999.
+
+Borders: #eaeaea.
+
+Shadow: extremely subtle or none.
+
+Tailwind: create a tailwind.config.ts theme section:
+
+fontFamily: { sans: ["Roboto", "ui-sans-serif", "system-ui"] }
+
+add color tokens like gray.950/900/700/500/300/200/100
+
+Add Roboto to root HTML (Google font or self-hosted) and set body to font-sans.
+
+2) Standard layout shell (same on every page)
+
+Create shared layout components:
+
+<AppShell>: left sidebar + top bar + main content.
+
+<PageHeader>: title, optional subtitle, right-side actions.
+
+<Section>: consistent spacing, max width, no random padding differences.
+Rules:
+
+Max content width (ex: max-w-6xl) for readability.
+
+Spacing system: only use 4/8/12/16/24 px equivalents (Tailwind: p-4 p-6 p-8 gap-4 gap-6).
+
+Reduce “card heavy” look: fewer bordered cards, more sections with dividers.
+
+3) Component library (reuse everywhere)
+
+Build/standardize these components and replace all one-off UI:
+
+Card (flat, minimal)
+
+Stat (metric number + label)
+
+Table (Notion-like rows)
+
+Chip (status only)
+
+Button (primary is black text on light bg; only 1 primary CTA per page)
+
+Tabs (thin underline, no pill gradients)
+
+EmptyState (simple icon + short sentence + 1 CTA)
+
+CoachCard (for Now Mode: clear hierarchy, minimal buttons)
+
+4) Styling rules to enforce consistency
+
+Remove gradients, drop shadows, thick borders, bright colors.
+
+Replace most cards with:
+
+section headings + divider line + content
+
+Only use color for meaning, not decoration:
+
+Status chips: success/warn/error can be muted (e.g., gray background + small colored dot).
+
+Icons: consistent size (16/18px), same stroke weight.
+
+5) Page-specific refactor targets
+
+Dashboard
+
+Convert to 3 zones:
+
+“Today” (Now Mode progress + top 3 priority counters)
+
+“Queue” (Overdue + Due Soon)
+
+“Recent” (activity log)
+
+Collapse everything else behind tabs (“Tools”, “Pipeline”, “Admin”).
+
+Client Detail
+
+Sticky header with: Company, tier, rep, 3 key metrics.
+
+Body: two-column layout:
+
+Left: Customer Journey / Next Best Move / Now Mode quick actions
+
+Right: Contact / Machines / Category Trust
+
+Tabs below for Quotes/Orders/Emails/Samples.
+
+Now Mode
+
+Make it look like Notion task execution:
+
+One task card, big customer name, 1 sentence “Why now”
+
+3–4 outcome buttons (monochrome), with keyboard shortcuts
+
+“Skip” is subtle + requires a reason after 2 skips
+
+Daily progress bar is simple (10 dots or thin bar)
+
+All logging is silent; success toast small and disappears quickly.
+
+6) Implementation approach (so we don’t regress)
+
+Add a ui/ folder with shared components and ban page-level styling duplication.
+
+Replace any inline styles or random Tailwind chains with the component system.
+
+Add a lint rule or simple grep check for disallowed colors/classes (purple/orange gradients).
+
+Confirm every route uses <AppShell>.
+
+Acceptance criteria
+
+Every screen uses Roboto and the same spacing rhythm.
+
+No gradients.
+
+No thick borders.
+
+Only grayscale UI; colors only inside status chips and charts.
+
+Dashboard, Client Detail, Now Mode match the same design language.
+
+What you can do even better (this matters)
+
+Right now your UI “heaviness” is partly visual and partly payload.
+
+Reduce visual heaviness (fast wins)
+
+Replace card grids with section + divider layout.
+
+Remove big colored backgrounds and “glow” effects.
+
+Reduce icon sizes and number of icons shown at once.
+
+Use fewer headings; bigger whitespace.
+
+Reduce file heaviness (actual performance)
+
+Tell Replit to:
+
+Remove unused icon packs / large images.
+
+Lazy-load big routes: Now Mode, Admin, QuickQuotes.
+
+Use virtualized tables for 3k+ clients (react-virtual).
+
+Avoid loading the whole client list on page load; use pagination + server-side search.
