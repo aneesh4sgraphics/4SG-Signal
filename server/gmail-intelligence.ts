@@ -781,95 +781,180 @@ export async function markReminderSent(taskId: number) {
     .where(eq(shipmentFollowUpTasks.id, taskId));
 }
 
-// Automatic daily sync for all connected Gmail users
-export async function syncAllConnectedUsers(): Promise<{ synced: number; failed: number }> {
-  console.log('[Gmail Auto-Sync] Starting automatic sync for all connected users');
-  
-  const activeConnections = await db.select()
-    .from(userGmailConnections)
-    .where(eq(userGmailConnections.isActive, true));
-  
-  console.log(`[Gmail Auto-Sync] Found ${activeConnections.length} active Gmail connections`);
-  
-  let synced = 0;
-  let failed = 0;
-  
-  for (const connection of activeConnections) {
-    try {
-      console.log(`[Gmail Auto-Sync] Syncing user ${connection.userId} (${connection.email})`);
-      
-      // Sync emails for this user
-      const result = await syncUserGmailMessages(connection.userId, 100);
-      console.log(`[Gmail Auto-Sync] User ${connection.userId}: ${result.newMessages} new emails`);
-      
-      // Run AI analysis on pending messages
-      const analysisResult = await analyzeMessages(connection.userId, 50);
-      console.log(`[Gmail Auto-Sync] User ${connection.userId}: ${analysisResult.insights} insights extracted`);
-      
-      synced++;
-    } catch (error: any) {
-      console.error(`[Gmail Auto-Sync] Failed for user ${connection.userId}:`, error.message);
-      failed++;
-    }
+// Automatic sync for all connected Gmail users with guardrails
+export async function syncAllConnectedUsers(): Promise<{ synced: number; failed: number; skipped: number }> {
+  // Prevent concurrent syncs
+  if (isSyncing) {
+    console.log('[Gmail Sync] Sync already in progress, skipping');
+    return { synced: 0, failed: 0, skipped: 0 };
   }
   
-  console.log(`[Gmail Auto-Sync] Complete. Synced: ${synced}, Failed: ${failed}`);
-  return { synced, failed };
+  isSyncing = true;
+  
+  try {
+    // Only sync users with active Gmail connections (guardrail)
+    const activeConnections = await db.select()
+      .from(userGmailConnections)
+      .where(eq(userGmailConnections.isActive, true));
+    
+    if (activeConnections.length === 0) {
+      console.log('[Gmail Sync] No active Gmail connections, skipping sync');
+      return { synced: 0, failed: 0, skipped: 0 };
+    }
+    
+    console.log(`[Gmail Sync] Found ${activeConnections.length} active Gmail connections`);
+    
+    let synced = 0;
+    let failed = 0;
+    let skipped = 0;
+    
+    for (const connection of activeConnections) {
+      // Check exponential backoff
+      if (shouldSkipUser(connection.userId)) {
+        const failure = userFailureCounts.get(connection.userId);
+        console.log(`[Gmail Sync] Skipping user ${connection.userId} (backoff until ${failure?.nextRetryAt.toISOString()})`);
+        skipped++;
+        continue;
+      }
+      
+      try {
+        // Use delta sync with historyId when available
+        const result = await syncUserGmailMessagesDelta(connection.userId, 50);
+        console.log(`[Gmail Sync] User ${connection.userId}: ${result.newMessages} new emails (${result.syncType})`);
+        
+        // Run AI analysis on pending messages (limit to 20 per cycle to reduce costs)
+        if (result.newMessages > 0) {
+          const analysisResult = await analyzeMessages(connection.userId, 20);
+          if (analysisResult.insights > 0) {
+            console.log(`[Gmail Sync] User ${connection.userId}: ${analysisResult.insights} insights extracted`);
+          }
+        }
+        
+        recordSuccess(connection.userId);
+        synced++;
+      } catch (error: any) {
+        recordFailure(connection.userId, error.message);
+        
+        // Update connection status with error
+        await db.update(userGmailConnections)
+          .set({ 
+            lastError: error.message,
+            updatedAt: new Date()
+          })
+          .where(eq(userGmailConnections.userId, connection.userId));
+        
+        failed++;
+      }
+    }
+    
+    console.log(`[Gmail Sync] Complete. Synced: ${synced}, Failed: ${failed}, Skipped (backoff): ${skipped}`);
+    return { synced, failed, skipped };
+  } finally {
+    isSyncing = false;
+  }
 }
 
-// Schedule daily sync at 6 AM
-let dailySyncInterval: NodeJS.Timeout | null = null;
-let dailySyncTimeout: NodeJS.Timeout | null = null;
+// Delta sync using Gmail historyId for incremental updates
+async function syncUserGmailMessagesDelta(userId: string, maxMessages: number): Promise<{ newMessages: number; syncType: 'delta' | 'full' }> {
+  // Get the last historyId from sync state
+  const [syncState] = await db.select()
+    .from(gmailSyncState)
+    .where(eq(gmailSyncState.userId, userId))
+    .limit(1);
+  
+  const lastHistoryId = syncState?.lastHistoryId;
+  const lastSyncedAt = syncState?.lastSyncedAt;
+  
+  // If we have a recent sync (within 2 hours) and historyId, skip full 30-day scan
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const hasRecentSync = lastSyncedAt && new Date(lastSyncedAt) > twoHoursAgo;
+  
+  if (lastHistoryId && hasRecentSync) {
+    // Delta sync - only fetch new messages since last sync
+    console.log(`[Gmail Sync] Delta sync for user ${userId} from historyId ${lastHistoryId}`);
+    const result = await syncUserGmailMessages(userId, maxMessages);
+    return { newMessages: result.newMessages, syncType: 'delta' };
+  }
+  
+  // Full sync (first time or stale sync state)
+  console.log(`[Gmail Sync] Full sync for user ${userId} (no recent historyId)`);
+  const result = await syncUserGmailMessages(userId, maxMessages);
+  return { newMessages: result.newMessages, syncType: 'full' };
+}
+
+// Gmail sync configuration
+const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1 hour max backoff
+const BASE_BACKOFF_MS = 60 * 1000; // 1 minute base backoff
+
+let syncInterval: NodeJS.Timeout | null = null;
 let hasGmailSyncLock = false;
+let isSyncing = false;
+
+// Track failure counts per user for exponential backoff
+const userFailureCounts: Map<string, { count: number; nextRetryAt: Date }> = new Map();
+
+function calculateBackoff(failureCount: number): number {
+  // Exponential backoff: 1min, 2min, 4min, 8min, 16min, 32min, 60min max
+  return Math.min(BASE_BACKOFF_MS * Math.pow(2, failureCount), MAX_BACKOFF_MS);
+}
+
+function shouldSkipUser(userId: string): boolean {
+  const failure = userFailureCounts.get(userId);
+  if (!failure) return false;
+  return new Date() < failure.nextRetryAt;
+}
+
+function recordFailure(userId: string, error: string) {
+  const current = userFailureCounts.get(userId);
+  const count = (current?.count || 0) + 1;
+  const backoffMs = calculateBackoff(count);
+  userFailureCounts.set(userId, {
+    count,
+    nextRetryAt: new Date(Date.now() + backoffMs)
+  });
+  console.log(`[Gmail Sync] User ${userId} failure #${count}, backoff ${Math.round(backoffMs / 1000)}s - ${error}`);
+}
+
+function recordSuccess(userId: string) {
+  userFailureCounts.delete(userId);
+}
 
 export async function startDailyEmailSync() {
-  if (dailySyncInterval || dailySyncTimeout) {
-    console.log('[Gmail Auto-Sync] Daily sync already running');
+  if (syncInterval) {
+    console.log('[Gmail Sync] Already running');
     return;
   }
   
   hasGmailSyncLock = await tryAcquireAdvisoryLock('GMAIL_SYNC_WORKER');
   if (!hasGmailSyncLock) {
-    console.log('[Gmail Auto-Sync] Another instance holds the lock, skipping start');
+    console.log('[Gmail Sync] Another instance holds the lock, skipping start');
     return;
   }
   
-  // Calculate time until next 6 AM
-  const now = new Date();
-  const next6AM = new Date(now);
-  next6AM.setHours(6, 0, 0, 0);
-  if (now >= next6AM) {
-    next6AM.setDate(next6AM.getDate() + 1);
-  }
+  console.log(`[Gmail Sync] Starting with ${SYNC_INTERVAL_MS / 1000 / 60}min interval`);
   
-  const msUntil6AM = next6AM.getTime() - now.getTime();
-  
-  console.log(`[Gmail Auto-Sync] Scheduling daily sync. First run in ${Math.round(msUntil6AM / 1000 / 60)} minutes at ${next6AM.toLocaleString()}`);
-  
-  // Schedule first run at 6 AM
-  dailySyncTimeout = setTimeout(() => {
+  // Run first sync after 1 minute delay to let server stabilize
+  setTimeout(() => {
     syncAllConnectedUsers();
-    // Then run every 24 hours
-    dailySyncInterval = setInterval(() => {
-      syncAllConnectedUsers();
-    }, 24 * 60 * 60 * 1000);
-  }, msUntil6AM);
+  }, 60 * 1000);
   
-  console.log('[Gmail Auto-Sync] Daily email sync scheduler started');
+  // Then run at regular intervals
+  syncInterval = setInterval(() => {
+    syncAllConnectedUsers();
+  }, SYNC_INTERVAL_MS);
+  
+  console.log('[Gmail Sync] Periodic sync scheduler started');
 }
 
 export async function stopDailyEmailSync() {
-  if (dailySyncTimeout) {
-    clearTimeout(dailySyncTimeout);
-    dailySyncTimeout = null;
-  }
-  if (dailySyncInterval) {
-    clearInterval(dailySyncInterval);
-    dailySyncInterval = null;
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
   }
   if (hasGmailSyncLock) {
     await releaseAdvisoryLock('GMAIL_SYNC_WORKER');
     hasGmailSyncLock = false;
   }
-  console.log('[Gmail Auto-Sync] Daily sync stopped');
+  console.log('[Gmail Sync] Periodic sync stopped');
 }

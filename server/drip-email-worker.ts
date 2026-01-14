@@ -15,7 +15,7 @@ import crypto from "crypto";
 import { odooClient } from "./odoo";
 import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
 
-const POLL_INTERVAL_MS = 60000;
+const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 let isProcessing = false;
 let hasLock = false;
