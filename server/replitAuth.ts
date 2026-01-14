@@ -76,9 +76,13 @@ function createSessionMiddleware(): ReturnType<typeof session> {
     throw new Error("SESSION_SECRET environment variable is required");
   }
   
-  // Use 'lax' for all environments - this works for same-site OIDC flows
-  // 'lax' allows cookies on top-level navigations (redirects from OIDC provider)
-  // 'none' is problematic with Chrome's third-party cookie restrictions
+  // Cookie sameSite policy:
+  // - 'lax': Works for same-site OIDC flows and top-level navigations (default)
+  // - 'none': Required for cross-origin/iframe embedding (e.g., Shopify Admin app)
+  //   Note: 'none' requires secure=true and is blocked by some browsers' 3rd-party cookie restrictions
+  // 
+  // For Shopify Admin embedded apps, you may need 'none' - but this has browser compatibility issues.
+  // Consider using session tokens (JWT) for Shopify embedded mode instead of cookies.
   const sameSiteSetting: 'lax' | 'none' = 'lax';
   
   console.log(`[Auth] Session configured: TTL=${SESSION_TTL}ms, production=${isProduction}, secure=${isProduction}, sameSite=${sameSiteSetting}`);

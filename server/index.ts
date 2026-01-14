@@ -43,6 +43,16 @@ if (process.env.REPLIT_DOMAINS) {
 
 const app = express();
 
+// Trust proxy for production deployments behind Replit's proxy/CDN
+// This is critical for:
+// - secure cookies (X-Forwarded-Proto header)
+// - rate limiting (X-Forwarded-For header for real client IP)
+// - correct req.protocol and req.ip values
+if (isProduction) {
+  app.set('trust proxy', 1);
+  console.log('[Boot] trust proxy enabled for production');
+}
+
 // Public diagnostic endpoint - MUST be before auth middleware so it's accessible when auth is broken
 app.get('/api/diagnostics/auth-env', (req, res) => {
   res.json({
