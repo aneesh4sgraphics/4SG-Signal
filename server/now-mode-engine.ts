@@ -620,29 +620,29 @@ export class NowModeEngine {
     switch (cardType) {
       case "set_pricing_tier":
         return [
-          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Check order history to determine appropriate tier level." },
+          { outcome: "data_updated", label: "Done", icon: "check", color: "green", assistText: "Check order history to determine appropriate tier level." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
       case "set_machine_profile":
         return [
-          { outcome: "data_updated", label: "Machine Set", icon: "settings", color: "green", assistText: "Select their equipment type. Distributors/Dealers will be auto-assigned to Aneesh." },
+          { outcome: "data_updated", label: "Done", icon: "check", color: "green", assistText: "Select their equipment type. Distributors/Dealers will be auto-assigned to Aneesh." },
           { outcome: "called_no_answer", label: "Need to Call", icon: "phone-missed", color: "amber", schedulesFollowUp: true, followUpDays: 1, assistText: "Schedule a call to gather machine information." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
       case "set_sales_rep":
         return [
-          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Assign based on territory or product specialty." },
+          { outcome: "data_updated", label: "Done", icon: "check", color: "green", assistText: "Assign based on territory or product specialty." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
       case "set_primary_email":
         return [
-          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Find email on their website or ask during next call." },
+          { outcome: "data_updated", label: "Done", icon: "check", color: "green", assistText: "Find email on their website or ask during next call." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
 
       case "set_mailing_address":
         return [
-          { outcome: "data_updated", label: "Updated", icon: "check", color: "green", assistText: "Click 'View Full Customer Profile' to add address, city, state, and zip." },
+          { outcome: "data_updated", label: "Done", icon: "check", color: "green", assistText: "Enter street address, city, state, and ZIP above." },
           { outcome: "marked_dnc", label: "Bad Fit / DNC", icon: "user-x", color: "red", assistText: "Mark if customer is not a good fit for our products." },
         ];
 
