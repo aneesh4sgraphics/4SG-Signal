@@ -138,15 +138,10 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
     <Sheet>
       <SheetTrigger asChild>
         <button 
-          className="lg:hidden fixed left-4 top-4 z-50 p-3 rounded-xl shadow-lg"
-          style={{
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.5)'
-          }}
+          className="lg:hidden fixed left-4 top-4 z-50 p-2.5 rounded-lg bg-white border border-[#EAEAEA] shadow-sm hover:bg-[#F7F7F5] transition-all duration-150 ease-out"
           data-testid="button-mobile-menu"
         >
-          <MenuIcon className="h-5 w-5 text-gray-700" />
+          <MenuIcon className="h-5 w-5 text-[#37352F]" />
         </button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[300px] p-0">
@@ -161,15 +156,15 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
           
           <button
             onClick={() => setAppSwitcherOpen(true)}
-            className="m-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="m-4 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-[#F7F7F5] hover:bg-[#EAEAEA] transition-all duration-150 ease-out"
             data-testid="button-mobile-app-switcher"
           >
-            <GridIcon className="h-5 w-5 text-gray-600" />
-            <span className="font-medium text-gray-700">All Apps</span>
+            <GridIcon className="h-5 w-5 text-[#73726E]" />
+            <span className="font-medium text-[#37352F]">All Apps</span>
           </button>
           
           <nav className="flex-1 px-4 py-2 overflow-y-auto">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Quick Access</p>
+            <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Quick Access</p>
             {mainItems.slice(0, 6).map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
