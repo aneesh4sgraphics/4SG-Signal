@@ -223,17 +223,24 @@ export async function matchEmailToCustomer(
     };
   }
   
-  // Step 3: Alias lookup (scoped by userId on alias table)
+  // Step 3: Alias lookup (scoped by customer ownership; admins see all aliases)
+  const aliasConditions = [
+    eq(gmailEmailAliases.aliasEmailNormalized, normalized),
+    buildUserScopeCondition() // Verify customer ownership
+  ];
+  // Non-privileged users also restricted to their own aliases
+  if (!isPrivileged) {
+    aliasConditions.push(eq(gmailEmailAliases.userId, userId));
+  }
+  
   const aliasMatch = await db.select({
     customerId: gmailEmailAliases.customerId,
     contactId: gmailEmailAliases.contactId,
     primaryEmailNormalized: gmailEmailAliases.primaryEmailNormalized,
   })
     .from(gmailEmailAliases)
-    .where(and(
-      eq(gmailEmailAliases.aliasEmailNormalized, normalized),
-      eq(gmailEmailAliases.userId, userId)
-    ))
+    .innerJoin(customers, eq(gmailEmailAliases.customerId, customers.id))
+    .where(and(...aliasConditions))
     .limit(1);
   
   if (aliasMatch.length > 0 && aliasMatch[0].customerId) {
