@@ -223,84 +223,12 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   );
 
   return (
-    <div className="min-h-screen flex" style={{
-      background: 'linear-gradient(135deg, #e0e7ef 0%, #dfe7f2 25%, #e8e4f0 50%, #ede7e3 75%, #e5ebe8 100%)',
-      backgroundSize: '400% 400%',
-      animation: 'gentleShift 20s ease infinite'
-    }}>
-      <style>{`
-        @keyframes gentleShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes gentleFloat1 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(30px, -30px); }
-          66% { transform: translate(-20px, 20px); }
-        }
-        @keyframes gentleFloat2 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(-40px, 20px); }
-          66% { transform: translate(25px, -25px); }
-        }
-        @keyframes gentleFloat3 {
-          0%, 100% { transform: translate(0, 0); }
-          33% { transform: translate(20px, 30px); }
-          66% { transform: translate(-30px, -20px); }
-        }
-      `}</style>
-
-      <div style={{
-        position: 'fixed',
-        top: '15%',
-        left: '10%',
-        width: '500px',
-        height: '500px',
-        background: 'radial-gradient(circle, rgba(147, 197, 253, 0.15) 0%, transparent 70%)',
-        borderRadius: '50%',
-        filter: 'blur(80px)',
-        animation: 'gentleFloat1 25s ease-in-out infinite',
-        pointerEvents: 'none',
-        zIndex: 0
-      }} />
-      <div style={{
-        position: 'fixed',
-        top: '50%',
-        right: '15%',
-        width: '450px',
-        height: '450px',
-        background: 'radial-gradient(circle, rgba(196, 181, 253, 0.12) 0%, transparent 70%)',
-        borderRadius: '50%',
-        filter: 'blur(80px)',
-        animation: 'gentleFloat2 30s ease-in-out infinite',
-        pointerEvents: 'none',
-        zIndex: 0
-      }} />
-      <div style={{
-        position: 'fixed',
-        bottom: '20%',
-        left: '35%',
-        width: '400px',
-        height: '400px',
-        background: 'radial-gradient(circle, rgba(167, 243, 208, 0.12) 0%, transparent 70%)',
-        borderRadius: '50%',
-        filter: 'blur(80px)',
-        animation: 'gentleFloat3 22s ease-in-out infinite',
-        pointerEvents: 'none',
-        zIndex: 0
-      }} />
+    <div className="min-h-screen flex bg-[#F7F7F7]">
 
       {isMobile && <MobileSidebar />}
 
       <aside 
-        className={`hidden lg:flex ${sidebarExpanded ? 'w-64' : 'w-[72px]'} h-screen transition-all duration-300 flex-col fixed left-0 top-0 z-40`}
-        style={{
-          background: 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(40px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(150%)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.5)'
-        }}
+        className={`hidden lg:flex ${sidebarExpanded ? 'w-64' : 'w-[72px]'} h-screen transition-all duration-200 ease-out flex-col fixed left-0 top-0 z-40 bg-white border-r border-[#EAEAEA]`}
       >
         <div className="h-16 flex items-center justify-between px-4" style={{ borderBottom: '1px solid rgba(148, 163, 184, 0.15)' }}>
           {sidebarExpanded ? (
