@@ -1553,6 +1553,15 @@ function AdminHomeTab({
                 <div className="text-4xl font-bold">{completionPercent}%</div>
                 <div className="text-purple-200 text-sm">Setup Complete</div>
               </div>
+              <Link href="/admin/setup">
+                <Button 
+                  variant="secondary" 
+                  className="bg-white text-purple-700 hover:bg-purple-50 mr-2"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Setup Wizard
+                </Button>
+              </Link>
               <Button 
                 variant="secondary" 
                 onClick={onOpenTestCustomer}

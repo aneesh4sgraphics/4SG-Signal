@@ -23,6 +23,7 @@ import PriceList from "@/pages/price-list";
 import ShippingCalculator from "@/pages/shipping-calculator";
 import Admin from "@/pages/admin";
 import AdminConfig from "@/pages/admin-config";
+import SetupWizard from "@/pages/setup-wizard";
 import ActivityLogsPage from "@/pages/activity-logs";
 import PdfCategoryAdmin from "@/pages/pdf-category-admin";
 import Dashboard from "@/pages/dashboard-odoo";
@@ -90,6 +91,7 @@ const AppRoutes = () => (
     <Route path="/shipping-calculator" component={ShippingCalculator} />
     <Route path="/admin" component={Admin} />
     <Route path="/admin/config" component={AdminConfig} />
+    <Route path="/admin/setup" component={SetupWizard} />
     <Route path="/pdf-settings" component={PdfCategoryAdmin} />
     <Route path="/shipping-labels" component={ShippingLabels} />
     <Route path="/product-labels" component={ProductLabels} />

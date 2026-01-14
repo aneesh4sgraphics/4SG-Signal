@@ -15616,6 +15616,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Setup Completeness Wizard ---
+  app.get("/api/admin/setup-status", isAuthenticated, requireAdmin, async (req, res) => {
+    try {
+      // Step 1: Machine Types
+      const machineTypes = await db.select().from(adminMachineTypes).where(eq(adminMachineTypes.isActive, true));
+      const machineTypesComplete = machineTypes.length >= 3; // At least 3 machine types (offset, digital, flexo, etc.)
+      
+      // Step 2: Category Groups
+      const categoryGroups = await db.select().from(adminCategoryGroups).where(eq(adminCategoryGroups.isActive, true));
+      const categoryGroupsComplete = categoryGroups.length >= 2; // At least 2 category groups
+      
+      // Step 3: Categories with product types
+      const categories = await db.select().from(adminCategories).where(eq(adminCategories.isActive, true));
+      const categoriesWithMachineTypes = categories.filter(c => c.compatibleMachineTypes && c.compatibleMachineTypes.length > 0);
+      const categoriesComplete = categories.length >= 5 && categoriesWithMachineTypes.length >= 3;
+      
+      // Step 4: SKU Mappings (from Shopify or manual)
+      const skuMappings = await db.select().from(adminSkuMappings).where(eq(adminSkuMappings.isActive, true));
+      const skuMappingsComplete = skuMappings.length >= 10; // At least 10 mapping rules
+      
+      // Step 5: Coaching Timers
+      const timers = await db.select().from(adminCoachingTimers).where(eq(adminCoachingTimers.isActive, true));
+      const timersComplete = timers.length >= 5; // At least 5 active timers
+      
+      // Step 6: Nudge Settings
+      const nudges = await db.select().from(adminNudgeSettings).where(eq(adminNudgeSettings.isEnabled, true));
+      const nudgesComplete = nudges.length >= 3; // At least 3 enabled nudges
+      
+      // Step 7: Conversation Scripts
+      const scripts = await db.select().from(adminConversationScripts).where(eq(adminConversationScripts.isActive, true));
+      const scriptsComplete = scripts.length >= 3; // At least 3 active scripts
+      
+      const steps = [
+        {
+          id: 'machine-types',
+          name: 'Define Machine Types',
+          description: 'Set up press/machine types your customers use (offset, digital, flexo, etc.)',
+          isComplete: machineTypesComplete,
+          current: machineTypes.length,
+          target: 3,
+          percentComplete: Math.min(100, Math.round((machineTypes.length / 3) * 100)),
+          whatBreaks: 'Category Trust tracking will not work - you cannot track which products work with which machines.',
+          configTab: 'taxonomy',
+        },
+        {
+          id: 'category-groups',
+          name: 'Define Category Groups',
+          description: 'Organize product categories into logical groups (Inks, Substrates, Chemicals, etc.)',
+          isComplete: categoryGroupsComplete,
+          current: categoryGroups.length,
+          target: 2,
+          percentComplete: Math.min(100, Math.round((categoryGroups.length / 2) * 100)),
+          whatBreaks: 'Categories will appear unorganized and harder to manage in the UI.',
+          configTab: 'taxonomy',
+        },
+        {
+          id: 'categories',
+          name: 'Define Categories & Compatibility',
+          description: 'Set up product categories with compatible machine types',
+          isComplete: categoriesComplete,
+          current: categories.length,
+          target: 5,
+          percentComplete: Math.min(100, Math.round((categoriesWithMachineTypes.length / 3) * 100)),
+          whatBreaks: 'CRM cannot track customer category trust or recommend products based on their equipment.',
+          configTab: 'taxonomy',
+        },
+        {
+          id: 'sku-mappings',
+          name: 'Import SKU Mappings',
+          description: 'Map Shopify product SKUs to categories for automatic order categorization',
+          isComplete: skuMappingsComplete,
+          current: skuMappings.length,
+          target: 10,
+          percentComplete: Math.min(100, Math.round((skuMappings.length / 10) * 100)),
+          whatBreaks: 'Orders from Shopify cannot be automatically categorized - category trust will not advance from purchases.',
+          configTab: 'sku-mapping',
+        },
+        {
+          id: 'timers',
+          name: 'Set Coaching Timers',
+          description: 'Configure follow-up timing for quotes, samples, and outreach',
+          isComplete: timersComplete,
+          current: timers.length,
+          target: 5,
+          percentComplete: Math.min(100, Math.round((timers.length / 5) * 100)),
+          whatBreaks: 'NOW MODE will not know when to surface follow-up cards - stale quotes and samples will go untracked.',
+          configTab: 'timers',
+        },
+        {
+          id: 'nudges',
+          name: 'Configure Nudge Rules',
+          description: 'Set up the Next Best Move engine priorities and triggers',
+          isComplete: nudgesComplete,
+          current: nudges.length,
+          target: 3,
+          percentComplete: Math.min(100, Math.round((nudges.length / 3) * 100)),
+          whatBreaks: 'CRM coaching nudges will not appear - reps will miss key action prompts on client pages.',
+          configTab: 'nudges',
+        },
+        {
+          id: 'scripts',
+          name: 'Add Conversation Scripts',
+          description: 'Create templates for different sales stages and customer personas',
+          isComplete: scriptsComplete,
+          current: scripts.length,
+          target: 3,
+          percentComplete: Math.min(100, Math.round((scripts.length / 3) * 100)),
+          whatBreaks: 'Reps will not have guided scripts for calls - new reps may struggle with conversations.',
+          configTab: 'scripts',
+        },
+      ];
+      
+      const completedSteps = steps.filter(s => s.isComplete).length;
+      const overallPercent = Math.round((completedSteps / steps.length) * 100);
+      
+      res.json({
+        steps,
+        completedSteps,
+        totalSteps: steps.length,
+        overallPercent,
+        isFullyConfigured: completedSteps === steps.length,
+      });
+    } catch (error) {
+      console.error("Error getting setup status:", error);
+      res.status(500).json({ error: "Failed to get setup status" });
+    }
+  });
+
+  // Auto-import SKU mappings from Shopify products
+  app.post("/api/admin/import-sku-mappings-from-shopify", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Get Shopify data from variant mappings and unmapped items
+      const variantMappings = await db.select().from(shopifyVariantMappings).limit(500);
+      const unmappedItems = await db.select().from(shopifyUnmappedItems).limit(500);
+      
+      // Combine all SKUs from both sources
+      const allSkus: { sku: string; title: string; source: string }[] = [];
+      
+      for (const mapping of variantMappings) {
+        if (mapping.itemCode) {
+          allSkus.push({ 
+            sku: mapping.itemCode, 
+            title: mapping.shopifyProductTitle || mapping.productName || 'Unknown',
+            source: 'variant_mapping'
+          });
+        }
+      }
+      
+      for (const item of unmappedItems) {
+        if (item.sku) {
+          allSkus.push({ 
+            sku: item.sku, 
+            title: item.productTitle || 'Unknown',
+            source: 'unmapped_order'
+          });
+        }
+      }
+      
+      if (allSkus.length === 0) {
+        return res.status(400).json({ 
+          error: "No Shopify SKUs found. Please sync orders from Shopify first.",
+          suggestion: "Go to Shopify Integration and sync your orders to import product SKUs."
+        });
+      }
+      
+      // Extract unique SKU prefixes
+      const skuPrefixes = new Map<string, { count: number; sampleSkus: string[]; sampleTitles: string[] }>();
+      
+      for (const item of allSkus) {
+        const sku = item.sku;
+        // Extract prefix (first 2-4 uppercase letters before dash, underscore, or number)
+        const prefixMatch = sku.match(/^([A-Z]{2,4})[-_0-9]?/i);
+        if (prefixMatch) {
+          const prefix = prefixMatch[1].toUpperCase();
+          const existing = skuPrefixes.get(prefix) || { count: 0, sampleSkus: [], sampleTitles: [] };
+          existing.count++;
+          if (existing.sampleSkus.length < 5 && !existing.sampleSkus.includes(sku)) {
+            existing.sampleSkus.push(sku);
+            existing.sampleTitles.push(item.title);
+          }
+          skuPrefixes.set(prefix, existing);
+        }
+      }
+      
+      // Get existing categories and mappings
+      const categories = await db.select().from(adminCategories).where(eq(adminCategories.isActive, true));
+      const existingMappings = await db.select().from(adminSkuMappings);
+      const existingPatterns = new Set(existingMappings.map(m => m.pattern.toUpperCase()));
+      
+      res.json({
+        totalSkus: allSkus.length,
+        fromVariantMappings: variantMappings.length,
+        fromUnmappedOrders: unmappedItems.length,
+        skuPrefixes: Array.from(skuPrefixes.entries())
+          .filter(([_, data]) => data.count >= 2) // Only show prefixes with 2+ items
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([prefix, data]) => ({
+            prefix,
+            count: data.count,
+            sampleSkus: data.sampleSkus,
+            sampleTitles: data.sampleTitles,
+            suggestedRule: `${prefix}*`,
+            alreadyMapped: existingPatterns.has(prefix) || existingPatterns.has(`${prefix}*`),
+          })),
+        existingCategories: categories.map(c => ({ id: c.id, code: c.code, label: c.label })),
+        existingMappingsCount: existingMappings.length,
+        instructions: "Review the detected SKU prefixes above. Click 'Create Mapping' to link a prefix to a category. Prefixes marked 'alreadyMapped' are already configured.",
+      });
+    } catch (error) {
+      console.error("Error analyzing Shopify products for SKU mappings:", error);
+      res.status(500).json({ error: "Failed to analyze Shopify products" });
+    }
+  });
+
   // --- Machine Types ---
   app.get("/api/admin/config/machine-types", isAuthenticated, requireAdmin, async (req, res) => {
     try {
