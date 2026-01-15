@@ -468,24 +468,29 @@ export default function Dashboard() {
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '12px 16px',
+                              justifyContent: 'flex-start',
+                              padding: '12px 8px',
                               borderRadius: '8px',
                               cursor: 'pointer',
                               transition: 'background 0.15s ease',
-                              minWidth: '72px',
+                              width: '80px',
+                              minHeight: '72px',
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.background = '#F2F2F2'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             data-testid={`icon-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
                           >
-                            <Icon size={24} style={{ color: '#111111', marginBottom: '6px' }} />
+                            <Icon size={24} style={{ color: '#111111', marginBottom: '8px' }} />
                             <span style={{
-                              fontSize: '11px',
-                              fontWeight: 500,
-                              color: '#666666',
+                              fontSize: '9px',
+                              fontWeight: 600,
+                              color: '#37352F',
                               textAlign: 'center',
-                              whiteSpace: 'nowrap',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              lineHeight: 1.3,
+                              maxWidth: '72px',
+                              wordWrap: 'break-word',
                             }}>
                               {app.label}
                             </span>
