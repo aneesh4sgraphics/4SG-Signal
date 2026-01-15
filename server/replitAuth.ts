@@ -484,10 +484,34 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
   const isAuthenticatedFn = req.isAuthenticated ? req.isAuthenticated() : false;
   const cookieHeader = req.headers.cookie ? 'present' : 'missing';
   
-  if (!isAuthenticatedFn) {
+  // PRODUCTION FIX: If passport.session() didn't deserialize the user but session has valid data,
+  // manually reconstruct req.user. This handles race conditions with PostgreSQL session store
+  // in Replit's multi-worker production environment.
+  if (!isAuthenticatedFn && passportUser) {
+    const userId = passportUser.id || passportUser.claims?.sub;
+    const claims = passportUser.claims;
+    
+    if (userId && claims) {
+      console.log(`[Auth] FALLBACK: Manually setting req.user from session data for ${req.path} (userId=${userId})`);
+      req.user = {
+        id: userId,
+        claims: claims,
+        email: claims.email || passportUser.email,
+        access_token: passportUser.access_token,
+        refresh_token: passportUser.refresh_token,
+        expires_at: passportUser.expires_at,
+      } as any;
+      // Continue to the rest of the middleware
+    }
+  }
+  
+  // Check authentication again after potential fallback
+  const isNowAuthenticated = !!req.user && !!(req.user as any).claims?.sub;
+  
+  if (!isNowAuthenticated) {
     console.log(`[Auth] isAuthenticated FAILED for ${req.path}: session=${hasSession}, passport=${hasPassport}, passportUser=${!!passportUser}, reqUser=${hasReqUser}, isAuthenticatedFn=${isAuthenticatedFn}, cookie=${cookieHeader}`);
     if (passportUser) {
-      console.log(`[Auth] Passport user found but isAuthenticated=false: id=${passportUser.id}, email=${passportUser.email}`);
+      console.log(`[Auth] Passport user found but isAuthenticated=false: id=${passportUser.id}, claims=${JSON.stringify(passportUser.claims)}`);
     }
     return res.status(401).json({ message: "Not authenticated" });
   }
