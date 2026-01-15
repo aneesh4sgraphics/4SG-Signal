@@ -4,28 +4,20 @@ interface IconProps {
 }
 
 export const QuickQuotesIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4.5c0-.3.1-.5.2-.7.2-.2.4-.3.8-.3h10c.4 0 .6.1.8.3.1.2.2.4.2.7v15c0 .3-.1.5-.2.7-.2.2-.4.3-.8.3H5c-.4 0-.6-.1-.8-.3-.1-.2-.2-.4-.2-.7V4.5z" />
-    <path d="M14 2v6.5c0 .3.3.5.5.5h5.5" />
-    <path d="M7.5 11c.5-.8 1.2-1.5 2-1.5s1.5.7 2 1.5c.5.8 1.2 1.5 2 1.5" />
-    <path d="M7.5 15c.5-.8 1.2-1.5 2-1.5s1.5.7 2 1.5c.5.8 1.2 1.5 2 1.5" />
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11.5 5h.434c3.048 0 4.571 0 5.15.547a2 2 0 0 1 .586 1.845c-.156.781-1.4 1.66-3.888 3.42l-4.064 2.876c-2.488 1.76-3.732 2.639-3.888 3.42a2 2 0 0 0 .586 1.845c.579.547 2.102.547 5.15.547h.934M8 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0m14 14a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
   </svg>
 );
 
 export const PriceListIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 5c-.2.1-.3.3-.3.5v13c0 .2.1.4.3.5.2.1.4.1.5 0h13c.2-.1.3-.3.3-.5V5.5c0-.2-.1-.4-.3-.5-.2-.1-.4-.1-.5 0" />
-    <path d="M3 7c-.2.1-.3.3-.3.5v13c0 .2.1.4.3.5.2.1.4.1.5 0h13" />
-    <path d="M12 10.5c-.5-.5-1.2-.8-2-.5-.8.3-1.2 1.2-.8 2s1.5 1 2.3 1.2c.8.2 1.7.5 2 1.3.3.8-.2 1.7-1 2s-1.8 0-2.5-.5" />
-    <path d="M12 9v1.5m0 5V17" />
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12H9m12-6H9m12 12H9m-4-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
   </svg>
 );
 
 export const SavedQuotesIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 4c0-.3.1-.5.3-.7.2-.2.4-.3.7-.3h8.5c.3 0 .5.1.7.3l4.5 4.5c.2.2.3.4.3.7V20c0 .3-.1.5-.3.7-.2.2-.4.3-.7.3H6c-.3 0-.5-.1-.7-.3-.2-.2-.3-.4-.3-.7V4z" />
-    <path d="M14 3v5.5c0 .3.2.5.5.5H20" />
-    <path d="M8 17l2-3 2 3 3-5 3 5" />
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 15v6H5v-6m11 2H8m7.913-2.337L8.087 13m8.626-.62L9.463 9m8.71 1.642L12.044 5.5m7.99 3.304L15.109 2.5" />
   </svg>
 );
 
