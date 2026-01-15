@@ -123,6 +123,24 @@ interface EfficiencyData {
   streak: number;
 }
 
+interface SpotlightHint {
+  type: 'bad_fit' | 'stale_contact' | 'duplicate' | 'missing_field' | 'already_handled' | 'quick_win';
+  severity: 'high' | 'medium' | 'low';
+  message: string;
+  ctaLabel: string;
+  ctaAction: string;
+  metadata?: Record<string, any>;
+}
+
+const HINT_STYLES: Record<SpotlightHint['type'], { bg: string; border: string; icon: any; textColor: string }> = {
+  bad_fit: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', icon: Ban, textColor: 'text-red-700 dark:text-red-300' },
+  stale_contact: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', icon: Clock, textColor: 'text-amber-700 dark:text-amber-300' },
+  duplicate: { bg: 'bg-purple-50 dark:bg-purple-950/30', border: 'border-purple-200 dark:border-purple-800', icon: AlertCircle, textColor: 'text-purple-700 dark:text-purple-300' },
+  missing_field: { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', icon: UserCog, textColor: 'text-blue-700 dark:text-blue-300' },
+  already_handled: { bg: 'bg-gray-50 dark:bg-gray-800/50', border: 'border-gray-200 dark:border-gray-700', icon: CheckCircle, textColor: 'text-gray-700 dark:text-gray-300' },
+  quick_win: { bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-200 dark:border-green-800', icon: Flame, textColor: 'text-green-700 dark:text-green-300' },
+};
+
 const BUCKET_INFO: Record<TaskBucket, { label: string; icon: any; color: string }> = {
   calls: { label: 'Calls', icon: PhoneCall, color: '#A855F7' },
   follow_ups: { label: 'Follow-ups', icon: RefreshCw, color: '#22C55E' },
@@ -168,7 +186,7 @@ export default function Spotlight() {
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: currentTask, isLoading, refetch } = useQuery<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean }>({
+  const { data: currentTask, isLoading, refetch } = useQuery<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean; hints?: SpotlightHint[] }>({
     queryKey: ['/api/spotlight/current'],
     refetchOnWindowFocus: false,
     staleTime: 30 * 1000,
@@ -525,6 +543,44 @@ export default function Spotlight() {
               <p className="text-[#666666] text-sm mt-0.5">{task.whyNow}</p>
             </div>
           </div>
+
+          {/* Smart Hints */}
+          {currentTask.hints && currentTask.hints.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {currentTask.hints.map((hint, idx) => {
+                const style = HINT_STYLES[hint.type];
+                const HintIcon = style.icon;
+                return (
+                  <div 
+                    key={idx}
+                    className={`rounded-lg p-3 border ${style.bg} ${style.border} flex items-center justify-between gap-3`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <HintIcon className={`w-4 h-4 flex-shrink-0 ${style.textColor}`} />
+                      <span className={`text-sm ${style.textColor}`}>{hint.message}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={hint.severity === 'high' ? 'default' : 'outline'}
+                      className={hint.severity === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-xs'}
+                      onClick={() => {
+                        if (hint.ctaAction === 'bad_fit') {
+                          completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' });
+                        } else if (hint.ctaAction === 'skip_duplicate' || hint.ctaAction === 'skip_recent') {
+                          skipMutation.mutate({ taskId: task.id, reason: hint.type });
+                        } else if (hint.ctaAction === 'reactivation_email') {
+                          completeMutation.mutate({ taskId: task.id, outcomeId: 'send_email', outcomeLabel: 'Send Reactivation Email' });
+                        }
+                      }}
+                      disabled={completeMutation.isPending || skipMutation.isPending}
+                    >
+                      {hint.ctaLabel}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Main Client Card */}
           <Card className="border-[#EAEAEA] bg-white mb-4 shadow-sm">

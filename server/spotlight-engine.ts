@@ -2,6 +2,7 @@ import { db } from "./db";
 import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, moments } from "@shared/schema";
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { analyzeForHints, SpotlightHint } from "./spotlight-heuristics";
 
 export type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
 
@@ -544,7 +545,7 @@ class SpotlightEngine {
     return candidates.slice(0, quota);
   }
 
-  async getNextMomentFromQueue(userId: string): Promise<{ moment: any | null; session: SpotlightSession }> {
+  async getNextMomentFromQueue(userId: string): Promise<{ moment: any | null; session: SpotlightSession; hints: SpotlightHint[] }> {
     const today = this.getTodayKey();
     const session = await this.getSessionAsync(userId);
 
@@ -570,7 +571,7 @@ class SpotlightEngine {
       .limit(1);
 
     if (nextMoment.length === 0) {
-      return { moment: null, session };
+      return { moment: null, session, hints: [] };
     }
 
     await db.update(moments)
@@ -582,12 +583,31 @@ class SpotlightEngine {
       .where(eq(customers.id, nextMoment[0].customerId || ''))
       .limit(1);
 
+    let hints: SpotlightHint[] = [];
+    if (customer[0]) {
+      hints = await analyzeForHints(
+        customer[0].id,
+        {
+          company: customer[0].company,
+          website: customer[0].website,
+          email: customer[0].email,
+          phone: customer[0].phone,
+          pricingTier: customer[0].pricingTier,
+          salesRepId: customer[0].salesRepId,
+          updatedAt: customer[0].updatedAt,
+          isHotProspect: customer[0].isHotProspect,
+        },
+        nextMoment[0].momentType
+      );
+    }
+
     return {
       moment: {
         ...nextMoment[0],
         customer: customer[0] || null,
       },
       session,
+      hints,
     };
   }
 

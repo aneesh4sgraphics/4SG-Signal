@@ -16592,6 +16592,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
   // ============================================
 
   const { spotlightEngine } = await import("./spotlight-engine");
+  const { analyzeForHints } = await import("./spotlight-heuristics");
 
   app.get("/api/spotlight/current", isAuthenticated, async (req: any, res) => {
     try {
@@ -16602,6 +16603,24 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
 
       const { task, session, allDone } = await spotlightEngine.getNextTask(userId);
       
+      let hints: any[] = [];
+      if (task && task.customer) {
+        hints = await analyzeForHints(
+          task.customer.id,
+          {
+            company: task.customer.company,
+            website: task.customer.website,
+            email: task.customer.email,
+            phone: task.customer.phone,
+            pricingTier: task.customer.pricingTier,
+            salesRepId: task.customer.salesRepId,
+            updatedAt: task.customer.updatedAt || null,
+            isHotProspect: task.customer.isHotProspect || null,
+          },
+          task.taskSubtype
+        );
+      }
+
       res.json({
         task,
         session: {
@@ -16611,6 +16630,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
           dayComplete: session.dayComplete,
         },
         allDone,
+        hints,
       });
     } catch (error) {
       console.error("[Spotlight] Error getting current task:", error);
