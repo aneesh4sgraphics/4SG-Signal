@@ -410,9 +410,29 @@ export default function ClientDatabase() {
     return sentDate >= weekStart;
   }).length;
   
-  // Samples This Week - count swatch books that were shipped (via Print Label button) this week
-  const samplesThisWeek = swatchBookShipments.filter((s: any) => {
-    // Only count shipped or delivered swatch books
+  // Helper to check if shipment is a Mailer (notes contain "Mailer:")
+  const isMailer = (notes: string | null) => notes?.includes('Mailer:');
+  // Helper to check if shipment is actually a SwatchBook (not Mailer, not Other)
+  const isActualSwatchBook = (notes: string | null) => !notes?.includes('Mailer:') && !notes?.includes('Other:');
+  
+  // Mailers This Week - swatchBookShipments with "Mailer:" in notes (via Print Label → Mailer)
+  const mailersThisWeek = swatchBookShipments.filter((s: any) => {
+    if (s.status !== 'shipped' && s.status !== 'delivered') return false;
+    if (!isMailer(s.notes)) return false;
+    const shippedDate = new Date(s.shippedAt || s.createdAt || 0);
+    return shippedDate >= weekStart;
+  }).length;
+  
+  // Swatch Books This Week - swatchBookShipments without "Mailer:" or "Other:" in notes
+  const swatchBooksThisWeek = swatchBookShipments.filter((s: any) => {
+    if (s.status !== 'shipped' && s.status !== 'delivered') return false;
+    if (!isActualSwatchBook(s.notes)) return false;
+    const shippedDate = new Date(s.shippedAt || s.createdAt || 0);
+    return shippedDate >= weekStart;
+  }).length;
+  
+  // Samples This Week - pressKitShipments (Press Test Kits via Print Label → Press Test)
+  const samplesThisWeek = pressKitShipments.filter((s: any) => {
     if (s.status !== 'shipped' && s.status !== 'delivered') return false;
     const shippedDate = new Date(s.shippedAt || s.createdAt || 0);
     return shippedDate >= weekStart;
@@ -420,7 +440,13 @@ export default function ClientDatabase() {
   
   // Lifetime totals for reference
   const totalQuotesSent = sentQuotes.length;
-  const totalSamplesSent = swatchBookShipments.filter((s: any) => 
+  const totalMailersSent = swatchBookShipments.filter((s: any) => 
+    (s.status === 'shipped' || s.status === 'delivered') && isMailer(s.notes)
+  ).length;
+  const totalSwatchBooksSent = swatchBookShipments.filter((s: any) => 
+    (s.status === 'shipped' || s.status === 'delivered') && isActualSwatchBook(s.notes)
+  ).length;
+  const totalSamplesSent = pressKitShipments.filter((s: any) => 
     s.status === 'shipped' || s.status === 'delivered'
   ).length;
 
@@ -2244,24 +2270,42 @@ export default function ClientDatabase() {
 
           {/* Mailers & SwatchBooks Split Card - Notion Style */}
           <div className="bg-[#FBFBFA] rounded-lg border border-[#E8E8E8] overflow-hidden">
-              {/* Mailers (Top) */}
+              {/* Mailers (Top) - Print Label → Mailer */}
               <div className="p-3 border-b border-[#E8E8E8]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-medium text-[#9B9A97] uppercase tracking-wide">Mailers Sent</p>
-                    <p className="text-xl font-bold text-[#D9730B]">{pressKitShipments.length}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-[10px] font-medium text-[#9B9A97] uppercase tracking-wide cursor-help">Mailers This Week</p>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Sent via Print Label → Mailer ({totalMailersSent} total)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <p className="text-xl font-bold text-[#D9730B]">{mailersThisWeek}</p>
                   </div>
                   <div className="h-7 w-7 rounded flex items-center justify-center" style={{ backgroundColor: '#D9730B' }}>
                     <Mail className="h-3.5 w-3.5 text-white" />
                   </div>
                 </div>
               </div>
-              {/* SwatchBooks (Bottom) */}
+              {/* SwatchBooks (Bottom) - Print Label → SwatchBook */}
               <div className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-medium text-[#9B9A97] uppercase tracking-wide">SwatchBooks</p>
-                    <p className="text-xl font-bold text-[#37352F]">{swatchBookShipments.length}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-[10px] font-medium text-[#9B9A97] uppercase tracking-wide cursor-help">SwatchBooks This Week</p>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Sent via Print Label → SwatchBook ({totalSwatchBooksSent} total)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <p className="text-xl font-bold text-[#37352F]">{swatchBooksThisWeek}</p>
                   </div>
                   <div className="h-7 w-7 rounded flex items-center justify-center" style={{ backgroundColor: '#64473A' }}>
                     <BookOpen className="h-3.5 w-3.5 text-white" />
@@ -2270,14 +2314,23 @@ export default function ClientDatabase() {
               </div>
           </div>
 
-          {/* Samples Sent with Weekly Goal - Notion Style */}
+          {/* Press Test Kits with Weekly Goal - Notion Style */}
           <div 
             className={`bg-[#FBFBFA] rounded-lg p-3 border cursor-pointer transition-all hover:bg-[#F7F6F3] ${showSamplesFilter ? 'border-[#0E7B6C] ring-1 ring-[#0E7B6C]' : 'border-[#E8E8E8]'}`}
             onClick={() => setShowSamplesFilter(!showSamplesFilter)}
             data-testid="card-samples-sent"
           >
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-[#9B9A97]">Samples This Week</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-xs font-medium text-[#9B9A97] cursor-help">Press Tests This Week</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Sent via Print Label → Press Test ({totalSamplesSent} total)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <div className="h-6 w-6 rounded flex items-center justify-center" style={{ backgroundColor: '#0E7B6C' }}>
                   <Package className="h-3.5 w-3.5 text-white" />
                 </div>
@@ -2291,10 +2344,10 @@ export default function ClientDatabase() {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <p className="text-[10px] text-[#0E7B6C] mt-1 cursor-help underline decoration-dotted">Pro tip: Send samples</p>
+                      <p className="text-[10px] text-[#0E7B6C] mt-1 cursor-help underline decoration-dotted">Pro tip: Send press tests</p>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p>Click any client, then use "Log Sample" to track samples sent. Samples help build trust!</p>
+                      <p>Click any client, then use Print Label → Press Test to send sample kits. Press tests help build trust!</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
