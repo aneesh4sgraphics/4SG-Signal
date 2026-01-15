@@ -270,19 +270,35 @@ export default function ClientDatabase() {
     }
   }, [customers, selectedCustomer]);
   
+  // Direct fetch for customer from URL - works even when customer isn't on current page
+  const { data: directCustomerData } = useQuery<Customer>({
+    queryKey: ['/api/customers', customerIdFromUrl],
+    enabled: !!customerIdFromUrl && !selectedCustomer,
+    staleTime: 30 * 1000,
+  });
+
   // Handle customer ID from URL (either route param /clients/:id or query param ?customer=...)
   useEffect(() => {
-    if (customerIdFromUrl && customers.length > 0 && !selectedCustomer) {
-      const customer = customers.find(c => c.id === customerIdFromUrl);
-      if (customer) {
-        const companyContacts = customer.company 
-          ? customers.filter(c => c.company === customer.company && c.id !== customer.id)
-          : [];
-        setSelectedCustomer(customer);
-        setSelectedCompanyContacts(companyContacts);
+    if (customerIdFromUrl && !selectedCustomer) {
+      // First try from direct fetch (works for any customer)
+      if (directCustomerData) {
+        setSelectedCustomer(directCustomerData);
+        setSelectedCompanyContacts([]);
+        return;
+      }
+      // Fallback to current page list
+      if (customers.length > 0) {
+        const customer = customers.find(c => c.id === customerIdFromUrl);
+        if (customer) {
+          const companyContacts = customer.company 
+            ? customers.filter(c => c.company === customer.company && c.id !== customer.id)
+            : [];
+          setSelectedCustomer(customer);
+          setSelectedCompanyContacts(companyContacts);
+        }
       }
     }
-  }, [customers, customerIdFromUrl]);
+  }, [customers, customerIdFromUrl, directCustomerData]);
   
   // Fetch Odoo base URL for constructing partner links
   const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({
