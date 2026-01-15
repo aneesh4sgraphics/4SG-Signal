@@ -43,6 +43,7 @@ import EmailSyncDebug from "@/pages/email-sync-debug";
 import Spotlight from "@/pages/spotlight";
 import CalendarPage from "@/pages/calendar";
 import TaskInbox from "@/pages/task-inbox";
+import HotLeads from "@/pages/hot-leads";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -109,6 +110,7 @@ const AppRoutes = () => (
     <Route path="/spotlight" component={Spotlight} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/tasks" component={TaskInbox} />
+    <Route path="/hot-leads" component={HotLeads} />
     <Route><Redirect to="/" /></Route>
   </Switch>
 );

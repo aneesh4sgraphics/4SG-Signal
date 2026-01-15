@@ -469,7 +469,7 @@ export default function StartYourDayDashboard() {
           </Card>
         </Link>
 
-        <Link href="/client-database?filter=hot">
+        <Link href="/hot-leads">
           <Card 
             data-testid="stat-hot-leads" 
             className={`cursor-pointer transition-all hover:shadow-md ${

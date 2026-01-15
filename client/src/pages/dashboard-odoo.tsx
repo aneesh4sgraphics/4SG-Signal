@@ -265,7 +265,7 @@ export default function Dashboard() {
                       <div style={{ fontSize: '24px', fontWeight: 700, color: '#111111' }}>{stats.totalCustomers}</div>
                       <div style={{ fontSize: '12px', color: '#666666' }}>Customers</div>
                     </div>
-                    <Link href="/clients?filter=hot" style={{ textDecoration: 'none' }}>
+                    <Link href="/hot-leads" style={{ textDecoration: 'none' }}>
                       <div style={{ textAlign: 'center', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                           <Flame size={18} style={{ color: '#E03D3E' }} />
