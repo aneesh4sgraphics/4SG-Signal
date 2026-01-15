@@ -198,6 +198,9 @@ export default function Spotlight() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showIdleModal, setShowIdleModal] = useState(false);
+  const [showFixDataModal, setShowFixDataModal] = useState(false);
+  const [fixDataFields, setFixDataFields] = useState<{ email: string; pricingTier: string }>({ email: '', pricingTier: '' });
+  const [missingFieldsToFix, setMissingFieldsToFix] = useState<string[]>([]);
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -341,6 +344,46 @@ export default function Spotlight() {
     
     setSelectedFeedback(prev => [...prev, feedbackId]);
     feedbackMutation.mutate({ customerId, objectionType: feedbackId, categoryName });
+  };
+
+  const fixDataMutation = useMutation({
+    mutationFn: async (data: { customerId: string; updates: Record<string, string> }) => {
+      const res = await apiRequest('PUT', `/api/customers/${data.customerId}`, data.updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Data updated", description: "Customer information has been updated." });
+      setShowFixDataModal(false);
+      setFixDataFields({ email: '', pricingTier: '' });
+      refetch();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update customer data", variant: "destructive" });
+    },
+  });
+
+  const handleFixData = (missingFields: string[]) => {
+    setMissingFieldsToFix(missingFields);
+    const customer = currentTask?.task?.customer;
+    setFixDataFields({
+      email: customer?.email || '',
+      pricingTier: customer?.pricingTier || '',
+    });
+    setShowFixDataModal(true);
+  };
+
+  const submitFixData = () => {
+    if (!currentTask?.task) return;
+    const updates: Record<string, string> = {};
+    if (missingFieldsToFix.includes('email') && fixDataFields.email.trim()) {
+      updates.email = fixDataFields.email.trim();
+    }
+    if (missingFieldsToFix.includes('pricing tier') && fixDataFields.pricingTier) {
+      updates.pricingTier = fixDataFields.pricingTier;
+    }
+    if (Object.keys(updates).length > 0) {
+      fixDataMutation.mutate({ customerId: currentTask.task.customerId, updates });
+    }
   };
 
   useEffect(() => {
@@ -632,6 +675,8 @@ export default function Spotlight() {
                               skipMutation.mutate({ taskId: task.id, reason: hint.type });
                             } else if (hint.ctaAction === 'reactivation_email') {
                               completeMutation.mutate({ taskId: task.id, outcomeId: 'send_email', outcomeLabel: 'Send Reactivation Email' });
+                            } else if (hint.ctaAction === 'fix_data') {
+                              handleFixData(hint.metadata?.missingFields || []);
                             }
                           }}
                           disabled={completeMutation.isPending || skipMutation.isPending}
@@ -1025,6 +1070,74 @@ export default function Spotlight() {
             >
               <Play className="w-4 h-4 mr-2" />
               Keep Going
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fix Data Modal */}
+      <Dialog open={showFixDataModal} onOpenChange={setShowFixDataModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog className="w-5 h-5 text-blue-500" />
+              Update Missing Data
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the missing information to improve data quality.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {missingFieldsToFix.includes('email') && (
+              <div className="space-y-2">
+                <Label htmlFor="fix-email" className="text-sm font-medium">Email Address</Label>
+                <Input
+                  id="fix-email"
+                  type="email"
+                  value={fixDataFields.email}
+                  onChange={(e) => setFixDataFields(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="customer@example.com"
+                  className="border-[#EAEAEA]"
+                />
+              </div>
+            )}
+            {missingFieldsToFix.includes('pricing tier') && (
+              <div className="space-y-2">
+                <Label htmlFor="fix-pricing" className="text-sm font-medium">Pricing Tier</Label>
+                <Select 
+                  value={fixDataFields.pricingTier} 
+                  onValueChange={(value) => setFixDataFields(prev => ({ ...prev, pricingTier: value }))}
+                >
+                  <SelectTrigger className="border-[#EAEAEA]">
+                    <SelectValue placeholder="Select pricing tier..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRICING_TIERS.map((tier) => (
+                      <SelectItem key={tier} value={tier} className="capitalize">
+                        {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFixDataModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitFixData}
+              disabled={fixDataMutation.isPending}
+              className="flex-1 bg-[#111111] hover:bg-[#333333]"
+            >
+              {fixDataMutation.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
