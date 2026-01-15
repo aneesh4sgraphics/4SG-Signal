@@ -55,6 +55,7 @@ import {
   AlertTriangle,
   ThumbsUp,
   ThumbsDown,
+  GitMerge,
 } from "lucide-react";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
@@ -201,6 +202,10 @@ export default function Spotlight() {
   const [showFixDataModal, setShowFixDataModal] = useState(false);
   const [fixDataFields, setFixDataFields] = useState<{ email: string; pricingTier: string }>({ email: '', pricingTier: '' });
   const [missingFieldsToFix, setMissingFieldsToFix] = useState<string[]>([]);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeData, setMergeData] = useState<{ sourceCustomer: any; targetCustomer: any; duplicateIds: string[] } | null>(null);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [mergeFieldSelections, setMergeFieldSelections] = useState<Record<string, string>>({});
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
