@@ -281,7 +281,7 @@ class SpotlightEngine {
       })
       .from(customers)
       .where(and(...conditions))
-      .orderBy(desc(customers.updatedAt))
+      .orderBy(asc(customers.updatedAt))
       .limit(1);
 
     if (result.length > 0) {
@@ -304,7 +304,7 @@ class SpotlightEngine {
     ];
 
     if (skippedIds.length > 0) {
-      conditions.push(notInArray(sql`${followUpTasks.customerId}::text`, skippedIds));
+      conditions.push(notInArray(followUpTasks.customerId, skippedIds));
     }
 
     const result = await db
@@ -342,8 +342,10 @@ class SpotlightEngine {
     if (result.length > 0 && result[0].customer) {
       const task = result[0];
       const subtype = task.taskType === 'quote_follow_up' ? 'sales_quote_follow_up' : 'sales_follow_up';
+      const baseTask = this.buildTask(task.customer, 'follow_ups', subtype);
       return {
-        ...this.buildTask(task.customer, 'follow_ups', subtype),
+        ...baseTask,
+        id: `follow_ups::${task.taskId}::${task.customer.id}::${subtype}`,
         context: {
           followUpId: task.taskId,
           followUpTitle: task.title || undefined,
@@ -560,10 +562,23 @@ class SpotlightEngine {
   ): Promise<{ success: boolean; nextFollowUp?: { date: Date; type: string } }> {
     const session = this.getSession(userId);
     
-    const parts = taskId.split('_');
-    const bucket = parts[0] as TaskBucket;
-    const customerId = parts[1];
-    const subtype = parts.slice(2).join('_');
+    let bucket: TaskBucket;
+    let customerId: string;
+    let subtype: string;
+    let followUpId: number | null = null;
+    
+    if (taskId.includes('::')) {
+      const parts = taskId.split('::');
+      bucket = parts[0] as TaskBucket;
+      followUpId = parseInt(parts[1]);
+      customerId = parts[2];
+      subtype = parts[3];
+    } else {
+      const parts = taskId.split('_');
+      bucket = parts[0] as TaskBucket;
+      customerId = parts[1];
+      subtype = parts.slice(2).join('_');
+    }
 
     const outcomes = TASK_OUTCOMES[subtype] || [];
     const selectedOutcome = outcomes.find(o => o.id === outcomeId);
@@ -602,17 +617,14 @@ class SpotlightEngine {
       }
     }
 
-    if (bucket === 'follow_ups' && parts[1]) {
-      const followUpId = parseInt(parts[1]);
-      if (!isNaN(followUpId)) {
-        await db.update(followUpTasks)
-          .set({ 
-            status: 'completed',
-            completedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(followUpTasks.id, followUpId));
-      }
+    if (bucket === 'follow_ups' && followUpId) {
+      await db.update(followUpTasks)
+        .set({ 
+          status: 'completed',
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(followUpTasks.id, followUpId));
     }
 
     let nextFollowUp: { date: Date; type: string } | undefined;
@@ -639,8 +651,12 @@ class SpotlightEngine {
       await db.insert(customerActivityEvents).values({
         customerId,
         eventType: 'spotlight_action',
-        description: `Spotlight: ${subtype} - ${selectedOutcome?.label || outcomeId}`,
-        timestamp: new Date(),
+        title: `Spotlight: ${selectedOutcome?.label || outcomeId}`,
+        description: notes || `Task: ${subtype}`,
+        sourceType: 'auto',
+        sourceTable: 'spotlight',
+        createdAt: new Date(),
+        updatedAt: new Date(),
         userId,
       });
     } catch (e) {
@@ -665,11 +681,26 @@ class SpotlightEngine {
   async skipTask(userId: string, taskId: string, reason: string): Promise<void> {
     const session = this.getSession(userId);
     
-    const parts = taskId.split('_');
-    const customerId = parts[1];
+    let customerId: string;
+    let bucket: TaskBucket;
+    
+    if (taskId.includes('::')) {
+      const parts = taskId.split('::');
+      bucket = parts[0] as TaskBucket;
+      customerId = parts[2];
+    } else {
+      const parts = taskId.split('_');
+      bucket = parts[0] as TaskBucket;
+      customerId = parts[1];
+    }
 
     if (!session.skippedCustomerIds.includes(customerId)) {
       session.skippedCustomerIds.push(customerId);
+    }
+
+    const bucketData = session.buckets.find(b => b.bucket === bucket);
+    if (bucketData) {
+      bucketData.skipped++;
     }
 
     console.log(`[Spotlight] User ${userId} skipped task ${taskId}: ${reason}`);
