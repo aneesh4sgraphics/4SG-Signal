@@ -401,7 +401,16 @@ export default function Spotlight() {
       setShowFixDataModal(false);
       setFixDataFields({ email: '', pricingTier: '', salesRepId: '' });
       setAvailableEmails([]);
-      refetch();
+      
+      // Mark the current task as complete so it counts toward the quota
+      if (currentTask?.task) {
+        completeMutation.mutate({ 
+          taskId: currentTask.task.id, 
+          outcomeId: 'fixed_data'
+        });
+      } else {
+        refetch();
+      }
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update customer data", variant: "destructive" });
