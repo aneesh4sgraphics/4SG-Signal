@@ -270,9 +270,29 @@ export default function Spotlight() {
     },
   });
 
-  const { data: salesReps = [] } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
+  const { data: rawSalesReps = [] } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
     queryKey: ['/api/admin/users'],
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Helper to get display name from sales rep
+  const getSalesRepDisplayName = (rep: { email: string; firstName?: string; lastName?: string }) => {
+    if (rep.firstName && rep.lastName) {
+      return `${rep.firstName} ${rep.lastName}`;
+    }
+    if (rep.firstName) {
+      return rep.firstName;
+    }
+    // Derive from email: aneesh@4sgraphics.com -> Aneesh
+    const emailPrefix = rep.email?.split('@')[0] || '';
+    return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1).toLowerCase();
+  };
+
+  // Deduplicate sales reps by email (lowercase)
+  const salesReps = rawSalesReps.filter((rep, index, arr) => {
+    if (!rep.email) return false;
+    const normalizedEmail = rep.email.toLowerCase();
+    return arr.findIndex(r => r.email?.toLowerCase() === normalizedEmail) === index;
   });
 
   const { data: pricingTiers = [] } = useQuery<{ id: number; name: string }[]>({
@@ -418,10 +438,10 @@ export default function Spotlight() {
     }
     if (missingFieldsToFix.includes('sales rep') && fixDataFields.salesRepId) {
       updates.salesRepId = fixDataFields.salesRepId;
-      // Also set salesRepName
+      // Also set salesRepName using the helper
       const rep = salesReps.find(r => r.id === fixDataFields.salesRepId);
       if (rep) {
-        updates.salesRepName = `${rep.firstName || ''} ${rep.lastName || ''}`.trim() || rep.email;
+        updates.salesRepName = getSalesRepDisplayName(rep);
       }
     }
     if (Object.keys(updates).length > 0) {
@@ -907,9 +927,9 @@ export default function Spotlight() {
                       <SelectValue placeholder="Select sales rep..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {salesReps.filter(r => r.email).map((rep) => (
+                      {salesReps.map((rep) => (
                         <SelectItem key={rep.id} value={rep.id}>
-                          {rep.firstName && rep.lastName ? `${rep.firstName} ${rep.lastName}` : rep.email}
+                          {getSalesRepDisplayName(rep)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1291,11 +1311,9 @@ export default function Spotlight() {
                     <SelectValue placeholder="Select sales rep..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {salesReps.filter(r => r.email).map((rep) => (
+                    {salesReps.map((rep) => (
                       <SelectItem key={rep.id} value={rep.id}>
-                        {rep.firstName && rep.lastName 
-                          ? `${rep.firstName} ${rep.lastName}` 
-                          : rep.email}
+                        {getSalesRepDisplayName(rep)}
                       </SelectItem>
                     ))}
                   </SelectContent>
