@@ -125,6 +125,22 @@ interface EmailHygieneContact {
   isPrimary: boolean;
 }
 
+interface RecentQuote {
+  id: number;
+  quoteNumber: string;
+  customerName: string;
+  totalAmount: string;
+  createdAt: string;
+  status: string;
+  outcome: string | null;
+  quoteItems: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+}
+
 interface NowModeCard {
   customerId: string;
   cardType: string;
@@ -134,6 +150,7 @@ interface NowModeCard {
   outcomeButtons: OutcomeButton[];
   customer: Customer;
   emailHygieneContact?: EmailHygieneContact;
+  recentQuote?: RecentQuote;
 }
 
 interface BucketProgress {
@@ -344,6 +361,8 @@ export default function NowMode() {
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [printLabelType, setPrintLabelType] = useState<'swatchbook' | 'presskit' | 'mailer' | 'other' | null>(null);
   const [printLabelNotes, setPrintLabelNotes] = useState('');
+  // Quote details dialog state
+  const [showQuoteDialog, setShowQuoteDialog] = useState(false);
   
   // Persist scripts tray preference
   useEffect(() => {
@@ -510,7 +529,7 @@ export default function NowMode() {
     },
   });
 
-  // Reset inline edit values when card changes
+  // Reset inline edit values and dialogs when card changes
   useEffect(() => {
     if (data?.card) {
       setInlineEmail("");
@@ -521,6 +540,7 @@ export default function NowMode() {
       setInlineState("");
       setInlineZip("");
       setNotes("");
+      setShowQuoteDialog(false); // Close quote dialog when card changes
     }
   }, [data?.card?.customerId, data?.card?.cardType]);
   
@@ -1533,16 +1553,15 @@ export default function NowMode() {
                 
                 {/* View Quote button for follow_up_quote cards */}
                 {data.card.cardType === "follow_up_quote" && (
-                  <Link href={`/clients/${data.card.customerId}?tab=quotes`}>
-                    <Button
-                      variant="outline"
-                      className="h-full px-4 border-purple-300 text-[#111111] hover:bg-purple-50 flex flex-col items-center justify-center gap-1"
-                    >
-                      <FileText className="h-5 w-5" />
-                      <span className="text-xs">View</span>
-                      <span className="text-xs">Quote</span>
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="outline"
+                    className="h-full px-4 border-purple-300 text-[#111111] hover:bg-purple-50 flex flex-col items-center justify-center gap-1"
+                    onClick={() => setShowQuoteDialog(true)}
+                  >
+                    <FileText className="h-5 w-5" />
+                    <span className="text-xs">View</span>
+                    <span className="text-xs">Quote</span>
+                  </Button>
                 )}
               </div>
 
@@ -2363,6 +2382,96 @@ export default function NowMode() {
             >
               Skip Card
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quote Details Dialog for follow_up_quote cards */}
+      <Dialog open={showQuoteDialog} onOpenChange={setShowQuoteDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#111111]">
+              <FileText className="h-5 w-5" />
+              Quote Details
+            </DialogTitle>
+            <DialogDescription>
+              {data?.card?.recentQuote ? (
+                <span>Quote #{data.card.recentQuote.quoteNumber} for {data.card.recentQuote.customerName}</span>
+              ) : (
+                <span>No recent quote found for this customer</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {data?.card?.recentQuote ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-xs text-gray-500">Quote Number</p>
+                  <p className="font-medium text-[#111111]">#{data.card.recentQuote.quoteNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Total Amount</p>
+                  <p className="font-medium text-[#111111]">${data.card.recentQuote.totalAmount}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <Badge variant="outline" className="capitalize">{data.card.recentQuote.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Date</p>
+                  <p className="text-sm text-gray-700">
+                    {new Date(data.card.recentQuote.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {data.card.recentQuote.quoteItems.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-[#111111] mb-2">Products</p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600">Product</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Qty</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Price</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.card.recentQuote.quoteItems.map((item, idx) => (
+                          <tr key={idx} className="border-t">
+                            <td className="px-3 py-2 text-gray-900">{item.productName}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">{item.quantity}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">${item.unitPrice.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right text-gray-900 font-medium">${item.totalPrice.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No quote history found for this customer.</p>
+              <p className="text-sm mt-1">This may be a new follow-up or the quote was sent via another channel.</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuoteDialog(false)}>
+              Close
+            </Button>
+            <Link href={`/clients/${data?.card?.customerId}?tab=quotes`}>
+              <Button className="bg-[#111111] hover:bg-[#333333]">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Full History
+              </Button>
+            </Link>
           </DialogFooter>
         </DialogContent>
       </Dialog>

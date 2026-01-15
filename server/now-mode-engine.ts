@@ -12,6 +12,7 @@ import {
   customerMachineProfiles,
   customerContacts,
   shopifyCustomerMappings,
+  sentQuotes,
   NOW_MODE_BUCKETS,
   BUCKET_QUOTAS,
   CARD_TYPE_BUCKETS,
@@ -73,6 +74,23 @@ interface EmailHygieneContact {
   isPrimary: boolean;
 }
 
+// Recent quote data for follow_up_quote cards
+interface RecentQuote {
+  id: number;
+  quoteNumber: string;
+  customerName: string;
+  totalAmount: string;
+  createdAt: Date;
+  status: string;
+  outcome: string | null;
+  quoteItems: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+}
+
 interface EligibleCard {
   customerId: string;
   customer: Customer;
@@ -82,6 +100,7 @@ interface EligibleCard {
   isHardCard: boolean;
   outcomeButtons: OutcomeButton[];
   emailHygieneContact?: EmailHygieneContact;  // For email hygiene card types
+  recentQuote?: RecentQuote;  // For follow_up_quote cards
 }
 
 interface OutcomeButton {
@@ -630,9 +649,62 @@ export class NowModeEngine {
       if (primaryCandidate) {
         card.emailHygieneContact = primaryCandidate;
       }
+    } else if (cardType === "follow_up_quote") {
+      // Fetch the most recent quote for this customer
+      const recentQuote = await this.getRecentQuoteForCustomer(customer);
+      if (recentQuote) {
+        card.recentQuote = recentQuote;
+      }
     }
     
     return card;
+  }
+  
+  // Get the most recent quote for a customer
+  private async getRecentQuoteForCustomer(customer: Customer): Promise<RecentQuote | null> {
+    try {
+      // Query by customer email
+      if (!customer.email) return null;
+      
+      const quotes = await db
+        .select()
+        .from(sentQuotes)
+        .where(eq(sentQuotes.customerEmail, customer.email))
+        .orderBy(desc(sentQuotes.createdAt))
+        .limit(1);
+      
+      if (quotes.length === 0) return null;
+      
+      const quote = quotes[0];
+      
+      // Parse the quoteItems JSON
+      let parsedItems: Array<{ productName: string; quantity: number; unitPrice: number; totalPrice: number }> = [];
+      try {
+        const items = JSON.parse(quote.quoteItems || '[]');
+        parsedItems = items.map((item: any) => ({
+          productName: item.productName || item.name || 'Unknown Product',
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice || item.price) || 0,
+          totalPrice: Number(item.totalPrice || item.total) || 0,
+        }));
+      } catch (e) {
+        console.error('[NOW MODE] Error parsing quote items:', e);
+      }
+      
+      return {
+        id: quote.id,
+        quoteNumber: quote.quoteNumber,
+        customerName: quote.customerName,
+        totalAmount: quote.totalAmount,
+        createdAt: quote.createdAt,
+        status: quote.status,
+        outcome: quote.outcome,
+        quoteItems: parsedItems,
+      };
+    } catch (error) {
+      console.error('[NOW MODE] Error fetching recent quote:', error);
+      return null;
+    }
   }
   
   // Get a contact that needs email normalization
