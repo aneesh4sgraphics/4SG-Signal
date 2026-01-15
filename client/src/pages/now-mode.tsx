@@ -494,12 +494,13 @@ export default function NowMode() {
     return emails;
   }, [data?.card, customerContacts]);
 
-  // Show dormancy popup when user has been idle for 3+ hours (disabled in development)
+  // Show dormancy popup when user has been idle for 3+ hours (DISABLED - interferes with app testing)
   useEffect(() => {
-    if (import.meta.env.DEV) return; // Skip dormancy popup in development mode
-    if (dormancyData?.isDormant && !dormancyDismissed && !dormancyData?.isPaused) {
-      setShowDormancyPopup(true);
-    }
+    return; // DISABLED: Time for Check-in feature temporarily removed
+    // if (import.meta.env.DEV) return; // Skip dormancy popup in development mode
+    // if (dormancyData?.isDormant && !dormancyDismissed && !dormancyData?.isPaused) {
+    //   setShowDormancyPopup(true);
+    // }
   }, [dormancyData?.isDormant, dormancyDismissed, dormancyData?.isPaused]);
 
   // Pause session mutation
