@@ -77,6 +77,8 @@ export interface SpotlightSession {
   lastActivityAt: Date | null;
   efficiencyScore: number;
   currentStreak: number;
+  consecutiveSkipsPerBucket: Record<TaskBucket, number>;
+  lastBucketUsed: TaskBucket | null;
 }
 
 const DAILY_QUOTAS: Record<TaskBucket, number> = {
@@ -308,6 +310,8 @@ class SpotlightEngine {
         lastActivityAt: new Date(),
         efficiencyScore: 0,
         currentStreak: 0,
+        consecutiveSkipsPerBucket: { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 },
+        lastBucketUsed: null,
       };
       this.sessions.set(sessionKey, session);
     }
@@ -340,6 +344,8 @@ class SpotlightEngine {
         lastActivityAt: new Date(),
         efficiencyScore: 0,
         currentStreak: 0,
+        consecutiveSkipsPerBucket: { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 },
+        lastBucketUsed: null,
       };
       this.sessions.set(sessionKey, session);
     }
@@ -865,15 +871,31 @@ class SpotlightEngine {
     if (incomplete.length === 0) return null;
     
     const bucketPriority: TaskBucket[] = ['calls', 'follow_ups', 'data_hygiene', 'outreach', 'enablement'];
+    const SKIP_THRESHOLD = 3;
     
-    for (const bucket of bucketPriority) {
+    const sortedBuckets = bucketPriority.filter(bucket => {
       const bucketData = incomplete.find(b => b.bucket === bucket);
-      if (bucketData && bucketData.completed < bucketData.target) {
+      return bucketData && bucketData.completed < bucketData.target;
+    });
+    
+    if (sortedBuckets.length === 0) return null;
+    
+    const consecutiveSkips = session.consecutiveSkipsPerBucket || { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 };
+    
+    for (const bucket of sortedBuckets) {
+      const skips = consecutiveSkips[bucket] || 0;
+      if (skips < SKIP_THRESHOLD) {
         return bucket;
       }
     }
     
-    return incomplete[0]?.bucket || null;
+    const leastSkipped = sortedBuckets.reduce((min, bucket) => {
+      const currentSkips = consecutiveSkips[bucket] || 0;
+      const minSkips = consecutiveSkips[min] || 0;
+      return currentSkips < minSkips ? bucket : min;
+    }, sortedBuckets[0]);
+    
+    return leastSkipped;
   }
 
   async getNextTask(userId: string): Promise<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean }> {
@@ -1492,6 +1514,12 @@ class SpotlightEngine {
     session.totalCompleted++;
     session.lastTaskAt = new Date();
     
+    if (!session.consecutiveSkipsPerBucket) {
+      session.consecutiveSkipsPerBucket = { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 };
+    }
+    session.consecutiveSkipsPerBucket[bucket] = 0;
+    session.lastBucketUsed = bucket;
+    
     const skipIndex = session.skippedCustomerIds.indexOf(customerId);
     if (skipIndex > -1) {
       session.skippedCustomerIds.splice(skipIndex, 1);
@@ -1527,6 +1555,12 @@ class SpotlightEngine {
     if (bucketData) {
       bucketData.skipped++;
     }
+    
+    if (!session.consecutiveSkipsPerBucket) {
+      session.consecutiveSkipsPerBucket = { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 };
+    }
+    session.consecutiveSkipsPerBucket[bucket] = (session.consecutiveSkipsPerBucket[bucket] || 0) + 1;
+    session.lastBucketUsed = bucket;
 
     const now = new Date();
     try {
