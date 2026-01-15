@@ -185,9 +185,17 @@ const WHY_NOW_MESSAGES: Record<string, string> = {
   enablement_price_list: 'They have samples - now send the price list!',
 };
 
+interface DataReadiness {
+  callsReady: number;
+  outreachReady: number;
+  hygieneNeeded: number;
+  totalCustomers: number;
+}
+
 class SpotlightEngine {
   private sessions: Map<string, SpotlightSession> = new Map();
   private streakCache: Map<string, { streak: number; lastChecked: string }> = new Map();
+  private readinessCache: Map<string, { data: DataReadiness; checkedAt: Date }> = new Map();
 
   private getTodayKey(): string {
     const now = new Date();
@@ -198,6 +206,106 @@ class SpotlightEngine {
       return tomorrow.toISOString().split('T')[0];
     }
     return now.toISOString().split('T')[0];
+  }
+
+  private async calculateDataReadiness(userId: string): Promise<DataReadiness> {
+    const cacheKey = `${userId}_${this.getTodayKey()}`;
+    const cached = this.readinessCache.get(cacheKey);
+    if (cached && (Date.now() - cached.checkedAt.getTime()) < 30 * 60 * 1000) {
+      return cached.data;
+    }
+
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE phone IS NOT NULL AND do_not_contact = false 
+            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId})) as calls_ready,
+          COUNT(*) FILTER (WHERE email IS NOT NULL AND pricing_tier IS NOT NULL AND do_not_contact = false
+            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId})) as outreach_ready,
+          COUNT(*) FILTER (WHERE (phone IS NULL OR pricing_tier IS NULL OR email IS NULL OR sales_rep_id IS NULL)
+            AND do_not_contact = false) as hygiene_needed,
+          COUNT(*) as total_customers
+        FROM customers
+      `);
+      
+      const data: DataReadiness = {
+        callsReady: Number(result.rows[0]?.calls_ready || 0),
+        outreachReady: Number(result.rows[0]?.outreach_ready || 0),
+        hygieneNeeded: Number(result.rows[0]?.hygiene_needed || 0),
+        totalCustomers: Number(result.rows[0]?.total_customers || 0),
+      };
+      
+      this.readinessCache.set(cacheKey, { data, checkedAt: new Date() });
+      return data;
+    } catch (e) {
+      console.error('[Spotlight] Error calculating data readiness:', e);
+      return { callsReady: 100, outreachReady: 100, hygieneNeeded: 0, totalCustomers: 0 };
+    }
+  }
+
+  private calculateAdaptiveQuotas(readiness: DataReadiness): Record<TaskBucket, number> {
+    const quotas = { ...DAILY_QUOTAS };
+    let hygieneBonus = 0;
+
+    if (readiness.callsReady < DAILY_QUOTAS.calls * 3) {
+      const deficit = DAILY_QUOTAS.calls;
+      quotas.calls = Math.min(quotas.calls, Math.max(0, readiness.callsReady));
+      hygieneBonus += deficit - quotas.calls;
+    }
+
+    if (readiness.outreachReady < DAILY_QUOTAS.outreach * 2) {
+      const deficit = Math.min(DAILY_QUOTAS.outreach, DAILY_QUOTAS.outreach - Math.floor(readiness.outreachReady / 2));
+      quotas.outreach = Math.max(0, quotas.outreach - deficit);
+      hygieneBonus += deficit;
+    }
+
+    if (readiness.hygieneNeeded > 100 && readiness.callsReady + readiness.outreachReady < 50) {
+      hygieneBonus += 5;
+      quotas.enablement = Math.max(0, quotas.enablement - 3);
+      quotas.outreach = Math.max(0, quotas.outreach - 2);
+    }
+
+    quotas.data_hygiene = Math.min(quotas.data_hygiene + hygieneBonus, 25);
+
+    console.log(`[Spotlight] Adaptive quotas - readiness: calls=${readiness.callsReady}, outreach=${readiness.outreachReady}, hygiene=${readiness.hygieneNeeded} -> quotas: calls=${quotas.calls}, outreach=${quotas.outreach}, hygiene=${quotas.data_hygiene}`);
+
+    return quotas;
+  }
+
+  private async getSessionAsync(userId: string): Promise<SpotlightSession> {
+    const today = this.getTodayKey();
+    const sessionKey = `${userId}_${today}`;
+    
+    let session = this.sessions.get(sessionKey);
+    if (!session || session.date !== today) {
+      const readiness = await this.calculateDataReadiness(userId);
+      const adaptiveQuotas = this.calculateAdaptiveQuotas(readiness);
+      const totalTarget = Object.values(adaptiveQuotas).reduce((a, b) => a + b, 0);
+
+      session = {
+        userId,
+        date: today,
+        buckets: Object.entries(adaptiveQuotas).map(([bucket, target]) => ({
+          bucket: bucket as TaskBucket,
+          target,
+          completed: 0,
+          skipped: 0,
+        })),
+        totalTarget,
+        totalCompleted: 0,
+        skippedCustomerIds: [],
+        lastTaskAt: null,
+        dayComplete: false,
+        isPaused: false,
+        pausedAt: null,
+        cardsBeforePause: 0,
+        lastActivityAt: new Date(),
+        efficiencyScore: 0,
+        currentStreak: 0,
+      };
+      this.sessions.set(sessionKey, session);
+    }
+    return session;
   }
 
   private getSession(userId: string): SpotlightSession {
@@ -375,7 +483,7 @@ class SpotlightEngine {
   }
 
   async getNextTask(userId: string): Promise<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean }> {
-    const session = this.getSession(userId);
+    const session = await this.getSessionAsync(userId);
     
     if (session.isPaused) {
       return { task: null, session, allDone: false, isPaused: true };
@@ -547,6 +655,7 @@ class SpotlightEngine {
     let conditions = [
       eq(customers.doNotContact, false),
       isNotNull(customers.email),
+      isNotNull(customers.pricingTier),
       or(
         isNull(customers.salesRepId),
         eq(customers.salesRepId, userId)
