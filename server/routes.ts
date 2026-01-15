@@ -11546,6 +11546,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Backfill missing customer emails from Odoo
+  app.post("/api/odoo/backfill-emails", requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Email Backfill] Starting email backfill from Odoo...");
+      
+      // Get all customers with Odoo partner IDs but no email
+      const customersWithoutEmail = await db.select({
+        id: customers.id,
+        odooPartnerId: customers.odooPartnerId,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      }).from(customers)
+        .where(and(
+          sql`${customers.odooPartnerId} IS NOT NULL`,
+          or(isNull(customers.email), eq(customers.email, ''))
+        ));
+      
+      console.log(`[Odoo Email Backfill] Found ${customersWithoutEmail.length} customers without email that have Odoo IDs`);
+      
+      if (customersWithoutEmail.length === 0) {
+        return res.json({
+          success: true,
+          message: "No customers need email backfill",
+          emailsAdded: 0,
+          checked: 0,
+        });
+      }
+      
+      // Authenticate with Odoo
+      await odooClient.authenticate();
+      
+      const BATCH_SIZE = 50;
+      let emailsAdded = 0;
+      const updatedCustomers: string[] = [];
+      const errors: string[] = [];
+      
+      for (let i = 0; i < customersWithoutEmail.length; i += BATCH_SIZE) {
+        const batch = customersWithoutEmail.slice(i, i + BATCH_SIZE);
+        console.log(`[Odoo Email Backfill] Processing batch ${Math.floor(i/BATCH_SIZE) + 1} (${batch.length} customers)`);
+        
+        for (const customer of batch) {
+          try {
+            if (!customer.odooPartnerId) continue;
+            
+            const partner = await odooClient.getPartnerById(customer.odooPartnerId);
+            
+            if (partner && partner.email && partner.email.trim()) {
+              await db.update(customers)
+                .set({ 
+                  email: partner.email.trim().toLowerCase(),
+                  updatedAt: new Date()
+                })
+                .where(eq(customers.id, customer.id));
+              
+              emailsAdded++;
+              const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+              updatedCustomers.push(`${displayName}: ${partner.email}`);
+              console.log(`[Odoo Email Backfill] Added email ${partner.email} to ${displayName}`);
+            }
+          } catch (error: any) {
+            const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+            errors.push(`Failed to fetch ${displayName}: ${error.message}`);
+          }
+        }
+      }
+      
+      // Clear customer cache
+      setCachedData("customers", null);
+      
+      res.json({
+        success: true,
+        message: `Backfilled ${emailsAdded} emails from Odoo`,
+        checked: customersWithoutEmail.length,
+        emailsAdded,
+        updatedCustomers: updatedCustomers.slice(0, 100),
+        errors: errors.slice(0, 20),
+      });
+    } catch (error: any) {
+      console.error("Error backfilling emails from Odoo:", error);
+      res.status(500).json({ error: error.message || "Failed to backfill emails from Odoo" });
+    }
+  });
+
   // Remove existing customers with Vendor tag from Odoo
   app.post("/api/odoo/remove-vendors", requireAdmin, async (req: any, res) => {
     try {
