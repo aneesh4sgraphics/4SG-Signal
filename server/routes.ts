@@ -2446,8 +2446,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Merge customers (Admin only)
-  app.post("/api/customers/merge", isAuthenticated, requireAdmin, async (req, res) => {
+  // Merge customers (All authenticated users)
+  app.post("/api/customers/merge", isAuthenticated, async (req: any, res) => {
     try {
       console.log("=== MERGE CUSTOMERS API CALLED ===");
       console.log("Request body:", req.body);
