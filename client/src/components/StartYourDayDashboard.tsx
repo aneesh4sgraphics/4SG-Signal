@@ -31,6 +31,7 @@ import {
   UserCog,
   Lightbulb,
   ArrowRight,
+  Zap,
 } from "lucide-react";
 import { Link } from "wouter";
 import { format, formatDistanceToNow, isToday, isPast, isFuture, addDays } from "date-fns";
@@ -114,6 +115,16 @@ export default function StartYourDayDashboard() {
 
   const { data: criticalClients, isLoading: loadingCriticalClients } = useQuery<CriticalClient[]>({
     queryKey: ["/api/dashboard/critical-clients"],
+  });
+
+  // SPOTLIGHT session stats for daily quota
+  const { data: spotlightSession } = useQuery<{
+    totalTarget: number;
+    totalCompleted: number;
+    buckets: { name: string; target: number; completed: number }[];
+    dayComplete: boolean;
+  }>({
+    queryKey: ["/api/spotlight/session"],
   });
 
   // Filter tasks by assignment for admin view
@@ -409,19 +420,30 @@ export default function StartYourDayDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card data-testid="stat-today-tasks">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Today's Tasks</p>
-                <p className="text-3xl font-bold">{stats.todayTasks}</p>
+        <Link href="/spotlight">
+          <Card data-testid="stat-spotlight-tasks" className="cursor-pointer transition-all hover:shadow-md border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600">SPOTLIGHT</p>
+                  <p className="text-3xl font-bold text-purple-700">
+                    {spotlightSession?.totalCompleted || 0}
+                    <span className="text-lg text-purple-400">/{spotlightSession?.totalTarget || 30}</span>
+                  </p>
+                  <div className="w-full bg-purple-100 rounded-full h-1.5 mt-1">
+                    <div 
+                      className="bg-purple-600 h-1.5 rounded-full transition-all" 
+                      style={{ width: `${Math.min(100, ((spotlightSession?.totalCompleted || 0) / (spotlightSession?.totalTarget || 30)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="p-3 rounded-full bg-purple-100">
+                  <Zap className="h-6 w-6 text-purple-600" />
+                </div>
               </div>
-              <div className="p-3 rounded-full bg-blue-100">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card data-testid="stat-overdue-tasks" className={stats.overdueTasks > 0 ? 'border-red-200' : ''}>
           <CardContent className="p-4">
