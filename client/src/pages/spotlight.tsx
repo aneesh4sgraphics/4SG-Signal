@@ -1388,8 +1388,39 @@ export default function Spotlight() {
                     const valueB = mergeData.targetCustomer[key] || '';
                     const selectedValue = mergeFieldSelections[key];
                     
-                    if (!valueA && !valueB) return null;
-                    if (valueA === valueB) return null;
+                    if (!valueA && !valueB && key !== 'pricingTier') return null;
+                    if (valueA === valueB && key !== 'pricingTier') return null;
+                    
+                    // Special handling for Pricing Tier - show dropdown from app config
+                    if (key === 'pricingTier') {
+                      return (
+                        <div key={key} className="bg-gray-50 rounded-lg p-3">
+                          <div className="text-xs font-medium text-gray-500 mb-2">{label}</div>
+                          <Select 
+                            value={selectedValue || valueA || valueB || ''} 
+                            onValueChange={(value) => setMergeFieldSelections(prev => ({ ...prev, [key]: value }))}
+                          >
+                            <SelectTrigger className="border-gray-200 bg-white">
+                              <SelectValue placeholder="Select pricing tier..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {pricingTiers.map((tier) => (
+                                <SelectItem key={tier.id} value={tier.name}>
+                                  {tier.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {(valueA || valueB) && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              Current values: {valueA && <span className="font-medium">{valueA}</span>}
+                              {valueA && valueB && ' / '}
+                              {valueB && <span className="font-medium">{valueB}</span>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
                     
                     return (
                       <div key={key} className="bg-gray-50 rounded-lg p-3">
