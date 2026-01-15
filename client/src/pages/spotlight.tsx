@@ -177,8 +177,6 @@ const OUTCOME_ICONS: Record<string, any> = {
   'ban': Ban,
 };
 
-const PRICING_TIERS = ['retail', 'wholesale', 'distributor', 'vip'];
-
 const PRICING_FEEDBACK_OPTIONS = [
   { id: 'price', label: 'Price', icon: DollarSign, color: 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200', activeColor: 'bg-red-500 text-white' },
   { id: 'moq', label: 'MOQ', icon: Package, color: 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200', activeColor: 'bg-yellow-500 text-white' },
@@ -274,6 +272,11 @@ export default function Spotlight() {
 
   const { data: salesReps = [] } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
     queryKey: ['/api/admin/users'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: pricingTiers = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['/api/pricing-tiers'],
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1268,9 +1271,9 @@ export default function Spotlight() {
                     <SelectValue placeholder="Select pricing tier..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {PRICING_TIERS.map((tier) => (
-                      <SelectItem key={tier} value={tier} className="capitalize">
-                        {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                    {pricingTiers.map((tier) => (
+                      <SelectItem key={tier.id} value={tier.name}>
+                        {tier.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
