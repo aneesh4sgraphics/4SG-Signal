@@ -104,6 +104,10 @@ interface SpotlightTask {
     followUpTitle?: string;
     followUpDueDate?: string;
     lastContact?: string;
+    machineTypes?: string[];
+    machineLabels?: string[];
+    suggestedProducts?: string[];
+    machineContext?: string;
   };
 }
 
@@ -792,6 +796,20 @@ export default function Spotlight() {
             <div>
               <p className="font-medium text-[#111111] text-sm">{bucketInfo.label}</p>
               <p className="text-[#666666] text-sm mt-0.5">{task.whyNow}</p>
+              {/* Machine Context - shown for calls and outreach tasks when machine profile exists */}
+              {task.context?.machineContext && (
+                <div className="mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    {task.context.machineContext}
+                  </p>
+                  {task.context.suggestedProducts && task.context.suggestedProducts.length > 2 && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      More products: {task.context.suggestedProducts.slice(2, 5).join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
