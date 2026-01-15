@@ -90,6 +90,7 @@ interface SpotlightTask {
     salesRepId: string | null;
     salesRepName: string | null;
     pricingTier: string | null;
+    isHotProspect: boolean | null;
   };
   context?: {
     followUpId?: number;
@@ -612,9 +613,15 @@ export default function Spotlight() {
           <Card className="border-[#EAEAEA] bg-white mb-4 shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="flex-1">
                   <CardTitle className="text-xl text-[#111111] flex items-center gap-2">
                     {customerName}
+                    {customer.isHotProspect && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 text-xs font-medium">
+                        <Flame className="w-3 h-3" />
+                        Hot
+                      </span>
+                    )}
                     <Link href={`/clients?id=${customer.id}&from=spotlight`}>
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-[#999999] hover:text-[#111111]">
                         <ExternalLink className="w-4 h-4" />
@@ -636,6 +643,24 @@ export default function Spotlight() {
                     )}
                   </div>
                 </div>
+                {!customer.isHotProspect && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                    onClick={() => {
+                      apiRequest('PATCH', `/api/customers/${customer.id}`, { isHotProspect: true })
+                        .then(() => {
+                          toast({ title: "Marked as Hot Prospect", description: "This customer will get more attention." });
+                          refetch();
+                        })
+                        .catch(() => toast({ title: "Error", description: "Failed to mark as hot", variant: "destructive" }));
+                    }}
+                  >
+                    <Flame className="w-4 h-4" />
+                    Mark Hot
+                  </Button>
+                )}
               </div>
             </CardHeader>
 

@@ -930,7 +930,7 @@ class SpotlightEngine {
       })
       .from(customers)
       .where(and(...conditions))
-      .orderBy(asc(customers.updatedAt))
+      .orderBy(desc(customers.isHotProspect), asc(customers.updatedAt))
       .limit(1);
 
     if (result.length > 0) {
@@ -1052,7 +1052,7 @@ class SpotlightEngine {
       })
       .from(customers)
       .where(and(...conditions))
-      .orderBy(asc(customers.updatedAt))
+      .orderBy(desc(customers.isHotProspect), asc(customers.updatedAt))
       .limit(1);
 
     if (result.length > 0) {
@@ -1177,13 +1177,20 @@ class SpotlightEngine {
   }
 
   private buildTask(customer: any, bucket: TaskBucket, subtype: string, priority: number = 1): SpotlightTask {
+    const isHot = customer.isHotProspect === true;
+    let whyNow = WHY_NOW_MESSAGES[subtype] || 'Take action on this customer.';
+    
+    if (isHot) {
+      whyNow = `🔥 HOT PROSPECT - ${whyNow} Call more often, email at least weekly!`;
+    }
+    
     return {
       id: `${bucket}_${customer.id}_${subtype}`,
       customerId: customer.id.toString(),
       bucket,
       taskSubtype: subtype,
-      priority,
-      whyNow: WHY_NOW_MESSAGES[subtype] || 'Take action on this customer.',
+      priority: isHot ? priority + 100 : priority,
+      whyNow,
       outcomes: TASK_OUTCOMES[subtype] || [
         { id: 'done', label: 'Done', icon: 'check', nextAction: { type: 'mark_complete' } },
         { id: 'skip', label: 'Skip', icon: 'x', nextAction: { type: 'no_action' } },
@@ -1205,6 +1212,8 @@ class SpotlightEngine {
         salesRepId: customer.salesRepId,
         salesRepName: customer.salesRepName,
         pricingTier: customer.pricingTier,
+        isHotProspect: customer.isHotProspect,
+        updatedAt: customer.updatedAt,
       },
     };
   }
