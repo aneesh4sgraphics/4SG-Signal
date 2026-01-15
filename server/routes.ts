@@ -1867,19 +1867,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer management routes
-  // Live customer count endpoint (lightweight, no caching)
+  // Live customer count endpoint with data quality stats
   app.get("/api/customers/count", async (req, res) => {
     try {
       const customers = await storage.getCustomers();
+      
+      // Get machine profiles to check which customers have machines assigned
+      const machineProfiles = await db.select({ customerId: customerMachineProfiles.customerId })
+        .from(customerMachineProfiles);
+      const customersWithMachines = new Set(machineProfiles.map(m => m.customerId));
+      
+      // Florida count
       const floridaCount = customers.filter(c => 
         c.province?.toUpperCase() === 'FL' || c.province?.toLowerCase() === 'florida'
       ).length;
+      
+      // Needs cleanup: missing email OR phone OR pricing tier OR machine profile
+      const needsCleanupCount = customers.filter(c => {
+        const missingEmail = !c.email || c.email.trim() === '';
+        const missingPhone = !c.phone || c.phone.trim() === '';
+        const missingPricingTier = !c.pricingTier || c.pricingTier.trim() === '';
+        const missingMachine = !customersWithMachines.has(c.id);
+        return missingEmail || missingPhone || missingPricingTier || missingMachine;
+      }).length;
+      
+      // No sales rep assigned
+      const noSalesRepCount = customers.filter(c => 
+        !c.salesRepId || c.salesRepId.trim() === ''
+      ).length;
+      
+      // Missing individual fields for detailed breakdown
+      const missingEmailCount = customers.filter(c => !c.email || c.email.trim() === '').length;
+      const missingPhoneCount = customers.filter(c => !c.phone || c.phone.trim() === '').length;
+      const missingPricingTierCount = customers.filter(c => !c.pricingTier || c.pricingTier.trim() === '').length;
+      const missingMachineCount = customers.filter(c => !customersWithMachines.has(c.id)).length;
+      
       res.json({ 
         total: customers.length, 
         florida: floridaCount,
+        needsCleanup: needsCleanupCount,
+        noSalesRep: noSalesRepCount,
+        breakdown: {
+          missingEmail: missingEmailCount,
+          missingPhone: missingPhoneCount,
+          missingPricingTier: missingPricingTierCount,
+          missingMachine: missingMachineCount,
+        },
         timestamp: new Date().toISOString()
       });
     } catch (error) {
+      console.error("Error fetching customer count:", error);
       res.status(500).json({ error: "Failed to fetch customer count" });
     }
   });

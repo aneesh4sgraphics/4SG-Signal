@@ -307,8 +307,20 @@ export default function ClientDatabase() {
   });
   const odooBaseUrl = odooBaseUrlData?.baseUrl || '';
 
-  // Live customer count - refreshes every 10 seconds
-  const { data: liveCount } = useQuery<{ total: number; florida: number; timestamp: string }>({
+  // Live customer count with data quality stats - refreshes every 10 seconds
+  const { data: liveCount } = useQuery<{ 
+    total: number; 
+    florida: number; 
+    needsCleanup: number;
+    noSalesRep: number;
+    breakdown: {
+      missingEmail: number;
+      missingPhone: number;
+      missingPricingTier: number;
+      missingMachine: number;
+    };
+    timestamp: string;
+  }>({
     queryKey: ['/api/customers/count'],
     refetchInterval: 10000, // 10 seconds
     staleTime: 5000, // 5 seconds
@@ -378,22 +390,7 @@ export default function ClientDatabase() {
     return currentTags.join(', ');
   };
   
-  const quotesThisWeek = sentQuotes.filter((q: any) => {
-    const sentDate = new Date(q.sentAt || q.createdAt || 0);
-    return sentDate >= weekStart;
-  }).length;
-  
-  const samplesThisWeek = sampleRequests.filter((s: any) => {
-    if (s.status !== 'shipped' && s.status !== 'completed') return false;
-    const shippedDate = new Date(s.shippedAt || s.createdAt || 0);
-    return shippedDate >= weekStart;
-  }).length;
-  
-  // Lifetime totals for reference
-  const totalQuotesSent = sentQuotes.length;
-  const totalSamplesSent = sampleRequests.filter((s: any) => s.status === 'shipped' || s.status === 'completed').length;
-
-  // Fetch swatch book shipments - lazy load after main data
+  // Fetch swatch book shipments - lazy load after main data (moved up for weekly count)
   const { data: swatchBookShipments = [] } = useQuery<any[]>({
     queryKey: ['/api/crm/swatch-shipments'],
     enabled: customers.length > 0,
@@ -406,6 +403,26 @@ export default function ClientDatabase() {
     enabled: customers.length > 0,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Quotes This Week - count from QuickQuotes (sentQuotes) sent this week
+  const quotesThisWeek = sentQuotes.filter((q: any) => {
+    const sentDate = new Date(q.sentAt || q.createdAt || 0);
+    return sentDate >= weekStart;
+  }).length;
+  
+  // Samples This Week - count swatch books that were shipped (via Print Label button) this week
+  const samplesThisWeek = swatchBookShipments.filter((s: any) => {
+    // Only count shipped or delivered swatch books
+    if (s.status !== 'shipped' && s.status !== 'delivered') return false;
+    const shippedDate = new Date(s.shippedAt || s.createdAt || 0);
+    return shippedDate >= weekStart;
+  }).length;
+  
+  // Lifetime totals for reference
+  const totalQuotesSent = sentQuotes.length;
+  const totalSamplesSent = swatchBookShipments.filter((s: any) => 
+    s.status === 'shipped' || s.status === 'delivered'
+  ).length;
 
   // Fetch email sends for mailer count - lazy load after main data
   const { data: emailSends = [] } = useQuery<any[]>({
@@ -2317,13 +2334,22 @@ export default function ClientDatabase() {
             data-testid="card-data-cleanup"
           >
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-[#9B9A97]">Needs Cleanup</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-xs font-medium text-[#9B9A97] cursor-help">Needs Cleanup</p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">Clients missing: email ({liveCount?.breakdown?.missingEmail ?? 0}), phone ({liveCount?.breakdown?.missingPhone ?? 0}), pricing tier ({liveCount?.breakdown?.missingPricingTier ?? 0}), or machine ({liveCount?.breakdown?.missingMachine ?? 0})</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <div className="h-6 w-6 rounded flex items-center justify-center" style={{ backgroundColor: '#DFAB00' }}>
                   <AlertTriangle className="h-3.5 w-3.5 text-[#37352F]" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-[#DFAB00]">
-                {groupedByCompany.filter(g => g.customers.some(c => hasIncompleteEmail(c.email))).length}
+                {liveCount?.needsCleanup ?? groupedByCompany.filter(g => g.customers.some(c => hasIncompleteEmail(c.email))).length}
               </p>
               <Button 
                 size="sm" 
@@ -2352,10 +2378,10 @@ export default function ClientDatabase() {
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-[#E03D3E]" data-testid="text-missing-sales-rep-count">
-                  {customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length}
+                  {liveCount?.noSalesRep ?? customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length}
                 </p>
               </div>
-              {isAdmin && customers.filter(c => !c.salesRepId || c.salesRepId.trim() === '').length > 0 && (
+              {isAdmin && (liveCount?.noSalesRep ?? 0) > 0 && (
                 <div className="flex flex-col gap-1.5 mt-2">
                   <Button 
                     size="sm" 
