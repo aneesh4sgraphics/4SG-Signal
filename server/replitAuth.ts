@@ -192,8 +192,46 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  // Serialize only the user ID to the session (not the entire user object with tokens)
+  // This prevents session/token desync issues in production
+  passport.serializeUser((user: any, cb) => {
+    const userId = user?.claims?.sub || user?.id;
+    console.log(`[Auth] Serializing user: ${userId}`);
+    cb(null, { id: userId, claims: user?.claims });
+  });
+  
+  // Deserialize by loading the user from the session data
+  // The session stores minimal user info (id + claims), which Passport uses to populate req.user
+  // Also handles legacy sessions that stored the full user object
+  passport.deserializeUser(async (sessionUser: any, cb) => {
+    try {
+      // Handle both new format { id, claims } and legacy format { id, email, claims, access_token, ... }
+      const userId = sessionUser?.id || sessionUser?.claims?.sub;
+      const claims = sessionUser?.claims;
+      
+      if (!userId) {
+        console.log(`[Auth] Deserialize failed: no user ID in session data`);
+        return cb(null, false);
+      }
+      
+      // Build req.user with essential fields
+      // This works for both new and legacy session formats
+      const user = {
+        id: userId,
+        claims: claims,
+        email: claims?.email || sessionUser?.email,
+        // Include legacy token fields if present (for backwards compatibility)
+        access_token: sessionUser?.access_token,
+        refresh_token: sessionUser?.refresh_token,
+        expires_at: sessionUser?.expires_at,
+      };
+      
+      cb(null, user);
+    } catch (error) {
+      console.error(`[Auth] Deserialize error:`, error);
+      cb(error, null);
+    }
+  });
 
   try {
     const config = await getOidcConfig();
