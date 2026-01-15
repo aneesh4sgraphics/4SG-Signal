@@ -11245,6 +11245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imported: 0,
         skipped: 0,
         skippedVendors: 0,
+        skippedNoEmail: 0,
         alreadyExists: 0,
         deleted: 0,
         failed: 0,
@@ -11270,6 +11271,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Skip partners with Vendor tag
           if (vendorCategoryId && odooClient.hasVendorTag(partner, vendorCategoryId)) {
             results.skippedVendors++;
+            continue;
+          }
+          
+          // Skip partners without email (email is required for CRM to work)
+          if (!partner.email || partner.email.trim() === '') {
+            results.skippedNoEmail++;
             continue;
           }
           
@@ -11422,7 +11429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
-        message: `Imported ${results.imported} partners from Odoo${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
+        message: `Imported ${results.imported} partners from Odoo${results.skippedNoEmail > 0 ? ` (skipped ${results.skippedNoEmail} without email)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
         parentLinksResolved,
         ...results
       });
