@@ -120,6 +120,30 @@ export default function ShopifySettingsPage() {
     },
   });
 
+  const [emailBackfillResult, setEmailBackfillResult] = useState<{
+    customersChecked: number;
+    emailsAdded: number;
+    updatedCustomers: string[];
+  } | null>(null);
+
+  const backfillEmailsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/shopify/backfill-emails', {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      setEmailBackfillResult(data);
+      toast({ 
+        title: "Email backfill complete!", 
+        description: `Checked ${data.customersChecked} customers, added ${data.emailsAdded} emails` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Email backfill failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const { data: orders = [] } = useQuery<any[]>({
     queryKey: ['/api/shopify/orders'],
   });
@@ -520,6 +544,49 @@ export default function ShopifySettingsPage() {
                               ))}
                               {customerSyncResult.imported > 20 && <span>... and {customerSyncResult.imported - 20} more</span>}
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Backfill Missing Emails Button */}
+                    <Button 
+                      variant="outline"
+                      className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                      onClick={() => backfillEmailsMutation.mutate()}
+                      disabled={backfillEmailsMutation.isPending}
+                      data-testid="button-backfill-emails"
+                    >
+                      {backfillEmailsMutation.isPending ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Users className="h-4 w-4 mr-2" />
+                      )}
+                      Backfill Missing Emails from Shopify Orders
+                    </Button>
+
+                    {/* Email Backfill Result */}
+                    {emailBackfillResult && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                        <div className="font-semibold text-purple-800 dark:text-purple-200">
+                          Email Backfill Complete
+                        </div>
+                        <div className="text-sm text-purple-700 dark:text-purple-300 mt-2 grid grid-cols-2 gap-2">
+                          <div className="text-center p-2 bg-purple-100 rounded">
+                            <div className="text-xl font-bold text-purple-700">{emailBackfillResult.customersChecked}</div>
+                            <div className="text-xs">Checked</div>
+                          </div>
+                          <div className="text-center p-2 bg-green-100 rounded">
+                            <div className="text-xl font-bold text-green-700">{emailBackfillResult.emailsAdded}</div>
+                            <div className="text-xs">Emails Added</div>
+                          </div>
+                        </div>
+                        {emailBackfillResult.updatedCustomers.length > 0 && (
+                          <div className="mt-3 text-xs text-purple-700 max-h-20 overflow-y-auto">
+                            <div className="font-medium mb-1">Updated customers:</div>
+                            {emailBackfillResult.updatedCustomers.map((c, i) => (
+                              <div key={i}>{c}</div>
+                            ))}
                           </div>
                         )}
                       </div>
