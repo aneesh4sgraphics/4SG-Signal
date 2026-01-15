@@ -278,6 +278,10 @@ export default function Spotlight() {
 
   // Helper to get display name from sales rep
   const getSalesRepDisplayName = (rep: { email: string; firstName?: string; lastName?: string }) => {
+    // Special handling for info@4sgraphics.com
+    if (rep.email?.toLowerCase() === 'info@4sgraphics.com') {
+      return '4SGraphics-Info';
+    }
     if (rep.firstName && rep.lastName) {
       return `${rep.firstName} ${rep.lastName}`;
     }
@@ -289,12 +293,20 @@ export default function Spotlight() {
     return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1).toLowerCase();
   };
 
-  // Deduplicate sales reps by email (lowercase) and filter out test accounts
+  // Only show authorized sales reps: Aneesh, Santiago, Patricio, and Info
+  const ALLOWED_SALES_REP_EMAILS = [
+    'aneesh@4sgraphics.com',
+    'santiago@4sgraphics.com', 
+    'patricio@4sgraphics.com',
+    'info@4sgraphics.com'
+  ];
+
+  // Filter to only allowed sales reps and deduplicate
   const salesReps = rawSalesReps.filter((rep, index, arr) => {
     if (!rep.email) return false;
     const normalizedEmail = rep.email.toLowerCase();
-    // Filter out test accounts
-    if (normalizedEmail.includes('test')) return false;
+    // Only include allowed sales reps
+    if (!ALLOWED_SALES_REP_EMAILS.includes(normalizedEmail)) return false;
     return arr.findIndex(r => r.email?.toLowerCase() === normalizedEmail) === index;
   });
 
