@@ -56,7 +56,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, ilike, gte, gt, lt, isNull, ne } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, gte, gt, lt, isNull, ne, not } from "drizzle-orm";
 import { 
   customers,
   customerContacts, 
@@ -13870,6 +13870,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(1);
           if (mapping.length > 0) {
             matchedCustomerId = mapping[0].crmCustomerId;
+            
+            // If matched by company mapping and customer is missing email, update it from Shopify
+            if (customerEmail && matchedCustomerId) {
+              const mappedCustomer = await db.select({ email: customers.email })
+                .from(customers)
+                .where(eq(customers.id, matchedCustomerId))
+                .limit(1);
+              if (mappedCustomer.length > 0 && !mappedCustomer[0].email) {
+                console.log(`[Shopify] Filling missing email via mapping for ${companyName}: ${customerEmail}`);
+                await db.update(customers)
+                  .set({ 
+                    email: customerEmail,
+                    updatedAt: new Date()
+                  })
+                  .where(eq(customers.id, matchedCustomerId));
+              }
+            }
           }
         }
 
@@ -13890,6 +13907,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(1);
           if (existingCustomer.length > 0) {
             matchedCustomerId = existingCustomer[0].id;
+            
+            // If matched by company and customer is missing email, update it from Shopify
+            if (customerEmail && !existingCustomer[0].email) {
+              console.log(`[Shopify] Filling missing email for ${companyName}: ${customerEmail}`);
+              await db.update(customers)
+                .set({ 
+                  email: customerEmail,
+                  updatedAt: new Date()
+                })
+                .where(eq(customers.id, existingCustomer[0].id));
+            }
           }
         }
 
@@ -14682,6 +14710,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error syncing Shopify customers:", error.response?.data || error);
       res.status(500).json({ error: "Failed to sync customers", details: error.response?.data?.errors || error.message });
+    }
+  });
+
+  // Backfill missing customer emails from existing Shopify orders
+  app.post("/api/shopify/backfill-emails", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      // Find customers with no primary email
+      const customersWithoutEmail = await db.select({
+        id: customers.id,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      })
+        .from(customers)
+        .where(or(isNull(customers.email), eq(customers.email, '')));
+
+      console.log(`[Shopify Email Backfill] Found ${customersWithoutEmail.length} customers without email`);
+
+      let emailsAdded = 0;
+      const updatedCustomers: string[] = [];
+
+      for (const customer of customersWithoutEmail) {
+        // Find Shopify order with this customer's ID that has an email
+        const orderWithEmail = await db.select({
+          email: shopifyOrders.email,
+          companyName: shopifyOrders.companyName,
+        })
+          .from(shopifyOrders)
+          .where(and(
+            eq(shopifyOrders.customerId, customer.id),
+            not(isNull(shopifyOrders.email)),
+            not(eq(shopifyOrders.email, ''))
+          ))
+          .limit(1);
+
+        if (orderWithEmail.length > 0 && orderWithEmail[0].email) {
+          await db.update(customers)
+            .set({ 
+              email: orderWithEmail[0].email,
+              updatedAt: new Date()
+            })
+            .where(eq(customers.id, customer.id));
+          
+          emailsAdded++;
+          const displayName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+          updatedCustomers.push(`${displayName}: ${orderWithEmail[0].email}`);
+          console.log(`[Shopify Email Backfill] Added email ${orderWithEmail[0].email} to ${displayName}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        customersChecked: customersWithoutEmail.length,
+        emailsAdded,
+        updatedCustomers: updatedCustomers.slice(0, 50), // Limit for display
+      });
+    } catch (error: any) {
+      console.error("Error backfilling emails:", error);
+      res.status(500).json({ error: "Failed to backfill emails", details: error.message });
     }
   });
 
