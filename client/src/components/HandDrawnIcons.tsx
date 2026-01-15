@@ -1,22 +1,23 @@
 interface IconProps {
   className?: string;
   size?: number;
+  style?: React.CSSProperties;
 }
 
-export const QuickQuotesIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+export const QuickQuotesIcon = ({ className, size = 24, style }: IconProps) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <path d="M11.5 5h.434c3.048 0 4.571 0 5.15.547a2 2 0 0 1 .586 1.845c-.156.781-1.4 1.66-3.888 3.42l-4.064 2.876c-2.488 1.76-3.732 2.639-3.888 3.42a2 2 0 0 0 .586 1.845c.579.547 2.102.547 5.15.547h.934M8 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0m14 14a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
   </svg>
 );
 
-export const PriceListIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+export const PriceListIcon = ({ className, size = 24, style }: IconProps) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <path d="M21 12H9m12-6H9m12 12H9m-4-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
   </svg>
 );
 
-export const SavedQuotesIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+export const SavedQuotesIcon = ({ className, size = 24, style }: IconProps) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <path d="M19 15v6H5v-6m11 2H8m7.913-2.337L8.087 13m8.626-.62L9.463 9m8.71 1.642L12.044 5.5m7.99 3.304L15.109 2.5" />
   </svg>
 );
@@ -30,8 +31,8 @@ export const ClientsIcon = ({ className, size = 24 }: IconProps) => (
   </svg>
 );
 
-export const SalesChartsIcon = ({ className, size = 24 }: IconProps) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+export const SalesChartsIcon = ({ className, size = 24, style }: IconProps) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" style={style}>
     <rect x="3" y="14" width="4" height="7" rx="0.5" />
     <rect x="9" y="10" width="4" height="11" rx="0.5" />
     <rect x="15" y="6" width="4" height="15" rx="0.5" />
