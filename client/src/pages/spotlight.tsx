@@ -1018,7 +1018,7 @@ export default function Spotlight() {
                     size="sm"
                     className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
                     onClick={() => {
-                      apiRequest('PATCH', `/api/customers/${customer.id}`, { isHotProspect: true })
+                      apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
                         .then(() => {
                           toast({ title: "Marked as Hot Prospect", description: "This customer will get more attention." });
                           refetch();
