@@ -1277,7 +1277,7 @@ class SpotlightEngine {
     }
     
     return {
-      id: `${bucket}_${customer.id}_${subtype}`,
+      id: `${bucket}::${customer.id}::${subtype}`,
       customerId: customer.id.toString(),
       bucket,
       taskSubtype: subtype,
@@ -1320,7 +1320,7 @@ class SpotlightEngine {
     }
     
     return {
-      id: `${bucket}_${customer.id}_${subtype}`,
+      id: `${bucket}::${customer.id}::${subtype}`,
       customerId: customer.id.toString(),
       bucket,
       taskSubtype: subtype,
@@ -1371,10 +1371,19 @@ class SpotlightEngine {
     if (taskId.includes('::')) {
       const parts = taskId.split('::');
       bucket = parts[0] as TaskBucket;
-      followUpId = parseInt(parts[1]);
-      customerId = parts[2];
-      subtype = parts[3];
+      // Handle both 3-part (bucket::customerId::subtype) and 4-part (bucket::entityId::customerId::subtype) formats
+      if (parts.length === 4) {
+        // follow_ups format: bucket::taskId::customerId::subtype
+        followUpId = parseInt(parts[1]);
+        customerId = parts[2];
+        subtype = parts[3];
+      } else {
+        // Standard format: bucket::customerId::subtype
+        customerId = parts[1];
+        subtype = parts[2];
+      }
     } else {
+      // Legacy underscore format - not recommended, keep for backward compatibility
       const parts = taskId.split('_');
       bucket = parts[0] as TaskBucket;
       customerId = parts[1];
@@ -1538,9 +1547,18 @@ class SpotlightEngine {
     if (taskId.includes('::')) {
       const parts = taskId.split('::');
       bucket = parts[0] as TaskBucket;
-      customerId = parts[2];
-      subtype = parts[3];
+      // Handle both 3-part (bucket::customerId::subtype) and 4-part (bucket::entityId::customerId::subtype) formats
+      if (parts.length === 4) {
+        // follow_ups format: bucket::taskId::customerId::subtype
+        customerId = parts[2];
+        subtype = parts[3];
+      } else {
+        // Standard format: bucket::customerId::subtype
+        customerId = parts[1];
+        subtype = parts[2];
+      }
     } else {
+      // Legacy underscore format - not recommended, keep for backward compatibility
       const parts = taskId.split('_');
       bucket = parts[0] as TaskBucket;
       customerId = parts[1];
