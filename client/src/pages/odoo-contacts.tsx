@@ -139,13 +139,21 @@ export default function OdooContacts() {
 
   // Fetch contacts
   const { data: contacts = [], isLoading, refetch } = useQuery<Contact[]>({
-    queryKey: ['/api/customers', { search: debouncedSearch, ...filters }],
+    queryKey: ['/api/customers'],
     staleTime: 30000,
   });
 
   // Filter and sort contacts
   const filteredContacts = contacts
     .filter(c => {
+      // Search filter
+      if (debouncedSearch) {
+        const search = debouncedSearch.toLowerCase();
+        const searchableFields = [
+          c.company, c.firstName, c.lastName, c.email, c.email2, c.phone, c.city
+        ].filter(Boolean).map(f => (f as string).toLowerCase());
+        if (!searchableFields.some(f => f.includes(search))) return false;
+      }
       if (filters.isCompany !== null && c.isCompany !== filters.isCompany) return false;
       if (filters.pricingTier && c.pricingTier !== filters.pricingTier) return false;
       if (filters.hasEmail === true && !c.email) return false;
