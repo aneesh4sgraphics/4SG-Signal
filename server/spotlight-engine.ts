@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, moments } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, moments, customerContacts } from "@shared/schema";
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { analyzeForHints, SpotlightHint, getCustomerMachineProfiles, getProductSuggestionsForMachines, getMachineLabel, checkMissingMachineProfile } from "./spotlight-heuristics";
@@ -1182,6 +1182,51 @@ class SpotlightEngine {
 
       if (result.length > 0) {
         const customer = result[0];
+        
+        // Auto-fix: If customer is missing email but has a contact with email, promote it to primary
+        if (subtype === 'hygiene_email') {
+          const contactWithEmail = await db.select({ email: customerContacts.email })
+            .from(customerContacts)
+            .where(and(
+              eq(customerContacts.customerId, customer.id),
+              isNotNull(customerContacts.email)
+            ))
+            .limit(1);
+          
+          if (contactWithEmail.length > 0 && contactWithEmail[0].email) {
+            // Auto-promote contact email to primary and skip this hygiene task
+            await db.update(customers)
+              .set({ email: contactWithEmail[0].email, updatedAt: new Date() })
+              .where(eq(customers.id, customer.id));
+            console.log(`[Spotlight] Auto-fixed: Promoted contact email ${contactWithEmail[0].email} to primary for ${customer.company || customer.id}`);
+            // Decrement i to retry this priority level (find another customer needing email)
+            i--;
+            continue;
+          }
+        }
+        
+        // Auto-fix: If customer is missing phone but has a contact with phone, promote it to primary
+        if (subtype === 'hygiene_phone') {
+          const contactWithPhone = await db.select({ phone: customerContacts.phone })
+            .from(customerContacts)
+            .where(and(
+              eq(customerContacts.customerId, customer.id),
+              isNotNull(customerContacts.phone)
+            ))
+            .limit(1);
+          
+          if (contactWithPhone.length > 0 && contactWithPhone[0].phone) {
+            // Auto-promote contact phone to primary and skip this hygiene task
+            await db.update(customers)
+              .set({ phone: contactWithPhone[0].phone, updatedAt: new Date() })
+              .where(eq(customers.id, customer.id));
+            console.log(`[Spotlight] Auto-fixed: Promoted contact phone ${contactWithPhone[0].phone} to primary for ${customer.company || customer.id}`);
+            // Decrement i to retry this priority level (find another customer needing phone)
+            i--;
+            continue;
+          }
+        }
+        
         return this.buildTask(customer, 'data_hygiene', subtype, i + 1);
       }
     }
