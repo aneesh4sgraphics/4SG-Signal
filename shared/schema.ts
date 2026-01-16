@@ -278,6 +278,26 @@ export const customerDoNotMerge = pgTable("customer_do_not_merge", {
 export type CustomerDoNotMerge = typeof customerDoNotMerge.$inferSelect;
 export type InsertCustomerDoNotMerge = typeof customerDoNotMerge.$inferInsert;
 
+// Deleted Customer Exclusions - customers deleted by users should not be re-imported from Odoo or Shopify
+export const deletedCustomerExclusions = pgTable("deleted_customer_exclusions", {
+  id: serial("id").primaryKey(),
+  odooPartnerId: integer("odoo_partner_id"), // Odoo res.partner ID (if from Odoo)
+  shopifyCustomerId: varchar("shopify_customer_id", { length: 100 }), // Shopify customer ID (if from Shopify)
+  originalCustomerId: varchar("original_customer_id", { length: 255 }), // Original CRM customer ID
+  companyName: varchar("company_name", { length: 255 }), // Company name for reference
+  email: varchar("email", { length: 255 }), // Email for reference
+  deletedBy: varchar("deleted_by", { length: 255 }).notNull(), // User email who deleted
+  reason: varchar("reason", { length: 500 }), // Optional reason for deletion
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_exclusions_odoo_partner").on(table.odooPartnerId),
+  index("IDX_exclusions_shopify_customer").on(table.shopifyCustomerId),
+  index("IDX_exclusions_email").on(table.email),
+]);
+
+export type DeletedCustomerExclusion = typeof deletedCustomerExclusions.$inferSelect;
+export type InsertDeletedCustomerExclusion = typeof deletedCustomerExclusions.$inferInsert;
+
 // Customer Contacts - multiple contacts per customer company
 export const customerContacts = pgTable("customer_contacts", {
   id: serial("id").primaryKey(),

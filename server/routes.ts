@@ -135,6 +135,7 @@ import {
   nowModeActivities,
   nowModeSessions,
   followUpTasks,
+  deletedCustomerExclusions,
   insertFollowUpTaskSchema,
   customerDoNotMerge,
 } from "@shared/schema";
@@ -2471,9 +2472,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete customer (Admin only)
-  app.delete("/api/customers/:id", isAuthenticated, requireAdmin, async (req, res) => {
+  app.delete("/api/customers/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
       const customerId = req.params.id;
+      const reason = req.query.reason as string | undefined;
+      
+      // Get customer details before deletion to record exclusion
+      const [customer] = await db.select({
+        id: customers.id,
+        company: customers.company,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+        email: customers.email,
+        odooPartnerId: customers.odooPartnerId,
+      }).from(customers).where(eq(customers.id, customerId)).limit(1);
+      
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Check if this is a Shopify customer (ID starts with 'shopify_')
+      const shopifyCustomerId = customerId.startsWith('shopify_') 
+        ? customerId.replace('shopify_', '') 
+        : null;
+      
+      // Record exclusion to prevent re-import from Odoo or Shopify
+      if (customer.odooPartnerId || shopifyCustomerId) {
+        await db.insert(deletedCustomerExclusions).values({
+          odooPartnerId: customer.odooPartnerId || null,
+          shopifyCustomerId: shopifyCustomerId,
+          originalCustomerId: customerId,
+          companyName: customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+          email: customer.email,
+          deletedBy: req.user?.email || 'unknown',
+          reason: reason || null,
+        });
+        console.log(`[Customer Delete] Recorded exclusion for ${customer.company || customer.email} (Odoo: ${customer.odooPartnerId}, Shopify: ${shopifyCustomerId})`);
+      }
 
       const deleteResult = await storage.deleteCustomer(customerId);
       if (!deleteResult) {
@@ -2481,7 +2516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       setCachedData("customers", null);
-      res.json({ message: "Customer deleted successfully" });
+      res.json({ message: "Customer deleted successfully", excluded: !!(customer.odooPartnerId || shopifyCustomerId) });
     } catch (error) {
       console.error("Error deleting customer:", error);
       res.status(500).json({ error: "Failed to delete customer" });
@@ -11283,18 +11318,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const partners = await odooClient.getAllPartners();
       console.log(`[Odoo Import] Fetched ${partners.length} partners from Odoo`);
       
+      // Load excluded Odoo partner IDs (previously deleted customers that shouldn't be re-imported)
+      const exclusions = await db.select({ odooPartnerId: deletedCustomerExclusions.odooPartnerId })
+        .from(deletedCustomerExclusions)
+        .where(sql`${deletedCustomerExclusions.odooPartnerId} IS NOT NULL`);
+      const excludedOdooIds = new Set(exclusions.map(e => e.odooPartnerId).filter((id): id is number => id !== null));
+      console.log(`[Odoo Import] Found ${excludedOdooIds.size} excluded Odoo partner IDs (previously deleted)`);
+      
       const results = {
         imported: 0,
         skipped: 0,
         skippedVendors: 0,
         skippedNoEmail: 0,
         skippedBlocked: 0,
+        skippedExcluded: 0,
         alreadyExists: 0,
         deleted: 0,
         failed: 0,
         errors: [] as string[],
         skippedPartners: [] as string[],
         skippedBlockedNames: [] as string[],
+        skippedExcludedNames: [] as string[],
         deletedCustomers: [] as string[],
         mode: useFullReset ? 'full_reset' : useSyncWithDeletions ? 'sync_with_deletions' : 'add_new',
       };
@@ -11332,6 +11376,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               results.skippedBlockedNames.push(`${partner.name} (${blockedKeyword})`);
             }
             console.log(`[Odoo Import] Skipped blocked company: ${partner.name} (matched: ${blockedKeyword})`);
+            continue;
+          }
+          
+          // Skip previously deleted customers (on exclusion list)
+          if (excludedOdooIds.has(partner.id)) {
+            results.skippedExcluded++;
+            if (results.skippedExcludedNames.length < 20) {
+              results.skippedExcludedNames.push(partner.name);
+            }
+            console.log(`[Odoo Import] Skipped excluded partner: ${partner.name} (previously deleted)`);
             continue;
           }
           
@@ -11419,7 +11473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.skippedBlocked} blocked, ${results.skippedNoEmail} no email, ${results.failed} failed`);
+      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.skippedBlocked} blocked, ${results.skippedExcluded} excluded, ${results.skippedNoEmail} no email, ${results.failed} failed`);
       
       // Step 5: Resolve parent customer IDs (link children to their parent companies)
       console.log("[Odoo Import] Resolving parent relationships...");
@@ -11484,7 +11538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         success: true,
-        message: `Imported ${results.imported} partners from Odoo${results.skippedNoEmail > 0 ? ` (skipped ${results.skippedNoEmail} without email)` : ''}${results.skippedBlocked > 0 ? ` (skipped ${results.skippedBlocked} blocked companies)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
+        message: `Imported ${results.imported} partners from Odoo${results.skippedNoEmail > 0 ? ` (skipped ${results.skippedNoEmail} without email)` : ''}${results.skippedBlocked > 0 ? ` (skipped ${results.skippedBlocked} blocked companies)` : ''}${results.skippedExcluded > 0 ? ` (skipped ${results.skippedExcluded} previously deleted)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
         parentLinksResolved,
         ...results
       });
@@ -14625,10 +14679,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingMappings.map(m => [m.shopifyCustomerId, m])
       );
 
+      // Load excluded Shopify customer IDs (previously deleted customers that shouldn't be re-imported)
+      const shopifyExclusions = await db.select({ shopifyCustomerId: deletedCustomerExclusions.shopifyCustomerId })
+        .from(deletedCustomerExclusions)
+        .where(sql`${deletedCustomerExclusions.shopifyCustomerId} IS NOT NULL`);
+      const excludedShopifyIds = new Set(shopifyExclusions.map(e => e.shopifyCustomerId).filter((id): id is string => id !== null));
+      console.log(`[Shopify Sync] Found ${excludedShopifyIds.size} excluded Shopify customer IDs (previously deleted)`);
+
       let matched = 0;
       let imported = 0;
       let skipped = 0;
       let skippedBlocked = 0;
+      let skippedExcluded = 0;
       let primaryEmailsSet = 0;
       let mappingsCreated = 0;
       let mappingsUpdated = 0;
@@ -14636,6 +14698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const matchedCustomers: string[] = [];
       const importedCustomers: string[] = [];
       const skippedBlockedNames: string[] = [];
+      const skippedExcludedNames: string[] = [];
 
       for (const shopifyCustomer of allShopifyCustomers) {
         const shopifyEmail = shopifyCustomer.email?.toLowerCase();
@@ -14737,6 +14800,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               skippedBlockedNames.push(`${companyToCheck} (${blockedKeyword})`);
             }
             console.log(`[Shopify Sync] Skipped blocked company: ${companyToCheck} (matched: ${blockedKeyword})`);
+            continue;
+          }
+          
+          // Skip previously deleted customers (on exclusion list)
+          const shopifyIdStr = String(shopifyCustomer.id);
+          if (excludedShopifyIds.has(shopifyIdStr)) {
+            skippedExcluded++;
+            if (skippedExcludedNames.length < 20) {
+              skippedExcludedNames.push(companyToCheck || shopifyEmail);
+            }
+            console.log(`[Shopify Sync] Skipped excluded customer: ${companyToCheck || shopifyEmail} (previously deleted)`);
             continue;
           }
           
@@ -14861,6 +14935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imported,
         skipped,
         skippedBlocked,
+        skippedExcluded,
         primaryEmailsSet,
         mappingsCreated,
         mappingsUpdated,
@@ -14868,6 +14943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchedCustomers: matchedCustomers.slice(0, 20), // Limit to first 20 for display
         importedCustomers: importedCustomers.slice(0, 20),
         skippedBlockedNames: skippedBlockedNames.slice(0, 20),
+        skippedExcludedNames: skippedExcludedNames.slice(0, 20),
       });
     } catch (error: any) {
       console.error("Error syncing Shopify customers:", error.response?.data || error);
@@ -17976,6 +18052,44 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     } catch (error) {
       console.error("Error deleting blocked customers:", error);
       res.status(500).json({ error: "Failed to delete blocked customers" });
+    }
+  });
+
+  // Admin endpoint to view customer exclusion list (customers that won't be re-imported)
+  app.get("/api/admin/customer-exclusions", requireAdmin, async (req: any, res) => {
+    try {
+      const exclusions = await db.select().from(deletedCustomerExclusions).orderBy(desc(deletedCustomerExclusions.createdAt));
+      res.json({
+        count: exclusions.length,
+        exclusions,
+      });
+    } catch (error) {
+      console.error("Error fetching customer exclusions:", error);
+      res.status(500).json({ error: "Failed to fetch exclusions" });
+    }
+  });
+  
+  // Admin endpoint to remove a customer from the exclusion list (allow re-import)
+  app.delete("/api/admin/customer-exclusions/:id", requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid exclusion ID" });
+      }
+      
+      const [deleted] = await db.delete(deletedCustomerExclusions)
+        .where(eq(deletedCustomerExclusions.id, id))
+        .returning();
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Exclusion not found" });
+      }
+      
+      console.log(`[Admin] Removed exclusion for ${deleted.companyName || deleted.email} (Odoo: ${deleted.odooPartnerId}, Shopify: ${deleted.shopifyCustomerId})`);
+      res.json({ success: true, removed: deleted });
+    } catch (error) {
+      console.error("Error removing customer exclusion:", error);
+      res.status(500).json({ error: "Failed to remove exclusion" });
     }
   });
 
