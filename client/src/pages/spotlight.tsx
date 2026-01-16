@@ -15,6 +15,16 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { PRICING_TIERS } from "@shared/schema";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Mail,
   Phone,
@@ -57,6 +67,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   GitMerge,
+  Trash2,
 } from "lucide-react";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
@@ -359,6 +370,38 @@ export default function Spotlight() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
       toast({ title: "Skipped", description: "Moving to next moment..." });
+    },
+  });
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const deleteMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const res = await apiRequest('DELETE', `/api/customers/${customerId}?reason=Deleted via Spotlight hygiene`);
+      return res.json();
+    },
+    onSuccess: (result) => {
+      setShowDeleteConfirm(false);
+      setIsTransitioning(true);
+      
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+        
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 300);
+      }, 400);
+      
+      toast({ 
+        title: "Customer deleted", 
+        description: result.excluded 
+          ? "Customer removed and blocked from re-import" 
+          : "Customer removed from database"
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete customer", variant: "destructive" });
     },
   });
 
@@ -1282,8 +1325,8 @@ export default function Spotlight() {
             </CardContent>
           </Card>
 
-          {/* Skip Button */}
-          <div className="mt-6 flex justify-center pb-8">
+          {/* Skip and Delete Buttons */}
+          <div className="mt-6 flex justify-center gap-4 pb-8">
             <Button 
               variant="ghost" 
               className="text-[#999999] hover:text-[#666666]"
@@ -1293,9 +1336,55 @@ export default function Spotlight() {
               <X className="w-4 h-4 mr-2" />
               Skip this one
             </Button>
+            
+            {/* Delete button only for data hygiene tasks */}
+            {task.bucket === 'data_hygiene' && (
+              <Button 
+                variant="ghost" 
+                className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Customer
+              </Button>
+            )}
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Delete Customer?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                <span className="font-medium text-gray-900">
+                  {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'This customer'}
+                </span>
+                {customer?.email && <span className="text-gray-500 ml-1">({customer.email})</span>}
+              </p>
+              <p className="text-amber-600">
+                This action cannot be undone. The customer will be permanently removed and blocked from future imports.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => customer?.id && deleteMutation.mutate(customer.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Customer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Idle Check-in Modal */}
       <Dialog open={showIdleModal} onOpenChange={setShowIdleModal}>
