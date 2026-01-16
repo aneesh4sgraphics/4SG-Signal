@@ -58,6 +58,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/', icon: DashboardIcon, label: 'Dashboard', keywords: ['home', 'main', 'overview'], iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', keywords: ['quote', 'estimate', 'pricing'], iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/clients', icon: ClientsIcon, label: 'Clients', keywords: ['customers', 'contacts', 'database'], iconBg: '#693FA5', iconColor: '#FFFFFF' },
+  { path: '/odoo-contacts', icon: ClientsIcon, label: 'Odoo Contacts', keywords: ['odoo', 'contacts', 'notion', 'people', 'partners'], iconBg: '#8B5CF6', iconColor: '#FFFFFF' },
   { path: '/reports', icon: ReportsIcon, label: 'Reports', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'], iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: CalendarIcon, label: 'Calendar', keywords: ['calendar', 'tasks', 'events', 'schedule', 'google', 'meetings'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/price-list', icon: PriceListIcon, label: 'Price List', keywords: ['prices', 'costs', 'rates'], iconBg: '#DFAB00', iconColor: '#37352F' },
