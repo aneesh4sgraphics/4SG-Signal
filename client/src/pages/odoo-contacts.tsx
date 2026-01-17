@@ -711,7 +711,11 @@ export default function OdooContacts() {
                   transition={{ delay: index * 0.02 }}
                 >
                   <Card 
-                    className="group hover:shadow-lg hover:border-violet-200 transition-all duration-200 cursor-pointer bg-white"
+                    className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                      !contact.pricingTier 
+                        ? 'bg-red-50 border-red-200 hover:border-red-300' 
+                        : 'bg-white hover:border-violet-200'
+                    }`}
                     onClick={() => navigate(`/odoo-contacts/${contact.id}`)}
                   >
                     <CardContent className="p-4">
@@ -763,13 +767,17 @@ export default function OdooContacts() {
                         )}
                       </div>
                       
-                      {contact.pricingTier && (
-                        <div className="mt-3">
+                      <div className="mt-3">
+                        {contact.pricingTier ? (
                           <Badge variant="secondary" className="capitalize text-xs">
                             {contact.pricingTier}
                           </Badge>
-                        </div>
-                      )}
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            No Tag
+                          </Badge>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>
