@@ -11483,6 +11483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         country: partner.country_id ? partner.country_id[1] : null,
         phone: partner.phone || partner.mobile || customer.phone,
         cell: partner.mobile || customer.cell,
+        website: partner.website || customer.website,
         lastOdooSyncAt: new Date(),
       };
       
@@ -11715,6 +11716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             province: partner.state_id ? partner.state_id[1] : null, // Full state/province name from Odoo
             zip: partner.zip || null,
             country: partner.country_id ? partner.country_id[1] : null, // Full country name from Odoo
+            website: partner.website || null,
             notes: partner.comment || null,
             odooPartnerId: partner.id,
             odooParentId,
