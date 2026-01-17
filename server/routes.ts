@@ -11505,7 +11505,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = parseInt(req.query.offset as string) || 0;
       
       // Filter to only show products that have SKUs (default_code)
+      // Odoo domain requires '&' operator to combine conditions
       const domain = [
+        '&',
         ['default_code', '!=', false],
         ['default_code', '!=', '']
       ];
@@ -11594,8 +11596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             { key: 'retailPrice', label: 'RETAIL', pricePerSqm: parseFloat(localProduct.retailPrice || '0') },
           ];
           
-          const totalSqm = parseFloat(localProduct.totalSqm || '0');
-          const minQuantity = localProduct.minQuantity || 1;
+          const totalSqm = parseFloat(localProduct.totalSqm || '0') || 0;
+          const minQuantity = Math.max(localProduct.minQuantity || 1, 1); // Ensure at least 1 to avoid division by zero
           
           localPricing = {
             productName: localProduct.productName,
@@ -11605,11 +11607,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             minQuantity,
             rollSheet: localProduct.rollSheet,
             unitOfMeasure: localProduct.unitOfMeasure,
-            tiers: tierData.map(tier => ({
-              ...tier,
-              pricePerSheet: tier.pricePerSqm * totalSqm / minQuantity,
-              minOrderQtyPrice: (tier.pricePerSqm * totalSqm / minQuantity) * minQuantity,
-            })),
+            tiers: tierData.map(tier => {
+              // Guard against division by zero and invalid values
+              const pricePerSheet = totalSqm > 0 && minQuantity > 0 
+                ? (tier.pricePerSqm * totalSqm) / minQuantity 
+                : 0;
+              const minOrderQtyPrice = pricePerSheet * minQuantity;
+              return {
+                ...tier,
+                pricePerSheet: isFinite(pricePerSheet) ? pricePerSheet : 0,
+                minOrderQtyPrice: isFinite(minOrderQtyPrice) ? minOrderQtyPrice : 0,
+              };
+            }),
           };
         }
       }

@@ -18,6 +18,25 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface PricingTier {
+  key: string;
+  label: string;
+  pricePerSqm: number;
+  pricePerSheet: number;
+  minOrderQtyPrice: number;
+}
+
+interface LocalPricing {
+  productName: string;
+  productType: string;
+  size: string;
+  totalSqm: number;
+  minQuantity: number;
+  rollSheet: string | null;
+  unitOfMeasure: string | null;
+  tiers: PricingTier[];
+}
+
 interface ProductDetails {
   product: {
     id: number;
@@ -39,6 +58,7 @@ interface ProductDetails {
     computePrice: string;
     percentPrice: number;
   }>;
+  localPricing: LocalPricing | null;
   inventory: {
     available: number;
     virtual: number;
@@ -173,7 +193,7 @@ export default function OdooProductDetail() {
     );
   }
 
-  const { product, pricingTiers, inventory, purchaseOrders, customerPurchases } = data;
+  const { product, pricingTiers, localPricing, inventory, purchaseOrders, customerPurchases } = data;
   const margin = product.listPrice > 0 && product.averageCost > 0
     ? ((product.listPrice - product.averageCost) / product.listPrice * 100)
     : 0;
@@ -292,20 +312,49 @@ export default function OdooProductDetail() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
-              Pricing Tiers
+              Available Pricing Tiers
             </CardTitle>
             <CardDescription>
-              Price by pricelist / tier
+              {localPricing ? (
+                <span>
+                  Size: {localPricing.size || '-'} • {(localPricing.totalSqm || 0).toFixed(4)} sqm • Min Qty: {localPricing.minQuantity || 1} {localPricing.unitOfMeasure || 'Units'}
+                </span>
+              ) : (
+                'Price by tier'
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {pricingTiers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No specific pricing tiers configured</p>
-                <p className="text-sm">Using default list price: {formatPrice(product.listPrice)}</p>
-              </div>
-            ) : (
+            {localPricing && localPricing.tiers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pricing Tier</TableHead>
+                    <TableHead className="text-right">$/m²</TableHead>
+                    <TableHead className="text-right">
+                      {localPricing.rollSheet === 'Roll' ? 'Price/Roll' : `Price/${localPricing.unitOfMeasure || 'Sheet'}`}
+                    </TableHead>
+                    <TableHead className="text-right">Min Order Qty Price</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {localPricing.tiers.map((tier) => (
+                    <TableRow key={tier.key}>
+                      <TableCell className="font-medium uppercase">{tier.label}</TableCell>
+                      <TableCell className="text-right text-gray-600">
+                        {tier.pricePerSqm > 0 ? formatPrice(tier.pricePerSqm) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-gray-600">
+                        {tier.pricePerSheet > 0 ? formatPrice(tier.pricePerSheet) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-green-700">
+                        {tier.minOrderQtyPrice > 0 ? formatPrice(tier.minOrderQtyPrice) : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : pricingTiers.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -331,6 +380,12 @@ export default function OdooProductDetail() {
                   ))}
                 </TableBody>
               </Table>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No pricing data available</p>
+                <p className="text-sm">This product is not in the QuickQuotes catalog</p>
+              </div>
             )}
           </CardContent>
         </Card>
