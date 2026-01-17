@@ -715,7 +715,7 @@ export default function StartYourDayDashboard() {
                         </div>
                       ) : (
                         <Link 
-                          href={`/clients?customer=${client.customerId}`}
+                          href={`/odoo-contacts/${client.customerId}`}
                           className="flex items-center gap-3 flex-1"
                         >
                           {content}
