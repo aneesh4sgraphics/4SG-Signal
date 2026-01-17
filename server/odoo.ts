@@ -748,6 +748,7 @@ ${plainTextBody}`;
     pricelist: string | null;
     creditLimit: number;
     totalReceivable: number;
+    totalInvoiced: number;
   } | null> {
     try {
       const partners = await this.searchRead('res.partner', [['id', '=', partnerId]], [
@@ -766,6 +767,7 @@ ${plainTextBody}`;
         pricelist: partner.property_product_pricelist ? partner.property_product_pricelist[1] : null,
         creditLimit: partner.credit_limit || 0,
         totalReceivable: partner.credit || 0,
+        totalInvoiced: partner.total_invoiced || 0,
       };
     } catch (error: any) {
       console.error(`[Odoo] Error fetching partner business details for ${partnerId}:`, error.message);
@@ -830,9 +832,8 @@ ${plainTextBody}`;
   } | null> {
     try {
       // Fetch data in parallel for speed
-      const [partnerDetails, invoices, orderLines] = await Promise.all([
+      const [partnerDetails, orderLines] = await Promise.all([
         this.getPartnerBusinessDetails(partnerId),
-        this.getInvoicesByPartner(partnerId),
         this.getSaleOrderLinesForPartner(partnerId),
       ]);
 
@@ -840,20 +841,11 @@ ${plainTextBody}`;
         return null;
       }
 
-      // Calculate total outstanding from invoices
-      const totalOutstanding = invoices
-        .filter((inv: any) => inv.state === 'posted' && inv.payment_state !== 'paid')
-        .reduce((sum: number, inv: any) => sum + (inv.amount_residual || 0), 0);
-
-      // Calculate lifetime sales from invoices
-      const lifetimeSales = invoices
-        .filter((inv: any) => inv.move_type === 'out_invoice')
-        .reduce((sum: number, inv: any) => sum + (inv.amount_total || 0), 0);
-
-      // Calculate refunds for net sales
-      const totalRefunds = invoices
-        .filter((inv: any) => inv.move_type === 'out_refund')
-        .reduce((sum: number, inv: any) => sum + (inv.amount_total || 0), 0);
+      // Use Odoo's computed fields directly - matches what Odoo shows on contact page
+      // totalInvoiced = "Invoiced" amount in Odoo
+      // totalReceivable (credit) = "Due" amount in Odoo
+      const lifetimeSales = partnerDetails.totalInvoiced;
+      const totalOutstanding = partnerDetails.totalReceivable;
 
       // Aggregate products by product ID (SKU) to find top products
       const productAggregates = new Map<number, { name: string; quantity: number; totalSpent: number }>();
@@ -877,7 +869,7 @@ ${plainTextBody}`;
         salesPerson: partnerDetails.salesPerson,
         paymentTerms: partnerDetails.paymentTerms,
         totalOutstanding,
-        lifetimeSales: lifetimeSales - totalRefunds,
+        lifetimeSales,
         averageMargin: estimatedMargin,
         topProducts,
       };
