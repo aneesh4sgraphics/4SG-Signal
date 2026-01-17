@@ -1401,10 +1401,13 @@ class SpotlightEngine {
     session.consecutiveSkipsPerBucket[bucket] = 0;
     session.lastBucketUsed = bucket;
     
-    const skipIndex = session.skippedCustomerIds.indexOf(customerId);
-    if (skipIndex > -1) {
-      session.skippedCustomerIds.splice(skipIndex, 1);
+    // Add customer to skipped list so they don't appear again in this session
+    // This prevents the same card from showing after completing a task
+    if (!session.skippedCustomerIds.includes(customerId)) {
+      session.skippedCustomerIds.push(customerId);
     }
+
+    console.log(`[Spotlight] Task completed for customer ${customerId}, bucket ${bucket}, outcome ${outcomeId}`);
 
     return { success: true, nextFollowUp };
   }
