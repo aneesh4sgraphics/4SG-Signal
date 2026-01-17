@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { PRICING_TIERS } from "@shared/schema";
 import {
   ArrowLeft,
   Building2,
@@ -177,6 +178,28 @@ export default function OdooCompanyDetail() {
       toast({
         title: "Error",
         description: error.message || "Failed to update payment terms",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to update pricing tier
+  const updatePricingTierMutation = useMutation({
+    mutationFn: async (pricingTier: string) => {
+      const res = await apiRequest('PUT', `/api/customers/${companyId}`, { pricingTier });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pricing Tier Updated",
+        description: "Pricing tier has been updated",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', companyId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update pricing tier",
         variant: "destructive",
       });
     },
@@ -811,11 +834,26 @@ export default function OdooCompanyDetail() {
 
                 <div className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-500">Pricing Tier</p>
-                    <p className="font-medium text-gray-900 capitalize">
-                      {company.pricingTier || 'Standard'}
-                    </p>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-500 mb-1">Pricing Tier</p>
+                    <Select
+                      value={company.pricingTier || ''}
+                      onValueChange={(value) => {
+                        updatePricingTierMutation.mutate(value);
+                      }}
+                      disabled={updatePricingTierMutation.isPending}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={company.pricingTier || 'Select pricing tier'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRICING_TIERS.map((tier) => (
+                          <SelectItem key={tier} value={tier}>
+                            {tier}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>
