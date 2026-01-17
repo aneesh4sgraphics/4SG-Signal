@@ -15447,8 +15447,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (existingCustomer) {
           // Customer exists - add 'shopify' to sources if not already there
           const currentSources = existingCustomer.sources || [];
-          if (!currentSources.includes('shopify')) {
-            const updatedSources = [...currentSources, 'shopify'];
+          const defaultAddress = shopifyCustomer.default_address || shopifyCustomer.addresses?.[0] || {};
+          
+          // Build update object with missing address fields from Shopify
+          const addressUpdates: Record<string, any> = {};
+          if (!existingCustomer.address1 && defaultAddress.address1) {
+            addressUpdates.address1 = defaultAddress.address1;
+          }
+          if (!existingCustomer.address2 && defaultAddress.address2) {
+            addressUpdates.address2 = defaultAddress.address2;
+          }
+          if (!existingCustomer.city && defaultAddress.city) {
+            addressUpdates.city = defaultAddress.city;
+          }
+          if (!existingCustomer.province && (defaultAddress.province || defaultAddress.province_code)) {
+            addressUpdates.province = defaultAddress.province || defaultAddress.province_code;
+          }
+          if (!existingCustomer.country && (defaultAddress.country || defaultAddress.country_code)) {
+            addressUpdates.country = defaultAddress.country || defaultAddress.country_code;
+          }
+          if (!existingCustomer.zip && defaultAddress.zip) {
+            addressUpdates.zip = defaultAddress.zip;
+          }
+          if (!existingCustomer.phone && (shopifyCustomer.phone || defaultAddress.phone)) {
+            addressUpdates.phone = shopifyCustomer.phone || defaultAddress.phone;
+          }
+          
+          const hasAddressUpdates = Object.keys(addressUpdates).length > 0;
+          
+          if (!currentSources.includes('shopify') || hasAddressUpdates) {
+            const updatedSources = currentSources.includes('shopify') ? currentSources : [...currentSources, 'shopify'];
             
             // Also check if we need to set primary email
             let emailUpdate: { email?: string } = {};
@@ -15461,14 +15489,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .set({ 
                 sources: updatedSources,
                 ...emailUpdate,
+                ...addressUpdates,
                 updatedAt: new Date()
               })
               .where(eq(customers.id, existingCustomer.id));
             
-            matched++;
-            matchedCustomers.push(existingCustomer.company || `${existingCustomer.firstName} ${existingCustomer.lastName}`.trim() || existingCustomer.email || 'Unknown');
+            if (!currentSources.includes('shopify')) {
+              matched++;
+              matchedCustomers.push(existingCustomer.company || `${existingCustomer.firstName} ${existingCustomer.lastName}`.trim() || existingCustomer.email || 'Unknown');
+            } else if (hasAddressUpdates) {
+              matched++;
+              matchedCustomers.push(`${existingCustomer.company || existingCustomer.firstName || 'Unknown'} (address updated)`);
+            }
           } else {
-            // Already has shopify source, check if we need to set primary email
+            // Already has shopify source and no address updates needed
             if (!existingCustomer.email && shopifyEmail) {
               await db.update(customers)
                 .set({ 
