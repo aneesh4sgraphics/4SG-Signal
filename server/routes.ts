@@ -10917,6 +10917,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get partner IDs that have a specific category/tag - used for filtering
+  app.get("/api/odoo/partners-by-category/:categoryName", requireApproval, async (req: any, res) => {
+    try {
+      const { categoryName } = req.params;
+      if (!categoryName) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+      const partnerIds = await odooClient.getPartnerIdsByCategory(categoryName);
+      res.json(partnerIds);
+    } catch (error: any) {
+      console.error("Error fetching partners by category:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch partners by category from Odoo" });
+    }
+  });
+
   // Get available sales people (internal users) from Odoo
   app.get("/api/odoo/sales-people", requireApproval, async (req: any, res) => {
     try {

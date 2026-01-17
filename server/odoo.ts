@@ -634,6 +634,30 @@ class OdooClient {
     return this.searchRead('res.partner.category', [], ['id', 'name'], { limit: 500 });
   }
 
+  // Get partner IDs that have a specific category/tag
+  async getPartnerIdsByCategory(categoryName: string): Promise<number[]> {
+    // First, find the category ID by name
+    const categories = await this.searchRead('res.partner.category', [
+      ['name', '=', categoryName]
+    ], ['id'], { limit: 1 });
+    
+    if (categories.length === 0) {
+      console.log(`[Odoo] Category not found: ${categoryName}`);
+      return [];
+    }
+    
+    const categoryId = categories[0].id;
+    
+    // Then, find all partners with that category - only return IDs for efficiency
+    const partners = await this.searchRead('res.partner', [
+      ['category_id', 'in', [categoryId]],
+      ['is_company', '=', true]
+    ], ['id'], { limit: 5000 });
+    
+    console.log(`[Odoo] Found ${partners.length} partners with category "${categoryName}" (ID: ${categoryId})`);
+    return partners.map(p => p.id);
+  }
+
   // Get the ID of the "Vendor" category - returns null if not found
   async getVendorCategoryId(): Promise<number | null> {
     try {

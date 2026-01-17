@@ -154,6 +154,19 @@ export default function OdooContacts() {
     staleTime: 300000, // Cache for 5 minutes
   });
 
+  // Fetch partner IDs for the selected Odoo tag filter (only when a tag is selected)
+  const { data: tagFilterPartnerIds } = useQuery<number[]>({
+    queryKey: ['/api/odoo/partners-by-category', filters.pricingTier],
+    queryFn: async () => {
+      if (!filters.pricingTier) return [];
+      const res = await fetch(`/api/odoo/partners-by-category/${encodeURIComponent(filters.pricingTier)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!filters.pricingTier,
+    staleTime: 60000, // Cache for 1 minute
+  });
+
   // Filter and sort contacts
   const filteredContacts = contacts
     .filter(c => {
@@ -166,7 +179,10 @@ export default function OdooContacts() {
         if (!searchableFields.some(f => f.includes(search))) return false;
       }
       if (filters.isCompany !== null && c.isCompany !== filters.isCompany) return false;
-      if (filters.pricingTier && c.pricingTier !== filters.pricingTier) return false;
+      // Tag filter: check if the contact's Odoo partner ID is in the list of partners with this tag
+      if (filters.pricingTier && tagFilterPartnerIds) {
+        if (!c.odooPartnerId || !tagFilterPartnerIds.includes(c.odooPartnerId)) return false;
+      }
       if (filters.hasEmail === true && !c.email) return false;
       if (filters.hasEmail === false && c.email) return false;
       if (filters.isHotProspect === true && !c.isHotProspect) return false;
