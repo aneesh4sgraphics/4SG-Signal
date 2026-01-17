@@ -193,16 +193,16 @@ export default function OdooCompanyDetail() {
     },
   });
 
-  // Mutation to update pricing tier (category/tag in Odoo)
+  // Mutation to update pricing tier (category/tag in Odoo) - also propagates to child contacts
   const updatePricingTierMutation = useMutation({
     mutationFn: async ({ categoryId, categoryName }: { categoryId: number; categoryName: string }) => {
       const res = await apiRequest('POST', `/api/odoo/customer/${companyId}/category`, { categoryId, categoryName });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Category Updated",
-        description: "Category tag updated in Odoo",
+        description: data.message || "Category tag updated in Odoo",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/customers', companyId] });
     },

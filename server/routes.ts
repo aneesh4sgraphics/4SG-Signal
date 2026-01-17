@@ -10917,7 +10917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update customer category/tag (immediate Odoo update)
+  // Update customer category/tag (immediate Odoo update) - also propagates to child contacts
   app.post("/api/odoo/customer/:customerId/category", requireApproval, async (req: any, res) => {
     try {
       const { customerId } = req.params;
@@ -10932,10 +10932,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Customer is not linked to Odoo" });
       }
       
-      // Update category directly in Odoo - replaces all categories with just this one
-      const result = await odooClient.write('res.partner', customer.odooPartnerId, {
+      // Update category directly in Odoo for the company - replaces all categories with just this one
+      await odooClient.write('res.partner', customer.odooPartnerId, {
         category_id: [[6, 0, [categoryId]]] // Replace all categories with just this one
       });
+      
+      // Get all child contacts of this company and update their categories too
+      const childContacts = await odooClient.searchRead('res.partner', [
+        ['parent_id', '=', customer.odooPartnerId],
+        ['is_company', '=', false]
+      ], ['id'], { limit: 500 });
+      
+      let childrenUpdated = 0;
+      if (childContacts && childContacts.length > 0) {
+        // Update all child contacts with the same category
+        const childIds = childContacts.map((c: any) => c.id);
+        for (const childId of childIds) {
+          try {
+            await odooClient.write('res.partner', childId, {
+              category_id: [[6, 0, [categoryId]]]
+            });
+            childrenUpdated++;
+          } catch (childError: any) {
+            console.error(`Error updating child contact ${childId}:`, childError.message);
+          }
+        }
+      }
       
       // Also update local pricing tier field
       await db.update(customers).set({
@@ -10943,7 +10965,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       }).where(eq(customers.id, customerId));
       
-      res.json({ success: true, message: "Category updated in Odoo" });
+      res.json({ 
+        success: true, 
+        message: `Category updated in Odoo${childrenUpdated > 0 ? ` (${childrenUpdated} contacts also updated)` : ''}`,
+        childrenUpdated 
+      });
     } catch (error: any) {
       console.error("Error updating customer category:", error);
       res.status(500).json({ error: error.message || "Failed to update category" });
