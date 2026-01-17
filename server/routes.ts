@@ -10906,6 +10906,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available partner categories (tags) from Odoo
+  app.get("/api/odoo/partner-categories", requireApproval, async (req: any, res) => {
+    try {
+      const categories = await odooClient.getPartnerCategories();
+      res.json(categories);
+    } catch (error: any) {
+      console.error("Error fetching partner categories:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch partner categories from Odoo" });
+    }
+  });
+
+  // Update customer category/tag (immediate Odoo update)
+  app.post("/api/odoo/customer/:customerId/category", requireApproval, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      const { categoryId, categoryName } = req.body;
+      
+      // Get customer to find their odooPartnerId
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      if (!customer.odooPartnerId) {
+        return res.status(400).json({ error: "Customer is not linked to Odoo" });
+      }
+      
+      // Update category directly in Odoo - replaces all categories with just this one
+      const result = await odooClient.write('res.partner', customer.odooPartnerId, {
+        category_id: [[6, 0, [categoryId]]] // Replace all categories with just this one
+      });
+      
+      // Also update local pricing tier field
+      await db.update(customers).set({
+        pricingTier: categoryName,
+        updatedAt: new Date()
+      }).where(eq(customers.id, customerId));
+      
+      res.json({ success: true, message: "Category updated in Odoo" });
+    } catch (error: any) {
+      console.error("Error updating customer category:", error);
+      res.status(500).json({ error: error.message || "Failed to update category" });
+    }
+  });
+
   // Get partners (customers/companies) from Odoo
   app.get("/api/odoo/partners", requireApproval, async (req: any, res) => {
     try {

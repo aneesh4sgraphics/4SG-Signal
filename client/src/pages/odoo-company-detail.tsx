@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { PRICING_TIERS } from "@shared/schema";
 import {
   ArrowLeft,
   Building2,
@@ -161,6 +160,17 @@ export default function OdooCompanyDetail() {
     staleTime: 300000, // Cache for 5 minutes
   });
 
+  // Fetch available partner categories (tags) from Odoo for pricing tier dropdown
+  const { data: partnerCategories, isLoading: categoriesLoading } = useQuery<Array<{ id: number; name: string }>>({
+    queryKey: ['/api/odoo/partner-categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/odoo/partner-categories');
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 300000, // Cache for 5 minutes
+  });
+
   // Mutation to update payment terms (immediate Odoo update)
   const updatePaymentTermsMutation = useMutation({
     mutationFn: async ({ paymentTermId, paymentTermName }: { paymentTermId: number | null; paymentTermName: string }) => {
@@ -183,23 +193,23 @@ export default function OdooCompanyDetail() {
     },
   });
 
-  // Mutation to update pricing tier
+  // Mutation to update pricing tier (category/tag in Odoo)
   const updatePricingTierMutation = useMutation({
-    mutationFn: async (pricingTier: string) => {
-      const res = await apiRequest('PUT', `/api/customers/${companyId}`, { pricingTier });
+    mutationFn: async ({ categoryId, categoryName }: { categoryId: number; categoryName: string }) => {
+      const res = await apiRequest('POST', `/api/odoo/customer/${companyId}/category`, { categoryId, categoryName });
       return res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Pricing Tier Updated",
-        description: "Pricing tier has been updated",
+        title: "Category Updated",
+        description: "Category tag updated in Odoo",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/customers', companyId] });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update pricing tier",
+        description: error.message || "Failed to update category",
         variant: "destructive",
       });
     },
@@ -841,10 +851,10 @@ export default function OdooCompanyDetail() {
                 <Separator />
 
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <Tag className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm text-gray-500">Pricing Tier</p>
+                      <p className="text-sm text-gray-500">Category Tag</p>
                       {updatePricingTierMutation.isPending && (
                         <Loader2 className="w-3 h-3 animate-spin text-violet-500" />
                       )}
@@ -852,24 +862,35 @@ export default function OdooCompanyDetail() {
                         <CheckCircle2 className="w-3 h-3 text-green-500" />
                       )}
                     </div>
-                    <Select
-                      value={company.pricingTier || ''}
-                      onValueChange={(value) => {
-                        updatePricingTierMutation.mutate(value);
-                      }}
-                      disabled={updatePricingTierMutation.isPending}
-                    >
-                      <SelectTrigger className={`w-full ${updatePricingTierMutation.isPending ? 'opacity-50' : ''}`}>
-                        <SelectValue placeholder={company.pricingTier || 'Select pricing tier'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRICING_TIERS.map((tier) => (
-                          <SelectItem key={tier} value={tier}>
-                            {tier}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {categoriesLoading ? (
+                      <Skeleton className="h-9 w-full" />
+                    ) : partnerCategories && partnerCategories.length > 0 ? (
+                      <Select
+                        value={partnerCategories.find(c => c.name === company.pricingTier)?.id.toString() || ''}
+                        onValueChange={(value) => {
+                          const category = partnerCategories.find(c => c.id.toString() === value);
+                          if (category) {
+                            updatePricingTierMutation.mutate({ categoryId: category.id, categoryName: category.name });
+                          }
+                        }}
+                        disabled={updatePricingTierMutation.isPending}
+                      >
+                        <SelectTrigger className={`w-full ${updatePricingTierMutation.isPending ? 'opacity-50' : ''}`}>
+                          <SelectValue placeholder={company.pricingTier || 'Select category'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {partnerCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="font-medium text-gray-900">
+                        {company.pricingTier || 'Not Set'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
