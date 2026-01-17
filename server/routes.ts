@@ -56,7 +56,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, ilike, gte, gt, lt, isNull, ne, not } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, gte, gt, lt, isNull, isNotNull, ne, not } from "drizzle-orm";
 import { 
   customers,
   customerContacts, 
@@ -1482,6 +1482,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Backfill] Error:", error);
       res.status(500).json({ error: error.message || "Backfill failed" });
+    }
+  });
+
+  // One-time push: Sync backfilled pricing tiers to Odoo
+  app.post('/api/admin/push-pricing-to-odoo', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Push] Starting one-time push of pricing tiers to Odoo...");
+      
+      // Get all customers with odooPartnerId and pricingTier that were contacts updated from parents
+      const contactsToSync = await db.select()
+        .from(customers)
+        .where(and(
+          isNotNull(customers.odooPartnerId),
+          isNotNull(customers.pricingTier),
+          isNotNull(customers.parentCustomerId)
+        ));
+      
+      console.log(`[Odoo Push] Found ${contactsToSync.length} contacts with parent companies to sync`);
+      
+      // Get all Odoo partner categories to map tier names to IDs
+      const categories = await odooClient.getPartnerCategories();
+      const categoryMap = new Map<string, number>();
+      for (const cat of categories) {
+        categoryMap.set(cat.name.toUpperCase(), cat.id);
+      }
+      
+      console.log(`[Odoo Push] Loaded ${categories.length} Odoo categories`);
+      
+      const results = {
+        synced: 0,
+        skipped: 0,
+        errors: 0,
+        details: [] as string[],
+      };
+      
+      for (const contact of contactsToSync) {
+        if (!contact.pricingTier || !contact.odooPartnerId) {
+          results.skipped++;
+          continue;
+        }
+        
+        const tierName = contact.pricingTier.toUpperCase();
+        const categoryId = categoryMap.get(tierName);
+        
+        if (!categoryId) {
+          console.log(`[Odoo Push] Category not found for tier: ${tierName}`);
+          results.skipped++;
+          continue;
+        }
+        
+        try {
+          // Fetch current partner to preserve existing categories
+          const partners = await odooClient.read('res.partner', [contact.odooPartnerId], ['category_id']);
+          if (!partners || partners.length === 0) {
+            console.log(`[Odoo Push] Partner ${contact.odooPartnerId} not found in Odoo`);
+            results.skipped++;
+            continue;
+          }
+          
+          const currentCategories = partners[0].category_id || [];
+          const categoryIds = currentCategories.map((c: any) => 
+            Array.isArray(c) ? c[0] : c
+          ).filter((id: number) => typeof id === 'number');
+          
+          // Add new category if not already present
+          if (!categoryIds.includes(categoryId)) {
+            categoryIds.push(categoryId);
+            
+            // Update partner with new categories using special command format
+            // [(6, 0, [ids])] replaces all categories
+            await odooClient.updatePartner(contact.odooPartnerId, {
+              category_id: [[6, 0, categoryIds]]
+            });
+            
+            results.synced++;
+            results.details.push(`${contact.company || contact.firstName} ${contact.lastName}: Added ${tierName}`);
+            console.log(`[Odoo Push] Updated partner ${contact.odooPartnerId} with tier ${tierName}`);
+          } else {
+            results.skipped++;
+            console.log(`[Odoo Push] Partner ${contact.odooPartnerId} already has tier ${tierName}`);
+          }
+        } catch (err: any) {
+          console.error(`[Odoo Push] Error updating partner ${contact.odooPartnerId}:`, err.message);
+          results.errors++;
+        }
+      }
+      
+      console.log(`[Odoo Push] Complete: ${results.synced} synced, ${results.skipped} skipped, ${results.errors} errors`);
+      
+      res.json({
+        success: true,
+        message: `Pushed ${results.synced} pricing tiers to Odoo`,
+        results
+      });
+    } catch (error: any) {
+      console.error("[Odoo Push] Error:", error);
+      res.status(500).json({ error: error.message || "Push to Odoo failed" });
     }
   });
 
