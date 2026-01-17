@@ -443,6 +443,134 @@ export default function OdooContacts() {
     return PRICING_TIERS.some(pt => pt.toUpperCase() === tier);
   };
 
+  // Country name to flag emoji mapping
+  const countryToFlag = (country: string | null): string | null => {
+    if (!country) return null;
+    const countryUpper = country.toUpperCase().trim();
+    const countryMap: Record<string, string> = {
+      'UNITED STATES': '🇺🇸', 'USA': '🇺🇸', 'US': '🇺🇸', 'UNITED STATES OF AMERICA': '🇺🇸',
+      'CANADA': '🇨🇦', 'CA': '🇨🇦',
+      'MEXICO': '🇲🇽', 'MX': '🇲🇽',
+      'UNITED KINGDOM': '🇬🇧', 'UK': '🇬🇧', 'GREAT BRITAIN': '🇬🇧', 'GB': '🇬🇧', 'ENGLAND': '🇬🇧',
+      'AUSTRALIA': '🇦🇺', 'AU': '🇦🇺',
+      'GERMANY': '🇩🇪', 'DE': '🇩🇪',
+      'FRANCE': '🇫🇷', 'FR': '🇫🇷',
+      'SPAIN': '🇪🇸', 'ES': '🇪🇸',
+      'ITALY': '🇮🇹', 'IT': '🇮🇹',
+      'BRAZIL': '🇧🇷', 'BR': '🇧🇷',
+      'ARGENTINA': '🇦🇷', 'AR': '🇦🇷',
+      'COLOMBIA': '🇨🇴', 'CO': '🇨🇴',
+      'CHILE': '🇨🇱', 'CL': '🇨🇱',
+      'PERU': '🇵🇪', 'PE': '🇵🇪',
+      'VENEZUELA': '🇻🇪', 'VE': '🇻🇪',
+      'ECUADOR': '🇪🇨', 'EC': '🇪🇨',
+      'GUATEMALA': '🇬🇹', 'GT': '🇬🇹',
+      'COSTA RICA': '🇨🇷', 'CR': '🇨🇷',
+      'PANAMA': '🇵🇦', 'PA': '🇵🇦',
+      'PUERTO RICO': '🇵🇷', 'PR': '🇵🇷',
+      'DOMINICAN REPUBLIC': '🇩🇴', 'DO': '🇩🇴',
+      'HONDURAS': '🇭🇳', 'HN': '🇭🇳',
+      'EL SALVADOR': '🇸🇻', 'SV': '🇸🇻',
+      'NICARAGUA': '🇳🇮', 'NI': '🇳🇮',
+      'BOLIVIA': '🇧🇴', 'BO': '🇧🇴',
+      'PARAGUAY': '🇵🇾', 'PY': '🇵🇾',
+      'URUGUAY': '🇺🇾', 'UY': '🇺🇾',
+      'CHINA': '🇨🇳', 'CN': '🇨🇳',
+      'JAPAN': '🇯🇵', 'JP': '🇯🇵',
+      'SOUTH KOREA': '🇰🇷', 'KR': '🇰🇷', 'KOREA': '🇰🇷',
+      'INDIA': '🇮🇳', 'IN': '🇮🇳',
+      'PHILIPPINES': '🇵🇭', 'PH': '🇵🇭',
+      'VIETNAM': '🇻🇳', 'VN': '🇻🇳',
+      'THAILAND': '🇹🇭', 'TH': '🇹🇭',
+      'INDONESIA': '🇮🇩', 'ID': '🇮🇩',
+      'MALAYSIA': '🇲🇾', 'MY': '🇲🇾',
+      'SINGAPORE': '🇸🇬', 'SG': '🇸🇬',
+      'NETHERLANDS': '🇳🇱', 'NL': '🇳🇱', 'HOLLAND': '🇳🇱',
+      'BELGIUM': '🇧🇪', 'BE': '🇧🇪',
+      'SWITZERLAND': '🇨🇭', 'CH': '🇨🇭',
+      'AUSTRIA': '🇦🇹', 'AT': '🇦🇹',
+      'POLAND': '🇵🇱', 'PL': '🇵🇱',
+      'SWEDEN': '🇸🇪', 'SE': '🇸🇪',
+      'NORWAY': '🇳🇴', 'NO': '🇳🇴',
+      'DENMARK': '🇩🇰', 'DK': '🇩🇰',
+      'FINLAND': '🇫🇮', 'FI': '🇫🇮',
+      'IRELAND': '🇮🇪', 'IE': '🇮🇪',
+      'PORTUGAL': '🇵🇹', 'PT': '🇵🇹',
+      'NEW ZEALAND': '🇳🇿', 'NZ': '🇳🇿',
+      'SOUTH AFRICA': '🇿🇦', 'ZA': '🇿🇦',
+      'ISRAEL': '🇮🇱', 'IL': '🇮🇱',
+      'UNITED ARAB EMIRATES': '🇦🇪', 'UAE': '🇦🇪', 'AE': '🇦🇪',
+      'SAUDI ARABIA': '🇸🇦', 'SA': '🇸🇦',
+      'EGYPT': '🇪🇬', 'EG': '🇪🇬',
+      'TURKEY': '🇹🇷', 'TR': '🇹🇷',
+      'RUSSIA': '🇷🇺', 'RU': '🇷🇺',
+      'UKRAINE': '🇺🇦', 'UA': '🇺🇦',
+      'GREECE': '🇬🇷', 'GR': '🇬🇷',
+      'CZECH REPUBLIC': '🇨🇿', 'CZ': '🇨🇿', 'CZECHIA': '🇨🇿',
+      'HUNGARY': '🇭🇺', 'HU': '🇭🇺',
+      'ROMANIA': '🇷🇴', 'RO': '🇷🇴',
+      'JAMAICA': '🇯🇲', 'JM': '🇯🇲',
+      'TRINIDAD AND TOBAGO': '🇹🇹', 'TT': '🇹🇹',
+      'BAHAMAS': '🇧🇸', 'BS': '🇧🇸',
+      'BARBADOS': '🇧🇧', 'BB': '🇧🇧',
+      'CUBA': '🇨🇺', 'CU': '🇨🇺',
+      'HAITI': '🇭🇹', 'HT': '🇭🇹',
+    };
+    return countryMap[countryUpper] || null;
+  };
+
+  // US State abbreviation to flag image (using state abbreviations as fallback)
+  const stateToFlag = (province: string | null, country: string | null): string | null => {
+    if (!province) return null;
+    const countryUpper = country?.toUpperCase().trim() || '';
+    const isUS = ['UNITED STATES', 'USA', 'US', 'UNITED STATES OF AMERICA'].includes(countryUpper);
+    if (!isUS) return null;
+    
+    // Return state abbreviation for US states (state flags aren't emoji)
+    const stateAbbrev = province.toUpperCase().trim();
+    const stateNames: Record<string, string> = {
+      'ALABAMA': 'AL', 'ALASKA': 'AK', 'ARIZONA': 'AZ', 'ARKANSAS': 'AR', 'CALIFORNIA': 'CA',
+      'COLORADO': 'CO', 'CONNECTICUT': 'CT', 'DELAWARE': 'DE', 'FLORIDA': 'FL', 'GEORGIA': 'GA',
+      'HAWAII': 'HI', 'IDAHO': 'ID', 'ILLINOIS': 'IL', 'INDIANA': 'IN', 'IOWA': 'IA',
+      'KANSAS': 'KS', 'KENTUCKY': 'KY', 'LOUISIANA': 'LA', 'MAINE': 'ME', 'MARYLAND': 'MD',
+      'MASSACHUSETTS': 'MA', 'MICHIGAN': 'MI', 'MINNESOTA': 'MN', 'MISSISSIPPI': 'MS', 'MISSOURI': 'MO',
+      'MONTANA': 'MT', 'NEBRASKA': 'NE', 'NEVADA': 'NV', 'NEW HAMPSHIRE': 'NH', 'NEW JERSEY': 'NJ',
+      'NEW MEXICO': 'NM', 'NEW YORK': 'NY', 'NORTH CAROLINA': 'NC', 'NORTH DAKOTA': 'ND', 'OHIO': 'OH',
+      'OKLAHOMA': 'OK', 'OREGON': 'OR', 'PENNSYLVANIA': 'PA', 'RHODE ISLAND': 'RI', 'SOUTH CAROLINA': 'SC',
+      'SOUTH DAKOTA': 'SD', 'TENNESSEE': 'TN', 'TEXAS': 'TX', 'UTAH': 'UT', 'VERMONT': 'VT',
+      'VIRGINIA': 'VA', 'WASHINGTON': 'WA', 'WEST VIRGINIA': 'WV', 'WISCONSIN': 'WI', 'WYOMING': 'WY',
+      'DISTRICT OF COLUMBIA': 'DC', 'PUERTO RICO': 'PR',
+    };
+    // If it's already an abbreviation, return it
+    if (stateAbbrev.length === 2 && Object.values(stateNames).includes(stateAbbrev)) {
+      return stateAbbrev;
+    }
+    // If it's a full name, return the abbreviation
+    return stateNames[stateAbbrev] || null;
+  };
+
+  // Get flag or state badge for a contact
+  const getLocationBadge = (contact: Contact): { type: 'flag' | 'state' | 'none'; value: string } => {
+    const countryUpper = contact.country?.toUpperCase().trim() || '';
+    const isUS = ['UNITED STATES', 'USA', 'US', 'UNITED STATES OF AMERICA'].includes(countryUpper);
+    
+    // For US customers, show state abbreviation
+    if (isUS && contact.province) {
+      const stateAbbrev = stateToFlag(contact.province, contact.country);
+      if (stateAbbrev) {
+        return { type: 'state', value: stateAbbrev };
+      }
+    }
+    
+    // For other countries, show flag emoji
+    const flag = countryToFlag(contact.country);
+    if (flag) {
+      return { type: 'flag', value: flag };
+    }
+    
+    return { type: 'none', value: '' };
+  };
+
   // Active filters count
   const activeFiltersCount = Object.values(filters).filter(v => v !== null).length;
 
@@ -993,13 +1121,40 @@ export default function OdooContacts() {
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${
-                          contact.isCompany 
-                            ? 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700' 
-                            : 'bg-gradient-to-br from-violet-100 to-purple-200 text-violet-700'
-                        }`}>
-                          {contact.isCompany ? <Building2 className="w-6 h-6" /> : getInitials(contact)}
-                        </div>
+                        {(() => {
+                          const locationBadge = getLocationBadge(contact);
+                          if (locationBadge.type === 'flag') {
+                            return (
+                              <div 
+                                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl bg-gradient-to-br from-gray-50 to-gray-100"
+                                title={contact.country || ''}
+                              >
+                                {locationBadge.value}
+                              </div>
+                            );
+                          } else if (locationBadge.type === 'state') {
+                            return (
+                              <div 
+                                className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200"
+                                title={`${contact.province}, USA`}
+                              >
+                                <span className="text-xs font-bold text-blue-700">
+                                  🇺🇸 {locationBadge.value}
+                                </span>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${
+                                contact.isCompany 
+                                  ? 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700' 
+                                  : 'bg-gradient-to-br from-violet-100 to-purple-200 text-violet-700'
+                              }`}>
+                                {contact.isCompany ? <Building2 className="w-6 h-6" /> : getInitials(contact)}
+                              </div>
+                            );
+                          }
+                        })()}
                         <div className="flex items-center gap-1">
                           {isShopifyCustomer(contact) && (
                             <div 
