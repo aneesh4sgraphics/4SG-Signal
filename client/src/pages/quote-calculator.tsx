@@ -924,24 +924,48 @@ export default function QuoteCalculator() {
       return;
     }
 
-    const emails = getCustomerEmails(customer);
+    // Create an enriched customer that inherits from parent company if needed
+    let enrichedCustomer = { ...customer };
+    
+    // If this is a contact (not a company) with a parent, inherit missing data from parent
+    const parentCustomerId = (customer as any).parentCustomerId;
+    if (parentCustomerId && (!customer.pricingTier || !customer.salesRepName)) {
+      try {
+        const parentRes = await fetch(`/api/customers/${parentCustomerId}`, { credentials: 'include' });
+        if (parentRes.ok) {
+          const parentCompany = await parentRes.json();
+          // Inherit pricing tier from parent if contact doesn't have one
+          if (!customer.pricingTier && parentCompany.pricingTier) {
+            enrichedCustomer.pricingTier = parentCompany.pricingTier;
+          }
+          // Inherit sales rep from parent if contact doesn't have one
+          if (!customer.salesRepName && parentCompany.salesRepName) {
+            enrichedCustomer.salesRepName = parentCompany.salesRepName;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching parent company:', err);
+      }
+    }
+
+    const emails = getCustomerEmails(enrichedCustomer);
     
     // Always fetch contact emails for the dropdown in Customer Details
-    const contactEmails = await fetchContactEmails(customer.id);
+    const contactEmails = await fetchContactEmails(enrichedCustomer.id);
     setAvailableContactEmails(contactEmails);
     
     // Check for multiple emails first (customer has both email and email2)
     if (emails.length > 1) {
-      setPendingCustomer(customer);
-      setSelectedEmail(customer.email || emails[0]);
+      setPendingCustomer(enrichedCustomer);
+      setSelectedEmail(enrichedCustomer.email || emails[0]);
       setEmailSelectAction('set_primary');
       setEmailSelectDialogOpen(true);
       return;
     }
     
     // Check for missing/invalid email
-    if (isEmailMissing(customer.email)) {
-      setPendingCustomer(customer);
+    if (isEmailMissing(enrichedCustomer.email)) {
+      setPendingCustomer(enrichedCustomer);
       
       if (contactEmails.length > 0) {
         // Show dialog to pick from contact emails
@@ -954,18 +978,18 @@ export default function QuoteCalculator() {
     }
     
     // Check for missing pricing tier or sales rep - show gate dialog if needed
-    const missingTier = !customer.pricingTier;
-    const missingRep = !customer.salesRepName;
+    const missingTier = !enrichedCustomer.pricingTier;
+    const missingRep = !enrichedCustomer.salesRepName;
     if (missingTier || missingRep) {
-      setGateCustomer(customer);
-      setGatePricingTier(customer.pricingTier || "");
-      setGateSalesRep(customer.salesRepName || "");
+      setGateCustomer(enrichedCustomer);
+      setGatePricingTier(enrichedCustomer.pricingTier || "");
+      setGateSalesRep(enrichedCustomer.salesRepName || "");
       setShowCustomerGateDialog(true);
       return;
     }
     
     // All good - select directly
-    setSelectedCustomer(customer);
+    setSelectedCustomer(enrichedCustomer);
   };
 
   // Handle email selection confirmation - update customer's primary email in database
