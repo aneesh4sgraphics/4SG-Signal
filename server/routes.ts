@@ -11504,7 +11504,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 100;
       const offset = parseInt(req.query.offset as string) || 0;
       
-      const products = await odooClient.getProducts({ limit, offset });
+      // Filter to only show products that have SKUs (default_code)
+      const domain = [
+        ['default_code', '!=', false],
+        ['default_code', '!=', '']
+      ];
+      
+      const products = await odooClient.getProducts({ limit, offset, domain });
       res.json(products);
     } catch (error: any) {
       console.error("Error fetching Odoo products:", error);
