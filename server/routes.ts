@@ -1490,13 +1490,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("[Odoo Push] Starting one-time push of pricing tiers to Odoo...");
       
-      // Get all customers with odooPartnerId and pricingTier that were contacts updated from parents
+      // Get ALL customers with odooPartnerId and pricingTier (companies AND contacts)
       const contactsToSync = await db.select()
         .from(customers)
         .where(and(
           isNotNull(customers.odooPartnerId),
-          isNotNull(customers.pricingTier),
-          isNotNull(customers.parentCustomerId)
+          isNotNull(customers.pricingTier)
         ));
       
       console.log(`[Odoo Push] Found ${contactsToSync.length} contacts with parent companies to sync`);
