@@ -16,7 +16,6 @@ import CompetitorPricing from "@/pages/competitor-pricing-fixed";
 import SavedQuotes from "@/pages/saved-quotes";
 import CustomerManagement from "@/pages/customer-management";
 import CustomerTable from "@/pages/customer-table";
-import ClientDatabase from "@/pages/client-database";
 import ProductPricingManagement from "@/pages/product-pricing-management-new";
 import QuoteCalculator from "@/pages/quote-calculator";
 import PriceList from "@/pages/price-list";
@@ -84,11 +83,8 @@ const AppRoutes = () => (
     <Route path="/area-pricer" component={AreaPricer} />
     <Route path="/competitor-pricing" component={CompetitorPricing} />
     <Route path="/saved-quotes" component={SavedQuotes} />
-    <Route path="/clients" component={ClientDatabase} />
-    <Route path="/clients/:id" component={ClientDatabase} />
     <Route path="/customer-management" component={CustomerManagement} />
     <Route path="/customer-table" component={CustomerTable} />
-    <Route path="/customers" component={ClientDatabase} />
     <Route path="/product-pricing-management" component={ProductPricingManagement} />
     <Route path="/activity-logs" component={ActivityLogsPage} />
     <Route path="/shipping-calculator" component={ShippingCalculator} />
