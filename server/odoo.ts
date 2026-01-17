@@ -747,21 +747,19 @@ ${plainTextBody}`;
     name: string;
     email: string | null;
     phone: string | null;
-    mobile: string | null;
     function: string | null;
   }>> {
     try {
       const contacts = await this.searchRead('res.partner', [
         ['parent_id', '=', companyPartnerId],
         ['is_company', '=', false]
-      ], ['id', 'name', 'email', 'phone', 'mobile', 'function'], { limit: 50 });
+      ], ['id', 'name', 'email', 'phone', 'function'], { limit: 50 });
 
       return contacts.map((c: any) => ({
         id: c.id,
         name: c.name || '',
         email: c.email || null,
         phone: c.phone || null,
-        mobile: c.mobile || null,
         function: c.function || null,
       }));
     } catch (error: any) {

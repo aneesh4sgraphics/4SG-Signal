@@ -77,7 +77,6 @@ interface OdooContact {
   name: string;
   email: string | null;
   phone: string | null;
-  mobile: string | null;
   function: string | null;
 }
 
@@ -491,13 +490,13 @@ export default function OdooCompanyDetail() {
                               {contact.email}
                             </a>
                           )}
-                          {(contact.phone || contact.mobile) && (
+                          {contact.phone && (
                             <a
-                              href={`tel:${contact.phone || contact.mobile}`}
+                              href={`tel:${contact.phone}`}
                               className="flex items-center gap-1 text-gray-600 hover:text-violet-600"
                             >
                               <Phone className="w-3 h-3" />
-                              {contact.phone || contact.mobile}
+                              {contact.phone}
                             </a>
                           )}
                         </div>
