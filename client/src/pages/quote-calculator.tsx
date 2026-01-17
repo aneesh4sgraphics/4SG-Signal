@@ -270,14 +270,15 @@ export default function QuoteCalculator() {
   });
 
   // Check if customer has a pricing tier assigned or tags match a pricing tier label
+  // Uses allPricingTiers (not user-filtered) to ensure customer tiers are always recognized
   const getMatchingTierFromTags = (): string | null => {
     if (!selectedCustomer) return null;
     
     // First check the dedicated pricingTier field (highest priority)
     const customerPricingTier = (selectedCustomer as any).pricingTier;
     if (customerPricingTier) {
-      // Find the tier that matches by label or key
-      for (const tier of pricingTiers) {
+      // Find the tier that matches by label or key - use ALL tiers, not filtered
+      for (const tier of allPricingTiers) {
         if (tier.label.toLowerCase() === customerPricingTier.toLowerCase() ||
             tier.key.toLowerCase() === customerPricingTier.toLowerCase()) {
           return tier.key;
@@ -285,11 +286,11 @@ export default function QuoteCalculator() {
       }
     }
     
-    // Fallback to checking tags
+    // Fallback to checking tags - use ALL tiers to ensure recognition
     if (!selectedCustomer?.tags) return null;
     const customerTags = selectedCustomer.tags.toLowerCase().split(',').map((t: string) => t.trim());
     
-    for (const tier of pricingTiers) {
+    for (const tier of allPricingTiers) {
       const tierLabel = tier.label.toLowerCase();
       // Check for exact or partial match
       if (customerTags.some((tag: string) => 
