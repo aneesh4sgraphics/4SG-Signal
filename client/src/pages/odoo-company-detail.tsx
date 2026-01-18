@@ -935,10 +935,16 @@ export default function OdooCompanyDetail() {
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm text-gray-500">Sales Person</p>
                       {updateSalesPersonMutation.isPending && (
-                        <Loader2 className="w-3 h-3 animate-spin text-violet-500" />
+                        <span className="flex items-center gap-1 text-xs text-violet-600">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Saving...
+                        </span>
                       )}
                       {salesPersonSaveSuccess && !updateSalesPersonMutation.isPending && (
-                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium animate-pulse">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Saved!
+                        </span>
                       )}
                     </div>
                     {metricsLoading || salesPeopleLoading ? (
@@ -958,7 +964,7 @@ export default function OdooCompanyDetail() {
                         }}
                         disabled={updateSalesPersonMutation.isPending}
                       >
-                        <SelectTrigger className={`w-full ${updateSalesPersonMutation.isPending ? 'opacity-50' : ''}`}>
+                        <SelectTrigger className={`w-full transition-all duration-300 ${updateSalesPersonMutation.isPending ? 'opacity-50' : ''} ${salesPersonSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
                           <SelectValue placeholder={metrics?.salesPerson || company.salesRepName || 'Select sales person'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -988,10 +994,16 @@ export default function OdooCompanyDetail() {
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm text-gray-500">Payment Terms</p>
                       {updatePaymentTermsMutation.isPending && (
-                        <Loader2 className="w-3 h-3 animate-spin text-violet-500" />
+                        <span className="flex items-center gap-1 text-xs text-violet-600">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Saving...
+                        </span>
                       )}
                       {paymentTermsSaveSuccess && !updatePaymentTermsMutation.isPending && (
-                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium animate-pulse">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Saved!
+                        </span>
                       )}
                     </div>
                     {metricsLoading ? (
@@ -1007,7 +1019,7 @@ export default function OdooCompanyDetail() {
                         }}
                         disabled={updatePaymentTermsMutation.isPending}
                       >
-                        <SelectTrigger className={`w-full ${updatePaymentTermsMutation.isPending ? 'opacity-50' : ''}`}>
+                        <SelectTrigger className={`w-full transition-all duration-300 ${updatePaymentTermsMutation.isPending ? 'opacity-50' : ''} ${paymentTermsSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
                           <SelectValue placeholder={metrics?.paymentTerms || 'Select payment terms'} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1034,10 +1046,16 @@ export default function OdooCompanyDetail() {
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm text-gray-500">Tags</p>
                       {updatePricingTierMutation.isPending && (
-                        <Loader2 className="w-3 h-3 animate-spin text-violet-500" />
+                        <span className="flex items-center gap-1 text-xs text-violet-600">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Saving...
+                        </span>
                       )}
                       {tagSaveSuccess && !updatePricingTierMutation.isPending && (
-                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium animate-pulse">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Saved!
+                        </span>
                       )}
                     </div>
                     {categoriesLoading ? (
@@ -1053,7 +1071,7 @@ export default function OdooCompanyDetail() {
                         }}
                         disabled={updatePricingTierMutation.isPending}
                       >
-                        <SelectTrigger className={`w-full ${updatePricingTierMutation.isPending ? 'opacity-50' : ''}`}>
+                        <SelectTrigger className={`w-full transition-all duration-300 ${updatePricingTierMutation.isPending ? 'opacity-50' : ''} ${tagSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
                           <SelectValue placeholder={company.pricingTier || 'Select category'} />
                         </SelectTrigger>
                         <SelectContent>
