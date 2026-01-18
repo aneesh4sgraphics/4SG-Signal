@@ -15,7 +15,11 @@ import {
   RefreshCw,
   Scale,
   AlertTriangle,
-  Package
+  Package,
+  Banknote,
+  Clock,
+  Users,
+  Lightbulb
 } from "lucide-react";
 import { 
   BarChart, 
@@ -88,6 +92,32 @@ interface DebtEquityData {
   hasData: boolean;
 }
 
+interface BadDebtData {
+  success: boolean;
+  totalReceivables: number;
+  totalOverdue: number;
+  badDebtRatio: number;
+  collectionScore: number;
+  agingBuckets: {
+    current: number;
+    days1_30: number;
+    days31_60: number;
+    days61_90: number;
+    days90Plus: number;
+  };
+  topOverdueCustomers: Array<{
+    id: number;
+    name: string;
+    amountDue: number;
+    oldestDueDate: string;
+    daysOverdue: number;
+    invoiceCount: number;
+  }>;
+  collectionTips: string[];
+  invoiceCount: number;
+  hasData: boolean;
+}
+
 export default function ReportsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -112,6 +142,11 @@ export default function ReportsPage() {
 
   const { data: debtEquityData, isLoading: debtLoading, refetch: refetchDebtEquity } = useQuery<DebtEquityData>({
     queryKey: ['/api/reports/debt-equity-2026'],
+    enabled: isAdmin,
+  });
+
+  const { data: badDebtData, isLoading: badDebtLoading, refetch: refetchBadDebt } = useQuery<BadDebtData>({
+    queryKey: ['/api/reports/bad-debt-2026'],
     enabled: isAdmin,
   });
   
@@ -154,6 +189,7 @@ export default function ReportsPage() {
     refetchInventory();
     refetchProfit();
     refetchDebtEquity();
+    refetchBadDebt();
   };
   
   // Get inventory health indicator
@@ -213,9 +249,9 @@ export default function ReportsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleRefreshAll}
-            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading}
+            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -585,6 +621,165 @@ export default function ReportsPage() {
                     {debtEquityData?.success === false 
                       ? "Unable to fetch accounting data from Odoo"
                       : "No accounting data available for 2026"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bad Debt & Collections */}
+          <Card className="col-span-1 lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Banknote className="h-5 w-5 text-orange-600" />
+                    Bad Debt & Collections
+                  </CardTitle>
+                  <CardDescription>Receivables aging and collection health</CardDescription>
+                </div>
+                {badDebtData?.hasData && (
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={badDebtData.collectionScore >= 80 ? "default" : badDebtData.collectionScore >= 60 ? "secondary" : "destructive"}
+                      className="text-lg px-3 py-1"
+                    >
+                      Score: {badDebtData.collectionScore}
+                    </Badge>
+                    <span className={`text-xs font-medium ${
+                      badDebtData.collectionScore >= 80 ? 'text-green-600' :
+                      badDebtData.collectionScore >= 60 ? 'text-amber-600' : 'text-red-600'
+                    }`}>
+                      {badDebtData.collectionScore >= 80 ? 'Healthy' : badDebtData.collectionScore >= 60 ? 'Needs Attention' : 'Critical'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {badDebtLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-32" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              ) : badDebtData?.hasData ? (
+                <div className="space-y-6">
+                  {/* Summary metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Total Receivables</p>
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                        {formatCurrency(badDebtData.totalReceivables)}
+                      </p>
+                      <p className="text-xs text-blue-600">{badDebtData.invoiceCount} open invoices</p>
+                    </div>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Total Overdue</p>
+                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">
+                        {formatCurrency(badDebtData.totalOverdue)}
+                      </p>
+                      <p className="text-xs text-amber-600">
+                        {badDebtData.totalReceivables > 0 
+                          ? `${Math.round(badDebtData.totalOverdue / badDebtData.totalReceivables * 100)}% of receivables`
+                          : '0%'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Bad Debt Ratio</p>
+                      <p className="text-xl font-bold text-red-700 dark:text-red-300">
+                        {badDebtData.badDebtRatio}%
+                      </p>
+                      <p className="text-xs text-red-600">90+ days overdue</p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Current (Not Due)</p>
+                      <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                        {formatCurrency(badDebtData.agingBuckets.current)}
+                      </p>
+                      <p className="text-xs text-green-600">On-time payments</p>
+                    </div>
+                  </div>
+
+                  {/* Aging Buckets Chart */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Aging Breakdown
+                    </h4>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[
+                          { name: 'Current', value: badDebtData.agingBuckets.current, fill: '#22c55e' },
+                          { name: '1-30 Days', value: badDebtData.agingBuckets.days1_30, fill: '#eab308' },
+                          { name: '31-60 Days', value: badDebtData.agingBuckets.days31_60, fill: '#f97316' },
+                          { name: '61-90 Days', value: badDebtData.agingBuckets.days61_90, fill: '#ef4444' },
+                          { name: '90+ Days', value: badDebtData.agingBuckets.days90Plus, fill: '#7f1d1d' },
+                        ]} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis type="number" tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`} fontSize={12} />
+                          <YAxis type="category" dataKey="name" width={80} fontSize={12} />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: 'white', borderRadius: '8px' }}
+                          />
+                          <Bar dataKey="value" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Top Overdue Customers */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Top Overdue Accounts
+                      </h4>
+                      {badDebtData.topOverdueCustomers.length > 0 ? (
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {badDebtData.topOverdueCustomers.slice(0, 5).map((customer, idx) => (
+                            <div key={customer.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{customer.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {customer.daysOverdue} days overdue · {customer.invoiceCount} invoice{customer.invoiceCount > 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <Badge variant={customer.daysOverdue > 90 ? "destructive" : customer.daysOverdue > 60 ? "secondary" : "outline"}>
+                                {formatCurrency(customer.amountDue)}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No overdue accounts</p>
+                      )}
+                    </div>
+
+                    {/* Collection Tips */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-yellow-500" />
+                        Collection Tips
+                      </h4>
+                      <div className="space-y-2">
+                        {badDebtData.collectionTips.map((tip, idx) => (
+                          <div key={idx} className="flex items-start gap-2 p-2 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                            <span className="text-yellow-600 font-bold text-sm">{idx + 1}.</span>
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">{tip}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                  <p className="text-muted-foreground">
+                    {badDebtData?.success === false 
+                      ? "Unable to fetch receivables data from Odoo"
+                      : "No open invoices found"}
                   </p>
                 </div>
               )}

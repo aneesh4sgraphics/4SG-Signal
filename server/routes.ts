@@ -1001,6 +1001,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports 2026 - Bad Debt & Collections
+  app.get("/api/reports/bad-debt-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      
+      // Get all open (unpaid) customer invoices
+      const openInvoices = await odooClient.searchRead('account.move', [
+        ['move_type', '=', 'out_invoice'],
+        ['state', '=', 'posted'],
+        ['payment_state', 'in', ['not_paid', 'partial']],
+      ], ['id', 'name', 'partner_id', 'invoice_date', 'invoice_date_due', 'amount_total', 'amount_residual', 'payment_state'], { limit: 5000 });
+      
+      // Calculate aging buckets
+      const agingBuckets = {
+        current: 0,      // Not yet due
+        days1_30: 0,     // 1-30 days overdue
+        days31_60: 0,    // 31-60 days overdue
+        days61_90: 0,    // 61-90 days overdue
+        days90Plus: 0,   // 90+ days overdue (high risk)
+      };
+      
+      const overdueCustomers: Array<{
+        id: number;
+        name: string;
+        amountDue: number;
+        oldestDueDate: string;
+        daysOverdue: number;
+        invoiceCount: number;
+      }> = [];
+      
+      const customerTotals = new Map<number, { 
+        name: string; 
+        amountDue: number; 
+        oldestDueDate: string; 
+        daysOverdue: number;
+        invoiceCount: number;
+      }>();
+      
+      let totalReceivables = 0;
+      let totalOverdue = 0;
+      
+      for (const invoice of openInvoices) {
+        const amountDue = invoice.amount_residual || 0;
+        totalReceivables += amountDue;
+        
+        const dueDate = invoice.invoice_date_due ? new Date(invoice.invoice_date_due) : null;
+        const daysOverdue = dueDate ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        
+        // Categorize into aging buckets
+        if (daysOverdue <= 0) {
+          agingBuckets.current += amountDue;
+        } else if (daysOverdue <= 30) {
+          agingBuckets.days1_30 += amountDue;
+          totalOverdue += amountDue;
+        } else if (daysOverdue <= 60) {
+          agingBuckets.days31_60 += amountDue;
+          totalOverdue += amountDue;
+        } else if (daysOverdue <= 90) {
+          agingBuckets.days61_90 += amountDue;
+          totalOverdue += amountDue;
+        } else {
+          agingBuckets.days90Plus += amountDue;
+          totalOverdue += amountDue;
+        }
+        
+        // Track by customer for top overdue list
+        if (daysOverdue > 0 && invoice.partner_id) {
+          const partnerId = invoice.partner_id[0];
+          const partnerName = invoice.partner_id[1] || 'Unknown';
+          
+          const existing = customerTotals.get(partnerId);
+          if (existing) {
+            existing.amountDue += amountDue;
+            existing.invoiceCount += 1;
+            if (daysOverdue > existing.daysOverdue) {
+              existing.daysOverdue = daysOverdue;
+              existing.oldestDueDate = invoice.invoice_date_due || '';
+            }
+          } else {
+            customerTotals.set(partnerId, {
+              name: partnerName,
+              amountDue: amountDue,
+              oldestDueDate: invoice.invoice_date_due || '',
+              daysOverdue: daysOverdue,
+              invoiceCount: 1,
+            });
+          }
+        }
+      }
+      
+      // Convert to array and sort by amount due (highest first)
+      const sortedCustomers = Array.from(customerTotals.entries())
+        .map(([id, data]) => ({ id, ...data }))
+        .sort((a, b) => b.amountDue - a.amountDue)
+        .slice(0, 10); // Top 10
+      
+      // Calculate bad debt ratio (90+ days as % of total receivables)
+      const badDebtRatio = totalReceivables > 0 
+        ? (agingBuckets.days90Plus / totalReceivables) * 100 
+        : 0;
+      
+      // Collection health score (0-100, higher is better)
+      const collectionScore = Math.max(0, Math.min(100, 
+        100 - (badDebtRatio * 2) - (agingBuckets.days61_90 / Math.max(totalReceivables, 1) * 100)
+      ));
+      
+      // Collection tips based on data
+      const collectionTips: string[] = [];
+      
+      if (agingBuckets.days90Plus > 0) {
+        collectionTips.push(`${sortedCustomers.filter(c => c.daysOverdue > 90).length} customers have invoices 90+ days overdue. Consider escalating to collections.`);
+      }
+      if (agingBuckets.days61_90 > agingBuckets.days1_30) {
+        collectionTips.push('More debt in 61-90 day bucket than 1-30 days. Follow-up calls are critical now.');
+      }
+      if (sortedCustomers.length > 0 && sortedCustomers[0].amountDue > totalOverdue * 0.3) {
+        collectionTips.push(`${sortedCustomers[0].name} owes ${Math.round(sortedCustomers[0].amountDue / totalOverdue * 100)}% of all overdue - prioritize this account.`);
+      }
+      if (badDebtRatio > 10) {
+        collectionTips.push('Bad debt ratio is high (>10%). Review credit terms for new customers.');
+      }
+      if (collectionTips.length === 0) {
+        collectionTips.push('Collection health is good. Keep monitoring aging weekly.');
+      }
+      
+      res.json({
+        success: true,
+        totalReceivables,
+        totalOverdue,
+        badDebtRatio: Math.round(badDebtRatio * 10) / 10,
+        collectionScore: Math.round(collectionScore),
+        agingBuckets,
+        topOverdueCustomers: sortedCustomers,
+        collectionTips,
+        invoiceCount: openInvoices.length,
+        hasData: openInvoices.length > 0,
+      });
+    } catch (error) {
+      console.error("Bad Debt report error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch bad debt data", 
+        details: errorMessage,
+        hasData: false,
+      });
+    }
+  });
+
   // Reports 2026 - Inventory Turnover
   app.get("/api/reports/inventory-turnover-2026", isAuthenticated, async (req: any, res) => {
     try {
