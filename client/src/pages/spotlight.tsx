@@ -68,6 +68,13 @@ import {
   ThumbsDown,
   GitMerge,
   Trash2,
+  Award,
+  Battery,
+  Lightbulb,
+  BookOpen,
+  Star,
+  Trophy,
+  Rocket,
 } from "lucide-react";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
@@ -138,6 +145,43 @@ interface SpotlightSession {
   efficiencyScore?: number;
   currentStreak?: number;
   lastActivityAt?: string;
+  currentEnergy?: number;
+  warmupShown?: boolean;
+}
+
+interface GamificationState {
+  comboCount: number;
+  comboMultiplier: number;
+  currentStreak: number;
+  powerUpsAvailable: number;
+  hardTasksCompleted: number;
+  tasksSinceMicroCard: number;
+}
+
+interface MicroCoachingCard {
+  id: number;
+  cardType: 'product_quiz' | 'objection_practice' | 'customer_story' | 'competitor_intel' | 'machine_profile_check';
+  title: string;
+  content: string;
+  question?: string;
+  options?: string[];
+  correctAnswer?: number;
+  explanation?: string;
+  objectionType?: string;
+  suggestedResponses?: { id: string; text: string; isRecommended: boolean }[];
+  difficulty: string;
+}
+
+interface CoachTip {
+  id: number;
+  tipType: string;
+  content: string;
+}
+
+interface WarmupData {
+  yesterdaySummary: { calls: number; tasksCompleted: number; pricingTiersAssigned: number };
+  todayFocus: string;
+  streak: number;
 }
 
 interface EfficiencyData {
@@ -225,11 +269,47 @@ export default function Spotlight() {
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: currentTask, isLoading, refetch } = useQuery<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean; hints?: SpotlightHint[] }>({
+  const { data: currentTask, isLoading, refetch } = useQuery<{ 
+    task: SpotlightTask | null; 
+    session: SpotlightSession; 
+    allDone: boolean; 
+    isPaused?: boolean; 
+    hints?: SpotlightHint[];
+    gamification?: GamificationState;
+    microCard?: MicroCoachingCard | null;
+    coachTip?: CoachTip | null;
+  }>({
     queryKey: ['/api/spotlight/current'],
     refetchOnWindowFocus: false,
     staleTime: 30 * 1000,
   });
+  
+  const [showWarmup, setShowWarmup] = useState(false);
+  const [showMicroCard, setShowMicroCard] = useState(false);
+  const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(null);
+  const [quizAnswered, setQuizAnswered] = useState(false);
+  
+  // Fetch warmup data on mount if not yet shown
+  const { data: warmupData } = useQuery<WarmupData>({
+    queryKey: ['/api/spotlight/warmup'],
+    enabled: !currentTask?.session?.warmupShown,
+  });
+  
+  // Show warmup modal on first visit today
+  useEffect(() => {
+    if (warmupData && !currentTask?.session?.warmupShown && currentTask?.session?.totalCompleted === 0) {
+      setShowWarmup(true);
+    }
+  }, [warmupData, currentTask?.session?.warmupShown, currentTask?.session?.totalCompleted]);
+  
+  // Show micro-coaching card when returned from API
+  useEffect(() => {
+    if (currentTask?.microCard) {
+      setShowMicroCard(true);
+      setSelectedQuizAnswer(null);
+      setQuizAnswered(false);
+    }
+  }, [currentTask?.microCard?.id]);
 
   const { data: efficiency } = useQuery<EfficiencyData>({
     queryKey: ['/api/spotlight/efficiency'],
@@ -860,20 +940,45 @@ export default function Spotlight() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {efficiency && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-600">
-                    <Zap className="w-3 h-3" />
-                    <span className="text-xs font-medium">{efficiency.score}</span>
-                  </div>
-                  {efficiency.streak > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 text-orange-600">
-                      <Flame className="w-3 h-3" />
-                      <span className="text-xs font-medium">{efficiency.streak}d</span>
-                    </div>
-                  )}
+              {/* Gamification indicators */}
+              <div className="flex items-center gap-2">
+                {/* Energy Level */}
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-600" title="Energy Level">
+                  <Battery className="w-3 h-3" />
+                  <span className="text-xs font-medium">{session?.currentEnergy ?? 100}%</span>
                 </div>
-              )}
+                
+                {/* Combo Counter */}
+                {currentTask?.gamification && currentTask.gamification.comboCount > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 text-purple-600 animate-pulse" title="Combo Multiplier">
+                    <Rocket className="w-3 h-3" />
+                    <span className="text-xs font-medium">{currentTask.gamification.comboCount}x</span>
+                  </div>
+                )}
+                
+                {/* Power-ups */}
+                {currentTask?.gamification && currentTask.gamification.powerUpsAvailable > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 text-yellow-600" title="Power-ups Available">
+                    <Zap className="w-3 h-3" />
+                    <span className="text-xs font-medium">{currentTask.gamification.powerUpsAvailable}</span>
+                  </div>
+                )}
+                
+                {efficiency && (
+                  <>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-600">
+                      <Award className="w-3 h-3" />
+                      <span className="text-xs font-medium">{efficiency.score}</span>
+                    </div>
+                    {efficiency.streak > 0 && (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 text-orange-600">
+                        <Flame className="w-3 h-3" />
+                        <span className="text-xs font-medium">{efficiency.streak}d</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
               <div className="flex items-center gap-1">
                 {session?.buckets.map((bucket) => {
                   const info = BUCKET_INFO[bucket.bucket];
@@ -938,6 +1043,17 @@ export default function Spotlight() {
               )}
             </div>
           </div>
+          
+          {/* Coach Tip */}
+          {currentTask?.coachTip && (
+            <div className="rounded-lg p-3 mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 flex items-start gap-3">
+              <Lightbulb className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-indigo-700">Pro Tip</p>
+                <p className="text-sm text-indigo-600">{currentTask.coachTip.content}</p>
+              </div>
+            </div>
+          )}
 
           {/* Smart Hints */}
           {currentTask.hints && currentTask.hints.length > 0 && (
@@ -1810,6 +1926,165 @@ export default function Spotlight() {
               className="flex-1 bg-purple-600 hover:bg-purple-700"
             >
               {mergeCustomersMutation.isPending ? 'Merging...' : 'Merge Clients'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Morning Warmup Modal */}
+      <Dialog open={showWarmup} onOpenChange={setShowWarmup}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coffee className="w-5 h-5 text-amber-500" />
+              Good Morning!
+            </DialogTitle>
+          </DialogHeader>
+          {warmupData && (
+            <div className="space-y-4 py-4">
+              {warmupData.streak > 0 && (
+                <div className="flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                  <Flame className="w-6 h-6 text-orange-500" />
+                  <span className="text-lg font-semibold text-orange-700">{warmupData.streak} Day Streak!</span>
+                </div>
+              )}
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Yesterday you:</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">{warmupData.yesterdaySummary.calls}</div>
+                    <div className="text-xs text-gray-500">Calls</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{warmupData.yesterdaySummary.tasksCompleted}</div>
+                    <div className="text-xs text-gray-500">Tasks</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{warmupData.yesterdaySummary.pricingTiersAssigned}</div>
+                    <div className="text-xs text-gray-500">Tiers Set</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Today's focus:</p>
+                <p className="text-base font-medium text-[#111111]">{warmupData.todayFocus}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              onClick={() => setShowWarmup(false)} 
+              className="w-full bg-[#111111] hover:bg-[#333333]"
+            >
+              Let's Go!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Micro-Coaching Card Modal */}
+      <Dialog open={showMicroCard} onOpenChange={setShowMicroCard}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {currentTask?.microCard?.cardType === 'product_quiz' && <BookOpen className="w-5 h-5 text-blue-500" />}
+              {currentTask?.microCard?.cardType === 'objection_practice' && <MessageSquare className="w-5 h-5 text-orange-500" />}
+              {currentTask?.microCard?.cardType === 'competitor_intel' && <Target className="w-5 h-5 text-red-500" />}
+              {currentTask?.microCard?.cardType === 'customer_story' && <Star className="w-5 h-5 text-yellow-500" />}
+              {currentTask?.microCard?.cardType === 'machine_profile_check' && <Settings className="w-5 h-5 text-purple-500" />}
+              {currentTask?.microCard?.title}
+            </DialogTitle>
+            <Badge variant="outline" className="w-fit">
+              {currentTask?.microCard?.difficulty === 'easy' ? 'Quick' : currentTask?.microCard?.difficulty === 'hard' ? 'Challenge' : 'Standard'}
+            </Badge>
+          </DialogHeader>
+          
+          {currentTask?.microCard && (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-gray-600">{currentTask.microCard.content}</p>
+              
+              {/* Quiz options */}
+              {currentTask.microCard.cardType === 'product_quiz' && currentTask.microCard.options && (
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">{currentTask.microCard.question}</p>
+                  {currentTask.microCard.options.map((option, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedQuizAnswer(idx);
+                        setQuizAnswered(true);
+                      }}
+                      disabled={quizAnswered}
+                      className={`w-full p-3 text-left rounded-lg border text-sm transition-all ${
+                        quizAnswered && idx === currentTask.microCard?.correctAnswer
+                          ? 'bg-green-100 border-green-500 text-green-800'
+                          : quizAnswered && idx === selectedQuizAnswer
+                          ? 'bg-red-100 border-red-500 text-red-800'
+                          : selectedQuizAnswer === idx
+                          ? 'bg-blue-50 border-blue-500'
+                          : 'hover:bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                  
+                  {quizAnswered && (
+                    <div className={`p-3 rounded-lg text-sm ${
+                      selectedQuizAnswer === currentTask.microCard.correctAnswer
+                        ? 'bg-green-50 text-green-800'
+                        : 'bg-amber-50 text-amber-800'
+                    }`}>
+                      {selectedQuizAnswer === currentTask.microCard.correctAnswer ? (
+                        <span className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4" /> Correct!
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" /> Not quite.
+                        </span>
+                      )}
+                      {currentTask.microCard.explanation && (
+                        <p className="mt-2 text-xs">{currentTask.microCard.explanation}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Objection practice */}
+              {currentTask.microCard.cardType === 'objection_practice' && currentTask.microCard.suggestedResponses && (
+                <div className="space-y-2">
+                  <p className="font-medium text-sm">Suggested responses:</p>
+                  {currentTask.microCard.suggestedResponses.map((response) => (
+                    <div 
+                      key={response.id} 
+                      className={`p-3 rounded-lg border text-sm ${
+                        response.isRecommended ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      {response.isRecommended && (
+                        <Badge variant="secondary" className="mb-2 bg-green-100 text-green-700">
+                          Recommended
+                        </Badge>
+                      )}
+                      <p>{response.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              onClick={() => setShowMicroCard(false)} 
+              variant="outline"
+              className="w-full"
+            >
+              {quizAnswered || currentTask?.microCard?.cardType !== 'product_quiz' ? 'Continue' : 'Skip'}
             </Button>
           </DialogFooter>
         </DialogContent>

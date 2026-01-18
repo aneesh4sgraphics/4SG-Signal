@@ -18379,6 +18379,21 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         );
       }
 
+      // Get gamification state
+      const gamification = spotlightEngine.getGamificationState(session as any);
+      
+      // Check for micro-coaching card
+      let microCard = null;
+      if ((session as any).tasksSinceMicroCard >= 3) {
+        microCard = await spotlightEngine.getMicroCoachingCard(userId);
+      }
+      
+      // Get contextual coach tip for this task
+      let coachTip = null;
+      if (task) {
+        coachTip = await spotlightEngine.getCoachTip(task.taskSubtype);
+      }
+
       res.json({
         task,
         session: {
@@ -18386,7 +18401,12 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
           totalTarget: session.totalTarget,
           buckets: session.buckets,
           dayComplete: session.dayComplete,
+          currentEnergy: (session as any).currentEnergy || 100,
+          warmupShown: (session as any).warmupShown || false,
         },
+        gamification,
+        microCard,
+        coachTip,
         allDone,
         hints,
       });
@@ -18403,14 +18423,23 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { taskId, outcomeId, field, value, notes } = req.body;
+      const { taskId, outcomeId, field, value, notes, taskSubtype } = req.body;
       if (!taskId || !outcomeId) {
         return res.status(400).json({ error: "taskId and outcomeId are required" });
       }
 
       const result = await spotlightEngine.completeTask(userId, taskId, outcomeId, field, value, notes);
       
-      res.json(result);
+      // Update gamification state
+      const session = spotlightEngine.getSessionStats(userId);
+      if (taskSubtype) {
+        spotlightEngine.updateGamificationOnComplete(session as any, taskSubtype);
+      }
+      
+      // Get updated gamification state
+      const gamification = spotlightEngine.getGamificationState(session as any);
+      
+      res.json({ ...result, gamification });
     } catch (error) {
       console.error("[Spotlight] Error completing task:", error);
       res.status(500).json({ error: "Failed to complete task" });
@@ -18632,6 +18661,129 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     } catch (error) {
       console.error("[Spotlight] Error getting skipped tasks:", error);
       res.status(500).json({ error: "Failed to get skipped tasks" });
+    }
+  });
+
+  // ============================================
+  // SPOTLIGHT - Coaching & Gamification APIs
+  // ============================================
+
+  // Get morning warm-up data
+  app.get("/api/spotlight/warmup", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const warmup = await spotlightEngine.getWarmupData(userId);
+      res.json(warmup);
+    } catch (error) {
+      console.error("[Spotlight] Error getting warmup data:", error);
+      res.status(500).json({ error: "Failed to get warmup data" });
+    }
+  });
+
+  // Get end-of-day recap
+  app.get("/api/spotlight/recap", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const recap = await spotlightEngine.getRecapData(userId);
+      res.json(recap);
+    } catch (error) {
+      console.error("[Spotlight] Error getting recap data:", error);
+      res.status(500).json({ error: "Failed to get recap data" });
+    }
+  });
+
+  // Get micro-coaching card (shown every 3-4 tasks)
+  app.get("/api/spotlight/micro-card", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const card = await spotlightEngine.getMicroCoachingCard(userId);
+      res.json({ card });
+    } catch (error) {
+      console.error("[Spotlight] Error getting micro-coaching card:", error);
+      res.status(500).json({ error: "Failed to get micro-coaching card" });
+    }
+  });
+
+  // Get contextual coach tip for current task
+  app.get("/api/spotlight/coach-tip", isAuthenticated, async (req: any, res) => {
+    try {
+      const { taskSubtype, machineType } = req.query;
+      if (!taskSubtype) {
+        return res.json({ tip: null });
+      }
+      const tip = await spotlightEngine.getCoachTip(taskSubtype as string, machineType as string);
+      res.json({ tip });
+    } catch (error) {
+      console.error("[Spotlight] Error getting coach tip:", error);
+      res.status(500).json({ error: "Failed to get coach tip" });
+    }
+  });
+
+  // Use power-up (free skip)
+  app.post("/api/spotlight/use-power-up", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const success = spotlightEngine.usePowerUp(userId);
+      if (success) {
+        res.json({ success: true, message: "Power-up used! Free skip available." });
+      } else {
+        res.status(400).json({ success: false, error: "No power-ups available" });
+      }
+    } catch (error) {
+      console.error("[Spotlight] Error using power-up:", error);
+      res.status(500).json({ error: "Failed to use power-up" });
+    }
+  });
+
+  // Get gamification state
+  app.get("/api/spotlight/gamification", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const session = spotlightEngine.getSessionStats(userId);
+      const gamification = spotlightEngine.getGamificationState(session as any);
+      res.json(gamification);
+    } catch (error) {
+      console.error("[Spotlight] Error getting gamification state:", error);
+      res.status(500).json({ error: "Failed to get gamification state" });
+    }
+  });
+
+  // Update energy level (mid-session adjustment)
+  app.post("/api/spotlight/energy-check", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const { energyLevel } = req.body;
+      if (typeof energyLevel !== 'number' || energyLevel < 0 || energyLevel > 100) {
+        return res.status(400).json({ error: "energyLevel must be a number between 0 and 100" });
+      }
+      
+      const session = spotlightEngine.getSessionStats(userId) as any;
+      if (session) {
+        session.currentEnergy = energyLevel;
+        session.energyCheckShown = true;
+      }
+      res.json({ success: true, newEnergy: energyLevel });
+    } catch (error) {
+      console.error("[Spotlight] Error updating energy:", error);
+      res.status(500).json({ error: "Failed to update energy" });
     }
   });
 
