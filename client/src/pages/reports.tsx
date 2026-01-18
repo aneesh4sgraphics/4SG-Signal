@@ -298,7 +298,10 @@ export default function ReportsPage() {
                   </div>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={invoiceData.chartData}>
+                      <BarChart data={invoiceData.chartData.map((d, idx) => ({
+                        ...d,
+                        waitingToInvoice: idx === 0 ? (invoiceData.waitingToInvoice?.amount || 0) : 0
+                      }))}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis dataKey="month" fontSize={12} />
                         <YAxis 
@@ -306,7 +309,9 @@ export default function ReportsPage() {
                           tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
                         />
                         <Tooltip content={<CustomTooltipCurrency />} />
-                        <Bar dataKey="total" name="Total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Legend />
+                        <Bar dataKey="total" name="Invoiced" stackId="a" fill="#3b82f6" />
+                        <Bar dataKey="waitingToInvoice" name="Waiting to Invoice" stackId="a" fill="#22c55e" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
