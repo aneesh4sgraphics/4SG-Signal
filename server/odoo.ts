@@ -861,9 +861,24 @@ ${plainTextBody}`;
     orderName: string;
   }>> {
     try {
-      // First get all confirmed sale orders for this partner
+      // Check if this partner has a parent (is a contact under a company)
+      // If so, we need to also search for orders under the parent company
+      let partnerIdsToSearch = [partnerId];
+      
+      try {
+        const partnerInfo = await this.searchRead('res.partner', [['id', '=', partnerId]], ['parent_id'], { limit: 1 });
+        if (partnerInfo && partnerInfo.length > 0 && partnerInfo[0].parent_id) {
+          const parentId = partnerInfo[0].parent_id[0];
+          partnerIdsToSearch.push(parentId);
+          console.log(`[Odoo] Partner ${partnerId} has parent company ${parentId}, searching both for orders`);
+        }
+      } catch (parentErr) {
+        console.error(`[Odoo] Error checking parent for partner ${partnerId}:`, parentErr);
+      }
+      
+      // Get all confirmed sale orders for this partner AND their parent company
       const orders = await this.searchRead('sale.order', [
-        ['partner_id', '=', partnerId],
+        ['partner_id', 'in', partnerIdsToSearch],
         ['state', 'in', ['sale', 'done']]
       ], ['id', 'name'], { limit: 500 });
 
