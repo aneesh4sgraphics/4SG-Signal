@@ -15,6 +15,7 @@ import { parseCustomerCSV } from "./customer-parser";
 import { parseOdooExcel } from "./odoo-parser";
 import { odooClient } from "./odoo";
 import { isBlockedCompany, getBlockedKeywordMatch, BLOCKED_COMPANY_KEYWORDS } from "./customer-blocklist";
+import { autoAssignSalesRepIfNeeded } from "./sales-rep-auto-assign";
 
 import { generateQuoteHTMLForDownload, generatePriceListHTML, validateQuoteNumber, generateQuoteNumber } from "./stub-functions";
 import { normalizeEmail } from "@shared/email-normalizer";
@@ -2682,6 +2683,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Customer not found" });
       }
       
+      // Auto-assign sales rep based on location rules if not already assigned
+      // This handles cases where country/province is updated and triggers assignment
+      if (!customer.salesRepId) {
+        await autoAssignSalesRepIfNeeded(
+          customer.id,
+          customer.salesRepId,
+          { country: customer.country, province: customer.province }
+        );
+      }
+      
       // Sync pricing tier to Odoo/Shopify if tier changed
       if (newPricingTier && newPricingTier !== oldPricingTier && customer.sources) {
         const sources = customer.sources || [];
@@ -3119,6 +3130,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const createdCustomer = await storage.createCustomer(customer);
+      
+      // Auto-assign sales rep based on location rules if not already assigned
+      if (!createdCustomer.salesRepId) {
+        const assignResult = await autoAssignSalesRepIfNeeded(
+          createdCustomer.id,
+          createdCustomer.salesRepId,
+          { country: createdCustomer.country, province: createdCustomer.province }
+        );
+        if (assignResult.assigned && assignResult.rep) {
+          // Return the updated customer with the assigned rep
+          const updatedCustomer = await storage.getCustomer(createdCustomer.id);
+          return res.status(201).json(updatedCustomer);
+        }
+      }
+      
       res.status(201).json(createdCustomer);
     } catch (error) {
       console.error("Error creating customer:", error);

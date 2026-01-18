@@ -35,6 +35,11 @@ Preferred communication style: Simple, everyday language.
 - **SPOTLIGHT (Coaching Treadmill)**: Daily task management system presenting prioritized client actions for calls, follow-ups, outreach, data hygiene, and enablement. Features outcome buttons, auto-scheduling of follow-ups, and dual activity logging. Includes pricing feedback and smart hints for task processing.
 - **Do Not Merge Feature**: Allows users to explicitly mark customer pairs as separate entities to prevent future duplicate suggestions.
 - **Bulk Editing**: Odoo Contacts page supports bulk editing of Tags, Sales Rep, and Payment Terms for multiple selected contacts. Selection is preserved on failure for retry.
+- **Auto Sales Rep Assignment**: When customers are created or updated without a sales rep, the system automatically assigns based on location rules:
+  - Florida (US) → Santiago
+  - Spanish-speaking countries (Mexico, Colombia, Spain, etc.) → Patricio Delgado
+  - Other US states & English-speaking countries → Aneesh
+  - Logic in `server/sales-rep-auto-assign.ts`, triggered on customer create/update in routes.ts
 
 ### Email as Key Identifier
 Email is the primary identifier for connecting customers across all systems (Odoo, Shopify, Gmail, local CRM). The architecture ensures consistent matching and data integrity:
