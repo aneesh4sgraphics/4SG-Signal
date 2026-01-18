@@ -939,6 +939,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports 2026 - Debt to Equity Ratio
+  app.get("/api/reports/debt-equity-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const year = 2026;
+      const asOfDate = `${year}-12-31`;
+      
+      // Get liability accounts (payable, non_current_liabilities, etc.)
+      // In Odoo, liability account types include: liability_payable, liability_non_current, liability_current
+      const liabilityLines = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', 'in', ['liability_payable', 'liability_current', 'liability_non_current']],
+        ['date', '<=', asOfDate],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
+      
+      // Get equity accounts (equity, equity_unaffected)
+      const equityLines = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', 'in', ['equity', 'equity_unaffected']],
+        ['date', '<=', asOfDate],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
+      
+      // Calculate totals
+      // Liabilities: credit increases, debit decreases (credit - debit = positive liability)
+      const totalDebt = liabilityLines.reduce((sum: number, line: any) => 
+        sum + ((line.credit || 0) - (line.debit || 0)), 0);
+      
+      // Equity: credit increases, debit decreases  
+      const totalEquity = equityLines.reduce((sum: number, line: any) => 
+        sum + ((line.credit || 0) - (line.debit || 0)), 0);
+      
+      // Calculate D/E ratio (handle division by zero)
+      const debtToEquityRatio = totalEquity !== 0 
+        ? Math.abs(totalDebt) / Math.abs(totalEquity)
+        : null;
+      
+      res.json({
+        success: true,
+        year,
+        totalDebt: Math.abs(totalDebt),
+        totalEquity: Math.abs(totalEquity),
+        debtToEquityRatio,
+        hasData: liabilityLines.length > 0 || equityLines.length > 0,
+      });
+    } catch (error) {
+      console.error("Debt to Equity 2026 report error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch debt/equity data", 
+        details: errorMessage,
+        hasData: false,
+      });
+    }
+  });
+
   // Sales Analytics - Profit & Loss (Income and Cost of Sales from Odoo)
   app.get("/api/analytics/profit-loss", isAuthenticated, async (req: any, res) => {
     try {

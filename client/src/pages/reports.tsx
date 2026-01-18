@@ -1,17 +1,20 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   BarChart3, 
   TrendingUp, 
   DollarSign,
   FileText,
   ArrowLeft,
-  RefreshCw
+  RefreshCw,
+  Scale,
+  AlertTriangle
 } from "lucide-react";
 import { 
   BarChart, 
@@ -77,18 +80,62 @@ interface GrossProfitData {
   }>;
 }
 
+interface DebtEquityData {
+  success: boolean;
+  year: number;
+  totalDebt: number;
+  totalEquity: number;
+  debtToEquityRatio: number | null;
+  hasData: boolean;
+}
+
 export default function ReportsPage() {
+  const { user, isLoading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  
+  const isAdmin = (user as any)?.role === 'admin';
+  
+  // All hooks must be called before any conditional returns (Rules of Hooks)
   const { data: invoiceData, isLoading: invoiceLoading, refetch: refetchInvoices } = useQuery<InvoiceData>({
     queryKey: ['/api/reports/invoices-2026'],
+    enabled: isAdmin, // Only fetch if admin
   });
 
   const { data: quotesOrdersData, isLoading: quotesLoading, refetch: refetchQuotesOrders } = useQuery<QuotesOrdersData>({
     queryKey: ['/api/reports/quotes-vs-orders-2026'],
+    enabled: isAdmin,
   });
 
   const { data: grossProfitData, isLoading: profitLoading, refetch: refetchProfit } = useQuery<GrossProfitData>({
     queryKey: ['/api/reports/gross-profit-2026'],
+    enabled: isAdmin,
   });
+
+  const { data: debtEquityData, isLoading: debtLoading, refetch: refetchDebtEquity } = useQuery<DebtEquityData>({
+    queryKey: ['/api/reports/debt-equity-2026'],
+    enabled: isAdmin,
+  });
+  
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      setLocation('/');
+    }
+  }, [authLoading, isAdmin, setLocation]);
+  
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Don't render for non-admin (will redirect)
+  if (!isAdmin) {
+    return null;
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-CA', {
@@ -107,6 +154,37 @@ export default function ReportsPage() {
     refetchInvoices();
     refetchQuotesOrders();
     refetchProfit();
+    refetchDebtEquity();
+  };
+  
+  // Calculate a sensible conversion rate:
+  // Only count quotes that could convert - if there are more orders than quotes,
+  // it means some orders were placed directly, so cap the effective conversion at 100%
+  const getConversionStats = () => {
+    if (!quotesOrdersData) return { rate: 0, note: '' };
+    const { quotesCount, confirmedCount } = quotesOrdersData.totals;
+    
+    if (quotesCount === 0 && confirmedCount === 0) {
+      return { rate: 0, note: 'No activity' };
+    }
+    
+    if (quotesCount === 0 && confirmedCount > 0) {
+      return { rate: 100, note: 'All direct orders' };
+    }
+    
+    // If more orders than quotes, some were direct orders
+    if (confirmedCount > quotesCount) {
+      const directOrders = confirmedCount - quotesCount;
+      return { 
+        rate: 100, 
+        note: `+${directOrders} direct orders`
+      };
+    }
+    
+    return { 
+      rate: Math.round((confirmedCount / quotesCount) * 100 * 10) / 10,
+      note: ''
+    };
   };
 
   const CustomTooltipCurrency = ({ active, payload, label }: any) => {
@@ -155,9 +233,9 @@ export default function ReportsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleRefreshAll}
-            disabled={invoiceLoading || quotesLoading || profitLoading}
+            disabled={invoiceLoading || quotesLoading || profitLoading || debtLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || quotesLoading || profitLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || quotesLoading || profitLoading || debtLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -235,13 +313,18 @@ export default function ReportsPage() {
                   </CardTitle>
                   <CardDescription>Quotes sent vs sales orders confirmed</CardDescription>
                 </div>
-                {quotesOrdersData && quotesOrdersData.totals.quotesCount > 0 && (
-                  <Badge 
-                    variant={((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100) >= 50 ? "default" : "secondary"}
-                    className="text-lg px-3 py-1"
-                  >
-                    {((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100).toFixed(1)}% Rate
-                  </Badge>
+                {quotesOrdersData && (
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={getConversionStats().rate >= 50 ? "default" : "secondary"}
+                      className="text-lg px-3 py-1"
+                    >
+                      {getConversionStats().rate}% Rate
+                    </Badge>
+                    {getConversionStats().note && (
+                      <span className="text-xs text-muted-foreground">{getConversionStats().note}</span>
+                    )}
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -275,23 +358,25 @@ export default function ReportsPage() {
                     <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
                       <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Conversion Rate</p>
                       <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
-                        {quotesOrdersData.totals.quotesCount > 0 
-                          ? ((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100).toFixed(1)
-                          : 0}%
+                        {getConversionStats().rate}%
                       </p>
                       <p className="text-xs text-purple-600">
-                        of quotes
+                        {getConversionStats().note || 'of quotes'}
                       </p>
                     </div>
                   </div>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={quotesOrdersData.chartData.map(d => ({
-                        ...d,
-                        conversionRate: d.quotesCount > 0 
-                          ? Math.round((d.confirmedCount / d.quotesCount) * 100) 
-                          : 0
-                      }))}>
+                      <BarChart data={quotesOrdersData.chartData.map(d => {
+                        // Cap conversion rate at 100% (direct orders cause > 100%)
+                        let rate = 0;
+                        if (d.quotesCount === 0 && d.confirmedCount > 0) {
+                          rate = 100; // All direct orders
+                        } else if (d.quotesCount > 0) {
+                          rate = Math.min(100, Math.round((d.confirmedCount / d.quotesCount) * 100));
+                        }
+                        return { ...d, conversionRate: rate };
+                      })}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis dataKey="month" fontSize={12} />
                         <YAxis 
@@ -451,6 +536,89 @@ export default function ReportsPage() {
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-8">No gross profit data available</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Debt to Equity Ratio */}
+          <Card className="col-span-1">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-indigo-600" />
+                    Debt to Equity Ratio
+                  </CardTitle>
+                  <CardDescription>Total liabilities vs. shareholders' equity</CardDescription>
+                </div>
+                {debtEquityData?.hasData && debtEquityData.debtToEquityRatio !== null && (
+                  <Badge 
+                    variant={debtEquityData.debtToEquityRatio <= 2 ? "default" : "destructive"}
+                    className="text-lg px-3 py-1"
+                  >
+                    {debtEquityData.debtToEquityRatio.toFixed(2)}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {debtLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-32" />
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              ) : debtEquityData?.hasData ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Total Debt</p>
+                      <p className="text-xl font-bold text-red-700 dark:text-red-300">
+                        {formatCurrency(debtEquityData.totalDebt)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Total Equity</p>
+                      <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                        {formatCurrency(debtEquityData.totalEquity)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-indigo-50 dark:bg-indigo-950 rounded-lg">
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">D/E Ratio</p>
+                      <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+                        {debtEquityData.debtToEquityRatio !== null 
+                          ? debtEquityData.debtToEquityRatio.toFixed(2)
+                          : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p className="flex items-center gap-2">
+                      {debtEquityData.debtToEquityRatio !== null && debtEquityData.debtToEquityRatio <= 1 ? (
+                        <>
+                          <span className="text-green-600">Low leverage</span> - More equity than debt
+                        </>
+                      ) : debtEquityData.debtToEquityRatio !== null && debtEquityData.debtToEquityRatio <= 2 ? (
+                        <>
+                          <span className="text-amber-600">Moderate leverage</span> - Balanced debt/equity mix
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <span className="text-red-600">High leverage</span> - Consider reducing debt
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                  <p className="text-muted-foreground">
+                    {debtEquityData?.success === false 
+                      ? "Unable to fetch accounting data from Odoo"
+                      : "No accounting data available for 2026"}
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
