@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { debounce } from "lodash";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Search,
   LayoutGrid,
@@ -30,6 +31,8 @@ import {
   Filter,
   Box,
   Layers,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface OdooProduct {
@@ -57,7 +60,11 @@ export default function OdooProducts() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [costRevealed, setCostRevealed] = useState(false);
   const pageSize = 50;
+  
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.role === 'admin';
 
   const debouncedSetSearch = useCallback(
     debounce((value: string) => {
@@ -159,6 +166,18 @@ export default function OdooProducts() {
             </div>
 
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Button
+                  variant={costRevealed ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCostRevealed(!costRevealed)}
+                  className={costRevealed ? "bg-green-600 hover:bg-green-700" : ""}
+                  title={costRevealed ? "Hide cost prices" : "Show cost prices"}
+                >
+                  {costRevealed ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                  Cost
+                </Button>
+              )}
               <Button
                 variant={viewMode === "grid" ? "default" : "outline"}
                 size="sm"
@@ -307,7 +326,7 @@ export default function OdooProducts() {
                           {formatPrice(product.list_price)}
                         </p>
                       </div>
-                      {product.standard_price !== undefined && product.standard_price > 0 && (
+                      {isAdmin && costRevealed && product.standard_price !== undefined && product.standard_price > 0 && (
                         <div className="text-right">
                           <p className="text-xs text-gray-500">Cost</p>
                           <p className="text-sm text-gray-600">
@@ -335,7 +354,7 @@ export default function OdooProducts() {
               <div className="col-span-2">Category</div>
               <div className="col-span-1">Type</div>
               <div className="col-span-1 text-right">List Price</div>
-              <div className="col-span-1 text-right">Cost</div>
+              <div className="col-span-1 text-right">{isAdmin && costRevealed ? 'Cost' : ''}</div>
               <div className="col-span-1"></div>
             </div>
             {filteredProducts.map((product) => (
@@ -368,7 +387,7 @@ export default function OdooProducts() {
                       </div>
                       <div className="col-span-1 text-right">
                         <p className="text-sm text-gray-600">
-                          {product.standard_price ? formatPrice(product.standard_price) : '-'}
+                          {isAdmin && costRevealed && product.standard_price ? formatPrice(product.standard_price) : ''}
                         </p>
                       </div>
                       <div className="col-span-1 text-right">
