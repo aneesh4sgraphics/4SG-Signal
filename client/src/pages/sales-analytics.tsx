@@ -44,8 +44,12 @@ interface QuotesSentData {
   quarter: number | null;
   startDate: string;
   endDate: string;
-  quoteCount: number;
+  totalQuotes: number;
   totalAmount: number;
+  outstandingCount: number;
+  outstandingAmount: number;
+  convertedCount: number;
+  convertedAmount: number;
 }
 
 interface ConversionRateData {
@@ -351,7 +355,7 @@ export default function SalesAnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Quotes Sent */}
+          {/* Quotes Sent (Total - including converted) */}
           <Card>
             <CardContent className="pt-6">
               {quotesLoading ? (
@@ -363,19 +367,23 @@ export default function SalesAnalyticsPage() {
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Quotes Sent</p>
+                      <p className="text-sm text-muted-foreground">Total Quotes</p>
                       <p className="text-2xl font-bold text-purple-600">
-                        {formatNumber(quotesData?.quoteCount || 0)}
+                        {formatNumber(quotesData?.totalQuotes || 0)}
                       </p>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
                       <FileText className="h-6 w-6 text-purple-600" />
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
                     <div className="flex justify-between">
-                      <span>Total Value:</span>
-                      <span className="font-medium">{formatCurrency(quotesData?.totalAmount || 0)}</span>
+                      <span>Outstanding:</span>
+                      <span className="font-medium text-amber-600">{formatNumber(quotesData?.outstandingCount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Converted:</span>
+                      <span className="font-medium text-green-600">{formatNumber(quotesData?.convertedCount || 0)}</span>
                     </div>
                   </div>
                 </>
@@ -503,57 +511,77 @@ export default function SalesAnalyticsPage() {
                 Quotes to Orders Conversion
               </CardTitle>
               <CardDescription>
-                How many quotes became confirmed sales orders
+                Every sales order was once a quote - track conversion success
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {conversionLoading ? (
+              {conversionLoading || quotesLoading ? (
                 <div className="space-y-4">
                   <Skeleton className="h-20 w-full" />
                   <Skeleton className="h-20 w-full" />
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg text-center">
-                      <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">
-                        {formatNumber(conversionData?.quotesSent || 0)}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        {formatNumber(quotesData?.totalQuotes || 0)}
                       </p>
-                      <p className="text-sm text-amber-600 dark:text-amber-400">Quotes Sent</p>
-                      <p className="text-xs text-amber-500 mt-1">
-                        {formatCurrency(conversionData?.quotesSentAmount || 0)}
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Total Quotes</p>
+                      <p className="text-xs text-purple-500 mt-1">
+                        {formatCurrency(quotesData?.totalAmount || 0)}
                       </p>
                     </div>
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950 rounded-lg text-center">
-                      <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
-                        {formatNumber(conversionData?.ordersConfirmed || 0)}
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                        {formatNumber(quotesData?.convertedCount || 0)}
                       </p>
-                      <p className="text-sm text-emerald-600 dark:text-emerald-400">Orders Confirmed</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Converted</p>
                       <p className="text-xs text-emerald-500 mt-1">
-                        {formatCurrency(conversionData?.ordersConfirmedAmount || 0)}
+                        {formatCurrency(quotesData?.convertedAmount || 0)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg text-center border-2 border-amber-300 dark:border-amber-700">
+                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                        {formatNumber(quotesData?.outstandingCount || 0)}
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">Outstanding</p>
+                      <p className="text-xs text-amber-500 mt-1">
+                        {formatCurrency(quotesData?.outstandingAmount || 0)}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                         Conversion Rate
                       </span>
-                      <span className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                      <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                         {conversionData?.conversionRate || 0}%
                       </span>
                     </div>
-                    <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-3">
+                    <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-3">
                       <div 
-                        className="bg-purple-600 h-3 rounded-full transition-all duration-500" 
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-500" 
                         style={{ width: `${Math.min(conversionData?.conversionRate || 0, 100)}%` }} 
                       />
                     </div>
-                    <p className="text-xs text-purple-500 mt-2 text-center">
-                      {conversionData?.ordersConfirmed || 0} of {(conversionData?.quotesSent || 0) + (conversionData?.ordersConfirmed || 0)} total converted
+                    <p className="text-xs text-blue-500 mt-2 text-center">
+                      {quotesData?.convertedCount || 0} of {quotesData?.totalQuotes || 0} quotes converted to orders
                     </p>
                   </div>
+                  
+                  {(quotesData?.outstandingCount || 0) > 0 && (
+                    <div className="p-3 bg-amber-100 dark:bg-amber-900 rounded-lg border border-amber-300 dark:border-amber-700">
+                      <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                        {formatNumber(quotesData?.outstandingCount || 0)} quotes still pending - worth {formatCurrency(quotesData?.outstandingAmount || 0)}
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Review these to understand why they haven't converted
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

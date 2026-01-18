@@ -1039,15 +1039,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         periodLabel = `${yearNum}`;
       }
       
-      // Get quotes (draft and sent sale orders) from Odoo
-      const quotes = await odooClient.searchRead('sale.order', [
-        ['state', 'in', ['draft', 'sent']],
+      // Get ALL sale orders from Odoo (every sales order was once a quote)
+      const allOrders = await odooClient.searchRead('sale.order', [
         ['date_order', '>=', startDate],
         ['date_order', '<=', endDate],
       ], ['id', 'name', 'amount_total', 'date_order', 'state'], { limit: 10000 });
       
-      const quoteCount = quotes.length;
-      const totalAmount = quotes.reduce((sum: number, q: any) => sum + (q.amount_total || 0), 0);
+      // Total quotes = all orders created (since every order starts as a quote)
+      const totalQuotes = allOrders.length;
+      const totalAmount = allOrders.reduce((sum: number, q: any) => sum + (q.amount_total || 0), 0);
+      
+      // Outstanding quotes = not yet converted (still draft or sent)
+      const outstandingQuotes = allOrders.filter((o: any) => ['draft', 'sent'].includes(o.state));
+      const outstandingCount = outstandingQuotes.length;
+      const outstandingAmount = outstandingQuotes.reduce((sum: number, q: any) => sum + (q.amount_total || 0), 0);
+      
+      // Converted = confirmed orders (sale or done)
+      const convertedOrders = allOrders.filter((o: any) => ['sale', 'done'].includes(o.state));
+      const convertedCount = convertedOrders.length;
+      const convertedAmount = convertedOrders.reduce((sum: number, o: any) => sum + (o.amount_total || 0), 0);
       
       res.json({
         success: true,
@@ -1058,8 +1068,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quarter: quarter ? parseInt(quarter) : null,
         startDate,
         endDate,
-        quoteCount,
+        // Total quotes created (all orders, since every order was once a quote)
+        totalQuotes,
         totalAmount: Math.round(totalAmount * 100) / 100,
+        // Outstanding = still need to convert
+        outstandingCount,
+        outstandingAmount: Math.round(outstandingAmount * 100) / 100,
+        // Converted = became sales orders
+        convertedCount,
+        convertedAmount: Math.round(convertedAmount * 100) / 100,
       });
     } catch (error) {
       console.error("Quotes sent analytics error:", error);
