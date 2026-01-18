@@ -11297,6 +11297,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create customer in Odoo (push CRM contact to Odoo)
+  app.post("/api/odoo/customer/:customerId/create", requireApproval, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      // Get customer from CRM
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      if (customer.odooPartnerId) {
+        return res.status(400).json({ error: "Customer is already linked to Odoo", odooPartnerId: customer.odooPartnerId });
+      }
+      
+      // Validate required fields
+      const name = customer.isCompany 
+        ? customer.company 
+        : [customer.firstName, customer.lastName].filter(Boolean).join(' ');
+      
+      if (!name) {
+        return res.status(422).json({ error: "Customer name is required (company name or first/last name)" });
+      }
+      
+      // Check for existing partner by email (duplicate prevention)
+      if (customer.email) {
+        const existingPartners = await odooClient.searchRead('res.partner', [
+          ['email', '=ilike', customer.email]
+        ], ['id', 'name', 'email', 'is_company'], { limit: 5 });
+        
+        if (existingPartners && existingPartners.length > 0) {
+          return res.status(409).json({ 
+            error: "A partner with this email already exists in Odoo",
+            duplicates: existingPartners.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              email: p.email,
+              isCompany: p.is_company
+            }))
+          });
+        }
+      }
+      
+      // Resolve country ID if provided
+      let countryId: number | false = false;
+      if (customer.country) {
+        const countries = await odooClient.getCountries();
+        const country = countries.find(c => 
+          c.name.toLowerCase() === customer.country?.toLowerCase() ||
+          c.code.toLowerCase() === customer.country?.toLowerCase()
+        );
+        if (country) {
+          countryId = country.id;
+        }
+      }
+      
+      // Resolve state ID if country found and state provided
+      let stateId: number | false = false;
+      if (countryId && customer.province) {
+        const states = await odooClient.getStates(countryId as number);
+        const state = states.find(s => 
+          s.name.toLowerCase() === customer.province?.toLowerCase() ||
+          s.code.toLowerCase() === customer.province?.toLowerCase()
+        );
+        if (state) {
+          stateId = state.id;
+        }
+      }
+      
+      // Build partner data
+      const partnerData: Record<string, any> = {
+        name,
+        is_company: customer.isCompany || false,
+        email: customer.email || false,
+        phone: customer.phone || customer.cell || false,
+        mobile: customer.cell || false,
+        street: customer.address1 || false,
+        city: customer.city || false,
+        zip: customer.zip || false,
+        website: customer.website || false,
+        comment: customer.note || false,
+      };
+      
+      if (countryId) partnerData.country_id = countryId;
+      if (stateId) partnerData.state_id = stateId;
+      
+      // Create the partner in Odoo
+      const newPartnerId = await odooClient.create('res.partner', partnerData);
+      
+      if (!newPartnerId) {
+        return res.status(500).json({ error: "Failed to create partner in Odoo" });
+      }
+      
+      console.log(`[Odoo] Created new partner ID ${newPartnerId} for CRM customer ${customerId}`);
+      
+      // Update local customer record with the new Odoo partner ID
+      await db.update(customers).set({
+        odooPartnerId: newPartnerId,
+        updatedAt: new Date()
+      }).where(eq(customers.id, customerId));
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully created "${name}" in Odoo`,
+        odooPartnerId: newPartnerId
+      });
+    } catch (error: any) {
+      console.error("Error creating customer in Odoo:", error);
+      res.status(500).json({ error: error.message || "Failed to create customer in Odoo" });
+    }
+  });
+
+  // Link CRM customer to existing Odoo partner
+  app.post("/api/odoo/customer/:customerId/link", requireApproval, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      const { odooPartnerId } = req.body;
+      
+      if (!odooPartnerId) {
+        return res.status(400).json({ error: "odooPartnerId is required" });
+      }
+      
+      // Get customer from CRM
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      // Verify the Odoo partner exists
+      const partners = await odooClient.searchRead('res.partner', [
+        ['id', '=', odooPartnerId]
+      ], ['id', 'name'], { limit: 1 });
+      
+      if (!partners || partners.length === 0) {
+        return res.status(404).json({ error: "Odoo partner not found" });
+      }
+      
+      // Update local customer record with the Odoo partner ID
+      await db.update(customers).set({
+        odooPartnerId: odooPartnerId,
+        updatedAt: new Date()
+      }).where(eq(customers.id, customerId));
+      
+      console.log(`[Odoo] Linked CRM customer ${customerId} to Odoo partner ${odooPartnerId}`);
+      
+      res.json({ 
+        success: true, 
+        message: `Successfully linked to "${partners[0].name}" in Odoo`,
+        odooPartnerId
+      });
+    } catch (error: any) {
+      console.error("Error linking customer to Odoo:", error);
+      res.status(500).json({ error: error.message || "Failed to link customer to Odoo" });
+    }
+  });
+
   // Bulk update payment terms for multiple customers
   app.post("/api/odoo/customers/bulk/payment-terms", requireApproval, async (req: any, res) => {
     try {

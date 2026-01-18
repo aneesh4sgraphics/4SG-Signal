@@ -117,6 +117,8 @@ export default function OdooCompanyDetail() {
   const [tagSaveSuccess, setTagSaveSuccess] = useState(false);
   const [paymentTermsSaveSuccess, setPaymentTermsSaveSuccess] = useState(false);
   const [salesPersonSaveSuccess, setSalesPersonSaveSuccess] = useState(false);
+  const [isCreateOdooDialogOpen, setIsCreateOdooDialogOpen] = useState(false);
+  const [duplicatePartners, setDuplicatePartners] = useState<Array<{ id: number; name: string; email: string; isCompany: boolean }>>([]);
   const [editForm, setEditForm] = useState({
     company: '',
     email: '',
@@ -386,6 +388,60 @@ export default function OdooCompanyDetail() {
       toast({
         title: "Sync Failed",
         description: error.message || "Failed to sync to Odoo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to create customer in Odoo
+  const createInOdooMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/odoo/customer/${companyId}/create`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Created in Odoo",
+        description: data.message || "Customer successfully created in Odoo",
+      });
+      setIsCreateOdooDialogOpen(false);
+      setDuplicatePartners([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/customer', companyId, 'business-metrics'] });
+    },
+    onError: (error: any) => {
+      if (error.duplicates && error.duplicates.length > 0) {
+        setDuplicatePartners(error.duplicates);
+      } else {
+        toast({
+          title: "Failed to Create",
+          description: error.message || "Failed to create customer in Odoo",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  // Mutation to link customer to existing Odoo partner
+  const linkToOdooMutation = useMutation({
+    mutationFn: async (odooPartnerId: number) => {
+      const res = await apiRequest('POST', `/api/odoo/customer/${companyId}/link`, { odooPartnerId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Linked to Odoo",
+        description: data.message || "Customer successfully linked to existing Odoo partner",
+      });
+      setIsCreateOdooDialogOpen(false);
+      setDuplicatePartners([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/odoo/customer', companyId, 'business-metrics'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Link",
+        description: error.message || "Failed to link customer to Odoo",
         variant: "destructive",
       });
     },
@@ -925,10 +981,138 @@ export default function OdooCompanyDetail() {
 
           <div className="space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Business Details</CardTitle>
+                {!company.odooPartnerId && (
+                  <Dialog open={isCreateOdooDialogOpen} onOpenChange={(open) => {
+                    setIsCreateOdooDialogOpen(open);
+                    if (!open) setDuplicatePartners([]);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <Upload className="w-4 h-4" />
+                        Create in Odoo
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create Contact in Odoo</DialogTitle>
+                        <DialogDescription>
+                          This will create a new partner record in Odoo with the following details:
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-3 py-4">
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <Building2 className="w-5 h-5 text-gray-400" />
+                          <div>
+                            <p className="text-xs text-gray-500">Name</p>
+                            <p className="font-medium">{company.isCompany ? company.company : [company.firstName, company.lastName].filter(Boolean).join(' ')}</p>
+                          </div>
+                        </div>
+                        
+                        {company.email && (
+                          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <Mail className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Email</p>
+                              <p className="font-medium">{company.email}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {(company.phone || company.cell) && (
+                          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <Phone className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Phone</p>
+                              <p className="font-medium">{company.phone || company.cell}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {(company.city || company.province) && (
+                          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <MapPin className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Location</p>
+                              <p className="font-medium">{[company.city, company.province, company.country].filter(Boolean).join(', ')}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {duplicatePartners.length > 0 && (
+                        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                            <p className="font-medium text-amber-800 text-sm">Potential Duplicate Found</p>
+                          </div>
+                          <p className="text-sm text-amber-700 mb-3">
+                            A partner with this email already exists in Odoo. Would you like to link to an existing partner instead?
+                          </p>
+                          <div className="space-y-2">
+                            {duplicatePartners.map((partner) => (
+                              <div key={partner.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                                <div>
+                                  <p className="font-medium text-sm">{partner.name}</p>
+                                  <p className="text-xs text-gray-500">{partner.email}</p>
+                                </div>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => linkToOdooMutation.mutate(partner.id)}
+                                  disabled={linkToOdooMutation.isPending}
+                                >
+                                  {linkToOdooMutation.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    'Link'
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCreateOdooDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={() => createInOdooMutation.mutate()}
+                          disabled={createInOdooMutation.isPending}
+                          className="gap-2"
+                        >
+                          {createInOdooMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4" />
+                              Create in Odoo
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
+                {!company.odooPartnerId && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <p className="text-sm text-amber-800">
+                        This contact is not linked to Odoo. Create in Odoo to enable editing these fields.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3">
                   <User className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div className="flex-1">
