@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   BarChart3, 
@@ -19,7 +20,10 @@ import {
   Banknote,
   Clock,
   Users,
-  Lightbulb
+  Lightbulb,
+  PiggyBank,
+  Calculator,
+  Calendar
 } from "lucide-react";
 import { 
   BarChart, 
@@ -118,6 +122,30 @@ interface BadDebtData {
   hasData: boolean;
 }
 
+interface InvestorReturnsData {
+  success: boolean;
+  initialInvestment: number;
+  currentValue: number;
+  totalEquity: number;
+  lifetimeRevenue: number;
+  lifetimeGrossProfit: number;
+  lifetimeCogs: number;
+  lifetimeExpenses: number;
+  lifetimeNetIncome: number;
+  roi: number;
+  moic: number;
+  annualizedRoi: number;
+  yearsInBusiness: number;
+  companyStartDate: string;
+  yearlyData: Array<{
+    year: number;
+    revenue: number;
+    profit: number;
+    cumulativeProfit: number;
+  }>;
+  hasData: boolean;
+}
+
 export default function ReportsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -147,6 +175,15 @@ export default function ReportsPage() {
 
   const { data: badDebtData, isLoading: badDebtLoading, refetch: refetchBadDebt } = useQuery<BadDebtData>({
     queryKey: ['/api/reports/bad-debt-2026'],
+    enabled: isAdmin,
+  });
+
+  // State for initial investment input
+  const [initialInvestment, setInitialInvestment] = useState(100000);
+  const [investmentInput, setInvestmentInput] = useState('100000');
+
+  const { data: investorData, isLoading: investorLoading, refetch: refetchInvestor } = useQuery<InvestorReturnsData>({
+    queryKey: ['/api/reports/investor-returns', initialInvestment],
     enabled: isAdmin,
   });
   
@@ -190,6 +227,14 @@ export default function ReportsPage() {
     refetchProfit();
     refetchDebtEquity();
     refetchBadDebt();
+    refetchInvestor();
+  };
+
+  const handleInvestmentUpdate = () => {
+    const value = parseFloat(investmentInput);
+    if (!isNaN(value) && value > 0) {
+      setInitialInvestment(value);
+    }
   };
   
   // Get inventory health indicator
@@ -249,9 +294,9 @@ export default function ReportsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleRefreshAll}
-            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading}
+            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -780,6 +825,194 @@ export default function ReportsPage() {
                     {badDebtData?.success === false 
                       ? "Unable to fetch receivables data from Odoo"
                       : "No open invoices found"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ROI & MOIC - Investor Returns */}
+          <Card className="col-span-1 lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <PiggyBank className="h-5 w-5 text-emerald-600" />
+                    ROI & MOIC - Investor Returns
+                  </CardTitle>
+                  <CardDescription>Lifetime return on investment analysis</CardDescription>
+                </div>
+                {investorData?.hasData && (
+                  <div className="flex items-center gap-4">
+                    <Badge 
+                      variant={investorData.moic >= 2 ? "default" : investorData.moic >= 1 ? "secondary" : "destructive"}
+                      className="text-lg px-3 py-1"
+                    >
+                      {investorData.moic}x MOIC
+                    </Badge>
+                    <Badge 
+                      variant={investorData.roi >= 100 ? "default" : investorData.roi >= 0 ? "secondary" : "destructive"}
+                      className="text-lg px-3 py-1"
+                    >
+                      {investorData.roi}% ROI
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {investorLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-32" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              ) : investorData?.hasData ? (
+                <div className="space-y-6">
+                  {/* Investment Input */}
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium">Initial Investment:</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">$</span>
+                      <Input
+                        type="number"
+                        value={investmentInput}
+                        onChange={(e) => setInvestmentInput(e.target.value)}
+                        className="w-32"
+                        min={1}
+                      />
+                      <Button size="sm" onClick={handleInvestmentUpdate}>
+                        Update
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      Since {investorData.companyStartDate} ({investorData.yearsInBusiness} years)
+                    </div>
+                  </div>
+
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-950 rounded-lg text-center">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1">MOIC</p>
+                      <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
+                        {investorData.moic}x
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-1">Multiple on Invested Capital</p>
+                    </div>
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-center">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Total ROI</p>
+                      <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">
+                        {investorData.roi}%
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">Return on Investment</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg text-center">
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Annualized ROI</p>
+                      <p className="text-3xl font-bold text-purple-700 dark:text-purple-300">
+                        {investorData.annualizedRoi}%
+                      </p>
+                      <p className="text-xs text-purple-600 mt-1">CAGR (yearly avg)</p>
+                    </div>
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-950 rounded-lg text-center">
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1">Current Value</p>
+                      <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                        {formatCurrency(investorData.currentValue)}
+                      </p>
+                      <p className="text-xs text-indigo-600 mt-1">Book equity value</p>
+                    </div>
+                  </div>
+
+                  {/* Lifetime Financials */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Lifetime Revenue</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(investorData.lifetimeRevenue)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Lifetime COGS</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(investorData.lifetimeCogs)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Lifetime Gross Profit</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(investorData.lifetimeGrossProfit)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Total Equity</p>
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(investorData.totalEquity)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Yearly Performance Chart */}
+                  {investorData.yearlyData.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Yearly Performance
+                      </h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={investorData.yearlyData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis dataKey="year" fontSize={12} />
+                            <YAxis 
+                              yAxisId="left"
+                              fontSize={12} 
+                              tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip 
+                              formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                              contentStyle={{ backgroundColor: 'white', borderRadius: '8px' }}
+                            />
+                            <Legend />
+                            <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="left" dataKey="profit" name="Gross Profit" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                            <Line yAxisId="left" type="monotone" dataKey="cumulativeProfit" name="Cumulative Profit" stroke="#9333ea" strokeWidth={2} dot={{ r: 4 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Investment Insight */}
+                  <div className="p-4 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950 dark:to-blue-950 rounded-lg">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {investorData.moic >= 2 ? (
+                        <span className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-green-600" />
+                          <strong className="text-green-600">Strong Returns!</strong> An initial investment of {formatCurrency(investorData.initialInvestment)} is now worth {formatCurrency(investorData.currentValue)}, a {investorData.moic}x return over {investorData.yearsInBusiness} years.
+                        </span>
+                      ) : investorData.moic >= 1 ? (
+                        <span className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-blue-600" />
+                          <strong className="text-blue-600">Positive Returns.</strong> Investment has grown from {formatCurrency(investorData.initialInvestment)} to {formatCurrency(investorData.currentValue)} ({investorData.roi}% gain).
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <strong className="text-red-600">Below Investment.</strong> Current value is {formatCurrency(investorData.currentValue)} vs. initial {formatCurrency(investorData.initialInvestment)}. Focus on profitability.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                  <p className="text-muted-foreground">
+                    {investorData?.success === false 
+                      ? "Unable to fetch financial data from Odoo"
+                      : "No financial data available"}
                   </p>
                 </div>
               )}

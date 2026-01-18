@@ -1001,6 +1001,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports - ROI & MOIC (Investor Returns)
+  app.get("/api/reports/investor-returns", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Get initial investment from query param, default to 100,000 if not provided
+      const initialInvestment = parseFloat(req.query.initialInvestment as string) || 100000;
+      const companyStartDate = req.query.startDate as string || '2020-01-01'; // Company inception date
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get all equity accounts (current total equity = book value)
+      const equityLines = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', 'in', ['equity', 'equity_unaffected']],
+        ['date', '<=', today],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit', 'balance', 'account_id', 'date'], { limit: 50000 });
+      
+      // Total equity (book value)
+      const totalEquity = equityLines.reduce((sum: number, line: any) => 
+        sum + ((line.credit || 0) - (line.debit || 0)), 0);
+      
+      // Get lifetime income (all-time revenue)
+      const lifetimeIncome = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', 'in', ['income', 'income_other']],
+        ['date', '>=', companyStartDate],
+        ['date', '<=', today],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit'], { limit: 100000 });
+      
+      const totalRevenue = lifetimeIncome.reduce((sum: number, line: any) => 
+        sum + ((line.credit || 0) - (line.debit || 0)), 0);
+      
+      // Get lifetime COGS
+      const lifetimeCogs = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', '=', 'expense_direct_cost'],
+        ['date', '>=', companyStartDate],
+        ['date', '<=', today],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit'], { limit: 100000 });
+      
+      const totalCogs = lifetimeCogs.reduce((sum: number, line: any) => 
+        sum + ((line.debit || 0) - (line.credit || 0)), 0);
+      
+      // Get lifetime operating expenses
+      const lifetimeExpenses = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', 'in', ['expense', 'expense_depreciation']],
+        ['date', '>=', companyStartDate],
+        ['date', '<=', today],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit'], { limit: 100000 });
+      
+      const totalExpenses = lifetimeExpenses.reduce((sum: number, line: any) => 
+        sum + ((line.debit || 0) - (line.credit || 0)), 0);
+      
+      // Calculate net income lifetime
+      const lifetimeGrossProfit = totalRevenue - totalCogs;
+      const lifetimeNetIncome = lifetimeGrossProfit - totalExpenses;
+      
+      // Current value = initial investment + lifetime earnings (or use equity if available)
+      // For simplicity, we use equity as current book value
+      const currentValue = Math.abs(totalEquity) > 0 ? Math.abs(totalEquity) : initialInvestment + lifetimeNetIncome;
+      
+      // Calculate ROI = (Current Value - Initial Investment) / Initial Investment × 100
+      const roi = initialInvestment > 0 
+        ? ((currentValue - initialInvestment) / initialInvestment) * 100 
+        : 0;
+      
+      // Calculate MOIC = Current Value / Initial Investment
+      const moic = initialInvestment > 0 
+        ? currentValue / initialInvestment 
+        : 0;
+      
+      // Calculate years in business
+      const startYear = parseInt(companyStartDate.split('-')[0]);
+      const currentYear = new Date().getFullYear();
+      const yearsInBusiness = currentYear - startYear;
+      
+      // Calculate annualized ROI (CAGR)
+      const annualizedRoi = yearsInBusiness > 0 && initialInvestment > 0
+        ? (Math.pow(currentValue / initialInvestment, 1 / yearsInBusiness) - 1) * 100
+        : 0;
+      
+      // Get yearly profits for chart
+      const yearlyData: Array<{ year: number; revenue: number; profit: number; cumulativeProfit: number }> = [];
+      let cumulativeProfit = 0;
+      
+      for (let year = startYear; year <= currentYear; year++) {
+        const yearStart = `${year}-01-01`;
+        const yearEnd = `${year}-12-31`;
+        
+        // Get year's income
+        const yearIncome = await odooClient.searchRead('account.move.line', [
+          ['account_id.account_type', 'in', ['income', 'income_other']],
+          ['date', '>=', yearStart],
+          ['date', '<=', yearEnd],
+          ['parent_state', '=', 'posted'],
+        ], ['credit', 'debit'], { limit: 50000 });
+        
+        const yearRevenue = yearIncome.reduce((sum: number, line: any) => 
+          sum + ((line.credit || 0) - (line.debit || 0)), 0);
+        
+        // Get year's COGS
+        const yearCogs = await odooClient.searchRead('account.move.line', [
+          ['account_id.account_type', '=', 'expense_direct_cost'],
+          ['date', '>=', yearStart],
+          ['date', '<=', yearEnd],
+          ['parent_state', '=', 'posted'],
+        ], ['credit', 'debit'], { limit: 50000 });
+        
+        const yearCost = yearCogs.reduce((sum: number, line: any) => 
+          sum + ((line.debit || 0) - (line.credit || 0)), 0);
+        
+        const yearProfit = yearRevenue - yearCost;
+        cumulativeProfit += yearProfit;
+        
+        yearlyData.push({
+          year,
+          revenue: yearRevenue,
+          profit: yearProfit,
+          cumulativeProfit,
+        });
+      }
+      
+      res.json({
+        success: true,
+        initialInvestment,
+        currentValue,
+        totalEquity: Math.abs(totalEquity),
+        lifetimeRevenue: totalRevenue,
+        lifetimeGrossProfit,
+        lifetimeCogs: totalCogs,
+        lifetimeExpenses: totalExpenses,
+        lifetimeNetIncome,
+        roi: Math.round(roi * 10) / 10,
+        moic: Math.round(moic * 100) / 100,
+        annualizedRoi: Math.round(annualizedRoi * 10) / 10,
+        yearsInBusiness,
+        companyStartDate,
+        yearlyData,
+        hasData: equityLines.length > 0 || lifetimeIncome.length > 0,
+      });
+    } catch (error) {
+      console.error("Investor Returns report error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch investor returns data", 
+        details: errorMessage,
+        hasData: false,
+      });
+    }
+  });
+
   // Reports 2026 - Bad Debt & Collections
   app.get("/api/reports/bad-debt-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
