@@ -101,7 +101,7 @@ interface BusinessMetrics {
   paymentTerms: string | null;
   totalOutstanding: number;
   lifetimeSales: number;
-  averageMargin: number;
+  averageMargin: number | null;  // null means no margin data available
   topProducts: Array<{ name: string; quantity: number; totalSpent: number }>;
   purchasedCategories: ProductCategory[];
   allCategories: ProductCategory[];
@@ -917,7 +917,9 @@ export default function OdooCompanyDetail() {
                     <Skeleton className="h-8 w-24" />
                   ) : (
                     <p className="text-2xl font-bold text-blue-700">
-                      {metrics?.averageMargin || 0}%
+                      {metrics?.averageMargin !== null && metrics?.averageMargin !== undefined 
+                        ? `${metrics.averageMargin}%` 
+                        : <span className="text-gray-400 text-lg">N/A</span>}
                     </p>
                   )}
                 </CardContent>
