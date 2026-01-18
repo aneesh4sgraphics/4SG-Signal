@@ -1007,6 +1007,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports 2026 - Inventory Turnover
+  app.get("/api/reports/inventory-turnover-2026", isAuthenticated, async (req: any, res) => {
+    try {
+      const year = 2026;
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      
+      // Get COGS from posted invoices for 2026 (same logic as gross-profit endpoint)
+      const invoices = await odooClient.searchRead('account.move', [
+        ['move_type', 'in', ['out_invoice']],
+        ['state', '=', 'posted'],
+        ['invoice_date', '>=', startDate],
+        ['invoice_date', '<=', endDate],
+      ], ['id', 'invoice_line_ids'], { limit: 10000 });
+      
+      const invoiceIds = invoices.map((inv: any) => inv.id);
+      let totalCogs = 0;
+      
+      if (invoiceIds.length > 0) {
+        const invoiceLines = await odooClient.searchRead('account.move.line', [
+          ['move_id', 'in', invoiceIds],
+          ['product_id', '!=', false],
+        ], ['id', 'product_id', 'quantity', 'display_type'], { limit: 50000 });
+        
+        const productIds = [...new Set(invoiceLines.map((line: any) => line.product_id?.[0]).filter(Boolean))];
+        const productCosts = await odooClient.getProductCosts(productIds as number[]);
+        
+        for (const line of invoiceLines) {
+          if (line.display_type && line.display_type !== 'product') continue;
+          const productId = line.product_id?.[0];
+          if (productId) {
+            const unitCost = productCosts.get(productId) || 0;
+            totalCogs += unitCost * (line.quantity || 0);
+          }
+        }
+      }
+      
+      // Get current inventory value from stock.quant (inventory on hand)
+      // This is the most reliable way to get current stock levels in Odoo
+      let products: any[] = [];
+      let currentInventoryValue = 0;
+      let currentInventoryQty = 0;
+      
+      try {
+        // Try stock.quant first (more accurate for warehoused products)
+        const quants = await odooClient.searchRead('stock.quant', [
+          ['quantity', '>', 0],
+          ['location_id.usage', '=', 'internal'], // Only internal stock locations
+        ], ['product_id', 'quantity', 'value'], { limit: 50000 });
+        
+        if (quants.length > 0) {
+          // Group by product and sum quantities/values
+          const productQuantities = new Map<number, { qty: number; value: number }>();
+          for (const quant of quants) {
+            const productId = quant.product_id?.[0];
+            if (productId) {
+              const existing = productQuantities.get(productId) || { qty: 0, value: 0 };
+              existing.qty += quant.quantity || 0;
+              existing.value += quant.value || 0;
+              productQuantities.set(productId, existing);
+            }
+          }
+          
+          products = Array.from(productQuantities.entries()).map(([id, data]) => ({
+            id,
+            qty_available: data.qty,
+            value: data.value
+          }));
+          
+          currentInventoryQty = Array.from(productQuantities.values()).reduce((sum, p) => sum + p.qty, 0);
+          currentInventoryValue = Array.from(productQuantities.values()).reduce((sum, p) => sum + p.value, 0);
+        }
+      } catch (quantError) {
+        console.log("stock.quant not available, falling back to product.product");
+      }
+      
+      // Fallback to product.product if stock.quant didn't work or returned nothing
+      if (products.length === 0) {
+        const productList = await odooClient.searchRead('product.product', [
+          ['type', '=', 'product'], // Only storable products
+          ['qty_available', '>', 0],
+        ], ['id', 'qty_available', 'standard_price', 'name'], { limit: 50000 });
+        
+        products = productList;
+        for (const product of productList) {
+          const qty = product.qty_available || 0;
+          const cost = product.standard_price || 0;
+          currentInventoryValue += qty * cost;
+          currentInventoryQty += qty;
+        }
+      }
+      
+      // Calculate inventory turnover ratio
+      // Using current inventory as average (simplification - ideally would use (beginning + ending)/2)
+      const inventoryTurnover = currentInventoryValue > 0 
+        ? totalCogs / currentInventoryValue 
+        : 0;
+      
+      // Days to sell inventory = 365 / turnover ratio
+      const daysToSellInventory = inventoryTurnover > 0 
+        ? Math.round(365 / inventoryTurnover) 
+        : null;
+      
+      // Get product count with stock
+      const productsWithStock = products.length;
+      
+      res.json({
+        success: true,
+        year,
+        cogs: totalCogs,
+        currentInventoryValue,
+        currentInventoryQty: Math.round(currentInventoryQty),
+        productsWithStock,
+        inventoryTurnover: Math.round(inventoryTurnover * 100) / 100,
+        daysToSellInventory,
+        hasData: products.length > 0 || totalCogs > 0,
+      });
+    } catch (error) {
+      console.error("Inventory Turnover 2026 report error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch inventory turnover data", 
+        details: errorMessage,
+        hasData: false,
+      });
+    }
+  });
+
   // Sales Analytics - Profit & Loss (Income and Cost of Sales from Odoo)
   app.get("/api/analytics/profit-loss", isAuthenticated, async (req: any, res) => {
     try {

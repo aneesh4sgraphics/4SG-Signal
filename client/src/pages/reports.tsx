@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   RefreshCw,
   Scale,
-  AlertTriangle
+  AlertTriangle,
+  Package
 } from "lucide-react";
 import { 
   BarChart, 
@@ -48,22 +49,16 @@ interface InvoiceData {
   };
 }
 
-interface QuotesOrdersData {
+interface InventoryTurnoverData {
   success: boolean;
   year: number;
-  totals: {
-    quotesAmount: number;
-    quotesCount: number;
-    confirmedAmount: number;
-    confirmedCount: number;
-  };
-  chartData: Array<{
-    month: string;
-    quotesAmount: number;
-    quotesCount: number;
-    confirmedAmount: number;
-    confirmedCount: number;
-  }>;
+  cogs: number;
+  currentInventoryValue: number;
+  currentInventoryQty: number;
+  productsWithStock: number;
+  inventoryTurnover: number;
+  daysToSellInventory: number | null;
+  hasData: boolean;
 }
 
 interface GrossProfitData {
@@ -105,8 +100,8 @@ export default function ReportsPage() {
     enabled: isAdmin, // Only fetch if admin
   });
 
-  const { data: quotesOrdersData, isLoading: quotesLoading, refetch: refetchQuotesOrders } = useQuery<QuotesOrdersData>({
-    queryKey: ['/api/reports/quotes-vs-orders-2026'],
+  const { data: inventoryData, isLoading: inventoryLoading, refetch: refetchInventory } = useQuery<InventoryTurnoverData>({
+    queryKey: ['/api/reports/inventory-turnover-2026'],
     enabled: isAdmin,
   });
 
@@ -156,39 +151,20 @@ export default function ReportsPage() {
 
   const handleRefreshAll = () => {
     refetchInvoices();
-    refetchQuotesOrders();
+    refetchInventory();
     refetchProfit();
     refetchDebtEquity();
   };
   
-  // Calculate a sensible conversion rate:
-  // Only count quotes that could convert - if there are more orders than quotes,
-  // it means some orders were placed directly, so cap the effective conversion at 100%
-  const getConversionStats = () => {
-    if (!quotesOrdersData) return { rate: 0, note: '' };
-    const { quotesCount, confirmedCount } = quotesOrdersData.totals;
+  // Get inventory health indicator
+  const getInventoryHealth = () => {
+    if (!inventoryData) return { status: 'unknown', color: 'gray' };
+    const turnover = inventoryData.inventoryTurnover;
     
-    if (quotesCount === 0 && confirmedCount === 0) {
-      return { rate: 0, note: 'No activity' };
-    }
-    
-    if (quotesCount === 0 && confirmedCount > 0) {
-      return { rate: 100, note: 'All direct orders' };
-    }
-    
-    // If more orders than quotes, some were direct orders
-    if (confirmedCount > quotesCount) {
-      const directOrders = confirmedCount - quotesCount;
-      return { 
-        rate: 100, 
-        note: `+${directOrders} direct orders`
-      };
-    }
-    
-    return { 
-      rate: Math.round((confirmedCount / quotesCount) * 100 * 10) / 10,
-      note: ''
-    };
+    if (turnover >= 6) return { status: 'Excellent', color: 'green' };
+    if (turnover >= 4) return { status: 'Good', color: 'blue' };
+    if (turnover >= 2) return { status: 'Fair', color: 'amber' };
+    return { status: 'Low', color: 'red' };
   };
 
   const CustomTooltipCurrency = ({ active, payload, label }: any) => {
@@ -237,9 +213,9 @@ export default function ReportsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleRefreshAll}
-            disabled={invoiceLoading || quotesLoading || profitLoading || debtLoading}
+            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || quotesLoading || profitLoading || debtLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading) ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -322,129 +298,101 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Conversion Rate - Quotes Sent vs Sales Orders Confirmed */}
+          {/* Inventory Turnover */}
           <Card className="col-span-1">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-purple-600" />
-                    Conversion Rate
+                    <Package className="h-5 w-5 text-purple-600" />
+                    Inventory Turnover
                   </CardTitle>
-                  <CardDescription>Quotes sent vs sales orders confirmed</CardDescription>
+                  <CardDescription>How efficiently inventory is sold and replaced</CardDescription>
                 </div>
-                {quotesOrdersData && (
+                {inventoryData && (
                   <div className="flex items-center gap-2">
                     <Badge 
-                      variant={getConversionStats().rate >= 50 ? "default" : "secondary"}
+                      variant={getInventoryHealth().color === 'green' ? "default" : "secondary"}
                       className="text-lg px-3 py-1"
                     >
-                      {getConversionStats().rate}% Rate
+                      {inventoryData.inventoryTurnover}x
                     </Badge>
-                    {getConversionStats().note && (
-                      <span className="text-xs text-muted-foreground">{getConversionStats().note}</span>
-                    )}
+                    <span className={`text-xs font-medium ${
+                      getInventoryHealth().color === 'green' ? 'text-green-600' :
+                      getInventoryHealth().color === 'blue' ? 'text-blue-600' :
+                      getInventoryHealth().color === 'amber' ? 'text-amber-600' : 'text-red-600'
+                    }`}>
+                      {getInventoryHealth().status}
+                    </span>
                   </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              {quotesLoading ? (
+              {inventoryLoading ? (
                 <div className="space-y-4">
                   <Skeleton className="h-8 w-32" />
                   <Skeleton className="h-64 w-full" />
                 </div>
-              ) : quotesOrdersData ? (
+              ) : inventoryData && inventoryData.hasData ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Quotes Sent</p>
-                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">
-                        {formatNumber(quotesOrdersData.totals.quotesCount)}
-                      </p>
-                      <p className="text-xs text-amber-600">
-                        {formatCurrency(quotesOrdersData.totals.quotesAmount)}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cost of Goods Sold (2026)</p>
+                      <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                        {formatCurrency(inventoryData.cogs)}
                       </p>
                     </div>
                     <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Orders Confirmed</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Current Inventory Value</p>
                       <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                        {formatNumber(quotesOrdersData.totals.confirmedCount)}
-                      </p>
-                      <p className="text-xs text-emerald-600">
-                        {formatCurrency(quotesOrdersData.totals.confirmedAmount)}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Conversion Rate</p>
-                      <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
-                        {getConversionStats().rate}%
-                      </p>
-                      <p className="text-xs text-purple-600">
-                        {getConversionStats().note || 'of quotes'}
+                        {formatCurrency(inventoryData.currentInventoryValue)}
                       </p>
                     </div>
                   </div>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={quotesOrdersData.chartData.map(d => {
-                        // Cap conversion rate at 100% (direct orders cause > 100%)
-                        let rate = 0;
-                        if (d.quotesCount === 0 && d.confirmedCount > 0) {
-                          rate = 100; // All direct orders
-                        } else if (d.quotesCount > 0) {
-                          rate = Math.min(100, Math.round((d.confirmedCount / d.quotesCount) * 100));
-                        }
-                        return { ...d, conversionRate: rate };
-                      })}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis dataKey="month" fontSize={12} />
-                        <YAxis 
-                          yAxisId="left"
-                          fontSize={12} 
-                          tickFormatter={(val) => `${val}`}
-                        />
-                        <YAxis 
-                          yAxisId="right"
-                          orientation="right"
-                          fontSize={12} 
-                          tickFormatter={(val) => `${val}%`}
-                          domain={[0, 100]}
-                        />
-                        <Tooltip 
-                          content={({ active, payload, label }: any) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
-                                  <p className="font-medium mb-2">{label}</p>
-                                  {payload.map((entry: any, index: number) => (
-                                    <div key={index} className="flex items-center gap-2 text-sm">
-                                      <div 
-                                        className="w-3 h-3 rounded-full" 
-                                        style={{ backgroundColor: entry.color }}
-                                      />
-                                      <span className="text-muted-foreground">{entry.name}:</span>
-                                      <span className="font-medium">
-                                        {entry.dataKey === 'conversionRate' ? `${entry.value}%` : entry.value}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Legend />
-                        <Bar yAxisId="left" dataKey="quotesCount" name="Quotes Sent" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                        <Bar yAxisId="left" dataKey="confirmedCount" name="Confirmed" fill="#10b981" radius={[4, 4, 0, 0]} />
-                        <Line yAxisId="right" type="monotone" dataKey="conversionRate" name="Conv. Rate" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg text-center">
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Turnover Ratio</p>
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        {inventoryData.inventoryTurnover}x
+                      </p>
+                      <p className="text-xs text-purple-600">per year</p>
+                    </div>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg text-center">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Days to Sell</p>
+                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                        {inventoryData.daysToSellInventory ?? 'N/A'}
+                      </p>
+                      <p className="text-xs text-amber-600">avg days</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-950 rounded-lg text-center">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Products in Stock</p>
+                      <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+                        {formatNumber(inventoryData.productsWithStock)}
+                      </p>
+                      <p className="text-xs text-gray-600">{formatNumber(inventoryData.currentInventoryQty)} units</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>What this means:</strong>{' '}
+                      {inventoryData.inventoryTurnover > 0 && inventoryData.daysToSellInventory ? (
+                        <>
+                          Your inventory turns over {inventoryData.inventoryTurnover} times per year, 
+                          meaning it takes approximately {inventoryData.daysToSellInventory} days on average to sell through your stock.
+                          {inventoryData.inventoryTurnover >= 6 && ' This is excellent inventory efficiency.'}
+                          {inventoryData.inventoryTurnover >= 4 && inventoryData.inventoryTurnover < 6 && ' This is good inventory management.'}
+                          {inventoryData.inventoryTurnover >= 2 && inventoryData.inventoryTurnover < 4 && ' Consider strategies to move inventory faster.'}
+                          {inventoryData.inventoryTurnover < 2 && ' You may have excess inventory. Consider promotions or reducing stock levels.'}
+                        </>
+                      ) : (
+                        <>Turnover ratio cannot be calculated when inventory value is zero or no COGS data is available.</>
+                      )}
+                    </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No conversion data available</p>
+                <p className="text-muted-foreground text-center py-8">No inventory data available</p>
               )}
             </CardContent>
           </Card>
