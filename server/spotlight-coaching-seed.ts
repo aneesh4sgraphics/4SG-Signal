@@ -3,14 +3,7 @@ import { spotlightMicroCards, spotlightCoachTips } from "@shared/schema";
 
 export async function seedSpotlightCoachingContent(): Promise<void> {
   try {
-    const existingCards = await db.select().from(spotlightMicroCards).limit(1);
-    
-    if (existingCards.length > 0) {
-      console.log('[Spotlight Coaching] Content already seeded');
-      return;
-    }
-    
-    console.log('[Spotlight Coaching] Seeding micro-coaching cards...');
+    console.log('[Spotlight Coaching] Seeding/updating micro-coaching cards...');
     
     const microCards = [
       // Product Quizzes
@@ -135,6 +128,41 @@ export async function seedSpotlightCoachingContent(): Promise<void> {
         explanation: 'Knowing their machines helps recommend the right products. Ask about: print technology, brand/model, ink type, and typical job sizes.',
         difficulty: 'easy',
         tags: ['discovery', 'equipment'],
+      },
+      
+      // Customer Success Story
+      {
+        cardType: 'customer_story',
+        title: 'Label Printer Success',
+        content: 'A label printer in Ohio switched to Graffiti SOFT Poly after struggling with ink adhesion issues on their old supplier\'s material. Result: 40% fewer reprints and faster production speeds.',
+        question: 'How can this success story help your next call?',
+        explanation: 'Share relevant success stories to build credibility. Customers relate to peers facing similar challenges.',
+        difficulty: 'easy',
+        tags: ['success_story', 'labels'],
+      },
+      
+      // Additional Product Quiz
+      {
+        cardType: 'product_quiz',
+        title: 'DTF Film Knowledge',
+        content: 'Direct-to-Film expertise',
+        question: 'What is DTF (Direct-to-Film) printing primarily used for?',
+        options: ['Large format signage', 'Garment decoration and apparel', 'Label production', 'Offset printing'],
+        correctAnswer: 1,
+        explanation: 'DTF printing is used to create transfers for t-shirts, hats, bags, and other textiles - a growing market segment.',
+        difficulty: 'easy',
+        tags: ['dtf', 'apparel', 'decoration'],
+      },
+      
+      // Additional Competitor Intel
+      {
+        cardType: 'competitor_intel',
+        title: 'General Formulations',
+        content: 'Market positioning',
+        question: 'How do we compete with General Formulations for wide format media?',
+        explanation: 'Our Solvit line matches GF quality with more responsive customer service. We offer faster sample turnaround and technical support for press testing.',
+        difficulty: 'medium',
+        tags: ['competitor', 'wide_format'],
       },
     ];
     
