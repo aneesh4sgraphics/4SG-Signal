@@ -15702,17 +15702,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(1);
           
           if (existingCustomer.length > 0) {
+            const crmCustomer = existingCustomer[0];
+            
+            // Sync tags from Shopify (merge with existing)
+            let tagsUpdate: { tags?: string } = {};
+            if (customer.tags) {
+              const existingTags = crmCustomer.tags ? crmCustomer.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+              const shopifyTags = customer.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+              const mergedTags = [...new Set([...existingTags, ...shopifyTags])];
+              const newTagsString = mergedTags.join(', ');
+              if (newTagsString !== crmCustomer.tags) {
+                tagsUpdate.tags = newTagsString;
+              }
+            }
+            
+            // Update customer if tags changed
+            if (Object.keys(tagsUpdate).length > 0) {
+              await db.update(customers)
+                .set({ ...tagsUpdate, updatedAt: new Date() })
+                .where(eq(customers.id, crmCustomer.id));
+            }
+            
             // Log activity for customer sync
             await db.insert(customerActivityEvents).values({
-              customerId: existingCustomer[0].id,
+              customerId: crmCustomer.id,
               eventType: 'shopify_customer_sync',
               eventCategory: 'sync',
-              description: `Shopify customer ${topic === 'customers/create' ? 'created' : 'updated'}`,
+              description: `Shopify customer ${topic === 'customers/create' ? 'created' : 'updated'}${Object.keys(tagsUpdate).length > 0 ? ' (tags synced)' : ''}`,
               metadata: {
                 shopifyCustomerId: customer.id,
                 email: customerEmail,
                 ordersCount: customer.orders_count,
                 totalSpent: customer.total_spent,
+                tagsSynced: Object.keys(tagsUpdate).length > 0,
               },
             });
           }
@@ -16056,9 +16078,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             addressUpdates.phone = shopifyCustomer.phone || defaultAddress.phone;
           }
           
-          const hasAddressUpdates = Object.keys(addressUpdates).length > 0;
+          // Merge Shopify tags with existing tags (preserve existing, add new from Shopify)
+          let tagsUpdate: { tags?: string } = {};
+          if (shopifyCustomer.tags) {
+            const existingTags = existingCustomer.tags ? existingCustomer.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+            const shopifyTags = shopifyCustomer.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+            const mergedTags = [...new Set([...existingTags, ...shopifyTags])];
+            const newTagsString = mergedTags.join(', ');
+            if (newTagsString !== existingCustomer.tags) {
+              tagsUpdate.tags = newTagsString;
+            }
+          }
           
-          if (!currentSources.includes('shopify') || hasAddressUpdates) {
+          const hasAddressUpdates = Object.keys(addressUpdates).length > 0;
+          const hasTagsUpdate = Object.keys(tagsUpdate).length > 0;
+          
+          if (!currentSources.includes('shopify') || hasAddressUpdates || hasTagsUpdate) {
             const updatedSources = currentSources.includes('shopify') ? currentSources : [...currentSources, 'shopify'];
             
             // Also check if we need to set primary email
@@ -16073,6 +16108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sources: updatedSources,
                 ...emailUpdate,
                 ...addressUpdates,
+                ...tagsUpdate,
                 updatedAt: new Date()
               })
               .where(eq(customers.id, existingCustomer.id));
@@ -16080,9 +16116,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!currentSources.includes('shopify')) {
               matched++;
               matchedCustomers.push(existingCustomer.company || `${existingCustomer.firstName} ${existingCustomer.lastName}`.trim() || existingCustomer.email || 'Unknown');
-            } else if (hasAddressUpdates) {
+            } else if (hasAddressUpdates || hasTagsUpdate) {
               matched++;
-              matchedCustomers.push(`${existingCustomer.company || existingCustomer.firstName || 'Unknown'} (address updated)`);
+              const updateType = hasTagsUpdate && hasAddressUpdates ? 'address & tags updated' : hasTagsUpdate ? 'tags updated' : 'address updated';
+              matchedCustomers.push(`${existingCustomer.company || existingCustomer.firstName || 'Unknown'} (${updateType})`);
             }
           } else {
             // Already has shopify source and no address updates needed
