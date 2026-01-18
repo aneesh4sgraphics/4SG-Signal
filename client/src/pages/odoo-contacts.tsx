@@ -304,15 +304,18 @@ export default function OdooContacts() {
   // Filter and sort contacts
   const filteredContacts = contacts
     .filter(c => {
-      // Search filter
+      // Search filter - when searching, include both contacts AND companies
       if (debouncedSearch) {
         const search = debouncedSearch.toLowerCase();
         const searchableFields = [
           c.company, c.firstName, c.lastName, c.email, c.email2, c.phone, c.city
         ].filter(Boolean).map(f => (f as string).toLowerCase());
         if (!searchableFields.some(f => f.includes(search))) return false;
+        // Skip isCompany filter when searching - show all matching results
+      } else {
+        // Only apply isCompany filter when NOT searching
+        if (filters.isCompany !== null && c.isCompany !== filters.isCompany) return false;
       }
-      if (filters.isCompany !== null && c.isCompany !== filters.isCompany) return false;
       // Tag filter: check if the contact's Odoo partner ID is in the list of partners with this tag
       if (filters.pricingTier && tagFilterPartnerIds) {
         if (!c.odooPartnerId || !tagFilterPartnerIds.includes(c.odooPartnerId)) return false;
@@ -602,11 +605,15 @@ export default function OdooContacts() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-violet-200">
-                <Building2 className="w-5 h-5" />
+                {debouncedSearch ? <Search className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Companies</h1>
-                <p className="text-sm text-gray-500">{filteredContacts.length.toLocaleString()} companies</p>
+                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+                  {debouncedSearch ? 'Search Results' : 'Companies'}
+                </h1>
+                <p className="text-sm text-gray-500">
+                  {filteredContacts.length.toLocaleString()} {debouncedSearch ? 'contacts & companies' : 'companies'}
+                </p>
               </div>
             </div>
             
@@ -635,7 +642,7 @@ export default function OdooContacts() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search contacts..."
+                placeholder="Search contacts & companies..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-gray-50 border-gray-200 focus:bg-white focus:ring-2 focus:ring-violet-100 focus:border-violet-300 transition-all"
