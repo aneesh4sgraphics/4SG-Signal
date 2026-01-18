@@ -949,6 +949,10 @@ export default function OdooCompanyDetail() {
                     </div>
                     {metricsLoading || salesPeopleLoading ? (
                       <Skeleton className="h-9 w-full" />
+                    ) : !company.odooPartnerId ? (
+                      <p className="font-medium text-gray-500 text-sm">
+                        {company.salesRepName || 'Not linked to Odoo'}
+                      </p>
                     ) : salesPeopleOptions && salesPeopleOptions.length > 0 ? (
                       <Select
                         value={salesPeopleOptions.find(sp => sp.name === (metrics?.salesPerson || company.salesRepName))?.id.toString() || ''}
@@ -1008,6 +1012,10 @@ export default function OdooCompanyDetail() {
                     </div>
                     {metricsLoading ? (
                       <Skeleton className="h-9 w-full" />
+                    ) : !company.odooPartnerId ? (
+                      <p className="font-medium text-gray-500 text-sm">
+                        Not linked to Odoo
+                      </p>
                     ) : paymentTermsOptions && paymentTermsOptions.length > 0 ? (
                       <Select
                         value={paymentTermsOptions.find(t => t.name === metrics?.paymentTerms)?.id.toString() || ''}
@@ -1060,6 +1068,10 @@ export default function OdooCompanyDetail() {
                     </div>
                     {categoriesLoading ? (
                       <Skeleton className="h-9 w-full" />
+                    ) : !company.odooPartnerId ? (
+                      <p className="font-medium text-gray-500 text-sm">
+                        {company.pricingTier || 'Not linked to Odoo'}
+                      </p>
                     ) : partnerCategories && partnerCategories.length > 0 ? (
                       <Select
                         value={partnerCategories.find(c => c.name === company.pricingTier)?.id.toString() || ''}
