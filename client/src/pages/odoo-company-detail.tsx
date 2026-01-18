@@ -40,6 +40,18 @@ import {
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
+// Standard pricing tiers - must match quote-calculator for consistency
+const standardPricingTiers = [
+  { key: 'landedPrice', label: 'Landed Price' },
+  { key: 'exportPrice', label: 'Export Only' },
+  { key: 'masterDistributorPrice', label: 'Distributor' },
+  { key: 'dealerVIPPrice', label: 'Dealer-VIP' },
+  { key: 'dealerPrice', label: 'Dealer' },
+  { key: 'shopifyPartnersPrice', label: 'Shopify-Partners' },
+  { key: 'shopifyPrice', label: 'Shopify' },
+  { key: 'retailPrice', label: 'Retail' },
+];
+
 interface ShopifyCustomerMapping {
   id: number;
   shopifyEmail: string | null;
@@ -335,6 +347,48 @@ export default function OdooCompanyDetail() {
       toast({
         title: "Error",
         description: error.message || "Failed to update category",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to update LOCAL pricing tier (for non-Odoo customers)
+  const updateLocalPricingTierMutation = useMutation({
+    mutationFn: async ({ pricingTier }: { pricingTier: string }) => {
+      const res = await apiRequest('PUT', `/api/customers/${companyId}`, { pricingTier });
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: "Pricing Tier Updated",
+        description: `Pricing tier set to ${variables.pricingTier}`,
+      });
+      // Show success indicator for 3 seconds
+      setTagSaveSuccess(true);
+      setTimeout(() => setTagSaveSuccess(false), 3000);
+      // Update the local cache directly
+      queryClient.setQueryData<Contact>(['/api/customers', companyId], (oldData) => {
+        if (oldData) {
+          return { ...oldData, pricingTier: variables.pricingTier };
+        }
+        return oldData;
+      });
+      // Update the customers list cache directly
+      queryClient.setQueryData<Contact[]>(['/api/customers'], (oldData) => {
+        if (oldData) {
+          return oldData.map(customer => 
+            customer.id === companyId 
+              ? { ...customer, pricingTier: variables.pricingTier }
+              : customer
+          );
+        }
+        return oldData;
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update pricing tier",
         variant: "destructive",
       });
     },
@@ -1236,14 +1290,14 @@ export default function OdooCompanyDetail() {
                   <Tag className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm text-gray-500">Tags</p>
-                      {updatePricingTierMutation.isPending && (
+                      <p className="text-sm text-gray-500">Pricing Tier</p>
+                      {(updatePricingTierMutation.isPending || updateLocalPricingTierMutation.isPending) && (
                         <span className="flex items-center gap-1 text-xs text-violet-600">
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Saving...
                         </span>
                       )}
-                      {tagSaveSuccess && !updatePricingTierMutation.isPending && (
+                      {tagSaveSuccess && !updatePricingTierMutation.isPending && !updateLocalPricingTierMutation.isPending && (
                         <span className="flex items-center gap-1 text-xs text-green-600 font-medium animate-pulse">
                           <CheckCircle2 className="w-3 h-3" />
                           Saved!
@@ -1253,9 +1307,24 @@ export default function OdooCompanyDetail() {
                     {categoriesLoading ? (
                       <Skeleton className="h-9 w-full" />
                     ) : !company.odooPartnerId ? (
-                      <p className="font-medium text-gray-500 text-sm">
-                        {company.pricingTier || 'Not linked to Odoo'}
-                      </p>
+                      <Select
+                        value={standardPricingTiers.find(t => t.label === company.pricingTier)?.label || ''}
+                        onValueChange={(value) => {
+                          updateLocalPricingTierMutation.mutate({ pricingTier: value });
+                        }}
+                        disabled={updateLocalPricingTierMutation.isPending}
+                      >
+                        <SelectTrigger className={`w-full transition-all duration-300 ${updateLocalPricingTierMutation.isPending ? 'opacity-50' : ''} ${tagSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
+                          <SelectValue placeholder={company.pricingTier || 'Select pricing tier'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {standardPricingTiers.map((tier) => (
+                            <SelectItem key={tier.key} value={tier.label}>
+                              {tier.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : partnerCategories && partnerCategories.length > 0 ? (
                       <Select
                         value={partnerCategories.find(c => c.name === company.pricingTier)?.id.toString() || ''}
