@@ -11557,11 +11557,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const templateId = product.product_tmpl_id ? product.product_tmpl_id[0] : productId;
       
       // Fetch related data in parallel
+      // Use templateId for queries that need product template, productId for variant-specific queries
       const [pricingTiers, inventory, purchaseOrders, customerPurchases] = await Promise.all([
         odooClient.getPricelistItemsForProduct(templateId),
         odooClient.getProductInventoryByTemplate(templateId),
         odooClient.getProductPurchaseOrders(productId),
-        odooClient.getProductCustomerPurchases(productId),
+        odooClient.getProductCustomerPurchases(templateId), // Uses template ID to find all variant sales
       ]);
 
       // Defensive defaults for all data
