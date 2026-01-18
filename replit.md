@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 - **SPOTLIGHT (Coaching Treadmill)**: Daily task management system presenting prioritized client actions for calls, follow-ups, outreach, data hygiene, and enablement. Features outcome buttons, auto-scheduling of follow-ups, and dual activity logging. Includes pricing feedback and smart hints for task processing.
 - **Do Not Merge Feature**: Allows users to explicitly mark customer pairs as separate entities to prevent future duplicate suggestions.
 - **Bulk Editing**: Odoo Contacts page supports bulk editing of Tags, Sales Rep, and Payment Terms for multiple selected contacts. Selection is preserved on failure for retry.
+- **Reports Page (Admin Only)**: Financial metrics dashboard at `/reports` restricted to admin users. Non-admins are redirected to dashboard. Displays: Total Invoices 2026 (from Odoo account.move), Conversion Rate (quotes to orders, capped at 100% to handle direct orders), Gross Profit (COGS vs Sales from invoice lines), and Debt to Equity Ratio (from Odoo liability/equity accounts). Endpoint: `GET /api/reports/debt-equity-2026`.
 - **Auto Sales Rep Assignment**: When customers are created or updated without a sales rep, the system automatically assigns based on location rules:
   - Florida (US) → Santiago
   - Spanish-speaking countries (Mexico, Colombia, Spain, etc.) → Patricio Delgado
