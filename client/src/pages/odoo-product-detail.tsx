@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { 
   ArrowLeft, Package, DollarSign, Users, Warehouse, 
   ShoppingCart, ExternalLink, TrendingUp, Box, Layers,
-  AlertCircle, Loader2, Target, TrendingDown, TrendingUp as TrendUp
+  AlertCircle, Loader2, Target, TrendingDown, TrendingUp as TrendUp,
+  Eye, EyeOff
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -155,6 +158,10 @@ function getProductTypeColor(type: string): string {
 export default function OdooProductDetail() {
   const [, params] = useRoute("/odoo-products/:id");
   const productId = params?.id;
+  const { user } = useAuth();
+  const [landedPriceRevealed, setLandedPriceRevealed] = useState(false);
+  
+  const isAdmin = (user as any)?.role === 'admin';
 
   const { data, isLoading, error } = useQuery<ProductDetails>({
     queryKey: ['/api/odoo/products', productId, 'details'],
@@ -457,7 +464,13 @@ export default function OdooProductDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {localPricing.tiers.map((tier) => (
+                  {localPricing.tiers
+                    .filter(tier => {
+                      const isLandedPrice = tier.key === 'landedPrice';
+                      if (!isLandedPrice) return true;
+                      return isAdmin && landedPriceRevealed;
+                    })
+                    .map((tier) => (
                     <TableRow key={tier.key}>
                       <TableCell className="font-medium uppercase">{tier.label}</TableCell>
                       <TableCell className="text-right text-gray-600">
@@ -471,6 +484,30 @@ export default function OdooProductDetail() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {isAdmin && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setLandedPriceRevealed(!landedPriceRevealed)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          {landedPriceRevealed ? (
+                            <>
+                              <EyeOff className="w-4 h-4 mr-2" />
+                              Hide Landed Price
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Show Landed Price
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             ) : pricingTiers.length > 0 ? (
