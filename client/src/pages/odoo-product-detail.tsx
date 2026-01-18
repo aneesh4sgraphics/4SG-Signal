@@ -226,7 +226,7 @@ export default function OdooProductDetail() {
           </div>
         </div>
         <a
-          href={`https://4sgraphics.odoo.com/web#id=${product.id}&model=product.template&view_type=form`}
+          href={`https://4sgraphics.odoo.com/web#id=${product.id}&model=product.product&view_type=form`}
           target="_blank"
           rel="noopener noreferrer"
         >
