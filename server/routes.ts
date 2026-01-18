@@ -1014,35 +1014,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = `${year}-01-01`;
       const endDate = `${year}-12-31`;
       
-      // Get COGS from posted invoices for 2026 (same logic as gross-profit endpoint)
-      const invoices = await odooClient.searchRead('account.move', [
-        ['move_type', 'in', ['out_invoice']],
-        ['state', '=', 'posted'],
-        ['invoice_date', '>=', startDate],
-        ['invoice_date', '<=', endDate],
-      ], ['id', 'invoice_line_ids'], { limit: 10000 });
+      // Get COGS from Cost of Sales accounting entries (expense_direct_cost account type)
+      // This is the accurate COGS from Odoo's accounting, not calculated from product costs
+      const cosLines = await odooClient.searchRead('account.move.line', [
+        ['account_id.account_type', '=', 'expense_direct_cost'],
+        ['date', '>=', startDate],
+        ['date', '<=', endDate],
+        ['parent_state', '=', 'posted'],
+      ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
       
-      const invoiceIds = invoices.map((inv: any) => inv.id);
-      let totalCogs = 0;
-      
-      if (invoiceIds.length > 0) {
-        const invoiceLines = await odooClient.searchRead('account.move.line', [
-          ['move_id', 'in', invoiceIds],
-          ['product_id', '!=', false],
-        ], ['id', 'product_id', 'quantity', 'display_type'], { limit: 50000 });
-        
-        const productIds = [...new Set(invoiceLines.map((line: any) => line.product_id?.[0]).filter(Boolean))];
-        const productCosts = await odooClient.getProductCosts(productIds as number[]);
-        
-        for (const line of invoiceLines) {
-          if (line.display_type && line.display_type !== 'product') continue;
-          const productId = line.product_id?.[0];
-          if (productId) {
-            const unitCost = productCosts.get(productId) || 0;
-            totalCogs += unitCost * (line.quantity || 0);
-          }
-        }
-      }
+      // Cost of Sales: debit increases, credit decreases
+      const totalCogs = cosLines.reduce((sum: number, line: any) => 
+        sum + ((line.debit || 0) - (line.credit || 0)), 0);
       
       // Get current inventory value from stock.quant (inventory on hand)
       // This is the most reliable way to get current stock levels in Odoo
