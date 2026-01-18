@@ -1,8 +1,49 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS } from "@shared/schema";
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { analyzeForHints, SpotlightHint, getCustomerMachineProfiles, getProductSuggestionsForMachines, getMachineLabel, checkMissingMachineProfile } from "./spotlight-heuristics";
+
+// Difficulty mapping for buckets
+const BUCKET_DIFFICULTY: Record<TaskBucket, 'easy' | 'medium' | 'hard'> = {
+  data_hygiene: 'easy',
+  enablement: 'easy',
+  outreach: 'medium',
+  follow_ups: 'medium',
+  calls: 'hard',
+};
+
+// Micro-coaching card types
+export type MicroCardType = 'product_quiz' | 'objection_practice' | 'customer_story' | 'competitor_intel' | 'machine_profile_check';
+
+export interface MicroCoachingCard {
+  id: number;
+  cardType: MicroCardType;
+  title: string;
+  content: string;
+  question?: string;
+  options?: string[];
+  correctAnswer?: number;
+  explanation?: string;
+  objectionType?: string;
+  suggestedResponses?: { id: string; text: string; isRecommended: boolean }[];
+  difficulty: string;
+}
+
+export interface CoachTip {
+  id: number;
+  tipType: string;
+  content: string;
+}
+
+export interface GamificationState {
+  comboCount: number;
+  comboMultiplier: number;
+  currentStreak: number;
+  powerUpsAvailable: number;
+  hardTasksCompleted: number;
+  tasksSinceMicroCard: number;
+}
 
 export type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
 
@@ -79,6 +120,22 @@ export interface SpotlightSession {
   currentStreak: number;
   consecutiveSkipsPerBucket: Record<TaskBucket, number>;
   lastBucketUsed: TaskBucket | null;
+  // Task interleaving
+  lastTaskTypes: string[]; // Rolling window of last 4 task types/difficulties
+  currentEnergy: number; // 0-100
+  // Gamification
+  comboCount: number; // Different task types in a row
+  comboMultiplier: number;
+  hardTasksCompletedToday: number;
+  powerUpsAvailable: number;
+  powerUpsUsedToday: number;
+  // Micro-coaching
+  tasksSinceMicroCard: number;
+  microCardsShownToday: number[];
+  // Session flow
+  warmupShown: boolean;
+  energyCheckShown: boolean;
+  recapShown: boolean;
 }
 
 const DAILY_QUOTAS: Record<TaskBucket, number> = {
@@ -312,6 +369,22 @@ class SpotlightEngine {
         currentStreak: 0,
         consecutiveSkipsPerBucket: { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 },
         lastBucketUsed: null,
+        // Task interleaving
+        lastTaskTypes: [],
+        currentEnergy: 100,
+        // Gamification
+        comboCount: 0,
+        comboMultiplier: 1.0,
+        hardTasksCompletedToday: 0,
+        powerUpsAvailable: 0,
+        powerUpsUsedToday: 0,
+        // Micro-coaching
+        tasksSinceMicroCard: 0,
+        microCardsShownToday: [],
+        // Session flow
+        warmupShown: false,
+        energyCheckShown: false,
+        recapShown: false,
       };
       this.sessions.set(sessionKey, session);
     }
@@ -346,6 +419,22 @@ class SpotlightEngine {
         currentStreak: 0,
         consecutiveSkipsPerBucket: { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 },
         lastBucketUsed: null,
+        // Task interleaving
+        lastTaskTypes: [],
+        currentEnergy: 100,
+        // Gamification
+        comboCount: 0,
+        comboMultiplier: 1.0,
+        hardTasksCompletedToday: 0,
+        powerUpsAvailable: 0,
+        powerUpsUsedToday: 0,
+        // Micro-coaching
+        tasksSinceMicroCard: 0,
+        microCardsShownToday: [],
+        // Session flow
+        warmupShown: false,
+        energyCheckShown: false,
+        recapShown: false,
       };
       this.sessions.set(sessionKey, session);
     }
@@ -697,32 +786,329 @@ class SpotlightEngine {
     const incomplete = session.buckets.filter(b => b.completed < b.target);
     if (incomplete.length === 0) return null;
     
-    const bucketPriority: TaskBucket[] = ['data_hygiene', 'follow_ups', 'calls', 'outreach', 'enablement'];
     const SKIP_THRESHOLD = 3;
+    const MAX_CONSECUTIVE_SAME_DIFFICULTY = 2;
     
-    const sortedBuckets = bucketPriority.filter(bucket => {
-      const bucketData = incomplete.find(b => b.bucket === bucket);
-      return bucketData && bucketData.completed < bucketData.target;
+    // Get available buckets with their difficulties
+    const availableBuckets = incomplete.map(b => ({
+      bucket: b.bucket,
+      remaining: b.target - b.completed,
+      difficulty: BUCKET_DIFFICULTY[b.bucket],
+      consecutiveSkips: session.consecutiveSkipsPerBucket?.[b.bucket] || 0,
+    })).filter(b => b.remaining > 0 && b.consecutiveSkips < SKIP_THRESHOLD);
+    
+    if (availableBuckets.length === 0) {
+      // All buckets hit skip threshold, find least skipped
+      const leastSkipped = incomplete.reduce((min, b) => {
+        const currentSkips = session.consecutiveSkipsPerBucket?.[b.bucket] || 0;
+        const minSkips = session.consecutiveSkipsPerBucket?.[min.bucket] || 0;
+        return currentSkips < minSkips ? b : min;
+      }, incomplete[0]);
+      return leastSkipped.bucket;
+    }
+    
+    // Check last task difficulties for interleaving
+    const lastTypes = session.lastTaskTypes || [];
+    const lastDifficulties = lastTypes.slice(-MAX_CONSECUTIVE_SAME_DIFFICULTY);
+    
+    // Count consecutive same-difficulty tasks
+    const countConsecutiveDifficulty = (difficulty: string): number => {
+      let count = 0;
+      for (let i = lastDifficulties.length - 1; i >= 0; i--) {
+        if (lastDifficulties[i] === difficulty) count++;
+        else break;
+      }
+      return count;
+    };
+    
+    // Energy-based task selection: after hard tasks, prefer easy; when high energy, allow hard
+    const lastTaskWasHard = lastDifficulties.length > 0 && lastDifficulties[lastDifficulties.length - 1] === 'hard';
+    const currentEnergy = session.currentEnergy ?? 100;
+    
+    // Sort buckets by interleaving priority
+    const sortedBuckets = availableBuckets.sort((a, b) => {
+      const aConsecutive = countConsecutiveDifficulty(a.difficulty);
+      const bConsecutive = countConsecutiveDifficulty(b.difficulty);
+      
+      // Penalize buckets that would create too many consecutive same-difficulty tasks
+      const aPenalty = aConsecutive >= MAX_CONSECUTIVE_SAME_DIFFICULTY ? 100 : 0;
+      const bPenalty = bConsecutive >= MAX_CONSECUTIVE_SAME_DIFFICULTY ? 100 : 0;
+      
+      // Energy-based scoring: prefer easy after hard, and hard when energy is high
+      let aEnergyScore = 0;
+      let bEnergyScore = 0;
+      
+      if (lastTaskWasHard) {
+        // After hard task, strongly prefer easy
+        aEnergyScore = a.difficulty === 'easy' ? -20 : a.difficulty === 'hard' ? 20 : 0;
+        bEnergyScore = b.difficulty === 'easy' ? -20 : b.difficulty === 'hard' ? 20 : 0;
+      } else if (currentEnergy > 80) {
+        // High energy: slightly prefer medium/hard to make progress on those
+        aEnergyScore = a.difficulty === 'hard' ? -5 : a.difficulty === 'medium' ? -3 : 0;
+        bEnergyScore = b.difficulty === 'hard' ? -5 : b.difficulty === 'medium' ? -3 : 0;
+      } else if (currentEnergy < 40) {
+        // Low energy: prefer easy tasks
+        aEnergyScore = a.difficulty === 'easy' ? -10 : a.difficulty === 'hard' ? 15 : 0;
+        bEnergyScore = b.difficulty === 'easy' ? -10 : b.difficulty === 'hard' ? 15 : 0;
+      }
+      
+      // Priority order for buckets when all else is equal: follow_ups > calls > outreach > data_hygiene > enablement
+      const priorityOrder: Record<TaskBucket, number> = {
+        follow_ups: 1,
+        calls: 2,
+        outreach: 3,
+        data_hygiene: 4,
+        enablement: 5,
+      };
+      
+      const aScore = aPenalty + aEnergyScore + priorityOrder[a.bucket];
+      const bScore = bPenalty + bEnergyScore + priorityOrder[b.bucket];
+      
+      return aScore - bScore;
     });
     
-    if (sortedBuckets.length === 0) return null;
+    return sortedBuckets[0]?.bucket || null;
+  }
+  
+  // Get a micro-coaching card if it's time to show one
+  async getMicroCoachingCard(userId: string): Promise<MicroCoachingCard | null> {
+    const session = this.getSession(userId);
     
-    const consecutiveSkips = session.consecutiveSkipsPerBucket || { calls: 0, follow_ups: 0, outreach: 0, data_hygiene: 0, enablement: 0 };
+    // Show micro-coaching card every 3-4 tasks
+    if (session.tasksSinceMicroCard < 3) return null;
     
-    for (const bucket of sortedBuckets) {
-      const skips = consecutiveSkips[bucket] || 0;
-      if (skips < SKIP_THRESHOLD) {
-        return bucket;
+    try {
+      const shownToday = session.microCardsShownToday || [];
+      
+      // Get a card not shown today, prioritizing variety
+      const cards = await db.select()
+        .from(spotlightMicroCards)
+        .where(and(
+          eq(spotlightMicroCards.isActive, true),
+          shownToday.length > 0 ? notInArray(spotlightMicroCards.id, shownToday) : sql`true`
+        ))
+        .orderBy(sql`RANDOM()`)
+        .limit(1);
+      
+      if (cards.length === 0) {
+        // All cards shown today, reset
+        session.microCardsShownToday = [];
+        return null;
+      }
+      
+      const card = cards[0];
+      session.tasksSinceMicroCard = 0;
+      session.microCardsShownToday = [...shownToday, card.id];
+      
+      return {
+        id: card.id,
+        cardType: card.cardType as MicroCardType,
+        title: card.title,
+        content: card.content,
+        question: card.question || undefined,
+        options: card.options as string[] || undefined,
+        correctAnswer: card.correctAnswer || undefined,
+        explanation: card.explanation || undefined,
+        objectionType: card.objectionType || undefined,
+        suggestedResponses: card.suggestedResponses as any || undefined,
+        difficulty: card.difficulty || 'medium',
+      };
+    } catch (e) {
+      console.error('[Spotlight] Error getting micro-coaching card:', e);
+      return null;
+    }
+  }
+  
+  // Get contextual coach tip for a task
+  async getCoachTip(taskSubtype: string, machineTypeCode?: string): Promise<CoachTip | null> {
+    try {
+      let conditions: any[] = [
+        eq(spotlightCoachTips.isActive, true),
+        eq(spotlightCoachTips.triggerContext, taskSubtype),
+      ];
+      
+      const tips = await db.select()
+        .from(spotlightCoachTips)
+        .where(and(...conditions))
+        .orderBy(desc(spotlightCoachTips.priority), sql`RANDOM()`)
+        .limit(1);
+      
+      if (tips.length > 0) {
+        return {
+          id: tips[0].id,
+          tipType: tips[0].tipType,
+          content: tips[0].content,
+        };
+      }
+      return null;
+    } catch (e) {
+      console.error('[Spotlight] Error getting coach tip:', e);
+      return null;
+    }
+  }
+  
+  // Get morning warm-up data
+  async getWarmupData(userId: string): Promise<{ 
+    yesterdaySummary: { calls: number; tasksCompleted: number; pricingTiersAssigned: number };
+    todayFocus: string;
+    streak: number;
+  }> {
+    const session = this.getSession(userId);
+    session.warmupShown = true;
+    
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      const result = await db.execute(sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE bucket = 'calls' AND event_type = 'completed') as calls,
+          COUNT(*) FILTER (WHERE event_type = 'completed') as tasks_completed,
+          COUNT(*) FILTER (WHERE task_subtype = 'hygiene_pricing_tier' AND event_type = 'completed') as pricing_tiers
+        FROM spotlight_events
+        WHERE user_id = ${userId}
+        AND DATE(created_at) = ${yesterdayStr}
+      `);
+      
+      const streak = await this.calculateStreak(userId);
+      
+      // Determine today's focus based on what's incomplete
+      const incomplete = session.buckets.filter(b => b.completed < b.target);
+      const focusBucket = incomplete.sort((a, b) => {
+        // Prioritize high-value incomplete buckets
+        const priority: Record<TaskBucket, number> = { calls: 1, follow_ups: 2, outreach: 3, enablement: 4, data_hygiene: 5 };
+        return priority[a.bucket] - priority[b.bucket];
+      })[0];
+      
+      const focusLabels: Record<TaskBucket, string> = {
+        calls: 'Building relationships through calls',
+        follow_ups: 'Staying on top of follow-ups',
+        outreach: 'Expanding your reach',
+        data_hygiene: 'Cleaning up customer data',
+        enablement: 'Enabling customers with samples',
+      };
+      
+      return {
+        yesterdaySummary: {
+          calls: Number(result.rows[0]?.calls || 0),
+          tasksCompleted: Number(result.rows[0]?.tasks_completed || 0),
+          pricingTiersAssigned: Number(result.rows[0]?.pricing_tiers || 0),
+        },
+        todayFocus: focusLabels[focusBucket?.bucket || 'outreach'],
+        streak,
+      };
+    } catch (e) {
+      console.error('[Spotlight] Error getting warmup data:', e);
+      return {
+        yesterdaySummary: { calls: 0, tasksCompleted: 0, pricingTiersAssigned: 0 },
+        todayFocus: 'Making progress on your tasks',
+        streak: 0,
+      };
+    }
+  }
+  
+  // Get end-of-day recap
+  async getRecapData(userId: string): Promise<{
+    todaySummary: { totalCompleted: number; callsConnected: number; followUpsScheduled: number };
+    topWins: string[];
+    suggestedFollowUps: string[];
+  }> {
+    const session = this.getSession(userId);
+    session.recapShown = true;
+    
+    try {
+      const today = this.getTodayKey();
+      
+      const result = await db.execute(sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE event_type = 'completed') as total_completed,
+          COUNT(*) FILTER (WHERE bucket = 'calls' AND outcome_id = 'connected') as calls_connected,
+          COUNT(*) FILTER (WHERE scheduled_follow_up_days IS NOT NULL) as follow_ups_scheduled
+        FROM spotlight_events
+        WHERE user_id = ${userId}
+        AND DATE(created_at) = ${today}
+      `);
+      
+      return {
+        todaySummary: {
+          totalCompleted: Number(result.rows[0]?.total_completed || 0),
+          callsConnected: Number(result.rows[0]?.calls_connected || 0),
+          followUpsScheduled: Number(result.rows[0]?.follow_ups_scheduled || 0),
+        },
+        topWins: [],
+        suggestedFollowUps: [],
+      };
+    } catch (e) {
+      console.error('[Spotlight] Error getting recap data:', e);
+      return {
+        todaySummary: { totalCompleted: 0, callsConnected: 0, followUpsScheduled: 0 },
+        topWins: [],
+        suggestedFollowUps: [],
+      };
+    }
+  }
+  
+  // Update gamification state after task completion
+  updateGamificationOnComplete(session: SpotlightSession, taskSubtype: string): void {
+    const energyCost = TASK_ENERGY_COSTS[taskSubtype]?.energyCost || 10;
+    const difficulty = TASK_ENERGY_COSTS[taskSubtype]?.difficulty || 'medium';
+    
+    // Update energy
+    session.currentEnergy = Math.max(0, (session.currentEnergy ?? 100) - energyCost);
+    
+    // Track last task types for interleaving
+    session.lastTaskTypes = [...(session.lastTaskTypes || []).slice(-3), difficulty];
+    
+    // Update combo
+    const lastDifficulty = session.lastTaskTypes.length >= 2 
+      ? session.lastTaskTypes[session.lastTaskTypes.length - 2] 
+      : null;
+    
+    if (lastDifficulty && lastDifficulty !== difficulty) {
+      // Different difficulty = combo continues
+      session.comboCount = (session.comboCount || 0) + 1;
+      session.comboMultiplier = Math.min(2.0, 1.0 + (session.comboCount * 0.1));
+    } else {
+      // Same difficulty = combo resets
+      session.comboCount = 0;
+      session.comboMultiplier = 1.0;
+    }
+    
+    // Track hard tasks for power-ups
+    if (difficulty === 'hard') {
+      session.hardTasksCompletedToday = (session.hardTasksCompletedToday || 0) + 1;
+      // Earn power-up every 3 hard tasks
+      if (session.hardTasksCompletedToday % 3 === 0) {
+        session.powerUpsAvailable = (session.powerUpsAvailable || 0) + 1;
       }
     }
     
-    const leastSkipped = sortedBuckets.reduce((min, bucket) => {
-      const currentSkips = consecutiveSkips[bucket] || 0;
-      const minSkips = consecutiveSkips[min] || 0;
-      return currentSkips < minSkips ? bucket : min;
-    }, sortedBuckets[0]);
-    
-    return leastSkipped;
+    // Update micro-coaching counter
+    session.tasksSinceMicroCard = (session.tasksSinceMicroCard || 0) + 1;
+  }
+  
+  // Use a power-up (free skip)
+  usePowerUp(userId: string): boolean {
+    const session = this.getSession(userId);
+    if ((session.powerUpsAvailable || 0) > 0) {
+      session.powerUpsAvailable = (session.powerUpsAvailable || 1) - 1;
+      session.powerUpsUsedToday = (session.powerUpsUsedToday || 0) + 1;
+      return true;
+    }
+    return false;
+  }
+  
+  // Get gamification state for UI
+  getGamificationState(session: SpotlightSession): GamificationState {
+    return {
+      comboCount: session.comboCount || 0,
+      comboMultiplier: session.comboMultiplier || 1.0,
+      currentStreak: session.currentStreak || 0,
+      powerUpsAvailable: session.powerUpsAvailable || 0,
+      hardTasksCompleted: session.hardTasksCompletedToday || 0,
+      tasksSinceMicroCard: session.tasksSinceMicroCard || 0,
+    };
   }
 
   async getNextTask(userId: string): Promise<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean }> {

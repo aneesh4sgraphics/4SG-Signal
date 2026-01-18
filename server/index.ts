@@ -11,6 +11,7 @@ import { startQuoteFollowUpWorker } from "./quote-followup-worker";
 import { startDataRetentionWorker } from "./data-retention";
 import { startOdooSyncWorker } from "./odoo-sync-worker";
 import { ensureTaxonomySeeded } from "./taxonomy-seed";
+import { seedSpotlightCoachingContent } from "./spotlight-coaching-seed";
 
 // Configure Puppeteer to use system Chromium for PDF generation
 if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
@@ -257,6 +258,7 @@ app.use((req, res, next) => {
   const port = 5000;
   // Ensure admin taxonomy is seeded before starting server
   await ensureTaxonomySeeded();
+  await seedSpotlightCoachingContent();
   
   server.listen({
     port,

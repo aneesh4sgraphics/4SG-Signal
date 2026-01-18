@@ -2880,3 +2880,164 @@ export const insertSpotlightEventSchema = createInsertSchema(spotlightEvents).om
 export type SpotlightEvent = typeof spotlightEvents.$inferSelect;
 export type InsertSpotlightEvent = z.infer<typeof insertSpotlightEventSchema>;
 
+// ========================================
+// SPOTLIGHT ENHANCED COACHING SCHEMA
+// ========================================
+
+// Spotlight Session State - persistent per-user progress, gamification, and energy tracking
+export const spotlightSessionState = pgTable("spotlight_session_state", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionDate: varchar("session_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  
+  // Task interleaving tracking
+  lastTaskTypes: jsonb("last_task_types").$type<string[]>().default([]), // Rolling window of recent task types
+  currentEnergy: integer("current_energy").default(100), // 0-100 energy level
+  energyCheckShown: boolean("energy_check_shown").default(false),
+  
+  // Gamification
+  comboCount: integer("combo_count").default(0), // Different task types in a row
+  comboMultiplier: decimal("combo_multiplier", { precision: 3, scale: 1 }).default("1.0"),
+  tasksCompletedToday: integer("tasks_completed_today").default(0),
+  hardTasksCompletedToday: integer("hard_tasks_completed_today").default(0),
+  powerUpsAvailable: integer("power_ups_available").default(0), // Free skips earned
+  powerUpsUsedToday: integer("power_ups_used_today").default(0),
+  
+  // Micro-coaching
+  lastMicroCardAt: timestamp("last_micro_card_at"),
+  tasksSinceMicroCard: integer("tasks_since_micro_card").default(0),
+  microCardsShownToday: jsonb("micro_cards_shown_today").$type<number[]>().default([]),
+  
+  // Session flow
+  warmupShown: boolean("warmup_shown").default(false),
+  recapShown: boolean("recap_shown").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  userDateIdx: index("spotlight_session_state_user_date_idx").on(table.userId, table.sessionDate),
+  userIdx: index("spotlight_session_state_user_idx").on(table.userId),
+}));
+
+export const insertSpotlightSessionStateSchema = createInsertSchema(spotlightSessionState).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SpotlightSessionState = typeof spotlightSessionState.$inferSelect;
+export type InsertSpotlightSessionState = z.infer<typeof insertSpotlightSessionStateSchema>;
+
+// Spotlight Micro Cards - coaching content for product quizzes, objection practice, etc.
+export const spotlightMicroCards = pgTable("spotlight_micro_cards", {
+  id: serial("id").primaryKey(),
+  cardType: varchar("card_type", { length: 30 }).notNull(), // 'product_quiz', 'objection_practice', 'customer_story', 'competitor_intel', 'machine_profile_check'
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  
+  // For quizzes
+  question: text("question"),
+  options: jsonb("options").$type<string[]>(),
+  correctAnswer: integer("correct_answer"),
+  explanation: text("explanation"),
+  
+  // For objection practice
+  objectionType: varchar("objection_type", { length: 50 }),
+  suggestedResponses: jsonb("suggested_responses").$type<{ id: string; text: string; isRecommended: boolean }[]>(),
+  
+  // For linking to taxonomy
+  categoryCode: varchar("category_code", { length: 50 }),
+  machineTypeCode: varchar("machine_type_code", { length: 50 }),
+  
+  // Metadata
+  difficulty: varchar("difficulty", { length: 20 }).default("medium"), // 'easy', 'medium', 'hard'
+  tags: jsonb("tags").$type<string[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  cardTypeIdx: index("spotlight_micro_cards_type_idx").on(table.cardType),
+  activeIdx: index("spotlight_micro_cards_active_idx").on(table.isActive),
+}));
+
+export const insertSpotlightMicroCardSchema = createInsertSchema(spotlightMicroCards).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SpotlightMicroCard = typeof spotlightMicroCards.$inferSelect;
+export type InsertSpotlightMicroCard = z.infer<typeof insertSpotlightMicroCardSchema>;
+
+// Spotlight Card Engagements - log user interactions with micro cards
+export const spotlightCardEngagements = pgTable("spotlight_card_engagements", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  cardId: integer("card_id").notNull().references(() => spotlightMicroCards.id, { onDelete: "cascade" }),
+  cardType: varchar("card_type", { length: 30 }).notNull(),
+  
+  // Engagement data
+  selectedAnswer: integer("selected_answer"), // For quizzes
+  selectedResponseId: varchar("selected_response_id", { length: 50 }), // For objection practice
+  wasCorrect: boolean("was_correct"),
+  timeSpentMs: integer("time_spent_ms"),
+  skipped: boolean("skipped").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdx: index("spotlight_card_engagements_user_idx").on(table.userId),
+  cardIdx: index("spotlight_card_engagements_card_idx").on(table.cardId),
+  createdAtIdx: index("spotlight_card_engagements_created_at_idx").on(table.createdAt),
+}));
+
+export const insertSpotlightCardEngagementSchema = createInsertSchema(spotlightCardEngagements).omit({
+  id: true,
+  createdAt: true,
+});
+export type SpotlightCardEngagement = typeof spotlightCardEngagements.$inferSelect;
+export type InsertSpotlightCardEngagement = z.infer<typeof insertSpotlightCardEngagementSchema>;
+
+// Spotlight Coach Tips - AI-generated contextual tips
+export const spotlightCoachTips = pgTable("spotlight_coach_tips", {
+  id: serial("id").primaryKey(),
+  tipType: varchar("tip_type", { length: 30 }).notNull(), // 'pre_call', 'post_task', 'product_suggestion', 'objection_handler'
+  triggerContext: varchar("trigger_context", { length: 50 }).notNull(), // What triggers this tip (e.g., 'sales_call', 'hygiene_pricing_tier')
+  content: text("content").notNull(),
+  
+  // For machine/product-specific tips
+  machineTypeCode: varchar("machine_type_code", { length: 50 }),
+  categoryCode: varchar("category_code", { length: 50 }),
+  
+  // Metadata
+  priority: integer("priority").default(10),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSpotlightCoachTipSchema = createInsertSchema(spotlightCoachTips).omit({
+  id: true,
+  createdAt: true,
+});
+export type SpotlightCoachTip = typeof spotlightCoachTips.$inferSelect;
+export type InsertSpotlightCoachTip = z.infer<typeof insertSpotlightCoachTipSchema>;
+
+// Task difficulty/energy cost configuration
+export const TASK_ENERGY_COSTS: Record<string, { energyCost: number; difficulty: 'easy' | 'medium' | 'hard' }> = {
+  'sales_call': { energyCost: 25, difficulty: 'hard' },
+  'sales_follow_up': { energyCost: 15, difficulty: 'medium' },
+  'sales_quote_follow_up': { energyCost: 15, difficulty: 'medium' },
+  'outreach_no_contact': { energyCost: 10, difficulty: 'medium' },
+  'outreach_drip': { energyCost: 8, difficulty: 'easy' },
+  'hygiene_sales_rep': { energyCost: 5, difficulty: 'easy' },
+  'hygiene_pricing_tier': { energyCost: 5, difficulty: 'easy' },
+  'hygiene_email': { energyCost: 8, difficulty: 'easy' },
+  'hygiene_name': { energyCost: 3, difficulty: 'easy' },
+  'hygiene_company': { energyCost: 3, difficulty: 'easy' },
+  'hygiene_phone': { energyCost: 5, difficulty: 'easy' },
+  'hygiene_machine_profile': { energyCost: 10, difficulty: 'medium' },
+  'enablement_swatchbook': { energyCost: 12, difficulty: 'medium' },
+  'enablement_press_test': { energyCost: 12, difficulty: 'medium' },
+  'enablement_price_list': { energyCost: 10, difficulty: 'easy' },
+};
+
