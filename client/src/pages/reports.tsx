@@ -183,7 +183,12 @@ export default function ReportsPage() {
   const [investmentInput, setInvestmentInput] = useState('100000');
 
   const { data: investorData, isLoading: investorLoading, refetch: refetchInvestor } = useQuery<InvestorReturnsData>({
-    queryKey: ['/api/reports/investor-returns', initialInvestment],
+    queryKey: ['/api/reports/investor-returns', { initialInvestment }],
+    queryFn: async () => {
+      const res = await fetch(`/api/reports/investor-returns?initialInvestment=${initialInvestment}`);
+      if (!res.ok) throw new Error('Failed to fetch investor returns');
+      return res.json();
+    },
     enabled: isAdmin,
   });
   
