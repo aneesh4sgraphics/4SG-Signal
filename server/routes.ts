@@ -11503,16 +11503,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       const offset = parseInt(req.query.offset as string) || 0;
+      const includeNoSku = req.query.includeNoSku === 'true';
       
-      // Filter to only show products that have SKUs (default_code)
-      // Odoo domain requires '&' operator to combine conditions
-      const domain = [
-        '&',
-        ['default_code', '!=', false],
-        ['default_code', '!=', '']
-      ];
+      // Use product.product (variants) instead of product.template
+      // This matches the Odoo Product Variants page which shows ~597 items
+      let domain: any[] = [['active', '=', true]];
       
-      const products = await odooClient.getProducts({ limit, offset, domain });
+      // Filter to only show products that have SKUs (default_code) unless includeNoSku is true
+      if (!includeNoSku) {
+        // Odoo domain: active AND has SKU (not false AND not empty string)
+        domain = [
+          ['active', '=', true],
+          ['default_code', '!=', false],
+          ['default_code', '!=', '']
+        ];
+      }
+      
+      const products = await odooClient.searchProductVariants({ limit, offset, domain });
       res.json(products);
     } catch (error: any) {
       console.error("Error fetching Odoo products:", error);
@@ -11539,18 +11546,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid product ID" });
       }
 
-      // Fetch all data in parallel for efficiency
-      const [product, pricingTiers, inventory, purchaseOrders, customerPurchases] = await Promise.all([
-        odooClient.getProductById(productId),
-        odooClient.getPricelistItemsForProduct(productId),
-        odooClient.getProductInventoryByTemplate(productId),
-        odooClient.getProductPurchaseOrders(productId),
-        odooClient.getProductCustomerPurchases(productId),
-      ]);
-
+      // Fetch product variant first to get the template ID for related queries
+      const product = await odooClient.getProductVariantById(productId);
+      
       if (!product) {
         return res.status(404).json({ error: "Product not found" });
       }
+      
+      // Get the template ID for pricelist and inventory queries
+      const templateId = product.product_tmpl_id ? product.product_tmpl_id[0] : productId;
+      
+      // Fetch related data in parallel
+      const [pricingTiers, inventory, purchaseOrders, customerPurchases] = await Promise.all([
+        odooClient.getPricelistItemsForProduct(templateId),
+        odooClient.getProductInventoryByTemplate(templateId),
+        odooClient.getProductPurchaseOrders(productId),
+        odooClient.getProductCustomerPurchases(productId),
+      ]);
 
       // Defensive defaults for all data
       const safeInventory = inventory || { totalAvailable: 0, totalVirtual: 0, totalIncoming: 0, totalOutgoing: 0, variants: [] };
@@ -11558,16 +11570,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safePurchaseOrders = purchaseOrders || [];
       const safeCustomerPurchases = customerPurchases || [];
 
-      // Calculate average cost from variants
-      const variants = safeInventory.variants || [];
-      let averageCost = product.standard_price || 0;
-      if (variants.length > 0) {
-        const variantCosts = await odooClient.getProductVariants(productId);
-        const validCosts = variantCosts.filter(v => v.standard_price > 0);
-        if (validCosts.length > 0) {
-          averageCost = validCosts.reduce((sum, v) => sum + v.standard_price, 0) / validCosts.length;
-        }
-      }
+      // Use the product variant's standard price directly
+      const averageCost = product.standard_price || 0;
 
       // Calculate total on PO
       const totalOnPO = safePurchaseOrders.reduce((sum, po) => sum + (po.qty_remaining || 0), 0);

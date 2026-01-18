@@ -392,12 +392,23 @@ class OdooClient {
     return allProducts;
   }
 
-  // Get product variants (product.product) - these often have the actual internal reference codes
-  async getProductVariants(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<any[]> {
+  // Search product variants (product.product) - these often have the actual internal reference codes
+  async searchProductVariants(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<any[]> {
     return this.searchRead('product.product', options.domain || [['active', '=', true]], [
       'id', 'name', 'default_code', 'list_price', 'standard_price', 
-      'product_tmpl_id', 'active', 'barcode',
+      'product_tmpl_id', 'active', 'barcode', 'categ_id', 'type', 
+      'description', 'description_sale', 'uom_id',
     ], { limit: options.limit || 100, offset: options.offset || 0 });
+  }
+
+  // Get a single product variant by ID with full details
+  async getProductVariantById(id: number): Promise<any | null> {
+    const products = await this.read('product.product', [id], [
+      'id', 'name', 'default_code', 'list_price', 'standard_price', 'categ_id',
+      'type', 'description', 'description_sale', 'uom_id', 'active',
+      'product_tmpl_id', 'barcode', 'qty_available', 'virtual_available',
+    ]);
+    return products.length > 0 ? products[0] : null;
   }
 
   // Get ALL product variants with pagination - this is where Item Codes usually live in Odoo
@@ -408,7 +419,7 @@ class OdooClient {
     let hasMore = true;
     
     while (hasMore) {
-      const batch = await this.getProductVariants({ limit: batchSize, offset });
+      const batch = await this.searchProductVariants({ limit: batchSize, offset });
       allVariants.push(...batch);
       
       if (batch.length < batchSize) {
@@ -1438,7 +1449,13 @@ ${plainTextBody}`;
     }>;
   }> {
     try {
-      const variants = await this.getProductVariants(productTemplateId);
+      // Fetch variants by template ID with proper domain filter
+      const variants = await this.searchRead('product.product', [
+        ['product_tmpl_id', '=', productTemplateId]
+      ], [
+        'id', 'name', 'default_code', 'qty_available', 'virtual_available',
+        'incoming_qty', 'outgoing_qty', 'standard_price'
+      ], { limit: 100 });
       
       let totalAvailable = 0;
       let totalVirtual = 0;
