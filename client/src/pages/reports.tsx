@@ -224,17 +224,25 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          {/* Quotations vs Sales Orders Confirmed */}
+          {/* Conversion Rate - Quotes Sent vs Sales Orders Confirmed */}
           <Card className="col-span-1">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-purple-600" />
-                    Quotes vs Confirmed Orders
+                    Conversion Rate
                   </CardTitle>
-                  <CardDescription>Quotations and confirmed sales orders by month</CardDescription>
+                  <CardDescription>Quotes sent vs sales orders confirmed</CardDescription>
                 </div>
+                {quotesOrdersData && quotesOrdersData.totals.quotesCount > 0 && (
+                  <Badge 
+                    variant={((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100) >= 50 ? "default" : "secondary"}
+                    className="text-lg px-3 py-1"
+                  >
+                    {((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100).toFixed(1)}% Rate
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -245,45 +253,93 @@ export default function ReportsPage() {
                 </div>
               ) : quotesOrdersData ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Quotations</p>
-                      <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
-                        {formatCurrency(quotesOrdersData.totals.quotesAmount)}
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Quotes Sent</p>
+                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">
+                        {formatNumber(quotesOrdersData.totals.quotesCount)}
                       </p>
                       <p className="text-xs text-amber-600">
-                        {formatNumber(quotesOrdersData.totals.quotesCount)} quotes
+                        {formatCurrency(quotesOrdersData.totals.quotesAmount)}
                       </p>
                     </div>
                     <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Confirmed Orders</p>
-                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                        {formatCurrency(quotesOrdersData.totals.confirmedAmount)}
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Orders Confirmed</p>
+                      <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                        {formatNumber(quotesOrdersData.totals.confirmedCount)}
                       </p>
                       <p className="text-xs text-emerald-600">
-                        {formatNumber(quotesOrdersData.totals.confirmedCount)} orders
+                        {formatCurrency(quotesOrdersData.totals.confirmedAmount)}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Conversion Rate</p>
+                      <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                        {quotesOrdersData.totals.quotesCount > 0 
+                          ? ((quotesOrdersData.totals.confirmedCount / quotesOrdersData.totals.quotesCount) * 100).toFixed(1)
+                          : 0}%
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        of quotes
                       </p>
                     </div>
                   </div>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={quotesOrdersData.chartData}>
+                      <BarChart data={quotesOrdersData.chartData.map(d => ({
+                        ...d,
+                        conversionRate: d.quotesCount > 0 
+                          ? Math.round((d.confirmedCount / d.quotesCount) * 100) 
+                          : 0
+                      }))}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis dataKey="month" fontSize={12} />
                         <YAxis 
+                          yAxisId="left"
                           fontSize={12} 
-                          tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
+                          tickFormatter={(val) => `${val}`}
                         />
-                        <Tooltip content={<CustomTooltipCurrency />} />
+                        <YAxis 
+                          yAxisId="right"
+                          orientation="right"
+                          fontSize={12} 
+                          tickFormatter={(val) => `${val}%`}
+                          domain={[0, 100]}
+                        />
+                        <Tooltip 
+                          content={({ active, payload, label }: any) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-3">
+                                  <p className="font-medium mb-2">{label}</p>
+                                  {payload.map((entry: any, index: number) => (
+                                    <div key={index} className="flex items-center gap-2 text-sm">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: entry.color }}
+                                      />
+                                      <span className="text-muted-foreground">{entry.name}:</span>
+                                      <span className="font-medium">
+                                        {entry.dataKey === 'conversionRate' ? `${entry.value}%` : entry.value}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
                         <Legend />
-                        <Bar dataKey="quotesAmount" name="Quotations" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="confirmedAmount" name="Confirmed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="left" dataKey="quotesCount" name="Quotes Sent" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="left" dataKey="confirmedCount" name="Confirmed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Line yAxisId="right" type="monotone" dataKey="conversionRate" name="Conv. Rate" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-8">No quotes/orders data available</p>
+                <p className="text-muted-foreground text-center py-8">No conversion data available</p>
               )}
             </CardContent>
           </Card>
