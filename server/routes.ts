@@ -12037,7 +12037,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get customer to find their odooPartnerId
       const customer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
-      if (!customer.length || !customer[0].odooPartnerId) {
+      if (!customer.length) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      let odooPartnerId = customer[0].odooPartnerId;
+      
+      // If no odooPartnerId, try to auto-match by email (only if exactly one match)
+      if (!odooPartnerId && customer[0].email) {
+        try {
+          const normalizedEmail = customer[0].email.toLowerCase().trim();
+          const matchingPartners = await odooClient.searchRead('res.partner', [
+            ['email', '=ilike', normalizedEmail],
+            ['active', '=', true],
+          ], ['id', 'name', 'email', 'is_company', 'parent_id'], { limit: 5 });
+          
+          if (matchingPartners.length === 1) {
+            // Exactly one match - safe to auto-link
+            odooPartnerId = matchingPartners[0].id;
+            
+            // Update customer record with the found odooPartnerId
+            await db.update(customers)
+              .set({ 
+                odooPartnerId: odooPartnerId,
+                sources: customer[0].sources?.includes('odoo') 
+                  ? customer[0].sources 
+                  : [...(customer[0].sources || []), 'odoo'],
+                updatedAt: new Date()
+              })
+              .where(eq(customers.id, customerId));
+            
+            console.log(`[Auto-Link] Customer ${customerId} linked to Odoo partner ${odooPartnerId} by email: ${normalizedEmail}`);
+          } else if (matchingPartners.length > 1) {
+            console.log(`[Auto-Link] Customer ${customerId} has ${matchingPartners.length} potential Odoo matches - manual linking required`);
+          }
+        } catch (autoLinkError: any) {
+          console.error(`[Auto-Link] Error matching customer ${customerId} to Odoo:`, autoLinkError.message);
+        }
+      }
+      
+      if (!odooPartnerId) {
         const allCategories = await odooClient.getAllProductCategories();
         return res.json({
           salesPerson: null,
@@ -12053,7 +12092,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const [metrics, allCategories] = await Promise.all([
-        odooClient.getPartnerBusinessMetrics(customer[0].odooPartnerId),
+        odooClient.getPartnerBusinessMetrics(odooPartnerId),
         odooClient.getAllProductCategories(),
       ]);
       
