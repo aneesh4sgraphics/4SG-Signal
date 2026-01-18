@@ -188,9 +188,8 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
 
   // Helper to strip HTML tags for plain text version
   const stripHtml = (html: string): string => {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
   };
 
   const handleSend = () => {
