@@ -69,9 +69,10 @@ Email is the primary identifier for connecting customers across all systems (Odo
 **Average Margin Calculation** (Updated Jan 2026):
 - **Source**: Odoo `sale.order` model with `margin_percent` field
 - **Logic**: Arithmetic mean of `margin_percent` values from confirmed sale orders (state = 'sale' or 'done')
+- **Important**: Odoo's `margin_percent` returns decimal fractions (0.76 = 76%), so we multiply by 100 to convert to actual percentages
 - **Why**: Using Odoo's built-in `margin_percent` per order is more accurate than calculating from aggregated revenue/cost totals, which can produce extreme values (like -1023%) when product costs are missing or incorrect
-- **Implementation**: `server/odoo.ts` → `getPartnerBusinessMetrics()` → queries sale.order with margin_percent field
-- **Fallback**: Returns 0% if no valid sale orders exist or margin data unavailable
+- **Implementation**: `server/odoo.ts` → `getPartnerBusinessMetrics()` → queries sale.order with margin_percent field, multiplies by 100
+- **Fallback**: If margin_percent unavailable, calculates from margin/amount_total * 100. Returns "N/A" if no valid data
 
 **Pricing Tier for Non-Odoo Customers**:
 - Customers not linked to Odoo can still have pricing tiers assigned locally
