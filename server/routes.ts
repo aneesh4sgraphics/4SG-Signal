@@ -11688,6 +11688,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get best selling price analysis for a product based on invoice history
+  app.get("/api/odoo/products/:id/best-price", requireApproval, async (req: any, res) => {
+    try {
+      const productId = parseInt(req.params.id);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+
+      // Get the product to find its template ID
+      const product = await odooClient.getProductVariantById(productId);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      const templateId = product.product_tmpl_id ? product.product_tmpl_id[0] : productId;
+
+      // Fetch invoice lines for this product (last 12 months)
+      const invoiceLines = await odooClient.getProductInvoiceLines(productId, templateId);
+
+      if (invoiceLines.length === 0) {
+        return res.json({
+          hasData: false,
+          message: "No invoice history found for this product in the last 12 months",
+        });
+      }
+
+      // Calculate effective unit prices from each invoice line
+      const priceData = invoiceLines
+        .filter(line => line.quantity > 0 && line.price_unit > 0)
+        .map(line => {
+          // Effective price after discount
+          const effectivePrice = line.price_unit * (1 - (line.discount || 0) / 100);
+          return {
+            price: effectivePrice,
+            quantity: line.quantity,
+            date: line.invoice_date,
+            partner: line.partner_id?.[1] || 'Unknown',
+          };
+        });
+
+      if (priceData.length === 0) {
+        return res.json({
+          hasData: false,
+          message: "No valid pricing data found in invoice history",
+        });
+      }
+
+      // Calculate statistics
+      const totalQuantity = priceData.reduce((sum, d) => sum + d.quantity, 0);
+      
+      // Weighted average (by quantity)
+      const weightedSum = priceData.reduce((sum, d) => sum + (d.price * d.quantity), 0);
+      const weightedAverage = weightedSum / totalQuantity;
+
+      // Sort prices for percentile calculations
+      const sortedPrices = priceData.map(d => d.price).sort((a, b) => a - b);
+      const minPrice = sortedPrices[0];
+      const maxPrice = sortedPrices[sortedPrices.length - 1];
+      
+      // Median (50th percentile)
+      const medianIndex = Math.floor(sortedPrices.length / 2);
+      const median = sortedPrices.length % 2 === 0
+        ? (sortedPrices[medianIndex - 1] + sortedPrices[medianIndex]) / 2
+        : sortedPrices[medianIndex];
+
+      // 25th and 75th percentiles
+      const p25Index = Math.floor(sortedPrices.length * 0.25);
+      const p75Index = Math.floor(sortedPrices.length * 0.75);
+      const percentile25 = sortedPrices[p25Index] || minPrice;
+      const percentile75 = sortedPrices[p75Index] || maxPrice;
+
+      // Best price recommendation: Max of weighted average and 25th percentile
+      // This gives a competitive but profitable price
+      const recommendedPrice = Math.max(weightedAverage, percentile25);
+
+      // Find most recent and most frequent prices
+      const sortedByDate = [...priceData].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const mostRecentPrice = sortedByDate[0]?.price || 0;
+      const mostRecentDate = sortedByDate[0]?.date || '';
+
+      // Simple average (unweighted)
+      const simpleAverage = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+
+      res.json({
+        hasData: true,
+        recommendedPrice: Math.round(recommendedPrice * 100) / 100,
+        statistics: {
+          weightedAverage: Math.round(weightedAverage * 100) / 100,
+          simpleAverage: Math.round(simpleAverage * 100) / 100,
+          median: Math.round(median * 100) / 100,
+          minPrice: Math.round(minPrice * 100) / 100,
+          maxPrice: Math.round(maxPrice * 100) / 100,
+          percentile25: Math.round(percentile25 * 100) / 100,
+          percentile75: Math.round(percentile75 * 100) / 100,
+        },
+        volume: {
+          totalInvoices: invoiceLines.length,
+          totalQuantitySold: Math.round(totalQuantity),
+          distinctCustomers: new Set(priceData.map(d => d.partner)).size,
+        },
+        recentActivity: {
+          mostRecentPrice: Math.round(mostRecentPrice * 100) / 100,
+          mostRecentDate,
+        },
+        productInfo: {
+          id: product.id,
+          name: product.name,
+          sku: product.default_code || '',
+        },
+      });
+    } catch (error: any) {
+      console.error("Error calculating best price:", error);
+      res.status(500).json({ error: error.message || "Failed to calculate best price" });
+    }
+  });
+
   // Get product inventory from Odoo by SKU
   app.get("/api/odoo/inventory/:itemCode", requireApproval, async (req: any, res) => {
     try {
