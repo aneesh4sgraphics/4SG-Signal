@@ -64,6 +64,21 @@ Email is the primary identifier for connecting customers across all systems (Odo
 4. Secondary email display in Contacts section
 5. Email health score badge
 
+### Business Metrics Calculation Logic
+
+**Average Margin Calculation** (Updated Jan 2026):
+- **Source**: Odoo `sale.order` model with `margin_percent` field
+- **Logic**: Arithmetic mean of `margin_percent` values from confirmed sale orders (state = 'sale' or 'done')
+- **Why**: Using Odoo's built-in `margin_percent` per order is more accurate than calculating from aggregated revenue/cost totals, which can produce extreme values (like -1023%) when product costs are missing or incorrect
+- **Implementation**: `server/odoo.ts` → `getPartnerBusinessMetrics()` → queries sale.order with margin_percent field
+- **Fallback**: Returns 0% if no valid sale orders exist or margin data unavailable
+
+**Pricing Tier for Non-Odoo Customers**:
+- Customers not linked to Odoo can still have pricing tiers assigned locally
+- Dropdown uses standard pricing tiers from `/api/pricing-tiers` database table
+- Updates save to local `pricingTier` field via `PUT /api/customers/:id`
+- QuickQuotes uses this field for price calculations regardless of Odoo link status
+
 ### Database
 - **ORM**: Drizzle ORM with PostgreSQL dialect.
 - **Migration**: Drizzle Kit.

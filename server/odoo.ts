@@ -1011,28 +1011,34 @@ ${plainTextBody}`;
       // Get unique product IDs from order lines
       const productIds = Array.from(new Set(orderLines.map(line => line.productId)));
       
-      // Calculate actual average margin using product costs from Odoo
+      // Calculate average margin using margin_percent from sale.order records
+      // This uses Odoo's built-in margin calculation which is more accurate
       let averageMargin = 0;
       let purchasedCategoryIds = new Set<number>();
       
+      try {
+        // Fetch confirmed sale orders with margin_percent field
+        const saleOrders = await this.searchRead('sale.order', [
+          ['partner_id', '=', partnerId],
+          ['state', 'in', ['sale', 'done']],
+        ], ['id', 'margin_percent'], { limit: 500 });
+        
+        // Calculate arithmetic mean of margin_percent values
+        const validMargins = saleOrders
+          .map((order: any) => order.margin_percent)
+          .filter((margin: any) => typeof margin === 'number' && !isNaN(margin));
+        
+        if (validMargins.length > 0) {
+          const sum = validMargins.reduce((acc: number, val: number) => acc + val, 0);
+          averageMargin = Math.round(sum / validMargins.length);
+        }
+      } catch (marginError: any) {
+        console.error(`[Odoo] Error fetching margin_percent from sale orders:`, marginError.message);
+        // Fallback: leave averageMargin as 0
+      }
+      
       if (productIds.length > 0) {
-        const [productCosts, productCategoryMap] = await Promise.all([
-          this.getProductCosts(productIds),
-          this.getProductCategories(productIds),
-        ]);
-
-        // Calculate margin: (revenue - cost) / revenue * 100
-        let totalRevenue = 0;
-        let totalCost = 0;
-        for (const line of orderLines) {
-          const unitCost = productCosts.get(line.productId) || 0;
-          totalRevenue += line.priceTotal;
-          totalCost += unitCost * line.quantity;
-        }
-
-        if (totalRevenue > 0) {
-          averageMargin = Math.round(((totalRevenue - totalCost) / totalRevenue) * 100);
-        }
+        const productCategoryMap = await this.getProductCategories(productIds);
 
         // Collect purchased category IDs
         productCategoryMap.forEach((catInfo) => {
