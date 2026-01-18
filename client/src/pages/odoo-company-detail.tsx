@@ -40,17 +40,12 @@ import {
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
-// Standard pricing tiers - must match quote-calculator for consistency
-const standardPricingTiers = [
-  { key: 'landedPrice', label: 'Landed Price' },
-  { key: 'exportPrice', label: 'Export Only' },
-  { key: 'masterDistributorPrice', label: 'Distributor' },
-  { key: 'dealerVIPPrice', label: 'Dealer-VIP' },
-  { key: 'dealerPrice', label: 'Dealer' },
-  { key: 'shopifyPartnersPrice', label: 'Shopify-Partners' },
-  { key: 'shopifyPrice', label: 'Shopify' },
-  { key: 'retailPrice', label: 'Retail' },
-];
+interface PricingTier {
+  id: number;
+  key: string;
+  label: string;
+  description?: string | null;
+}
 
 interface ShopifyCustomerMapping {
   id: number;
@@ -209,6 +204,12 @@ export default function OdooCompanyDetail() {
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 300000, // Cache for 5 minutes
+  });
+
+  // Fetch standard pricing tiers from database (for non-Odoo customers)
+  const { data: standardPricingTiers = [], isLoading: pricingTiersLoading } = useQuery<PricingTier[]>({
+    queryKey: ['/api/pricing-tiers'],
     staleTime: 300000, // Cache for 5 minutes
   });
 
@@ -1304,7 +1305,7 @@ export default function OdooCompanyDetail() {
                         </span>
                       )}
                     </div>
-                    {categoriesLoading ? (
+                    {(categoriesLoading || pricingTiersLoading) ? (
                       <Skeleton className="h-9 w-full" />
                     ) : !company.odooPartnerId ? (
                       <Select
@@ -1312,14 +1313,14 @@ export default function OdooCompanyDetail() {
                         onValueChange={(value) => {
                           updateLocalPricingTierMutation.mutate({ pricingTier: value });
                         }}
-                        disabled={updateLocalPricingTierMutation.isPending}
+                        disabled={updateLocalPricingTierMutation.isPending || standardPricingTiers.length === 0}
                       >
                         <SelectTrigger className={`w-full transition-all duration-300 ${updateLocalPricingTierMutation.isPending ? 'opacity-50' : ''} ${tagSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
                           <SelectValue placeholder={company.pricingTier || 'Select pricing tier'} />
                         </SelectTrigger>
                         <SelectContent>
                           {standardPricingTiers.map((tier) => (
-                            <SelectItem key={tier.key} value={tier.label}>
+                            <SelectItem key={tier.id} value={tier.label}>
                               {tier.label}
                             </SelectItem>
                           ))}
