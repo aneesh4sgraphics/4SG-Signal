@@ -545,8 +545,15 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
   }
 
   const user = req.user as any;
-  if (!user?.claims?.sub) {
+  const userId = user?.claims?.sub || user?.id;
+  if (!userId) {
+    console.log(`[Auth] Invalid session: no user ID found. claims=${JSON.stringify(user?.claims)}, id=${user?.id}`);
     return res.status(401).json({ message: "Invalid session" });
+  }
+  
+  // Ensure user.id is set for downstream use
+  if (!user.id) {
+    user.id = userId;
   }
 
   // Normalize user object to have consistent properties
@@ -605,11 +612,12 @@ export const requireApproval: RequestHandler = async (req: Request, res: Respons
   }
   
   const user = req.user as any;
-  if (!user?.claims?.sub) {
+  const userId = user?.claims?.sub || user?.id;
+  if (!userId) {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
-  const dbUser = await storage.getUser(user.claims.sub);
+  const dbUser = await storage.getUser(userId);
   if (!dbUser) {
     return res.status(401).json({ message: "User not found" });
   }
@@ -627,11 +635,12 @@ export const requireAdmin: RequestHandler = async (req: Request, res: Response, 
   }
   
   const user = req.user as any;
-  if (!user?.claims?.sub) {
+  const userId = user?.claims?.sub || user?.id;
+  if (!userId) {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
-  const dbUser = await storage.getUser(user.claims.sub);
+  const dbUser = await storage.getUser(userId);
   if (!dbUser) {
     return res.status(401).json({ message: "User not found" });
   }
