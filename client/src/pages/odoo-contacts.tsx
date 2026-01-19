@@ -1038,12 +1038,23 @@ export default function OdooContacts() {
                             <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="w-4 h-4" /></Button>
                           </div>
                         ) : (
-                          <div 
-                            className="flex items-center gap-2 group/email"
-                            onClick={e => { e.stopPropagation(); startEdit(contact.id, 'email', contact.email || ''); }}
-                          >
-                            <Mail className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-700 group-hover/email:text-violet-600">
+                          <div className="flex items-center gap-2 group/email">
+                            {contact.email ? (
+                              <a 
+                                href={`mailto:${contact.email}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-gray-400 hover:text-primary"
+                                title="Send email"
+                              >
+                                <Mail className="w-4 h-4" />
+                              </a>
+                            ) : (
+                              <Mail className="w-4 h-4 text-gray-400" />
+                            )}
+                            <span 
+                              className="text-gray-700 group-hover/email:text-violet-600 cursor-pointer"
+                              onClick={e => { e.stopPropagation(); startEdit(contact.id, 'email', contact.email || ''); }}
+                            >
                               {contact.email || <span className="text-gray-400 italic">Add email...</span>}
                             </span>
                           </div>
@@ -1206,7 +1217,13 @@ export default function OdooContacts() {
                         {contact.email && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{contact.email}</span>
+                            <a 
+                              href={`mailto:${contact.email}`}
+                              className="truncate hover:text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.email}
+                            </a>
                           </div>
                         )}
                         {contact.phone && (

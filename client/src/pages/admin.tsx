@@ -428,7 +428,11 @@ export default function Admin() {
                         <TableCell className="font-medium">
                           {user.firstName} {user.lastName}
                         </TableCell>
-                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <a href={`mailto:${user.email}`} className="text-primary hover:underline">
+                            {user.email}
+                          </a>
+                        </TableCell>
                         <TableCell>
                           {user.status === 'approved' ? (
                             <RoleSelect 

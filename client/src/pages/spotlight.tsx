@@ -1158,10 +1158,13 @@ export default function Spotlight() {
                   </CardTitle>
                   <div className="flex items-center gap-3 mt-1.5 text-sm text-[#666666]">
                     {customer.email && (
-                      <span className="flex items-center gap-1">
+                      <a 
+                        href={`mailto:${customer.email}`}
+                        className="flex items-center gap-1 hover:text-primary hover:underline"
+                      >
                         <Mail className="w-3.5 h-3.5" />
                         {customer.email}
-                      </span>
+                      </a>
                     )}
                     {customer.phone && (
                       <span className="flex items-center gap-1">
@@ -1569,7 +1572,12 @@ export default function Spotlight() {
                 {customer?.company || customer?.firstName || 'Unknown'}
               </div>
               {customer?.email && (
-                <div className="text-sm text-gray-500">{customer.email}</div>
+                <a 
+                  href={`mailto:${customer.email}`}
+                  className="text-sm text-primary hover:underline block"
+                >
+                  {customer.email}
+                </a>
               )}
               <div className="text-gray-400 mt-1">Fill in the missing information to improve data quality.</div>
             </DialogDescription>

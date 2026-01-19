@@ -687,7 +687,15 @@ export default function CRMJourneyDashboard() {
                         </td>
                         <td className="p-3">
                           <p className="text-sm">{journey.customer?.firstName} {journey.customer?.lastName}</p>
-                          <p className="text-xs text-gray-500">{journey.customer?.email}</p>
+                          {journey.customer?.email && (
+                              <a 
+                                href={`mailto:${journey.customer.email}`} 
+                                className="text-xs text-gray-500 hover:text-primary hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {journey.customer.email}
+                              </a>
+                            )}
                         </td>
                         <td className="p-3">
                           {stageConfig && (
@@ -907,7 +915,12 @@ export default function CRMJourneyDashboard() {
                 {selectedJourney.customer?.email && (
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm">{selectedJourney.customer.email}</span>
+                    <a 
+                      href={`mailto:${selectedJourney.customer.email}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {selectedJourney.customer.email}
+                    </a>
                   </div>
                 )}
                 {selectedJourney.customer?.phone && (

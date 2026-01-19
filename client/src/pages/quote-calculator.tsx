@@ -2150,7 +2150,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     return (
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">{selectedCustomer.email}</span>
+                        <a 
+                          href={`mailto:${selectedCustomer.email}`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {selectedCustomer.email}
+                        </a>
                       </div>
                     );
                   })()}
