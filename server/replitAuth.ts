@@ -217,12 +217,18 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Serialize only the user ID to the session (not the entire user object with tokens)
-  // This prevents session/token desync issues in production
+  // Serialize user data including tokens to the session
+  // Tokens are required for refreshing expired sessions
   passport.serializeUser((user: any, cb) => {
     const userId = user?.claims?.sub || user?.id;
-    console.log(`[Auth] Serializing user: ${userId}`);
-    cb(null, { id: userId, claims: user?.claims });
+    console.log(`[Auth] Serializing user: ${userId}, has refresh_token: ${!!user?.refresh_token}`);
+    cb(null, { 
+      id: userId, 
+      claims: user?.claims,
+      access_token: user?.access_token,
+      refresh_token: user?.refresh_token,
+      expires_at: user?.expires_at,
+    });
   });
   
   // Deserialize by loading the user from the session data
@@ -556,7 +562,10 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
     const bufferSeconds = 60;
 
     if (now > user.expires_at + bufferSeconds) {
+      console.log(`[Auth] Token expired for ${user.email}. expires_at: ${new Date(user.expires_at * 1000).toISOString()}, now: ${new Date(now * 1000).toISOString()}, has_refresh_token: ${!!user.refresh_token}`);
+      
       if (!user.refresh_token) {
+        console.log(`[Auth] No refresh token available for ${user.email} - session cannot be renewed`);
         return res.status(401).json({ message: "Session expired" });
       }
 
@@ -564,6 +573,21 @@ export const isAuthenticated: RequestHandler = async (req: Request, res: Respons
         const config = await getOidcConfig();
         const tokenResponse = await client.refreshTokenGrant(config, user.refresh_token);
         updateUserTokens(user, tokenResponse);
+        
+        // Persist refreshed tokens to the session
+        if ((req.session as any)?.passport?.user) {
+          (req.session as any).passport.user.access_token = user.access_token;
+          (req.session as any).passport.user.refresh_token = user.refresh_token;
+          (req.session as any).passport.user.expires_at = user.expires_at;
+          (req.session as any).passport.user.claims = user.claims;
+          
+          // Save session asynchronously (don't block the request)
+          req.session.save((err) => {
+            if (err) console.error("[Auth] Failed to save refreshed tokens to session:", err);
+            else console.log("[Auth] Refreshed tokens saved to session");
+          });
+        }
+        
         console.log("[Auth] Token refreshed successfully");
       } catch (error) {
         console.error("[Auth] Token refresh failed:", error);
