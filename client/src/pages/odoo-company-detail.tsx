@@ -659,22 +659,22 @@ export default function OdooCompanyDetail() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{displayName}</h1>
-                <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
                   {company.email && (
-                    <a href={`mailto:${company.email}`} className="flex items-center gap-1 hover:text-violet-600">
-                      <Mail className="w-3.5 h-3.5" />
+                    <a href={`mailto:${company.email}`} className="flex items-center gap-2 hover:text-violet-600">
+                      <Mail className="w-4 h-4 text-gray-400" />
                       <span>{company.email}</span>
                     </a>
                   )}
                   {company.phone && (
-                    <a href={`tel:${company.phone}`} className="flex items-center gap-1 hover:text-violet-600">
-                      <Phone className="w-3.5 h-3.5" />
+                    <a href={`tel:${company.phone}`} className="flex items-center gap-2 hover:text-violet-600">
+                      <Phone className="w-4 h-4 text-gray-400" />
                       <span>{company.phone}</span>
                     </a>
                   )}
                   {(company.address1 || company.city) && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" />
+                    <span className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-gray-400" />
                       <span>{[company.address1, company.city, company.province, company.zip, company.country].filter(Boolean).join(', ')}</span>
                     </span>
                   )}
