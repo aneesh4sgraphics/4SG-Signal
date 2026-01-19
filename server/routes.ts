@@ -2468,9 +2468,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
       
-      // Safely access user claims
-      const userId = req.user?.claims?.sub;
+      // Safely access user claims - support both new sessions (claims.sub) and legacy (id)
+      const userId = req.user?.claims?.sub || req.user?.id;
       if (!userId) {
+        console.log('[Auth] /api/auth/user - Invalid session: no userId found', {
+          hasClaims: !!req.user?.claims,
+          hasId: !!req.user?.id
+        });
         return res.status(401).json({ message: "Invalid session" });
       }
       
