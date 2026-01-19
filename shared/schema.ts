@@ -3022,6 +3022,53 @@ export const insertSpotlightCoachTipSchema = createInsertSchema(spotlightCoachTi
 export type SpotlightCoachTip = typeof spotlightCoachTips.$inferSelect;
 export type InsertSpotlightCoachTip = z.infer<typeof insertSpotlightCoachTipSchema>;
 
+// Label print types
+export const LABEL_TYPES = ['swatch_book', 'press_test_kit', 'mailer', 'other'] as const;
+export type LabelType = typeof LABEL_TYPES[number];
+
+export const LABEL_TYPE_LABELS: Record<LabelType, string> = {
+  'swatch_book': 'Swatch Book',
+  'press_test_kit': 'Press Test Kit',
+  'mailer': 'Mailer',
+  'other': 'Something Else',
+};
+
+// Label prints table - tracks address labels printed for customers
+export const labelPrints = pgTable("label_prints", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  labelType: varchar("label_type", { length: 30 }).notNull(), // 'swatch_book', 'press_test_kit', 'mailer', 'other'
+  otherDescription: varchar("other_description", { length: 255 }), // Description when type is 'other'
+  quantity: integer("quantity").notNull().default(1),
+  
+  // Address snapshot (captured at print time)
+  addressLine1: varchar("address_line1", { length: 255 }),
+  addressLine2: varchar("address_line2", { length: 255 }),
+  city: varchar("city", { length: 255 }),
+  province: varchar("province", { length: 255 }),
+  country: varchar("country", { length: 255 }),
+  postalCode: varchar("postal_code", { length: 50 }),
+  
+  // Tracking
+  printedByUserId: varchar("printed_by_user_id").notNull().references(() => users.id),
+  printedByUserName: varchar("printed_by_user_name", { length: 255 }),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("label_prints_customer_idx").on(table.customerId),
+  labelTypeIdx: index("label_prints_type_idx").on(table.labelType),
+  printedByIdx: index("label_prints_printed_by_idx").on(table.printedByUserId),
+  createdAtIdx: index("label_prints_created_at_idx").on(table.createdAt),
+}));
+
+export const insertLabelPrintSchema = createInsertSchema(labelPrints).omit({
+  id: true,
+  createdAt: true,
+});
+export type LabelPrint = typeof labelPrints.$inferSelect;
+export type InsertLabelPrint = z.infer<typeof insertLabelPrintSchema>;
+
 // Task difficulty/energy cost configuration
 export const TASK_ENERGY_COSTS: Record<string, { energyCost: number; difficulty: 'easy' | 'medium' | 'hard' }> = {
   'sales_call': { energyCost: 25, difficulty: 'hard' },
