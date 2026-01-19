@@ -2347,6 +2347,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get today's label stats for current user (for Spotlight daily goal)
+  app.get("/api/labels/today", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      
+      // Get start of today (local time)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Count today's swatch_book and press_test_kit prints by this user
+      const todayStats = await db.select({
+        labelType: labelPrints.labelType,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(labelPrints)
+      .where(
+        and(
+          eq(labelPrints.printedByUserId, userId),
+          gte(labelPrints.createdAt, today),
+          or(
+            eq(labelPrints.labelType, 'swatch_book'),
+            eq(labelPrints.labelType, 'press_test_kit')
+          )
+        )
+      )
+      .groupBy(labelPrints.labelType);
+
+      const swatchBookCount = todayStats.find(s => s.labelType === 'swatch_book')?.count || 0;
+      const pressTestKitCount = todayStats.find(s => s.labelType === 'press_test_kit')?.count || 0;
+      const totalKitsSentToday = swatchBookCount + pressTestKitCount;
+      const dailyGoal = 5;
+
+      res.json({
+        swatchBookCount,
+        pressTestKitCount,
+        totalKitsSentToday,
+        dailyGoal,
+        goalMet: totalKitsSentToday >= dailyGoal,
+        remaining: Math.max(0, dailyGoal - totalKitsSentToday),
+        progress: Math.min(100, (totalKitsSentToday / dailyGoal) * 100),
+      });
+    } catch (error) {
+      console.error("Today's label stats error:", error);
+      res.status(500).json({ error: "Failed to fetch today's label stats" });
+    }
+  });
+
   // --- Comprehensive diagnostics endpoint ---
   app.get('/api/diagnostics', async (_req, res) => {
     try {

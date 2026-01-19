@@ -90,6 +90,7 @@ export function PrintLabelButton({ customer, variant = "icon", size = "sm" }: Pr
       setLabelNotes('');
       queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'label-stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/label-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labels/today'] });
     },
     onError: (error: Error) => {
       toast({ title: 'Failed to print label', description: error.message, variant: 'destructive' });

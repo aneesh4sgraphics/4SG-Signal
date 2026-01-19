@@ -318,6 +318,20 @@ export default function Spotlight() {
     enabled: !!currentTask,
   });
 
+  // Fetch today's kit sending progress for daily goal
+  const { data: todayKits } = useQuery<{
+    swatchBookCount: number;
+    pressTestKitCount: number;
+    totalKitsSentToday: number;
+    dailyGoal: number;
+    goalMet: boolean;
+    remaining: number;
+    progress: number;
+  }>({
+    queryKey: ['/api/labels/today'],
+    staleTime: 30 * 1000, // Refresh every 30 seconds
+  });
+
   useEffect(() => {
     const resetIdleTimer = () => {
       lastActivityRef.current = Date.now();
@@ -1004,6 +1018,46 @@ export default function Spotlight() {
             </div>
           </div>
           <Progress value={progress} className="h-1.5" />
+          
+          {/* Daily Kits Goal Banner */}
+          {todayKits && (
+            <div className={`mt-3 p-3 rounded-lg border ${
+              todayKits.goalMet 
+                ? 'bg-emerald-50 border-emerald-200' 
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package className={`w-5 h-5 ${todayKits.goalMet ? 'text-emerald-600' : 'text-amber-600'}`} />
+                  <div>
+                    <p className={`text-sm font-medium ${todayKits.goalMet ? 'text-emerald-800' : 'text-amber-800'}`}>
+                      {todayKits.goalMet 
+                        ? "Daily Goal Met! Great work!" 
+                        : `Send ${todayKits.remaining} more kit${todayKits.remaining === 1 ? '' : 's'} today`}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {todayKits.swatchBookCount} Swatch Book{todayKits.swatchBookCount !== 1 ? 's' : ''} + {todayKits.pressTestKitCount} Press Test Kit{todayKits.pressTestKitCount !== 1 ? 's' : ''} = {todayKits.totalKitsSentToday}/{todayKits.dailyGoal}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {[...Array(todayKits.dailyGoal)].map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`w-3 h-3 rounded-full ${
+                          i < todayKits.totalKitsSentToday 
+                            ? todayKits.goalMet ? 'bg-emerald-500' : 'bg-amber-500' 
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {todayKits.goalMet && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
