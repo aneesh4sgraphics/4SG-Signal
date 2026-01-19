@@ -43,8 +43,7 @@ import { SiShopify } from "react-icons/si";
 
 interface PricingTier {
   id: number;
-  key: string;
-  label: string;
+  name: string;
   description?: string | null;
 }
 
@@ -1502,7 +1501,7 @@ export default function OdooCompanyDetail() {
                       <Skeleton className="h-9 w-full" />
                     ) : !company.odooPartnerId ? (
                       <Select
-                        value={standardPricingTiers.find(t => t.label === company.pricingTier)?.label || ''}
+                        value={standardPricingTiers.find(t => t.name === company.pricingTier)?.name || ''}
                         onValueChange={(value) => {
                           updateLocalPricingTierMutation.mutate({ pricingTier: value });
                         }}
@@ -1513,8 +1512,8 @@ export default function OdooCompanyDetail() {
                         </SelectTrigger>
                         <SelectContent>
                           {standardPricingTiers.map((tier) => (
-                            <SelectItem key={tier.id} value={tier.label}>
-                              {tier.label}
+                            <SelectItem key={tier.id} value={tier.name}>
+                              {tier.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
