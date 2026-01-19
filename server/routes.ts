@@ -583,6 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // All routes below this point use isAuthenticated/requireAdmin
   // ============================================================
   await setupAuth(app);
+  console.log("[Boot] Auth middleware registered at route position ~585, BEFORE protected routes");
 
   // Sales Analytics - daily sales trendline data
   app.get("/api/analytics/sales-trend", isAuthenticated, async (req: any, res) => {
