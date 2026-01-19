@@ -11,6 +11,7 @@ import {
   Zap,
   Building2,
   Flame,
+  Package,
 } from "lucide-react";
 import { primaryApps, filterAppsByUser } from "@/lib/nav-links";
 import { useAuth } from "@/hooks/useAuth";
@@ -131,6 +132,17 @@ export default function Dashboard() {
     retry: 1,
   });
 
+  interface LabelDashboardStats {
+    stats: Array<{ labelType: string; label: string; count: number; totalQuantity: number }>;
+    byUser: Array<{ userId: string; userName: string | null; count: number }>;
+    recentPrints: Array<{ id: number; labelType: string; customerId: string; printedByUserName: string | null; createdAt: string }>;
+    grandTotal: number;
+  }
+  const { data: labelDashboardStats } = useQuery<LabelDashboardStats>({
+    queryKey: ['/api/dashboard/label-stats'],
+    retry: 1,
+    staleTime: 60000,
+  });
 
   const openObjections = objections.filter(o => o.status === 'open').length;
 
@@ -501,6 +513,57 @@ export default function Dashboard() {
           {/* Shipment Follow-up Tasks */}
           <div style={{ marginBottom: '32px' }}>
             <ShipmentFollowUpWidget />
+          </div>
+
+          {/* Outbound Marketing Kits */}
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #EAEAEA',
+              padding: '20px 24px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: labelDashboardStats && labelDashboardStats.grandTotal > 0 ? '16px' : '0' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Package size={18} style={{ color: '#FFFFFF' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#111111' }}>Outbound Marketing Kits</div>
+                  <div style={{ fontSize: '12px', color: '#666666' }}>
+                    {labelDashboardStats && labelDashboardStats.grandTotal > 0 
+                      ? 'Tracking sent materials' 
+                      : 'Print labels from contact pages to start tracking'}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 'auto', fontSize: '24px', fontWeight: 700, color: '#6366F1' }}>
+                  {labelDashboardStats?.grandTotal ?? 0}
+                </div>
+              </div>
+              {labelDashboardStats && labelDashboardStats.grandTotal > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {labelDashboardStats.stats.map(stat => (
+                    <div key={stat.labelType} style={{
+                      background: '#F5F3FF',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      color: '#7C3AED',
+                      fontWeight: 500,
+                    }}>
+                      {stat.label}: {stat.count}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Objection Alert */}
