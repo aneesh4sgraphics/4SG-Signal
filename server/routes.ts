@@ -44,7 +44,10 @@ import {
   JOURNEY_TYPES,
   PRESS_TEST_STEPS,
   PRODUCT_LINES,
-  PRICING_TIERS
+  PRICING_TIERS,
+  LABEL_TYPES,
+  LABEL_TYPE_LABELS,
+  insertLabelPrintSchema
 } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireApproval, requireAdmin } from "./replitAuth";
 import { 
@@ -78,6 +81,7 @@ import {
   customerJourneyProgress,
   customerActivityEvents,
   emailSends,
+  labelPrints,
   shipmentFollowUpTasks,
   shopifyOrders,
   shopifyProductMappings,
@@ -2117,6 +2121,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
       database: "connected",
       cache: cache.size
     });
+  });
+
+  // =============================================
+  // LABEL PRINTING ROUTES
+  // =============================================
+
+  // Print address label - creates record and returns PDF
+  app.post("/api/labels/print", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const userName = req.user?.firstName && req.user?.lastName 
+        ? `${req.user.firstName} ${req.user.lastName}` 
+        : req.user?.email || 'Unknown';
+
+      // Validate request body
+      const schema = z.object({
+        customerId: z.string(),
+        labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'other']),
+        otherDescription: z.string().optional(),
+        quantity: z.number().int().positive().default(1),
+        notes: z.string().optional(),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { customerId, labelType, otherDescription, quantity, notes } = parsed.data;
+
+      // Get customer for address info
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      // Determine recipient name
+      const recipientName = customer.company || 
+        `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 
+        'Customer';
+
+      // Create label print record
+      const [labelPrint] = await db.insert(labelPrints).values({
+        customerId,
+        labelType,
+        otherDescription: labelType === 'other' ? otherDescription : null,
+        quantity,
+        addressLine1: customer.address1 || '',
+        addressLine2: customer.address2 || '',
+        city: customer.city || '',
+        province: customer.province || '',
+        country: customer.country || '',
+        postalCode: customer.zip || '',
+        printedByUserId: userId,
+        printedByUserName: userName,
+        notes,
+      }).returning();
+
+      // Generate 4"x3" thermal label PDF (288x216 points = 4"x3" at 72dpi)
+      const doc = new PDFDocument({
+        size: [288, 216], // 4" x 3" at 72 DPI
+        margins: { top: 18, bottom: 18, left: 18, right: 18 }
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      
+      const pdfPromise = new Promise<Buffer>((resolve) => {
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+
+      // Label type header (small text at top)
+      const labelTypeDisplay = LABEL_TYPE_LABELS[labelType as keyof typeof LABEL_TYPE_LABELS] || labelType;
+      doc.fontSize(8)
+         .fillColor('#666666')
+         .text(labelTypeDisplay.toUpperCase(), { align: 'right' });
+
+      doc.moveDown(0.5);
+
+      // Recipient name (larger, bold)
+      doc.fontSize(14)
+         .fillColor('#000000')
+         .font('Helvetica-Bold')
+         .text(recipientName.toUpperCase(), { align: 'left' });
+
+      doc.moveDown(0.3);
+
+      // Address lines
+      doc.fontSize(11)
+         .font('Helvetica');
+
+      if (customer.address1) {
+        doc.text(customer.address1.toUpperCase());
+      }
+      if (customer.address2) {
+        doc.text(customer.address2.toUpperCase());
+      }
+
+      // City, Province/State, Postal Code
+      const cityLine = [
+        customer.city,
+        customer.province,
+        customer.zip
+      ].filter(Boolean).join(', ').toUpperCase();
+      
+      if (cityLine) {
+        doc.text(cityLine);
+      }
+
+      // Country (if not USA/Canada)
+      if (customer.country && !['US', 'USA', 'CA', 'CAN', 'Canada', 'United States'].includes(customer.country)) {
+        doc.text(customer.country.toUpperCase());
+      }
+
+      doc.end();
+      const pdfBuffer = await pdfPromise;
+
+      // Return success with PDF as base64
+      res.json({
+        success: true,
+        labelPrint,
+        pdf: pdfBuffer.toString('base64'),
+        message: `Label printed for ${recipientName}`
+      });
+
+    } catch (error) {
+      console.error("Label print error:", error);
+      res.status(500).json({ error: "Failed to print label" });
+    }
+  });
+
+  // Get label stats for a customer
+  app.get("/api/customers/:id/label-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get counts by label type for this customer
+      const stats = await db.select({
+        labelType: labelPrints.labelType,
+        count: sql<number>`COUNT(*)::int`,
+        totalQuantity: sql<number>`SUM(${labelPrints.quantity})::int`,
+        lastPrintedAt: sql<string>`MAX(${labelPrints.createdAt})`,
+      })
+      .from(labelPrints)
+      .where(eq(labelPrints.customerId, id))
+      .groupBy(labelPrints.labelType);
+
+      // Get recent prints for history
+      const recentPrints = await db.select()
+        .from(labelPrints)
+        .where(eq(labelPrints.customerId, id))
+        .orderBy(desc(labelPrints.createdAt))
+        .limit(10);
+
+      res.json({
+        stats: stats.map(s => ({
+          labelType: s.labelType,
+          label: LABEL_TYPE_LABELS[s.labelType as keyof typeof LABEL_TYPE_LABELS] || s.labelType,
+          count: s.count || 0,
+          totalQuantity: s.totalQuantity || 0,
+          lastPrintedAt: s.lastPrintedAt,
+        })),
+        recentPrints,
+        total: stats.reduce((sum, s) => sum + (s.count || 0), 0)
+      });
+    } catch (error) {
+      console.error("Label stats error:", error);
+      res.status(500).json({ error: "Failed to fetch label stats" });
+    }
+  });
+
+  // Get team-wide label stats for dashboard
+  app.get("/api/dashboard/label-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      // Get totals by label type across all customers
+      const stats = await db.select({
+        labelType: labelPrints.labelType,
+        count: sql<number>`COUNT(*)::int`,
+        totalQuantity: sql<number>`SUM(${labelPrints.quantity})::int`,
+      })
+      .from(labelPrints)
+      .groupBy(labelPrints.labelType);
+
+      // Get totals by user (who printed the most)
+      const byUser = await db.select({
+        userId: labelPrints.printedByUserId,
+        userName: labelPrints.printedByUserName,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(labelPrints)
+      .groupBy(labelPrints.printedByUserId, labelPrints.printedByUserName)
+      .orderBy(sql`COUNT(*) DESC`)
+      .limit(5);
+
+      // Get recent prints
+      const recentPrints = await db.select({
+        id: labelPrints.id,
+        labelType: labelPrints.labelType,
+        customerId: labelPrints.customerId,
+        printedByUserName: labelPrints.printedByUserName,
+        createdAt: labelPrints.createdAt,
+      })
+      .from(labelPrints)
+      .orderBy(desc(labelPrints.createdAt))
+      .limit(10);
+
+      // Calculate grand total
+      const grandTotal = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+
+      res.json({
+        stats: stats.map(s => ({
+          labelType: s.labelType,
+          label: LABEL_TYPE_LABELS[s.labelType as keyof typeof LABEL_TYPE_LABELS] || s.labelType,
+          count: s.count || 0,
+          totalQuantity: s.totalQuantity || 0,
+        })),
+        byUser,
+        recentPrints,
+        grandTotal
+      });
+    } catch (error) {
+      console.error("Dashboard label stats error:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard label stats" });
+    }
   });
 
   // --- Comprehensive diagnostics endpoint ---
