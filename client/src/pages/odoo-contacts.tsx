@@ -142,13 +142,20 @@ export default function OdooContacts() {
   });
   const [showFilters, setShowFilters] = useState(false);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50);
+  
   // Bulk edit state
   const [bulkEditOpen, setBulkEditOpen] = useState<'tags' | 'salesRep' | 'paymentTerms' | null>(null);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
   // Debounced search
   const debouncedSetSearch = useCallback(
-    debounce((value: string) => setDebouncedSearch(value), 300),
+    debounce((value: string) => {
+      setDebouncedSearch(value);
+      setCurrentPage(1); // Reset to first page on search
+    }, 300),
     []
   );
 
@@ -156,11 +163,35 @@ export default function OdooContacts() {
     debouncedSetSearch(searchQuery);
   }, [searchQuery, debouncedSetSearch]);
 
-  // Fetch contacts
-  const { data: contacts = [], isLoading, refetch } = useQuery<Contact[]>({
-    queryKey: ['/api/customers'],
+  // Build query params for paginated endpoint
+  const queryParams = new URLSearchParams({
+    paginated: 'true',
+    page: currentPage.toString(),
+    limit: pageSize.toString(),
+  });
+  if (debouncedSearch) queryParams.set('search', debouncedSearch);
+  if (filters.isCompany !== null) queryParams.set('isCompany', filters.isCompany.toString());
+  if (filters.isHotProspect === true) queryParams.set('isHotProspect', 'true');
+
+  // Fetch contacts with server-side pagination
+  const { data: paginatedData, isLoading, refetch } = useQuery<{ 
+    data: Contact[]; 
+    total: number; 
+    page: number; 
+    totalPages: number; 
+  }>({
+    queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers?${queryParams.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
     staleTime: 30000,
   });
+  
+  const contacts = paginatedData?.data || [];
+  const totalContacts = paginatedData?.total || 0;
+  const totalPages = paginatedData?.totalPages || 1;
 
   // Fetch available partner categories (tags) from Odoo for filter dropdown
   const { data: partnerCategories = [] } = useQuery<Array<{ id: number; name: string }>>({
@@ -302,28 +333,15 @@ export default function OdooContacts() {
     }
   };
 
-  // Filter and sort contacts
+  // Filter contacts (mostly done server-side now, but keep tag filter client-side)
   const filteredContacts = contacts
     .filter(c => {
-      // Search filter - when searching, include both contacts AND companies
-      if (debouncedSearch) {
-        const search = debouncedSearch.toLowerCase();
-        const searchableFields = [
-          c.company, c.firstName, c.lastName, c.email, c.email2, c.phone, c.city
-        ].filter(Boolean).map(f => (f as string).toLowerCase());
-        if (!searchableFields.some(f => f.includes(search))) return false;
-        // Skip isCompany filter when searching - show all matching results
-      } else {
-        // Only apply isCompany filter when NOT searching
-        if (filters.isCompany !== null && c.isCompany !== filters.isCompany) return false;
-      }
       // Tag filter: check if the contact's Odoo partner ID is in the list of partners with this tag
       if (filters.pricingTier && tagFilterPartnerIds) {
         if (!c.odooPartnerId || !tagFilterPartnerIds.includes(c.odooPartnerId)) return false;
       }
       if (filters.hasEmail === true && !c.email) return false;
       if (filters.hasEmail === false && c.email) return false;
-      if (filters.isHotProspect === true && !c.isHotProspect) return false;
       return true;
     })
     .sort((a, b) => {
@@ -613,7 +631,8 @@ export default function OdooContacts() {
                   {debouncedSearch ? 'Search Results' : 'Companies'}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  {filteredContacts.length.toLocaleString()} {debouncedSearch ? 'contacts & companies' : 'companies'}
+                  {totalContacts.toLocaleString()} {debouncedSearch ? 'contacts & companies' : 'companies'}
+                  {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
                 </p>
               </div>
             </div>
@@ -1119,17 +1138,12 @@ export default function OdooContacts() {
                 </AnimatePresence>
               </tbody>
             </table>
-            {filteredContacts.length > 100 && (
-              <div className="px-4 py-3 bg-gray-50 text-center text-sm text-gray-500">
-                Showing 100 of {filteredContacts.length} contacts. Use search to find more.
-              </div>
-            )}
           </div>
         ) : (
           /* Cards View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <AnimatePresence>
-              {filteredContacts.slice(0, 100).map((contact, index) => (
+              {filteredContacts.map((contact, index) => (
                 <motion.div
                   key={contact.id}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -1285,6 +1299,53 @@ export default function OdooContacts() {
                 </motion.div>
               ))}
             </AnimatePresence>
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white rounded-lg border">
+            <div className="text-sm text-gray-600">
+              Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts.toLocaleString()}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1 || isLoading}
+              >
+                First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || isLoading}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-1 px-3">
+                <span className="text-sm font-medium">Page {currentPage}</span>
+                <span className="text-sm text-gray-400">of {totalPages}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || isLoading}
+              >
+                Next
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages || isLoading}
+              >
+                Last
+              </Button>
+            </div>
           </div>
         )}
       </div>
