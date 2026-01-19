@@ -71,6 +71,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
+import { PrintLabelButton } from "@/components/PrintLabelButton";
 
 interface Contact {
   id: string;
@@ -1067,12 +1068,13 @@ export default function OdooContacts() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {contact.city || contact.province ? (
+                        {contact.city || contact.province || contact.address1 ? (
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-700">
+                            <span className="text-gray-700 flex-1">
                               {[contact.city, contact.province].filter(Boolean).join(', ')}
                             </span>
+                            <PrintLabelButton customer={contact} variant="icon" />
                           </div>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -1232,10 +1234,11 @@ export default function OdooContacts() {
                             <span>{contact.phone}</span>
                           </div>
                         )}
-                        {(contact.city || contact.province) && (
+                        {(contact.city || contact.province || contact.address1) && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{[contact.city, contact.province].filter(Boolean).join(', ')}</span>
+                            <span className="truncate flex-1">{[contact.city, contact.province].filter(Boolean).join(', ')}</span>
+                            <PrintLabelButton customer={contact} variant="icon" />
                           </div>
                         )}
                       </div>
@@ -1380,7 +1383,10 @@ export default function OdooContacts() {
                 {/* Address */}
                 {(detailContact.address1 || detailContact.city) && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-3">Address</h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-500">Address</h4>
+                      <PrintLabelButton customer={detailContact} variant="icon" />
+                    </div>
                     <div className="p-3 rounded-lg bg-gray-50">
                       <div className="flex items-start gap-3">
                         <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />

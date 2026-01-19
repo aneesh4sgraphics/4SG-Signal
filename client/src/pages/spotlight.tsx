@@ -76,6 +76,7 @@ import {
   Trophy,
   Rocket,
 } from "lucide-react";
+import { PrintLabelButton } from "@/components/PrintLabelButton";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
 
@@ -1434,7 +1435,10 @@ export default function Spotlight() {
                 </div>
                 {customer.address1 && (
                   <div className="col-span-2">
-                    <span className="text-[#999999] text-xs">Address</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#999999] text-xs">Address</span>
+                      <PrintLabelButton customer={customer} variant="icon" />
+                    </div>
                     <p className="font-medium text-[#111111]">
                       {customer.address1}{customer.city ? `, ${customer.city}` : ''}{customer.province ? `, ${customer.province}` : ''} {customer.zip || ''}
                     </p>
