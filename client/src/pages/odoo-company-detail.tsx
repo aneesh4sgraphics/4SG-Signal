@@ -1574,14 +1574,15 @@ export default function OdooCompanyDetail() {
 
                 {/* Contact Information Section */}
                 <Separator />
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p className="text-sm font-medium text-gray-700">Contact Information</p>
                   
                   {/* Email addresses */}
                   {(company.email || company.email2) && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div className="flex-1 space-y-1">
+                      <div className="flex-1 space-y-2">
+                        <p className="text-xs text-gray-500">Email</p>
                         {company.email && (
                           <a 
                             href={`mailto:${company.email}`}
@@ -1613,9 +1614,10 @@ export default function OdooCompanyDetail() {
                   
                   {/* Phone numbers */}
                   {(company.phone || company.phone2 || company.cell) && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div className="flex-1 space-y-1">
+                      <div className="flex-1 space-y-2">
+                        <p className="text-xs text-gray-500">Phone</p>
                         {company.phone && (
                           <a 
                             href={`tel:${company.phone}`}
@@ -1649,9 +1651,10 @@ export default function OdooCompanyDetail() {
                   
                   {/* Address */}
                   {(company.address1 || company.city) && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div className="flex-1">
+                      <div className="flex-1 space-y-1">
+                        <p className="text-xs text-gray-500">Address</p>
                         {company.address1 && (
                           <p className="font-medium text-gray-900">{company.address1}</p>
                         )}
