@@ -58,13 +58,27 @@ export function PrintLabelButton({ customer, variant = "icon", size = "sm" }: Pr
 
   const printLabelMutation = useMutation({
     mutationFn: async (data: { labelType: string; otherDescription?: string; quantity: number; notes?: string }) => {
-      const res = await apiRequest('POST', '/api/labels/print', {
-        customerId: customer.id,
-        ...data,
-      });
-      return res.json();
+      console.log('[PrintLabel] Starting print request for customer:', customer.id);
+      try {
+        const res = await apiRequest('POST', '/api/labels/print', {
+          customerId: customer.id,
+          ...data,
+        });
+        console.log('[PrintLabel] Response status:', res.status);
+        const json = await res.json();
+        console.log('[PrintLabel] Response data:', json.success ? 'success' : 'failed');
+        return json;
+      } catch (err: any) {
+        console.error('[PrintLabel] Request failed:', err.message, err);
+        throw err;
+      }
     },
     onSuccess: (data) => {
+      if (!data.pdf) {
+        console.error('[PrintLabel] No PDF in response:', data);
+        toast({ title: 'Failed to print label', description: 'No PDF data received', variant: 'destructive' });
+        return;
+      }
       const byteCharacters = atob(data.pdf);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -92,8 +106,10 @@ export function PrintLabelButton({ customer, variant = "icon", size = "sm" }: Pr
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/label-stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/labels/today'] });
     },
-    onError: (error: Error) => {
-      toast({ title: 'Failed to print label', description: error.message, variant: 'destructive' });
+    onError: (error: any) => {
+      console.error('[PrintLabel] Error:', error);
+      const details = error.details ? ` (${error.details.status}: ${error.details.responseText?.substring(0, 100)})` : '';
+      toast({ title: 'Failed to print label', description: `${error.message}${details}`, variant: 'destructive' });
     },
   });
 
