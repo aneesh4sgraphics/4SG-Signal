@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useRoute, useLocation } from "wouter";
+import { PRICING_TIERS } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1501,19 +1502,19 @@ export default function OdooCompanyDetail() {
                       <Skeleton className="h-9 w-full" />
                     ) : !company.odooPartnerId ? (
                       <Select
-                        value={standardPricingTiers.find(t => t.name === company.pricingTier)?.name || ''}
+                        value={company.pricingTier || ''}
                         onValueChange={(value) => {
                           updateLocalPricingTierMutation.mutate({ pricingTier: value });
                         }}
-                        disabled={updateLocalPricingTierMutation.isPending || standardPricingTiers.length === 0}
+                        disabled={updateLocalPricingTierMutation.isPending}
                       >
                         <SelectTrigger className={`w-full transition-all duration-300 ${updateLocalPricingTierMutation.isPending ? 'opacity-50' : ''} ${tagSaveSuccess ? 'border-green-500 ring-2 ring-green-200' : ''}`}>
                           <SelectValue placeholder={company.pricingTier || 'Select pricing tier'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {standardPricingTiers.map((tier) => (
-                            <SelectItem key={tier.id} value={tier.name}>
-                              {tier.name}
+                          {PRICING_TIERS.map((tier) => (
+                            <SelectItem key={tier} value={tier}>
+                              {tier}
                             </SelectItem>
                           ))}
                         </SelectContent>
