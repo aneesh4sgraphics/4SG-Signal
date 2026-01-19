@@ -25,11 +25,23 @@ const ENGLISH_SPEAKING_COUNTRIES = [
   'ca', 'jm', 'gb', 'au', 'nz', 'ie', 'bs', 'bb', 'tt'
 ];
 
-// Florida state variations
-const FLORIDA_STATES = ['fl', 'florida'];
+// Florida state variations (includes common formats from Odoo/imports)
+const FLORIDA_STATES = ['fl', 'florida', 'florida (us)', 'fl (us)'];
 
 // US variations
 const US_COUNTRIES = ['united states', 'usa', 'us', 'united states of america', 'u.s.', 'u.s.a.'];
+
+// Helper to check if province is Florida
+function isFloridaState(province: string): boolean {
+  const normalized = province.toLowerCase().trim();
+  // Direct match
+  if (FLORIDA_STATES.includes(normalized)) return true;
+  // Starts with florida
+  if (normalized.startsWith('florida')) return true;
+  // Is just "fl" with optional suffix
+  if (normalized === 'fl' || normalized.startsWith('fl ') || normalized.startsWith('fl(')) return true;
+  return false;
+}
 
 interface CustomerLocation {
   country?: string | null;
@@ -44,11 +56,12 @@ export function determineSalesRep(location: CustomerLocation): typeof SALES_REPS
   const country = (location.country || '').toLowerCase().trim();
   const province = (location.province || '').toLowerCase().trim();
   
+  // Check if this is a US customer (includes empty country which defaults to US)
+  const isUS = US_COUNTRIES.includes(country) || country === '' || country.includes('united states');
+  
   // Rule 1: Florida customers → Santiago
-  if (US_COUNTRIES.includes(country) || country === '') {
-    if (FLORIDA_STATES.includes(province)) {
-      return SALES_REPS.santiago;
-    }
+  if (isUS && province && isFloridaState(province)) {
+    return SALES_REPS.santiago;
   }
   
   // Rule 2: Latin American / Spanish-speaking countries → Patricio
@@ -57,8 +70,7 @@ export function determineSalesRep(location: CustomerLocation): typeof SALES_REPS
   }
   
   // Rule 3: US outside Florida OR English-speaking countries → Aneesh
-  const isUSOutsideFlorida = (US_COUNTRIES.includes(country) || country === '') && 
-                              province && !FLORIDA_STATES.includes(province);
+  const isUSOutsideFlorida = isUS && province && !isFloridaState(province);
   const isEnglishSpeaking = ENGLISH_SPEAKING_COUNTRIES.includes(country);
   
   if (isUSOutsideFlorida || isEnglishSpeaking) {

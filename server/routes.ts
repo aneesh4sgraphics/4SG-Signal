@@ -2803,35 +2803,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("=== AUTO-ASSIGN SALES REPS ===");
       
-      // Sales rep assignments with user IDs
-      const SALES_REPS = {
-        santiago: { id: '45165274', name: 'Santiago', email: 'santiago@4sgraphics.com' },
-        patricio: { id: '45163473', name: 'Patricio', email: 'patricio@4sgraphics.com' },
-        aneesh: { id: '45980257', name: 'Aneesh', email: 'aneesh@4sgraphics.com' },
-      };
-      
-      // Latin American / Spanish-speaking countries
-      const LATIN_AMERICAN_COUNTRIES = [
-        'mexico', 'argentina', 'colombia', 'chile', 'peru', 'ecuador', 'venezuela',
-        'guatemala', 'cuba', 'bolivia', 'dominican republic', 'honduras', 'paraguay',
-        'el salvador', 'nicaragua', 'costa rica', 'panama', 'uruguay', 'puerto rico',
-        'spain', 'mx', 'ar', 'co', 'cl', 'pe', 'ec', 've', 'gt', 'cu', 'bo', 'do',
-        'hn', 'py', 'sv', 'ni', 'cr', 'pa', 'uy', 'pr', 'es'
-      ];
-      
-      // English-speaking countries (excluding US which is handled by state)
-      const ENGLISH_SPEAKING_COUNTRIES = [
-        'canada', 'jamaica', 'united kingdom', 'uk', 'australia', 'new zealand',
-        'ireland', 'bahamas', 'barbados', 'trinidad', 'trinidad and tobago',
-        'ca', 'jm', 'gb', 'au', 'nz', 'ie', 'bs', 'bb', 'tt'
-      ];
-      
-      // Florida state variations
-      const FLORIDA_STATES = ['fl', 'florida'];
-      
-      // US variations
-      const US_COUNTRIES = ['united states', 'usa', 'us', 'united states of america', 'u.s.', 'u.s.a.'];
-      
       // Get all customers without a sales rep
       const allCustomers = await storage.getCustomers();
       const unassignedCustomers = allCustomers.filter(c => !c.salesRepId || c.salesRepId.trim() === '');
@@ -2848,42 +2819,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const customer of unassignedCustomers) {
         try {
-          const country = (customer.country || '').toLowerCase().trim();
-          const province = (customer.province || '').toLowerCase().trim();
-          
-          let assignedRep: typeof SALES_REPS[keyof typeof SALES_REPS] | null = null;
-          
-          // Rule 1: Florida customers → Santiago
-          if (US_COUNTRIES.includes(country) || country === '') {
-            if (FLORIDA_STATES.includes(province)) {
-              assignedRep = SALES_REPS.santiago;
-              results.santiago++;
-            }
-          }
-          
-          // Rule 2: Latin American countries → Patricio
-          if (!assignedRep && LATIN_AMERICAN_COUNTRIES.includes(country)) {
-            assignedRep = SALES_REPS.patricio;
-            results.patricio++;
-          }
-          
-          // Rule 3: US outside Florida OR English-speaking countries → Aneesh
-          if (!assignedRep) {
-            const isUSOutsideFlorida = (US_COUNTRIES.includes(country) || country === '') && 
-                                        province && !FLORIDA_STATES.includes(province);
-            const isEnglishSpeaking = ENGLISH_SPEAKING_COUNTRIES.includes(country);
-            
-            if (isUSOutsideFlorida || isEnglishSpeaking) {
-              assignedRep = SALES_REPS.aneesh;
-              results.aneesh++;
-            }
-          }
+          // Use the centralized determineSalesRep function from sales-rep-auto-assign module
+          const { determineSalesRep, SALES_REPS } = await import('./sales-rep-auto-assign');
+          const assignedRep = determineSalesRep({
+            country: customer.country,
+            province: customer.province,
+          });
           
           // If no match, skip (missing location data)
           if (!assignedRep) {
             results.skipped++;
             continue;
           }
+          
+          // Track which rep was assigned
+          if (assignedRep.name === 'Santiago') results.santiago++;
+          else if (assignedRep.name === 'Patricio') results.patricio++;
+          else if (assignedRep.name === 'Aneesh') results.aneesh++;
           
           // Update customer with assigned sales rep
           await storage.updateCustomer(customer.id, {
