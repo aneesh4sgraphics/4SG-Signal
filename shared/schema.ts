@@ -2932,6 +2932,18 @@ export const insertSpotlightSessionStateSchema = createInsertSchema(spotlightSes
 export type SpotlightSessionState = typeof spotlightSessionState.$inferSelect;
 export type InsertSpotlightSessionState = z.infer<typeof insertSpotlightSessionStateSchema>;
 
+// Spotlight Customer Claims - atomic cross-user task claiming
+// customer_id is the PRIMARY KEY to enforce at most one claim per customer
+export const spotlightCustomerClaims = pgTable("spotlight_customer_claims", {
+  customerId: varchar("customer_id").primaryKey(), // The customer being claimed
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionDate: varchar("session_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+});
+
+export const insertSpotlightCustomerClaimSchema = createInsertSchema(spotlightCustomerClaims);
+export type SpotlightCustomerClaim = typeof spotlightCustomerClaims.$inferSelect;
+
 // Spotlight Micro Cards - coaching content for product quizzes, objection practice, etc.
 export const spotlightMicroCards = pgTable("spotlight_micro_cards", {
   id: serial("id").primaryKey(),

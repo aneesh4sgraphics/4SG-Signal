@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS } from "@shared/schema";
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { analyzeForHints, SpotlightHint, getCustomerMachineProfiles, getProductSuggestionsForMachines, getMachineLabel, checkMissingMachineProfile } from "./spotlight-heuristics";
@@ -1115,23 +1115,18 @@ class SpotlightEngine {
   private async getClaimedCustomerIds(excludeUserId: string): Promise<string[]> {
     const claimTimeout = 5 * 60 * 1000; // 5 minutes
     const cutoffTime = new Date(Date.now() - claimTimeout);
-    const today = this.getTodayKey();
     
     try {
       const claims = await db.select({
-        customerId: spotlightSessionState.currentClaimedCustomerId,
+        customerId: spotlightCustomerClaims.customerId,
       })
-        .from(spotlightSessionState)
+        .from(spotlightCustomerClaims)
         .where(and(
-          ne(spotlightSessionState.userId, excludeUserId),
-          eq(spotlightSessionState.sessionDate, today),
-          isNotNull(spotlightSessionState.currentClaimedCustomerId),
-          gte(spotlightSessionState.claimedAt, cutoffTime)
+          ne(spotlightCustomerClaims.userId, excludeUserId),
+          gte(spotlightCustomerClaims.claimedAt, cutoffTime)
         ));
       
-      return claims
-        .map(c => c.customerId)
-        .filter((id): id is string => id !== null);
+      return claims.map(c => c.customerId);
     } catch (error) {
       console.error('[Spotlight] Error getting claimed customer IDs:', error);
       return [];
@@ -1139,51 +1134,36 @@ class SpotlightEngine {
   }
 
   // Claim a customer for this user - returns true if claim succeeded
-  // Uses atomic check to prevent race conditions between concurrent users
+  // Uses atomic INSERT ON CONFLICT to prevent race conditions
   private async claimCustomer(userId: string, customerId: string): Promise<boolean> {
     const today = this.getTodayKey();
-    const claimTimeout = 5 * 60 * 1000; // 5 minutes
-    const cutoffTime = new Date(Date.now() - claimTimeout);
     
     try {
-      // Atomically check if customer is already claimed by another active user
-      // This uses a single query to prevent race conditions
-      const existingClaims = await db.select({
-        claimUserId: spotlightSessionState.userId,
-        claimedAt: spotlightSessionState.claimedAt,
-      })
-        .from(spotlightSessionState)
-        .where(and(
-          eq(spotlightSessionState.sessionDate, today),
-          eq(spotlightSessionState.currentClaimedCustomerId, customerId),
-          gte(spotlightSessionState.claimedAt, cutoffTime)
-        ));
+      // Atomic claim: INSERT with ON CONFLICT that only updates if claim is expired OR belongs to same user
+      // The unique constraint on customer_id ensures only one row per customer
+      const result = await db.execute<{ customer_id: string }>(sql`
+        INSERT INTO spotlight_customer_claims (customer_id, user_id, session_date, claimed_at)
+        VALUES (${customerId}, ${userId}, ${today}, NOW())
+        ON CONFLICT (customer_id) DO UPDATE SET
+          user_id = ${userId},
+          session_date = ${today},
+          claimed_at = NOW()
+        WHERE 
+          spotlight_customer_claims.user_id = ${userId}
+          OR spotlight_customer_claims.claimed_at < NOW() - INTERVAL '5 minutes'
+        RETURNING customer_id
+      `);
       
-      // Check if another user has this customer claimed
-      const otherUserClaim = existingClaims.find(c => c.claimUserId !== userId);
-      if (otherUserClaim) {
-        console.log(`[Spotlight] Customer ${customerId} already claimed by ${otherUserClaim.claimUserId}`);
-        return false;
+      // Check if result has rows - Drizzle/Neon returns result with rowCount property
+      // For INSERT ... RETURNING, rowCount indicates how many rows were returned
+      const rowCount = (result as any).rowCount ?? (Array.isArray(result) ? result.length : 0);
+      const success = rowCount > 0;
+      
+      if (!success) {
+        console.log(`[Spotlight] Customer ${customerId} claimed by another user`);
       }
       
-      // Upsert our claim - this is safe because we already verified no other user has it
-      await db.insert(spotlightSessionState)
-        .values({
-          userId,
-          sessionDate: today,
-          currentClaimedCustomerId: customerId,
-          claimedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [spotlightSessionState.userId, spotlightSessionState.sessionDate],
-          set: {
-            currentClaimedCustomerId: customerId,
-            claimedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-      
-      return true;
+      return success;
     } catch (error) {
       console.error('[Spotlight] Error claiming customer:', error);
       return false;
@@ -1192,19 +1172,10 @@ class SpotlightEngine {
 
   // Release claim when task is completed
   private async releaseClaim(userId: string): Promise<void> {
-    const today = this.getTodayKey();
-    
     try {
-      await db.update(spotlightSessionState)
-        .set({
-          currentClaimedCustomerId: null,
-          claimedAt: null,
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(spotlightSessionState.userId, userId),
-          eq(spotlightSessionState.sessionDate, today)
-        ));
+      // Delete the claim from the atomic claims table
+      await db.delete(spotlightCustomerClaims)
+        .where(eq(spotlightCustomerClaims.userId, userId));
     } catch (error) {
       console.error('[Spotlight] Error releasing claim:', error);
     }
