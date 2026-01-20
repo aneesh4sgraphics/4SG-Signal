@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText, Search, Download, Settings2, Edit } from "lucide-react";
+import { TrendingUp, Filter, Plus, RotateCcw, Sheet, Trash2, Upload, FileText, Search, Download, Settings2, Edit, Link2, X, Check } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -59,6 +59,12 @@ export default function CompetitorPricing() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   
+  // Product mapping state
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [mappingCompetitorId, setMappingCompetitorId] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  
   // Bulk edit state - now supports multiple fields
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [bulkEditFields, setBulkEditFields] = useState<Record<string, string>>({
@@ -88,18 +94,25 @@ export default function CompetitorPricing() {
     { key: 'priceM2', label: 'Price/m²' },
     { key: 'notes', label: 'Notes' },
     { key: 'date', label: 'Date' },
+    { key: 'mapped', label: 'Linked Product' },
   ];
-  // Default visible columns: Product Kind, Dimensions, Thickness, Price/Sheet, Price/m², Notes
+  // Default visible columns: Product Kind, Dimensions, Thickness, Price/Sheet, Price/m², Mapped
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(['productKind', 'dimensions', 'thickness', 'priceSheet', 'priceM2', 'notes'])
+    new Set(['productKind', 'dimensions', 'thickness', 'priceSheet', 'priceM2', 'mapped'])
   );
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
-  // Fetch competitor pricing data
-  const { data: competitorData = [], isLoading, error } = useQuery({
-    queryKey: ["/api/competitor-pricing"],
+  // Fetch competitor pricing data with mappings
+  const { data: competitorData = [], isLoading, error } = useQuery<any[]>({
+    queryKey: ["/api/competitor-pricing-with-mappings"],
     retry: false,
     enabled: isAuthenticated
+  });
+
+  // Fetch products for mapping
+  const { data: productsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/product-pricing-master"],
+    enabled: isAuthenticated,
   });
 
   // Delete mutation
@@ -214,6 +227,63 @@ export default function CompetitorPricing() {
       });
     },
   });
+
+  // Create product mapping mutation
+  const createMappingMutation = useMutation({
+    mutationFn: async (data: { productId: number; competitorPricingId: number }) => {
+      return await apiRequest("POST", "/api/competitor-mappings", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing-with-mappings"] });
+      setShowMappingModal(false);
+      setMappingCompetitorId(null);
+      setProductSearch("");
+      setSelectedProductId(null);
+      toast({
+        title: "Success",
+        description: "Product linked successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create mapping",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete product mapping mutation
+  const deleteMappingMutation = useMutation({
+    mutationFn: async (mappingId: number) => {
+      return await apiRequest("DELETE", `/api/competitor-mappings/${mappingId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/competitor-pricing-with-mappings"] });
+      toast({
+        title: "Success",
+        description: "Product link removed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove mapping",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Filtered products for mapping search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim() || !productsData) return productsData.slice(0, 20);
+    const searchLower = productSearch.toLowerCase();
+    return productsData.filter((p: any) => 
+      p.itemCode?.toLowerCase().includes(searchLower) ||
+      p.productName?.toLowerCase().includes(searchLower) ||
+      p.productType?.toLowerCase().includes(searchLower)
+    ).slice(0, 20);
+  }, [productsData, productSearch]);
 
   // ALL useMemo HOOKS MUST ALSO BE CALLED BEFORE EARLY RETURNS
   // Get filter options using useMemo to prevent recalculation
@@ -952,6 +1022,7 @@ export default function CompetitorPricing() {
                   {visibleColumns.has('priceM2') && <TableHead className="whitespace-nowrap">Price/m²</TableHead>}
                   {visibleColumns.has('notes') && <TableHead className="whitespace-nowrap">Notes</TableHead>}
                   {visibleColumns.has('date') && <TableHead className="whitespace-nowrap">Date</TableHead>}
+                  {visibleColumns.has('mapped') && <TableHead className="whitespace-nowrap">Linked Product</TableHead>}
                   {isAdmin && <TableHead className="w-20 sticky right-0 bg-white shadow-md whitespace-nowrap">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -1003,6 +1074,65 @@ export default function CompetitorPricing() {
                     {visibleColumns.has('date') && (
                       <TableCell className="whitespace-nowrap">
                         {new Date(item.timestamp || item.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('mapped') && (
+                      <TableCell className="whitespace-nowrap">
+                        {item.hasMappings && item.mappedProducts?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {item.mappedProducts.map((mp: any) => (
+                              <TooltipProvider key={mp.mapping.id}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full cursor-pointer group">
+                                      <Check className="w-3 h-3" />
+                                      {mp.product?.itemCode || 'Unknown'}
+                                      {isAdmin && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteMappingMutation.mutate(mp.mapping.id);
+                                          }}
+                                          className="ml-0.5 text-green-600 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-medium">{mp.product?.productName || 'Unknown'}</p>
+                                    <p className="text-xs text-gray-400">{mp.product?.productType}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ))}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 px-1 text-gray-400 hover:text-blue-600"
+                              onClick={() => {
+                                setMappingCompetitorId(item.id);
+                                setShowMappingModal(true);
+                              }}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                            onClick={() => {
+                              setMappingCompetitorId(item.id);
+                              setShowMappingModal(true);
+                            }}
+                          >
+                            <Link2 className="w-3 h-3 mr-1" />
+                            Link
+                          </Button>
+                        )}
                       </TableCell>
                     )}
                     {isAdmin && (
@@ -1115,6 +1245,92 @@ export default function CompetitorPricing() {
               className="glass-button bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
             >
               {bulkEditMutation.isPending ? "Updating..." : "Update All"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Mapping Modal */}
+      <Dialog open={showMappingModal} onOpenChange={(open) => {
+        setShowMappingModal(open);
+        if (!open) {
+          setMappingCompetitorId(null);
+          setProductSearch("");
+          setSelectedProductId(null);
+        }
+      }}>
+        <DialogContent className="glass-card-solid sm:max-w-lg border-0">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">Link to Product</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Search and select a product from your catalog to link with this competitor pricing entry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Search by item code, name, or type..."
+                className="pl-10 bg-white"
+              />
+            </div>
+            <div className="border rounded-lg max-h-64 overflow-y-auto">
+              {filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">
+                  No products found. Try a different search.
+                </div>
+              ) : (
+                filteredProducts.map((product: any) => (
+                  <div
+                    key={product.id}
+                    className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedProductId === product.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                    }`}
+                    onClick={() => setSelectedProductId(product.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{product.itemCode}</p>
+                        <p className="text-sm text-gray-600">{product.productName}</p>
+                        <p className="text-xs text-gray-400">{product.productType} - {product.size}</p>
+                      </div>
+                      {selectedProductId === product.id && (
+                        <Check className="w-5 h-5 text-blue-600" />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMappingModal(false);
+                setMappingCompetitorId(null);
+                setProductSearch("");
+                setSelectedProductId(null);
+              }}
+              className="glass-button-outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedProductId && mappingCompetitorId) {
+                  createMappingMutation.mutate({
+                    productId: selectedProductId,
+                    competitorPricingId: mappingCompetitorId,
+                  });
+                }
+              }}
+              disabled={!selectedProductId || createMappingMutation.isPending}
+              className="glass-button bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700"
+            >
+              {createMappingMutation.isPending ? "Linking..." : "Link Product"}
             </Button>
           </DialogFooter>
         </DialogContent>
