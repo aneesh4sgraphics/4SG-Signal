@@ -19,6 +19,20 @@ export interface BestPriceResult {
   factors: PriceFactor[];
   confidence: 'high' | 'medium' | 'low';
   rationale: string;
+  unitType: 'sheet' | 'roll' | 'unit';
+  productInfo: {
+    productName: string;
+    size: string;
+    minOrderQty: number | null;
+    itemCode: string;
+  };
+  tierComparison: {
+    customerTier: string;
+    tierPrice: number;
+    savings: number;
+    savingsPercent: number;
+    recommendation: string;
+  } | null;
 }
 
 interface PriceFactor {
@@ -204,6 +218,17 @@ export class BestPriceEngine {
     const confidence = this.calculateConfidence(productMetrics, customer, competitorMetrics);
     const rationale = this.generateRationale(factors, recommendedPrice, tierCeiling);
 
+    // Determine unit type from product
+    const unitType = this.determineUnitType(product);
+    
+    // Build tier comparison
+    const tierComparison = this.buildTierComparison(
+      recommendedPrice,
+      tierCeiling,
+      baseTier,
+      customer?.pricingTier || null
+    );
+
     return {
       recommendedPrice: Math.round(recommendedPrice * 100) / 100,
       priceRange: {
@@ -213,6 +238,69 @@ export class BestPriceEngine {
       factors,
       confidence,
       rationale,
+      unitType,
+      productInfo: {
+        productName: product.productName || product.productType || 'Unknown',
+        size: product.size || '',
+        minOrderQty: product.minOrderQty ? parseInt(String(product.minOrderQty)) : null,
+        itemCode: product.itemCode || '',
+      },
+      tierComparison,
+    };
+  }
+
+  private determineUnitType(product: any): 'sheet' | 'roll' | 'unit' {
+    // Check explicit rollSheet field
+    if (product.rollSheet) {
+      const rollSheetLower = product.rollSheet.toLowerCase();
+      if (rollSheetLower === 'roll') return 'roll';
+      if (rollSheetLower === 'sheet') return 'sheet';
+    }
+    
+    // Check unitOfMeasure field
+    if (product.unitOfMeasure) {
+      const uom = product.unitOfMeasure.toLowerCase();
+      if (uom.includes('roll')) return 'roll';
+      if (uom.includes('sheet')) return 'sheet';
+    }
+    
+    // Check size for roll indicators (feet notation)
+    if (product.size) {
+      const size = product.size;
+      if (size.includes("'") || size.toLowerCase().includes('feet') || /\d+x\d+'/.test(size)) {
+        return 'roll';
+      }
+    }
+    
+    // Default to sheet
+    return 'sheet';
+  }
+
+  private buildTierComparison(
+    recommendedPrice: number,
+    tierPrice: number,
+    tierName: string,
+    customerTier: string | null
+  ): BestPriceResult['tierComparison'] {
+    const savings = tierPrice - recommendedPrice;
+    const savingsPercent = tierPrice > 0 ? (savings / tierPrice) * 100 : 0;
+    
+    let recommendation = '';
+    
+    if (savings > 0) {
+      recommendation = `Offer $${recommendedPrice.toFixed(2)} instead of list price $${tierPrice.toFixed(2)} - saves customer ${savingsPercent.toFixed(1)}%`;
+    } else if (savings < 0) {
+      recommendation = `List price $${tierPrice.toFixed(2)} is below recommended. Consider quoting $${recommendedPrice.toFixed(2)} to protect margin.`;
+    } else {
+      recommendation = `Quote at list price $${tierPrice.toFixed(2)}`;
+    }
+    
+    return {
+      customerTier: customerTier || tierName,
+      tierPrice: Math.round(tierPrice * 100) / 100,
+      savings: Math.round(savings * 100) / 100,
+      savingsPercent: Math.round(savingsPercent * 10) / 10,
+      recommendation,
     };
   }
 
