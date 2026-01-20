@@ -52,7 +52,10 @@ interface CustomerMetrics {
 
 interface ProductMetrics {
   cost: number;
+  costPerSheet: number;
   tierPrices: Record<string, number>;
+  tierPricesPerSheet: Record<string, number>;
+  sheetArea: number;
   inventoryLevel: number;
   salesVelocity: number;
 }
@@ -122,16 +125,18 @@ export class BestPriceEngine {
     const productMetrics = await this.getProductMetrics(product);
     const competitorMetrics = await this.getCompetitorMetrics(product.id);
     
-    const marginFloor = productMetrics.cost * (1 + this.minMarginPercent / 100);
+    // Use cost per sheet for margin floor calculation
+    const marginFloor = productMetrics.costPerSheet * (1 + this.minMarginPercent / 100);
     
-    let tierCeiling = productMetrics.tierPrices['RETAIL'] || marginFloor * 2;
+    // Use tier prices per sheet (not $/m²) to match Price/Sheet column display
+    let tierCeiling = productMetrics.tierPricesPerSheet['RETAIL'] || marginFloor * 2;
     let baseTier = 'RETAIL';
     
     if (customer?.pricingTier) {
       const normalizedTier = customer.pricingTier.toUpperCase();
       const tierField = TIER_FIELD_MAP[normalizedTier];
-      if (tierField && productMetrics.tierPrices[normalizedTier]) {
-        tierCeiling = productMetrics.tierPrices[normalizedTier];
+      if (tierField && productMetrics.tierPricesPerSheet[normalizedTier]) {
+        tierCeiling = productMetrics.tierPricesPerSheet[normalizedTier];
         baseTier = normalizedTier;
       }
     }
@@ -140,7 +145,7 @@ export class BestPriceEngine {
       name: 'Base Tier',
       impact: 'neutral',
       adjustment: 0,
-      description: `Customer tier: ${baseTier} → Starting at $${tierCeiling.toFixed(2)}`
+      description: `Customer tier: ${baseTier} → Starting at $${tierCeiling.toFixed(2)}/sheet`
     });
 
     let workingPrice = tierCeiling;
@@ -369,6 +374,13 @@ export class BestPriceEngine {
       console.error('[BestPrice] Error fetching Odoo metrics:', error);
     }
 
+    // Calculate sheet area from product dimensions
+    // sheetWidth and sheetLength are in meters, area is in m²
+    const sheetWidth = parseFloat(String(product.sheetWidth || 0));
+    const sheetLength = parseFloat(String(product.sheetLength || 0));
+    const sheetArea = sheetWidth * sheetLength;
+
+    // Tier prices in $/m² from database
     const tierPrices: Record<string, number> = {};
     if (product.landedPrice) tierPrices['LANDED PRICE'] = parseFloat(String(product.landedPrice));
     if (product.exportPrice) tierPrices['EXPORT ONLY'] = parseFloat(String(product.exportPrice));
@@ -376,6 +388,12 @@ export class BestPriceEngine {
     if (product.dealerPrice) tierPrices['DEALER-VIP'] = parseFloat(String(product.dealerPrice));
     if (product.dealer2Price) tierPrices['DEALER'] = parseFloat(String(product.dealer2Price));
     if (product.retailPrice) tierPrices['RETAIL'] = parseFloat(String(product.retailPrice));
+
+    // Convert tier prices to price per sheet ($/m² × sheet area = $/sheet)
+    const tierPricesPerSheet: Record<string, number> = {};
+    for (const [tier, pricePerSqm] of Object.entries(tierPrices)) {
+      tierPricesPerSheet[tier] = sheetArea > 0 ? pricePerSqm * sheetArea : pricePerSqm;
+    }
 
     if (cost === 0) {
       if (product.landedPrice) {
@@ -392,9 +410,15 @@ export class BestPriceEngine {
       }
     }
 
+    // Convert cost to cost per sheet
+    const costPerSheet = sheetArea > 0 ? cost * sheetArea : cost;
+
     return {
       cost,
+      costPerSheet,
       tierPrices,
+      tierPricesPerSheet,
+      sheetArea,
       inventoryLevel,
       salesVelocity,
     };
