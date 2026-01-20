@@ -412,6 +412,22 @@ export const competitorPricing = pgTable("competitor_pricing", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Mapping between competitor pricing entries and internal products
+export const productCompetitorMappings = pgTable("product_competitor_mappings", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => productPricingMaster.id, { onDelete: "cascade" }),
+  competitorPricingId: integer("competitor_pricing_id").notNull().references(() => competitorPricing.id, { onDelete: "cascade" }),
+  matchConfidence: varchar("match_confidence", { length: 20 }).default("manual"), // 'manual', 'high', 'medium', 'low'
+  status: varchar("status", { length: 20 }).default("active"), // 'active', 'inactive', 'pending_review'
+  notes: text("notes"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("IDX_product_competitor_mappings_product").on(table.productId),
+  index("IDX_product_competitor_mappings_competitor").on(table.competitorPricingId),
+]);
+
 // Activity tracking for user and admin actions
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
@@ -493,6 +509,12 @@ export const insertCompetitorPricingSchema = createInsertSchema(competitorPricin
   createdAt: true,
 });
 
+export const insertProductCompetitorMappingSchema = createInsertSchema(productCompetitorMappings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
   id: true,
   createdAt: true,
@@ -509,6 +531,7 @@ export type User = typeof users.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type SentQuote = typeof sentQuotes.$inferSelect;
 export type CompetitorPricing = typeof competitorPricing.$inferSelect;
+export type ProductCompetitorMapping = typeof productCompetitorMappings.$inferSelect;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 
 export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
@@ -523,6 +546,7 @@ export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertSentQuote = z.infer<typeof insertSentQuoteSchema>;
 export type InsertCompetitorPricing = z.infer<typeof insertCompetitorPricingSchema>;
+export type InsertProductCompetitorMapping = z.infer<typeof insertProductCompetitorMappingSchema>;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 
 // Upload batch history for rollback and comparison

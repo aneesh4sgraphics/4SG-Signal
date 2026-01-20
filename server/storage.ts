@@ -17,6 +17,8 @@ import {
   type InsertSentQuote,
   type CompetitorPricing,
   type InsertCompetitorPricing,
+  type ProductCompetitorMapping,
+  type InsertProductCompetitorMapping,
   type FileUpload,
   type InsertFileUpload,
   type ActivityLog,
@@ -77,6 +79,7 @@ import {
   customers,
   sentQuotes,
   competitorPricing,
+  productCompetitorMappings,
   fileUploads,
   productPricingMaster,
   uploadBatches,
@@ -279,6 +282,14 @@ export interface IStorage {
   createCompetitorPricing(pricing: InsertCompetitorPricing): Promise<CompetitorPricing>;
   updateCompetitorPricing(id: number, data: Partial<InsertCompetitorPricing>): Promise<CompetitorPricing | undefined>;
   deleteCompetitorPricing(id: number): Promise<boolean>;
+  
+  // Product Competitor Mappings
+  getProductCompetitorMappings(): Promise<ProductCompetitorMapping[]>;
+  getProductCompetitorMappingsByProductId(productId: number): Promise<ProductCompetitorMapping[]>;
+  getProductCompetitorMappingsByCompetitorId(competitorPricingId: number): Promise<ProductCompetitorMapping[]>;
+  createProductCompetitorMapping(mapping: InsertProductCompetitorMapping): Promise<ProductCompetitorMapping>;
+  updateProductCompetitorMapping(id: number, data: Partial<InsertProductCompetitorMapping>): Promise<ProductCompetitorMapping | undefined>;
+  deleteProductCompetitorMapping(id: number): Promise<boolean>;
   
   // File Upload Tracking
   getFileUploads(): Promise<FileUpload[]>;
@@ -861,6 +872,49 @@ export class DatabaseStorage implements IStorage {
       .where(eq(competitorPricing.id, id))
       .returning();
     return result;
+  }
+
+  // Product Competitor Mappings - Database implementation
+  async getProductCompetitorMappings(): Promise<ProductCompetitorMapping[]> {
+    return await db.select().from(productCompetitorMappings).orderBy(productCompetitorMappings.createdAt);
+  }
+
+  async getProductCompetitorMappingsByProductId(productId: number): Promise<ProductCompetitorMapping[]> {
+    return await db
+      .select()
+      .from(productCompetitorMappings)
+      .where(eq(productCompetitorMappings.productId, productId));
+  }
+
+  async getProductCompetitorMappingsByCompetitorId(competitorPricingId: number): Promise<ProductCompetitorMapping[]> {
+    return await db
+      .select()
+      .from(productCompetitorMappings)
+      .where(eq(productCompetitorMappings.competitorPricingId, competitorPricingId));
+  }
+
+  async createProductCompetitorMapping(mapping: InsertProductCompetitorMapping): Promise<ProductCompetitorMapping> {
+    const [result] = await db
+      .insert(productCompetitorMappings)
+      .values(mapping)
+      .returning();
+    return result;
+  }
+
+  async updateProductCompetitorMapping(id: number, data: Partial<InsertProductCompetitorMapping>): Promise<ProductCompetitorMapping | undefined> {
+    const [result] = await db
+      .update(productCompetitorMappings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(productCompetitorMappings.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteProductCompetitorMapping(id: number): Promise<boolean> {
+    const result = await db
+      .delete(productCompetitorMappings)
+      .where(eq(productCompetitorMappings.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   // All methods now use database operations directly

@@ -6564,6 +6564,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // PRODUCT COMPETITOR MAPPING APIs
+  // ========================================
+
+  // Get all product-competitor mappings
+  app.get("/api/competitor-mappings", requireApproval, async (req, res) => {
+    try {
+      const mappings = await storage.getProductCompetitorMappings();
+      res.json(mappings);
+    } catch (error) {
+      console.error("Error fetching competitor mappings:", error);
+      res.status(500).json({ error: "Failed to fetch competitor mappings" });
+    }
+  });
+
+  // Get mappings for a specific product
+  app.get("/api/competitor-mappings/product/:productId", requireApproval, async (req, res) => {
+    try {
+      const productId = parseInt(req.params.productId);
+      if (isNaN(productId)) {
+        return res.status(400).json({ error: "Invalid product ID" });
+      }
+      const mappings = await storage.getProductCompetitorMappingsByProductId(productId);
+      res.json(mappings);
+    } catch (error) {
+      console.error("Error fetching competitor mappings for product:", error);
+      res.status(500).json({ error: "Failed to fetch competitor mappings" });
+    }
+  });
+
+  // Get mappings for a specific competitor entry
+  app.get("/api/competitor-mappings/competitor/:competitorId", requireApproval, async (req, res) => {
+    try {
+      const competitorId = parseInt(req.params.competitorId);
+      if (isNaN(competitorId)) {
+        return res.status(400).json({ error: "Invalid competitor pricing ID" });
+      }
+      const mappings = await storage.getProductCompetitorMappingsByCompetitorId(competitorId);
+      res.json(mappings);
+    } catch (error) {
+      console.error("Error fetching competitor mappings:", error);
+      res.status(500).json({ error: "Failed to fetch competitor mappings" });
+    }
+  });
+
+  // Create a new mapping
+  app.post("/api/competitor-mappings", requireApproval, async (req: any, res) => {
+    try {
+      const { productId, competitorPricingId, matchConfidence, notes } = req.body;
+      const userId = req.user?.claims?.sub || 'unknown';
+
+      if (!productId || !competitorPricingId) {
+        return res.status(400).json({ error: "Product ID and Competitor Pricing ID are required" });
+      }
+
+      // Check if mapping already exists
+      const existingMappings = await storage.getProductCompetitorMappingsByProductId(productId);
+      const duplicateMapping = existingMappings.find(m => m.competitorPricingId === competitorPricingId);
+      if (duplicateMapping) {
+        return res.status(409).json({ error: "This mapping already exists" });
+      }
+
+      const mapping = await storage.createProductCompetitorMapping({
+        productId,
+        competitorPricingId,
+        matchConfidence: matchConfidence || 'manual',
+        status: 'active',
+        notes: notes || null,
+        createdBy: userId,
+      });
+      res.json(mapping);
+    } catch (error) {
+      console.error("Error creating competitor mapping:", error);
+      res.status(500).json({ error: "Failed to create competitor mapping" });
+    }
+  });
+
+  // Update a mapping
+  app.patch("/api/competitor-mappings/:id", requireApproval, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid mapping ID" });
+      }
+
+      const { matchConfidence, status, notes } = req.body;
+      const mapping = await storage.updateProductCompetitorMapping(id, {
+        matchConfidence,
+        status,
+        notes,
+      });
+
+      if (!mapping) {
+        return res.status(404).json({ error: "Mapping not found" });
+      }
+
+      res.json(mapping);
+    } catch (error) {
+      console.error("Error updating competitor mapping:", error);
+      res.status(500).json({ error: "Failed to update competitor mapping" });
+    }
+  });
+
+  // Delete a mapping
+  app.delete("/api/competitor-mappings/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid mapping ID" });
+      }
+
+      const deleted = await storage.deleteProductCompetitorMapping(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Mapping not found" });
+      }
+
+      res.json({ message: "Mapping deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting competitor mapping:", error);
+      res.status(500).json({ error: "Failed to delete competitor mapping" });
+    }
+  });
+
+  // Get competitor pricing with mappings enriched with product info
+  app.get("/api/competitor-pricing-with-mappings", requireApproval, async (req, res) => {
+    try {
+      const [competitorData, mappings, products] = await Promise.all([
+        storage.getCompetitorPricing(),
+        storage.getProductCompetitorMappings(),
+        storage.getAllProductPricingMaster(),
+      ]);
+
+      // Build a map of competitor ID to product info
+      const productMap = new Map(products.map(p => [p.id, p]));
+      const mappingsByCompetitor = new Map<number, Array<{ mapping: any; product: any }>>();
+      
+      for (const mapping of mappings) {
+        const product = productMap.get(mapping.productId);
+        if (!mappingsByCompetitor.has(mapping.competitorPricingId)) {
+          mappingsByCompetitor.set(mapping.competitorPricingId, []);
+        }
+        mappingsByCompetitor.get(mapping.competitorPricingId)!.push({
+          mapping,
+          product: product ? {
+            id: product.id,
+            itemCode: product.itemCode,
+            productName: product.productName,
+            productType: product.productType,
+          } : null,
+        });
+      }
+
+      // Enrich competitor data with mapping info
+      const enrichedData = competitorData.map(entry => ({
+        ...entry,
+        mappedProducts: mappingsByCompetitor.get(entry.id) || [],
+        hasMappings: mappingsByCompetitor.has(entry.id),
+      }));
+
+      res.json(enrichedData);
+    } catch (error) {
+      console.error("Error fetching competitor pricing with mappings:", error);
+      res.status(500).json({ error: "Failed to fetch competitor pricing with mappings" });
+    }
+  });
+
   // Get sent quote by ID
   app.get("/api/sent-quotes/:id", async (req, res) => {
     try {
