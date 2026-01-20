@@ -1111,6 +1111,105 @@ class SpotlightEngine {
     };
   }
 
+  // Get customer IDs currently claimed by OTHER users (within last 5 minutes)
+  private async getClaimedCustomerIds(excludeUserId: string): Promise<string[]> {
+    const claimTimeout = 5 * 60 * 1000; // 5 minutes
+    const cutoffTime = new Date(Date.now() - claimTimeout);
+    const today = this.getTodayKey();
+    
+    try {
+      const claims = await db.select({
+        customerId: spotlightSessionState.currentClaimedCustomerId,
+      })
+        .from(spotlightSessionState)
+        .where(and(
+          ne(spotlightSessionState.userId, excludeUserId),
+          eq(spotlightSessionState.sessionDate, today),
+          isNotNull(spotlightSessionState.currentClaimedCustomerId),
+          gte(spotlightSessionState.claimedAt, cutoffTime)
+        ));
+      
+      return claims
+        .map(c => c.customerId)
+        .filter((id): id is string => id !== null);
+    } catch (error) {
+      console.error('[Spotlight] Error getting claimed customer IDs:', error);
+      return [];
+    }
+  }
+
+  // Claim a customer for this user - returns true if claim succeeded
+  // Uses atomic check to prevent race conditions between concurrent users
+  private async claimCustomer(userId: string, customerId: string): Promise<boolean> {
+    const today = this.getTodayKey();
+    const claimTimeout = 5 * 60 * 1000; // 5 minutes
+    const cutoffTime = new Date(Date.now() - claimTimeout);
+    
+    try {
+      // Atomically check if customer is already claimed by another active user
+      // This uses a single query to prevent race conditions
+      const existingClaims = await db.select({
+        claimUserId: spotlightSessionState.userId,
+        claimedAt: spotlightSessionState.claimedAt,
+      })
+        .from(spotlightSessionState)
+        .where(and(
+          eq(spotlightSessionState.sessionDate, today),
+          eq(spotlightSessionState.currentClaimedCustomerId, customerId),
+          gte(spotlightSessionState.claimedAt, cutoffTime)
+        ));
+      
+      // Check if another user has this customer claimed
+      const otherUserClaim = existingClaims.find(c => c.claimUserId !== userId);
+      if (otherUserClaim) {
+        console.log(`[Spotlight] Customer ${customerId} already claimed by ${otherUserClaim.claimUserId}`);
+        return false;
+      }
+      
+      // Upsert our claim - this is safe because we already verified no other user has it
+      await db.insert(spotlightSessionState)
+        .values({
+          userId,
+          sessionDate: today,
+          currentClaimedCustomerId: customerId,
+          claimedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [spotlightSessionState.userId, spotlightSessionState.sessionDate],
+          set: {
+            currentClaimedCustomerId: customerId,
+            claimedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+      
+      return true;
+    } catch (error) {
+      console.error('[Spotlight] Error claiming customer:', error);
+      return false;
+    }
+  }
+
+  // Release claim when task is completed
+  private async releaseClaim(userId: string): Promise<void> {
+    const today = this.getTodayKey();
+    
+    try {
+      await db.update(spotlightSessionState)
+        .set({
+          currentClaimedCustomerId: null,
+          claimedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(spotlightSessionState.userId, userId),
+          eq(spotlightSessionState.sessionDate, today)
+        ));
+    } catch (error) {
+      console.error('[Spotlight] Error releasing claim:', error);
+    }
+  }
+
   async getNextTask(userId: string): Promise<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean }> {
     const session = await this.getSessionAsync(userId);
     
@@ -1132,23 +1231,27 @@ class SpotlightEngine {
         return { task: null, session, allDone: true };
       }
 
+      // Get customer IDs claimed by other users to avoid duplicates
+      const claimedByOthers = await this.getClaimedCustomerIds(userId);
+      const excludeIds = [...session.skippedCustomerIds, ...claimedByOthers];
+
       let task: SpotlightTask | null = null;
       
       switch (nextBucket) {
         case 'calls':
-          task = await this.findCallTask(userId, session.skippedCustomerIds);
+          task = await this.findCallTask(userId, excludeIds);
           break;
         case 'follow_ups':
-          task = await this.findFollowUpTask(userId, session.skippedCustomerIds);
+          task = await this.findFollowUpTask(userId, excludeIds);
           break;
         case 'outreach':
-          task = await this.findOutreachTask(userId, session.skippedCustomerIds);
+          task = await this.findOutreachTask(userId, excludeIds);
           break;
         case 'data_hygiene':
-          task = await this.findHygieneTask(userId, session.skippedCustomerIds);
+          task = await this.findHygieneTask(userId, excludeIds);
           break;
         case 'enablement':
-          task = await this.findEnablementTask(userId, session.skippedCustomerIds);
+          task = await this.findEnablementTask(userId, excludeIds);
           break;
       }
 
@@ -1157,6 +1260,17 @@ class SpotlightEngine {
         if (bucketData) {
           bucketData.completed = bucketData.target;
         }
+        return this.getNextTask(userId);
+      }
+      
+      // Claim this customer so other users won't get the same task
+      const claimSuccess = await this.claimCustomer(userId, task.customerId);
+      
+      if (!claimSuccess) {
+        // Another user claimed this customer - add to skipped and retry
+        console.log(`[Spotlight] Claim failed for customer ${task.customerId}, retrying with different task`);
+        excludeIds.push(task.customerId);
+        session.skippedCustomerIds.push(task.customerId);
         return this.getNextTask(userId);
       }
       
@@ -1793,6 +1907,9 @@ class SpotlightEngine {
       session.skippedCustomerIds.push(customerId);
     }
 
+    // Release claim so other users can work on this customer
+    await this.releaseClaim(userId);
+
     console.log(`[Spotlight] Task completed for customer ${customerId}, bucket ${bucket}, outcome ${outcomeId}`);
 
     return { success: true, nextFollowUp };
@@ -1856,6 +1973,9 @@ class SpotlightEngine {
     } catch (e) {
       console.error('[Spotlight] Failed to log skip event:', e);
     }
+
+    // Release claim so other users can work on different customers
+    await this.releaseClaim(userId);
 
     console.log(`[Spotlight] User ${userId} skipped task ${taskId}: ${reason}`);
   }

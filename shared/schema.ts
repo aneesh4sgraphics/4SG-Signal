@@ -2912,11 +2912,16 @@ export const spotlightSessionState = pgTable("spotlight_session_state", {
   warmupShown: boolean("warmup_shown").default(false),
   recapShown: boolean("recap_shown").default(false),
   
+  // Cross-user task claiming - prevents same customer shown to multiple users
+  currentClaimedCustomerId: varchar("current_claimed_customer_id"),
+  claimedAt: timestamp("claimed_at"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   userDateIdx: index("spotlight_session_state_user_date_idx").on(table.userId, table.sessionDate),
   userIdx: index("spotlight_session_state_user_idx").on(table.userId),
+  claimedCustomerIdx: index("spotlight_session_state_claimed_customer_idx").on(table.currentClaimedCustomerId),
 }));
 
 export const insertSpotlightSessionStateSchema = createInsertSchema(spotlightSessionState).omit({

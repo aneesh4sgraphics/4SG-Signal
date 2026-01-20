@@ -3947,21 +3947,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete customer (Admin only)
   app.delete("/api/customers/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const customerId = req.params.id;
+      const inputId = req.params.id;
       const reason = req.query.reason as string | undefined;
       
-      // Get customer details before deletion to record exclusion
-      const [customer] = await db.select({
+      // Try to find customer by direct ID first, then by odooPartnerId if numeric
+      let customer;
+      let customerId = inputId;
+      
+      // First try direct ID lookup
+      const [directMatch] = await db.select({
         id: customers.id,
         company: customers.company,
         firstName: customers.firstName,
         lastName: customers.lastName,
         email: customers.email,
         odooPartnerId: customers.odooPartnerId,
-      }).from(customers).where(eq(customers.id, customerId)).limit(1);
+      }).from(customers).where(eq(customers.id, inputId)).limit(1);
+      
+      if (directMatch) {
+        customer = directMatch;
+      } else {
+        // If not found and input is numeric, try looking up by odooPartnerId
+        const numericId = parseInt(inputId, 10);
+        if (!isNaN(numericId)) {
+          const [odooMatch] = await db.select({
+            id: customers.id,
+            company: customers.company,
+            firstName: customers.firstName,
+            lastName: customers.lastName,
+            email: customers.email,
+            odooPartnerId: customers.odooPartnerId,
+          }).from(customers).where(eq(customers.odooPartnerId, numericId)).limit(1);
+          
+          if (odooMatch) {
+            customer = odooMatch;
+            customerId = odooMatch.id; // Use the actual UUID for deletion
+            console.log(`[Customer Delete] Resolved Odoo ID ${inputId} to customer UUID ${customerId}`);
+          }
+        }
+      }
       
       if (!customer) {
-        return res.status(404).json({ error: "Customer not found" });
+        console.log(`[Customer Delete] Customer not found with ID: ${inputId}`);
+        return res.status(404).json({ error: "Customer not found", requestedId: inputId });
       }
       
       // Check if this is a Shopify customer (ID starts with 'shopify_')
