@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink, ChevronsUpDown } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink, ChevronsUpDown, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -546,6 +546,20 @@ export default function QuoteCalculator() {
     factors: Array<{ name: string; impact: string; adjustment: number; description: string }>;
     confidence: 'high' | 'medium' | 'low';
     rationale: string;
+    unitType: 'sheet' | 'roll' | 'unit';
+    productInfo: {
+      productName: string;
+      size: string;
+      minOrderQty: number | null;
+      itemCode: string;
+    };
+    tierComparison: {
+      customerTier: string;
+      tierPrice: number;
+      savings: number;
+      savingsPercent: number;
+      recommendation: string;
+    } | null;
   }>({
     queryKey: ['/api/best-price', selectedProduct?.id, selectedCustomer?.id, quantity],
     queryFn: async () => {
@@ -2469,12 +2483,53 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-green-700">${bestPriceData.recommendedPrice.toFixed(2)}</p>
+                          <p className="text-2xl font-bold text-green-700">
+                            ${bestPriceData.recommendedPrice.toFixed(2)}
+                            <span className="text-sm font-normal text-green-600 ml-1">
+                              /{bestPriceData.unitType === 'roll' ? 'roll' : bestPriceData.unitType === 'sheet' ? 'sheet' : 'unit'}
+                            </span>
+                          </p>
                           <p className="text-xs text-green-600">
                             Range: ${bestPriceData.priceRange.floor.toFixed(2)} - ${bestPriceData.priceRange.ceiling.toFixed(2)}
                           </p>
                         </div>
                       </div>
+                      
+                      {/* Min Order Qty Alert */}
+                      {bestPriceData.productInfo?.minOrderQty && bestPriceData.productInfo.minOrderQty > 1 && (
+                        <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            <span className="text-sm text-amber-800 font-medium">
+                              Min Order: {bestPriceData.productInfo.minOrderQty} {bestPriceData.unitType === 'roll' ? 'rolls' : 'sheets'}
+                            </span>
+                            {quantity < bestPriceData.productInfo.minOrderQty && (
+                              <span className="text-xs text-amber-600 ml-2">
+                                (Current qty: {quantity} - below minimum)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Tier Comparison & Recommendation */}
+                      {bestPriceData.tierComparison && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-blue-800 font-medium">How to Quote</p>
+                              <p className="text-sm text-blue-700 mt-1">{bestPriceData.tierComparison.recommendation}</p>
+                              {bestPriceData.tierComparison.savings > 0 && (
+                                <p className="text-xs text-blue-600 mt-1">
+                                  Customer saves ${bestPriceData.tierComparison.savings.toFixed(2)} ({bestPriceData.tierComparison.savingsPercent}% off {bestPriceData.tierComparison.customerTier} tier)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       {bestPriceData.factors.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-green-200">
                           <p className="text-xs text-green-700 font-medium mb-2">Pricing factors:</p>
