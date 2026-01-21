@@ -20293,12 +20293,12 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { taskId, outcomeId, field, value, notes, taskSubtype } = req.body;
+      const { taskId, outcomeId, field, value, notes, taskSubtype, customFollowUpDays } = req.body;
       if (!taskId || !outcomeId) {
         return res.status(400).json({ error: "taskId and outcomeId are required" });
       }
 
-      const result = await spotlightEngine.completeTask(userId, taskId, outcomeId, field, value, notes);
+      const result = await spotlightEngine.completeTask(userId, taskId, outcomeId, field, value, notes, customFollowUpDays);
       
       // Update gamification state
       const session = spotlightEngine.getSessionStats(userId);

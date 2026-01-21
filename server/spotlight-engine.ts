@@ -97,7 +97,7 @@ export interface TaskOutcome {
   label: string;
   icon?: string;
   nextAction?: {
-    type: 'schedule_follow_up' | 'send_email' | 'mark_complete' | 'no_action' | 'mark_dnc';
+    type: 'schedule_follow_up' | 'send_email' | 'mark_complete' | 'no_action' | 'mark_dnc' | 'custom_follow_up';
     daysUntil?: number;
     taskType?: string;
   };
@@ -141,9 +141,9 @@ export interface SpotlightSession {
 const DAILY_QUOTAS: Record<TaskBucket, number> = {
   calls: 2,
   follow_ups: 3,
-  outreach: 10,
-  data_hygiene: 10,
-  enablement: 5,
+  outreach: 5,
+  data_hygiene: 25,  // Increased for March data hygiene deadline
+  enablement: 3,
 };
 
 const TOTAL_DAILY_QUOTA = Object.values(DAILY_QUOTAS).reduce((a, b) => a + b, 0);
@@ -180,6 +180,7 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'connected', label: 'Connected', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
     { id: 'voicemail', label: 'Left Voicemail', icon: 'voicemail', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'call' } },
     { id: 'no_answer', label: 'No Answer', icon: 'phone-missed', nextAction: { type: 'schedule_follow_up', daysUntil: 1, taskType: 'call' } },
+    { id: 'custom_followup', label: 'Schedule Follow-up', icon: 'calendar', nextAction: { type: 'custom_follow_up' } },
     { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   sales_follow_up: [
@@ -271,6 +272,29 @@ class SpotlightEngine {
       return tomorrow.toISOString().split('T')[0];
     }
     return now.toISOString().split('T')[0];
+  }
+
+  // Get customer IDs that have been contacted within the last N days (auto-skip these)
+  private async getRecentlyContactedIds(daysBack: number = 7): Promise<string[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    
+    try {
+      const result = await db
+        .selectDistinct({ customerId: customerActivityEvents.customerId })
+        .from(customerActivityEvents)
+        .where(
+          and(
+            gte(customerActivityEvents.createdAt, cutoffDate),
+            inArray(customerActivityEvents.eventType, ['call', 'email', 'quote', 'follow_up_completed'])
+          )
+        );
+      
+      return result.map(r => r.customerId);
+    } catch (e) {
+      console.error('[Spotlight] Error getting recently contacted IDs:', e);
+      return [];
+    }
   }
 
   private async calculateDataReadiness(userId: string): Promise<DataReadiness> {
@@ -1204,7 +1228,13 @@ class SpotlightEngine {
 
       // Get customer IDs claimed by other users to avoid duplicates
       const claimedByOthers = await this.getClaimedCustomerIds(userId);
-      const excludeIds = [...session.skippedCustomerIds, ...claimedByOthers];
+      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers];
+
+      // For calls and outreach, also exclude recently contacted customers (auto-skip)
+      if (nextBucket === 'calls' || nextBucket === 'outreach') {
+        const recentlyContacted = await this.getRecentlyContactedIds(7);
+        excludeIds = [...excludeIds, ...recentlyContacted];
+      }
 
       let task: SpotlightTask | null = null;
       
@@ -1702,7 +1732,8 @@ class SpotlightEngine {
     outcomeId: string,
     field?: string, 
     value?: string,
-    notes?: string
+    notes?: string,
+    customFollowUpDays?: number
   ): Promise<{ success: boolean; nextFollowUp?: { date: Date; type: string } }> {
     const session = this.getSession(userId);
     
@@ -1802,7 +1833,28 @@ class SpotlightEngine {
     }
 
     let nextFollowUp: { date: Date; type: string } | undefined;
-    if (selectedOutcome?.nextAction?.type === 'schedule_follow_up' && selectedOutcome.nextAction.daysUntil) {
+    
+    // Handle custom follow-up with user-specified days
+    if (selectedOutcome?.nextAction?.type === 'custom_follow_up' && customFollowUpDays) {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + customFollowUpDays);
+      
+      await db.insert(followUpTasks).values({
+        customerId,
+        title: `Scheduled Follow-up`,
+        description: notes || null,
+        taskType: 'follow_up',
+        dueDate,
+        status: 'pending',
+        assignedTo: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      nextFollowUp = { date: dueDate, type: 'follow_up' };
+    }
+    // Handle standard follow-up with preset days
+    else if (selectedOutcome?.nextAction?.type === 'schedule_follow_up' && selectedOutcome.nextAction.daysUntil) {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + selectedOutcome.nextAction.daysUntil);
       

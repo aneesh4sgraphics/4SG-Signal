@@ -289,6 +289,8 @@ export default function Spotlight() {
   const [showMicroCard, setShowMicroCard] = useState(false);
   const [selectedQuizAnswer, setSelectedQuizAnswer] = useState<number | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
+  const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const [followUpDays, setFollowUpDays] = useState(7);
   
   // Fetch warmup data on mount if not yet shown
   const { data: warmupData } = useQuery<WarmupData>({
@@ -424,7 +426,7 @@ export default function Spotlight() {
   // Use PRICING_TIERS constant from shared/schema.ts - single source of truth
 
   const completeMutation = useMutation({
-    mutationFn: async (data: { taskId: string; outcomeId: string; field?: string; value?: string; notes?: string }) => {
+    mutationFn: async (data: { taskId: string; outcomeId: string; field?: string; value?: string; notes?: string; customFollowUpDays?: number }) => {
       const res = await apiRequest('POST', '/api/spotlight/complete', data);
       return res.json();
     },
@@ -776,12 +778,35 @@ export default function Spotlight() {
 
   const handleOutcome = (outcomeId: string, field?: string, value?: string) => {
     if (!currentTask?.task) return;
+    
+    // If custom follow-up is selected, show the dialog instead
+    if (outcomeId === 'custom_followup') {
+      setShowFollowUpDialog(true);
+      return;
+    }
+    
     completeMutation.mutate({ 
       taskId: currentTask.task.id, 
       outcomeId,
       field, 
       value,
       notes: notes.trim() || undefined,
+    });
+  };
+  
+  const handleCustomFollowUp = () => {
+    if (!currentTask?.task) return;
+    const validDays = Math.max(1, Math.min(90, followUpDays || 7));
+    completeMutation.mutate({ 
+      taskId: currentTask.task.id, 
+      outcomeId: 'custom_followup',
+      customFollowUpDays: validDays,
+      notes: notes.trim() || undefined,
+    }, {
+      onSuccess: () => {
+        setShowFollowUpDialog(false);
+        setFollowUpDays(7);
+      }
     });
   };
 
@@ -2151,6 +2176,65 @@ export default function Spotlight() {
               className="w-full"
             >
               {quizAnswered || currentTask?.microCard?.cardType !== 'product_quiz' ? 'Continue' : 'Skip'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Custom Follow-up Dialog */}
+      <Dialog open={showFollowUpDialog} onOpenChange={setShowFollowUpDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              Schedule Follow-up
+            </DialogTitle>
+            <DialogDescription>
+              When should you follow up with this customer?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-4 gap-2">
+              {[1, 3, 7, 14].map((days) => (
+                <Button
+                  key={days}
+                  variant={followUpDays === days ? 'default' : 'outline'}
+                  className={`${followUpDays === days ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                  onClick={() => setFollowUpDays(days)}
+                >
+                  {days}d
+                </Button>
+              ))}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={90}
+                value={followUpDays}
+                onChange={(e) => setFollowUpDays(parseInt(e.target.value) || 7)}
+                className="w-20"
+              />
+              <span className="text-sm text-gray-600">days from now</span>
+            </div>
+            
+            <div className="text-sm text-gray-500">
+              Follow-up date: {new Date(Date.now() + followUpDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFollowUpDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCustomFollowUp}
+              disabled={completeMutation.isPending || followUpDays < 1 || followUpDays > 90}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {completeMutation.isPending ? 'Scheduling...' : 'Schedule Follow-up'}
             </Button>
           </DialogFooter>
         </DialogContent>
