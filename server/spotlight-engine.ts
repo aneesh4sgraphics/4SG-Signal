@@ -560,6 +560,9 @@ class SpotlightEngine {
           { field: 'email', whyNow: 'Missing primary email - essential for follow-ups.' },
         ];
         
+        // Generic email domains that are harder to investigate - deprioritize these
+        const genericEmailDomains = ['gmail.com', 'yahoo.com', 'aol.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'mail.com', 'msn.com', 'live.com', 'ymail.com', 'protonmail.com', 'zoho.com'];
+        
         let hygieneCount = 0;
         for (const { field, whyNow } of hygieneTypes) {
           if (hygieneCount >= quota) break;
@@ -569,16 +572,23 @@ class SpotlightEngine {
             : field === 'phone' ? isNull(customers.phone)
             : isNull(customers.email);
           
-          const hygieneCustomers = await db.select({ id: customers.id })
+          // Order by: business emails first (priority 0), generic emails last (priority 1)
+          const genericEmailCase = sql`CASE WHEN ${customers.email} ~* '(gmail|yahoo|aol|hotmail|outlook|icloud|mail\\.com|msn|live|ymail|protonmail|zoho)\\.' THEN 1 ELSE 0 END`;
+          
+          const hygieneCustomers = await db.select({ id: customers.id, email: customers.email })
             .from(customers)
             .where(and(condition, eq(customers.doNotContact, false)))
-            .orderBy(asc(customers.createdAt))
+            .orderBy(genericEmailCase, asc(customers.createdAt))
             .limit(Math.ceil((quota - hygieneCount) / hygieneTypes.length));
           
           hygieneCustomers.forEach((c, i) => {
+            // Give lower priority to generic email customers
+            const isGenericEmail = c.email && genericEmailDomains.some(d => c.email?.toLowerCase().endsWith(`@${d}`));
+            const priorityAdjustment = isGenericEmail ? -20 : 0;
+            
             candidates.push({
               customerId: c.id,
-              priority: 60 - i,
+              priority: 60 - i + priorityAdjustment,
               whyNow,
               payload: { missingField: field },
             });
