@@ -2673,6 +2673,9 @@ export const EMAIL_SALES_EVENT_TYPES = [
   'press_test_success', // Press Test Success - positive feedback on press test kit results
   'swatch_received',    // Swatch Received - customer confirming they received swatchbook
   'lead',               // Lead - new potential customer, first-time inquiry, referral
+  'price_sent',         // Price Sent - pricing information sent to customer (outbound)
+  'pricelist_sent',     // Price List Sent - PDF price list sent to customer (outbound)
+  'quote_sent',         // Quote Sent - formal quote from Odoo sent to customer (outbound)
 ] as const;
 
 export const emailSalesEvents = pgTable("email_sales_events", {

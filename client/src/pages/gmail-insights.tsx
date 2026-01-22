@@ -218,6 +218,9 @@ const salesEventTypeConfig: Record<string, { icon: any; label: string; color: st
   press_test_success: { icon: CheckCircle2, label: "Press Test Success", color: "bg-teal-100 text-teal-800", description: "Successful press test feedback" },
   swatch_received: { icon: Mail, label: "Swatch Received", color: "bg-cyan-100 text-cyan-800", description: "Customer confirmed receiving samples" },
   lead: { icon: UserPlus, label: "New Lead", color: "bg-violet-100 text-violet-800", description: "New potential customer inquiry" },
+  price_sent: { icon: DollarSign, label: "Pricing Sent", color: "bg-amber-100 text-amber-800", description: "You sent pricing to a customer - follow up in 3 days" },
+  pricelist_sent: { icon: FileText, label: "Price List Sent", color: "bg-orange-100 text-orange-800", description: "You sent a price list PDF - follow up in 5 days" },
+  quote_sent: { icon: FileText, label: "Quote Sent", color: "bg-rose-100 text-rose-800", description: "Formal quote from Odoo - follow up in 2 days" },
 };
 
 interface DailyPerformance {
@@ -2020,6 +2023,9 @@ export default function GmailInsightsPage() {
                       <SelectItem value="samples">Sample Requests</SelectItem>
                       <SelectItem value="urgent">Urgent Requests</SelectItem>
                       <SelectItem value="opportunity">Opportunities</SelectItem>
+                      <SelectItem value="price_sent">Pricing Sent</SelectItem>
+                      <SelectItem value="pricelist_sent">Price List Sent</SelectItem>
+                      <SelectItem value="quote_sent">Quotes Sent</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button

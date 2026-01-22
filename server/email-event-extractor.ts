@@ -148,10 +148,34 @@ const EVENT_TO_TASK_CONFIG: Record<string, {
   lead: {
     taskType: 'qualify_lead',
     titleTemplate: 'New Lead: {customer}',
-    descriptionTemplate: 'New potential customer inquiry detected. Qualify this lead and respond promptly. Trigger: {trigger}',
+    descriptionTemplate: 'New potential customer inquiry. Qualify and nurture. Trigger: {trigger}',
     priority: 'high',
     dueDaysFromNow: 0,
     minConfidence: 0.70,
+  },
+  price_sent: {
+    taskType: 'pricing_follow_up',
+    titleTemplate: 'Follow up on pricing sent to {customer}',
+    descriptionTemplate: 'You sent pricing information to this customer. Follow up to answer questions and close the sale. Trigger: {trigger}',
+    priority: 'normal',
+    dueDaysFromNow: 3,
+    minConfidence: 0.75,
+  },
+  pricelist_sent: {
+    taskType: 'pricelist_follow_up',
+    titleTemplate: 'Follow up on price list sent to {customer}',
+    descriptionTemplate: 'You sent a price list PDF to this customer. Check if they found what they need and offer to provide a custom quote. Trigger: {trigger}',
+    priority: 'normal',
+    dueDaysFromNow: 5,
+    minConfidence: 0.80,
+  },
+  quote_sent: {
+    taskType: 'quote_follow_up',
+    titleTemplate: 'Follow up on quote sent to {customer}',
+    descriptionTemplate: 'A formal quote was sent from Odoo. Follow up to address questions and move toward closing. Trigger: {trigger}',
+    priority: 'high',
+    dueDaysFromNow: 2,
+    minConfidence: 0.85,
   },
 };
 
@@ -411,6 +435,70 @@ const EVENT_RULES: EventRule[] = [
     ],
     baseConfidence: 0.75,
     direction: 'inbound',
+  },
+  // OUTBOUND EVENTS - detecting when sales rep sends pricing/quotes
+  {
+    eventType: 'price_sent',
+    keywords: [
+      'attached pricing', 'pricing information', 'here is the pricing',
+      'price breakdown', 'pricing details', 'pricing attached',
+      'sending you pricing', 'prices as requested', 'below are the prices',
+      'find the pricing', 'pricing as discussed', 'here are the prices',
+      'please see pricing', 'pricing for your review', 'pricing sheet',
+      'per your request pricing', 'special pricing', 'custom pricing'
+    ],
+    regexPatterns: [
+      /attach.*(pricing|prices|quote)/i,
+      /(here|sending|below).*(pricing|prices)/i,
+      /pricing.*(attached|included|below|for your)/i,
+      /(please|find).*(attached|see).*(pricing|quote)/i,
+      /as (discussed|requested).*(pricing|prices)/i,
+      /per.*(your|our).*(conversation|request|discussion).*(pricing|price)/i,
+    ],
+    baseConfidence: 0.80,
+    direction: 'outbound',
+  },
+  {
+    eventType: 'pricelist_sent',
+    keywords: [
+      'price list pdf', 'price list attached', 'attached price list',
+      'sending the price list', 'price list file', 'full price list',
+      'current price list', 'updated price list', 'price catalog',
+      'product catalog', 'price sheet attached', 'catalog attached',
+      'pricing catalog', 'price guide', 'wholesale price list'
+    ],
+    regexPatterns: [
+      /price list.*(pdf|attached|file|enclosed)/i,
+      /(attach|send|include).*(price list|pricelist|catalog)/i,
+      /(here|below|find).*(price list|catalog|price guide)/i,
+      /(full|complete|updated|current).*(price list|pricelist)/i,
+      /pdf.*(price list|pricelist|catalog)/i,
+      /product.*(catalog|list|guide).*(attached|enclosed)/i,
+    ],
+    baseConfidence: 0.85,
+    direction: 'outbound',
+  },
+  {
+    eventType: 'quote_sent',
+    keywords: [
+      'attached quote', 'quote attached', 'quotation attached',
+      'sending the quote', 'here is your quote', 'formal quote',
+      'quote for your review', 'please find the quote', 'quote number',
+      'quote from odoo', 'quote as requested', 'prepared a quote',
+      'quote reference', 'quotation number', 'quote details',
+      'proforma', 'estimate attached', 'proposal attached'
+    ],
+    regexPatterns: [
+      /(attach|send|include).*(quote|quotation|proposal|estimate)/i,
+      /quote.*(attached|enclosed|below|for your|number|#)/i,
+      /(here|find|please).*(quote|quotation|proposal)/i,
+      /(formal|official).*(quote|quotation|proposal)/i,
+      /quote.?(#|number|ref|reference)\s?\d*/i,
+      /(proforma|estimate|proposal).*(attached|enclosed)/i,
+      /prepared.*(quote|quotation|proposal)/i,
+    ],
+    baseConfidence: 0.85,
+    direction: 'outbound',
   },
 ];
 
@@ -704,6 +792,9 @@ const AI_COACHING_TEMPLATES: Record<string, string> = {
   press_test_success: "Press test succeeded! The customer is impressed. This is the perfect moment to discuss production quantities and timelines. Strike while the iron is hot - they're ready to move forward.",
   swatch_received: "Customer received and is reviewing samples. Follow up in 2-3 days to discuss their favorites, answer questions, and guide them toward an order. Ask what applications they have in mind.",
   lead: "New lead detected! Respond within 1 hour if possible - speed matters for new inquiries. Ask qualifying questions about their application, volume, and timeline. Send a swatchbook to make a great first impression.",
+  price_sent: "Pricing sent! Follow up in 2-3 days to check if they have questions. Ask about their timeline and if the pricing meets their budget. Offer to adjust quantities or suggest alternatives if needed.",
+  pricelist_sent: "Price list sent! Follow up in 4-5 days to see if they found what they need. Offer to create a custom quote for their specific products and quantities. Ask about their upcoming projects.",
+  quote_sent: "Formal quote delivered! This is a hot opportunity. Follow up within 2 days to walk them through the quote, address any concerns, and ask for the order. Time kills deals - stay proactive!",
 };
 
 export async function generateAICoachingSummary(eventId: number): Promise<string | null> {
