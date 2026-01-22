@@ -47,7 +47,10 @@ import {
   Unlink,
   MailX,
   Settings,
-  Play
+  Play,
+  MoreVertical,
+  Edit2,
+  Ban
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -70,6 +73,13 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Insight {
   id: number;
@@ -850,21 +860,81 @@ export default function GmailInsightsPage() {
     enabled: customerSearchQuery.length >= 2,
   });
 
-  // Email Sales Events
-  const [salesEventTypeFilter, setSalesEventTypeFilter] = useState<string>("all");
-  const { data: salesEvents, isLoading: salesEventsLoading, refetch: refetchSalesEvents } = useQuery<{ events: EmailSalesEvent[]; total: number }>({
-    queryKey: ["/api/email-intelligence/events", salesEventTypeFilter],
+  // Email Sales Events with category tabs
+  const [salesEventCategory, setSalesEventCategory] = useState<string>("all");
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  
+  const { data: salesEvents, isLoading: salesEventsLoading, refetch: refetchSalesEvents } = useQuery<{ 
+    events: (EmailSalesEvent & { senderName?: string; senderEmail?: string; subject?: string; direction?: string })[];
+    total: number;
+    categoryCounts?: { category: string; count: string }[];
+  }>({
+    queryKey: ["/api/email-intelligence/events", salesEventCategory],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (salesEventTypeFilter !== "all") {
-        params.append("eventType", salesEventTypeFilter);
+      if (salesEventCategory !== "all") {
+        params.append("category", salesEventCategory);
       }
       params.append("limit", "100");
       const res = await fetch(`/api/email-intelligence/events?${params.toString()}`);
-      if (!res.ok) return { events: [], total: 0 };
+      if (!res.ok) return { events: [], total: 0, categoryCounts: [] };
       return res.json();
     },
   });
+
+  // Update event type mutation
+  const updateEventTypeMutation = useMutation({
+    mutationFn: async ({ eventId, eventType }: { eventId: number; eventType: string }) => {
+      const res = await fetch(`/api/email-intelligence/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventType }),
+      });
+      if (!res.ok) throw new Error('Failed to update event');
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSalesEvents();
+      setEditingEventId(null);
+      toast({ title: "Event type updated" });
+    },
+  });
+
+  // Delete event mutation
+  const deleteEventMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      const res = await fetch(`/api/email-intelligence/events/${eventId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete event');
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSalesEvents();
+      toast({ title: "Event dismissed" });
+    },
+  });
+
+  // Blacklist email mutation
+  const addToBlacklistMutation = useMutation({
+    mutationFn: async ({ pattern, reason }: { pattern: string; reason: string }) => {
+      const res = await fetch('/api/email-intelligence/blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern, patternType: 'email', reason }),
+      });
+      if (!res.ok) throw new Error('Failed to add to blacklist');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Email added to blacklist", description: "This sender will be excluded from future detection." });
+    },
+  });
+
+  // Get category count helper
+  const getCategoryCount = (category: string) => {
+    if (!salesEvents?.categoryCounts) return 0;
+    const found = salesEvents.categoryCounts.find(c => c.category === category);
+    return found ? parseInt(found.count) : 0;
+  };
 
   const categoryToTypes: Record<string, string[]> = {
     urgent: ['unanswered_quote', 'stale_negotiation', 'urgent_request', 'complaint'],
@@ -1993,7 +2063,7 @@ export default function GmailInsightsPage() {
           </Card>
         </TabsContent>
 
-        {/* Sales Events Tab */}
+        {/* Sales Events Tab - Intelligence Collection */}
         <TabsContent value="sales_events" className="mt-4">
           <Card>
             <CardHeader className="pb-2">
@@ -2001,129 +2071,207 @@ export default function GmailInsightsPage() {
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-green-500" />
-                    Sales Events Detected
+                    Email Intelligence
                   </CardTitle>
                   <CardDescription>
-                    Automated detection of sales signals from your emails - orders, approvals, leads, and more.
+                    AI-detected sales signals organized for action. Click event type to change if misidentified.
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Select value={salesEventTypeFilter} onValueChange={setSalesEventTypeFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Filter by type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="po">Purchase Orders</SelectItem>
-                      <SelectItem value="approval">Approvals</SelectItem>
-                      <SelectItem value="sales_win">Sales Wins</SelectItem>
-                      <SelectItem value="press_test_success">Press Test Success</SelectItem>
-                      <SelectItem value="swatch_received">Swatch Received</SelectItem>
-                      <SelectItem value="lead">New Leads</SelectItem>
-                      <SelectItem value="samples">Sample Requests</SelectItem>
-                      <SelectItem value="urgent">Urgent Requests</SelectItem>
-                      <SelectItem value="opportunity">Opportunities</SelectItem>
-                      <SelectItem value="price_sent">Pricing Sent</SelectItem>
-                      <SelectItem value="pricelist_sent">Price List Sent</SelectItem>
-                      <SelectItem value="quote_sent">Quotes Sent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => refetchSalesEvents()}
-                    disabled={salesEventsLoading}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${salesEventsLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => refetchSalesEvents()}
+                  disabled={salesEventsLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${salesEventsLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+              
+              {/* Category Tabs */}
+              <div className="flex gap-1 mt-4 flex-wrap">
+                {[
+                  { id: 'all', label: 'All', icon: Mail },
+                  { id: 'urgent', label: 'Urgent', icon: Zap },
+                  { id: 'opportunities', label: 'Opportunities', icon: Target },
+                  { id: 'commitments', label: 'Commitments', icon: Handshake },
+                  { id: 'actions', label: 'Actions', icon: ListTodo },
+                  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
+                ].map(cat => {
+                  const CatIcon = cat.icon;
+                  const count = cat.id === 'all' ? salesEvents?.total : getCategoryCount(cat.id);
+                  return (
+                    <Button
+                      key={cat.id}
+                      size="sm"
+                      variant={salesEventCategory === cat.id ? 'default' : 'outline'}
+                      onClick={() => setSalesEventCategory(cat.id)}
+                      className="gap-1"
+                    >
+                      <CatIcon className="h-3 w-3" />
+                      {cat.label}
+                      {count ? <Badge variant="secondary" className="ml-1 text-xs">{count}</Badge> : null}
+                    </Button>
+                  );
+                })}
               </div>
             </CardHeader>
             <CardContent>
               {salesEventsLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <Skeleton key={i} className="h-20 w-full" />
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
               ) : salesEvents?.events && salesEvents.events.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <span>Showing {salesEvents.events.length} of {salesEvents.total} events</span>
-                    {emailSyncStatus?.tasksCreatedFromEvents && emailSyncStatus.tasksCreatedFromEvents > 0 && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        {emailSyncStatus.tasksCreatedFromEvents} tasks auto-created
-                      </Badge>
-                    )}
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground mb-3">
+                    {salesEvents.events.length} of {salesEvents.total} events
                   </div>
                   {salesEvents.events.map((event) => {
                     const config = salesEventTypeConfig[event.eventType] || { icon: Zap, label: event.eventType, color: "bg-gray-100 text-gray-800", description: "" };
                     const IconComponent = config.icon;
+                    const senderDisplay = event.senderName || event.senderEmail?.split('@')[0] || 'Unknown';
+                    const isEditing = editingEventId === event.id;
+                    
                     return (
-                      <Card key={event.id} className={`border-l-4 ${event.isProcessed ? 'border-l-green-500' : 'border-l-amber-500'}`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-lg ${config.color}`}>
-                                <IconComponent className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium">{config.label}</span>
-                                  <Badge variant={event.confidence === 'high' ? 'default' : 'secondary'} className="text-xs">
-                                    {event.confidence} confidence
-                                  </Badge>
-                                  {event.isProcessed && (
-                                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                                      Task Created
-                                    </Badge>
-                                  )}
-                                </div>
-                                {event.customerName && (
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
-                                    <Building2 className="h-3 w-3" />
-                                    <span>{event.customerName}</span>
-                                  </div>
-                                )}
-                                {event.triggerText && (
-                                  <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md mt-2 italic">
-                                    "{event.triggerText.substring(0, 200)}{event.triggerText.length > 200 ? '...' : ''}"
-                                  </p>
-                                )}
-                                {event.coachingTip && (
-                                  <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-950 rounded-md border border-purple-200 dark:border-purple-800">
-                                    <div className="flex items-center gap-1 text-xs text-purple-700 dark:text-purple-300 font-medium mb-1">
-                                      <Target className="h-3 w-3" />
-                                      Next Best Move
-                                    </div>
-                                    <p className="text-sm text-purple-800 dark:text-purple-200">{event.coachingTip}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                              {format(new Date(event.occurredAt), "MMM d, h:mm a")}
-                            </div>
+                      <div key={event.id} className={`flex items-center gap-3 p-3 rounded-lg border ${event.isProcessed ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-amber-500'} hover:bg-muted/50 transition-colors`}>
+                        {/* Icon */}
+                        <div className={`p-2 rounded-lg shrink-0 ${config.color}`}>
+                          <IconComponent className="h-4 w-4" />
+                        </div>
+                        
+                        {/* Main content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Event type - clickable to edit */}
+                            {isEditing ? (
+                              <Select
+                                defaultValue={event.eventType}
+                                onValueChange={(value) => {
+                                  updateEventTypeMutation.mutate({ eventId: event.id, eventType: value });
+                                }}
+                              >
+                                <SelectTrigger className="w-[140px] h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="po">Purchase Order</SelectItem>
+                                  <SelectItem value="approval">Approval</SelectItem>
+                                  <SelectItem value="sales_win">Sales Win</SelectItem>
+                                  <SelectItem value="lead">New Lead</SelectItem>
+                                  <SelectItem value="samples">Sample Request</SelectItem>
+                                  <SelectItem value="urgent">Urgent</SelectItem>
+                                  <SelectItem value="opportunity">Opportunity</SelectItem>
+                                  <SelectItem value="commitment">Commitment</SelectItem>
+                                  <SelectItem value="action">Action Needed</SelectItem>
+                                  <SelectItem value="feedback">Feedback</SelectItem>
+                                  <SelectItem value="quote_sent">Quote Sent</SelectItem>
+                                  <SelectItem value="price_sent">Pricing Sent</SelectItem>
+                                  <SelectItem value="pricelist_sent">Price List Sent</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge 
+                                className={`${config.color} cursor-pointer hover:opacity-80`}
+                                onClick={() => setEditingEventId(event.id)}
+                                title="Click to change event type"
+                              >
+                                {config.label}
+                              </Badge>
+                            )}
+                            
+                            {/* Sender */}
+                            <span className="text-sm font-medium truncate max-w-[200px]" title={event.senderEmail}>
+                              {senderDisplay}
+                            </span>
+                            
+                            {/* Customer if matched */}
+                            {event.customerName && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {event.customerName}
+                              </span>
+                            )}
+                            
+                            {/* Direction badge */}
+                            {event.direction === 'outbound' && (
+                              <Badge variant="outline" className="text-xs">Sent</Badge>
+                            )}
+                            
+                            {/* Task created indicator */}
+                            {event.isProcessed && (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" title="Task created" />
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
+                          
+                          {/* Subject line if available */}
+                          {event.subject && (
+                            <p className="text-xs text-muted-foreground truncate mt-1" title={event.subject}>
+                              {event.subject}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Right side - date and actions */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(event.occurredAt), "MMM d")}
+                          </span>
+                          
+                          {/* Actions dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setEditingEventId(event.id)}>
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Change Type
+                              </DropdownMenuItem>
+                              {event.senderEmail && (
+                                <DropdownMenuItem 
+                                  onClick={() => addToBlacklistMutation.mutate({ 
+                                    pattern: event.senderEmail!, 
+                                    reason: 'Excluded from event detection' 
+                                  })}
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  Blacklist Sender
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => deleteEventMutation.mutate(event.id)}
+                                className="text-red-600"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Dismiss Event
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               ) : (
                 <div className="py-12 text-center">
                   <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No sales events found</h3>
+                  <h3 className="text-lg font-medium mb-2">No events in this category</h3>
                   <p className="text-muted-foreground mb-4">
-                    Run an email sync to detect purchase orders, approvals, and other sales signals.
+                    {salesEventCategory === 'all' 
+                      ? "Run an email sync to detect sales signals."
+                      : "No events match this category filter."}
                   </p>
-                  <Button onClick={() => manualSyncMutation.mutate()} disabled={manualSyncMutation.isPending}>
-                    <Play className="h-4 w-4 mr-2" />
-                    Run Full Sync
-                  </Button>
+                  {salesEventCategory === 'all' && (
+                    <Button onClick={() => manualSyncMutation.mutate()} disabled={manualSyncMutation.isPending}>
+                      <Play className="h-4 w-4 mr-2" />
+                      Run Full Sync
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
