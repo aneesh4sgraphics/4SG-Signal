@@ -1460,8 +1460,10 @@ class SpotlightEngine {
   }
 
   private async findHygieneTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    // For sales rep hygiene, check BOTH salesRepId AND salesRepName to handle edge cases
+    // where only one field might be set (defensive fallback)
     const priorityOrder = [
-      { subtype: 'hygiene_sales_rep', condition: isNull(customers.salesRepId) },
+      { subtype: 'hygiene_sales_rep', condition: and(isNull(customers.salesRepId), isNull(customers.salesRepName)) },
       { subtype: 'hygiene_pricing_tier', condition: isNull(customers.pricingTier) },
       { subtype: 'hygiene_email', condition: isNull(customers.email) },
       { subtype: 'hygiene_name', condition: and(isNull(customers.firstName), isNull(customers.lastName)) },

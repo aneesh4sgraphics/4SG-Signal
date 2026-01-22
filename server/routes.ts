@@ -12783,11 +12783,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user_id: salesPersonId || false // false to unassign
       });
       
-      // Also update local salesRepName field
+      // Find the app user that corresponds to this Odoo user (for SPOTLIGHT task assignment)
+      let appUserId: string | null = null;
+      if (salesPersonId) {
+        const [appUser] = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.odooUserId, salesPersonId))
+          .limit(1);
+        appUserId = appUser?.id || null;
+      }
+      
+      // Update BOTH salesRepId AND salesRepName for consistency
+      // salesRepId is used by SPOTLIGHT for task assignment
+      // salesRepName is used for display purposes
       await db.update(customers).set({
+        salesRepId: appUserId,
         salesRepName: salesPersonName || null,
         updatedAt: new Date()
       }).where(eq(customers.id, customerId));
+      
+      console.log(`[Sales Person Sync] Customer ${customerId}: Odoo user_id=${salesPersonId}, app salesRepId=${appUserId}, name=${salesPersonName}`);
       
       res.json({ 
         success: true, 
@@ -13073,6 +13088,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "customerIds array is required" });
       }
 
+      // Find the app user that corresponds to this Odoo user (for SPOTLIGHT task assignment)
+      let appUserId: string | null = null;
+      if (salesPersonId) {
+        const [appUser] = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.odooUserId, salesPersonId))
+          .limit(1);
+        appUserId = appUser?.id || null;
+      }
+
       const results = { success: 0, failed: 0, errors: [] as string[] };
       
       for (const customerId of customerIds) {
@@ -13088,7 +13113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             user_id: salesPersonId || false
           });
           
+          // Update BOTH salesRepId AND salesRepName for consistency
           await db.update(customers).set({
+            salesRepId: appUserId,
             salesRepName: salesPersonName || null,
             updatedAt: new Date()
           }).where(eq(customers.id, customerId));
@@ -13099,6 +13126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results.errors.push(`Customer ${customerId}: ${err.message}`);
         }
       }
+      
+      console.log(`[Bulk Sales Person Sync] Updated ${results.success} customers: Odoo user_id=${salesPersonId}, app salesRepId=${appUserId}, name=${salesPersonName}`);
       
       res.json({
         success: results.success > 0,
@@ -14369,11 +14398,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Extract sales rep info from Odoo user_id field (format: [id, "Name"] or false)
+          // We need to map Odoo user ID to app user ID for SPOTLIGHT task assignment
           let salesRepId: string | null = null;
           let salesRepName: string | null = null;
           if (partner.user_id && Array.isArray(partner.user_id) && partner.user_id.length >= 2) {
-            salesRepId = String(partner.user_id[0]);
+            const odooUserId = partner.user_id[0];
             salesRepName = partner.user_id[1] || null;
+            // Look up the app user that corresponds to this Odoo user
+            const [appUser] = await db.select({ id: users.id })
+              .from(users)
+              .where(eq(users.odooUserId, odooUserId))
+              .limit(1);
+            salesRepId = appUser?.id || null;
           }
           
           // Extract parent relationship (format: [id, "Parent Name"] or false)
