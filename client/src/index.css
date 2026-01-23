@@ -582,3 +582,114 @@
   background: #FAFAFA;
   color: #111111;
 }
+
+/* ===== SPOTLIGHT PASTEL & SOFT DESIGN SYSTEM ===== */
+/* Reduced eye strain palette for professionals aged 30-50 */
+
+.spotlight-container {
+  background: #FDFBF7;
+  min-height: 100vh;
+}
+
+.spotlight-sidebar {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+}
+
+.spotlight-card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.spotlight-progress-ring {
+  transform: rotate(-90deg);
+}
+
+.spotlight-progress-ring circle {
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.spotlight-btn-primary {
+  background: linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.spotlight-btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.spotlight-btn-outline {
+  background: white;
+  border: 2px solid;
+  border-radius: 50px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.spotlight-btn-outline:hover {
+  transform: scale(1.02);
+}
+
+.spotlight-bucket-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #E5E7EB;
+  overflow: hidden;
+}
+
+.spotlight-bucket-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.spotlight-tray {
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.spotlight-tray-header {
+  transition: background-color 0.2s ease;
+}
+
+.spotlight-tray-header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Pastel color classes */
+.text-slate-dark { color: #374151; }
+.text-slate-muted { color: #6B7280; }
+.bg-cream { background-color: #FDFBF7; }
+.bg-soft-coral { background-color: rgba(248, 113, 113, 0.1); }
+.bg-soft-sage { background-color: rgba(132, 204, 22, 0.1); }
+.bg-soft-ocean { background-color: rgba(59, 130, 246, 0.1); }
+.bg-soft-lavender { background-color: rgba(167, 139, 250, 0.1); }
+.border-coral { border-color: #F87171; }
+.border-sage { border-color: #84CC16; }
+.border-ocean { border-color: #3B82F6; }
+.border-lavender { border-color: #A78BFA; }
+
+/* Paused/Complete state backgrounds */
+.spotlight-paused {
+  background: linear-gradient(135deg, #FDFBF7 0%, #FEF3C7 100%);
+}
+
+.spotlight-complete {
+  background: linear-gradient(135deg, #FDFBF7 0%, #D1FAE5 100%);
+}
