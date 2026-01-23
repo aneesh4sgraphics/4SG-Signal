@@ -75,7 +75,46 @@ import {
   Star,
   Trophy,
   Rocket,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+
+// Progress Ring SVG Component for Pastel & Soft design
+const ProgressRing = ({ progress, size = 120, strokeWidth = 8 }: { progress: number; size?: number; strokeWidth?: number }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (progress / 100) * circumference;
+  
+  return (
+    <svg width={size} height={size} className="spotlight-progress-ring">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="#E5E7EB"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="url(#progressGradient)"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+      />
+      <defs>
+        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#60A5FA" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+};
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
@@ -292,6 +331,25 @@ export default function Spotlight() {
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const [followUpDays, setFollowUpDays] = useState(7);
+  
+  // V0 Redesign: Coaching tray states
+  const [callScriptOpen, setCallScriptOpen] = useState(true);
+  const [emailIdeasOpen, setEmailIdeasOpen] = useState(false);
+  
+  // Coaching content based on task type
+  const callScriptIdeas = [
+    "Open with a question about their recent order or last conversation",
+    "Ask about their current printing needs and any upcoming projects",
+    "Mention any new products or promotions that might be relevant",
+    "Listen for pain points - pricing, lead time, quality concerns",
+  ];
+  
+  const emailIdeas = [
+    "Follow up on the conversation with a summary of discussed points",
+    "Include relevant product catalogs or spec sheets",
+    "Offer a special discount or promotion if appropriate",
+    "Set a clear next step and timeline for follow-up",
+  ];
   
   // Fetch warmup data on mount if not yet shown
   const { data: warmupData } = useQuery<WarmupData>({
@@ -960,279 +1018,265 @@ export default function Spotlight() {
   const BucketIcon = bucketInfo.icon;
   const customer = task.customer;
   const customerName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown Client';
+  
+  // Calculate remaining for the day
+  const remaining = (session?.totalTarget || 30) - (session?.totalCompleted || 0);
+  const isPaused = currentTask?.isPaused;
+  const isComplete = currentTask?.allDone || currentTask?.session?.dayComplete;
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      {/* Header with Progress */}
-      <div className="bg-white border-b border-[#EAEAEA] sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <Link href="/">
-                <Button variant="ghost" size="icon" className="text-[#666666] hover:text-[#111111] h-8 w-8">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-base font-semibold text-[#111111]">Spotlight</h1>
-                <p className="text-xs text-[#666666]">
-                  {session?.totalCompleted || 0} of {session?.totalTarget || 30} moments
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Gamification indicators */}
-              <div className="flex items-center gap-2">
-                {/* Energy Level */}
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-600" title="Energy Level">
-                  <Battery className="w-3 h-3" />
-                  <span className="text-xs font-medium">{session?.currentEnergy ?? 100}%</span>
-                </div>
-                
-                {/* Combo Counter */}
-                {currentTask?.gamification && currentTask.gamification.comboCount > 0 && (
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 text-purple-600 animate-pulse" title="Combo Multiplier">
-                    <Rocket className="w-3 h-3" />
-                    <span className="text-xs font-medium">{currentTask.gamification.comboCount}x</span>
-                  </div>
-                )}
-                
-                {/* Power-ups */}
-                {currentTask?.gamification && currentTask.gamification.powerUpsAvailable > 0 && (
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 text-yellow-600" title="Power-ups Available">
-                    <Zap className="w-3 h-3" />
-                    <span className="text-xs font-medium">{currentTask.gamification.powerUpsAvailable}</span>
-                  </div>
-                )}
-                
-                {efficiency && (
-                  <>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-600">
-                      <Award className="w-3 h-3" />
-                      <span className="text-xs font-medium">{efficiency.score}</span>
-                    </div>
-                    {efficiency.streak > 0 && (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 text-orange-600">
-                        <Flame className="w-3 h-3" />
-                        <span className="text-xs font-medium">{efficiency.streak}d</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                {session?.buckets.map((bucket) => {
-                  const info = BUCKET_INFO[bucket.bucket];
-                  const BIcon = info.icon;
-                  const isActive = bucket.bucket === task.bucket;
-                  return (
-                    <div 
-                      key={bucket.bucket}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${isActive ? 'ring-2' : ''}`}
-                      style={{ 
-                        backgroundColor: info.color + '15',
-                        color: info.color,
-                        ringColor: info.color,
-                      }}
-                    >
-                      <BIcon className="w-3 h-3" />
-                      <span className="font-medium">{bucket.completed}/{bucket.target}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <Progress value={progress} className="h-1.5" />
-          
-          {/* Daily Kits Goal Banner */}
-          {todayKits && (
-            <div className={`mt-3 p-3 rounded-lg border ${
-              todayKits.goalMet 
-                ? 'bg-emerald-50 border-emerald-200' 
-                : 'bg-amber-50 border-amber-200'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Package className={`w-5 h-5 ${todayKits.goalMet ? 'text-emerald-600' : 'text-amber-600'}`} />
-                  <div>
-                    <p className={`text-sm font-medium ${todayKits.goalMet ? 'text-emerald-800' : 'text-amber-800'}`}>
-                      {todayKits.goalMet 
-                        ? "Daily Goal Met! Great work!" 
-                        : `Send ${todayKits.remaining} more kit${todayKits.remaining === 1 ? '' : 's'} today`}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {todayKits.swatchBookCount} Swatch Book{todayKits.swatchBookCount !== 1 ? 's' : ''} + {todayKits.pressTestKitCount} Press Test Kit{todayKits.pressTestKitCount !== 1 ? 's' : ''} = {todayKits.totalKitsSentToday}/{todayKits.dailyGoal}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[...Array(todayKits.dailyGoal)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`w-3 h-3 rounded-full ${
-                          i < todayKits.totalKitsSentToday 
-                            ? todayKits.goalMet ? 'bg-emerald-500' : 'bg-amber-500' 
-                            : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  {todayKits.goalMet && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+    <div className="spotlight-container min-h-screen p-6">
+      {/* Three-Column Layout */}
+      <div className="flex gap-6 max-w-7xl mx-auto">
+        
+        {/* Left Sidebar - Progress & Stats */}
+        <div className="w-72 flex-shrink-0">
+          <div className="spotlight-sidebar p-6 sticky top-6">
+            {/* Back Button */}
+            <Link href="/">
+              <Button variant="ghost" size="sm" className="mb-4 text-slate-600 hover:text-slate-900">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            </Link>
+            
+            {/* Progress Ring */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative">
+                <ProgressRing progress={progress} size={140} strokeWidth={10} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-slate-800">{session?.totalCompleted || 0}</span>
+                  <span className="text-sm text-slate-500">of {session?.totalTarget || 30}</span>
                 </div>
               </div>
+              <p className="text-sm font-medium text-slate-600 mt-3">Today's Progress</p>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto p-4 pt-6 relative">
-        {/* Success Overlay */}
-        {showSuccess && (
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center animate-ping">
-              <Check className="w-10 h-10 text-white" />
-            </div>
-          </div>
-        )}
-
-        {/* Task Card Container with Animation */}
-        <div className={`transition-all duration-300 ease-out ${isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
-          {/* Why Now Card */}
-          <div 
-            className="rounded-xl p-4 mb-4 flex items-start gap-3"
-            style={{ backgroundColor: bucketInfo.color + '10', borderLeft: `4px solid ${bucketInfo.color}` }}
-          >
-            <BucketIcon className="w-5 h-5 mt-0.5" style={{ color: bucketInfo.color }} />
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-[#111111] text-sm">{bucketInfo.label}</p>
-                {task.context?.sourceType === 'email_event' && (
-                  <Badge className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 flex items-center gap-1">
-                    <Mail className="w-3 h-3" />
-                    Email Intelligence
-                  </Badge>
-                )}
+            
+            {/* Efficiency Score */}
+            {efficiency && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-800">Efficiency</span>
+                  </div>
+                  <span className="text-2xl font-bold text-amber-600">{efficiency.score}</span>
+                </div>
               </div>
-              <p className="text-[#666666] text-sm mt-0.5">{task.whyNow}</p>
-              {/* Machine Context - shown for calls and outreach tasks when machine profile exists */}
-              {task.context?.machineContext && (
-                <div className="mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300 font-medium flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    {task.context.machineContext}
-                  </p>
-                  {task.context.suggestedProducts && task.context.suggestedProducts.length > 2 && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                      More products: {task.context.suggestedProducts.slice(2, 5).join(', ')}
-                    </p>
-                  )}
+            )}
+            
+            {/* Streak Counter */}
+            {efficiency && efficiency.streak > 0 && (
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-orange-500" />
+                    <span className="text-sm font-medium text-orange-800">Streak</span>
+                  </div>
+                  <span className="text-2xl font-bold text-orange-500">{efficiency.streak} days</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Gamification Stats */}
+            <div className="flex items-center gap-2 mb-4">
+              {currentTask?.gamification && currentTask.gamification.comboCount > 0 && (
+                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 text-purple-600">
+                  <Rocket className="w-4 h-4" />
+                  <span className="text-sm font-medium">{currentTask.gamification.comboCount}x Combo</span>
                 </div>
               )}
-            </div>
-          </div>
-          
-          {/* Coach Tip */}
-          {currentTask?.coachTip && (
-            <div className="rounded-lg p-3 mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 flex items-start gap-3">
-              <Lightbulb className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-indigo-700">Pro Tip</p>
-                <p className="text-sm text-indigo-600">{currentTask.coachTip.content}</p>
+              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-green-50 text-green-600">
+                <Battery className="w-4 h-4" />
+                <span className="text-sm font-medium">{session?.currentEnergy ?? 100}%</span>
               </div>
             </div>
-          )}
-
-          {/* Smart Hints */}
-          {currentTask.hints && currentTask.hints.length > 0 && (
-            <div className="space-y-2 mb-4">
-              {currentTask.hints.map((hint, idx) => {
-                const style = HINT_STYLES[hint.type];
-                const HintIcon = style.icon;
+            
+            {/* Bucket Progress Bars */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Buckets</p>
+              {session?.buckets.map((bucket) => {
+                const info = BUCKET_INFO[bucket.bucket];
+                const BIcon = info.icon;
+                const bucketProgress = bucket.target > 0 ? (bucket.completed / bucket.target) * 100 : 0;
+                const isActive = bucket.bucket === task.bucket;
                 return (
-                  <div 
-                    key={idx}
-                    className={`rounded-lg p-3 border ${style.bg} ${style.border} flex items-center justify-between gap-3`}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <HintIcon className={`w-4 h-4 flex-shrink-0 ${style.textColor}`} />
-                      <span className={`text-sm ${style.textColor}`}>{hint.message}</span>
+                  <div key={bucket.bucket} className={`${isActive ? 'ring-2 ring-offset-2 rounded-lg' : ''}`} style={{ ringColor: info.color }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <BIcon className="w-4 h-4" style={{ color: info.color }} />
+                        <span className="text-sm font-medium text-slate-700">{info.label}</span>
+                      </div>
+                      <span className="text-xs text-slate-500">{bucket.completed}/{bucket.target}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs"
-                          onClick={() => handleOpenMergeModal(hint.metadata?.duplicateIds || [], customer.id)}
-                        >
-                          {hint.ctaLabel}
-                        </Button>
-                      )}
-                      {hint.ctaAction !== 'view_duplicate' && (
-                        <Button
-                          size="sm"
-                          variant={hint.severity === 'high' ? 'default' : 'outline'}
-                          className={hint.severity === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-xs'}
-                          onClick={() => {
-                            if (hint.ctaAction === 'bad_fit') {
-                              completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' });
-                            } else if (hint.ctaAction === 'skip_recent') {
-                              skipMutation.mutate({ taskId: task.id, reason: hint.type });
-                            } else if (hint.ctaAction === 'reactivation_email') {
-                              completeMutation.mutate({ taskId: task.id, outcomeId: 'send_email', outcomeLabel: 'Send Reactivation Email' });
-                            } else if (hint.ctaAction === 'fix_data') {
-                              handleFixData(hint.metadata?.missingFields || []);
-                            }
-                          }}
-                          disabled={completeMutation.isPending || skipMutation.isPending}
-                        >
-                          {hint.ctaLabel}
-                        </Button>
-                      )}
-                      {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                          onClick={() => {
-                            doNotMergeMutation.mutate({ 
-                              customerId1: customer.id, 
-                              customerId2: hint.metadata?.duplicateIds?.[0],
-                              taskId: task.id
-                            });
-                          }}
-                          disabled={doNotMergeMutation.isPending || completeMutation.isPending}
-                        >
-                          Not a Duplicate
-                        </Button>
-                      )}
-                      {hint.ctaAction === 'view_duplicate' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-xs text-gray-500"
-                          onClick={() => skipMutation.mutate({ taskId: task.id, reason: 'duplicate' })}
-                          disabled={skipMutation.isPending}
-                        >
-                          Skip
-                        </Button>
-                      )}
+                    <div className="spotlight-bucket-bar">
+                      <div 
+                        className="spotlight-bucket-fill" 
+                        style={{ width: `${bucketProgress}%`, backgroundColor: info.color }}
+                      />
                     </div>
                   </div>
                 );
               })}
             </div>
+            
+            {/* Pause Button */}
+            <Button
+              variant="ghost"
+              className="w-full mt-6 text-slate-500 hover:text-slate-700"
+              onClick={() => pauseMutation.mutate()}
+              disabled={pauseMutation.isPending}
+            >
+              <Pause className="w-4 h-4 mr-2" />
+              Pause Session
+            </Button>
+          </div>
+        </div>
+        
+        {/* Center - Main Task Card */}
+        <div className="flex-1 min-w-0">
+          {/* Success Overlay */}
+          {showSuccess && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+              <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center animate-ping">
+                <Check className="w-10 h-10 text-white" />
+              </div>
+            </div>
           )}
+          
+          {/* Task Card Container with Animation */}
+          <div className={`transition-all duration-300 ease-out ${isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+            
+            {/* Why Now Banner */}
+            <div 
+              className="spotlight-card p-4 mb-4 flex items-start gap-3"
+              style={{ borderLeft: `4px solid ${bucketInfo.color}` }}
+            >
+              <BucketIcon className="w-5 h-5 mt-0.5" style={{ color: bucketInfo.color }} />
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-slate-800 text-sm">{bucketInfo.label}</p>
+                  {task.context?.sourceType === 'email_event' && (
+                    <Badge className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 flex items-center gap-1">
+                      <Mail className="w-3 h-3" />
+                      Email Intelligence
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-slate-600 text-sm mt-0.5">{task.whyNow}</p>
+                {task.context?.machineContext && (
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200">
+                    <p className="text-sm text-blue-700 font-medium flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      {task.context.machineContext}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Coach Tip */}
+            {currentTask?.coachTip && (
+              <div className="spotlight-card p-4 mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+                <div className="flex items-start gap-3">
+                  <Lightbulb className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-indigo-700">Pro Tip</p>
+                    <p className="text-sm text-indigo-600">{currentTask.coachTip.content}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Main Client Card */}
-          <Card className="border-[#EAEAEA] bg-white mb-4 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
+            {/* Smart Hints */}
+            {currentTask.hints && currentTask.hints.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {currentTask.hints.map((hint, idx) => {
+                  const style = HINT_STYLES[hint.type];
+                  const HintIcon = style.icon;
+                  return (
+                    <div 
+                      key={idx}
+                      className={`spotlight-card p-3 border ${style.bg} ${style.border} flex items-center justify-between gap-3`}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <HintIcon className={`w-4 h-4 flex-shrink-0 ${style.textColor}`} />
+                        <span className={`text-sm ${style.textColor}`}>{hint.message}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs rounded-full"
+                            onClick={() => handleOpenMergeModal(hint.metadata?.duplicateIds || [], customer.id)}
+                          >
+                            {hint.ctaLabel}
+                          </Button>
+                        )}
+                        {hint.ctaAction !== 'view_duplicate' && (
+                          <Button
+                            size="sm"
+                            variant={hint.severity === 'high' ? 'default' : 'outline'}
+                            className={`rounded-full ${hint.severity === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-xs'}`}
+                            onClick={() => {
+                              if (hint.ctaAction === 'bad_fit') {
+                                completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' });
+                              } else if (hint.ctaAction === 'skip_recent') {
+                                skipMutation.mutate({ taskId: task.id, reason: hint.type });
+                              } else if (hint.ctaAction === 'reactivation_email') {
+                                completeMutation.mutate({ taskId: task.id, outcomeId: 'send_email', outcomeLabel: 'Send Reactivation Email' });
+                              } else if (hint.ctaAction === 'fix_data') {
+                                handleFixData(hint.metadata?.missingFields || []);
+                              }
+                            }}
+                            disabled={completeMutation.isPending || skipMutation.isPending}
+                          >
+                            {hint.ctaLabel}
+                          </Button>
+                        )}
+                        {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-full"
+                            onClick={() => {
+                              doNotMergeMutation.mutate({ 
+                                customerId1: customer.id, 
+                                customerId2: hint.metadata?.duplicateIds?.[0],
+                                taskId: task.id
+                              });
+                            }}
+                            disabled={doNotMergeMutation.isPending || completeMutation.isPending}
+                          >
+                            Not a Duplicate
+                          </Button>
+                        )}
+                        {hint.ctaAction === 'view_duplicate' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-gray-500 rounded-full"
+                            onClick={() => skipMutation.mutate({ taskId: task.id, reason: 'duplicate' })}
+                            disabled={skipMutation.isPending}
+                          >
+                            Skip
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Main Customer Card */}
+            <div className="spotlight-card p-6 mb-4">
+              {/* Customer Header */}
+              <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <CardTitle className="text-xl text-[#111111] flex items-center gap-2">
-                    {customerName}
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold text-slate-800">{customerName}</h2>
                     {customer.isHotProspect && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 text-xs font-medium">
                         <Flame className="w-3 h-3" />
@@ -1240,17 +1284,14 @@ export default function Spotlight() {
                       </span>
                     )}
                     <Link href={`/odoo-contacts/${customer.id}`}>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-[#999999] hover:text-[#111111]">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600">
                         <ExternalLink className="w-4 h-4" />
                       </Button>
                     </Link>
-                  </CardTitle>
-                  <div className="flex items-center gap-3 mt-1.5 text-sm text-[#666666]">
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
                     {customer.email && (
-                      <a 
-                        href={`mailto:${customer.email}`}
-                        className="flex items-center gap-1 hover:text-primary hover:underline"
-                      >
+                      <a href={`mailto:${customer.email}`} className="flex items-center gap-1 hover:text-blue-600 hover:underline">
                         <Mail className="w-3.5 h-3.5" />
                         {customer.email}
                       </a>
@@ -1267,14 +1308,14 @@ export default function Spotlight() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                    className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 rounded-full"
                     onClick={() => {
                       apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
                         .then(() => {
-                          toast({ title: "Marked as Hot Prospect", description: "This customer will get more attention." });
+                          toast({ title: "Marked as Hot Prospect" });
                           refetch();
                         })
-                        .catch(() => toast({ title: "Error", description: "Failed to mark as hot", variant: "destructive" }));
+                        .catch(() => toast({ title: "Error", variant: "destructive" }));
                     }}
                   >
                     <Flame className="w-4 h-4" />
@@ -1282,17 +1323,36 @@ export default function Spotlight() {
                   </Button>
                 )}
               </div>
-            </CardHeader>
+              
+              {/* Customer Details Grid */}
+              <div className="grid grid-cols-2 gap-3 text-sm mb-4 p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <span className="text-slate-500 text-xs">Sales Rep</span>
+                  <p className="font-medium text-slate-800">{customer.salesRepName || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500 text-xs">Pricing Tier</span>
+                  <p className="font-medium text-slate-800 capitalize">{customer.pricingTier || '—'}</p>
+                </div>
+                {customer.address1 && (
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 text-xs">Address</span>
+                      <PrintLabelButton customer={customer} variant="icon" />
+                    </div>
+                    <p className="font-medium text-slate-800">
+                      {customer.address1}{customer.city ? `, ${customer.city}` : ''}{customer.province ? `, ${customer.province}` : ''} {customer.zip || ''}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-            <Separator />
-
-            <CardContent className="pt-4">
               {/* Follow-up context */}
               {task.context?.followUpTitle && (
-                <div className="bg-[#F7F7F7] rounded-lg p-3 mb-4">
-                  <p className="font-medium text-[#111111] text-sm">{task.context.followUpTitle}</p>
+                <div className="bg-slate-100 rounded-xl p-3 mb-4">
+                  <p className="font-medium text-slate-800 text-sm">{task.context.followUpTitle}</p>
                   {task.context.followUpDueDate && (
-                    <p className="text-xs text-[#666666] mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       Due: {new Date(task.context.followUpDueDate).toLocaleDateString()}
                     </p>
                   )}
@@ -1301,10 +1361,10 @@ export default function Spotlight() {
 
               {/* Data Hygiene: Sales Rep Assignment */}
               {task.taskSubtype === 'hygiene_sales_rep' && (
-                <div className="space-y-3">
-                  <Label className="text-sm text-[#666666]">Assign sales rep:</Label>
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Assign sales rep:</Label>
                   <Select onValueChange={(value) => handleOutcome('assigned', 'salesRepId', value)}>
-                    <SelectTrigger className="border-[#EAEAEA]">
+                    <SelectTrigger className="border-slate-200 rounded-xl">
                       <SelectValue placeholder="Select sales rep..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1320,10 +1380,10 @@ export default function Spotlight() {
 
               {/* Data Hygiene: Pricing Tier */}
               {task.taskSubtype === 'hygiene_pricing_tier' && (
-                <div className="space-y-3">
-                  <Label className="text-sm text-[#666666]">Assign pricing tier:</Label>
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Assign pricing tier:</Label>
                   <Select onValueChange={(value) => handleOutcome('assigned', 'pricingTier', value)}>
-                    <SelectTrigger className="border-[#EAEAEA]">
+                    <SelectTrigger className="border-slate-200 rounded-xl">
                       <SelectValue placeholder="Select pricing tier..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -1339,20 +1399,20 @@ export default function Spotlight() {
 
               {/* Data Hygiene: Email */}
               {task.taskSubtype === 'hygiene_email' && (
-                <div className="space-y-3">
-                  <Label className="text-sm text-[#666666]">Enter primary email:</Label>
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Enter primary email:</Label>
                   <div className="flex gap-2">
                     <Input
                       type="email"
                       value={fieldValue}
                       onChange={(e) => setFieldValue(e.target.value)}
                       placeholder="email@company.com"
-                      className="border-[#EAEAEA]"
+                      className="border-slate-200 rounded-xl"
                       onKeyDown={(e) => e.key === 'Enter' && fieldValue.trim() && handleOutcome('found', 'email', fieldValue.trim())}
                     />
                     <Button 
                       onClick={() => handleOutcome('found', 'email', fieldValue.trim())}
-                      className="bg-[#111111] hover:bg-[#333333] text-white"
+                      className="spotlight-btn-primary px-6"
                       disabled={!fieldValue.trim()}
                     >
                       Save
@@ -1363,8 +1423,8 @@ export default function Spotlight() {
 
               {/* Data Hygiene: Name, Company, Phone */}
               {(task.taskSubtype === 'hygiene_name' || task.taskSubtype === 'hygiene_company' || task.taskSubtype === 'hygiene_phone') && (
-                <div className="space-y-3">
-                  <Label className="text-sm text-[#666666]">
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">
                     {task.taskSubtype === 'hygiene_name' && 'Enter contact name:'}
                     {task.taskSubtype === 'hygiene_company' && 'Enter company name:'}
                     {task.taskSubtype === 'hygiene_phone' && 'Enter phone number:'}
@@ -1378,7 +1438,7 @@ export default function Spotlight() {
                         task.taskSubtype === 'hygiene_company' ? 'Company Name' : 
                         '(555) 555-5555'
                       }
-                      className="border-[#EAEAEA]"
+                      className="border-slate-200 rounded-xl"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && fieldValue.trim()) {
                           const field = task.taskSubtype === 'hygiene_name' ? 'firstName' :
@@ -1393,7 +1453,7 @@ export default function Spotlight() {
                                       task.taskSubtype === 'hygiene_company' ? 'company' : 'phone';
                         handleOutcome('found', field, fieldValue.trim());
                       }}
-                      className="bg-[#111111] hover:bg-[#333333] text-white"
+                      className="spotlight-btn-primary px-6"
                       disabled={!fieldValue.trim()}
                     >
                       Save
@@ -1407,9 +1467,9 @@ export default function Spotlight() {
                 (task.context?.followUpTitle && task.context.followUpTitle.toLowerCase().includes('quote'))) && (
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="w-4 h-4 text-[#666666]" />
-                    <span className="text-sm text-[#666666] font-medium">Quick Feedback</span>
-                    <span className="text-xs text-[#999999]">(tap any that apply)</span>
+                    <DollarSign className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-600 font-medium">Quick Feedback</span>
+                    <span className="text-xs text-slate-400">(tap any that apply)</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {PRICING_FEEDBACK_OPTIONS.map((option) => {
@@ -1436,128 +1496,213 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Outcome Buttons for non-data-hygiene tasks */}
-              {task.bucket !== 'data_hygiene' && task.outcomes.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {task.outcomes.map((outcome) => {
-                    const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
-                    const isPositive = ['connected', 'completed', 'sent', 'done', 'email_sent', 'called', 'already_has', 'already_engaged'].includes(outcome.id);
-                    const isDNC = outcome.id === 'bad_fit' || outcome.nextAction?.type === 'mark_dnc';
-                    const isNegative = ['bad_number', 'not_interested', 'lost'].includes(outcome.id);
-                    
-                    return (
-                      <Button
-                        key={outcome.id}
-                        variant={isPositive ? 'default' : 'outline'}
-                        className={`h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center ${
-                          isPositive ? 'bg-emerald-600 hover:bg-emerald-700 text-white' :
-                          isDNC ? 'border-red-300 text-red-700 hover:bg-red-100 bg-red-50' :
-                          isNegative ? 'border-amber-200 text-amber-700 hover:bg-amber-50' :
-                          'border-[#EAEAEA] text-[#111111] hover:bg-[#F2F2F2]'
-                        }`}
-                        onClick={() => handleOutcome(outcome.id)}
-                      >
-                        {OutcomeIcon && <OutcomeIcon className="w-5 h-5" />}
-                        <span className="text-xs font-medium leading-tight">{outcome.label}</span>
-                        {outcome.nextAction?.daysUntil && (
-                          <span className="text-[10px] opacity-70">
-                            +{outcome.nextAction.daysUntil}d
-                          </span>
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Notes (optional) */}
-          <div className="mb-4">
-            {!showNotes ? (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-[#999999] hover:text-[#666666] w-full"
-                onClick={() => setShowNotes(true)}
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Add a note (optional)
-              </Button>
-            ) : (
-              <div className="space-y-2">
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Quick note about this interaction..."
-                  className="border-[#EAEAEA] min-h-[80px] text-sm"
-                />
-                <div className="flex gap-2">
+              {/* Quick Notes */}
+              {!showNotes ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-slate-400 hover:text-slate-600 w-full mb-4"
+                  onClick={() => setShowNotes(true)}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Add a note (optional)
+                </Button>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Quick note about this interaction..."
+                    className="border-slate-200 min-h-[80px] text-sm rounded-xl"
+                  />
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    className="text-[#999999]"
+                    className="text-slate-400"
                     onClick={() => { setShowNotes(false); setNotes(""); }}
                   >
                     Cancel
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* Client Details Summary */}
-          <Card className="border-[#EAEAEA] bg-white/50">
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-[#999999] text-xs">Sales Rep</span>
-                  <p className="font-medium text-[#111111]">{customer.salesRepName || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-[#999999] text-xs">Pricing Tier</span>
-                  <p className="font-medium text-[#111111] capitalize">{customer.pricingTier || '—'}</p>
-                </div>
-                {customer.address1 && (
-                  <div className="col-span-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#999999] text-xs">Address</span>
-                      <PrintLabelButton customer={customer} variant="icon" />
-                    </div>
-                    <p className="font-medium text-[#111111]">
-                      {customer.address1}{customer.city ? `, ${customer.city}` : ''}{customer.province ? `, ${customer.province}` : ''} {customer.zip || ''}
-                    </p>
+              {/* Outcome Buttons */}
+              {task.bucket !== 'data_hygiene' && task.outcomes.length > 0 && (
+                <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wide">Outcome</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {task.outcomes.slice(0, 3).map((outcome) => {
+                      const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                      const isPositive = ['connected', 'completed', 'sent', 'done', 'email_sent', 'called', 'already_has', 'already_engaged'].includes(outcome.id);
+                      return (
+                        <button
+                          key={outcome.id}
+                          onClick={() => handleOutcome(outcome.id)}
+                          className={`flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-all spotlight-btn-outline ${
+                            isPositive 
+                              ? 'border-blue-500 text-blue-600 hover:bg-blue-50' 
+                              : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {outcome.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {task.outcomes.length > 3 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {task.outcomes.slice(3).map((outcome) => {
+                        const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                        const isDNC = outcome.id === 'bad_fit' || outcome.nextAction?.type === 'mark_dnc';
+                        const isNegative = ['bad_number', 'not_interested', 'lost'].includes(outcome.id);
+                        return (
+                          <button
+                            key={outcome.id}
+                            onClick={() => handleOutcome(outcome.id)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                              isDNC 
+                                ? 'border-2 border-red-300 text-red-600 hover:bg-red-50' 
+                                : isNegative
+                                  ? 'border-2 border-amber-300 text-amber-600 hover:bg-amber-50'
+                                  : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {outcome.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="flex gap-6 justify-center pt-2 border-t border-slate-100">
+                    <button 
+                      className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
+                      onClick={handleSkip}
+                      disabled={skipMutation.isPending}
+                    >
+                      Skip
+                    </button>
+                    <button 
+                      className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
+                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit' })}
+                    >
+                      Bad Fit
+                    </button>
+                    {task.bucket === 'data_hygiene' && (
+                      <button 
+                        className="text-sm font-medium text-red-400 hover:text-red-600 px-4 py-2 rounded-lg transition"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
-          {/* Skip and Delete Buttons */}
-          <div className="mt-6 flex justify-center gap-4 pb-8">
-            <Button 
-              variant="ghost" 
-              className="text-[#999999] hover:text-[#666666]"
-              onClick={handleSkip}
-              disabled={skipMutation.isPending}
+              {/* Data Hygiene outcome buttons */}
+              {task.bucket === 'data_hygiene' && task.outcomes.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {task.outcomes.map((outcome) => {
+                    const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                    return (
+                      <Button
+                        key={outcome.id}
+                        variant="outline"
+                        className="h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center rounded-xl border-slate-200 hover:bg-slate-50"
+                        onClick={() => handleOutcome(outcome.id)}
+                      >
+                        {OutcomeIcon && <OutcomeIcon className="w-5 h-5 text-slate-600" />}
+                        <span className="text-xs font-medium leading-tight">{outcome.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Right Sidebar - Coaching Trays */}
+        <div className="w-64 flex-shrink-0 flex flex-col gap-3">
+          {/* Calling Script Ideas Tray */}
+          <div className="spotlight-tray">
+            <button
+              onClick={() => setCallScriptOpen(!callScriptOpen)}
+              className="spotlight-tray-header w-full px-4 py-3 flex items-center justify-between"
             >
-              <X className="w-4 h-4 mr-2" />
-              Skip this one
-            </Button>
-            
-            {/* Delete button only for data hygiene tasks */}
-            {task.bucket === 'data_hygiene' && (
-              <Button 
-                variant="ghost" 
-                className="text-red-400 hover:text-red-600 hover:bg-red-50"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={deleteMutation.isPending}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Customer
-              </Button>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold text-slate-800">Calling Script Ideas</span>
+              </div>
+              {callScriptOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+            {callScriptOpen && (
+              <div className="px-4 pb-4 space-y-2">
+                {callScriptIdeas.map((idea, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                    <p className="text-xs text-slate-500 leading-relaxed">{idea}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
+
+          {/* Email Ideas Tray */}
+          <div className="spotlight-tray">
+            <button
+              onClick={() => setEmailIdeasOpen(!emailIdeasOpen)}
+              className="spotlight-tray-header w-full px-4 py-3 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-slate-800">Email Ideas</span>
+              </div>
+              {emailIdeasOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+            {emailIdeasOpen && (
+              <div className="px-4 pb-4 space-y-2">
+                {emailIdeas.map((idea, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+                    <p className="text-xs text-slate-500 leading-relaxed">{idea}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Daily Kits Goal */}
+          {todayKits && (
+            <div className={`spotlight-tray p-4 ${todayKits.goalMet ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <Package className={`w-5 h-5 ${todayKits.goalMet ? 'text-emerald-600' : 'text-amber-600'}`} />
+                <span className={`text-sm font-medium ${todayKits.goalMet ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  {todayKits.goalMet ? "Goal Met!" : `${todayKits.remaining} kits to go`}
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {[...Array(todayKits.dailyGoal)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`w-3 h-3 rounded-full ${
+                      i < todayKits.totalKitsSentToday 
+                        ? todayKits.goalMet ? 'bg-emerald-500' : 'bg-amber-500' 
+                        : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
