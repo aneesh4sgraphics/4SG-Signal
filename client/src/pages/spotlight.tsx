@@ -1642,29 +1642,6 @@ export default function Spotlight() {
             )}
           </div>
           
-          {/* Daily Kits Goal */}
-          {todayKits && (
-            <div className={`spotlight-tray p-4 ${todayKits.goalMet ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Package className={`w-5 h-5 ${todayKits.goalMet ? 'text-emerald-600' : 'text-amber-600'}`} />
-                <span className={`text-sm font-medium ${todayKits.goalMet ? 'text-emerald-800' : 'text-amber-800'}`}>
-                  {todayKits.goalMet ? "Goal Met!" : `${todayKits.remaining} kits to go`}
-                </span>
-              </div>
-              <div className="flex gap-1">
-                {[...Array(todayKits.dailyGoal)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`w-3 h-3 rounded-full ${
-                      i < todayKits.totalKitsSentToday 
-                        ? todayKits.goalMet ? 'bg-emerald-500' : 'bg-amber-500' 
-                        : 'bg-gray-200'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
       
