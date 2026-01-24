@@ -1032,104 +1032,60 @@ export default function Spotlight() {
         {/* Left Sidebar - Progress & Stats */}
         <div className="w-72 flex-shrink-0">
           <div className="spotlight-sidebar p-6 sticky top-6">
-            {/* Back Button */}
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="mb-4 text-slate-600 hover:text-slate-900">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Dashboard
-              </Button>
-            </Link>
-            
-            {/* Progress Ring */}
-            <div className="flex flex-col items-center mb-6">
-              <div className="relative">
-                <ProgressRing progress={progress} size={140} strokeWidth={10} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-slate-800">{session?.totalCompleted || 0}</span>
-                  <span className="text-sm text-slate-500">of {session?.totalTarget || 30}</span>
+            {/* Progress Card - V0 Style */}
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Progress</p>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, #F87171 0%, #A78BFA 50%, #3B82F6 100%)'
+                    }}
+                  />
                 </div>
+                <span className="text-sm font-bold text-foreground">{session?.totalCompleted || 0}/{session?.totalTarget || 30}</span>
               </div>
-              <p className="text-sm font-medium text-slate-600 mt-3">Today's Progress</p>
-            </div>
-            
-            {/* Efficiency Score */}
-            {efficiency && (
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 mb-4">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Award className="w-5 h-5 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-800">Efficiency</span>
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-xs text-muted-foreground">Efficiency</span>
                   </div>
-                  <span className="text-2xl font-bold text-amber-600">{efficiency.score}</span>
+                  <span className="text-sm font-bold text-foreground">{efficiency?.score || 0}%</span>
                 </div>
-              </div>
-            )}
-            
-            {/* Streak Counter */}
-            {efficiency && efficiency.streak > 0 && (
-              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-orange-500" />
-                    <span className="text-sm font-medium text-orange-800">Streak</span>
+                    <Flame className="w-3 h-3 text-orange-500" />
+                    <span className="text-xs text-muted-foreground">Streak</span>
                   </div>
-                  <span className="text-2xl font-bold text-orange-500">{efficiency.streak} days</span>
+                  <span className="text-sm font-bold text-foreground">{efficiency?.streak || 0}</span>
                 </div>
-              </div>
-            )}
-            
-            {/* Gamification Stats */}
-            <div className="flex items-center gap-2 mb-4">
-              {currentTask?.gamification && currentTask.gamification.comboCount > 0 && (
-                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 text-purple-600">
-                  <Rocket className="w-4 h-4" />
-                  <span className="text-sm font-medium">{currentTask.gamification.comboCount}x Combo</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-green-50 text-green-600">
-                <Battery className="w-4 h-4" />
-                <span className="text-sm font-medium">{session?.currentEnergy ?? 100}%</span>
               </div>
             </div>
-            
-            {/* Bucket Progress Bars */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Buckets</p>
-              {session?.buckets.map((bucket) => {
-                const info = BUCKET_INFO[bucket.bucket];
-                const BIcon = info.icon;
-                const bucketProgress = bucket.target > 0 ? (bucket.completed / bucket.target) * 100 : 0;
-                const isActive = bucket.bucket === task.bucket;
-                return (
-                  <div key={bucket.bucket} className={`${isActive ? 'ring-2 ring-offset-2 rounded-lg ring-blue-500' : ''}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <BIcon className="w-4 h-4" style={{ color: info.color }} />
-                        <span className="text-sm font-medium text-slate-700">{info.label}</span>
+
+            {/* Bucket Progress Card - V0 Style */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Buckets</p>
+              <div className="space-y-2">
+                {session?.buckets.slice(0, 3).map((bucket) => {
+                  const info = BUCKET_INFO[bucket.bucket];
+                  const bucketProgress = bucket.target > 0 ? (bucket.completed / bucket.target) * 100 : 0;
+                  return (
+                    <div key={bucket.bucket} className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full" 
+                          style={{ width: `${bucketProgress}%`, backgroundColor: info.color }}
+                        />
                       </div>
-                      <span className="text-xs text-slate-500">{bucket.completed}/{bucket.target}</span>
+                      <span className="text-xs text-muted-foreground w-16">{info.label}</span>
                     </div>
-                    <div className="spotlight-bucket-bar">
-                      <div 
-                        className="spotlight-bucket-fill" 
-                        style={{ width: `${bucketProgress}%`, backgroundColor: info.color }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-            
-            {/* Pause Button */}
-            <Button
-              variant="ghost"
-              className="w-full mt-6 text-slate-500 hover:text-slate-700"
-              onClick={() => pauseMutation.mutate()}
-              disabled={pauseMutation.isPending}
-            >
-              <Pause className="w-4 h-4 mr-2" />
-              Pause Session
-            </Button>
           </div>
         </div>
         
