@@ -271,6 +271,34 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
         analysisStatus: 'pending',
       }).returning();
       
+      // Auto-assign unassigned contacts to this user when there's email communication
+      if (customerId) {
+        const [customer] = await db.select({ salesRepId: customers.salesRepId })
+          .from(customers)
+          .where(eq(customers.id, customerId))
+          .limit(1);
+        
+        if (customer && !customer.salesRepId) {
+          // Get user's name for salesRepName
+          const [user] = await db.execute(sql`
+            SELECT first_name, last_name, email FROM users WHERE id = ${userId} LIMIT 1
+          `);
+          const userName = user?.first_name && user?.last_name 
+            ? `${user.first_name} ${user.last_name}` 
+            : (user?.email || 'Unknown');
+          
+          await db.update(customers)
+            .set({ 
+              salesRepId: userId,
+              salesRepName: userName as string,
+              updatedAt: new Date()
+            })
+            .where(eq(customers.id, customerId));
+          
+          console.log(`[Gmail Intelligence] Auto-assigned customer ${customerId} to user ${userId}`);
+        }
+      }
+      
       // Detect shipment emails and create follow-up tasks
       if (msg.direction === 'outbound') {
         await detectAndCreateShipmentFollowUp(insertedMessage, userId);
@@ -1041,7 +1069,7 @@ export async function rematchUnmatchedMessages(): Promise<{ matched: number; tot
   
   // Also update email_sales_events that have matching gmail_messages now with customerIds
   if (matched > 0) {
-    const eventsToUpdate = await db.execute(sql`
+    await db.execute(sql`
       UPDATE email_sales_events e
       SET customer_id = m.customer_id
       FROM gmail_messages m
@@ -1051,6 +1079,33 @@ export async function rematchUnmatchedMessages(): Promise<{ matched: number; tot
     `);
     console.log(`[Gmail Intelligence] Updated orphan events with customer IDs`);
   }
+  
+  // Auto-assign unassigned contacts to the first user who communicated with them
+  const autoAssignResult = await db.execute(sql`
+    WITH first_communicators AS (
+      SELECT DISTINCT ON (m.customer_id)
+        m.customer_id,
+        m.user_id,
+        u.first_name,
+        u.last_name,
+        u.email as user_email
+      FROM gmail_messages m
+      JOIN users u ON m.user_id = u.id
+      JOIN customers c ON m.customer_id = c.id
+      WHERE m.customer_id IS NOT NULL
+        AND c.sales_rep_id IS NULL
+      ORDER BY m.customer_id, m.sent_at ASC
+    )
+    UPDATE customers c
+    SET 
+      sales_rep_id = fc.user_id,
+      sales_rep_name = COALESCE(fc.first_name || ' ' || fc.last_name, fc.user_email, 'Unknown'),
+      updated_at = NOW()
+    FROM first_communicators fc
+    WHERE c.id = fc.customer_id
+      AND c.sales_rep_id IS NULL
+  `);
+  console.log(`[Gmail Intelligence] Auto-assigned unassigned contacts to first communicators`);
   
   return { matched, total: unmatchedMessages.length };
 }

@@ -1394,6 +1394,8 @@ class SpotlightEngine {
       .leftJoin(customers, eq(followUpTasks.customerId, customers.id))
       .where(and(
         ...conditions,
+        // Only show tasks for contacts assigned to this user OR unassigned contacts
+        or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
         // Exclude internal 4sgraphics contacts from SPOTLIGHT
         or(isNull(customers.email), sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`)
       ))
