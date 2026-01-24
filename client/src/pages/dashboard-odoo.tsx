@@ -34,6 +34,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import StartYourDayDashboard from "@/components/StartYourDayDashboard";
 import ShipmentFollowUpWidget from "@/components/ShipmentFollowUpWidget";
 import { ConnectionPrompt } from "@/components/ConnectionPrompt";
+import { DailyProgressHero } from "@/components/DailyProgressHero";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUsage } from "@/hooks/useAppUsage";
 
@@ -279,152 +280,27 @@ export default function Dashboard() {
       }}>
         <div style={{ maxWidth: '1152px', margin: '0 auto' }}>
           
-          {/* Header Card */}
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '12px',
-            border: '1px solid #EAEAEA',
-            padding: '24px',
-            marginBottom: '24px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
-              <div>
-                <p style={{ fontSize: '12px', fontWeight: 500, color: '#666666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                  4S Graphics Dashboard
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
-                  <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#111111', margin: 0 }}>
-                    Welcome back, {firstName}
-                  </h1>
-                </div>
-                <p style={{ fontSize: '14px', color: '#6B6B8C', margin: 0 }}>{dateString}</p>
-              </div>
+          {/* Header */}
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 500, color: '#666666', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              4S Graphics Dashboard
+            </p>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#111111', margin: 0, marginBottom: '4px' }}>
+              Welcome back, {firstName}
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B6B8C', margin: 0 }}>{dateString}</p>
+          </div>
 
-              {/* Right side: Stats + Connection Icons */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '16px' }}>
-                {/* Quick Stats */}
-                {stats && (
-                  <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 700, color: '#111111' }}>{stats.totalQuotes}</div>
-                      <div style={{ fontSize: '12px', color: '#666666' }}>Total Quotes</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 700, color: '#111111' }}>{stats.totalCustomers}</div>
-                      <div style={{ fontSize: '12px', color: '#666666' }}>Customers</div>
-                    </div>
-                    <Link href="/hot-leads" style={{ textDecoration: 'none' }}>
-                      <div style={{ textAlign: 'center', cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          <Flame size={18} style={{ color: '#E03D3E' }} />
-                          <span style={{ fontSize: '24px', fontWeight: 700, color: '#E03D3E' }}>{stats.hotLeads || 0}</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#E03D3E', fontWeight: 500 }}>Hot Leads</div>
-                      </div>
-                    </Link>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 700, color: '#111111' }}>{stats.quotesThisMonth}</div>
-                      <div style={{ fontSize: '12px', color: '#666666' }}>This Month</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Connection Status Icons */}
-                <TooltipProvider>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          background: connectionStatus?.odoo?.connected ? 'rgba(17, 17, 17, 0.05)' : 'rgba(108, 117, 125, 0.1)',
-                          border: `1px solid ${connectionStatus?.odoo?.connected ? 'rgba(17, 17, 17, 0.15)' : 'rgba(108, 117, 125, 0.3)'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          position: 'relative',
-                        }}>
-                          <Building2 size={18} style={{ color: connectionStatus?.odoo?.connected ? '#111111' : '#999999' }} />
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '-2px',
-                            right: '-2px',
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '50%',
-                            background: connectionStatus?.odoo?.connected ? '#111111' : '#999999',
-                            border: '2px solid white',
-                          }} />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Odoo: {connectionStatus?.odoo?.connected ? 'Connected' : 'Disconnected'}</p></TooltipContent>
-                    </Tooltip>
-                    
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          background: connectionStatus?.gmail?.connected ? 'rgba(17, 17, 17, 0.05)' : 'rgba(108, 117, 125, 0.1)',
-                          border: `1px solid ${connectionStatus?.gmail?.connected ? 'rgba(17, 17, 17, 0.15)' : 'rgba(108, 117, 125, 0.3)'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          position: 'relative',
-                        }}>
-                          <Mail size={18} style={{ color: connectionStatus?.gmail?.connected ? '#111111' : '#999999' }} />
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '-2px',
-                            right: '-2px',
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '50%',
-                            background: connectionStatus?.gmail?.connected ? '#111111' : '#999999',
-                            border: '2px solid white',
-                          }} />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Gmail: {connectionStatus?.gmail?.connected ? 'Connected' : 'Disconnected'}</p></TooltipContent>
-                    </Tooltip>
-                    
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          background: connectionStatus?.calendar?.connected ? 'rgba(17, 17, 17, 0.05)' : 'rgba(108, 117, 125, 0.1)',
-                          border: `1px solid ${connectionStatus?.calendar?.connected ? 'rgba(17, 17, 17, 0.15)' : 'rgba(108, 117, 125, 0.3)'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          position: 'relative',
-                        }}>
-                          <Calendar size={18} style={{ color: connectionStatus?.calendar?.connected ? '#111111' : '#999999' }} />
-                          <div style={{
-                            position: 'absolute',
-                            bottom: '-2px',
-                            right: '-2px',
-                            width: '10px',
-                            height: '10px',
-                            borderRadius: '50%',
-                            background: connectionStatus?.calendar?.connected ? '#111111' : '#999999',
-                            border: '2px solid white',
-                          }} />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Calendar: {connectionStatus?.calendar?.connected ? 'Connected' : 'Disconnected'}</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                </TooltipProvider>
-              </div>
-            </div>
+          {/* Daily Progress Hero */}
+          <div style={{ marginBottom: '24px' }}>
+            <DailyProgressHero
+              completionPercent={crmStats?.totalActiveJourneys ? Math.round((crmStats.quotesLast30Days / Math.max(crmStats.totalActiveJourneys, 1)) * 100) : 0}
+              tasksToday={stats?.quotesThisMonth || 0}
+              overdueCount={crmStats?.pendingFeedback || 0}
+              hotLeadsCount={stats?.hotLeads || 0}
+              upcomingTasks={[]}
+              dailyGoal={10}
+            />
           </div>
 
           {/* Notion-style Top Icon Bar */}
