@@ -1,4 +1,5 @@
-import { Flame, CheckCircle2, Clock, Target } from "lucide-react"
+import { Flame, CheckCircle2, Clock, Target, Zap, ChevronRight } from "lucide-react"
+import { Link } from "wouter"
 
 interface UpcomingTask {
   id: string
@@ -101,7 +102,7 @@ export function DailyProgressHero({
         {/* Divider */}
         <div className="hidden lg:block w-px h-28 bg-gray-200 self-center" />
 
-        {/* Right Section: Upcoming Tasks */}
+        {/* Middle Section: Up Next */}
         <div className="hidden lg:flex flex-col flex-1 min-w-0">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -133,7 +134,35 @@ export function DailyProgressHero({
             )}
           </div>
         </div>
+
+        {/* Right Section: Spotlight CTA */}
+        <div className="hidden lg:flex items-center">
+          <Link href="/spotlight">
+            <div className="group flex flex-col items-center justify-center w-24 h-24 rounded-xl bg-gradient-to-br from-[#8B7EC8] to-[#6B5B95] hover:from-[#9B8ED8] hover:to-[#7B6BA5] cursor-pointer transition-all shadow-md hover:shadow-lg">
+              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center mb-2 group-hover:bg-white/30 transition-colors">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xs font-semibold text-white">Spotlight</span>
+            </div>
+          </Link>
+        </div>
       </div>
+
+      {/* Mobile Spotlight Button */}
+      <Link href="/spotlight" className="lg:hidden block mt-4">
+        <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-[#8B7EC8] to-[#6B5B95] cursor-pointer">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Spotlight</p>
+              <p className="text-xs text-white/70">Focus on one client</p>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-white/70" />
+        </div>
+      </Link>
     </div>
   )
 }

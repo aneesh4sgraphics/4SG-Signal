@@ -20,7 +20,6 @@ import {
   Settings,
   AlertCircle,
   ChevronRight,
-  Zap,
   Building2,
   Flame,
   Package,
@@ -362,43 +361,6 @@ export default function Dashboard() {
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
-
-          {/* Spotlight Entry Card */}
-          <Link href="/spotlight" style={{ textDecoration: 'none', display: 'block', marginBottom: '24px' }}>
-            <div style={{
-              background: '#111111',
-              borderRadius: '12px',
-              padding: '20px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Zap size={24} style={{ color: '#FFFFFF' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF', marginBottom: '2px' }}>
-                    Spotlight
-                  </div>
-                  <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
-                    One client at a time. Focus on what matters.
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={20} style={{ color: '#FFFFFF' }} />
-            </div>
-          </Link>
 
           {/* Quick Action Cards - Two Column Grid */}
           <div style={{ 
