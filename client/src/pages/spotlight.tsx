@@ -1066,7 +1066,7 @@ export default function Spotlight() {
             </div>
 
             {/* Bucket Progress Card - V0 Style */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Buckets</p>
               <div className="space-y-2">
                 {session?.buckets.slice(0, 3).map((bucket) => {
@@ -1086,6 +1086,25 @@ export default function Spotlight() {
                 })}
               </div>
             </div>
+
+            {/* Kits To Go Card - V0 Style */}
+            {(() => {
+              const kitsRemaining = (session?.totalTarget || 30) - (session?.totalCompleted || 0);
+              const kitsToShow = Math.min(kitsRemaining, 10);
+              return (
+                <div className="rounded-xl p-4 border-2 border-amber-200 bg-amber-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-700">{kitsRemaining} kits to go</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {Array.from({ length: kitsToShow }).map((_, i) => (
+                      <div key={i} className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
         
