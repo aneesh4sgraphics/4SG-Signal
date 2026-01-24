@@ -42,7 +42,7 @@ export function DailyProgressHero({
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-white to-purple-50 p-6 backdrop-blur-sm border border-gray-200 shadow-sm">
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex items-end justify-between gap-6">
         {/* Left Section: Progress Ring + Stats */}
         <div className="flex items-center gap-6">
           {/* Progress Ring */}
