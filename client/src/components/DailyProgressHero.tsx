@@ -100,7 +100,7 @@ export function DailyProgressHero({
         </div>
 
         {/* Right Section: Spotlight CTA - Star Product (Takes Half Width) */}
-        <div className="hidden md:flex items-stretch flex-1">
+        <div className="hidden md:flex items-end flex-1">
           <Link href="/spotlight" className="flex-1">
             <div className="group relative h-full min-h-[120px] flex items-center justify-center gap-6 px-8 rounded-2xl bg-gradient-to-br from-[#8B7EC8] via-[#7B6BA5] to-[#6B5B95] hover:from-[#9B8ED8] hover:via-[#8B7BB5] hover:to-[#7B6BA5] cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl">
               <div className="absolute inset-0 rounded-2xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
