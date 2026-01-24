@@ -99,52 +99,20 @@ export function DailyProgressHero({
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="hidden md:block w-px h-28 bg-gray-200 self-center" />
-
-        {/* Middle Section: Up Next */}
-        <div className="hidden md:flex flex-col flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-gray-500" />
-              Up Next
-            </h3>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Target className="h-3.5 w-3.5" />
-              <span>{completedTasks}/{dailyGoal} goal</span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {upcomingTasks.length > 0 ? (
-              upcomingTasks.slice(0, 3).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-3 p-2 rounded-lg bg-white/50 border border-gray-100 hover:bg-white hover:border-gray-200 transition-colors"
-                >
-                  <div className={`w-1 h-8 rounded-full ${getTypeColor(task.type)}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-                    <p className="text-xs text-gray-500">{task.time}</p>
-                  </div>
-                  <CheckCircle2 className="h-4 w-4 text-gray-300 hover:text-green-500 cursor-pointer transition-colors" />
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-500 italic">No upcoming tasks</div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Section: Spotlight CTA - Star Product */}
-        <div className="hidden md:flex items-center ml-4">
-          <Link href="/spotlight">
-            <div className="group relative flex flex-col items-center justify-center w-32 h-32 rounded-2xl bg-gradient-to-br from-[#8B7EC8] via-[#7B6BA5] to-[#6B5B95] hover:from-[#9B8ED8] hover:via-[#8B7BB5] hover:to-[#7B6BA5] cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+        {/* Right Section: Spotlight CTA - Star Product (Takes Half Width) */}
+        <div className="hidden md:flex items-stretch flex-1">
+          <Link href="/spotlight" className="flex-1">
+            <div className="group relative h-full min-h-[120px] flex items-center justify-center gap-6 px-8 rounded-2xl bg-gradient-to-br from-[#8B7EC8] via-[#7B6BA5] to-[#6B5B95] hover:from-[#9B8ED8] hover:via-[#8B7BB5] hover:to-[#7B6BA5] cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl">
               <div className="absolute inset-0 rounded-2xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="w-14 h-14 rounded-xl bg-white/25 flex items-center justify-center mb-2 group-hover:bg-white/35 transition-colors shadow-inner">
-                <Zap className="h-7 w-7 text-white drop-shadow-sm" />
+              <div className="w-16 h-16 rounded-xl bg-white/25 flex items-center justify-center group-hover:bg-white/35 transition-colors shadow-inner flex-shrink-0">
+                <Zap className="h-8 w-8 text-white drop-shadow-sm" />
               </div>
-              <span className="text-sm font-bold text-white tracking-wide">Spotlight</span>
-              <span className="text-[10px] text-white/70 mt-0.5">Focus Mode</span>
+              <div className="text-left">
+                <p className="text-xl font-bold text-white tracking-wide">Spotlight</p>
+                <p className="text-sm text-white/80 mt-1">Focus on one client at a time</p>
+                <p className="text-xs text-white/60 mt-0.5">Your daily coaching treadmill</p>
+              </div>
+              <ChevronRight className="h-6 w-6 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all ml-auto" />
             </div>
           </Link>
         </div>
