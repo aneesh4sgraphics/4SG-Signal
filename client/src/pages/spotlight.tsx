@@ -1772,6 +1772,15 @@ export default function Spotlight() {
                     >
                       Skip
                     </button>
+                    {customer.email && (
+                      <button 
+                        className="text-sm font-medium text-blue-500 hover:text-blue-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        onClick={handleOpenEmailComposer}
+                      >
+                        <Mail className="w-4 h-4" />
+                        Compose
+                      </button>
+                    )}
                     <button 
                       className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
                       onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit' })}
