@@ -175,11 +175,41 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     const newMessages = allMessages.filter(m => m.id && !existingSet.has(m.id));
     console.log(`[Gmail Intelligence] Found ${newMessages.length} new messages to process`);
 
-    const customerEmails = await db.select({ id: customers.id, email: customers.email })
-      .from(customers);
+    // Build customer lookup maps - email-based and domain-based
+    const customerData = await db.select({ 
+      id: customers.id, 
+      email: customers.email,
+      website: customers.website 
+    }).from(customers);
+    
     const emailToCustomer: Record<string, string> = {};
-    customerEmails.forEach(c => {
-      if (c.email) emailToCustomer[c.email.toLowerCase()] = c.id;
+    const domainToCustomer: Record<string, string> = {};
+    
+    customerData.forEach(c => {
+      // Exact email match
+      if (c.email) {
+        emailToCustomer[c.email.toLowerCase()] = c.id;
+        // Also extract domain from customer email for domain matching
+        const emailDomain = c.email.toLowerCase().split('@')[1];
+        if (emailDomain && !domainToCustomer[emailDomain]) {
+          domainToCustomer[emailDomain] = c.id;
+        }
+      }
+      // Website domain matching (extract domain from website URL)
+      if (c.website) {
+        try {
+          const website = c.website.toLowerCase();
+          const urlMatch = website.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s]+)/);
+          if (urlMatch && urlMatch[1]) {
+            const websiteDomain = urlMatch[1];
+            if (!domainToCustomer[websiteDomain]) {
+              domainToCustomer[websiteDomain] = c.id;
+            }
+          }
+        } catch (e) {
+          // Ignore malformed URLs
+        }
+      }
     });
 
     let processed = 0;
@@ -206,7 +236,21 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       }
       
       const contactEmail = msg.direction === 'inbound' ? fromParsed.email : toParsed.email;
-      const customerId = emailToCustomer[contactEmail.toLowerCase()] || null;
+      const contactEmailLower = contactEmail.toLowerCase();
+      const contactDomain = contactEmailLower.split('@')[1] || '';
+      
+      // Try exact email match first, then fall back to domain matching
+      let customerId = emailToCustomer[contactEmailLower] || null;
+      let matchMethod = customerId ? 'email' : null;
+      
+      if (!customerId && contactDomain) {
+        customerId = domainToCustomer[contactDomain] || null;
+        matchMethod = customerId ? 'domain' : null;
+      }
+      
+      if (customerId && matchMethod) {
+        console.log(`[Gmail Intelligence] Matched ${contactEmail} to customer via ${matchMethod}`);
+      }
       
       const bodyText = stripHtml(fullMessage.body);
 
@@ -914,6 +958,101 @@ export async function markReminderSent(taskId: number) {
       updatedAt: new Date(),
     })
     .where(eq(shipmentFollowUpTasks.id, taskId));
+}
+
+// Retroactively match unmatched gmail messages to customers using improved matching
+export async function rematchUnmatchedMessages(): Promise<{ matched: number; total: number }> {
+  console.log('[Gmail Intelligence] Starting rematch for unmatched messages...');
+  
+  // Get all messages without a customerId
+  const unmatchedMessages = await db.select({
+    id: gmailMessages.id,
+    fromEmail: gmailMessages.fromEmail,
+    toEmail: gmailMessages.toEmail,
+    direction: gmailMessages.direction,
+  })
+    .from(gmailMessages)
+    .where(isNull(gmailMessages.customerId));
+  
+  console.log(`[Gmail Intelligence] Found ${unmatchedMessages.length} unmatched messages`);
+  
+  if (unmatchedMessages.length === 0) {
+    return { matched: 0, total: 0 };
+  }
+  
+  // Build customer lookup maps - email-based and domain-based
+  const customerData = await db.select({ 
+    id: customers.id, 
+    email: customers.email,
+    website: customers.website 
+  }).from(customers);
+  
+  const emailToCustomer: Record<string, string> = {};
+  const domainToCustomer: Record<string, string> = {};
+  
+  customerData.forEach(c => {
+    if (c.email) {
+      emailToCustomer[c.email.toLowerCase()] = c.id;
+      const emailDomain = c.email.toLowerCase().split('@')[1];
+      if (emailDomain && !domainToCustomer[emailDomain]) {
+        domainToCustomer[emailDomain] = c.id;
+      }
+    }
+    if (c.website) {
+      try {
+        const website = c.website.toLowerCase();
+        const urlMatch = website.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s]+)/);
+        if (urlMatch && urlMatch[1]) {
+          const websiteDomain = urlMatch[1];
+          if (!domainToCustomer[websiteDomain]) {
+            domainToCustomer[websiteDomain] = c.id;
+          }
+        }
+      } catch (e) {
+        // Ignore malformed URLs
+      }
+    }
+  });
+  
+  let matched = 0;
+  
+  for (const msg of unmatchedMessages) {
+    const contactEmail = msg.direction === 'inbound' ? msg.fromEmail : msg.toEmail;
+    if (!contactEmail) continue;
+    
+    const contactEmailLower = contactEmail.toLowerCase();
+    const contactDomain = contactEmailLower.split('@')[1] || '';
+    
+    // Try exact email match first, then domain match
+    let customerId = emailToCustomer[contactEmailLower] || null;
+    if (!customerId && contactDomain) {
+      customerId = domainToCustomer[contactDomain] || null;
+    }
+    
+    if (customerId) {
+      await db.update(gmailMessages)
+        .set({ customerId })
+        .where(eq(gmailMessages.id, msg.id));
+      matched++;
+    }
+  }
+  
+  console.log(`[Gmail Intelligence] Rematched ${matched}/${unmatchedMessages.length} messages to customers`);
+  
+  // Also update email_sales_events that have matching gmail_messages now with customerIds
+  if (matched > 0) {
+    const eventsToUpdate = await db.execute(sql`
+      UPDATE email_sales_events e
+      SET customer_id = m.customer_id
+      FROM gmail_messages m
+      WHERE e.gmail_message_id = m.id
+        AND e.customer_id IS NULL
+        AND m.customer_id IS NOT NULL
+    `);
+    console.log(`[Gmail Intelligence] Updated orphan events with customer IDs`);
+  }
+  
+  return { matched, total: unmatchedMessages.length };
 }
 
 // Automatic sync for all connected Gmail users with guardrails

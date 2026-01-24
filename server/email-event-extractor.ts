@@ -686,17 +686,19 @@ export async function detectStaleThreads(userId: string, staleDays: number = 7):
   return staleCount;
 }
 
-export async function createFollowUpTasksFromEvents(userId: string, limit: number = 50): Promise<number> {
+export async function createFollowUpTasksFromEvents(userId: string | null, limit: number = 50): Promise<number> {
+  // If userId is null, process all users' events (admin mode)
+  const whereConditions = userId 
+    ? and(eq(emailSalesEvents.userId, userId), eq(emailSalesEvents.isProcessed, false))
+    : eq(emailSalesEvents.isProcessed, false);
+    
   const unprocessedEvents = await db.select({
     event: emailSalesEvents,
     customer: customers,
   })
     .from(emailSalesEvents)
     .leftJoin(customers, eq(emailSalesEvents.customerId, customers.id))
-    .where(and(
-      eq(emailSalesEvents.userId, userId),
-      eq(emailSalesEvents.isProcessed, false),
-    ))
+    .where(whereConditions)
     .orderBy(desc(emailSalesEvents.occurredAt))
     .limit(limit);
   

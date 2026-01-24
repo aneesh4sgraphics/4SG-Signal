@@ -8675,6 +8675,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rematch unmatched messages to customers using improved domain matching (admin only)
+  app.post("/api/gmail-intelligence/rematch", isAuthenticated, async (req: any, res) => {
+    try {
+      const userRole = req.user?.role || req.user?.claims?.role;
+      if (userRole !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { rematchUnmatchedMessages } = await import("./gmail-intelligence");
+      const { createFollowUpTasksFromEvents } = await import("./email-event-extractor");
+      
+      // Step 1: Rematch messages to customers
+      const rematchResult = await rematchUnmatchedMessages();
+      
+      // Step 2: Re-process events to create follow-up tasks for ALL users (admin mode with null userId)
+      const tasksCreated = await createFollowUpTasksFromEvents(null, 500);
+      
+      res.json({ 
+        success: true,
+        matched: rematchResult.matched,
+        totalUnmatched: rematchResult.total,
+        tasksCreated,
+        message: `Matched ${rematchResult.matched} of ${rematchResult.total} messages to customers, created ${tasksCreated} tasks`
+      });
+    } catch (error: any) {
+      console.error("Error rematching messages:", error);
+      res.status(500).json({ error: error.message || "Failed to rematch messages" });
+    }
+  });
+
   // ========================================
   // Email Intelligence V2 Routes (Sync Debug Panel)
   // ========================================
