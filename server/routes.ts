@@ -6423,46 +6423,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const filePath = req.file.path;
+      const fileName = req.file.originalname.toLowerCase();
+      const isExcelFile = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
       
-      // Read the uploaded CSV file
-      const csvContent = fs.readFileSync(filePath, 'utf-8');
-      console.log('CSV Content:', csvContent.substring(0, 500) + '...');
+      let headers: string[] = [];
+      let dataRows: any[] = [];
       
-      // Parse CSV content
-      const lines = csvContent.split('\n').filter(line => line.trim().length > 0);
-      console.log('Lines:', lines.length);
-      
-      if (lines.length === 0) {
-        return res.status(400).json({ error: "Empty CSV file" });
-      }
-      
-      // Helper function to parse CSV row properly (handles commas inside quoted fields)
-      const parseCSVRow = (row: string): string[] => {
-        const result: string[] = [];
-        let current = '';
-        let inQuotes = false;
+      if (isExcelFile) {
+        // Handle Excel files
+        const XLSX = await import('xlsx');
+        const workbook = XLSX.readFile(filePath);
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
         
-        for (let i = 0; i < row.length; i++) {
-          const char = row[i];
-          
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            result.push(current.trim().replace(/^"|"$/g, ''));
-            current = '';
-          } else {
-            current += char;
-          }
+        if (jsonData.length === 0) {
+          return res.status(400).json({ error: "Empty Excel file" });
         }
-        result.push(current.trim().replace(/^"|"$/g, ''));
-        return result;
-      };
-      
-      const headers = parseCSVRow(lines[0]);
-      const dataRows = lines.slice(1);
-      
-      console.log('Headers:', headers);
-      console.log('Data rows:', dataRows.length);
+        
+        headers = Object.keys(jsonData[0] as object);
+        dataRows = jsonData;
+        console.log('Excel Headers:', headers);
+        console.log('Excel Data rows:', dataRows.length);
+      } else {
+        // Handle CSV files
+        const csvContent = fs.readFileSync(filePath, 'utf-8');
+        console.log('CSV Content:', csvContent.substring(0, 500) + '...');
+        
+        const lines = csvContent.split('\n').filter(line => line.trim().length > 0);
+        console.log('Lines:', lines.length);
+        
+        if (lines.length === 0) {
+          return res.status(400).json({ error: "Empty CSV file" });
+        }
+        
+        // Helper function to parse CSV row properly (handles commas inside quoted fields)
+        const parseCSVRow = (row: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim().replace(/^"|"$/g, ''));
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim().replace(/^"|"$/g, ''));
+          return result;
+        };
+        
+        headers = parseCSVRow(lines[0]);
+        const csvDataRows = lines.slice(1);
+        
+        // Convert CSV rows to objects
+        dataRows = csvDataRows.map(row => {
+          const values = parseCSVRow(row);
+          const rowData: any = {};
+          headers.forEach((header, index) => {
+            rowData[header] = values[index] || '';
+          });
+          return rowData;
+        }).filter(row => Object.values(row).some(v => v !== ''));
+      }
       
       // Fetch existing entries for duplicate detection
       const existingEntries = await storage.getCompetitorPricing();
@@ -6490,23 +6518,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let skippedDuplicates = 0;
       
       for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        console.log(`Processing row ${i + 1}:`, row);
-        
-        const values = parseCSVRow(row);
-        console.log('Values:', values);
-        
-        if (values.length !== headers.length) {
-          console.warn(`Skipping row with incorrect number of columns: ${row}`);
-          continue;
-        }
-        
-        const rowData: any = {};
-        headers.forEach((header, index) => {
-          rowData[header] = values[index];
-        });
-        
-        console.log('Row data:', rowData);
+        const rowData = dataRows[i];
+        console.log(`Processing row ${i + 1}:`, rowData);
         
         // Parse input price (supports multiple column names)
         const inputPriceStr = String(rowData['Price/Pack'] || rowData['Input Price'] || '0');

@@ -949,12 +949,12 @@ export default function CompetitorPricing() {
             <>
               <input
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                 className="hidden"
                 id="csv-upload"
               />
-              <label htmlFor="csv-upload" title="Choose CSV File">
+              <label htmlFor="csv-upload" title="Choose CSV or Excel File">
                 <Button variant="outline" className="cursor-pointer" size="icon" asChild>
                   <span>
                     <Upload className="w-5 h-5" />
