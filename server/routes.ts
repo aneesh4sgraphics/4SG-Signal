@@ -13132,7 +13132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(customers.id, customerId));
       
-      res.status(201).json(result[0]);
+      res.status(201).json({ lead: result[0] });
     } catch (error) {
       console.error("Error converting contact to lead:", error);
       res.status(500).json({ error: "Failed to convert contact to lead" });

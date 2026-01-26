@@ -832,6 +832,37 @@ export default function Spotlight() {
     },
   });
 
+  // Assign as Lead mutation - convert a customer to a lead
+  const assignAsLeadMutation = useMutation({
+    mutationFn: async ({ customerId, taskId }: { customerId: string; taskId?: string }) => {
+      const result = await apiRequest("POST", `/api/leads/convert-from-contact`, { customerId });
+      return { result, taskId };
+    },
+    onSuccess: ({ result, taskId }) => {
+      toast({
+        title: "Assigned as Lead",
+        description: `${result.lead?.name || 'Contact'} is now a lead in your pipeline`,
+      });
+      // Complete the task to move to the next card
+      if (taskId) {
+        completeMutation.mutate({ 
+          taskId, 
+          outcomeId: 'converted_to_lead',
+          notes: 'Converted to lead for trust-building workflow'
+        });
+      } else {
+        refetch();
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign as lead",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleOpenMergeModal = async (duplicateIds: string[], currentCustomerId: string) => {
     try {
       // Fetch both customers' data
@@ -1799,6 +1830,15 @@ export default function Spotlight() {
                     >
                       Bad Fit
                     </button>
+                    {task.customerId && (
+                      <button 
+                        className="text-sm font-medium text-emerald-500 hover:text-emerald-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        onClick={() => assignAsLeadMutation.mutate({ customerId: task.customerId, taskId: task.id })}
+                        disabled={assignAsLeadMutation.isPending}
+                      >
+                        {assignAsLeadMutation.isPending ? 'Assigning...' : 'Assign as Lead'}
+                      </button>
+                    )}
                     {task.bucket === 'data_hygiene' && (
                       <button 
                         className="text-sm font-medium text-red-400 hover:text-red-600 px-4 py-2 rounded-lg transition"
