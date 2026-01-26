@@ -13248,13 +13248,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Batch convert contacts with $0 spending to leads
+  // Batch convert contacts with $0 spending to leads (OPTIMIZED with batch processing)
   app.post("/api/leads/convert-zero-spending-contacts", requireApproval, async (req: any, res) => {
     try {
-      console.log("[Leads] Starting batch conversion of $0 spending contacts/companies to leads...");
+      console.log("[Leads] Starting OPTIMIZED batch conversion of $0 spending contacts to leads...");
       
-      // Find all contacts with $0 total spent (or null) that are NOT already converted, NOT DNC
-      // Now includes both companies AND individual contacts (like HubSpot/Pipedrive)
+      // Step 1: Get all $0 spending contacts in one query
       const zeroSpendingContacts = await db.select().from(customers).where(
         and(
           or(
@@ -13266,55 +13265,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
       
-      console.log(`[Leads] Found ${zeroSpendingContacts.length} contacts/companies with $0 spending`);
+      console.log(`[Leads] Found ${zeroSpendingContacts.length} contacts with $0 spending`);
       
-      let converted = 0;
-      let skipped = 0;
-      const results: { id: number; name: string; existsInOdooAsContact: boolean; existsInShopify: boolean; isCompany: boolean; primaryContactName?: string }[] = [];
+      if (zeroSpendingContacts.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No $0 spending contacts to convert',
+          converted: 0,
+          skipped: 0,
+          total: 0,
+          results: []
+        });
+      }
       
-      for (const c of zeroSpendingContacts) {
-        // Skip if already a lead (by email)
-        if (c.emailNormalized) {
-          const existingLead = await db.select({ id: leads.id }).from(leads)
-            .where(eq(leads.emailNormalized, c.emailNormalized))
-            .limit(1);
-          
-          if (existingLead.length > 0) {
-            skipped++;
-            continue;
+      // Step 2: Get ALL existing leads' normalized emails in one query (for duplicate check)
+      const existingLeadEmails = await db.select({ emailNormalized: leads.emailNormalized })
+        .from(leads)
+        .where(isNotNull(leads.emailNormalized));
+      const existingEmailSet = new Set(existingLeadEmails.map(e => e.emailNormalized).filter(Boolean));
+      console.log(`[Leads] Found ${existingEmailSet.size} existing lead emails for dedup`);
+      
+      // Step 3: Get all child contacts for companies in one query
+      const companyIds = zeroSpendingContacts.filter(c => c.isCompany).map(c => c.id);
+      let childContactsMap = new Map<number, typeof zeroSpendingContacts[0]>();
+      
+      if (companyIds.length > 0) {
+        const allChildContacts = await db.select().from(customers).where(
+          and(
+            inArray(customers.parentCustomerId, companyIds),
+            eq(customers.isCompany, false)
+          )
+        );
+        // Map first child contact per parent
+        for (const child of allChildContacts) {
+          if (child.parentCustomerId && !childContactsMap.has(child.parentCustomerId)) {
+            childContactsMap.set(child.parentCustomerId, child);
           }
         }
+        console.log(`[Leads] Fetched ${allChildContacts.length} child contacts for ${companyIds.length} companies`);
+      }
+      
+      // Step 4: Prepare lead records for batch insert
+      const leadsToInsert: any[] = [];
+      const contactsToConvert: typeof zeroSpendingContacts = [];
+      let skipped = 0;
+      
+      for (const c of zeroSpendingContacts) {
+        // Skip if already a lead (by normalized email)
+        if (c.emailNormalized && existingEmailSet.has(c.emailNormalized)) {
+          skipped++;
+          continue;
+        }
         
-        // Determine source origins
         const existsInOdooAsContact = Boolean(c.odooPartnerId);
         const existsInShopify = c.sources?.includes('shopify') || false;
         const isCompany = c.isCompany || false;
         
-        // For companies, find the primary contact (first child contact)
+        // Get primary contact from pre-fetched map
         let primaryContactName: string | undefined;
         let primaryContactEmail: string | undefined;
         
         if (isCompany) {
-          // Find ALL child contacts for this company
-          const childContacts = await db.select().from(customers).where(
-            and(
-              eq(customers.parentCustomerId, c.id),
-              eq(customers.isCompany, false)
-            )
-          );
-          
-          if (childContacts.length > 0) {
-            // Use first child as primary contact
-            const child = childContacts[0];
+          const child = childContactsMap.get(c.id);
+          if (child) {
             primaryContactName = `${child.firstName || ''} ${child.lastName || ''}`.trim() || undefined;
             primaryContactEmail = child.email || undefined;
-            // Note: We do NOT mark child contacts as DNC - they should remain contactable
-            // so we can reach out and try to revive the lead
           }
         }
         
-        // Create the lead from customer data
-        const leadData: any = {
+        leadsToInsert.push({
           sourceType: 'converted_contact',
           sourceCustomerId: c.id,
           name: c.company || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unknown',
@@ -13339,51 +13358,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pricingTierSetAt: c.pricingTierSetAt,
           tags: c.tags,
           description: c.note,
-          // Origin tracking
           existsInOdooAsContact,
           existsInShopify,
           sourceContactOdooPartnerId: c.odooPartnerId,
-          // Company/Contact relationship (like HubSpot/Pipedrive)
           isCompany,
           primaryContactName,
           primaryContactEmail,
-          // Trust-building tracking from contact
           swatchbookSentAt: c.swatchbookSentAt,
           priceListSentAt: c.priceListSentAt,
-        };
+        });
         
-        const result = await db.insert(leads).values(leadData).returning();
+        contactsToConvert.push(c);
+      }
+      
+      console.log(`[Leads] Prepared ${leadsToInsert.length} leads for insertion, ${skipped} skipped (already leads)`);
+      
+      if (leadsToInsert.length === 0) {
+        return res.json({
+          success: true,
+          message: 'All $0 spending contacts are already leads',
+          converted: 0,
+          skipped,
+          total: zeroSpendingContacts.length,
+          results: []
+        });
+      }
+      
+      // Step 5: Batch insert leads (100 at a time)
+      const BATCH_SIZE = 100;
+      const insertedLeads: any[] = [];
+      
+      for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
+        const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
+        const inserted = await db.insert(leads).values(batch).returning();
+        insertedLeads.push(...inserted);
+        console.log(`[Leads] Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${inserted.length} leads`);
+      }
+      
+      // Step 6: Batch insert activities (100 at a time)
+      const activitiesToInsert = insertedLeads.map((lead, idx) => {
+        const c = contactsToConvert[idx];
+        const isCompany = c.isCompany || false;
+        const child = isCompany ? childContactsMap.get(c.id) : undefined;
+        const primaryContactName = child ? `${child.firstName || ''} ${child.lastName || ''}`.trim() : undefined;
         
-        // Log activity
-        await db.insert(leadActivities).values({
-          leadId: result[0].id,
-          activityType: 'note',
+        return {
+          leadId: lead.id,
+          activityType: 'note' as const,
           summary: `Batch converted from ${isCompany ? 'company' : 'contact'} with $0 spending: ${c.company || c.id}${primaryContactName ? ` (Primary contact: ${primaryContactName})` : ''}`,
           performedBy: req.user?.email,
           performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email
-        });
-        
-        // Note: We do NOT mark the contact/company as DNC - they should remain contactable
-        // The purpose of moving to Leads is to refocus and recontact them to revive the lead
-        
-        results.push({
-          id: result[0].id,
-          name: result[0].name,
-          existsInOdooAsContact,
-          existsInShopify,
-          isCompany,
-          primaryContactName
-        });
-        
-        converted++;
+        };
+      });
+      
+      for (let i = 0; i < activitiesToInsert.length; i += BATCH_SIZE) {
+        const batch = activitiesToInsert.slice(i, i + BATCH_SIZE);
+        await db.insert(leadActivities).values(batch);
+        console.log(`[Leads] Inserted activity batch ${Math.floor(i / BATCH_SIZE) + 1}`);
       }
       
-      console.log(`[Leads] Batch conversion complete: ${converted} converted, ${skipped} skipped (already leads)`);
+      const results = insertedLeads.map((lead, idx) => {
+        const c = contactsToConvert[idx];
+        const child = c.isCompany ? childContactsMap.get(c.id) : undefined;
+        return {
+          id: lead.id,
+          name: lead.name,
+          existsInOdooAsContact: Boolean(c.odooPartnerId),
+          existsInShopify: c.sources?.includes('shopify') || false,
+          isCompany: c.isCompany || false,
+          primaryContactName: child ? `${child.firstName || ''} ${child.lastName || ''}`.trim() || undefined : undefined
+        };
+      });
+      
+      console.log(`[Leads] Batch conversion complete: ${insertedLeads.length} converted, ${skipped} skipped`);
       
       res.json({
         success: true,
-        message: `Converted ${converted} contacts/companies to leads`,
-        converted,
+        message: `Converted ${insertedLeads.length} contacts/companies to leads`,
+        converted: insertedLeads.length,
         skipped,
         total: zeroSpendingContacts.length,
         results
