@@ -417,6 +417,10 @@ export const leads = pgTable("leads", {
   // Odoo sync fields
   odooWriteDate: timestamp("odoo_write_date"),
   lastOdooSyncAt: timestamp("last_odoo_sync_at"),
+  // Origin tracking (for leads converted from contacts)
+  existsInOdooAsContact: boolean("exists_in_odoo_as_contact").default(false), // True if source contact was linked to Odoo res.partner
+  existsInShopify: boolean("exists_in_shopify").default(false), // True if source contact had Shopify origin
+  sourceContactOdooPartnerId: integer("source_contact_odoo_partner_id"), // Original Odoo partner ID if any
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
