@@ -342,6 +342,35 @@ class OdooClient {
     });
   }
 
+  private modelFieldsCache: Record<string, Set<string>> = {};
+
+  async getModelFields(model: string): Promise<Set<string>> {
+    if (this.modelFieldsCache[model]) {
+      return this.modelFieldsCache[model];
+    }
+    
+    try {
+      const result = await this.execute({
+        model,
+        method: 'fields_get',
+        args: [],
+        kwargs: { attributes: ['string', 'type'] },
+      });
+      
+      const fields = new Set(Object.keys(result || {}));
+      this.modelFieldsCache[model] = fields;
+      console.log(`[Odoo] Cached ${fields.size} fields for model ${model}`);
+      return fields;
+    } catch (error) {
+      console.error(`[Odoo] Failed to get fields for ${model}:`, error);
+      return new Set();
+    }
+  }
+
+  filterValidFields(requestedFields: string[], availableFields: Set<string>): string[] {
+    return requestedFields.filter(field => availableFields.has(field));
+  }
+
   getConnectionStatus(): { connected: boolean; error: string | null } {
     return {
       connected: this.isConnected,
@@ -1656,13 +1685,19 @@ ${plainTextBody}`;
       domain.push(['type', '=', 'opportunity']);
     }
     
-    return this.searchRead('crm.lead', domain, [
-      'id', 'name', 'contact_name', 'email_from', 'phone',
+    // Get available fields from Odoo and filter requested fields
+    const availableFields = await this.getModelFields('crm.lead');
+    const requestedFields = [
+      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
       'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
       'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
       'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
       'create_date', 'write_date'
-    ], { 
+    ];
+    
+    const validFields = this.filterValidFields(requestedFields, availableFields);
+    
+    return this.searchRead('crm.lead', domain, validFields, { 
       limit: options.limit || 100, 
       offset: options.offset || 0,
       order: 'create_date desc'
@@ -1695,13 +1730,19 @@ ${plainTextBody}`;
 
   // Get a single lead by ID
   async getLeadById(id: number): Promise<OdooLead | null> {
-    const leads = await this.searchRead('crm.lead', [['id', '=', id]], [
-      'id', 'name', 'contact_name', 'email_from', 'phone',
+    // Get available fields from Odoo and filter requested fields
+    const availableFields = await this.getModelFields('crm.lead');
+    const requestedFields = [
+      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
       'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
       'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
       'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
       'create_date', 'write_date'
-    ], { limit: 1 });
+    ];
+    
+    const validFields = this.filterValidFields(requestedFields, availableFields);
+    
+    const leads = await this.searchRead('crm.lead', [['id', '=', id]], validFields, { limit: 1 });
     
     return leads.length > 0 ? leads[0] : null;
   }
