@@ -13232,11 +13232,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(leads)
         .groupBy(leads.stage);
       
-      const totalLeads = stats.reduce((sum, s) => sum + s.count, 0);
+      const totalLeads = stats.reduce((sum, s) => sum + (Number(s.count) || 0), 0);
       
       res.json({
         total: totalLeads,
-        byStage: Object.fromEntries(stats.map(s => [s.stage, s.count]))
+        byStage: Object.fromEntries(stats.map(s => [s.stage, Number(s.count) || 0]))
       });
     } catch (error) {
       console.error("Error fetching lead stats:", error);
