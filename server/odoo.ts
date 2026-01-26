@@ -1657,7 +1657,7 @@ ${plainTextBody}`;
     }
     
     return this.searchRead('crm.lead', domain, [
-      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
+      'id', 'name', 'contact_name', 'email_from', 'phone',
       'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
       'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
       'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
@@ -1696,7 +1696,7 @@ ${plainTextBody}`;
   // Get a single lead by ID
   async getLeadById(id: number): Promise<OdooLead | null> {
     const leads = await this.searchRead('crm.lead', [['id', '=', id]], [
-      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
+      'id', 'name', 'contact_name', 'email_from', 'phone',
       'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
       'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
       'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
