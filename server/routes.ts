@@ -11205,7 +11205,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
       const signature = await storage.getEmailSignature(userId);
-      res.json(signature || null);
+      
+      // If no saved signature, return a default signature with the user's name
+      if (!signature) {
+        const userName = req.user?.firstName && req.user?.lastName 
+          ? `${req.user.firstName} ${req.user.lastName}` 
+          : req.user?.email?.split('@')[0] || 'Sales Team';
+        
+        const defaultSignatureHtml = `
+<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+  <img src="https://i.imgur.com/YfVpXqG.png" alt="4S Graphics" style="width: 80px; height: auto; margin-bottom: 8px;" />
+  <div style="font-weight: bold; margin-bottom: 12px;">Synthetic & Specialty Substrates Suppliers</div>
+  <div style="margin-bottom: 4px;">-</div>
+  <div style="font-weight: bold; margin-bottom: 4px;">${userName}</div>
+  <div style="margin-bottom: 4px;">T. (954) 493.6484 x 101</div>
+  <div style="margin-bottom: 4px;">764 NW 57th Court, Fort Lauderdale, FL - 33309</div>
+  <div><a href="https://www.4sgraphics.com" style="color: #1a73e8;">www.4sgraphics.com</a></div>
+</div>`;
+        
+        return res.json({ signatureHtml: defaultSignatureHtml });
+      }
+      
+      res.json(signature);
     } catch (error) {
       console.error("Error fetching email signature:", error);
       res.status(500).json({ error: "Failed to fetch email signature" });
