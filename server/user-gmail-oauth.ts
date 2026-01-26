@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.labels',
   'https://www.googleapis.com/auth/userinfo.email',
 ];
@@ -250,4 +251,63 @@ export async function getUserGmailMessage(userId: string, messageId: string) {
     body,
     labelIds: fullMessage.data.labelIds || [],
   };
+}
+
+// Send email using the user's own Gmail connection
+export async function sendEmailAsUser(userId: string, to: string, subject: string, body: string, htmlBody?: string, fromName?: string) {
+  const connection = await getUserGmailConnection(userId);
+  
+  if (!connection || !connection.isActive) {
+    throw new Error('Gmail not connected. Please reconnect your Gmail account to send emails.');
+  }
+  
+  // Check if scope includes send permission
+  const hasWriteScope = connection.scope?.includes('gmail.send') || 
+                        connection.scope?.includes('mail.google.com');
+  
+  if (!hasWriteScope) {
+    throw new Error('Gmail connection does not have send permission. Please reconnect your Gmail with updated permissions.');
+  }
+  
+  const gmail = await getGmailClientForUser(userId);
+  
+  const senderEmail = connection.gmailAddress;
+  const displayName = fromName || '4S Graphics';
+  
+  // Generate unique Message-ID
+  const domain = senderEmail ? senderEmail.split('@')[1] : '4sgraphics.com';
+  const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${domain}>`;
+  
+  // Format date in RFC 2822 format
+  const dateStr = new Date().toUTCString().replace('GMT', '+0000');
+  
+  // Build email headers
+  const emailLines: string[] = [];
+  emailLines.push(`From: "${displayName}" <${senderEmail}>`);
+  emailLines.push(`To: ${to}`);
+  emailLines.push(`Subject: ${subject}`);
+  emailLines.push(`Date: ${dateStr}`);
+  emailLines.push(`Message-ID: ${messageId}`);
+  emailLines.push(`Reply-To: ${senderEmail}`);
+  emailLines.push('MIME-Version: 1.0');
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  emailLines.push('');
+  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+  
+  const email = emailLines.join('\r\n');
+  const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  console.log('[User Gmail] Sending email from:', senderEmail, 'to:', to, 'Subject:', subject);
+  
+  const result = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw: encodedEmail
+    }
+  });
+  
+  console.log('[User Gmail] Email sent successfully, messageId:', result.data.id);
+  
+  return result.data;
 }

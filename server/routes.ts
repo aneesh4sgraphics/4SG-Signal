@@ -8275,11 +8275,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/email/send", isAuthenticated, async (req: any, res) => {
     try {
       const { sendEmail } = await import("./gmail-client");
+      const { sendEmailAsUser, getUserGmailConnection } = await import("./user-gmail-oauth");
       const crypto = await import("crypto");
       const { to, subject, body, htmlBody, customerId, templateId, recipientName, variableData, enableTracking = true } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      // Check if user has their own Gmail OAuth connection with send permission
+      const authUserId = req.user?.id;
+      let usePersonalGmail = false;
+      if (authUserId) {
+        try {
+          const userGmailConnection = await getUserGmailConnection(authUserId);
+          if (userGmailConnection?.isActive && userGmailConnection.scope?.includes('gmail.send')) {
+            usePersonalGmail = true;
+            console.log('[Email Send] Using personal Gmail for:', userGmailConnection.gmailAddress);
+          }
+        } catch (e) {
+          // No personal Gmail connection, will use shared connector
+        }
       }
       
       // Fetch user's email signature and auto-append if exists
@@ -8355,7 +8371,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send via Gmail with tracked HTML and signature-appended plain text
-      const result = await sendEmail(to, subject, finalPlainBody, trackedHtmlBody);
+      // Use user's personal Gmail if available, otherwise use shared connector
+      let result;
+      if (usePersonalGmail && authUserId) {
+        result = await sendEmailAsUser(authUserId, to, subject, finalPlainBody, trackedHtmlBody);
+      } else {
+        result = await sendEmail(to, subject, finalPlainBody, trackedHtmlBody);
+      }
       
       // Log to emailSends table
       const emailSend = await storage.createEmailSend({
