@@ -5,6 +5,25 @@ const ODOO_DATABASE = process.env.ODOO_DATABASE;
 const ODOO_USERNAME = process.env.ODOO_USERNAME;
 const ODOO_API_KEY = process.env.ODOO_API_KEY;
 
+// Distinct field lists for Contacts (res.partner) vs Leads (crm.lead)
+// These are kept separate to avoid confusion between the two models
+
+const PARTNER_FIELDS = [
+  'id', 'name', 'email', 'phone', 'mobile',
+  'street', 'street2', 'city', 'state_id', 'zip', 'country_id',
+  'is_company', 'company_type', 'parent_id', 'child_ids',
+  'user_id', 'category_id', 'comment', 'website', 'function',
+  'property_product_pricelist', 'type'
+];
+
+const LEAD_FIELDS = [
+  'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
+  'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
+  'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
+  'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
+  'create_date', 'write_date'
+];
+
 interface OdooConfig {
   url: string;
   database: string;
@@ -384,21 +403,22 @@ class OdooClient {
       domain.push(['is_company', '=', options.isCompany]);
     }
 
-    return this.searchRead('res.partner', domain, [
-      'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
-      'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
-      'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'property_product_pricelist', 'type',
-    ], { limit: options.limit || 100, offset: options.offset || 0 });
+    // Get available fields from Odoo and filter to only valid ones
+    const availableFields = await this.getModelFields('res.partner');
+    const validFields = this.filterValidFields(PARTNER_FIELDS, availableFields);
+
+    return this.searchRead('res.partner', domain, validFields, { 
+      limit: options.limit || 100, 
+      offset: options.offset || 0 
+    });
   }
 
   async getPartnerById(id: number): Promise<OdooPartner | null> {
-    const partners = await this.read('res.partner', [id], [
-      'id', 'name', 'email', 'phone', 'street', 'street2', 'city',
-      'state_id', 'zip', 'country_id', 'is_company', 'company_type', 'parent_id',
-      'child_ids', 'user_id', 'category_id', 'comment', 'website', 'function',
-      'property_product_pricelist', 'type',
-    ]);
+    // Get available fields from Odoo and filter to only valid ones
+    const availableFields = await this.getModelFields('res.partner');
+    const validFields = this.filterValidFields(PARTNER_FIELDS, availableFields);
+
+    const partners = await this.read('res.partner', [id], validFields);
     return partners.length > 0 ? partners[0] : null;
   }
 
@@ -1685,17 +1705,9 @@ ${plainTextBody}`;
       domain.push(['type', '=', 'opportunity']);
     }
     
-    // Get available fields from Odoo and filter requested fields
+    // Get available fields from Odoo and filter to only valid ones
     const availableFields = await this.getModelFields('crm.lead');
-    const requestedFields = [
-      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
-      'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
-      'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
-      'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
-      'create_date', 'write_date'
-    ];
-    
-    const validFields = this.filterValidFields(requestedFields, availableFields);
+    const validFields = this.filterValidFields(LEAD_FIELDS, availableFields);
     
     return this.searchRead('crm.lead', domain, validFields, { 
       limit: options.limit || 100, 
@@ -1730,17 +1742,9 @@ ${plainTextBody}`;
 
   // Get a single lead by ID
   async getLeadById(id: number): Promise<OdooLead | null> {
-    // Get available fields from Odoo and filter requested fields
+    // Get available fields from Odoo and filter to only valid ones
     const availableFields = await this.getModelFields('crm.lead');
-    const requestedFields = [
-      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
-      'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
-      'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
-      'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
-      'create_date', 'write_date'
-    ];
-    
-    const validFields = this.filterValidFields(requestedFields, availableFields);
+    const validFields = this.filterValidFields(LEAD_FIELDS, availableFields);
     
     const leads = await this.searchRead('crm.lead', [['id', '=', id]], validFields, { limit: 1 });
     
