@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,10 @@ import {
   ChevronDown,
   ShoppingBag,
   UserMinus,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  CalendarCheck,
 } from "lucide-react";
 import { SiOdoo, SiShopify } from "react-icons/si";
 import { Progress } from "@/components/ui/progress";
@@ -108,7 +112,9 @@ const STAGES = [
   { value: 'contacted', label: 'Contacted', color: 'bg-purple-100 text-purple-700' },
   { value: 'qualified', label: 'Qualified', color: 'bg-green-100 text-green-700' },
   { value: 'nurturing', label: 'Nurturing', color: 'bg-amber-100 text-amber-700' },
+  { value: 'contact_later', label: 'Contact Later', color: 'bg-orange-100 text-orange-700' },
   { value: 'converted', label: 'Converted', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'not_a_fit', label: 'Not a Fit', color: 'bg-slate-100 text-slate-600' },
   { value: 'lost', label: 'Lost', color: 'bg-red-100 text-red-700' },
 ];
 
@@ -128,6 +134,19 @@ export default function LeadsPage() {
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [importStatus, setImportStatus] = useState<{ message: string; progress: number } | null>(null);
+  const [showMondayReview, setShowMondayReview] = useState(false);
+  const [mondayReviewDismissed, setMondayReviewDismissed] = useState(() => {
+    // Check if user already dismissed the Monday review this week
+    const dismissed = localStorage.getItem('mondayReviewDismissed');
+    if (dismissed) {
+      const dismissedDate = new Date(dismissed);
+      const now = new Date();
+      // If dismissed was more than a week ago, show again
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return dismissedDate > weekAgo;
+    }
+    return false;
+  });
   const [newLead, setNewLead] = useState({
     name: '',
     email: '',
@@ -151,6 +170,48 @@ export default function LeadsPage() {
   const { data: stats } = useQuery<LeadStats>({
     queryKey: ['/api/leads/stats'],
   });
+
+  // Query for leads that need Monday morning review (active leads from last week)
+  const { data: reviewLeads, isLoading: isLoadingReview } = useQuery<Lead[]>({
+    queryKey: ['/api/leads/needs-review'],
+    queryFn: async () => {
+      const res = await fetch('/api/leads/needs-review', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.leads || [];
+    },
+    enabled: !mondayReviewDismissed,
+  });
+
+  // Check if it's Monday and show the review dialog
+  const isMonday = new Date().getDay() === 1;
+  const hasLeadsToReview = reviewLeads && reviewLeads.length > 0;
+
+  // Auto-show Monday review dialog if conditions are met
+  useEffect(() => {
+    if (isMonday && hasLeadsToReview && !mondayReviewDismissed) {
+      setShowMondayReview(true);
+    }
+  }, [isMonday, hasLeadsToReview, mondayReviewDismissed]);
+
+  // Mutation to update lead stage for quick review actions
+  const updateLeadStageMutation = useMutation({
+    mutationFn: async ({ leadId, stage }: { leadId: number; stage: string }) => {
+      const res = await apiRequest('PUT', `/api/leads/${leadId}`, { stage });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/needs-review'] });
+    },
+  });
+
+  const handleDismissMondayReview = () => {
+    setShowMondayReview(false);
+    setMondayReviewDismissed(true);
+    localStorage.setItem('mondayReviewDismissed', new Date().toISOString());
+  };
 
   const importMutation = useMutation({
     mutationFn: async () => {
@@ -300,6 +361,17 @@ export default function LeadsPage() {
               )}
               Move $0 Contacts
             </Button>
+            {hasLeadsToReview && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMondayReview(true)}
+                className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+              >
+                <CalendarCheck className="w-4 h-4" />
+                Weekly Review ({reviewLeads?.length || 0})
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -719,6 +791,104 @@ export default function LeadsPage() {
                 ) : (
                   'Create Lead'
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Monday Morning Review Dialog */}
+        <Dialog open={showMondayReview} onOpenChange={setShowMondayReview}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5 text-amber-500" />
+                Monday Morning Review
+              </DialogTitle>
+              <DialogDescription>
+                Clear off last week's leads. Mark them as "Not a Fit" or "Contact Later" to keep your pipeline moving.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {isLoadingReview ? (
+                <div className="text-center py-8 text-slate-500">
+                  <Loader2 className="w-8 h-8 mx-auto mb-3 text-slate-400 animate-spin" />
+                  <p className="text-sm">Loading leads to review...</p>
+                </div>
+              ) : reviewLeads && reviewLeads.length > 0 ? (
+                <div className="space-y-3">
+                  {reviewLeads.map((lead) => {
+                    const stageInfo = getStageInfo(lead.stage);
+                    return (
+                      <div key={lead.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-800 truncate">{lead.name}</span>
+                            <Badge className={stageInfo.color} variant="outline">{stageInfo.label}</Badge>
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {lead.company && <span>{lead.company} • </span>}
+                            {lead.email || lead.phone || 'No contact info'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                            onClick={() => {
+                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'contact_later' });
+                              toast({ title: 'Lead updated', description: `${lead.name} marked as Contact Later` });
+                            }}
+                            disabled={updateLeadStageMutation.isPending}
+                          >
+                            <Clock className="w-4 h-4 mr-1" />
+                            Later
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-slate-600 border-slate-200 hover:bg-slate-100"
+                            onClick={() => {
+                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'not_a_fit' });
+                              toast({ title: 'Lead updated', description: `${lead.name} marked as Not a Fit` });
+                            }}
+                            disabled={updateLeadStageMutation.isPending}
+                          >
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Not a Fit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            onClick={() => {
+                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'qualified' });
+                              toast({ title: 'Lead updated', description: `${lead.name} marked as Qualified` });
+                            }}
+                            disabled={updateLeadStageMutation.isPending}
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Qualified
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-400" />
+                  <p className="font-medium">All caught up!</p>
+                  <p className="text-sm">No leads need review this week.</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleDismissMondayReview}>
+                Dismiss for this week
+              </Button>
+              <Button onClick={() => setShowMondayReview(false)}>
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>

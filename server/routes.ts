@@ -61,7 +61,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, ilike, gte, lte, gt, lt, isNull, isNotNull, ne, not } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, gte, lte, gt, lt, isNull, isNotNull, ne, not, inArray } from "drizzle-orm";
 import { 
   customers,
   customerContacts, 
@@ -13486,6 +13486,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching lead stats:", error);
       res.status(500).json({ error: "Failed to fetch lead statistics" });
+    }
+  });
+
+  // Get leads that need Monday morning review (active leads from last week)
+  app.get("/api/leads/needs-review", isAuthenticated, async (req: any, res) => {
+    try {
+      // Find leads that are in active stages (not converted, lost, or not_a_fit)
+      // and have activity or were updated in the last 7 days
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const activeStages = ['new', 'contacted', 'qualified', 'nurturing', 'contact_later'];
+      
+      const reviewLeads = await db.select().from(leads)
+        .where(
+          and(
+            inArray(leads.stage, activeStages),
+            or(
+              gte(leads.updatedAt, oneWeekAgo),
+              gte(leads.lastContactAt, oneWeekAgo),
+              gte(leads.createdAt, oneWeekAgo)
+            )
+          )
+        )
+        .orderBy(desc(leads.updatedAt))
+        .limit(50);
+      
+      res.json({ leads: reviewLeads, count: reviewLeads.length });
+    } catch (error) {
+      console.error("Error fetching leads for review:", error);
+      res.status(500).json({ error: "Failed to fetch leads for review" });
     }
   });
 
