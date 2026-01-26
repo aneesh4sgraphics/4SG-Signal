@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useUpload } from '@/hooks/use-upload';
 import {
   Bold,
   Italic,
@@ -33,6 +34,8 @@ import {
   Code,
   ZoomIn,
   ZoomOut,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 
 // Custom extension for line height
@@ -171,9 +174,19 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
 }, ref) => {
   const imageUrlRef = useRef<HTMLInputElement>(null);
   const linkUrlRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState(content);
   const [selectedImageSize, setSelectedImageSize] = useState<number>(100);
+  
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      console.log('[Image Upload] Success:', response.objectPath);
+    },
+    onError: (error) => {
+      console.error('[Image Upload] Error:', error);
+    },
+  });
 
   const editor = useEditor({
     extensions: [
@@ -331,6 +344,26 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
       if (imageUrlRef.current) imageUrlRef.current.value = '';
     }
   }, [editor]);
+
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    
+    if (!file.type.startsWith('image/')) {
+      console.error('[Image Upload] Invalid file type:', file.type);
+      return;
+    }
+    
+    const response = await uploadFile(file);
+    if (response?.objectPath) {
+      const imageUrl = `${window.location.origin}${response.objectPath}`;
+      editor.chain().focus().setImage({ src: imageUrl }).run();
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [editor, uploadFile]);
 
   const insertLink = useCallback(() => {
     const url = linkUrlRef.current?.value;
@@ -611,18 +644,62 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
               <ImageIcon className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72">
-            <div className="space-y-2">
-              <Label className="text-xs">Image URL</Label>
-              <Input
-                ref={imageUrlRef}
-                type="url"
-                placeholder="https://example.com/image.png"
-                className="h-8 text-sm"
-              />
-              <Button size="sm" className="h-7 text-xs" onClick={insertImage}>
-                Insert Image
-              </Button>
+          <PopoverContent className="w-80">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Upload Image</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="image-upload-input"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="h-8 text-xs flex-1 gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3" />
+                        Choose File
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Upload images from your computer (JPG, PNG, GIF)</p>
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-popover px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs">Paste Image URL</Label>
+                <Input
+                  ref={imageUrlRef}
+                  type="url"
+                  placeholder="https://example.com/image.png"
+                  className="h-8 text-sm"
+                />
+                <Button size="sm" variant="outline" className="h-7 text-xs w-full" onClick={insertImage}>
+                  Insert from URL
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>

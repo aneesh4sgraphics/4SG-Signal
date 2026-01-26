@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.18.0",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@mozilla/readability": "^0.6.0",
@@ -68,6 +69,10 @@
     "@types/pdfkit": "^0.17.4",
     "@types/pg": "^8.15.4",
     "@types/react-beautiful-dnd": "^13.1.8",
+    "@uppy/aws-s3": "^5.1.0",
+    "@uppy/core": "^5.2.0",
+    "@uppy/dashboard": "^5.1.0",
+    "@uppy/react": "^5.1.1",
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
     "axios": "^1.11.0",
@@ -90,6 +95,7 @@
     "fast-glob": "^3.3.3",
     "file-saver": "^2.0.5",
     "framer-motion": "^11.13.1",
+    "google-auth-library": "^10.5.0",
     "googleapis": "^148.0.0",
     "helmet": "^8.1.0",
     "html-entities": "^2.6.0",

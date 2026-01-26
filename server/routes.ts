@@ -9,6 +9,7 @@ import PDFDocument from 'pdfkit';
 import OpenAI from 'openai';
 import { storage } from "./storage";
 import chatRouter from "./chat";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { z } from "zod";
 // Removed: parseProductData import - legacy CSV parser no longer used
 import { parseCustomerCSV } from "./customer-parser";
@@ -260,6 +261,9 @@ async function saveProductDataToFile() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register Object Storage routes for file uploads
+  registerObjectStorageRoutes(app);
+  
   // Initialize default follow-up configurations on startup
   try {
     await storage.initDefaultFollowUpConfig();
