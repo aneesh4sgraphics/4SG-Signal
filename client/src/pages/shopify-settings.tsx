@@ -148,6 +148,8 @@ export default function ShopifySettingsPage() {
   });
 
   // Invoice sync to Odoo state
+  const [invoiceSyncStartDate, setInvoiceSyncStartDate] = useState<string>("");
+  const [invoiceSyncEndDate, setInvoiceSyncEndDate] = useState<string>("");
   const [invoiceSyncResult, setInvoiceSyncResult] = useState<{
     total: number;
     synced: number;
@@ -164,8 +166,8 @@ export default function ShopifySettingsPage() {
   } | null>(null);
 
   const syncInvoicesToOdooMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/shopify/sync-invoices-to-odoo', {});
+    mutationFn: async ({ startDate, endDate }: { startDate?: string; endDate?: string }) => {
+      const res = await apiRequest('POST', '/api/shopify/sync-invoices-to-odoo', { startDate, endDate });
       return res.json();
     },
     onSuccess: (data: any) => {
@@ -1449,8 +1451,39 @@ export default function ShopifySettingsPage() {
                 </div>
               </div>
 
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                    <Input
+                      type="date"
+                      value={invoiceSyncStartDate}
+                      onChange={(e) => setInvoiceSyncStartDate(e.target.value)}
+                      placeholder="Select start date"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">End Date</label>
+                    <Input
+                      type="date"
+                      value={invoiceSyncEndDate}
+                      onChange={(e) => setInvoiceSyncEndDate(e.target.value)}
+                      placeholder="Select end date"
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {invoiceSyncStartDate || invoiceSyncEndDate 
+                    ? `Syncing orders from ${invoiceSyncStartDate || 'beginning'} to ${invoiceSyncEndDate || 'now'}`
+                    : 'Leave blank to sync all unsynced paid orders'}
+                </p>
+              </div>
+
               <Button 
-                onClick={() => syncInvoicesToOdooMutation.mutate()}
+                onClick={() => syncInvoicesToOdooMutation.mutate({
+                  startDate: invoiceSyncStartDate || undefined,
+                  endDate: invoiceSyncEndDate || undefined
+                })}
                 disabled={syncInvoicesToOdooMutation.isPending}
                 className="w-full sm:w-auto"
               >

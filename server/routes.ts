@@ -60,7 +60,7 @@ import {
   logDownload 
 } from "./fileLogger";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, ilike, gte, gt, lt, isNull, isNotNull, ne, not } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, gte, lte, gt, lt, isNull, isNotNull, ne, not } from "drizzle-orm";
 import { 
   customers,
   customerContacts, 
@@ -18915,19 +18915,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Admin access required" });
       }
 
-      console.log("[Shopify->Odoo] Starting invoice sync...");
+      const { startDate, endDate } = req.body;
+      
+      console.log("[Shopify->Odoo] Starting invoice sync...", { startDate, endDate });
 
-      // Get all Shopify orders that are paid and haven't been synced yet
-      const ordersToSync = await db.select().from(shopifyOrders)
-        .where(
-          and(
-            eq(shopifyOrders.financialStatus, 'paid'),
-            or(
-              isNull(shopifyOrders.odooSyncedAt),
-              eq(shopifyOrders.odooSynced, false)
-            )
-          )
+      // Build date filter conditions
+      const conditions = [
+        eq(shopifyOrders.financialStatus, 'paid'),
+        or(
+          isNull(shopifyOrders.odooSyncedAt),
+          eq(shopifyOrders.odooSynced, false)
         )
+      ];
+
+      // Add date range filters if provided
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        conditions.push(gte(shopifyOrders.shopifyCreatedAt, start));
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        conditions.push(lte(shopifyOrders.shopifyCreatedAt, end));
+      }
+
+      // Get Shopify orders that are paid, not synced yet, and within date range
+      const ordersToSync = await db.select().from(shopifyOrders)
+        .where(and(...conditions))
         .orderBy(shopifyOrders.shopifyCreatedAt);
 
       console.log(`[Shopify->Odoo] Found ${ordersToSync.length} orders to sync`);
