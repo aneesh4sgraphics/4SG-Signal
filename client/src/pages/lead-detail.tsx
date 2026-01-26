@@ -43,6 +43,16 @@ import {
   Briefcase,
 } from "lucide-react";
 
+// Helper function to strip HTML tags and extract plain text
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return "";
+  // Create a temporary div to parse HTML
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  // Get text content which automatically strips tags
+  return temp.textContent || temp.innerText || "";
+}
+
 interface LeadActivity {
   id: number;
   leadId: number;
@@ -394,7 +404,7 @@ export default function LeadDetail() {
                   <Separator />
                   <div>
                     <h4 className="text-sm font-medium text-slate-600 mb-2">Description</h4>
-                    <p className="text-slate-700 whitespace-pre-wrap">{lead.description}</p>
+                    <p className="text-slate-700 whitespace-pre-wrap">{stripHtml(lead.description)}</p>
                   </div>
                 </>
               )}
