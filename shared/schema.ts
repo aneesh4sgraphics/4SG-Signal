@@ -358,6 +358,104 @@ export const insertCustomerContactSchema = createInsertSchema(customerContacts).
 export type CustomerContact = typeof customerContacts.$inferSelect;
 export type InsertCustomerContact = z.infer<typeof insertCustomerContactSchema>;
 
+// Leads table - prospects with no business history who need trust-building
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  // Source tracking
+  odooLeadId: integer("odoo_lead_id"), // Odoo crm.lead ID if imported from Odoo
+  sourceType: varchar("source_type", { length: 50 }).notNull().default("manual"), // 'odoo', 'manual', 'converted_contact'
+  sourceCustomerId: varchar("source_customer_id"), // If converted from a contact
+  // Contact information
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  emailNormalized: varchar("email_normalized", { length: 320 }), // For matching
+  phone: varchar("phone", { length: 50 }),
+  mobile: varchar("mobile", { length: 50 }),
+  company: varchar("company", { length: 255 }),
+  jobTitle: varchar("job_title", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  // Address
+  street: varchar("street", { length: 255 }),
+  street2: varchar("street2", { length: 255 }),
+  city: varchar("city", { length: 255 }),
+  state: varchar("state", { length: 255 }),
+  zip: varchar("zip", { length: 20 }),
+  country: varchar("country", { length: 255 }),
+  // Lead status and scoring
+  stage: varchar("stage", { length: 50 }).notNull().default("new"), // 'new', 'contacted', 'qualified', 'nurturing', 'converted', 'lost'
+  priority: varchar("priority", { length: 10 }).default("medium"), // 'low', 'medium', 'high', 'urgent'
+  score: integer("score").default(0), // Lead score (0-100) based on engagement
+  probability: integer("probability").default(10), // % chance of conversion
+  expectedRevenue: decimal("expected_revenue", { precision: 10, scale: 2 }),
+  // Trust-building tracking
+  swatchbookSentAt: timestamp("swatchbook_sent_at"),
+  sampleSentAt: timestamp("sample_sent_at"),
+  priceListSentAt: timestamp("price_list_sent_at"),
+  catalogSentAt: timestamp("catalog_sent_at"),
+  firstContactAt: timestamp("first_contact_at"),
+  lastContactAt: timestamp("last_contact_at"),
+  totalTouchpoints: integer("total_touchpoints").default(0), // Number of interactions
+  // Communication preferences
+  preferredContact: varchar("preferred_contact", { length: 50 }), // 'email', 'phone', 'whatsapp'
+  bestTimeToCall: varchar("best_time_to_call", { length: 100 }),
+  // Notes and context
+  description: text("description"),
+  internalNotes: text("internal_notes"),
+  lostReason: varchar("lost_reason", { length: 255 }), // If stage = 'lost'
+  // Assignment
+  salesRepId: varchar("sales_rep_id"), // Assigned sales rep
+  salesRepName: varchar("sales_rep_name", { length: 255 }),
+  // Machine profile (what equipment they own)
+  machineTypes: text("machine_types").array().default([]), // ['roland', 'hp_latex', 'mimaki', etc.]
+  // Tags for categorization
+  tags: varchar("tags", { length: 500 }),
+  // Odoo sync fields
+  odooWriteDate: timestamp("odoo_write_date"),
+  lastOdooSyncAt: timestamp("last_odoo_sync_at"),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_leads_email_normalized").on(table.emailNormalized),
+  index("IDX_leads_stage").on(table.stage),
+  index("IDX_leads_sales_rep").on(table.salesRepId),
+  index("IDX_leads_odoo_lead_id").on(table.odooLeadId),
+  index("IDX_leads_score").on(table.score),
+  index("IDX_leads_created_at").on(table.createdAt),
+]);
+
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+// Lead activity log - track all interactions with leads
+export const leadActivities = pgTable("lead_activities", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  activityType: varchar("activity_type", { length: 50 }).notNull(), // 'email_sent', 'call_made', 'sample_sent', 'meeting', 'note'
+  summary: varchar("summary", { length: 500 }).notNull(),
+  details: text("details"),
+  performedBy: varchar("performed_by", { length: 255 }),
+  performedByName: varchar("performed_by_name", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_lead_activities_lead_id").on(table.leadId),
+  index("IDX_lead_activities_created_at").on(table.createdAt),
+]);
+
+export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LeadActivity = typeof leadActivities.$inferSelect;
+export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
+
 export const sentQuotes = pgTable("sent_quotes", {
   id: serial("id").primaryKey(),
   quoteNumber: varchar("quote_number", { length: 50 }).notNull(),
