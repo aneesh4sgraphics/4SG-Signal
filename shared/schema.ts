@@ -421,6 +421,10 @@ export const leads = pgTable("leads", {
   existsInOdooAsContact: boolean("exists_in_odoo_as_contact").default(false), // True if source contact was linked to Odoo res.partner
   existsInShopify: boolean("exists_in_shopify").default(false), // True if source contact had Shopify origin
   sourceContactOdooPartnerId: integer("source_contact_odoo_partner_id"), // Original Odoo partner ID if any
+  // Company/Contact relationship (for converted contacts)
+  isCompany: boolean("is_company").default(false), // True if this lead represents a company
+  primaryContactName: varchar("primary_contact_name", { length: 255 }), // Name of primary contact person
+  primaryContactEmail: varchar("primary_contact_email", { length: 255 }), // Email of primary contact person
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
