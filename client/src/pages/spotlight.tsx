@@ -456,8 +456,8 @@ export default function Spotlight() {
     },
   });
 
-  const { data: rawSalesReps = [] } = useQuery<{ id: string; email: string; firstName?: string; lastName?: string }[]>({
-    queryKey: ['/api/admin/users'],
+  const { data: salesReps = [] } = useQuery<{ id: string; name: string; email: string }[]>({
+    queryKey: ['/api/sales-reps'],
     staleTime: 5 * 60 * 1000,
   });
 
@@ -550,10 +550,14 @@ export default function Spotlight() {
   });
 
   // Helper to get display name from sales rep
-  const getSalesRepDisplayName = (rep: { email: string; firstName?: string; lastName?: string }) => {
+  const getSalesRepDisplayName = (rep: { name?: string; email: string; firstName?: string; lastName?: string }) => {
     // Special handling for info@4sgraphics.com
     if (rep.email?.toLowerCase() === 'info@4sgraphics.com') {
       return '4SGraphics-Info';
+    }
+    // Use name directly if available (from unified API)
+    if (rep.name) {
+      return rep.name;
     }
     if (rep.firstName && rep.lastName) {
       return `${rep.firstName} ${rep.lastName}`;
@@ -565,23 +569,6 @@ export default function Spotlight() {
     const emailPrefix = rep.email?.split('@')[0] || '';
     return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1).toLowerCase();
   };
-
-  // Only show authorized sales reps: Aneesh, Santiago, Patricio, and Info
-  const ALLOWED_SALES_REP_EMAILS = [
-    'aneesh@4sgraphics.com',
-    'santiago@4sgraphics.com', 
-    'patricio@4sgraphics.com',
-    'info@4sgraphics.com'
-  ];
-
-  // Filter to only allowed sales reps and deduplicate
-  const salesReps = rawSalesReps.filter((rep, index, arr) => {
-    if (!rep.email) return false;
-    const normalizedEmail = rep.email.toLowerCase();
-    // Only include allowed sales reps
-    if (!ALLOWED_SALES_REP_EMAILS.includes(normalizedEmail)) return false;
-    return arr.findIndex(r => r.email?.toLowerCase() === normalizedEmail) === index;
-  });
 
   // Use PRICING_TIERS constant from shared/schema.ts - single source of truth
 

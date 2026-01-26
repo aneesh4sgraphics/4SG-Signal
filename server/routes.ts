@@ -1651,6 +1651,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Unified sales reps endpoint - single source of truth for all sales rep dropdowns
+  app.get("/api/sales-reps", isAuthenticated, async (req: any, res) => {
+    try {
+      // Try to get sales people from Odoo first (authoritative source)
+      let odooSalesReps: Array<{ id: string; name: string; email: string }> = [];
+      try {
+        const users = await odooClient.getUsers();
+        odooSalesReps = users.map(u => ({
+          id: String(u.id),
+          name: u.name,
+          email: u.email || ''
+        }));
+      } catch (odooError) {
+        console.log("[Sales Reps] Odoo unavailable, falling back to local users");
+      }
+      
+      // If we got Odoo users, use them; otherwise fall back to local app users
+      if (odooSalesReps.length > 0) {
+        // Sort by name and return
+        const sorted = odooSalesReps.sort((a, b) => a.name.localeCompare(b.name));
+        return res.json(sorted);
+      }
+      
+      // Fallback: use local approved users
+      const allUsers = await storage.getAllUsers();
+      const salesReps = allUsers
+        .filter(u => u.status === 'approved')
+        .map(u => ({
+          id: u.id,
+          name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
+          email: u.email
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      res.json(salesReps);
+    } catch (error) {
+      console.error("Error fetching sales reps:", error);
+      res.status(500).json({ error: "Failed to fetch sales reps" });
+    }
+  });
+
   // Usage/Cost indicator for admins - shows database size and resource usage
   app.get("/api/dashboard/usage", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {

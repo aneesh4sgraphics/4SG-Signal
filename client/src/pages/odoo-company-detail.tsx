@@ -208,14 +208,9 @@ export default function OdooCompanyDetail() {
     staleTime: 300000, // Cache for 5 minutes
   });
 
-  // Fetch available sales people from Odoo
-  const { data: salesPeopleOptions = [], isLoading: salesPeopleLoading } = useQuery<Array<{ id: number; name: string; email: string }>>({
-    queryKey: ['/api/odoo/sales-people'],
-    queryFn: async () => {
-      const res = await fetch('/api/odoo/sales-people');
-      if (!res.ok) return [];
-      return res.json();
-    },
+  // Fetch available sales people from unified API
+  const { data: salesPeopleOptions = [], isLoading: salesPeopleLoading } = useQuery<Array<{ id: string; name: string; email: string }>>({
+    queryKey: ['/api/sales-reps'],
     staleTime: 300000, // Cache for 5 minutes
   });
 
@@ -1561,12 +1556,12 @@ export default function OdooCompanyDetail() {
                       </p>
                     ) : salesPeopleOptions && salesPeopleOptions.length > 0 ? (
                       <Select
-                        value={salesPeopleOptions.find(sp => sp.name === (metrics?.salesPerson || company.salesRepName))?.id.toString() || ''}
+                        value={salesPeopleOptions.find(sp => sp.name === (metrics?.salesPerson || company.salesRepName))?.id || ''}
                         onValueChange={(value) => {
                           if (value === 'unassign') {
                             updateSalesPersonMutation.mutate({ salesPersonId: null, salesPersonName: '' });
                           } else {
-                            const person = salesPeopleOptions.find(sp => sp.id.toString() === value);
+                            const person = salesPeopleOptions.find(sp => sp.id === value);
                             if (person) {
                               updateSalesPersonMutation.mutate({ salesPersonId: person.id, salesPersonName: person.name });
                             }
@@ -1582,7 +1577,7 @@ export default function OdooCompanyDetail() {
                             Unassign
                           </SelectItem>
                           {salesPeopleOptions.map((person) => (
-                            <SelectItem key={person.id} value={person.id.toString()}>
+                            <SelectItem key={person.id} value={person.id}>
                               {person.name}
                             </SelectItem>
                           ))}
