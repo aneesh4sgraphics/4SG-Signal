@@ -141,6 +141,10 @@ import {
   customerDoNotMerge,
   customerSyncQueue,
   emailIntelligenceBlacklist,
+  leads,
+  leadActivities,
+  insertLeadSchema,
+  insertLeadActivitySchema,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -12864,6 +12868,379 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resolving objection:", error);
       res.status(500).json({ error: "Failed to resolve objection" });
+    }
+  });
+
+  // ========================================
+  // LEADS MODULE APIs
+  // ========================================
+
+  // Get all leads with optional filtering
+  app.get("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const { stage, salesRepId, search, limit = 100, offset = 0 } = req.query;
+      
+      let query = db.select().from(leads);
+      const conditions: any[] = [];
+      
+      if (stage && stage !== 'all') {
+        conditions.push(eq(leads.stage, stage as string));
+      }
+      if (salesRepId) {
+        conditions.push(eq(leads.salesRepId, salesRepId as string));
+      }
+      if (search) {
+        const searchTerm = `%${search}%`;
+        conditions.push(
+          or(
+            ilike(leads.name, searchTerm),
+            ilike(leads.company, searchTerm),
+            ilike(leads.email, searchTerm)
+          )
+        );
+      }
+      
+      const result = await db.select().from(leads)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(leads.createdAt))
+        .limit(parseInt(limit as string))
+        .offset(parseInt(offset as string));
+      
+      // Get total count for pagination
+      const countResult = await db.select({ count: sql<number>`count(*)::int` }).from(leads)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      
+      res.json({
+        leads: result,
+        total: countResult[0]?.count || 0
+      });
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  // Get single lead by ID
+  app.get("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const lead = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
+      
+      if (lead.length === 0) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Get activities for this lead
+      const activities = await db.select().from(leadActivities)
+        .where(eq(leadActivities.leadId, id))
+        .orderBy(desc(leadActivities.createdAt))
+        .limit(50);
+      
+      res.json({ ...lead[0], activities });
+    } catch (error) {
+      console.error("Error fetching lead:", error);
+      res.status(500).json({ error: "Failed to fetch lead" });
+    }
+  });
+
+  // Create a new lead
+  app.post("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertLeadSchema.parse(req.body);
+      
+      // Normalize email if provided
+      if (data.email) {
+        data.emailNormalized = normalizeEmail(data.email);
+      }
+      
+      const result = await db.insert(leads).values(data).returning();
+      
+      // Log the creation activity
+      await db.insert(leadActivities).values({
+        leadId: result[0].id,
+        activityType: 'note',
+        summary: 'Lead created',
+        performedBy: req.user?.email,
+        performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email
+      });
+      
+      res.status(201).json(result[0]);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  // Update a lead
+  app.put("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = req.body;
+      
+      // Normalize email if updated
+      if (data.email) {
+        data.emailNormalized = normalizeEmail(data.email);
+      }
+      
+      data.updatedAt = new Date();
+      
+      const result = await db.update(leads)
+        .set(data)
+        .where(eq(leads.id, id))
+        .returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
+  // Delete a lead
+  app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Delete activities first (cascade should handle this but being explicit)
+      await db.delete(leadActivities).where(eq(leadActivities.leadId, id));
+      
+      const result = await db.delete(leads).where(eq(leads.id, id)).returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      res.json({ success: true, deleted: result[0] });
+    } catch (error) {
+      console.error("Error deleting lead:", error);
+      res.status(500).json({ error: "Failed to delete lead" });
+    }
+  });
+
+  // Add activity to a lead
+  app.post("/api/leads/:id/activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const leadId = parseInt(req.params.id);
+      const data = insertLeadActivitySchema.parse({
+        ...req.body,
+        leadId,
+        performedBy: req.user?.email,
+        performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email
+      });
+      
+      const result = await db.insert(leadActivities).values(data).returning();
+      
+      // Update lead's touchpoint count and last contact date
+      await db.update(leads)
+        .set({
+          totalTouchpoints: sql`${leads.totalTouchpoints} + 1`,
+          lastContactAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(leads.id, leadId));
+      
+      res.status(201).json(result[0]);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error adding lead activity:", error);
+      res.status(500).json({ error: "Failed to add activity" });
+    }
+  });
+
+  // Convert a contact to a lead (Assign as Lead from SPOTLIGHT)
+  app.post("/api/leads/convert-from-contact", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId } = req.body;
+      
+      if (!customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
+      
+      // Fetch the customer
+      const customer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      
+      if (customer.length === 0) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      const c = customer[0];
+      
+      // Check if already converted (by email)
+      if (c.emailNormalized) {
+        const existingLead = await db.select().from(leads)
+          .where(eq(leads.emailNormalized, c.emailNormalized))
+          .limit(1);
+        
+        if (existingLead.length > 0) {
+          return res.status(400).json({ error: "This contact is already a lead", existingLead: existingLead[0] });
+        }
+      }
+      
+      // Create the lead from customer data
+      const leadData: any = {
+        sourceType: 'converted_contact',
+        sourceCustomerId: c.id,
+        name: c.company || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unknown',
+        email: c.email,
+        emailNormalized: c.emailNormalized,
+        phone: c.phone,
+        mobile: c.cell,
+        company: c.company,
+        street: c.address1,
+        street2: c.address2,
+        city: c.city,
+        state: c.province,
+        zip: c.zip,
+        country: c.country,
+        website: c.website,
+        stage: 'new',
+        priority: 'medium',
+        salesRepId: c.salesRepId,
+        salesRepName: c.salesRepName,
+        tags: c.tags,
+        description: c.note,
+      };
+      
+      const result = await db.insert(leads).values(leadData).returning();
+      
+      // Log activity
+      await db.insert(leadActivities).values({
+        leadId: result[0].id,
+        activityType: 'note',
+        summary: `Converted from contact: ${c.company || c.id}`,
+        performedBy: req.user?.email,
+        performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email
+      });
+      
+      // Mark the customer as DNC so they don't appear in SPOTLIGHT as a contact
+      await db.update(customers)
+        .set({
+          doNotContact: true,
+          doNotContactReason: 'Converted to Lead',
+          doNotContactSetBy: req.user?.email,
+          doNotContactSetAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(customers.id, customerId));
+      
+      res.status(201).json(result[0]);
+    } catch (error) {
+      console.error("Error converting contact to lead:", error);
+      res.status(500).json({ error: "Failed to convert contact to lead" });
+    }
+  });
+
+  // Import leads from Odoo
+  app.post("/api/leads/import-from-odoo", isAuthenticated, async (req: any, res) => {
+    try {
+      const { odooClient: odoo } = await import('./odoo');
+      
+      console.log("[Leads] Starting Odoo lead import...");
+      
+      // Fetch all leads from Odoo
+      const odooLeads = await odoo.getAllLeads('lead'); // Only import actual leads, not opportunities
+      
+      console.log(`[Leads] Found ${odooLeads.length} leads in Odoo`);
+      
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      
+      for (const ol of odooLeads) {
+        try {
+          // Check if already imported by Odoo ID
+          const existing = await db.select().from(leads)
+            .where(eq(leads.odooLeadId, ol.id))
+            .limit(1);
+          
+          const leadData: any = {
+            odooLeadId: ol.id,
+            sourceType: 'odoo',
+            name: ol.contact_name || ol.name || 'Unknown',
+            email: ol.email_from || null,
+            emailNormalized: ol.email_from ? normalizeEmail(ol.email_from) : null,
+            phone: ol.phone || null,
+            mobile: ol.mobile || null,
+            company: ol.partner_name || null,
+            jobTitle: ol.function || null,
+            website: ol.website || null,
+            street: ol.street || null,
+            street2: ol.street2 || null,
+            city: ol.city || null,
+            state: ol.state_id ? ol.state_id[1] : null,
+            zip: ol.zip || null,
+            country: ol.country_id ? ol.country_id[1] : null,
+            description: ol.description || null,
+            stage: 'new', // Map Odoo stages later if needed
+            priority: ol.priority === '3' ? 'high' : ol.priority === '2' ? 'medium' : 'low',
+            probability: ol.probability || 10,
+            expectedRevenue: ol.expected_revenue ? String(ol.expected_revenue) : null,
+            salesRepId: ol.user_id && ol.user_id[0] ? String(ol.user_id[0]) : null,
+            salesRepName: ol.user_id && ol.user_id[1] ? ol.user_id[1] : null,
+            odooWriteDate: ol.write_date ? new Date(ol.write_date) : null,
+            lastOdooSyncAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          if (existing.length > 0) {
+            // Update existing lead
+            await db.update(leads)
+              .set(leadData)
+              .where(eq(leads.odooLeadId, ol.id));
+            updated++;
+          } else {
+            // Insert new lead
+            await db.insert(leads).values(leadData);
+            imported++;
+          }
+        } catch (err) {
+          console.error(`[Leads] Error importing lead ${ol.id}:`, err);
+          skipped++;
+        }
+      }
+      
+      console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skipped} skipped`);
+      
+      res.json({
+        success: true,
+        imported,
+        updated,
+        skipped,
+        total: odooLeads.length
+      });
+    } catch (error) {
+      console.error("Error importing leads from Odoo:", error);
+      res.status(500).json({ error: "Failed to import leads from Odoo" });
+    }
+  });
+
+  // Get lead statistics for dashboard
+  app.get("/api/leads/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await db.select({
+        stage: leads.stage,
+        count: sql<number>`count(*)::int`
+      }).from(leads)
+        .groupBy(leads.stage);
+      
+      const totalLeads = stats.reduce((sum, s) => sum + s.count, 0);
+      
+      res.json({
+        total: totalLeads,
+        byStage: Object.fromEntries(stats.map(s => [s.stage, s.count]))
+      });
+    } catch (error) {
+      console.error("Error fetching lead stats:", error);
+      res.status(500).json({ error: "Failed to fetch lead statistics" });
     }
   });
 
