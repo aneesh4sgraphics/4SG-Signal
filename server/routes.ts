@@ -13147,6 +13147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leads/import-from-odoo", isAuthenticated, async (req: any, res) => {
     try {
       const { odooClient: odoo } = await import('./odoo');
+      const { determineSalesRep, SALES_REPS } = await import('./sales-rep-auto-assign');
       
       console.log("[Leads] Starting Odoo lead import...");
       
@@ -13155,23 +13156,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[Leads] Found ${odooLeads.length} leads in Odoo`);
       
+      // Get all existing customer emails to skip leads that are already contacts
+      const existingCustomerEmails = await db.select({ emailNormalized: customers.emailNormalized })
+        .from(customers)
+        .where(isNotNull(customers.emailNormalized));
+      const customerEmailSet = new Set(existingCustomerEmails.map(c => c.emailNormalized?.toLowerCase()));
+      console.log(`[Leads] Found ${customerEmailSet.size} existing customer emails to check against`);
+      
+      // Round-robin counter for distributing leads without location rules
+      const salesRepOrder = [SALES_REPS.aneesh, SALES_REPS.patricio, SALES_REPS.santiago];
+      let roundRobinIndex = 0;
+      
       let imported = 0;
       let updated = 0;
       let skipped = 0;
+      let skippedExistingCustomer = 0;
       
       for (const ol of odooLeads) {
         try {
+          // Skip leads whose email already exists in customers (Contacts)
+          const leadEmailNormalized = ol.email_from ? normalizeEmail(ol.email_from) : null;
+          if (leadEmailNormalized && customerEmailSet.has(leadEmailNormalized.toLowerCase())) {
+            console.log(`[Leads] Skipping lead ${ol.id} - email ${ol.email_from} already exists in Contacts`);
+            skippedExistingCustomer++;
+            continue;
+          }
+          
           // Check if already imported by Odoo ID
           const existing = await db.select().from(leads)
             .where(eq(leads.odooLeadId, ol.id))
             .limit(1);
+          
+          // Determine sales rep assignment based on location rules
+          const country = ol.country_id ? ol.country_id[1] : null;
+          const state = ol.state_id ? ol.state_id[1] : null;
+          let assignedRep = determineSalesRep({ country, province: state });
+          
+          // If no location rule matches, use round-robin distribution
+          if (!assignedRep) {
+            assignedRep = salesRepOrder[roundRobinIndex % salesRepOrder.length];
+            roundRobinIndex++;
+            console.log(`[Leads] Round-robin assigned ${assignedRep.name} to lead ${ol.id} (no location rule)`);
+          }
           
           const leadData: any = {
             odooLeadId: ol.id,
             sourceType: 'odoo',
             name: ol.contact_name || ol.name || 'Unknown',
             email: ol.email_from || null,
-            emailNormalized: ol.email_from ? normalizeEmail(ol.email_from) : null,
+            emailNormalized: leadEmailNormalized,
             phone: ol.phone || null,
             mobile: ol.mobile || null,
             company: ol.partner_name || null,
@@ -13180,23 +13213,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             street: ol.street || null,
             street2: ol.street2 || null,
             city: ol.city || null,
-            state: ol.state_id ? ol.state_id[1] : null,
+            state: state,
             zip: ol.zip || null,
-            country: ol.country_id ? ol.country_id[1] : null,
+            country: country,
             description: ol.description || null,
             stage: 'new', // Map Odoo stages later if needed
             priority: ol.priority === '3' ? 'high' : ol.priority === '2' ? 'medium' : 'low',
             probability: ol.probability || 10,
             expectedRevenue: ol.expected_revenue ? String(ol.expected_revenue) : null,
-            salesRepId: ol.user_id && ol.user_id[0] ? String(ol.user_id[0]) : null,
-            salesRepName: ol.user_id && ol.user_id[1] ? ol.user_id[1] : null,
+            // Auto-assign sales rep based on location rules
+            salesRepId: assignedRep.id,
+            salesRepName: assignedRep.name,
             odooWriteDate: ol.write_date ? new Date(ol.write_date) : null,
             lastOdooSyncAt: new Date(),
             updatedAt: new Date(),
           };
           
           if (existing.length > 0) {
-            // Update existing lead
+            // Update existing lead (keep existing salesRep if already set)
+            const existingLead = existing[0];
+            if (existingLead.salesRepId) {
+              delete leadData.salesRepId;
+              delete leadData.salesRepName;
+            }
             await db.update(leads)
               .set(leadData)
               .where(eq(leads.odooLeadId, ol.id));
@@ -13212,13 +13251,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skipped} skipped`);
+      console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skipped} errors, ${skippedExistingCustomer} skipped (already in Contacts)`);
       
       res.json({
         success: true,
         imported,
         updated,
         skipped,
+        skippedExistingCustomer,
         total: odooLeads.length
       });
     } catch (error) {

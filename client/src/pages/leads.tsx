@@ -159,9 +159,15 @@ export default function LeadsPage() {
       setTimeout(() => setImportStatus(null), 2000);
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
+      
+      const parts = [];
+      parts.push(`${data.imported} new leads imported`);
+      if (data.updated > 0) parts.push(`${data.updated} updated`);
+      if (data.skippedExistingCustomer > 0) parts.push(`${data.skippedExistingCustomer} skipped (already in Contacts)`);
+      
       toast({
         title: 'Import Complete',
-        description: `Imported ${data.imported} new leads, updated ${data.updated} from Odoo CRM Leads module`,
+        description: parts.join(', ') + '. Sales reps auto-assigned by location.',
       });
     },
     onError: (error: any) => {
