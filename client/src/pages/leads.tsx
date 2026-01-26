@@ -55,6 +55,10 @@ import {
   Clock,
   XCircle,
   CalendarCheck,
+  Columns,
+  BarChart3,
+  Send,
+  GripVertical,
 } from "lucide-react";
 import { SiOdoo, SiShopify } from "react-icons/si";
 import { Progress } from "@/components/ui/progress";
@@ -132,7 +136,7 @@ export default function LeadsPage() {
   
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban' | 'funnel'>('cards');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [importStatus, setImportStatus] = useState<{ message: string; progress: number } | null>(null);
   const [showMondayReview, setShowMondayReview] = useState(false);
@@ -460,6 +464,7 @@ export default function LeadsPage() {
               size="sm"
               onClick={() => setViewMode('cards')}
               className="rounded-r-none"
+              title="Card View"
             >
               <LayoutGrid className="w-4 h-4" />
             </Button>
@@ -467,9 +472,28 @@ export default function LeadsPage() {
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
-              className="rounded-l-none"
+              className="rounded-none border-l"
+              title="List View"
             >
               <List className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('kanban')}
+              className="rounded-none border-l"
+              title="Kanban View"
+            >
+              <Columns className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'funnel' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('funnel')}
+              className="rounded-l-none border-l"
+              title="Funnel View"
+            >
+              <BarChart3 className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -638,14 +662,51 @@ export default function LeadsPage() {
                         <User className="w-3 h-3" />
                         <span>{lead.salesRepName}</span>
                       </div>
+                    )}
+
+                    {/* Quick Actions */}
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
+                      <Select
+                        value={lead.stage}
+                        onValueChange={(value) => {
+                          updateLeadStageMutation.mutate({ leadId: lead.id, stage: value });
+                          toast({ title: 'Stage updated', description: `${lead.name} moved to ${STAGES.find(s => s.value === value)?.label}` });
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs flex-1" onClick={(e) => e.stopPropagation()}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent onClick={(e) => e.stopPropagation()}>
+                          {STAGES.map(s => (
+                            <SelectItem key={s.value} value={s.value}>
+                              <span className={`px-1.5 py-0.5 rounded text-xs ${s.color}`}>{s.label}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {lead.email && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            window.location.href = `mailto:${lead.email}?subject=Following up from ${lead.company || 'your inquiry'}`;
+                          }}
+                        >
+                          <Send className="w-3 h-3 mr-1" />
+                          Email
+                        </Button>
                       )}
+                    </div>
                     </CardContent>
                   </Card>
                 </Link>
               );
             })}
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <Card className="bg-white/80 backdrop-blur">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -721,7 +782,174 @@ export default function LeadsPage() {
               </table>
             </div>
           </Card>
-        )}
+        ) : viewMode === 'kanban' ? (
+          /* Kanban View */
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {STAGES.filter(s => !['not_a_fit', 'lost'].includes(s.value)).map(stage => {
+              const stageLeads = leads.filter(l => l.stage === stage.value);
+              return (
+                <div 
+                  key={stage.value} 
+                  className="flex-shrink-0 w-72 bg-white/60 backdrop-blur rounded-xl border border-slate-200"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const leadId = parseInt(e.dataTransfer.getData('leadId'));
+                    if (leadId) {
+                      updateLeadStageMutation.mutate({ leadId, stage: stage.value });
+                      toast({ title: 'Lead moved', description: `Lead moved to ${stage.label}` });
+                    }
+                  }}
+                >
+                  <div className={`p-3 border-b border-slate-200 rounded-t-xl ${stage.color}`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm">{stage.label}</h3>
+                      <Badge variant="secondary" className="text-xs">{stageLeads.length}</Badge>
+                    </div>
+                  </div>
+                  <div className="p-2 space-y-2 max-h-[60vh] overflow-y-auto">
+                    {stageLeads.map(lead => (
+                      <div
+                        key={lead.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('leadId', lead.id.toString());
+                        }}
+                        onClick={() => setLocation(`/leads/${lead.id}`)}
+                        className="bg-white rounded-lg border border-slate-100 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-2">
+                          <GripVertical className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm text-slate-800 truncate">{lead.name}</h4>
+                            {lead.company && (
+                              <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                {lead.company}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              {lead.email && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.location.href = `mailto:${lead.email}`;
+                                  }}
+                                >
+                                  <Mail className="w-3 h-3" />
+                                </Button>
+                              )}
+                              {lead.totalTouchpoints > 0 && (
+                                <span className="text-xs text-slate-400">{lead.totalTouchpoints} touches</span>
+                              )}
+                              {lead.score > 0 && (
+                                <Badge variant="outline" className="text-xs px-1 py-0">
+                                  <Star className="w-2.5 h-2.5 mr-0.5 text-amber-500" />
+                                  {lead.score}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {stageLeads.length === 0 && (
+                      <div className="text-center py-8 text-slate-400 text-sm">
+                        Drop leads here
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : viewMode === 'funnel' ? (
+          /* Funnel View */
+          <Card className="bg-white/80 backdrop-blur p-6">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-purple-500" />
+                Sales Funnel Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {STAGES.map((stage, index) => {
+                  const stageLeads = leads.filter(l => l.stage === stage.value);
+                  const maxCount = Math.max(...STAGES.map(s => leads.filter(l => l.stage === s.value).length), 1);
+                  const percentage = (stageLeads.length / maxCount) * 100;
+                  const totalRevenue = stageLeads.reduce((sum, l) => sum + parseFloat(l.expectedRevenue || '0'), 0);
+                  
+                  return (
+                    <div key={stage.value} className="relative">
+                      <div className="flex items-center gap-4">
+                        <div className="w-32 flex-shrink-0 text-right">
+                          <span className="text-sm font-medium text-slate-700">{stage.label}</span>
+                        </div>
+                        <div className="flex-1 relative">
+                          <div 
+                            className={`h-12 rounded-lg ${stage.color} transition-all duration-500 flex items-center justify-between px-4`}
+                            style={{ 
+                              width: `${Math.max(percentage, 10)}%`,
+                              clipPath: index < STAGES.length - 1 ? 'polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%)' : undefined
+                            }}
+                          >
+                            <span className="font-bold text-lg">{stageLeads.length}</span>
+                            {totalRevenue > 0 && (
+                              <span className="text-sm opacity-80">${totalRevenue.toLocaleString()}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w-24 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              setStageFilter(stage.value);
+                              setViewMode('cards');
+                            }}
+                          >
+                            View All →
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Funnel Summary */}
+              <div className="mt-8 pt-6 border-t border-slate-200 grid grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-slate-800">{leads.length}</div>
+                  <div className="text-sm text-slate-500">Total Leads</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {leads.filter(l => l.stage === 'qualified').length}
+                  </div>
+                  <div className="text-sm text-slate-500">Qualified</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {leads.filter(l => l.stage === 'converted').length}
+                  </div>
+                  <div className="text-sm text-slate-500">Converted</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    ${leads.reduce((sum, l) => sum + parseFloat(l.expectedRevenue || '0'), 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-slate-500">Pipeline Value</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* Create Lead Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
