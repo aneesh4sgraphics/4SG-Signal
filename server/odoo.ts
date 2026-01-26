@@ -81,6 +81,34 @@ interface OdooSaleOrder {
   note?: string;
 }
 
+interface OdooLead {
+  id: number;
+  name: string;
+  contact_name?: string;
+  email_from?: string;
+  phone?: string;
+  mobile?: string;
+  partner_name?: string; // Company name
+  function?: string; // Job title
+  street?: string;
+  street2?: string;
+  city?: string;
+  state_id?: [number, string] | false;
+  zip?: string;
+  country_id?: [number, string] | false;
+  website?: string;
+  description?: string;
+  type?: string; // 'lead' or 'opportunity'
+  stage_id?: [number, string] | false;
+  probability?: number;
+  expected_revenue?: number;
+  priority?: string;
+  tag_ids?: number[];
+  user_id?: [number, string] | false;
+  create_date?: string;
+  write_date?: string;
+}
+
 class OdooClient {
   private config: OdooConfig | null = null;
   private uid: number | null = null;
@@ -1616,6 +1644,72 @@ ${plainTextBody}`;
       return [];
     }
   }
+
+  // CRM Leads - fetch leads from Odoo crm.lead model
+  async getLeads(options: { limit?: number; offset?: number; domain?: any[]; type?: 'lead' | 'opportunity' | 'all' } = {}): Promise<OdooLead[]> {
+    const domain: any[] = options.domain ? [...options.domain] : [];
+    
+    // Filter by type if specified (lead vs opportunity)
+    if (options.type === 'lead') {
+      domain.push(['type', '=', 'lead']);
+    } else if (options.type === 'opportunity') {
+      domain.push(['type', '=', 'opportunity']);
+    }
+    
+    return this.searchRead('crm.lead', domain, [
+      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
+      'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
+      'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
+      'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
+      'create_date', 'write_date'
+    ], { 
+      limit: options.limit || 100, 
+      offset: options.offset || 0,
+      order: 'create_date desc'
+    });
+  }
+
+  // Get all leads with pagination
+  async getAllLeads(type: 'lead' | 'opportunity' | 'all' = 'all'): Promise<OdooLead[]> {
+    const allLeads: OdooLead[] = [];
+    const batchSize = 500;
+    let offset = 0;
+    
+    console.log(`[Odoo] Fetching all CRM leads (type: ${type})...`);
+    
+    while (true) {
+      const batch = await this.getLeads({ limit: batchSize, offset, type });
+      
+      if (batch.length === 0) break;
+      
+      allLeads.push(...batch);
+      console.log(`[Odoo] Fetched ${allLeads.length} leads so far...`);
+      
+      if (batch.length < batchSize) break;
+      offset += batchSize;
+    }
+    
+    console.log(`[Odoo] Total leads fetched: ${allLeads.length}`);
+    return allLeads;
+  }
+
+  // Get a single lead by ID
+  async getLeadById(id: number): Promise<OdooLead | null> {
+    const leads = await this.searchRead('crm.lead', [['id', '=', id]], [
+      'id', 'name', 'contact_name', 'email_from', 'phone', 'mobile',
+      'partner_name', 'function', 'street', 'street2', 'city', 'state_id',
+      'zip', 'country_id', 'website', 'description', 'type', 'stage_id',
+      'probability', 'expected_revenue', 'priority', 'tag_ids', 'user_id',
+      'create_date', 'write_date'
+    ], { limit: 1 });
+    
+    return leads.length > 0 ? leads[0] : null;
+  }
+
+  // Get CRM lead stages
+  async getLeadStages(): Promise<Array<{ id: number; name: string; sequence: number }>> {
+    return this.searchRead('crm.stage', [], ['id', 'name', 'sequence'], { order: 'sequence asc' });
+  }
 }
 
 export const odooClient = new OdooClient();
@@ -1624,4 +1718,4 @@ export function isOdooConfigured(): boolean {
   return !!(ODOO_URL && ODOO_DATABASE && ODOO_USERNAME && ODOO_API_KEY);
 }
 
-export type { OdooPartner, OdooProduct, OdooPricelist, OdooSaleOrder };
+export type { OdooPartner, OdooProduct, OdooPricelist, OdooSaleOrder, OdooLead };
