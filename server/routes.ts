@@ -13285,7 +13285,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingEmailSet = new Set(existingLeadEmails.map(e => e.emailNormalized).filter(Boolean));
       console.log(`[Leads] Found ${existingEmailSet.size} existing lead emails for dedup`);
       
-      // Step 3: Get all child contacts for companies in one query
+      // Step 3: Get parent company IDs that have purchases (to exclude their child contacts)
+      const parentIds = zeroSpendingContacts
+        .filter(c => c.parentCustomerId)
+        .map(c => c.parentCustomerId as number);
+      
+      let parentCompaniesWithSpending = new Set<number>();
+      if (parentIds.length > 0) {
+        const parentsWithSpending = await db.select({ id: customers.id })
+          .from(customers)
+          .where(
+            and(
+              inArray(customers.id, parentIds),
+              not(or(
+                eq(customers.totalSpent, "0"),
+                eq(customers.totalSpent, "0.00"),
+                isNull(customers.totalSpent)
+              ))
+            )
+          );
+        parentCompaniesWithSpending = new Set(parentsWithSpending.map(p => p.id));
+        console.log(`[Leads] Found ${parentCompaniesWithSpending.size} parent companies with purchases (their contacts will be skipped)`);
+      }
+      
+      // Step 4: Get all child contacts for companies in one query
       const companyIds = zeroSpendingContacts.filter(c => c.isCompany).map(c => c.id);
       let childContactsMap = new Map<number, typeof zeroSpendingContacts[0]>();
       
@@ -13305,15 +13328,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Leads] Fetched ${allChildContacts.length} child contacts for ${companyIds.length} companies`);
       }
       
-      // Step 4: Prepare lead records for batch insert
+      // Step 5: Prepare lead records for batch insert
       const leadsToInsert: any[] = [];
       const contactsToConvert: typeof zeroSpendingContacts = [];
       let skipped = 0;
+      let skippedParentHasSpending = 0;
       
       for (const c of zeroSpendingContacts) {
         // Skip if already a lead (by normalized email)
         if (c.emailNormalized && existingEmailSet.has(c.emailNormalized)) {
           skipped++;
+          continue;
+        }
+        
+        // Skip if this contact's parent company has purchases
+        if (c.parentCustomerId && parentCompaniesWithSpending.has(c.parentCustomerId)) {
+          skippedParentHasSpending++;
           continue;
         }
         
@@ -13430,13 +13460,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      console.log(`[Leads] Batch conversion complete: ${insertedLeads.length} converted, ${skipped} skipped`);
+      console.log(`[Leads] Batch conversion complete: ${insertedLeads.length} converted, ${skipped} skipped (already leads), ${skippedParentHasSpending} skipped (parent has purchases)`);
       
       res.json({
         success: true,
-        message: `Converted ${insertedLeads.length} contacts/companies to leads`,
+        message: `Converted ${insertedLeads.length} contacts/companies to leads (skipped ${skippedParentHasSpending} contacts whose parent company has purchases)`,
         converted: insertedLeads.length,
         skipped,
+        skippedParentHasSpending,
         total: zeroSpendingContacts.length,
         results
       });
