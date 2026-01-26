@@ -13258,19 +13258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const child = childContacts[0];
             primaryContactName = `${child.firstName || ''} ${child.lastName || ''}`.trim() || undefined;
             primaryContactEmail = child.email || undefined;
-            
-            // Mark ALL child contacts as DNC since the company is being moved
-            for (const childContact of childContacts) {
-              await db.update(customers)
-                .set({
-                  doNotContact: true,
-                  doNotContactReason: 'Parent company converted to Lead ($0 spending)',
-                  doNotContactSetBy: req.user?.email,
-                  doNotContactSetAt: new Date(),
-                  updatedAt: new Date()
-                })
-                .where(eq(customers.id, childContact.id));
-            }
+            // Note: We do NOT mark child contacts as DNC - they should remain contactable
+            // so we can reach out and try to revive the lead
           }
         }
         
@@ -13324,16 +13313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email
         });
         
-        // Mark the customer as DNC so they don't appear in SPOTLIGHT as a contact
-        await db.update(customers)
-          .set({
-            doNotContact: true,
-            doNotContactReason: 'Converted to Lead ($0 spending)',
-            doNotContactSetBy: req.user?.email,
-            doNotContactSetAt: new Date(),
-            updatedAt: new Date()
-          })
-          .where(eq(customers.id, c.id));
+        // Note: We do NOT mark the contact/company as DNC - they should remain contactable
+        // The purpose of moving to Leads is to refocus and recontact them to revive the lead
         
         results.push({
           id: result[0].id,
