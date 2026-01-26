@@ -359,6 +359,11 @@ export default function Spotlight() {
     "Set a clear next step and timeline for follow-up",
   ];
   
+  // Fetch user's email signature
+  const { data: userSignature } = useQuery<{ signatureHtml: string; name: string; title: string; phone: string }>({
+    queryKey: ['/api/email/signature'],
+  });
+
   // Fetch warmup data on mount if not yet shown
   const { data: warmupData } = useQuery<WarmupData>({
     queryKey: ['/api/spotlight/warmup'],
@@ -1012,6 +1017,16 @@ export default function Spotlight() {
     if (customerName) {
       setEmailSubject(`Following up - ${customerName}`);
     }
+    // Pre-fill body with signature if available
+    if (userSignature?.signatureHtml) {
+      // Convert HTML signature to plain text for the textarea
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = userSignature.signatureHtml;
+      const signatureText = tempDiv.textContent || tempDiv.innerText || '';
+      setEmailBody(`\n\n${signatureText}`);
+    } else {
+      setEmailBody('');
+    }
     setShowEmailComposer(true);
   };
 
@@ -1034,6 +1049,13 @@ export default function Spotlight() {
       if (contactName) {
         subject = subject.replace(/\{\{contact_name\}\}/gi, contactName);
         body = body.replace(/\{\{contact_name\}\}/gi, contactName);
+      }
+      // Append signature if available
+      if (userSignature?.signatureHtml) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = userSignature.signatureHtml;
+        const signatureText = tempDiv.textContent || tempDiv.innerText || '';
+        body = body + `\n\n${signatureText}`;
       }
       setEmailSubject(subject);
       setEmailBody(body);
