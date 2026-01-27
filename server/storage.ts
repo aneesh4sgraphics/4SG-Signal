@@ -1079,14 +1079,16 @@ export class DatabaseStorage implements IStorage {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     
-    // Build search condition
+    // Build search condition - searches indexed fields for performance
     if (search) {
       const searchTerm = search.toLowerCase();
       conditions.push(sql`(
         ${customers.company} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.email} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.firstName} ILIKE ${'%' + searchTerm + '%'} OR
-        ${customers.lastName} ILIKE ${'%' + searchTerm + '%'}
+        ${customers.lastName} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.phone} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.website} ILIKE ${'%' + searchTerm + '%'}
       )`);
     }
     

@@ -3403,7 +3403,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (usePagination) {
         // Paginated mode - return lean payload with pagination metadata
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+        // Support both 'limit' and 'pageSize' as parameter names
+        const limitParam = req.query.limit || req.query.pageSize;
+        const limit = Math.min(100, Math.max(1, parseInt(limitParam as string) || 50));
         const search = req.query.search as string | undefined;
         
         // Parse filter params
