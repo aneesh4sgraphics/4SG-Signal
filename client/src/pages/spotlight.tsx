@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -78,6 +79,7 @@ import {
   Rocket,
   ChevronDown,
   ChevronRight,
+  UserPlus,
 } from "lucide-react";
 
 // Progress Ring SVG Component for Pastel & Soft design
@@ -134,6 +136,8 @@ interface TaskOutcome {
 interface SpotlightTask {
   id: string;
   customerId: string;
+  leadId?: number;
+  isLeadTask?: boolean;
   bucket: TaskBucket;
   taskSubtype: string;
   priority: number;
@@ -157,6 +161,25 @@ interface SpotlightTask {
     salesRepName: string | null;
     pricingTier: string | null;
     isHotProspect: boolean | null;
+  };
+  lead?: {
+    id: number;
+    name: string;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+    mobile: string | null;
+    stage: string;
+    priority: string | null;
+    score: number | null;
+    city: string | null;
+    state: string | null;
+    salesRepId: string | null;
+    salesRepName: string | null;
+    firstEmailSentAt: string | null;
+    firstEmailReplyAt: string | null;
+    lastContactAt: string | null;
+    totalTouchpoints: number | null;
   };
   context?: {
     followUpId?: number;
@@ -1507,22 +1530,48 @@ export default function Spotlight() {
               </div>
             )}
 
-            {/* Main Customer Card - V0 Style */}
-            <div className="spotlight-card p-6 mb-4">
+            {/* Main Customer/Lead Card - V0 Style */}
+            <div className={`spotlight-card p-6 mb-4 ${task.isLeadTask ? 'ring-2 ring-emerald-400 bg-gradient-to-br from-emerald-50 to-white' : ''}`}>
+              {/* Lead Badge - shown only for lead tasks */}
+              {task.isLeadTask && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold border border-emerald-300">
+                    <UserPlus className="w-4 h-4" />
+                    Lead
+                  </span>
+                  {task.lead?.stage && (
+                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
+                    </span>
+                  )}
+                  {(task.lead?.priority === 'high' || task.lead?.priority === 'urgent') && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-xs font-medium border border-red-200">
+                      <Flame className="w-3 h-3" />
+                      {task.lead.priority === 'urgent' ? 'Urgent' : 'Hot'}
+                    </span>
+                  )}
+                </div>
+              )}
+              
               {/* Customer Header with Hot Badge */}
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h2 className="text-2xl font-semibold text-slate-800">{customer.company || customerName}</h2>
-                  {customer.firstName && customer.company && (
+                  <h2 className={`text-2xl font-semibold ${task.isLeadTask ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    {task.isLeadTask ? (task.lead?.name || customer.company || customerName) : (customer.company || customerName)}
+                  </h2>
+                  {task.isLeadTask && task.lead?.company && (
+                    <p className="text-sm text-emerald-600 mt-0.5">{task.lead.company}</p>
+                  )}
+                  {!task.isLeadTask && customer.firstName && customer.company && (
                     <p className="text-sm text-slate-600 mt-0.5">{customer.firstName} {customer.lastName || ''}</p>
                   )}
                 </div>
-                {customer.isHotProspect ? (
+                {!task.isLeadTask && customer.isHotProspect ? (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-500 text-sm font-medium border border-red-200">
                     <Flame className="w-4 h-4" />
                     Hot
                   </span>
-                ) : (
+                ) : !task.isLeadTask ? (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1539,7 +1588,7 @@ export default function Spotlight() {
                     <Flame className="w-4 h-4" />
                     Mark Hot
                   </Button>
-                )}
+                ) : null}
               </div>
 
               {/* Email & Phone Row */}
