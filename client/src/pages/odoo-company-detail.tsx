@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PricingTier {
   id: number;
@@ -169,6 +170,7 @@ export default function OdooCompanyDetail() {
     note: '',
   });
   const { toast } = useToast();
+  const { user } = useAuth();
   const emailComposer = useEmailComposer();
   const queryClient = useQueryClient();
 
@@ -996,15 +998,17 @@ export default function OdooCompanyDetail() {
                 Print Label
               </Button>
               
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsDeleteConfirmOpen(true)}
-                className="border-red-200 text-red-600 hover:bg-red-50"
-                title="Delete customer"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {user?.role === 'admin' && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  title="Delete customer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
               
               <div className="flex items-center gap-1 border-l pl-2 ml-1">
                 <Button 
