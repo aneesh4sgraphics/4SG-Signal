@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -307,6 +308,7 @@ export default function Spotlight() {
   const [mergeTarget, setMergeTarget] = useState<string | null>(null);
   const [mergeFieldSelections, setMergeFieldSelections] = useState<Record<string, string>>({});
   const [mergeEmailSelections, setMergeEmailSelections] = useState<{ primary: string; secondary: string }>({ primary: '', secondary: '' });
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1587,11 +1589,15 @@ export default function Spotlight() {
                 <span className="text-slate-600">
                   Rep: <span className="font-medium">{customer.salesRepName || 'You'}</span>
                 </span>
-                <Link href={`/odoo-contacts/${customer.id}`}>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </Link>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-3 text-xs bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 rounded-full"
+                  onClick={() => setShowProfilePanel(true)}
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  View Full Profile
+                </Button>
               </div>
 
               {/* Follow-up context */}
@@ -1795,45 +1801,51 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Outcome Buttons */}
+              {/* Outcome Buttons - Prominent Action Cards */}
               {task.bucket !== 'data_hygiene' && task.outcomes.length > 0 && (
-                <div className="bg-white rounded-2xl p-4 border border-slate-100">
-                  <p className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wide">Outcome</p>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {task.outcomes.slice(0, 3).map((outcome) => {
+                <div className="bg-gradient-to-b from-white to-slate-50 rounded-2xl p-5 border-2 border-slate-200 shadow-sm">
+                  <p className="text-xs font-bold text-slate-600 mb-4 uppercase tracking-wide flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    What happened?
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {task.outcomes.slice(0, 4).map((outcome) => {
                       const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
                       const isPositive = ['connected', 'completed', 'sent', 'done', 'email_sent', 'called', 'already_has', 'already_engaged'].includes(outcome.id);
+                      const isNegative = ['bad_number', 'not_interested', 'lost', 'no_answer', 'voicemail'].includes(outcome.id);
                       return (
                         <button
                           key={outcome.id}
                           onClick={() => handleOutcome(outcome.id)}
-                          className={`flex-1 px-4 py-2.5 rounded-full text-sm font-semibold transition-all spotlight-btn-outline ${
+                          disabled={completeMutation.isPending || skipMutation.isPending}
+                          className={`flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md ${
                             isPositive 
-                              ? 'border-blue-500 text-blue-600 hover:bg-blue-50' 
-                              : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400' 
+                              : isNegative
+                                ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'
+                                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
                           }`}
                         >
+                          {OutcomeIcon && <OutcomeIcon className="w-5 h-5" />}
                           {outcome.label}
                         </button>
                       );
                     })}
                   </div>
-                  {task.outcomes.length > 3 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {task.outcomes.slice(3).map((outcome) => {
+                  {task.outcomes.length > 4 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {task.outcomes.slice(4).map((outcome) => {
                         const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
                         const isDNC = outcome.id === 'bad_fit' || outcome.nextAction?.type === 'mark_dnc';
-                        const isNegative = ['bad_number', 'not_interested', 'lost'].includes(outcome.id);
                         return (
                           <button
                             key={outcome.id}
                             onClick={() => handleOutcome(outcome.id)}
-                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            disabled={completeMutation.isPending || skipMutation.isPending}
+                            className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all border ${
                               isDNC 
-                                ? 'border-2 border-red-300 text-red-600 hover:bg-red-50' 
-                                : isNegative
-                                  ? 'border-2 border-amber-300 text-amber-600 hover:bg-amber-50'
-                                  : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ? 'border-red-300 text-red-600 hover:bg-red-50' 
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
                             {outcome.label}
@@ -1842,7 +1854,7 @@ export default function Spotlight() {
                       })}
                     </div>
                   )}
-                  <div className="flex gap-6 justify-center pt-2 border-t border-slate-100">
+                  <div className="flex gap-4 justify-center pt-3 border-t border-slate-200">
                     <button 
                       className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
                       onClick={handleSkip}
@@ -1970,6 +1982,192 @@ export default function Spotlight() {
         </div>
       </div>
       
+      {/* Full Profile Side Panel */}
+      <Sheet open={showProfilePanel} onOpenChange={setShowProfilePanel}>
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader className="pb-4 border-b">
+            <SheetTitle className="flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-slate-600" />
+              {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Customer Profile'}
+            </SheetTitle>
+            <SheetDescription>Full customer details - no page navigation needed</SheetDescription>
+          </SheetHeader>
+          
+          {customer && (
+            <div className="py-6 space-y-6">
+              {/* Key Contact */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Key Contact</h4>
+                <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-slate-500" />
+                    <span className="font-medium text-slate-800">
+                      {customer.firstName || customer.lastName ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : 'No name on file'}
+                    </span>
+                  </div>
+                  {customer.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-slate-500" />
+                      <a href={`mailto:${customer.email}`} className="text-blue-600 hover:underline text-sm">
+                        {customer.email}
+                      </a>
+                    </div>
+                  )}
+                  {customer.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-slate-500" />
+                      <a href={`tel:${customer.phone}`} className="text-blue-600 hover:underline text-sm">
+                        {customer.phone}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Address */}
+              {customer.address1 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Address</h4>
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-slate-500 mt-0.5" />
+                      <div className="text-sm text-slate-700">
+                        <p>{customer.address1}</p>
+                        {customer.address2 && <p>{customer.address2}</p>}
+                        <p>{customer.city}, {customer.province} {customer.zip}</p>
+                        {customer.country && <p>{customer.country}</p>}
+                      </div>
+                    </div>
+                    <a 
+                      href={`https://maps.google.com/?q=${encodeURIComponent(`${customer.address1}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline"
+                    >
+                      <Globe className="w-3 h-3" />
+                      Open in Maps
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Business Info */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Business Info</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-500 mb-1">Pricing Tier</p>
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 capitalize">
+                      {customer.pricingTier || 'Not set'}
+                    </Badge>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-500 mb-1">Sales Rep</p>
+                    <p className="text-sm font-medium text-slate-800">{customer.salesRepName || 'Unassigned'}</p>
+                  </div>
+                </div>
+                {customer.website && (
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-500 mb-1">Website</p>
+                    <a 
+                      href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      <Globe className="w-3 h-3" />
+                      {customer.website}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Machines */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Machines</h4>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {customerMachines.length > 0 ? (
+                      customerMachines.map((m) => (
+                        <Badge key={m.id} variant="outline" className="text-xs bg-white">
+                          {m.machineFamily}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-slate-400 italic">No machines on file</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Notes */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Recent Notes</h4>
+                <div className="space-y-2">
+                  {customerNotes.length > 0 ? (
+                    customerNotes.slice(0, 5).map((note) => (
+                      <div key={note.id} className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-xs text-blue-600 mb-1">
+                          {new Date(note.occurredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        <p className="text-sm text-slate-700">{note.summary}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No notes yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="pt-4 border-t space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Quick Actions</h4>
+                <div className="flex flex-wrap gap-2">
+                  {customer.email && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => {
+                        setShowProfilePanel(false);
+                        handleOpenEmailComposer();
+                      }}
+                    >
+                      <Mail className="w-4 h-4 mr-1" />
+                      Send Email
+                    </Button>
+                  )}
+                  {customer.phone && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      asChild
+                    >
+                      <a href={`tel:${customer.phone}`}>
+                        <Phone className="w-4 h-4 mr-1" />
+                        Call
+                      </a>
+                    </Button>
+                  )}
+                  <Link href={`/odoo-contacts/${customer.id}`}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setShowProfilePanel(false)}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-1" />
+                      Full Page
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
