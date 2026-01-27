@@ -179,6 +179,7 @@ interface ReportCacheResult {
   data: any | null;
   isStale: boolean;
   isCached: boolean;
+  fetchedAt: number | null;
 }
 
 function getReportCache(userId: string, reportKey: string): ReportCacheResult {
@@ -186,13 +187,25 @@ function getReportCache(userId: string, reportKey: string): ReportCacheResult {
   const cached = reportCache.get(key);
   
   if (!cached) {
-    return { data: null, isStale: false, isCached: false };
+    return { data: null, isStale: false, isCached: false, fetchedAt: null };
   }
   
   const age = Date.now() - cached.timestamp;
   const isStale = age > REPORT_CACHE_TTL;
   
-  return { data: cached.data, isStale, isCached: true };
+  return { data: cached.data, isStale, isCached: true, fetchedAt: cached.timestamp };
+}
+
+// Standard metadata for report responses
+function buildReportMeta(source: 'odoo' | 'shopify' | 'local' | 'mixed', cached: boolean, fetchedAt: number | null) {
+  return {
+    _meta: {
+      source,
+      cached,
+      fetchedAt: fetchedAt || Date.now(),
+      fetchedAtIso: new Date(fetchedAt || Date.now()).toISOString(),
+    }
+  };
 }
 
 function setReportCache(userId: string, reportKey: string, data: any) {
@@ -818,12 +831,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (cached.isStale) {
           refreshReportInBackground(userId, reportKey, fetchInvoices2026Data);
         }
-        return res.json({ ...cached.data, cached: true });
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
       }
       
       const data = await fetchInvoices2026Data();
       setReportCache(userId, reportKey, data);
-      res.json(data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Invoices 2026 report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -907,12 +920,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (cached.isStale) {
           refreshReportInBackground(userId, reportKey, fetchQuotesVsOrders2026Data);
         }
-        return res.json({ ...cached.data, cached: true });
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
       }
       
       const data = await fetchQuotesVsOrders2026Data();
       setReportCache(userId, reportKey, data);
-      res.json(data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Quotes vs Orders 2026 report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -999,12 +1012,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (cached.isStale) {
           refreshReportInBackground(userId, reportKey, fetchGrossProfit2026Data);
         }
-        return res.json({ ...cached.data, cached: true });
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
       }
       
       const data = await fetchGrossProfit2026Data();
       setReportCache(userId, reportKey, data);
-      res.json(data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Gross Profit 2026 report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -1054,6 +1067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalEquity: Math.abs(totalEquity),
         debtToEquityRatio,
         hasData: liabilityLines.length > 0 || equityLines.length > 0,
+        ...buildReportMeta('odoo', false, Date.now()),
       });
     } catch (error) {
       console.error("Debt to Equity 2026 report error:", error);
@@ -1205,6 +1219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyStartDate,
         yearlyData,
         hasData: equityLines.length > 0 || lifetimeIncome.length > 0,
+        ...buildReportMeta('odoo', false, Date.now()),
       });
     } catch (error) {
       console.error("Investor Returns report error:", error);
@@ -1355,6 +1370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         collectionTips,
         invoiceCount: openInvoices.length,
         hasData: openInvoices.length > 0,
+        ...buildReportMeta('odoo', false, Date.now()),
       });
     } catch (error) {
       console.error("Bad Debt report error:", error);
@@ -1467,6 +1483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inventoryTurnover: Math.round(inventoryTurnover * 100) / 100,
         daysToSellInventory,
         hasData: products.length > 0 || totalCogs > 0,
+        ...buildReportMeta('odoo', false, Date.now()),
       });
     } catch (error) {
       console.error("Inventory Turnover 2026 report error:", error);

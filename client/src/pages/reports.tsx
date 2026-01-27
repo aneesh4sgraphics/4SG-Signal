@@ -38,8 +38,13 @@ import {
   Line,
   Area
 } from "recharts";
+import { DataFreshness, type ReportMeta } from "@/components/DataFreshness";
 
-interface InvoiceData {
+interface ReportMetaWrapper {
+  _meta?: ReportMeta;
+}
+
+interface InvoiceData extends ReportMetaWrapper {
   success: boolean;
   year: number;
   grandTotal: number;
@@ -57,7 +62,7 @@ interface InvoiceData {
   };
 }
 
-interface InventoryTurnoverData {
+interface InventoryTurnoverData extends ReportMetaWrapper {
   success: boolean;
   year: number;
   cogs: number;
@@ -69,7 +74,7 @@ interface InventoryTurnoverData {
   hasData: boolean;
 }
 
-interface GrossProfitData {
+interface GrossProfitData extends ReportMetaWrapper {
   success: boolean;
   year: number;
   totals: {
@@ -87,7 +92,7 @@ interface GrossProfitData {
   }>;
 }
 
-interface DebtEquityData {
+interface DebtEquityData extends ReportMetaWrapper {
   success: boolean;
   year: number;
   totalDebt: number;
@@ -96,7 +101,7 @@ interface DebtEquityData {
   hasData: boolean;
 }
 
-interface BadDebtData {
+interface BadDebtData extends ReportMetaWrapper {
   success: boolean;
   totalReceivables: number;
   totalOverdue: number;
@@ -122,7 +127,7 @@ interface BadDebtData {
   hasData: boolean;
 }
 
-interface InvestorReturnsData {
+interface InvestorReturnsData extends ReportMetaWrapper {
   success: boolean;
   initialInvestment: number;
   currentValue: number;
@@ -317,6 +322,7 @@ export default function ReportsPage() {
                     Total Invoices 2026
                   </CardTitle>
                   <CardDescription>Posted invoice totals by month</CardDescription>
+                  {invoiceData?._meta && <DataFreshness meta={invoiceData._meta} />}
                 </div>
                 {invoiceData && (
                   <Badge variant="secondary" className="text-lg px-3 py-1">
@@ -394,6 +400,7 @@ export default function ReportsPage() {
                     Inventory Turnover
                   </CardTitle>
                   <CardDescription>How efficiently inventory is sold and replaced</CardDescription>
+                  {inventoryData?._meta && <DataFreshness meta={inventoryData._meta} />}
                 </div>
                 {inventoryData && (
                   <div className="flex items-center gap-2">
@@ -493,6 +500,7 @@ export default function ReportsPage() {
                     Gross Profit (COGS vs Sales)
                   </CardTitle>
                   <CardDescription>Revenue, cost of goods sold, and profit margins by month</CardDescription>
+                  {grossProfitData?._meta && <DataFreshness meta={grossProfitData._meta} />}
                 </div>
                 {grossProfitData && (
                   <div className="flex items-center gap-2">
@@ -604,6 +612,7 @@ export default function ReportsPage() {
                     Debt to Equity Ratio
                   </CardTitle>
                   <CardDescription>Total liabilities vs. shareholders' equity</CardDescription>
+                  {debtEquityData?._meta && <DataFreshness meta={debtEquityData._meta} />}
                 </div>
                 {debtEquityData?.hasData && debtEquityData.debtToEquityRatio !== null && (
                   <Badge 
@@ -687,6 +696,7 @@ export default function ReportsPage() {
                     Bad Debt & Collections
                   </CardTitle>
                   <CardDescription>Receivables aging and collection health</CardDescription>
+                  {badDebtData?._meta && <DataFreshness meta={badDebtData._meta} />}
                 </div>
                 {badDebtData?.hasData && (
                   <div className="flex items-center gap-2">
