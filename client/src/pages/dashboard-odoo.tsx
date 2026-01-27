@@ -24,7 +24,13 @@ import {
   Flame,
   Package,
   ExternalLink,
+  Trophy,
+  Phone,
+  Mail,
+  FileText,
+  Sparkles,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { primaryApps, filterAppsByUser } from "@/lib/nav-links";
 import { useAuth } from "@/hooks/useAuth";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -124,6 +130,44 @@ export default function Dashboard() {
     enabled: isAdminUser,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Leaderboard data (admin only)
+  interface LeaderboardUser {
+    user_id: string;
+    email: string;
+    display_name: string;
+    today_total: number;
+    week_total: number;
+    month_total: number;
+    bucket_stats: Record<string, { today: number; week: number; month: number }>;
+    hot_leads: number;
+  }
+
+  const { data: leaderboardData } = useQuery<{
+    users: LeaderboardUser[];
+    dateRange: { today: string; weekStart: string; monthStart: string };
+  }>({
+    queryKey: ['/api/admin/leaderboard'],
+    enabled: isAdminUser,
+    staleTime: 60 * 1000,
+  });
+
+  const BUCKET_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+    calls: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Calls' },
+    follow_ups: { bg: 'bg-green-100', text: 'text-green-700', label: 'Follow-ups' },
+    outreach: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Outreach' },
+    data_hygiene: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Hygiene' },
+    enablement: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Enablement' },
+  };
+
+  const getRankColors = (rank: number) => {
+    switch (rank) {
+      case 1: return 'from-yellow-400 to-amber-500 border-yellow-300';
+      case 2: return 'from-gray-300 to-slate-400 border-gray-200';
+      case 3: return 'from-amber-600 to-orange-700 border-amber-500';
+      default: return 'from-blue-400 to-indigo-500 border-blue-300';
+    }
+  };
 
   const { data: objections = [] } = useQuery<{ id: number; status: string }[]>({
     queryKey: ["/api/crm/objections"],
@@ -284,6 +328,88 @@ export default function Dashboard() {
               dailyGoal={10}
             />
           </div>
+
+          {/* Team Leaderboard - Admin Only */}
+          {isAdmin && leaderboardData?.users && leaderboardData.users.length > 0 && (
+            <div style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #EAEAEA',
+              marginBottom: '24px',
+              padding: '20px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <Trophy style={{ width: '20px', height: '20px', color: '#F59E0B' }} />
+                <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#111111', margin: 0 }}>
+                  Team Leaderboard
+                </h2>
+                <span style={{ fontSize: '12px', color: '#6B6B8C', marginLeft: 'auto' }}>
+                  This week
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                {leaderboardData.users.map((repUser, index) => {
+                  const rank = index + 1;
+                  return (
+                    <div
+                      key={repUser.user_id}
+                      className={`relative rounded-xl p-4 bg-gradient-to-br ${getRankColors(rank)} shadow-md border-2`}
+                    >
+                      {/* Rank Badge */}
+                      <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center font-bold text-sm">
+                        {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+                      </div>
+
+                      {/* User Info */}
+                      <div className="mb-3">
+                        <h3 className="text-white font-bold text-lg capitalize drop-shadow">
+                          {repUser.display_name}
+                        </h3>
+                        {repUser.hot_leads > 0 && (
+                          <Badge variant="secondary" className="bg-red-500 text-white text-xs mt-1">
+                            <Flame className="h-3 w-3 mr-1" />
+                            {repUser.hot_leads} HOT
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="bg-white/90 rounded-lg p-2 space-y-1">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-600">Today</span>
+                          <span className="font-bold">{repUser.today_total}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-600">This Week</span>
+                          <span className="font-bold text-base">{repUser.week_total}</span>
+                        </div>
+                      </div>
+
+                      {/* Bucket Breakdown */}
+                      {repUser.bucket_stats && Object.keys(repUser.bucket_stats).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {Object.entries(repUser.bucket_stats).map(([bucket, bucketStats]) => {
+                            const bucketInfo = BUCKET_COLORS[bucket] || { bg: 'bg-gray-100', text: 'text-gray-700', label: bucket };
+                            const weekCount = bucketStats.week || 0;
+                            if (weekCount === 0) return null;
+                            return (
+                              <Badge
+                                key={bucket}
+                                variant="secondary"
+                                className={`${bucketInfo.bg} ${bucketInfo.text} text-xs px-1.5 py-0`}
+                              >
+                                {bucketInfo.label}: {weekCount}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Notion-style Top Icon Bar */}
           <div style={{
