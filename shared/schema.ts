@@ -2674,6 +2674,7 @@ export type GmailInsight = typeof gmailInsights.$inferSelect;
 export type InsertGmailInsight = z.infer<typeof insertGmailInsightSchema>;
 
 // Gmail Deliverability Stats - track email deliverability health
+// NOTE: This table is defined but not currently used in the application
 export const gmailDeliverabilityStats = pgTable("gmail_deliverability_stats", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -2855,6 +2856,7 @@ export type EmailIntelligenceBlacklist = typeof emailIntelligenceBlacklist.$infe
 export type InsertEmailIntelligenceBlacklist = z.infer<typeof insertEmailIntelligenceBlacklistSchema>;
 
 // Daily User Performance - track achievements and wins per day
+// NOTE: This table is defined but not currently used in the application
 export const dailyUserPerformance = pgTable("daily_user_performance", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -3163,6 +3165,7 @@ export type SpotlightMicroCard = typeof spotlightMicroCards.$inferSelect;
 export type InsertSpotlightMicroCard = z.infer<typeof insertSpotlightMicroCardSchema>;
 
 // Spotlight Card Engagements - log user interactions with micro cards
+// NOTE: This table is defined but not currently used in the application
 export const spotlightCardEngagements = pgTable("spotlight_card_engagements", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
