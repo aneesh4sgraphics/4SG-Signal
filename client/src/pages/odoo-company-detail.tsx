@@ -45,6 +45,8 @@ import {
   Activity,
   Calendar,
   UserCheck,
+  StickyNote,
+  Plus,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
@@ -135,6 +137,8 @@ export default function OdooCompanyDetail() {
   const [isCreateOdooDialogOpen, setIsCreateOdooDialogOpen] = useState(false);
   const [duplicatePartners, setDuplicatePartners] = useState<Array<{ id: number; name: string; email: string; isCompany: boolean }>>([]);
   const [isPrintLabelOpen, setIsPrintLabelOpen] = useState(false);
+  const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
   const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'other'>('swatch_book');
   const [labelOtherDescription, setLabelOtherDescription] = useState('');
   const [labelQuantity, setLabelQuantity] = useState(1);
@@ -256,6 +260,7 @@ export default function OdooCompanyDetail() {
     sourceTable: string | null;
     createdAt: string;
     userId: string | null;
+    createdByName: string | null;
   }
   const { data: activityEvents = [], isLoading: activityLoading } = useQuery<ActivityEvent[]>({
     queryKey: ['/api/customer-activity/events', companyId],
@@ -353,6 +358,30 @@ export default function OdooCompanyDetail() {
     },
     onError: (error: Error) => {
       toast({ title: 'Failed to print label', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Add note mutation
+  const addNoteMutation = useMutation({
+    mutationFn: async (noteText: string) => {
+      const res = await apiRequest('POST', '/api/customer-activity/events', {
+        customerId: companyId,
+        eventType: 'note',
+        eventCategory: 'internal',
+        title: 'Note Added',
+        description: noteText,
+      });
+      if (!res.ok) throw new Error('Failed to add note');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Note added', description: 'Your note has been saved' });
+      setNewNoteText('');
+      setIsNewNoteOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/customer-activity/events', companyId] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to add note', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -1312,6 +1341,102 @@ export default function OdooCompanyDetail() {
                     })()}
                   </TabsContent>
                 </Tabs>
+              </CardContent>
+            </Card>
+
+            {/* Notes Section */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <StickyNote className="w-5 h-5 text-amber-500" />
+                    Notes
+                  </CardTitle>
+                  <Dialog open={isNewNoteOpen} onOpenChange={setIsNewNoteOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="gap-1 h-8">
+                        <Plus className="w-4 h-4" />
+                        New Note
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add Note</DialogTitle>
+                        <DialogDescription>
+                          Add a note about this customer. Notes are visible to all team members.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <Textarea
+                          placeholder="Write your note here..."
+                          value={newNoteText}
+                          onChange={(e) => setNewNoteText(e.target.value)}
+                          className="min-h-[120px]"
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNewNoteOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="button"
+                          onClick={() => addNoteMutation.mutate(newNoteText)}
+                          disabled={!newNoteText.trim() || addNoteMutation.isPending}
+                        >
+                          {addNoteMutation.isPending ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : null}
+                          Save Note
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {activityLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : (() => {
+                  const notes = activityEvents.filter(e => e.eventType === 'note' || e.eventType === 'note_added');
+                  return notes.length > 0 ? (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {notes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="p-3 bg-amber-50 rounded-lg border border-amber-100"
+                        >
+                          <p className="text-sm text-gray-800 whitespace-pre-wrap">{note.description}</p>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(note.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            })}
+                            {note.createdByName && (
+                              <>
+                                <span>•</span>
+                                <span>{note.createdByName}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <StickyNote className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm">No notes yet</p>
+                      <p className="text-xs mt-1">Add notes from SPOTLIGHT or click "+ New Note"</p>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
