@@ -20456,10 +20456,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const draftOrder = response.data.draft_order;
+      const finalQuoteNumber = quoteNumber || `QQ-${Date.now()}`;
 
-      // Save to our database
+      // Save to our database (shopifyDraftOrders table)
       const savedDraft = await db.insert(shopifyDraftOrders).values({
-        quoteNumber: quoteNumber || `QQ-${Date.now()}`,
+        quoteNumber: finalQuoteNumber,
         customerId,
         customerEmail,
         shopifyDraftOrderId: String(draftOrder.id),
@@ -20470,7 +20471,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lineItemsCount: draftOrder.line_items?.length || 0,
       }).returning();
 
-      console.log(`[Shopify] Draft order created: ${draftOrder.name} - $${draftOrder.total_price}`);
+      // Also save to sentQuotes for SPOTLIGHT follow-up tracking
+      const quoteItemsJson = JSON.stringify(lineItems.map((item: any) => ({
+        productName: item.productName || item.title,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice || item.pricePerPacket,
+        size: item.size,
+        sku: item.itemCode || item.sku,
+      })));
+      
+      const followUpDate = new Date();
+      followUpDate.setDate(followUpDate.getDate() + 3); // Follow up in 3 days for Shopify drafts (high priority)
+      
+      await db.insert(sentQuotes).values({
+        quoteNumber: draftOrder.name || finalQuoteNumber,
+        customerName: customerName || 'Unknown',
+        customerEmail: customerEmail || null,
+        quoteItems: quoteItemsJson,
+        totalAmount: draftOrder.total_price || '0',
+        sentVia: 'shopify_draft',
+        status: 'draft',
+        ownerEmail: req.user?.email || null,
+        followUpDueAt: followUpDate,
+        outcome: 'pending',
+        source: 'shopify_draft',
+        shopifyDraftOrderId: String(draftOrder.id),
+        priority: 'high', // High priority for SPOTLIGHT
+        customerId: customerId || null,
+      });
+
+      console.log(`[Shopify] Draft order created: ${draftOrder.name} - $${draftOrder.total_price} (saved to Saved Quotes for follow-up)`);
 
       res.json({
         success: true,
@@ -20501,6 +20531,229 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching draft orders:", error);
       res.status(500).json({ error: "Failed to fetch draft orders" });
+    }
+  });
+
+  // Sync Shopify abandoned carts and unconverted draft orders to Saved Quotes
+  // Only processes items created after Jan 1, 2026
+  app.post("/api/shopify/sync-to-saved-quotes", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!SHOPIFY_ACCESS_TOKEN || !SHOPIFY_STORE_DOMAIN) {
+        return res.status(400).json({ error: "Shopify not configured" });
+      }
+
+      const axios = (await import('axios')).default;
+      const cutoffDate = new Date('2026-01-01T00:00:00Z');
+      
+      let syncedDrafts = 0;
+      let syncedCarts = 0;
+      let skipped = 0;
+      let alreadyConverted = 0;
+
+      // 1. Fetch all OPEN draft orders from Shopify (not completed/converted)
+      console.log('[Shopify Sync] Fetching open draft orders after Jan 1, 2026...');
+      
+      try {
+        let hasNextPage = true;
+        let cursor: string | null = null;
+        
+        while (hasNextPage) {
+          const graphqlResponse = await axios.post(
+            `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/graphql.json`,
+            {
+              query: `{
+                draftOrders(first: 100, query: "status:open created_at:>=2026-01-01"${cursor ? `, after: "${cursor}"` : ''}) {
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                  edges {
+                    node {
+                      id
+                      name
+                      createdAt
+                      updatedAt
+                      status
+                      totalPrice
+                      customer {
+                        id
+                        email
+                        displayName
+                      }
+                      lineItems(first: 50) {
+                        edges {
+                          node {
+                            title
+                            quantity
+                            originalUnitPrice
+                            sku
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }`
+            },
+            {
+              headers: {
+                'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          const data = graphqlResponse.data?.data?.draftOrders;
+          const drafts = data?.edges || [];
+          
+          for (const edge of drafts) {
+            const draft = edge.node;
+            const draftId = draft.id.replace('gid://shopify/DraftOrder/', '');
+            const createdAt = new Date(draft.createdAt);
+            
+            // Skip if before cutoff
+            if (createdAt < cutoffDate) {
+              skipped++;
+              continue;
+            }
+            
+            // Check if already in sentQuotes
+            const existing = await db.select({ id: sentQuotes.id })
+              .from(sentQuotes)
+              .where(eq(sentQuotes.shopifyDraftOrderId, draftId))
+              .limit(1);
+            
+            if (existing.length > 0) {
+              skipped++;
+              continue;
+            }
+            
+            // Parse line items
+            const lineItems = draft.lineItems?.edges?.map((e: any) => ({
+              title: e.node.title,
+              quantity: e.node.quantity,
+              price: e.node.originalUnitPrice,
+              sku: e.node.sku,
+            })) || [];
+            
+            const followUpDate = new Date();
+            followUpDate.setDate(followUpDate.getDate() + 2); // Follow up in 2 days
+            
+            await db.insert(sentQuotes).values({
+              quoteNumber: draft.name,
+              customerName: draft.customer?.displayName || 'Unknown',
+              customerEmail: draft.customer?.email || null,
+              quoteItems: JSON.stringify(lineItems),
+              totalAmount: draft.totalPrice || '0',
+              sentVia: 'shopify_draft',
+              status: 'draft',
+              createdAt: createdAt,
+              followUpDueAt: followUpDate,
+              outcome: 'pending',
+              source: 'shopify_draft',
+              shopifyDraftOrderId: draftId,
+              priority: 'high',
+            });
+            
+            syncedDrafts++;
+          }
+          
+          hasNextPage = data?.pageInfo?.hasNextPage || false;
+          cursor = data?.pageInfo?.endCursor || null;
+        }
+      } catch (err: any) {
+        console.error('[Shopify Sync] Error fetching draft orders:', err.message);
+      }
+
+      // 2. Fetch abandoned checkouts from Shopify
+      console.log('[Shopify Sync] Fetching abandoned checkouts after Jan 1, 2026...');
+      
+      try {
+        // Shopify REST API for checkouts (GraphQL doesn't support abandoned checkouts well)
+        const checkoutsResponse = await axios.get(
+          `https://${SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/checkouts.json?created_at_min=2026-01-01T00:00:00Z&limit=250`,
+          {
+            headers: {
+              'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+            },
+          }
+        );
+
+        const checkouts = checkoutsResponse.data?.checkouts || [];
+        
+        for (const checkout of checkouts) {
+          const checkoutId = String(checkout.id);
+          const createdAt = new Date(checkout.created_at);
+          
+          // Skip if before cutoff
+          if (createdAt < cutoffDate) {
+            skipped++;
+            continue;
+          }
+          
+          // Skip if checkout was completed (has order)
+          if (checkout.order_id) {
+            alreadyConverted++;
+            continue;
+          }
+          
+          // Check if already in sentQuotes
+          const existing = await db.select({ id: sentQuotes.id })
+            .from(sentQuotes)
+            .where(eq(sentQuotes.shopifyCheckoutId, checkoutId))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            skipped++;
+            continue;
+          }
+          
+          // Parse line items
+          const lineItems = checkout.line_items?.map((item: any) => ({
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            sku: item.sku,
+          })) || [];
+          
+          const followUpDate = new Date();
+          followUpDate.setDate(followUpDate.getDate() + 1); // Follow up next day for abandoned carts (highest priority)
+          
+          await db.insert(sentQuotes).values({
+            quoteNumber: `AC-${checkoutId.slice(-6)}`,
+            customerName: checkout.billing_address?.name || checkout.email?.split('@')[0] || 'Unknown',
+            customerEmail: checkout.email || null,
+            quoteItems: JSON.stringify(lineItems),
+            totalAmount: checkout.total_price || '0',
+            sentVia: 'shopify_abandoned',
+            status: 'abandoned',
+            createdAt: createdAt,
+            followUpDueAt: followUpDate,
+            outcome: 'pending',
+            source: 'shopify_abandoned_cart',
+            shopifyCheckoutId: checkoutId,
+            priority: 'high',
+          });
+          
+          syncedCarts++;
+        }
+      } catch (err: any) {
+        console.error('[Shopify Sync] Error fetching checkouts:', err.message);
+      }
+
+      console.log(`[Shopify Sync] Complete: ${syncedDrafts} drafts, ${syncedCarts} abandoned carts synced, ${skipped} skipped, ${alreadyConverted} already converted`);
+      
+      res.json({
+        success: true,
+        message: `Synced ${syncedDrafts} draft orders and ${syncedCarts} abandoned carts to Saved Quotes`,
+        syncedDrafts,
+        syncedCarts,
+        skipped,
+        alreadyConverted,
+      });
+    } catch (error: any) {
+      console.error('[Shopify Sync] Error:', error);
+      res.status(500).json({ error: 'Failed to sync Shopify data', details: error.message });
     }
   });
 

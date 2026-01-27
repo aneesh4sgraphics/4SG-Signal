@@ -490,12 +490,23 @@ export const sentQuotes = pgTable("sent_quotes", {
   outcomeUpdatedBy: varchar("outcome_updated_by", { length: 255 }),
   reminderCount: integer("reminder_count").default(0), // How many reminders sent
   lostNotificationSent: boolean("lost_notification_sent").default(false),
+  // Source tracking for Shopify integration
+  source: varchar("source", { length: 50 }).default("quickquote"), // 'quickquote', 'shopify_draft', 'shopify_abandoned_cart', 'email', 'pdf'
+  shopifyDraftOrderId: varchar("shopify_draft_order_id", { length: 100 }), // Shopify draft order ID for dedup
+  shopifyCheckoutId: varchar("shopify_checkout_id", { length: 100 }), // Shopify abandoned checkout ID for dedup  
+  shopifyOrderId: varchar("shopify_order_id", { length: 100 }), // If converted to order (marks as won)
+  priority: varchar("priority", { length: 20 }).default("normal"), // 'high', 'normal', 'low' - Shopify items get 'high'
+  customerId: varchar("customer_id", { length: 100 }), // CRM customer ID for linking
 }, (table) => [
   index("IDX_sent_quotes_created_at").on(table.createdAt),
   index("IDX_sent_quotes_customer_email").on(table.customerEmail),
   index("IDX_sent_quotes_follow_up_due").on(table.followUpDueAt),
   index("IDX_sent_quotes_outcome").on(table.outcome),
   index("IDX_sent_quotes_owner").on(table.ownerEmail),
+  index("IDX_sent_quotes_source").on(table.source),
+  index("IDX_sent_quotes_shopify_draft").on(table.shopifyDraftOrderId),
+  index("IDX_sent_quotes_shopify_checkout").on(table.shopifyCheckoutId),
+  index("IDX_sent_quotes_priority").on(table.priority),
 ]);
 
 export const competitorPricing = pgTable("competitor_pricing", {

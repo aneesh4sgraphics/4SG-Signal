@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes } from "@shared/schema";
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { analyzeForHints, SpotlightHint, getCustomerMachineProfiles, getProductSuggestionsForMachines, getMachineLabel, checkMissingMachineProfile } from "./spotlight-heuristics";
@@ -1348,6 +1348,127 @@ class SpotlightEngine {
   private async findFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
     const now = new Date();
     
+    // PRIORITY 1: Check for high-priority Shopify quotes first (abandoned carts, draft orders)
+    try {
+      const shopifyQuoteResult = await db
+        .select({
+          id: sentQuotes.id,
+          quoteNumber: sentQuotes.quoteNumber,
+          customerName: sentQuotes.customerName,
+          customerEmail: sentQuotes.customerEmail,
+          customerId: sentQuotes.customerId,
+          totalAmount: sentQuotes.totalAmount,
+          source: sentQuotes.source,
+          priority: sentQuotes.priority,
+          followUpDueAt: sentQuotes.followUpDueAt,
+          shopifyDraftOrderId: sentQuotes.shopifyDraftOrderId,
+          shopifyCheckoutId: sentQuotes.shopifyCheckoutId,
+        })
+        .from(sentQuotes)
+        .where(and(
+          eq(sentQuotes.priority, 'high'),
+          eq(sentQuotes.outcome, 'pending'),
+          or(
+            eq(sentQuotes.source, 'shopify_draft'),
+            eq(sentQuotes.source, 'shopify_abandoned_cart')
+          ),
+          lte(sentQuotes.followUpDueAt, now),
+          // Exclude already processed quotes by checking for customerEmail not in skippedIds
+          ...(skippedIds.length > 0 ? [sql`${sentQuotes.customerEmail} NOT IN (${sql.raw(skippedIds.map(id => `'${id}'`).join(','))})`] : [])
+        ))
+        .orderBy(asc(sentQuotes.followUpDueAt))
+        .limit(1);
+      
+      if (shopifyQuoteResult.length > 0) {
+        const quote = shopifyQuoteResult[0];
+        
+        // Try to find linked customer, or create a temporary one
+        let customer: any = null;
+        if (quote.customerId) {
+          const customerResult = await db.select().from(customers).where(eq(customers.id, quote.customerId)).limit(1);
+          if (customerResult.length > 0) {
+            customer = customerResult[0];
+          }
+        }
+        
+        // If no linked customer, search by email
+        if (!customer && quote.customerEmail) {
+          const customerByEmail = await db.select().from(customers).where(eq(customers.email, quote.customerEmail)).limit(1);
+          if (customerByEmail.length > 0) {
+            customer = customerByEmail[0];
+          }
+        }
+        
+        // Create a synthetic customer for the task if not found
+        if (!customer) {
+          customer = {
+            id: `shopify_quote_${quote.id}`,
+            company: quote.customerName,
+            firstName: null,
+            lastName: null,
+            email: quote.customerEmail,
+            phone: null,
+            address1: null,
+            address2: null,
+            city: null,
+            province: null,
+            zip: null,
+            country: null,
+            website: null,
+            salesRepId: null,
+            salesRepName: null,
+            pricingTier: null,
+          };
+        }
+        
+        const isAbandonedCart = quote.source === 'shopify_abandoned_cart';
+        const icon = isAbandonedCart ? '🛒' : '📋';
+        const subtype = isAbandonedCart ? 'shopify_abandoned_cart' : 'shopify_draft_followup';
+        const whyNow = isAbandonedCart 
+          ? `${icon} Abandoned Cart: $${quote.totalAmount} - They left items in their cart!`
+          : `${icon} Shopify Draft Order ${quote.quoteNumber}: $${quote.totalAmount} - Awaiting customer action`;
+        
+        return {
+          id: `follow_ups::shopify_quote_${quote.id}::${customer.id}::${subtype}`,
+          customerId: customer.id,
+          bucket: 'follow_ups',
+          taskSubtype: subtype,
+          priority: 100, // Highest priority
+          whyNow,
+          outcomes: [
+            { id: 'contacted', label: 'Contacted', icon: '✅' },
+            { id: 'order_placed', label: 'Order Placed', icon: '🎉' },
+            { id: 'skip', label: 'Skip for Now', icon: '⏭️' },
+          ],
+          customer: {
+            id: customer.id,
+            company: customer.company,
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            email: customer.email,
+            phone: customer.phone,
+            address1: customer.address1,
+            address2: customer.address2,
+            city: customer.city,
+            province: customer.province,
+            zip: customer.zip,
+            country: customer.country,
+            website: customer.website,
+            salesRepId: customer.salesRepId,
+            salesRepName: customer.salesRepName,
+            pricingTier: customer.pricingTier,
+          },
+          context: {
+            sourceType: quote.source || undefined,
+            followUpDueDate: quote.followUpDueAt?.toISOString(),
+          },
+        };
+      }
+    } catch (err) {
+      console.error('[Spotlight] Error fetching Shopify quote tasks:', err);
+    }
+    
+    // PRIORITY 2: Regular follow-up tasks
     let conditions = [
       or(
         eq(followUpTasks.assignedTo, userId),

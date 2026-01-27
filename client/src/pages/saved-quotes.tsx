@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2, Search, Eye, FileDown, Sheet, ChevronLeft, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { FileText, Mail, Download, ArrowLeft, Calendar, User, DollarSign, Trash2, Search, Eye, FileDown, Sheet, ChevronLeft, ChevronRight, Pencil, Check, X, RefreshCw, ShoppingCart } from "lucide-react";
+import { SiShopify } from "react-icons/si";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,6 +37,10 @@ interface SentQuote {
   createdAt: string;
   sentVia?: string | null;
   status: string;
+  source?: string | null; // 'quickquote', 'shopify_draft', 'shopify_abandoned_cart', 'email', 'pdf'
+  priority?: string | null; // 'high', 'normal', 'low'
+  shopifyDraftOrderId?: string | null;
+  shopifyCheckoutId?: string | null;
 }
 
 export default function SavedQuotes() {
@@ -111,6 +116,31 @@ export default function SavedQuotes() {
       });
       setDeleteDialogOpen(false);
       setQuoteToDelete(null);
+    },
+  });
+
+  // Sync Shopify abandoned carts and draft orders
+  const syncShopifyMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/shopify/sync-to-saved-quotes");
+      if (!response.ok) {
+        throw new Error("Failed to sync Shopify data");
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sent-quotes", (user as any)?.id] });
+      toast({
+        title: "Shopify Sync Complete",
+        description: data.message || `Synced ${data.syncedDrafts || 0} draft orders and ${data.syncedCarts || 0} abandoned carts`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Sync Failed",
+        description: error instanceof Error ? error.message : "Failed to sync Shopify data",
+        variant: "destructive",
+      });
     },
   });
 
@@ -410,14 +440,29 @@ export default function SavedQuotes() {
             <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Saved Quotes</h1>
             <p className="text-sm sm:text-base text-gray-600">View and manage all generated quotes</p>
           </div>
-          <Button 
-            onClick={handleExportAll}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-            disabled={filteredQuotes.length === 0}
-          >
-            <Sheet className="h-4 w-4" />
-            Download All CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => syncShopifyMutation.mutate()}
+              variant="outline"
+              className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-50"
+              disabled={syncShopifyMutation.isPending}
+            >
+              {syncShopifyMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <SiShopify className="h-4 w-4" />
+              )}
+              Sync Shopify
+            </Button>
+            <Button 
+              onClick={handleExportAll}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              disabled={filteredQuotes.length === 0}
+            >
+              <Sheet className="h-4 w-4" />
+              Download All CSV
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filter Toolbar */}
@@ -600,7 +645,24 @@ export default function SavedQuotes() {
                               data-testid={`checkbox-quote-${quote.id}`}
                             />
                           </TableCell>
-                          <TableCell className="font-medium font-mono">{quote.quoteNumber}</TableCell>
+                          <TableCell className="font-medium font-mono">
+                            <div className="flex items-center gap-2">
+                              {(quote.source === 'shopify_draft' || quote.source === 'shopify_abandoned_cart') && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <SiShopify className={`h-4 w-4 ${quote.source === 'shopify_abandoned_cart' ? 'text-orange-500' : 'text-green-600'}`} />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {quote.source === 'shopify_abandoned_cart' ? 'Abandoned Cart' : 'Shopify Draft Order'}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {quote.quoteNumber}
+                              {quote.priority === 'high' && (
+                                <Badge variant="destructive" className="ml-1 text-xs px-1 py-0">Priority</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-gray-400" />
