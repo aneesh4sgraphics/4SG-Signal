@@ -220,6 +220,11 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'keep', label: 'Keep Active', icon: 'check', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Investigate Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
   ],
+  hygiene_customer_type: [
+    { id: 'printer', label: 'Printing Company', icon: 'printer', nextAction: { type: 'set_customer_type', customerType: 'printer' } },
+    { id: 'reseller', label: 'Reseller/Distributor', icon: 'truck', nextAction: { type: 'set_customer_type', customerType: 'reseller' } },
+    { id: 'skip', label: 'Not Sure Yet', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
+  ],
   sales_call: [
     { id: 'connected', label: 'Connected', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
     { id: 'voicemail', label: 'Left Voicemail', icon: 'voicemail', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'call' } },
@@ -349,6 +354,7 @@ const WHY_NOW_MESSAGES: Record<string, string> = {
   hygiene_company: 'Company name is missing - add it for better organization.',
   hygiene_phone: 'No phone number on file - add it for call outreach.',
   hygiene_machines: 'Find out what machines they use - helps recommend the right products!',
+  hygiene_customer_type: 'Is this a Printing Company or Reseller? This determines what info we need to collect.',
   hygiene_bounced_email: 'Emails to this contact are bouncing - they may have left the company or the business closed.',
   sales_call: 'Time for a call - build the relationship!',
   sales_follow_up: 'Follow-up is due - keep the momentum going.',
@@ -2017,8 +2023,10 @@ class SpotlightEngine {
       { subtype: 'hygiene_name', condition: and(isNull(customers.firstName), isNull(customers.lastName)), excludeGeneric: true },
       { subtype: 'hygiene_company', condition: isNull(customers.company), excludeGeneric: true },
       { subtype: 'hygiene_phone', condition: isNull(customers.phone), excludeGeneric: true },
-      // Machine profiles - checked async after core data is complete
-      { subtype: 'hygiene_machines', condition: null, excludeGeneric: true },
+      // Customer type - is this a Printer or Reseller? (determines if we need machine info)
+      { subtype: 'hygiene_customer_type', condition: isNull(customers.customerType), excludeGeneric: true },
+      // Machine profiles - only for Printing Companies, checked async after core data is complete
+      { subtype: 'hygiene_machines', condition: eq(customers.customerType, 'printer'), excludeGeneric: true, requiresCustomerType: true },
       // Low priority: Generic email domain customers (gmail, yahoo, etc.) - saved for last
       { subtype: 'hygiene_sales_rep_generic', condition: and(isNull(customers.salesRepId), isNull(customers.salesRepName)), onlyGeneric: true },
       { subtype: 'hygiene_pricing_tier_generic', condition: isNull(customers.pricingTier), onlyGeneric: true },
@@ -3155,6 +3163,19 @@ class SpotlightEngine {
         console.error(`[Spotlight] Failed to delete customer ${customerId}:`, deleteError);
         // Continue with normal flow - at least mark the task as completed
       }
+    }
+
+    // Handle set_customer_type action - set customer as printer or reseller
+    if (selectedOutcome?.nextAction?.type === 'set_customer_type') {
+      const customerType = (selectedOutcome.nextAction as any).customerType;
+      await db.update(customers)
+        .set({ 
+          customerType,
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, customerId));
+      
+      console.log(`[Spotlight] Customer ${customerId} set as ${customerType} by user ${userId}`);
     }
 
     let nextFollowUp: { date: Date; type: string } | undefined;

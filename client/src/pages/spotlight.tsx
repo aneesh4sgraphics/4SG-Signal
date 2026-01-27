@@ -1872,6 +1872,41 @@ export default function Spotlight() {
                 </div>
               )}
 
+              {/* Data Hygiene: Customer Type */}
+              {task.taskSubtype === 'hygiene_customer_type' && (
+                <div className="space-y-3 mb-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-blue-800">What type of customer is this?</p>
+                        <p className="text-sm text-blue-700">
+                          This helps us know what information to collect.
+                        </p>
+                        <div className="bg-blue-100 rounded-lg p-3 mt-2">
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">🖨️</span>
+                              <div>
+                                <p className="text-xs font-medium text-blue-800">Printing Company</p>
+                                <p className="text-xs text-blue-600">Has printing equipment. We'll collect machine details for product recommendations.</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">🚚</span>
+                              <div>
+                                <p className="text-xs font-medium text-blue-800">Reseller / Distributor</p>
+                                <p className="text-xs text-blue-600">Buys products to sell to their customers. No machine details needed.</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Data Hygiene: Name, Company, Phone */}
               {(task.taskSubtype === 'hygiene_name' || task.taskSubtype === 'hygiene_company' || task.taskSubtype === 'hygiene_phone') && (
                 <div className="space-y-3 mb-4">
