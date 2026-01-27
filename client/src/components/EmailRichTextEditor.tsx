@@ -158,6 +158,8 @@ interface EmailRichTextEditorProps {
 export interface EmailRichTextEditorRef {
   insertContent: (content: string) => void;
   focus: () => void;
+  getHTML: () => string;
+  setContent: (content: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -178,6 +180,7 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [htmlSource, setHtmlSource] = useState(content);
   const [selectedImageSize, setSelectedImageSize] = useState<number>(100);
+  const isInternalUpdate = useRef(false);
   
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -228,14 +231,16 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
       },
     },
     onUpdate: ({ editor }) => {
+      isInternalUpdate.current = true;
       onChange(editor.getHTML());
     },
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (editor && !isInternalUpdate.current && content !== editor.getHTML()) {
       editor.commands.setContent(content);
     }
+    isInternalUpdate.current = false;
   }, [content, editor]);
 
   useEffect(() => {
@@ -333,6 +338,14 @@ export const EmailRichTextEditor = forwardRef<EmailRichTextEditorRef, EmailRichT
     focus: () => {
       if (editor) {
         editor.chain().focus().run();
+      }
+    },
+    getHTML: () => {
+      return editor?.getHTML() || '';
+    },
+    setContent: (content: string) => {
+      if (editor) {
+        editor.commands.setContent(content);
       }
     },
   }), [editor]);

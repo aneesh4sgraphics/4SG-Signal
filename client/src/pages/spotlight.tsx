@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { PRICING_TIERS } from "@shared/schema";
@@ -343,6 +343,7 @@ export default function Spotlight() {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const emailEditorRef = useRef<EmailRichTextEditorRef>(null);
   
   // Coaching content based on task type
   const callScriptIdeas = [
@@ -1075,14 +1076,15 @@ export default function Spotlight() {
 
   // Send email handler
   const handleSendEmail = () => {
-    if (!emailTo || !emailSubject || !emailBody) {
+    const htmlBody = emailEditorRef.current?.getHTML() || emailBody;
+    if (!emailTo || !emailSubject || !htmlBody) {
       toast({ title: 'Missing fields', description: 'Please fill in recipient, subject, and message', variant: 'destructive' });
       return;
     }
     sendEmailMutation.mutate({
       to: emailTo,
       subject: emailSubject,
-      body: emailBody,
+      body: htmlBody,
       customerId: currentTask?.task?.customer?.id,
     });
   };
@@ -2713,37 +2715,15 @@ export default function Spotlight() {
               />
             </div>
 
-            {/* Body Field with basic formatting hint */}
+            {/* Body Field with rich text editor */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Message</Label>
-              <div className="flex gap-1 mb-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setEmailBody(emailBody + '\n\n---\n\n')}
-                >
-                  — Line
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setEmailBody(emailBody + '\n\nBest regards,\n')}
-                >
-                  Sign-off
-                </Button>
-              </div>
-              <Textarea
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
+              <EmailRichTextEditor
+                ref={emailEditorRef}
+                content={emailBody}
+                onChange={(html) => setEmailBody(html)}
                 placeholder="Type your message here..."
-                className="min-h-[200px] w-full font-sans"
-                rows={10}
               />
-              <p className="text-xs text-gray-500">Line breaks will be preserved in the email.</p>
             </div>
           </div>
 
@@ -2756,13 +2736,14 @@ export default function Spotlight() {
                 setEmailSubject('');
                 setEmailBody('');
                 setSelectedTemplateId(null);
+                emailEditorRef.current?.setContent('');
               }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSendEmail}
-              disabled={sendEmailMutation.isPending || !emailTo || !emailSubject || !emailBody}
+              disabled={sendEmailMutation.isPending || !emailTo || !emailSubject || !emailBody || emailBody === '<p></p>'}
               className="bg-blue-600 hover:bg-blue-700"
             >
               {sendEmailMutation.isPending ? (
