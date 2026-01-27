@@ -432,6 +432,10 @@ export default function Spotlight() {
     goalMet: boolean;
     remaining: number;
     progress: number;
+    swatchBookGoal: number;
+    swatchBookGoalMet: boolean;
+    swatchBookRemaining: number;
+    swatchBookProgress: number;
   }>({
     queryKey: ['/api/labels/today'],
     staleTime: 30 * 1000, // Refresh every 30 seconds
@@ -1380,6 +1384,22 @@ export default function Spotlight() {
             <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Today's Progress</p>
               <div className="space-y-2">
+                {/* SwatchBooks - Required 3 per day */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full" 
+                      style={{ 
+                        width: `${todayKits?.swatchBookProgress || 0}%`, 
+                        backgroundColor: todayKits?.swatchBookGoalMet ? '#22C55E' : '#EAB308' 
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-20">SwatchBooks</span>
+                  <span className={`text-xs font-medium w-10 text-right ${todayKits?.swatchBookGoalMet ? 'text-green-600' : 'text-amber-600'}`}>
+                    {todayKits?.swatchBookCount || 0}/{todayKits?.swatchBookGoal || 3}
+                  </span>
+                </div>
                 {session?.buckets
                   .filter((b) => ['calls', 'outreach', 'data_hygiene'].includes(b.bucket))
                   .map((bucket) => {

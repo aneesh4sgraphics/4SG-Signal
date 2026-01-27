@@ -2543,6 +2543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pressTestKitCount = todayStats.find(s => s.labelType === 'press_test_kit')?.count || 0;
       const totalKitsSentToday = swatchBookCount + pressTestKitCount;
       const dailyGoal = 5;
+      const swatchBookGoal = 3; // Minimum 3 swatchbooks per user per day
 
       res.json({
         swatchBookCount,
@@ -2552,6 +2553,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         goalMet: totalKitsSentToday >= dailyGoal,
         remaining: Math.max(0, dailyGoal - totalKitsSentToday),
         progress: Math.min(100, (totalKitsSentToday / dailyGoal) * 100),
+        // Swatchbook-specific tracking
+        swatchBookGoal,
+        swatchBookGoalMet: swatchBookCount >= swatchBookGoal,
+        swatchBookRemaining: Math.max(0, swatchBookGoal - swatchBookCount),
+        swatchBookProgress: Math.min(100, (swatchBookCount / swatchBookGoal) * 100),
       });
     } catch (error) {
       console.error("Today's label stats error:", error);
