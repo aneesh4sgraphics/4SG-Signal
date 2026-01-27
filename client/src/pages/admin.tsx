@@ -2,10 +2,10 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check, Trophy, Flame, Phone, Mail, FileText, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -178,6 +178,43 @@ export default function Admin() {
 
 
   const { data: users, isLoading: usersLoading } = useUsers();
+
+  // Leaderboard data
+  interface LeaderboardUser {
+    user_id: string;
+    email: string;
+    display_name: string;
+    today_total: number;
+    week_total: number;
+    month_total: number;
+    bucket_stats: Record<string, { today: number; week: number; month: number }>;
+    hot_leads: number;
+  }
+
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{
+    users: LeaderboardUser[];
+    dateRange: { today: string; weekStart: string; monthStart: string };
+  }>({
+    queryKey: ['/api/admin/leaderboard'],
+    staleTime: 60 * 1000,
+  });
+
+  const BUCKET_COLORS: Record<string, { bg: string; text: string; label: string; icon: typeof Phone }> = {
+    calls: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Calls', icon: Phone },
+    follow_ups: { bg: 'bg-green-100', text: 'text-green-700', label: 'Follow-ups', icon: Mail },
+    outreach: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Outreach', icon: Sparkles },
+    data_hygiene: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Hygiene', icon: FileText },
+    enablement: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Enablement', icon: Trophy },
+  };
+
+  const getRankColors = (rank: number) => {
+    switch (rank) {
+      case 1: return 'from-yellow-400 to-amber-500 border-yellow-300';
+      case 2: return 'from-gray-300 to-slate-400 border-gray-200';
+      case 3: return 'from-amber-600 to-orange-700 border-amber-500';
+      default: return 'from-blue-400 to-indigo-500 border-blue-300';
+    }
+  };
 
   const approveUserMutation = useMutation({
     mutationFn: async (userId: string) => {
@@ -393,6 +430,95 @@ export default function Admin() {
             </CardContent>
           </Card>
         </Link>
+
+        {/* Team Leaderboard Section */}
+        <Card className="glass-card border-0 shadow-lg mb-8">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Team Leaderboard
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            {leaderboardLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading stats...</p>
+              </div>
+            ) : !leaderboardData?.users?.length ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No task data yet. Stats will appear once team members complete SPOTLIGHT tasks.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {leaderboardData.users.map((user, index) => {
+                  const rank = index + 1;
+                  return (
+                    <div
+                      key={user.user_id}
+                      className={`relative rounded-xl p-4 bg-gradient-to-br ${getRankColors(rank)} shadow-md border-2`}
+                    >
+                      {/* Rank Badge */}
+                      <div className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center font-bold text-lg">
+                        {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+                      </div>
+
+                      {/* User Info */}
+                      <div className="mb-4">
+                        <h3 className="text-white font-bold text-xl capitalize drop-shadow">
+                          {user.display_name}
+                        </h3>
+                        {user.hot_leads > 0 && (
+                          <Badge variant="secondary" className="bg-red-500 text-white mt-1">
+                            <Flame className="h-3 w-3 mr-1" />
+                            {user.hot_leads} HOT
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="bg-white/90 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">Today</span>
+                          <span className="font-bold text-lg">{user.today_total}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">This Week</span>
+                          <span className="font-bold text-lg">{user.week_total}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm border-t pt-2">
+                          <span className="text-gray-600">This Month</span>
+                          <span className="font-bold text-xl text-primary">{user.month_total}</span>
+                        </div>
+                      </div>
+
+                      {/* Bucket Breakdown */}
+                      {user.bucket_stats && Object.keys(user.bucket_stats).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {Object.entries(user.bucket_stats).map(([bucket, stats]) => {
+                            const bucketInfo = BUCKET_COLORS[bucket] || { bg: 'bg-gray-100', text: 'text-gray-700', label: bucket };
+                            const weekCount = stats.week || 0;
+                            if (weekCount === 0) return null;
+                            return (
+                              <Badge
+                                key={bucket}
+                                variant="secondary"
+                                className={`${bucketInfo.bg} ${bucketInfo.text} text-xs`}
+                                title={`${bucketInfo.label}: ${weekCount} this week`}
+                              >
+                                {bucketInfo.label}: {weekCount}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* User Management Section */}
         <Card className="glass-card border-0 shadow-lg mb-8">

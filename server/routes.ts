@@ -22213,6 +22213,98 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     }
   });
 
+  // Admin leaderboard - show user task stats with bucket breakdown
+  app.get("/api/admin/leaderboard", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      // Get today's date boundaries
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      // This week boundaries (Monday start)
+      const thisWeekStart = new Date(today);
+      const dayOfWeek = thisWeekStart.getDay();
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Adjust for Monday start
+      thisWeekStart.setDate(thisWeekStart.getDate() - diff);
+      
+      // This month boundaries
+      const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      // Get user stats with bucket breakdown
+      const userStats = await db.execute(sql`
+        WITH user_tasks AS (
+          SELECT 
+            se.user_id,
+            u.email,
+            COALESCE(u.first_name, SPLIT_PART(u.email, '@', 1)) as display_name,
+            se.bucket,
+            COUNT(*) FILTER (WHERE se.event_type = 'completed' AND se.created_at >= ${today}) as today_completed,
+            COUNT(*) FILTER (WHERE se.event_type = 'completed' AND se.created_at >= ${thisWeekStart}) as week_completed,
+            COUNT(*) FILTER (WHERE se.event_type = 'completed' AND se.created_at >= ${thisMonthStart}) as month_completed
+          FROM spotlight_events se
+          JOIN users u ON se.user_id = u.id
+          WHERE u.status = 'approved'
+            AND se.created_at >= ${thisMonthStart}
+          GROUP BY se.user_id, u.email, u.first_name, se.bucket
+        ),
+        bucket_agg AS (
+          SELECT 
+            user_id,
+            email,
+            display_name,
+            SUM(today_completed) as today_total,
+            SUM(week_completed) as week_total,
+            SUM(month_completed) as month_total,
+            jsonb_object_agg(
+              COALESCE(bucket, 'unknown'),
+              jsonb_build_object(
+                'today', today_completed,
+                'week', week_completed,
+                'month', month_completed
+              )
+            ) as bucket_stats
+          FROM user_tasks
+          GROUP BY user_id, email, display_name
+        ),
+        hot_leads AS (
+          SELECT 
+            c.sales_rep_id,
+            COUNT(*) as hot_lead_count
+          FROM customers c
+          WHERE c.is_hot_prospect = true
+            AND c.do_not_contact = false
+            AND c.sales_rep_id IS NOT NULL
+          GROUP BY c.sales_rep_id
+        )
+        SELECT 
+          ba.user_id,
+          ba.email,
+          ba.display_name,
+          ba.today_total::int as today_total,
+          ba.week_total::int as week_total,
+          ba.month_total::int as month_total,
+          ba.bucket_stats,
+          COALESCE(hl.hot_lead_count, 0)::int as hot_leads
+        FROM bucket_agg ba
+        LEFT JOIN hot_leads hl ON ba.user_id = hl.sales_rep_id
+        ORDER BY ba.week_total DESC
+      `);
+
+      res.json({
+        users: userStats.rows,
+        dateRange: {
+          today: today.toISOString(),
+          weekStart: thisWeekStart.toISOString(),
+          monthStart: thisMonthStart.toISOString(),
+        }
+      });
+    } catch (error) {
+      console.error("[Admin] Leaderboard error:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   app.post("/api/spotlight/pause", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id;
