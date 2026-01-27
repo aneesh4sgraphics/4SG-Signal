@@ -146,42 +146,51 @@ app.use(cors({
   credentials: true,
 }));
 
-// Helmet security headers (with custom CSP for Shopify and OAuth embedding)
+// Helmet security headers - different policies for prod vs dev
+// IMPORTANT: Only one CSP middleware to avoid conflicts
 app.use((req, res, next) => {
   const isShopifyEmbedded = req.path.startsWith('/app') || 
                              req.query.embedded === 'true' || 
                              Boolean(req.query.shop);
-  // Allow framing for OAuth callbacks and Gmail integration
   const isOAuthPath = req.path.includes('/oauth') || 
                       req.path.includes('/callback') || 
                       req.path.includes('/gmail');
   const allowFraming = isShopifyEmbedded || isOAuthPath;
   
-  // Use Helmet with context-specific CSP
-  // IMPORTANT: frameguard (X-Frame-Options) and frame-ancestors must be consistent
-  // When allowing frames, disable frameguard to avoid XFO DENY overriding CSP frame-ancestors
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.shopify.com", "https://accounts.google.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-        imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-        connectSrc: ["'self'", "https:", "wss:"],
-        frameSrc: ["'self'", "https://accounts.google.com", "https://*.myshopify.com"],
-        frameAncestors: allowFraming 
-          ? ["'self'", "https://quote.4sgraphics.com", "https://*.myshopify.com", "https://admin.shopify.com", "https://*.replit.app", "https://*.replit.dev", "https://accounts.google.com"]
-          : ["'self'", "https://quote.4sgraphics.com", "https://*.replit.app", "https://*.replit.dev"],
+  // Development: relaxed CSP for easier debugging
+  // Production: stricter CSP with explicit allowed sources
+  if (!isProduction) {
+    // DEV: Minimal Helmet with relaxed CSP
+    helmet({
+      contentSecurityPolicy: false, // Disable CSP in dev for easier debugging
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
+      frameguard: false,
+    })(req, res, next);
+  } else {
+    // PRODUCTION: Full Helmet with strict CSP
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.shopify.com", "https://accounts.google.com"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+          imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+          connectSrc: ["'self'", "https:", "wss:"],
+          frameSrc: ["'self'", "https://accounts.google.com", "https://*.myshopify.com"],
+          frameAncestors: allowFraming 
+            ? ["'self'", "https://quote.4sgraphics.com", "https://*.myshopify.com", "https://admin.shopify.com", "https://*.replit.app", "https://*.replit.dev", "https://accounts.google.com"]
+            : ["'self'", "https://quote.4sgraphics.com", "https://*.replit.app", "https://*.replit.dev"],
+        },
       },
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    // Disable X-Frame-Options when CSP frame-ancestors is set to avoid conflicts
-    // CSP frame-ancestors takes precedence in modern browsers, XFO is legacy fallback
-    frameguard: false,
-  })(req, res, next);
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      frameguard: false, // Disable XFO - CSP frame-ancestors takes precedence
+    })(req, res, next);
+  }
 });
 
 // Additional custom headers
