@@ -47,6 +47,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
+import { useEmailComposer } from "@/components/email-composer";
 
 interface PricingTier {
   id: number;
@@ -152,6 +153,7 @@ export default function OdooCompanyDetail() {
     note: '',
   });
   const { toast } = useToast();
+  const emailComposer = useEmailComposer();
   const queryClient = useQueryClient();
 
   const { data: company, isLoading: companyLoading } = useQuery<Contact>({
@@ -813,6 +815,24 @@ export default function OdooCompanyDetail() {
                     </Button>
                   )}
                 </>
+              )}
+              
+              {company.email && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => emailComposer.open({
+                    to: company.email || '',
+                    customerId: company.id,
+                    customerName: displayName,
+                    usageType: 'client_email',
+                  })}
+                  className="border-green-200 text-green-600 hover:bg-green-50"
+                  title="Send email"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Compose Email
+                </Button>
               )}
               
               <Button 

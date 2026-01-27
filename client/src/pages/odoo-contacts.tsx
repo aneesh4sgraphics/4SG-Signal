@@ -72,6 +72,7 @@ import {
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
+import { useEmailComposer } from "@/components/email-composer";
 
 interface Contact {
   id: string;
@@ -119,6 +120,7 @@ type SortOrder = 'asc' | 'desc';
 
 export default function OdooContacts() {
   const { toast } = useToast();
+  const emailComposer = useEmailComposer();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   
@@ -1125,10 +1127,21 @@ export default function OdooContacts() {
                               View Details
                             </DropdownMenuItem>
                             {contact.email && (
-                              <DropdownMenuItem onClick={() => copyToClipboard(contact.email!)}>
-                                <Copy className="w-4 h-4 mr-2" />
-                                Copy Email
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => emailComposer.open({
+                                  to: contact.email!,
+                                  customerId: contact.id,
+                                  customerName: getDisplayName(contact),
+                                  usageType: 'client_email',
+                                })}>
+                                  <Mail className="w-4 h-4 mr-2" />
+                                  Send Email
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => copyToClipboard(contact.email!)}>
+                                  <Copy className="w-4 h-4 mr-2" />
+                                  Copy Email
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1274,24 +1287,46 @@ export default function OdooContacts() {
                         </div>
                       )}
 
-                      <div className="mt-3">
-                        {hasPricingTier(contact) ? (
-                          <Badge variant="secondary" className="capitalize text-xs">
-                            {contact.pricingTier}
-                          </Badge>
-                        ) : contact.pricingTier ? (
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
+                      <div className="mt-3 flex items-center justify-between">
+                        <div>
+                          {hasPricingTier(contact) ? (
+                            <Badge variant="secondary" className="capitalize text-xs">
                               {contact.pricingTier}
                             </Badge>
+                          ) : contact.pricingTier ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-xs">
+                                {contact.pricingTier}
+                              </Badge>
+                              <Badge variant="destructive" className="text-xs">
+                                Need Pricing Tier
+                              </Badge>
+                            </div>
+                          ) : (
                             <Badge variant="destructive" className="text-xs">
-                              Need Pricing Tier
+                              No Pricing Tier
                             </Badge>
-                          </div>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">
-                            No Pricing Tier
-                          </Badge>
+                          )}
+                        </div>
+                        {contact.email && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              emailComposer.open({
+                                to: contact.email!,
+                                customerId: contact.id,
+                                customerName: getDisplayName(contact),
+                                usageType: 'client_email',
+                              });
+                            }}
+                            title="Send email"
+                          >
+                            <Mail className="w-4 h-4 mr-1" />
+                            Email
+                          </Button>
                         )}
                       </div>
                     </CardContent>
