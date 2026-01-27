@@ -699,9 +699,15 @@ export default function LeadsPage() {
                               subject: `Following up from ${lead.company || 'your inquiry'}`,
                               customerName: lead.name || lead.company || 'Lead',
                               variables: {
-                                'client.email': lead.email!,
+                                'client.email': lead.email || '',
                                 'client.name': lead.name || '',
+                                'client.firstName': lead.name?.split(' ')[0] || '',
                                 'client.company': lead.company || '',
+                                'client.salesRep': lead.salesRepName || '',
+                                'name': lead.name || '',
+                                'customer_name': lead.company || lead.name || '',
+                                'contact_name': lead.name || '',
+                                'salesRep': lead.salesRepName || '',
                               },
                             });
                           }}
@@ -852,9 +858,15 @@ export default function LeadsPage() {
                                       subject: `Following up from ${lead.company || 'your inquiry'}`,
                                       customerName: lead.name || lead.company || 'Lead',
                                       variables: {
-                                        'client.email': lead.email!,
+                                        'client.email': lead.email || '',
                                         'client.name': lead.name || '',
+                                        'client.firstName': lead.name?.split(' ')[0] || '',
                                         'client.company': lead.company || '',
+                                        'client.salesRep': lead.salesRepName || '',
+                                        'name': lead.name || '',
+                                        'customer_name': lead.company || lead.name || '',
+                                        'contact_name': lead.name || '',
+                                        'salesRep': lead.salesRepName || '',
                                       },
                                     });
                                   }}
