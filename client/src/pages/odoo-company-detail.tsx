@@ -50,7 +50,7 @@ import {
   StickyNote,
   Plus,
   UserPlus,
-  Merge,
+  GitMerge,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
@@ -148,6 +148,7 @@ export default function OdooCompanyDetail() {
   const [isMergeContactsOpen, setIsMergeContactsOpen] = useState(false);
   const [selectedMergeContacts, setSelectedMergeContacts] = useState<number[]>([]);
   const [keepContactId, setKeepContactId] = useState<number | null>(null);
+  const [currentMergeGroupIndex, setCurrentMergeGroupIndex] = useState(0);
   const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'other'>('swatch_book');
   const [labelOtherDescription, setLabelOtherDescription] = useState('');
   const [labelQuantity, setLabelQuantity] = useState(1);
@@ -2145,13 +2146,14 @@ export default function OdooCompanyDetail() {
                         variant="outline" 
                         className="gap-1 text-amber-600 border-amber-300 hover:bg-amber-50"
                         onClick={() => {
+                          setCurrentMergeGroupIndex(0);
                           setSelectedMergeContacts([]);
                           setKeepContactId(null);
                           setIsMergeContactsOpen(true);
                         }}
                       >
-                        <Merge className="w-4 h-4" />
-                        Merge
+                        <GitMerge className="w-4 h-4" />
+                        Merge ({duplicateEmailContacts.length})
                       </Button>
                     )}
                     {company.odooPartnerId && (
@@ -2289,26 +2291,29 @@ export default function OdooCompanyDetail() {
                 <DialogHeader>
                   <DialogTitle>Merge Duplicate Contacts</DialogTitle>
                   <DialogDescription>
-                    Found contacts with the same email. Select which contact to keep and which to delete.
+                    {duplicateEmailContacts.length > 1 
+                      ? `Group ${currentMergeGroupIndex + 1} of ${duplicateEmailContacts.length}: Select which contact to keep.`
+                      : 'Select which contact to keep. Others will be removed.'}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
-                  {duplicateEmailContacts.map(({ email, contacts }) => (
-                    <div key={email} className="border rounded-lg p-3">
-                      <p className="text-sm font-medium text-amber-600 mb-2">
+                {duplicateEmailContacts[currentMergeGroupIndex] && (
+                  <div className="space-y-4 py-4">
+                    <div className="border rounded-lg p-3 bg-amber-50/50">
+                      <p className="text-sm font-medium text-amber-700 mb-3">
                         <Mail className="w-4 h-4 inline-block mr-1" />
-                        {email}
+                        Email: {duplicateEmailContacts[currentMergeGroupIndex].email}
                       </p>
                       <RadioGroup
                         value={keepContactId?.toString() || ''}
                         onValueChange={(value) => {
                           const id = parseInt(value);
+                          const currentGroup = duplicateEmailContacts[currentMergeGroupIndex];
                           setKeepContactId(id);
-                          setSelectedMergeContacts(contacts.filter(c => c.id !== id).map(c => c.id));
+                          setSelectedMergeContacts(currentGroup.contacts.filter(c => c.id !== id).map(c => c.id));
                         }}
                       >
-                        {contacts.map((contact) => (
-                          <div key={contact.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50">
+                        {duplicateEmailContacts[currentMergeGroupIndex].contacts.map((contact) => (
+                          <div key={contact.id} className="flex items-center gap-2 p-2 rounded hover:bg-white bg-white/50">
                             <RadioGroupItem value={contact.id.toString()} id={`contact-${contact.id}`} />
                             <Label htmlFor={`contact-${contact.id}`} className="flex-1 cursor-pointer">
                               <span className="font-medium">{contact.name}</span>
@@ -2323,13 +2328,41 @@ export default function OdooCompanyDetail() {
                         ))}
                       </RadioGroup>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
                   <AlertCircle className="w-4 h-4 inline-block mr-1 text-amber-600" />
                   <strong>Important:</strong> After merging, please also update this in Odoo and Shopify manually if needed.
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-col gap-2 sm:flex-row">
+                  {duplicateEmailContacts.length > 1 && (
+                    <div className="flex gap-2 mr-auto">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={currentMergeGroupIndex === 0}
+                        onClick={() => {
+                          setCurrentMergeGroupIndex(prev => prev - 1);
+                          setKeepContactId(null);
+                          setSelectedMergeContacts([]);
+                        }}
+                      >
+                        <ChevronLeft className="w-4 h-4" /> Prev
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={currentMergeGroupIndex >= duplicateEmailContacts.length - 1}
+                        onClick={() => {
+                          setCurrentMergeGroupIndex(prev => prev + 1);
+                          setKeepContactId(null);
+                          setSelectedMergeContacts([]);
+                        }}
+                      >
+                        Next <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                   <Button variant="outline" onClick={() => setIsMergeContactsOpen(false)}>
                     Cancel
                   </Button>
@@ -2349,9 +2382,9 @@ export default function OdooCompanyDetail() {
                     {mergeContactsMutation.isPending ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
-                      <Merge className="w-4 h-4 mr-2" />
+                      <GitMerge className="w-4 h-4 mr-2" />
                     )}
-                    Merge Contacts
+                    Merge This Group
                   </Button>
                 </DialogFooter>
               </DialogContent>
