@@ -1,62 +1,194 @@
-# Replit.md - Quote Calculator Application
+# Quote Calculator & CRM Application
 
 ## Overview
-This full-stack TypeScript application is a quote calculator for product pricing, designed to empower sales staff with an efficient tool for generating accurate quotes, managing pricing data, and enhancing sales workflows. It features a React frontend and a Node.js/Express backend with a PostgreSQL database and Drizzle ORM. Key capabilities include comprehensive product management, tiered pricing, CRM with customer journey tracking, professional PDF generation, advanced label generation, and integration with Odoo ERP and Shopify. The UI is inspired by Odoo, focusing on a business-friendly aesthetic. The project's vision is to streamline sales processes, improve customer engagement, and increase sales efficiency.
+A full-stack TypeScript sales management application for a specialty products business (printing/signage). Built with React frontend, Node.js/Express backend, and PostgreSQL database. The system integrates with Odoo V19 ERP for customer/product data, Gmail for email intelligence, and Shopify for e-commerce.
+
+**Key Capabilities:**
+- Quote generation with tiered pricing and PDF output
+- CRM with customer journey tracking and machine profiles
+- Leads pipeline with trust-building workflow stages
+- SPOTLIGHT daily coaching system for sales reps
+- Email Studio with drip campaigns and engagement tracking
+- AI chatbot with hybrid RAG (OpenAI + BM25 fallback)
+- Best Price Engine with margin protection and volume discounts
+
+## Quick Start
+```bash
+npm run dev         # Start the app (frontend + backend on port 5000)
+npm run db:push     # Push schema changes to database
+```
+
+---
+
+## Environment Setup
+
+### Required Secrets (set in Replit Secrets tab)
+| Secret | Purpose |
+|--------|---------|
+| `DATABASE_URL` | PostgreSQL connection string (auto-set by Replit) |
+| `ODOO_URL` | Odoo instance URL (e.g., `https://company.odoo.com`) |
+| `ODOO_DATABASE` | Odoo database name |
+| `ODOO_USERNAME` | Odoo API username |
+| `ODOO_API_KEY` | Odoo API key |
+| `OPENAI_API_KEY` | OpenAI API key for AI features |
+| `SHOPIFY_STORE_DOMAIN` | Shopify store domain |
+| `SHOPIFY_ACCESS_TOKEN` | Shopify Admin API token |
+| `SESSION_SECRET` | Session encryption key |
+
+### Environment Variables (shared)
+- `GOOGLE_REDIRECT_URI` - Gmail OAuth callback URL
+- `SHOPIFY_APP_URL` - Shopify app base URL
+- `SHOPIFY_SCOPES` - Shopify API permissions
+
+---
+
+## Project Structure
+
+### Frontend (`client/src/`)
+```
+pages/                        # Main application pages
+├── dashboard-odoo.tsx        # Home dashboard with sales metrics
+├── quote-calculator.tsx      # Core quote generation tool
+├── price-list.tsx            # Price list viewer/generator
+├── odoo-contacts.tsx         # Customer list (card view)
+├── odoo-company-detail.tsx   # Customer detail page with contacts
+├── odoo-products.tsx         # Product catalog from Odoo
+├── odoo-product-detail.tsx   # Individual product view
+├── leads.tsx                 # Leads pipeline kanban board
+├── lead-detail.tsx           # Individual lead management
+├── spotlight.tsx             # Daily coaching treadmill
+├── gmail-insights.tsx        # Email intelligence dashboard
+├── email-app.tsx             # Email composer/viewer
+├── calendar.tsx              # Appointments/follow-ups
+├── admin-config.tsx          # Admin settings (rules, coaching)
+├── reports.tsx               # Financial metrics (admin only)
+├── crm-journey.tsx           # Customer journey builder
+└── competitor-pricing-fixed.tsx  # Market price tracking
+
+components/                   # Reusable UI components
+├── ui/                       # shadcn/ui components
+│   └── sidebar.tsx           # Main navigation sidebar
+├── OdooLayout.tsx            # Page layout wrapper
+├── AIChatbot.tsx             # AI assistant modal
+├── CustomerCoachPanel.tsx    # Sales coaching widget
+└── DailyProgressHero.tsx     # SPOTLIGHT progress display
+
+lib/                          # Utilities
+└── queryClient.ts            # TanStack Query setup
+
+hooks/                        # Custom React hooks
+└── use-toast.ts              # Toast notifications
+```
+
+### Backend (`server/`)
+```
+index.ts                  # Express server entry point
+routes.ts                 # All API routes (~5000 lines)
+storage.ts                # Database interface (IStorage)
+odoo.ts                   # Odoo ERP JSON-RPC client
+gmail-client.ts           # Gmail API integration
+gmail-intelligence.ts     # Email analysis & insights
+spotlight-engine.ts       # Daily task generation logic
+best-price-engine.ts      # Pricing recommendation system
+pdf-generator.ts          # Quote/label PDF generation
+replitAuth.ts             # Authentication handling
+shopify.ts                # Shopify integration
+odoo-sync-worker.ts       # Background Odoo sync
+gmail-sync-worker.ts      # Background email sync
+```
+
+### Shared (`shared/`)
+```
+schema.ts                 # Database tables (Drizzle ORM)
+```
+
+---
+
+## Key Concepts for New Developers
+
+### 1. Odoo V19 Integration
+- Syncs customers, products, pricelists, and orders
+- **Important**: Odoo V19's `res.partner` doesn't support the `mobile` field
+  - `server/odoo.ts` has `UNSUPPORTED_PARTNER_FIELDS` that auto-filters these
+- Customers = Companies (`is_company: true`)
+- Contacts = Child partners linked via `parent_id`
+
+### 2. Email as Universal ID
+All systems use normalized email for cross-platform matching:
+```typescript
+normalizeEmail("John.Doe@GMAIL.COM") → "johndoe@gmail.com"
+```
+
+### 3. SPOTLIGHT Coaching System
+Generates daily prioritized tasks for sales reps:
+- Overdue follow-ups
+- Hot leads needing attention
+- Customers with declining engagement
+- Reorder opportunities
+
+### 4. UI Design Pattern ("Pastel & Soft")
+- Cream background: `#FDFBF7`
+- Glassmorphism cards with soft shadows
+- Muted purple accents for actions
+- Designed for professionals 30-50 to reduce eye strain
+
+### 5. Data Flow Architecture
+```
+Frontend (React + TanStack Query)
+    ↓ API calls
+Backend (Express routes.ts)
+    ↓ Storage interface
+PostgreSQL (Drizzle ORM)
+    ↕ External APIs
+Odoo V19 | Gmail | Shopify
+```
+
+---
+
+## Database
+
+### Migrations
+```bash
+npm run db:push          # Push schema changes
+npm run db:push --force  # Force push if normal fails
+```
+
+### Key Tables
+| Table | Purpose |
+|-------|---------|
+| `customers` | Local CRM data (synced with Odoo) |
+| `leads` | Sales leads with trust-building stages |
+| `quotes` | Generated quotes |
+| `productPricingMaster` | Unified product/pricing data |
+| `spotlightTasks` | Daily coaching tasks |
+| `customerJourneys` | Journey definitions |
+| `emailThreads` | Gmail sync data |
+
+---
+
+## Common Development Tasks
+
+### Adding a New Page
+1. Create file in `client/src/pages/`
+2. Add route in `client/src/App.tsx`
+3. Add sidebar link in `client/src/components/ui/sidebar.tsx`
+
+### Adding an API Endpoint
+1. Add route in `server/routes.ts`
+2. Add storage method in `server/storage.ts` if needed
+3. Update types in `shared/schema.ts` if new data
+
+### Fixing Odoo Integration Issues
+1. Check `UNSUPPORTED_PARTNER_FIELDS` in `server/odoo.ts`
+2. Verify field names match Odoo V19 schema
+3. Test with small data set first
+
+---
 
 ## User Preferences
-Preferred communication style: Simple, everyday language.
+- **Communication style**: Simple, everyday language
+- **Avoid**: Technical jargon in user-facing text
+- **UI priority**: Clean, professional, low eye-strain
 
-## System Architecture
-
-### Frontend
-- **Framework**: React with TypeScript, using Wouter for routing and TanStack Query for state management.
-- **UI/UX**: shadcn/ui built on Radix UI and Tailwind CSS, featuring an Odoo-inspired design with sidebar navigation, card-based layouts, muted purple accents, glassmorphism effects, and responsive design.
-
-### Backend
-- **Runtime**: Node.js with Express.js (TypeScript, ESM modules).
-- **API Style**: RESTful API.
-- **Database Interaction**: PostgreSQL with Drizzle ORM.
-- **Key Features**:
-    - Server-side PDF generation.
-    - Robust authentication with role-based access control.
-    - Comprehensive CSV upload/synchronization.
-    - AI Chatbot: Hybrid RAG system using OpenAI GPT-4o with local BM25 fallback.
-    - CRM: Comprehensive customer journey tracking, reorder intelligence, "Next Best Move" coaching, and customer machine profile management (tracks which machine types each customer owns at `/odoo-contacts/:id`).
-    - Email Studio & Drip Campaigns: Automated multi-step email sequences with engagement tracking.
-    - Odoo V19 Enterprise Integration: JSON-RPC API client for bidirectional data access (customers, products, pricelists, sale orders, users) and a guided product creation wizard. The `/odoo-contacts` page is the primary customer management interface, defaulting to company card view. `/odoo-products` displays products from Odoo with detailed pricing and inventory. App users are mapped to Odoo counterparts via email.
-    - Shopify Integration: Embedded Shopify Admin app with OAuth, webhook registration, and order/customer sync.
-    - Admin Rules & Config System: Admin-only area for adjusting coaching logic, product taxonomy, and an audit log.
-    - SPOTLIGHT (Coaching Treadmill): Daily task management system for prioritized client actions. Data sync architecture prioritizes a local CRM database as the source of truth, queuing changes for weekly Odoo sync. **UI Redesign (Jan 2026)**: New "Pastel & Soft" three-column layout designed for professionals aged 30-50 to reduce eye strain. Left sidebar (w-72) with progress ring SVG, efficiency score, streak counter, and bucket progress bars. Center column with task cards. Right sidebar (w-64) with collapsible coaching trays (Calling Script Ideas, Email Ideas). Uses cream background (#FDFBF7), glassmorphism effects, and soft pastel accent colors.
-    - Bulk Editing: Supports bulk editing of Tags, Sales Rep, and Payment Terms for multiple selected Odoo contacts.
-    - Reports Page (Admin Only): Financial metrics dashboard at `/reports` displaying Total Invoices, Inventory Turnover, Gross Profit, and Debt to Equity Ratio.
-    - Auto Sales Rep Assignment: Logic to automatically assign sales representatives based on customer location.
-- **Email as Key Identifier**: Email is the primary identifier across all systems (Odoo, Shopify, Gmail, local CRM), utilizing an email normalization system for consistent matching and data integrity.
-- **Business Metrics Calculation**:
-    - Average Margin: Calculated from Odoo's `sale.order` `margin_percent` field.
-    - Pricing Tier: For non-Odoo customers, pricing tiers can be assigned locally.
-    - Best Price Engine: Calculates optimal price recommendations combining margin protection, loyalty rewards, inventory velocity, volume discounts, and competitor intelligence, with a cost fallback chain and confidence scoring.
-
-### Database
-- **ORM**: Drizzle ORM with PostgreSQL dialect.
-- **Migration**: Drizzle Kit.
-- **Connection**: Neon Database serverless connection.
-- **Schema**: Defined in `/shared/schema.ts`.
-- **System Design**: Comprehensive foreign key constraints, unified `productPricingMaster` table, and performance optimizations including database indexes, lazy-loading, server-side pagination, and `pg_trgm` for search.
-
-## External Dependencies
-
-### Frontend
-- **React Ecosystem**: React, React DOM, React Query.
-- **UI Libraries**: Radix UI primitives, Lucide React icons, shadcn/ui.
-- **Styling**: Tailwind CSS.
-- **Forms**: React Hook Form with Zod validation.
-- **Utilities**: clsx, tailwind-merge, date-fns, file-saver, react-beautiful-dnd, react-barcode, qrcode.react.
-
-### Backend
-- **Core**: Express.js.
-- **Database**: Drizzle ORM, Neon Database client, pg, connect-pg-simple.
-- **Validation**: Zod.
-- **File Handling**: Multer.
-- **PDF Generation**: puppeteer.
-- **AI/NLP**: OpenAI.
-- **Other**: axios, csv-parse, pdf-lib, pug, zod-validation-error.
+## Troubleshooting
+See `DEBUGGING_GUIDE.md` for connection issues and error diagnosis.
