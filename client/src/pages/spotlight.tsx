@@ -341,6 +341,11 @@ export default function Spotlight() {
   
   // Email composer state
   const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [showPrintLabel, setShowPrintLabel] = useState(false);
+  const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'other'>('swatch_book');
+  const [labelOtherDescription, setLabelOtherDescription] = useState('');
+  const [labelQuantity, setLabelQuantity] = useState(1);
+  const [labelNotes, setLabelNotes] = useState('');
   const [emailTo, setEmailTo] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -536,6 +541,34 @@ export default function Spotlight() {
     },
     onError: (error: any) => {
       toast({ title: 'Failed to send', description: error?.message || 'Could not send email', variant: 'destructive' });
+    },
+  });
+
+  const printLabelMutation = useMutation({
+    mutationFn: async (data: { labelType: string; otherDescription?: string; quantity: number; notes?: string }) => {
+      const res = await apiRequest('POST', '/api/labels/print', {
+        customerId,
+        labelType: data.labelType,
+        otherDescription: data.otherDescription,
+        quantity: data.quantity,
+        notes: data.notes,
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      // Download the PDF
+      if (data?.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+      }
+      toast({ title: 'Label printed!', description: `${labelQuantity} label(s) ready for printing` });
+      setShowPrintLabel(false);
+      setLabelType('swatch_book');
+      setLabelOtherDescription('');
+      setLabelQuantity(1);
+      setLabelNotes('');
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to print label', description: error?.message || 'Could not generate label', variant: 'destructive' });
     },
   });
 
@@ -1942,6 +1975,15 @@ export default function Spotlight() {
                         Compose
                       </button>
                     )}
+                    {customer.address1 && (
+                      <button 
+                        className="text-sm font-medium text-purple-500 hover:text-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        onClick={() => setShowPrintLabel(true)}
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Label
+                      </button>
+                    )}
                     <button 
                       className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
                       onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit' })}
@@ -3026,6 +3068,109 @@ export default function Spotlight() {
                   Send Email
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Label Dialog */}
+      <Dialog open={showPrintLabel} onOpenChange={setShowPrintLabel}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-5 h-5 text-purple-600" />
+              Print Address Label
+            </DialogTitle>
+            <DialogDescription>
+              Generate a 4"x3" thermal label for shipping marketing materials.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>What are you sending?</Label>
+              <Select value={labelType} onValueChange={(v: 'swatch_book' | 'press_test_kit' | 'mailer' | 'other') => setLabelType(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select label type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="swatch_book">Swatch Book</SelectItem>
+                  <SelectItem value="press_test_kit">Press Test Kit</SelectItem>
+                  <SelectItem value="mailer">Mailer</SelectItem>
+                  <SelectItem value="other">Something Else</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {labelType === 'other' && (
+              <div className="grid gap-2">
+                <Label htmlFor="otherDescription">Description</Label>
+                <Input
+                  id="otherDescription"
+                  value={labelOtherDescription}
+                  onChange={(e) => setLabelOtherDescription(e.target.value)}
+                  placeholder="What are you sending?"
+                />
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min={1}
+                value={labelQuantity}
+                onChange={(e) => setLabelQuantity(parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                value={labelNotes}
+                onChange={(e) => setLabelNotes(e.target.value)}
+                placeholder="Any special instructions..."
+                rows={2}
+              />
+            </div>
+
+            {/* Address Preview */}
+            <div className="bg-gray-50 rounded-lg p-4 border">
+              <p className="text-xs text-gray-500 mb-2">Shipping To:</p>
+              <p className="font-semibold">{customer?.company || `${customer?.firstName} ${customer?.lastName}`.trim()}</p>
+              {customer?.address1 && <p className="text-sm text-gray-700">{customer.address1}</p>}
+              {customer?.address2 && <p className="text-sm text-gray-700">{customer.address2}</p>}
+              <p className="text-sm text-gray-700">
+                {[customer?.city, customer?.province, customer?.zip].filter(Boolean).join(', ')}
+              </p>
+              {customer?.country && !['US', 'USA', 'CA', 'CAN'].includes(customer.country) && (
+                <p className="text-sm text-gray-700">{customer.country}</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowPrintLabel(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => printLabelMutation.mutate({
+                labelType,
+                otherDescription: labelType === 'other' ? labelOtherDescription : undefined,
+                quantity: labelQuantity,
+                notes: labelNotes || undefined,
+              })}
+              disabled={printLabelMutation.isPending || (labelType === 'other' && !labelOtherDescription.trim())}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {printLabelMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4 mr-2" />
+              )}
+              Print Label
             </Button>
           </DialogFooter>
         </DialogContent>
