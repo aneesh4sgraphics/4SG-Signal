@@ -41,6 +41,7 @@ import {
   Users,
   Globe,
   Briefcase,
+  StickyNote,
 } from "lucide-react";
 
 // Helper function to strip HTML tags and extract plain text
@@ -149,6 +150,8 @@ export default function LeadDetail() {
   
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
+  const [newNoteText, setNewNoteText] = useState("");
   const [newActivity, setNewActivity] = useState({
     activityType: "note",
     summary: "",
@@ -210,6 +213,27 @@ export default function LeadDetail() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update stage", variant: "destructive" });
+    },
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: async (noteText: string) => {
+      const res = await apiRequest('POST', `/api/leads/${leadId}/activities`, {
+        activityType: 'note',
+        summary: noteText,
+        details: '',
+      });
+      if (!res.ok) throw new Error('Failed to add note');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Note added', description: 'Your note has been saved' });
+      setNewNoteText('');
+      setIsNewNoteOpen(false);
+      queryClientInstance.invalidateQueries({ queryKey: ['/api/leads', leadId] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to add note', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -418,6 +442,82 @@ export default function LeadDetail() {
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 backdrop-blur-sm border-slate-200/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <StickyNote className="w-5 h-5 text-amber-500" />
+                  Notes
+                </CardTitle>
+                <Dialog open={isNewNoteOpen} onOpenChange={setIsNewNoteOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Plus className="w-4 h-4 mr-1" /> New Note
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Note</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <Textarea
+                        placeholder="Enter your note..."
+                        value={newNoteText}
+                        onChange={(e) => setNewNoteText(e.target.value)}
+                        rows={4}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsNewNoteOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="button"
+                        onClick={() => addNoteMutation.mutate(newNoteText)}
+                        disabled={!newNoteText.trim() || addNoteMutation.isPending}
+                      >
+                        {addNoteMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
+                        Save Note
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const notes = activities.filter(a => a.activityType === 'note');
+                if (notes.length === 0) {
+                  return (
+                    <div className="text-center py-6 text-slate-500">
+                      <StickyNote className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                      <p className="text-sm">No notes yet</p>
+                      <p className="text-xs text-slate-400">Add a note to track important information</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {notes.map((note) => (
+                      <div key={note.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-slate-700 whitespace-pre-wrap text-sm">{note.summary}</p>
+                        {note.details && (
+                          <p className="text-slate-500 text-xs mt-1">{note.details}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-2 text-xs text-slate-400">
+                          <span>{note.performedByName || 'Unknown'}</span>
+                          <span>{new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
