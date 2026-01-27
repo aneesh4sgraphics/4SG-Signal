@@ -855,6 +855,13 @@ export default function OdooCompanyDetail() {
                     customerId: company.id,
                     customerName: displayName,
                     usageType: 'client_email',
+                    variables: {
+                      'client.firstName': company.firstName || '',
+                      'client.lastName': company.lastName || '',
+                      'client.name': displayName,
+                      'client.company': company.company || '',
+                      'client.email': company.email || '',
+                    },
                   })}
                   className="border-green-200 text-green-600 hover:bg-green-50"
                   title="Send email"

@@ -1133,6 +1133,13 @@ export default function OdooContacts() {
                                   customerId: contact.id,
                                   customerName: getDisplayName(contact),
                                   usageType: 'client_email',
+                                  variables: {
+                                    'client.firstName': contact.firstName || '',
+                                    'client.lastName': contact.lastName || '',
+                                    'client.name': getDisplayName(contact),
+                                    'client.company': contact.company || '',
+                                    'client.email': contact.email || '',
+                                  },
                                 })}>
                                   <Mail className="w-4 h-4 mr-2" />
                                   Send Email
@@ -1320,6 +1327,13 @@ export default function OdooContacts() {
                                 customerId: contact.id,
                                 customerName: getDisplayName(contact),
                                 usageType: 'client_email',
+                                variables: {
+                                  'client.firstName': contact.firstName || '',
+                                  'client.lastName': contact.lastName || '',
+                                  'client.name': getDisplayName(contact),
+                                  'client.company': contact.company || '',
+                                  'client.email': contact.email || '',
+                                },
                               });
                             }}
                             title="Send email"
