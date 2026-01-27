@@ -264,6 +264,14 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'sent', label: 'Sent Price List', icon: 'file-text', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
     { id: 'not_ready', label: 'Not Ready Yet', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'outreach' } },
   ],
+  // Email follow-up for pricing/samples emails sent yesterday
+  pricing_samples_followup: [
+    { id: 'called', label: 'Called', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
+    { id: 'email_sent', label: 'Sent Follow-up Email', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
+    { id: 'replied', label: 'They Replied', icon: 'check', nextAction: { type: 'mark_complete' } },
+    { id: 'no_response_yet', label: 'No Response Yet', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'follow_up' } },
+    { id: 'skip', label: 'Skip', icon: 'x', nextAction: { type: 'no_action' } },
+  ],
   // Lead-specific task outcomes
   lead_call_hot: [
     { id: 'connected', label: 'Connected', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
@@ -1615,6 +1623,100 @@ class SpotlightEngine {
     const leadFollowUpTask = await this.findLeadFollowUpTask(userId, skippedLeadIds);
     if (leadFollowUpTask) {
       return leadFollowUpTask;
+    }
+    
+    // PRIORITY 2.5: Emails sent yesterday containing Pricing or samples that need follow-up
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(yesterday);
+      yesterdayEnd.setHours(23, 59, 59, 999);
+      
+      // Find outbound emails from yesterday with pricing/samples keywords
+      const emailFollowUps = await db
+        .select({
+          id: gmailMessages.id,
+          subject: gmailMessages.subject,
+          snippet: gmailMessages.snippet,
+          toEmail: gmailMessages.toEmail,
+          toName: gmailMessages.toName,
+          sentAt: gmailMessages.sentAt,
+          customerId: gmailMessages.customerId,
+          customer: {
+            id: customers.id,
+            company: customers.company,
+            firstName: customers.firstName,
+            lastName: customers.lastName,
+            email: customers.email,
+            phone: customers.phone,
+            address1: customers.address1,
+            address2: customers.address2,
+            city: customers.city,
+            province: customers.province,
+            zip: customers.zip,
+            country: customers.country,
+            website: customers.website,
+            salesRepId: customers.salesRepId,
+            salesRepName: customers.salesRepName,
+            pricingTier: customers.pricingTier,
+            updatedAt: customers.updatedAt,
+            isHotProspect: customers.isHotProspect,
+          },
+        })
+        .from(gmailMessages)
+        .leftJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(and(
+          eq(gmailMessages.userId, userId),
+          eq(gmailMessages.direction, 'outbound'),
+          gte(gmailMessages.sentAt, yesterday),
+          lte(gmailMessages.sentAt, yesterdayEnd),
+          or(
+            sql`LOWER(${gmailMessages.subject}) LIKE '%pricing%'`,
+            sql`LOWER(${gmailMessages.subject}) LIKE '%sample%'`,
+            sql`LOWER(${gmailMessages.subject}) LIKE '%swatchbook%'`,
+            sql`LOWER(${gmailMessages.subject}) LIKE '%price list%'`,
+            sql`LOWER(${gmailMessages.snippet}) LIKE '%pricing%'`,
+            sql`LOWER(${gmailMessages.snippet}) LIKE '%sample%'`
+          ),
+          // Exclude already skipped customers
+          ...(skippedIds.filter(id => !id.startsWith('lead-')).length > 0 
+            ? [sql`${gmailMessages.customerId} NOT IN (${sql.raw(skippedIds.filter(id => !id.startsWith('lead-')).map(id => `'${id}'`).join(','))})`] 
+            : []),
+          // Exclude internal emails
+          sql`LOWER(${gmailMessages.toEmail}) NOT LIKE '%4sgraphics%'`
+        ))
+        .orderBy(desc(gmailMessages.sentAt))
+        .limit(1);
+      
+      if (emailFollowUps.length > 0 && emailFollowUps[0].customer) {
+        const emailData = emailFollowUps[0];
+        const subjectPreview = emailData.subject?.substring(0, 50) || 'Email';
+        
+        return {
+          id: `follow_ups::email_${emailData.id}::${emailData.customer.id}::pricing_samples_followup`,
+          customerId: emailData.customer.id,
+          bucket: 'follow_ups',
+          taskSubtype: 'pricing_samples_followup',
+          priority: 85, // High priority - these are warm leads
+          whyNow: `📧 Follow up on yesterday's email: "${subjectPreview}..." - Check if they have questions about pricing/samples`,
+          outcomes: [
+            { id: 'called', label: 'Called', icon: 'phone' },
+            { id: 'email_sent', label: 'Sent Follow-up Email', icon: 'mail' },
+            { id: 'replied', label: 'They Replied', icon: 'check' },
+            { id: 'skip', label: 'Skip', icon: 'x' },
+          ],
+          customer: emailData.customer,
+          context: {
+            emailId: emailData.id,
+            originalSubject: emailData.subject || undefined,
+            sentAt: emailData.sentAt?.toISOString(),
+            sourceType: 'email_pricing_samples',
+          },
+        };
+      }
+    } catch (err) {
+      console.error('[Spotlight] Error fetching email follow-up tasks:', err);
     }
     
     // PRIORITY 3: Regular follow-up tasks
