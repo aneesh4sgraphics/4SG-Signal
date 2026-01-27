@@ -146,6 +146,7 @@ import {
   leadActivities,
   insertLeadSchema,
   insertLeadActivitySchema,
+  territorySkipFlags,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -3023,6 +3024,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in auto-assign sales reps:", error);
       res.status(500).json({ error: "Failed to auto-assign sales reps" });
+    }
+  });
+
+  // ========================================
+  // TERRITORY SKIP ADMIN ENDPOINTS
+  // ========================================
+
+  // Get customers flagged for admin review (all users marked as "not my territory")
+  app.get('/api/admin/territory-skip-flags', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const flags = await db.select({
+        id: territorySkipFlags.id,
+        customerId: territorySkipFlags.customerId,
+        skippedByUsers: territorySkipFlags.skippedByUsers,
+        totalActiveUsers: territorySkipFlags.totalActiveUsers,
+        flaggedForAdminReview: territorySkipFlags.flaggedForAdminReview,
+        adminReviewedAt: territorySkipFlags.adminReviewedAt,
+        adminReviewedBy: territorySkipFlags.adminReviewedBy,
+        adminDecision: territorySkipFlags.adminDecision,
+        createdAt: territorySkipFlags.createdAt,
+        customerCompany: customers.company,
+        customerEmail: customers.email,
+        customerCity: customers.city,
+        customerProvince: customers.province,
+        customerCountry: customers.country,
+      })
+      .from(territorySkipFlags)
+      .leftJoin(customers, eq(territorySkipFlags.customerId, customers.id))
+      .where(eq(territorySkipFlags.flaggedForAdminReview, true))
+      .orderBy(desc(territorySkipFlags.createdAt));
+
+      res.json(flags);
+    } catch (error) {
+      console.error("[Admin] Error fetching territory skip flags:", error);
+      res.status(500).json({ error: "Failed to fetch territory skip flags" });
+    }
+  });
+
+  // Admin decision on territory skip flag
+  app.post('/api/admin/territory-skip-flags/:id/decision', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { decision } = req.body; // 'keep', 'delete', 'reassign'
+      const adminUserId = req.user?.id;
+
+      if (!['keep', 'delete', 'reassign'].includes(decision)) {
+        return res.status(400).json({ error: "Invalid decision. Must be 'keep', 'delete', or 'reassign'" });
+      }
+
+      const [flag] = await db.select()
+        .from(territorySkipFlags)
+        .where(eq(territorySkipFlags.id, parseInt(id)))
+        .limit(1);
+
+      if (!flag) {
+        return res.status(404).json({ error: "Territory skip flag not found" });
+      }
+
+      // Update the flag with admin decision
+      await db.update(territorySkipFlags)
+        .set({
+          adminReviewedAt: new Date(),
+          adminReviewedBy: adminUserId,
+          adminDecision: decision,
+          flaggedForAdminReview: false, // Remove from review queue
+          updatedAt: new Date(),
+        })
+        .where(eq(territorySkipFlags.id, parseInt(id)));
+
+      // If decision is 'delete', actually delete the customer
+      if (decision === 'delete' && flag.customerId) {
+        const customer = await storage.getCustomer(flag.customerId);
+        if (customer) {
+          // Record exclusion to prevent re-import
+          await db.insert(deletedCustomerExclusions).values({
+            odooPartnerId: customer.odooPartnerId || null,
+            shopifyCustomerId: null,
+            originalCustomerId: flag.customerId,
+            companyName: customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: customer.email,
+            deletedBy: adminUserId,
+            reason: 'Deleted via territory skip admin review - no sales rep claimed territory',
+          });
+          
+          await storage.deleteCustomer(flag.customerId);
+          console.log(`[Admin] Customer ${flag.customerId} deleted via territory skip review`);
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        decision,
+        message: decision === 'delete' 
+          ? 'Customer has been deleted and blocked from re-import'
+          : decision === 'keep'
+            ? 'Customer will be kept and removed from review queue'
+            : 'Customer marked for reassignment'
+      });
+    } catch (error) {
+      console.error("[Admin] Error processing territory skip decision:", error);
+      res.status(500).json({ error: "Failed to process territory skip decision" });
+    }
+  });
+
+  // Get count of pending territory skip flags for admin dashboard badge
+  app.get('/api/admin/territory-skip-flags/count', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const result = await db.select({ count: count() })
+        .from(territorySkipFlags)
+        .where(eq(territorySkipFlags.flaggedForAdminReview, true));
+      
+      res.json({ count: result[0]?.count || 0 });
+    } catch (error) {
+      console.error("[Admin] Error counting territory skip flags:", error);
+      res.status(500).json({ error: "Failed to count territory skip flags" });
     }
   });
 

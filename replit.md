@@ -125,6 +125,13 @@ Generates daily prioritized tasks for sales reps:
 - Hot leads needing attention
 - Customers with declining engagement
 - Reorder opportunities
+- Data hygiene tasks (business emails prioritized over generic domains like gmail/yahoo)
+
+**Territory Skip Tracking:**
+- When a rep marks "Not My Territory", it's tracked per customer
+- If ALL active users skip the same customer, it's flagged for admin review
+- Admin can view flagged customers in Settings > Territory tab
+- Admin can decide to keep, delete, or reassign these customers
 
 ### 4. UI Design Pattern ("Pastel & Soft")
 - Cream background: `#FDFBF7`
@@ -161,6 +168,8 @@ npm run db:push --force  # Force push if normal fails
 | `quotes` | Generated quotes |
 | `productPricingMaster` | Unified product/pricing data |
 | `spotlightTasks` | Daily coaching tasks |
+| `spotlightEvents` | Task completion/skip tracking |
+| `territorySkipFlags` | Customers flagged when all reps skip as "not my territory" |
 | `customerJourneys` | Journey definitions |
 | `emailThreads` | Gmail sync data |
 

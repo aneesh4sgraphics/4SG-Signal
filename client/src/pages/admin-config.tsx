@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, CheckCircle2, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye, Package, X, Search, Tag } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Save, Settings, Layers, Clock, Bell, MessageSquare, History, RefreshCw, Database, AlertCircle, CheckCircle, CheckCircle2, Printer, Zap, Sparkles, Droplet, Maximize, Info, AlertTriangle, Check, Home, User, PlayCircle, GripVertical, ChevronRight, RotateCcw, Eye, Package, X, Search, Tag, MapPin } from "lucide-react";
 import { PRICING_TIERS } from "@shared/schema";
 import { Link } from "wouter";
 
@@ -1301,7 +1301,7 @@ export default function AdminConfig() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-11 w-full max-w-7xl">
+          <TabsList className="grid grid-cols-12 w-full max-w-7xl">
             <TabsTrigger value="home" className="flex items-center gap-1" data-testid="tab-home">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Home</span>
@@ -1309,6 +1309,10 @@ export default function AdminConfig() {
             <TabsTrigger value="users" className="flex items-center gap-1" data-testid="tab-users">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="territory" className="flex items-center gap-1 relative" data-testid="tab-territory">
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline">Territory</span>
             </TabsTrigger>
             <TabsTrigger value="catalog" className="flex items-center gap-1" data-testid="tab-catalog">
               <Package className="h-4 w-4" />
@@ -1423,6 +1427,10 @@ export default function AdminConfig() {
 
           <TabsContent value="users">
             <UsersTab />
+          </TabsContent>
+
+          <TabsContent value="territory">
+            <TerritorySkipFlagsTab />
           </TabsContent>
         </Tabs>
       </div>
@@ -3878,6 +3886,160 @@ function AuditLogTab({ logs, isLoading }: { logs: AdminAuditLog[]; isLoading: bo
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Territory Skip Flags Tab - Shows customers that all reps marked as "not my territory"
+function TerritorySkipFlagsTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  type TerritoryFlag = {
+    id: number;
+    customerId: string;
+    skippedByUsers: string[];
+    totalActiveUsers: number;
+    flaggedForAdminReview: boolean;
+    adminReviewedAt: string | null;
+    adminReviewedBy: string | null;
+    adminDecision: string | null;
+    createdAt: string;
+    customerCompany: string | null;
+    customerEmail: string | null;
+    customerCity: string | null;
+    customerProvince: string | null;
+    customerCountry: string | null;
+  };
+
+  const { data: flags = [], isLoading } = useQuery<TerritoryFlag[]>({
+    queryKey: ['/api/admin/territory-skip-flags'],
+  });
+
+  const decisionMutation = useMutation({
+    mutationFn: async ({ id, decision }: { id: number; decision: string }) => {
+      const res = await apiRequest('POST', `/api/admin/territory-skip-flags/${id}/decision`, { decision });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to process decision');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/territory-skip-flags'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      toast({ 
+        title: "Decision Recorded", 
+        description: data.message 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="bg-white/60 backdrop-blur-sm border-white/20 shadow-sm">
+        <CardContent className="flex items-center justify-center py-8">
+          <RefreshCw className="h-6 w-6 animate-spin text-purple-600" />
+          <span className="ml-2">Loading territory flags...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-white/60 backdrop-blur-sm border-white/20 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-amber-600" />
+            Territory Review Queue
+          </CardTitle>
+          <CardDescription>
+            Customers that all sales reps have marked as "Not My Territory". 
+            Review and decide whether to keep, delete, or reassign these records.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {flags.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MapPin className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p>No customers pending territory review</p>
+              <p className="text-sm">When all sales reps skip a customer as "Not My Territory", it will appear here.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Skipped By</TableHead>
+                  <TableHead>Flagged</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {flags.map((flag) => (
+                  <TableRow key={flag.id}>
+                    <TableCell className="font-medium">
+                      <Link href={`/odoo-company/${flag.customerId}`} className="text-purple-600 hover:underline">
+                        {flag.customerCompany || 'Unknown'}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">
+                      {flag.customerEmail || '-'}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {[flag.customerCity, flag.customerProvince, flag.customerCountry]
+                        .filter(Boolean)
+                        .join(', ') || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {flag.skippedByUsers?.length || 0} / {flag.totalActiveUsers} reps
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-500">
+                      {flag.createdAt ? new Date(flag.createdAt).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-600 border-green-200 hover:bg-green-50"
+                          onClick={() => decisionMutation.mutate({ id: flag.id, decision: 'keep' })}
+                          disabled={decisionMutation.isPending}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Keep
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => decisionMutation.mutate({ id: flag.id, decision: 'delete' })}
+                          disabled={decisionMutation.isPending}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

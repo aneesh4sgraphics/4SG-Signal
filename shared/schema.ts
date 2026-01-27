@@ -3060,6 +3060,31 @@ export const insertSpotlightEventSchema = createInsertSchema(spotlightEvents).om
 export type SpotlightEvent = typeof spotlightEvents.$inferSelect;
 export type InsertSpotlightEvent = z.infer<typeof insertSpotlightEventSchema>;
 
+// Territory skip tracking - flags customers that all users have marked as "not my territory"
+export const territorySkipFlags = pgTable("territory_skip_flags", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  skippedByUsers: text("skipped_by_users").array().notNull().default([]), // Array of user IDs who skipped
+  totalActiveUsers: integer("total_active_users").notNull(), // Number of active users when flagged
+  flaggedForAdminReview: boolean("flagged_for_admin_review").default(false),
+  adminReviewedAt: timestamp("admin_reviewed_at"),
+  adminReviewedBy: varchar("admin_reviewed_by"),
+  adminDecision: varchar("admin_decision", { length: 20 }), // 'keep', 'delete', 'reassign'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("territory_skip_flags_customer_idx").on(table.customerId),
+  flaggedIdx: index("territory_skip_flags_flagged_idx").on(table.flaggedForAdminReview),
+}));
+
+export const insertTerritorySkipFlagSchema = createInsertSchema(territorySkipFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type TerritorySkipFlag = typeof territorySkipFlags.$inferSelect;
+export type InsertTerritorySkipFlag = z.infer<typeof insertTerritorySkipFlagSchema>;
+
 // ========================================
 // SPOTLIGHT ENHANCED COACHING SCHEMA
 // ========================================

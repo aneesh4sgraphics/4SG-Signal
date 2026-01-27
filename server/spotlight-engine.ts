@@ -1,5 +1,13 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags } from "@shared/schema";
+
+// Generic email domains to deprioritize in data hygiene tasks
+const GENERIC_EMAIL_DOMAINS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com',
+  'icloud.com', 'mail.com', 'protonmail.com', 'zoho.com', 'yandex.com',
+  'live.com', 'msn.com', 'me.com', 'comcast.net', 'verizon.net',
+  'att.net', 'sbcglobal.net', 'bellsouth.net', 'cox.net', 'charter.net'
+];
 import { eq, and, isNull, or, ne, sql, desc, asc, lt, lte, gte, isNotNull, inArray, notInArray, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { analyzeForHints, SpotlightHint, getCustomerMachineProfiles, getProductSuggestionsForMachines, getMachineLabel, checkMissingMachineProfile } from "./spotlight-heuristics";
@@ -1624,26 +1632,45 @@ class SpotlightEngine {
   }
 
   private async findHygieneTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    // Build a SQL condition to exclude generic email domains (deprioritized)
+    // These customers are saved for last when all other hygiene work is done
+    const genericEmailConditions = GENERIC_EMAIL_DOMAINS.map(domain => 
+      sql`LOWER(${customers.email}) LIKE ${'%@' + domain}`
+    );
+    const isGenericEmail = or(...genericEmailConditions);
+    const isNotGenericEmail = sql`NOT (${isGenericEmail})`;
+    
     // For sales rep hygiene, check BOTH salesRepId AND salesRepName to handle edge cases
     // where only one field might be set (defensive fallback)
+    // Priority order: business emails first, generic emails last
     const priorityOrder = [
-      { subtype: 'hygiene_sales_rep', condition: and(isNull(customers.salesRepId), isNull(customers.salesRepName)) },
-      { subtype: 'hygiene_pricing_tier', condition: isNull(customers.pricingTier) },
-      { subtype: 'hygiene_email', condition: isNull(customers.email) },
-      { subtype: 'hygiene_name', condition: and(isNull(customers.firstName), isNull(customers.lastName)) },
-      { subtype: 'hygiene_company', condition: isNull(customers.company) },
-      { subtype: 'hygiene_phone', condition: isNull(customers.phone) },
+      // High priority: Business email domain customers
+      { subtype: 'hygiene_sales_rep', condition: and(isNull(customers.salesRepId), isNull(customers.salesRepName)), excludeGeneric: true },
+      { subtype: 'hygiene_pricing_tier', condition: isNull(customers.pricingTier), excludeGeneric: true },
+      { subtype: 'hygiene_email', condition: isNull(customers.email), excludeGeneric: false }, // Can't exclude by email if email is null
+      { subtype: 'hygiene_name', condition: and(isNull(customers.firstName), isNull(customers.lastName)), excludeGeneric: true },
+      { subtype: 'hygiene_company', condition: isNull(customers.company), excludeGeneric: true },
+      { subtype: 'hygiene_phone', condition: isNull(customers.phone), excludeGeneric: true },
       // Machine profiles - checked async after core data is complete
-      { subtype: 'hygiene_machines', condition: null },
+      { subtype: 'hygiene_machines', condition: null, excludeGeneric: true },
+      // Low priority: Generic email domain customers (gmail, yahoo, etc.) - saved for last
+      { subtype: 'hygiene_sales_rep_generic', condition: and(isNull(customers.salesRepId), isNull(customers.salesRepName)), onlyGeneric: true },
+      { subtype: 'hygiene_pricing_tier_generic', condition: isNull(customers.pricingTier), onlyGeneric: true },
+      { subtype: 'hygiene_name_generic', condition: and(isNull(customers.firstName), isNull(customers.lastName)), onlyGeneric: true },
+      { subtype: 'hygiene_company_generic', condition: isNull(customers.company), onlyGeneric: true },
+      { subtype: 'hygiene_phone_generic', condition: isNull(customers.phone), onlyGeneric: true },
     ];
 
     for (let i = 0; i < priorityOrder.length; i++) {
-      const { subtype, condition } = priorityOrder[i];
+      const item = priorityOrder[i];
+      const { subtype, condition } = item;
+      const excludeGeneric = 'excludeGeneric' in item ? item.excludeGeneric : false;
+      const onlyGeneric = 'onlyGeneric' in item ? item.onlyGeneric : false;
       
       // Special handling for machine hygiene - requires async check
       if (subtype === 'hygiene_machines') {
         // Find customers with complete core data but missing machine profiles
-        let machineConditions = [
+        let machineConditions: any[] = [
           eq(customers.doNotContact, false),
           isNotNull(customers.email),
           isNotNull(customers.phone),
@@ -1651,6 +1678,10 @@ class SpotlightEngine {
           or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
           sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
         ];
+        // Exclude generic email domains for machine hygiene (they're deprioritized)
+        if (excludeGeneric) {
+          machineConditions.push(isNotGenericEmail);
+        }
         if (skippedIds.length > 0) {
           machineConditions.push(notInArray(customers.id, skippedIds));
         }
@@ -1683,13 +1714,15 @@ class SpotlightEngine {
         for (const customer of machineProfileCandidates) {
           const needsMachine = await checkMissingMachineProfile(customer.id, customer);
           if (needsMachine) {
-            return this.buildTask(customer, 'data_hygiene', 'hygiene_machines', i + 1);
+            // Map _generic subtypes back to base subtype for UI consistency
+            const displaySubtype = subtype.replace('_generic', '');
+            return this.buildTask(customer, 'data_hygiene', displaySubtype, i + 1);
           }
         }
         continue;
       }
       
-      let whereConditions = [
+      let whereConditions: any[] = [
         condition,
         eq(customers.doNotContact, false),
         // Exclude internal 4sgraphics contacts from SPOTLIGHT (allow null emails for hygiene_email subtype)
@@ -1700,7 +1733,18 @@ class SpotlightEngine {
         whereConditions.push(notInArray(customers.id, skippedIds));
       }
       
-      if (subtype !== 'hygiene_sales_rep') {
+      // Filter by generic email domain based on priority
+      if (excludeGeneric) {
+        // Exclude generic email domains for high-priority hygiene tasks
+        // Only filter if email is not null (can't filter null emails by domain)
+        whereConditions.push(or(isNull(customers.email), isNotGenericEmail));
+      } else if (onlyGeneric) {
+        // Only include generic email domains for low-priority hygiene tasks
+        whereConditions.push(isGenericEmail);
+      }
+      
+      const baseSubtype = subtype.replace('_generic', '');
+      if (baseSubtype !== 'hygiene_sales_rep') {
         whereConditions.push(
           or(
             isNull(customers.salesRepId),
@@ -1782,7 +1826,9 @@ class SpotlightEngine {
           }
         }
         
-        return this.buildTask(customer, 'data_hygiene', subtype, i + 1);
+        // Map _generic subtypes back to base subtype for UI consistency
+        const displaySubtype = subtype.replace('_generic', '');
+        return this.buildTask(customer, 'data_hygiene', displaySubtype, i + 1);
       }
     }
 
@@ -2390,10 +2436,77 @@ class SpotlightEngine {
       console.error('[Spotlight] Failed to log skip event:', e);
     }
 
+    // Track "not_my_territory" skips and flag for admin review when all users skip
+    if (reason === 'not_my_territory') {
+      await this.trackTerritorySkip(userId, customerId);
+    }
+
     // Release claim so other users can work on different customers
     await this.releaseClaim(userId);
 
     console.log(`[Spotlight] User ${userId} skipped task ${taskId}: ${reason}`);
+  }
+
+  /**
+   * Track territory skip and flag for admin review if all active users have skipped
+   */
+  private async trackTerritorySkip(userId: string, customerId: string): Promise<void> {
+    try {
+      // Get count of active (approved) users
+      const activeUsers = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.status, 'approved'));
+      
+      const activeUserCount = activeUsers.length;
+      if (activeUserCount === 0) return;
+
+      // Check existing flag record
+      const [existingFlag] = await db.select()
+        .from(territorySkipFlags)
+        .where(eq(territorySkipFlags.customerId, customerId))
+        .limit(1);
+
+      if (existingFlag) {
+        // Add user to list if not already present
+        const skippedByUsers = existingFlag.skippedByUsers || [];
+        if (!skippedByUsers.includes(userId)) {
+          skippedByUsers.push(userId);
+          
+          // Check if all active users have now skipped
+          const allUsersSkipped = activeUsers.every(u => skippedByUsers.includes(u.id));
+          
+          await db.update(territorySkipFlags)
+            .set({
+              skippedByUsers,
+              totalActiveUsers: activeUserCount,
+              flaggedForAdminReview: allUsersSkipped,
+              updatedAt: new Date(),
+            })
+            .where(eq(territorySkipFlags.id, existingFlag.id));
+
+          if (allUsersSkipped) {
+            console.log(`[Spotlight] Customer ${customerId} flagged for admin review - all ${activeUserCount} users marked as "not my territory"`);
+          }
+        }
+      } else {
+        // Create new flag record
+        const skippedByUsers = [userId];
+        const allUsersSkipped = activeUserCount === 1;
+        
+        await db.insert(territorySkipFlags).values({
+          customerId,
+          skippedByUsers,
+          totalActiveUsers: activeUserCount,
+          flaggedForAdminReview: allUsersSkipped,
+        });
+
+        if (allUsersSkipped) {
+          console.log(`[Spotlight] Customer ${customerId} flagged for admin review - all ${activeUserCount} users marked as "not my territory"`);
+        }
+      }
+    } catch (e) {
+      console.error('[Spotlight] Failed to track territory skip:', e);
+    }
   }
 
   getSessionStats(userId: string): SpotlightSession {
