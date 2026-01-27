@@ -1066,6 +1066,13 @@ export default function Spotlight() {
         body = body.replace(/\{\{client\.firstName\}\}/gi, customer.firstName);
       }
       
+      // Replace sales rep variable with current user's name from signature
+      const salesRepName = userSignature?.name || 'Your Sales Rep';
+      body = body.replace(/\{\{client\.salesRep\}\}/gi, salesRepName);
+      body = body.replace(/\{\{salesRep\}\}/gi, salesRepName);
+      body = body.replace(/\{\{user\.name\}\}/gi, salesRepName);
+      body = body.replace(/\{\{sender\}\}/gi, salesRepName);
+      
       // Convert plain text with bullet points to HTML if needed
       if (!body.includes('<') || !body.includes('>')) {
         // Plain text - convert line breaks and bullets to HTML
