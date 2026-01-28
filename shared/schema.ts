@@ -2805,6 +2805,7 @@ export const bouncedEmails = pgTable("bounced_emails", {
   leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }),
   matchType: varchar("match_type", { length: 20 }),
   status: varchar("status", { length: 20 }).default("pending"),
+  investigateUntil: timestamp("investigate_until"),
   resolvedAt: timestamp("resolved_at"),
   resolvedBy: varchar("resolved_by"),
   resolution: varchar("resolution", { length: 50 }),

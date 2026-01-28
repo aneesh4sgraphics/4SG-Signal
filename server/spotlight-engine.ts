@@ -226,6 +226,7 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
   ],
   hygiene_bounced_email: [
     { id: 'mark_inactive', label: 'Mark as Do Not Contact', icon: 'user-x', nextAction: { type: 'mark_dnc' } },
+    { id: 'delete_record', label: 'Delete This Record', icon: 'trash-2', nextAction: { type: 'delete_record' } },
     { id: 'keep', label: 'Keep Active', icon: 'check', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Investigate Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
   ],
@@ -2257,7 +2258,10 @@ class SpotlightEngine {
         console.log('[Spotlight] Bounce scan skipped:', scanError);
       }
       
-      // Query the bouncedEmails table for pending bounces
+      // Query the bouncedEmails table for pending or investigating bounces
+      // "investigating" bounces resurface after their investigateUntil date
+      const now = new Date();
+      
       // Priority: customer matches first, then contact matches, then lead matches
       const pendingBounces = await db
         .select({
@@ -2270,9 +2274,22 @@ class SpotlightEngine {
           contactId: bouncedEmails.contactId,
           leadId: bouncedEmails.leadId,
           matchType: bouncedEmails.matchType,
+          status: bouncedEmails.status,
+          investigateUntil: bouncedEmails.investigateUntil,
         })
         .from(bouncedEmails)
-        .where(eq(bouncedEmails.status, 'pending'))
+        .where(or(
+          eq(bouncedEmails.status, 'pending'),
+          // Investigating bounces resurface after investigateUntil date has passed
+          // Legacy records without investigateUntil are treated as immediately resurfaceable
+          and(
+            eq(bouncedEmails.status, 'investigating'),
+            or(
+              lt(bouncedEmails.investigateUntil, now),
+              isNull(bouncedEmails.investigateUntil)
+            )
+          )
+        ))
         .orderBy(desc(bouncedEmails.bounceDate))
         .limit(10);
       
@@ -3128,7 +3145,46 @@ class SpotlightEngine {
     // Handle delete_record action - permanently delete the customer/lead
     if (selectedOutcome?.nextAction?.type === 'delete_record') {
       try {
-        // Log the deletion for audit purposes
+        // Handle lead deletions
+        if (isLeadTask && leadId) {
+          const leadData = await db.select({
+            id: leads.id,
+            name: leads.name,
+            email: leads.email,
+            company: leads.company,
+          }).from(leads).where(eq(leads.id, leadId)).limit(1);
+          
+          console.log(`[Spotlight] Lead deletion initiated by user ${userId}:`, {
+            leadId,
+            name: leadData[0]?.name,
+            email: leadData[0]?.email,
+            company: leadData[0]?.company,
+            reason: 'bounced_email',
+            taskSubtype: subtype,
+          });
+          
+          // Delete the lead record
+          await db.delete(leads).where(eq(leads.id, leadId));
+          
+          console.log(`[Spotlight] Lead ${leadId} deleted successfully due to bounced email by user ${userId}`);
+          
+          // Resolve bounce record if this is a bounced email task
+          if (subtype === 'hygiene_bounced_email' && extraContext?.bounceId) {
+            await db.update(bouncedEmails)
+              .set({
+                status: 'resolved',
+                resolution: 'delete',
+                resolvedAt: new Date(),
+                resolvedBy: userId,
+              })
+              .where(eq(bouncedEmails.id, extraContext.bounceId as number));
+            console.log(`[Spotlight] Bounce record ${extraContext.bounceId} resolved as delete`);
+          }
+          
+          return { success: true, deleted: true };
+        }
+        
+        // Handle customer deletions
         const customerData = await db.select({
           id: customers.id,
           company: customers.company,
@@ -3164,10 +3220,23 @@ class SpotlightEngine {
         
         console.log(`[Spotlight] Customer ${customerId} deleted successfully due to bounced email by user ${userId}`);
         
+        // Resolve bounce record if this is a bounced email task
+        if (subtype === 'hygiene_bounced_email' && extraContext?.bounceId) {
+          await db.update(bouncedEmails)
+            .set({
+              status: 'resolved',
+              resolution: 'delete',
+              resolvedAt: new Date(),
+              resolvedBy: userId,
+            })
+            .where(eq(bouncedEmails.id, extraContext.bounceId as number));
+          console.log(`[Spotlight] Bounce record ${extraContext.bounceId} resolved as delete`);
+        }
+        
         // Return success - the record has been deleted
         return { success: true, deleted: true };
       } catch (deleteError) {
-        console.error(`[Spotlight] Failed to delete customer ${customerId}:`, deleteError);
+        console.error(`[Spotlight] Failed to delete customer/lead ${customerId || leadId}:`, deleteError);
         // Continue with normal flow - at least mark the task as completed
       }
     }
@@ -3211,19 +3280,37 @@ class SpotlightEngine {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + selectedOutcome.nextAction.daysUntil);
       
-      await db.insert(followUpTasks).values({
-        customerId,
-        title: `Follow-up: ${selectedOutcome.label}`,
-        description: notes || null,
-        taskType: selectedOutcome.nextAction.taskType || 'follow_up',
-        dueDate,
-        status: 'pending',
-        assignedTo: userId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      // For lead tasks, don't create customer follow-up tasks (leads use lead tracking)
+      if (!isLeadTask) {
+        await db.insert(followUpTasks).values({
+          customerId,
+          title: `Follow-up: ${selectedOutcome.label}`,
+          description: notes || null,
+          taskType: selectedOutcome.nextAction.taskType || 'follow_up',
+          dueDate,
+          status: 'pending',
+          assignedTo: userId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
 
       nextFollowUp = { date: dueDate, type: selectedOutcome.nextAction.taskType || 'follow_up' };
+      
+      // For bounced email "skip" actions, mark the bounce as investigating (not resolved)
+      // This allows it to resurface after the follow-up period (7 days)
+      if (subtype === 'hygiene_bounced_email' && outcomeId === 'skip' && extraContext?.bounceId) {
+        const investigateUntilDate = new Date();
+        investigateUntilDate.setDate(investigateUntilDate.getDate() + 7);
+        
+        await db.update(bouncedEmails)
+          .set({
+            status: 'investigating',
+            investigateUntil: investigateUntilDate,
+          })
+          .where(eq(bouncedEmails.id, extraContext.bounceId as number));
+        console.log(`[Spotlight] Bounce record ${extraContext.bounceId} set to investigating until ${investigateUntilDate.toISOString()}`);
+      }
     }
 
     const now = new Date();

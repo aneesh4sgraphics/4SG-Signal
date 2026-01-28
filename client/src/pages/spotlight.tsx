@@ -127,9 +127,10 @@ interface TaskOutcome {
   label: string;
   icon?: string;
   nextAction?: {
-    type: 'schedule_follow_up' | 'send_email' | 'mark_complete' | 'no_action';
+    type: 'schedule_follow_up' | 'send_email' | 'mark_complete' | 'no_action' | 'mark_dnc' | 'custom_follow_up' | 'delete_record' | 'set_customer_type';
     daysUntil?: number;
     taskType?: string;
+    customerType?: string;
   };
 }
 
@@ -1984,22 +1985,33 @@ export default function Spotlight() {
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-red-800">Email Bounced</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-red-800">Email Bounced</p>
+                          {(task as any).extraContext?.matchType === 'lead' && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Lead</span>
+                          )}
+                          {((task as any).extraContext?.matchType === 'contact') && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Contact</span>
+                          )}
+                        </div>
                         {(task as any).extraContext?.bouncedEmail && (
-                          <div className="bg-red-100 rounded-lg p-2 text-xs">
+                          <div className="bg-red-100 rounded-lg p-3 text-xs space-y-1">
                             <p className="text-red-700"><strong>Bounced Email:</strong> {(task as any).extraContext.bouncedEmail}</p>
+                            {(task as any).extraContext.bounceSubject && (
+                              <p className="text-red-600"><strong>Original Subject:</strong> {(task as any).extraContext.bounceSubject}</p>
+                            )}
                             {(task as any).extraContext.bounceDate && (
-                              <p className="text-red-600">Date: {new Date((task as any).extraContext.bounceDate).toLocaleDateString()}</p>
+                              <p className="text-red-600"><strong>Bounce Date:</strong> {new Date((task as any).extraContext.bounceDate).toLocaleDateString()}</p>
                             )}
                           </div>
                         )}
                         <p className="text-sm text-red-700">
-                          This could mean the person has left the company or the business has closed.
+                          This email address is no longer valid. The person may have left the company or the business may have closed.
                         </p>
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
-                          <p className="text-xs text-amber-800 font-medium">Recommended Actions:</p>
-                          <ul className="text-xs text-amber-700 mt-1 list-disc pl-4">
-                            <li><strong>Mark as Do Not Contact</strong> - Keep record for reference but stop all outreach (recommended)</li>
+                          <p className="text-xs text-amber-800 font-medium">What would you like to do?</p>
+                          <ul className="text-xs text-amber-700 mt-1 list-disc pl-4 space-y-1">
+                            <li><strong>Mark as Do Not Contact</strong> - Stop all outreach to this {(task as any).extraContext?.matchType === 'lead' ? 'lead' : 'contact'} (recommended)</li>
                             <li><strong>Keep Active</strong> - If you believe the bounce was temporary</li>
                             <li><strong>Investigate Later</strong> - Snooze for 7 days to research further</li>
                           </ul>

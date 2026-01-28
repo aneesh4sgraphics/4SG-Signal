@@ -148,11 +148,18 @@ Lead task outcomes automatically update lead records:
 - Admin can decide to keep, delete, or reassign these customers
 
 **Bounced Email Detection:**
-- Scans Gmail for bounce notifications (mailer-daemon, postmaster, delivery failure messages)
-- Extracts bounced email addresses and matches them to customers/contacts
+- Scans Gmail for bounce notifications (mailer-daemon, postmaster, Mail Delivery Subsystem)
+- Parses bounce messages to extract failed email addresses and bounce reasons
+- Matches bounced emails to customers, contacts, OR leads in the database
+- Stores detected bounces in `bounced_emails` table with status tracking
 - Creates highest-priority hygiene task when a bounce is detected
-- User options: Mark as Do Not Contact (recommended), Keep Active, or Investigate Later
+- User options:
+  - **Mark as Do Not Contact** (recommended) - Stops outreach, keeps record for reference
+  - **Delete This Record** - Permanently removes the customer/lead from the system
+  - **Keep Active** - If you believe the bounce was temporary
+  - **Investigate Later** - Snooze for 7 days (uses `investigateUntil` timestamp to resurface correctly)
 - Helps identify contacts who left the company or businesses that closed
+- `server/bounce-detector.ts` handles Gmail scanning and parsing
 
 **Remind Me Again Today:**
 - Button in "What Happened" section allows reps to defer a task to later
@@ -197,6 +204,7 @@ npm run db:push --force  # Force push if normal fails
 | `spotlightTasks` | Daily coaching tasks |
 | `spotlightEvents` | Task completion/skip tracking |
 | `territorySkipFlags` | Customers flagged when all reps skip as "not my territory" |
+| `bouncedEmails` | Detected bounced emails with resolution tracking |
 | `customerJourneys` | Journey definitions |
 | `emailThreads` | Gmail sync data |
 
