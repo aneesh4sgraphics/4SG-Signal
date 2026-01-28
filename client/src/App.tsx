@@ -50,6 +50,7 @@ import OdooProducts from "@/pages/odoo-products";
 import OdooProductDetail from "@/pages/odoo-product-detail";
 import LeadsPage from "@/pages/leads";
 import LeadDetail from "@/pages/lead-detail";
+import BounceInvestigation from "@/pages/bounce-investigation";
 
 import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
@@ -117,6 +118,7 @@ const AppRoutes = () => (
     <Route path="/hot-leads" component={HotLeads} />
     <Route path="/leads" component={LeadsPage} />
     <Route path="/leads/:id" component={LeadDetail} />
+    <Route path="/bounce-investigation/:bounceId" component={BounceInvestigation} />
     <Route path="/odoo-contacts" component={OdooContacts} />
     <Route path="/odoo-contacts/:id" component={OdooCompanyDetail} />
     <Route path="/odoo-products" component={OdooProducts} />

@@ -9205,6 +9205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Category filtering - group event types into categories
+      // Using actual event types from EMAIL_SALES_EVENT_TYPES
       if (category && category !== 'all') {
         const categoryMap: Record<string, string[]> = {
           urgent: ['urgent', 'po', 'approval'],
@@ -9215,7 +9216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         const types = categoryMap[category as string] || [];
         if (types.length > 0) {
-          conditions.push(sql`${emailSalesEvents.eventType} = ANY(${types})`);
+          conditions.push(inArray(emailSalesEvents.eventType, types));
         }
       }
       
@@ -9248,6 +9249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(and(...conditions));
       
       // Get counts by category for tabs
+      // Using actual event types from EMAIL_SALES_EVENT_TYPES
       const categoryCounts = await db.execute(sql`
         SELECT 
           CASE 
@@ -22643,6 +22645,245 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
     } catch (error) {
       console.error("[Spotlight] Error updating energy:", error);
       res.status(500).json({ error: "Failed to update energy" });
+    }
+  });
+
+  // Bounce Investigation - Get bounce details with AI research
+  app.get("/api/bounce-investigation/:bounceId", isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      
+      if (isNaN(bounceId)) {
+        return res.status(400).json({ error: "Invalid bounce ID" });
+      }
+
+      // Get bounce record - scoped to the user who detected it
+      const [bounce] = await db
+        .select()
+        .from(bouncedEmails)
+        .where(and(
+          eq(bouncedEmails.id, bounceId),
+          eq(bouncedEmails.detectedBy, userId)
+        ))
+        .limit(1);
+
+      if (!bounce) {
+        return res.status(404).json({ error: "Bounce not found" });
+      }
+
+      // Get associated record (customer, contact, or lead)
+      let record: any = null;
+      if (bounce.leadId) {
+        const [lead] = await db.select().from(leads).where(eq(leads.id, bounce.leadId)).limit(1);
+        if (lead) {
+          record = {
+            type: 'lead',
+            id: lead.id,
+            name: lead.contactName || lead.company || 'Unknown',
+            email: lead.email,
+            phone: lead.phone,
+            companyName: lead.company,
+            title: lead.title,
+            city: lead.city,
+            state: lead.state,
+            lastContactAt: lead.lastContactAt,
+            stage: lead.stage,
+            source: lead.source,
+          };
+        }
+      } else if (bounce.customerId) {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, bounce.customerId)).limit(1);
+        if (customer) {
+          record = {
+            type: 'customer',
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            companyName: customer.name,
+            city: customer.city,
+            state: customer.state,
+            lastContactAt: customer.lastContactAt,
+          };
+        }
+      }
+
+      // Extract domain from email
+      const emailDomain = bounce.bouncedEmail.split('@')[1];
+      let domain = null;
+      if (emailDomain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'].includes(emailDomain.toLowerCase())) {
+        domain = {
+          domain: emailDomain,
+          screenshotUrl: `https://api.microlink.io/?url=https://${emailDomain}&screenshot=true&meta=false&embed=screenshot.url`,
+          linkedinSearchUrl: `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(emailDomain.split('.')[0])}`,
+        };
+      }
+
+      // Generate AI research
+      let aiResearch = null;
+      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (openaiApiKey) {
+        try {
+          const OpenAI = (await import('openai')).default;
+          const openai = new OpenAI({ 
+            apiKey: openaiApiKey,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          });
+
+          const prompt = `You are a sales intelligence assistant helping a sales rep decide what to do with a bounced email contact.
+
+BOUNCED EMAIL DETAILS:
+- Email: ${bounce.bouncedEmail}
+- Bounce Date: ${new Date(bounce.bounceDate).toLocaleDateString()}
+- Bounce Reason: ${bounce.bounceReason || 'Not specified'}
+- Original Subject: ${bounce.bounceSubject || 'Not available'}
+
+${record ? `CONTACT/LEAD DETAILS:
+- Name: ${record.name}
+- Company: ${record.companyName || 'Unknown'}
+- Title: ${record.title || 'Unknown'}
+- Location: ${[record.city, record.state].filter(Boolean).join(', ') || 'Unknown'}
+- Last Contact: ${record.lastContactAt ? new Date(record.lastContactAt).toLocaleDateString() : 'Never'}
+- Source: ${record.source || 'Unknown'}
+${record.stage ? `- Lead Stage: ${record.stage}` : ''}` : 'No contact record found'}
+
+${domain ? `DOMAIN: ${domain.domain}` : 'Personal email domain (Gmail, Yahoo, etc.)'}
+
+Analyze this bounced email and provide insights in JSON format:
+{
+  "summary": "Brief 1-2 sentence summary of the situation",
+  "domainAnalysis": "Analysis of the email domain - is it a real company? personal email? generic domain?",
+  "bounceAnalysis": "Analysis of why the email bounced - did the person leave? company closed? typo?",
+  "recommendation": "One of: delete, bad_fit, keep, investigate",
+  "confidence": 0.0-1.0 confidence in your recommendation,
+  "reasons": ["Array of 3-5 bullet points explaining your reasoning"]
+}`;
+
+          const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            max_tokens: 500,
+          });
+
+          const content = completion.choices[0]?.message?.content;
+          if (content) {
+            aiResearch = JSON.parse(content);
+          }
+        } catch (aiError) {
+          console.error('[Bounce Investigation] AI error:', aiError);
+        }
+      }
+
+      res.json({
+        bounce: {
+          id: bounce.id,
+          bouncedEmail: bounce.bouncedEmail,
+          bounceSubject: bounce.bounceSubject,
+          bounceDate: bounce.bounceDate,
+          bounceReason: bounce.bounceReason,
+          matchType: bounce.matchType,
+          status: bounce.status,
+        },
+        record,
+        domain,
+        aiResearch,
+      });
+    } catch (error) {
+      console.error("[Bounce Investigation] Error:", error);
+      res.status(500).json({ error: "Failed to load bounce investigation" });
+    }
+  });
+
+  // Bounce Investigation - Regenerate AI analysis
+  app.post("/api/bounce-investigation/:bounceId/regenerate-ai", isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      
+      // Verify bounce belongs to user before allowing regeneration
+      const [bounce] = await db
+        .select({ id: bouncedEmails.id })
+        .from(bouncedEmails)
+        .where(and(
+          eq(bouncedEmails.id, bounceId),
+          eq(bouncedEmails.detectedBy, userId)
+        ))
+        .limit(1);
+      
+      if (!bounce) {
+        return res.status(404).json({ error: "Bounce not found" });
+      }
+      
+      // The GET endpoint regenerates AI each time, so a simple refetch works
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to regenerate AI" });
+    }
+  });
+
+  // Bounce Investigation - Resolve bounce with action
+  app.post("/api/bounce-investigation/:bounceId/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      const { resolution } = req.body;
+      const userId = req.user?.claims?.sub || req.user?.id;
+
+      if (!['bad_fit', 'delete', 'keep'].includes(resolution)) {
+        return res.status(400).json({ error: "Invalid resolution" });
+      }
+
+      // Get bounce record - scoped to the user who detected it
+      const [bounce] = await db
+        .select()
+        .from(bouncedEmails)
+        .where(and(
+          eq(bouncedEmails.id, bounceId),
+          eq(bouncedEmails.detectedBy, userId)
+        ))
+        .limit(1);
+
+      if (!bounce) {
+        return res.status(404).json({ error: "Bounce not found" });
+      }
+
+      // Handle the resolution
+      if (resolution === 'delete') {
+        // Delete the associated record
+        if (bounce.leadId) {
+          await db.delete(leads).where(eq(leads.id, bounce.leadId));
+        } else if (bounce.customerId) {
+          await db.delete(customers).where(eq(customers.id, bounce.customerId));
+        }
+      } else if (resolution === 'bad_fit') {
+        // Mark as do not contact
+        if (bounce.leadId) {
+          await db.update(leads)
+            .set({ stage: 'lost', lostReason: 'Bad Fit - Email Bounced', doNotContact: true })
+            .where(eq(leads.id, bounce.leadId));
+        } else if (bounce.customerId) {
+          await db.update(customers)
+            .set({ doNotContact: true, doNotContactReason: 'Bad Fit - Email Bounced' })
+            .where(eq(customers.id, bounce.customerId));
+        }
+      }
+      // 'keep' just resolves the bounce without changing the record
+
+      // Update bounce record as resolved
+      await db.update(bouncedEmails)
+        .set({
+          status: 'resolved',
+          resolvedAt: new Date(),
+          resolvedBy: userId,
+          resolution: resolution,
+        })
+        .where(eq(bouncedEmails.id, bounceId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Bounce Investigation] Error resolving:", error);
+      res.status(500).json({ error: "Failed to resolve bounce" });
     }
   });
 

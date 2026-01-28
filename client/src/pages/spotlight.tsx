@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,7 @@ import {
   ChevronDown,
   ChevronRight,
   UserPlus,
+  Search,
 } from "lucide-react";
 
 // Progress Ring SVG Component for Pastel & Soft design
@@ -317,6 +318,7 @@ const IDLE_TIMEOUT_MS = 3 * 60 * 60 * 1000; // 3 hours
 export default function Spotlight() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [fieldValue, setFieldValue] = useState("");
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -2013,9 +2015,18 @@ export default function Spotlight() {
                           <ul className="text-xs text-amber-700 mt-1 list-disc pl-4 space-y-1">
                             <li><strong>Mark as Do Not Contact</strong> - Stop all outreach to this {(task as any).extraContext?.matchType === 'lead' ? 'lead' : 'contact'} (recommended)</li>
                             <li><strong>Keep Active</strong> - If you believe the bounce was temporary</li>
-                            <li><strong>Investigate Later</strong> - Snooze for 7 days to research further</li>
+                            <li><strong>Keep for Research</strong> - Open AI-powered investigation page to help you decide</li>
                           </ul>
                         </div>
+                        {(task as any).extraContext?.bounceId && (
+                          <button
+                            onClick={() => setLocation(`/bounce-investigation/${(task as any).extraContext.bounceId}`)}
+                            className="mt-3 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+                          >
+                            <Search className="w-4 h-4" />
+                            Keep for Research (AI Analysis)
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
