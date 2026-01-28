@@ -2238,6 +2238,34 @@ class SpotlightEngine {
       }
     }
 
+    // Check for leads missing customer type (reseller vs printer)
+    const skippedLeadIds = skippedIds
+      .filter(id => id.startsWith('lead-'))
+      .map(id => parseInt(id.replace('lead-', '')))
+      .filter(id => !isNaN(id));
+    
+    let leadConditions: any[] = [
+      isNull(leads.customerType),
+      notInArray(leads.stage, ['converted', 'lost']),
+      or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+    ];
+    
+    if (skippedLeadIds.length > 0) {
+      leadConditions.push(notInArray(leads.id, skippedLeadIds));
+    }
+    
+    const leadResult = await db
+      .select()
+      .from(leads)
+      .where(and(...leadConditions))
+      .orderBy(desc(leads.score), desc(leads.updatedAt))
+      .limit(1);
+    
+    if (leadResult.length > 0) {
+      const lead = leadResult[0];
+      return this.buildLeadTask(lead, 'data_hygiene', 'hygiene_customer_type', 50);
+    }
+
     return null;
   }
   
@@ -3241,17 +3269,29 @@ class SpotlightEngine {
       }
     }
 
-    // Handle set_customer_type action - set customer as printer or reseller
+    // Handle set_customer_type action - set customer or lead as printer or reseller
     if (selectedOutcome?.nextAction?.type === 'set_customer_type') {
       const customerType = (selectedOutcome.nextAction as any).customerType;
-      await db.update(customers)
-        .set({ 
-          customerType,
-          updatedAt: new Date(),
-        })
-        .where(eq(customers.id, customerId));
       
-      console.log(`[Spotlight] Customer ${customerId} set as ${customerType} by user ${userId}`);
+      if (isLeadTask && leadId) {
+        // Update lead's customer type
+        await db.update(leads)
+          .set({ 
+            customerType,
+            updatedAt: new Date(),
+          })
+          .where(eq(leads.id, leadId));
+        console.log(`[Spotlight] Lead ${leadId} set as ${customerType} by user ${userId}`);
+      } else {
+        // Update customer's customer type
+        await db.update(customers)
+          .set({ 
+            customerType,
+            updatedAt: new Date(),
+          })
+          .where(eq(customers.id, customerId));
+        console.log(`[Spotlight] Customer ${customerId} set as ${customerType} by user ${userId}`);
+      }
     }
 
     let nextFollowUp: { date: Date; type: string } | undefined;
