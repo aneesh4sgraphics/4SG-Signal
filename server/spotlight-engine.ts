@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails } from "@shared/schema";
+import { scanForBouncedEmails } from "./bounce-detector";
 
 // Generic email domains to deprioritize in data hygiene tasks
 const GENERIC_EMAIL_DOMAINS = [
@@ -2049,15 +2050,24 @@ class SpotlightEngine {
       const onlyGeneric = 'onlyGeneric' in item ? item.onlyGeneric : false;
       const special = 'special' in item ? (item as any).special : null;
       
-      // Special handling for bounced email detection - queries gmail for bounce messages
+      // Special handling for bounced email detection - uses bouncedEmails table
       if (special === 'bounced_email') {
-        const bouncedCustomer = await this.findBouncedEmailCustomer(userId, skippedIds);
-        if (bouncedCustomer) {
-          return this.buildTask(bouncedCustomer.customer, 'data_hygiene', 'hygiene_bounced_email', i + 1, {
-            bouncedEmail: bouncedCustomer.bouncedEmail,
-            bounceSubject: bouncedCustomer.bounceSubject,
-            bounceDate: bouncedCustomer.bounceDate,
+        const bouncedResult = await this.findBouncedEmailCustomer(userId, skippedIds);
+        if (bouncedResult) {
+          const task = this.buildTask(bouncedResult.customer, 'data_hygiene', 'hygiene_bounced_email', i + 1, {
+            bouncedEmail: bouncedResult.bouncedEmail,
+            bounceSubject: bouncedResult.bounceSubject,
+            bounceDate: bouncedResult.bounceDate,
+            bounceId: bouncedResult.bounceId,
+            matchType: bouncedResult.matchType,
           });
+          // If this is a lead bounce, mark the task appropriately
+          if (bouncedResult.matchType === 'lead' && bouncedResult.lead) {
+            task.isLeadTask = true;
+            task.leadId = bouncedResult.lead.id;
+            task.lead = bouncedResult.lead;
+          }
+          return task;
         }
         continue;
       }
@@ -2232,97 +2242,55 @@ class SpotlightEngine {
   
   private async findBouncedEmailCustomer(userId: string, skippedIds: string[]): Promise<{
     customer: any;
+    lead?: any;
     bouncedEmail: string;
     bounceSubject: string;
     bounceDate: string;
+    bounceId: number;
+    matchType: string;
   } | null> {
-    // Look for bounce notification emails in the user's gmail messages
-    // Common bounce indicators:
-    // - From: mailer-daemon@*, postmaster@*
-    // - Subject contains: "undeliverable", "delivery", "failed", "returned", "bounce", "rejected"
-    const bouncePatterns = [
-      'mailer-daemon',
-      'postmaster',
-      'mail delivery',
-      'mail-delivery',
-    ];
-    
-    const subjectPatterns = [
-      'undeliverable',
-      'delivery failed',
-      'delivery failure',
-      'delivery status',
-      'mail delivery',
-      'returned mail',
-      'bounce',
-      'rejected',
-      'could not be delivered',
-      'not delivered',
-    ];
-    
-    // Build SQL pattern conditions for bounce detection
-    const fromConditions = bouncePatterns.map(pattern => 
-      sql`LOWER(${gmailMessages.fromEmail}) LIKE ${'%' + pattern + '%'}`
-    );
-    
-    const subjectConditions = subjectPatterns.map(pattern =>
-      sql`LOWER(${gmailMessages.subject}) LIKE ${'%' + pattern + '%'}`
-    );
-    
-    // Find bounce messages from the last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
     try {
-      // Query for bounce messages that mention customer emails
-      const bounceMessages = await db
-        .select({
-          id: gmailMessages.id,
-          fromEmail: gmailMessages.fromEmail,
-          subject: gmailMessages.subject,
-          bodyText: gmailMessages.bodyText,
-          sentAt: gmailMessages.sentAt,
-          toEmail: gmailMessages.toEmail,
-        })
-        .from(gmailMessages)
-        .where(and(
-          eq(gmailMessages.userId, userId),
-          or(...fromConditions, ...subjectConditions),
-          sql`${gmailMessages.sentAt} > ${thirtyDaysAgo}`,
-          eq(gmailMessages.direction, 'inbound'),
-        ))
-        .orderBy(desc(gmailMessages.sentAt))
-        .limit(20);
+      // First, trigger a scan for new bounced emails (runs quickly if no new bounces)
+      try {
+        await scanForBouncedEmails(userId);
+      } catch (scanError) {
+        console.log('[Spotlight] Bounce scan skipped:', scanError);
+      }
       
-      if (bounceMessages.length === 0) {
+      // Query the bouncedEmails table for pending bounces
+      // Priority: customer matches first, then contact matches, then lead matches
+      const pendingBounces = await db
+        .select({
+          id: bouncedEmails.id,
+          bouncedEmail: bouncedEmails.bouncedEmail,
+          bounceSubject: bouncedEmails.bounceSubject,
+          bounceDate: bouncedEmails.bounceDate,
+          bounceReason: bouncedEmails.bounceReason,
+          customerId: bouncedEmails.customerId,
+          contactId: bouncedEmails.contactId,
+          leadId: bouncedEmails.leadId,
+          matchType: bouncedEmails.matchType,
+        })
+        .from(bouncedEmails)
+        .where(eq(bouncedEmails.status, 'pending'))
+        .orderBy(desc(bouncedEmails.bounceDate))
+        .limit(10);
+      
+      if (pendingBounces.length === 0) {
         return null;
       }
       
-      // For each bounce message, try to extract the bounced email address
-      // and match it to a customer
-      for (const bounce of bounceMessages) {
-        // Extract email addresses from the bounce message body and subject
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const bodyEmails = (bounce.bodyText || '').match(emailRegex) || [];
-        const subjectEmails = (bounce.subject || '').match(emailRegex) || [];
-        const allEmails = [...new Set([...bodyEmails, ...subjectEmails])];
-        
-        // Filter out common system emails
-        const potentialBouncedEmails = allEmails.filter(email => {
-          const lower = email.toLowerCase();
-          return !lower.includes('mailer-daemon') && 
-                 !lower.includes('postmaster') &&
-                 !lower.includes('4sgraphics') &&
-                 !lower.includes('noreply') &&
-                 !lower.includes('no-reply');
-        });
-        
-        // Try to match each potential bounced email to a customer
-        for (const bouncedEmail of potentialBouncedEmails) {
-          const normalizedEmail = bouncedEmail.toLowerCase().trim();
+      // Process bounces - try to find one with a valid customer/lead
+      for (const bounce of pendingBounces) {
+        // Handle customer bounces
+        if (bounce.customerId && bounce.matchType !== 'lead') {
+          // Check if customer is skipped
+          if (skippedIds.includes(bounce.customerId)) {
+            continue;
+          }
           
-          // Check if this customer was already skipped
-          const customerMatch = await db
+          // Get customer data
+          const customerData = await db
             .select({
               id: customers.id,
               company: customers.company,
@@ -2345,74 +2313,68 @@ class SpotlightEngine {
             })
             .from(customers)
             .where(and(
-              sql`LOWER(${customers.email}) = ${normalizedEmail}`,
+              eq(customers.id, bounce.customerId),
               eq(customers.doNotContact, false),
-              skippedIds.length > 0 ? notInArray(customers.id, skippedIds) : sql`1=1`,
               or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
             ))
             .limit(1);
           
-          if (customerMatch.length > 0) {
-            // Also check customer contacts
+          if (customerData.length > 0) {
             return {
-              customer: customerMatch[0],
-              bouncedEmail: normalizedEmail,
-              bounceSubject: bounce.subject || 'Delivery failure',
-              bounceDate: bounce.sentAt?.toISOString() || new Date().toISOString(),
+              customer: customerData[0],
+              bouncedEmail: bounce.bouncedEmail,
+              bounceSubject: bounce.bounceSubject || 'Delivery failure',
+              bounceDate: bounce.bounceDate?.toISOString() || new Date().toISOString(),
+              bounceId: bounce.id,
+              matchType: bounce.matchType || 'customer',
             };
           }
+        }
+        
+        // Handle lead bounces
+        if (bounce.leadId && bounce.matchType === 'lead') {
+          const leadId = bounce.leadId;
+          // Check if lead task is skipped
+          if (skippedIds.includes(`lead-${leadId}`)) {
+            continue;
+          }
           
-          // Check customer contacts
-          const contactMatch = await db
-            .select({
-              customerId: customerContacts.customerId,
-              email: customerContacts.email,
-            })
-            .from(customerContacts)
-            .innerJoin(customers, eq(customers.id, customerContacts.customerId))
+          // Get lead data
+          const leadData = await db
+            .select()
+            .from(leads)
             .where(and(
-              sql`LOWER(${customerContacts.email}) = ${normalizedEmail}`,
-              eq(customers.doNotContact, false),
-              skippedIds.length > 0 ? notInArray(customers.id, skippedIds) : sql`1=1`,
-              or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+              eq(leads.id, leadId),
+              or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
             ))
             .limit(1);
           
-          if (contactMatch.length > 0) {
-            // Get the full customer data
-            const customer = await db
-              .select({
-                id: customers.id,
-                company: customers.company,
-                firstName: customers.firstName,
-                lastName: customers.lastName,
-                email: customers.email,
-                phone: customers.phone,
-                address1: customers.address1,
-                address2: customers.address2,
-                city: customers.city,
-                province: customers.province,
-                zip: customers.zip,
-                country: customers.country,
-                website: customers.website,
-                salesRepId: customers.salesRepId,
-                salesRepName: customers.salesRepName,
-                pricingTier: customers.pricingTier,
-                updatedAt: customers.updatedAt,
-                isHotProspect: customers.isHotProspect,
-              })
-              .from(customers)
-              .where(eq(customers.id, contactMatch[0].customerId))
-              .limit(1);
-            
-            if (customer.length > 0) {
-              return {
-                customer: customer[0],
-                bouncedEmail: normalizedEmail,
-                bounceSubject: bounce.subject || 'Delivery failure',
-                bounceDate: bounce.sentAt?.toISOString() || new Date().toISOString(),
-              };
-            }
+          if (leadData.length > 0) {
+            // Build a customer-like object for lead display in SPOTLIGHT
+            const lead = leadData[0];
+            return {
+              customer: {
+                id: `lead-${lead.id}`,
+                company: lead.company || lead.name,
+                firstName: lead.name?.split(' ')[0] || '',
+                lastName: lead.name?.split(' ').slice(1).join(' ') || '',
+                email: lead.email,
+                phone: lead.phone,
+                city: lead.city,
+                province: lead.province,
+                country: lead.country,
+                salesRepId: lead.salesRepId,
+                salesRepName: lead.salesRepName,
+                pricingTier: lead.pricingTier,
+                isHotProspect: lead.score && lead.score >= 50,
+              },
+              lead: lead,
+              bouncedEmail: bounce.bouncedEmail,
+              bounceSubject: bounce.bounceSubject || 'Delivery failure',
+              bounceDate: bounce.bounceDate?.toISOString() || new Date().toISOString(),
+              bounceId: bounce.id,
+              matchType: 'lead',
+            };
           }
         }
       }
@@ -3105,24 +3067,62 @@ class SpotlightEngine {
     }
 
     if (selectedOutcome?.nextAction?.type === 'mark_dnc') {
-      await db.update(customers)
-        .set({ 
-          doNotContact: true,
-          updatedAt: new Date(),
-        })
-        .where(eq(customers.id, customerId));
+      // Handle lead DNC vs customer DNC
+      if (isLeadTask && leadId) {
+        await db.update(leads)
+          .set({ 
+            stage: 'lost',
+            lostReason: 'Bounced email - marked as do not contact',
+            updatedAt: new Date(),
+          })
+          .where(eq(leads.id, leadId));
+        console.log(`[Spotlight] Lead ${leadId} marked as lost/DNC by user ${userId}`);
+      } else {
+        await db.update(customers)
+          .set({ 
+            doNotContact: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(customers.id, customerId));
+        
+        await db.update(followUpTasks)
+          .set({ 
+            status: 'cancelled',
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(followUpTasks.customerId, customerId),
+            ne(followUpTasks.status, 'completed')
+          ));
+        
+        console.log(`[Spotlight] Customer ${customerId} marked as DNC by user ${userId}`);
+      }
       
-      await db.update(followUpTasks)
-        .set({ 
-          status: 'cancelled',
-          updatedAt: new Date(),
+      // Resolve any bounced email records for this customer/lead
+      if (subtype === 'hygiene_bounced_email' && extraContext?.bounceId) {
+        await db.update(bouncedEmails)
+          .set({
+            status: 'resolved',
+            resolution: 'mark_dnc',
+            resolvedAt: new Date(),
+            resolvedBy: userId,
+          })
+          .where(eq(bouncedEmails.id, extraContext.bounceId as number));
+        console.log(`[Spotlight] Bounce record ${extraContext.bounceId} resolved as mark_dnc`);
+      }
+    }
+    
+    // Handle "keep" action for bounced emails - mark bounce as resolved but keep contact active
+    if (subtype === 'hygiene_bounced_email' && outcomeId === 'keep' && extraContext?.bounceId) {
+      await db.update(bouncedEmails)
+        .set({
+          status: 'resolved',
+          resolution: 'keep',
+          resolvedAt: new Date(),
+          resolvedBy: userId,
         })
-        .where(and(
-          eq(followUpTasks.customerId, customerId),
-          ne(followUpTasks.status, 'completed')
-        ));
-      
-      console.log(`[Spotlight] Customer ${customerId} marked as DNC by user ${userId}`);
+        .where(eq(bouncedEmails.id, extraContext.bounceId as number));
+      console.log(`[Spotlight] Bounce record ${extraContext.bounceId} resolved as keep`);
     }
     
     // Handle delete_record action - permanently delete the customer/lead
