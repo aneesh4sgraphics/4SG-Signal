@@ -49,6 +49,15 @@ async function getGmailClient() {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
+export async function checkGmailConnection(): Promise<boolean> {
+  try {
+    await getAccessToken();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 // Get sender email from connection settings (avoids needing gmail.readonly scope)
 function getSenderEmailFromConnection(): string {
   // Try to get email from connection settings

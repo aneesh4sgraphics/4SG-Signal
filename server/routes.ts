@@ -8312,15 +8312,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user has their own Gmail OAuth connection with send permission
       const authUserId = req.user?.id;
       let usePersonalGmail = false;
+      let userGmailConnection: any = null;
+      
       if (authUserId) {
         try {
-          const userGmailConnection = await getUserGmailConnection(authUserId);
+          userGmailConnection = await getUserGmailConnection(authUserId);
           if (userGmailConnection?.isActive && userGmailConnection.scope?.includes('gmail.send')) {
             usePersonalGmail = true;
             console.log('[Email Send] Using personal Gmail for:', userGmailConnection.gmailAddress);
           }
         } catch (e) {
-          // No personal Gmail connection, will use shared connector
+          // No personal Gmail connection, will check shared connector
+        }
+      }
+      
+      // If no personal Gmail, check if shared connector is available
+      if (!usePersonalGmail) {
+        try {
+          // Check if shared connector is available by importing and checking the connection
+          const { checkGmailConnection } = await import("./gmail-client");
+          const isConnected = await checkGmailConnection();
+          if (!isConnected) {
+            console.log('[Email Send] No Gmail available for user:', req.user?.email);
+            return res.status(400).json({ 
+              error: "Gmail not connected. Please connect your Gmail in Settings > Integrations to send emails.",
+              requiresConnection: true
+            });
+          }
+        } catch (sharedError: any) {
+          // Shared connector failed - likely a connection issue
+          console.log('[Email Send] Gmail connection check failed:', sharedError.message);
+          return res.status(400).json({ 
+            error: "Gmail not connected. Please connect your Gmail in Settings > Integrations to send emails.",
+            requiresConnection: true
+          });
         }
       }
       
