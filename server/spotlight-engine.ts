@@ -1380,15 +1380,14 @@ class SpotlightEngine {
         return { task: null, session, allDone: true };
       }
 
-      // Get customer IDs claimed by other users to avoid duplicates
-      const claimedByOthers = await this.getClaimedCustomerIds(userId);
-      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers];
-
-      // For calls and outreach, also exclude recently contacted customers (auto-skip)
-      if (nextBucket === 'calls' || nextBucket === 'outreach') {
-        const recentlyContacted = await this.getRecentlyContactedIds(7);
-        excludeIds = [...excludeIds, ...recentlyContacted];
-      }
+      // PERFORMANCE: Parallelize exclusion queries
+      const needsRecentlyContacted = nextBucket === 'calls' || nextBucket === 'outreach';
+      const [claimedByOthers, recentlyContacted] = await Promise.all([
+        this.getClaimedCustomerIds(userId),
+        needsRecentlyContacted ? this.getRecentlyContactedIds(7) : Promise.resolve([])
+      ]);
+      
+      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers, ...recentlyContacted];
 
       let task: SpotlightTask | null = null;
       

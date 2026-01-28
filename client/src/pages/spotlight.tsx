@@ -347,7 +347,8 @@ export default function Spotlight() {
   }>({
     queryKey: ['/api/spotlight/current'],
     refetchOnWindowFocus: false,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000, // Increased from 30s to reduce refetches
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
   
   const [showWarmup, setShowWarmup] = useState(false);
@@ -660,6 +661,7 @@ export default function Spotlight() {
       setIsTransitioning(true);
       setShowSuccess(true);
       
+      // PERFORMANCE: Reduced transition delays (was 400ms + 300ms = 700ms)
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
         setFieldValue("");
@@ -669,8 +671,8 @@ export default function Spotlight() {
         setTimeout(() => {
           setIsTransitioning(false);
           setShowSuccess(false);
-        }, 300);
-      }, 400);
+        }, 150); // Reduced from 300ms
+      }, 200); // Reduced from 400ms
       
       if (result.nextFollowUp) {
         const date = new Date(result.nextFollowUp.date).toLocaleDateString();
@@ -729,14 +731,15 @@ export default function Spotlight() {
       setShowDeleteConfirm(false);
       setIsTransitioning(true);
       
+      // PERFORMANCE: Reduced transition delays
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
         queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
         
         setTimeout(() => {
           setIsTransitioning(false);
-        }, 300);
-      }, 400);
+        }, 150); // Reduced from 300ms
+      }, 200); // Reduced from 400ms
       
       toast({ 
         title: result?.alreadyDeleted ? "Customer already deleted" : "Customer deleted", 

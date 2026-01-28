@@ -22077,9 +22077,12 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
 
       const { task, session, allDone } = await spotlightEngine.getNextTask(userId);
       
-      let hints: any[] = [];
-      if (task && task.customer) {
-        hints = await analyzeForHints(
+      // PERFORMANCE: Parallelize secondary data fetching
+      const gamification = spotlightEngine.getGamificationState(session as any);
+      
+      const [hints, microCard, coachTip] = await Promise.all([
+        // Hints analysis
+        task && task.customer ? analyzeForHints(
           task.customer.id,
           {
             company: task.customer.company,
@@ -22092,23 +22095,14 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
             isHotProspect: task.customer.isHotProspect || null,
           },
           task.taskSubtype
-        );
-      }
-
-      // Get gamification state
-      const gamification = spotlightEngine.getGamificationState(session as any);
-      
-      // Check for micro-coaching card
-      let microCard = null;
-      if ((session as any).tasksSinceMicroCard >= 3) {
-        microCard = await spotlightEngine.getMicroCoachingCard(userId);
-      }
-      
-      // Get contextual coach tip for this task
-      let coachTip = null;
-      if (task) {
-        coachTip = await spotlightEngine.getCoachTip(task.taskSubtype);
-      }
+        ) : Promise.resolve([]),
+        // Micro coaching card
+        (session as any).tasksSinceMicroCard >= 3 
+          ? spotlightEngine.getMicroCoachingCard(userId) 
+          : Promise.resolve(null),
+        // Coach tip
+        task ? spotlightEngine.getCoachTip(task.taskSubtype) : Promise.resolve(null)
+      ]);
 
       res.json({
         task,
