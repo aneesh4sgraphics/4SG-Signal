@@ -8526,8 +8526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error logging email activity (non-critical):", logError);
       }
       
-      // Log as customer activity if customerId is provided
-      if (customerId) {
+      // Log as customer activity if customerId is provided (skip lead-prefixed IDs)
+      const isValidCustomerId = customerId && !customerId.startsWith('lead-');
+      if (isValidCustomerId) {
         try {
           await storage.createActivityEvent({
             customerId,

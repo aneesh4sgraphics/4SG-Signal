@@ -1261,11 +1261,14 @@ export default function Spotlight() {
       toast({ title: 'Missing fields', description: 'Please fill in recipient, subject, and message', variant: 'destructive' });
       return;
     }
+    // For lead tasks, don't pass lead-prefixed customerId - it's not a valid customer ID
+    const taskCustomerId = currentTask?.task?.customer?.id;
+    const validCustomerId = taskCustomerId && !taskCustomerId.startsWith('lead-') ? taskCustomerId : undefined;
     sendEmailMutation.mutate({
       to: emailTo,
       subject: emailSubject,
       body: htmlBody,
-      customerId: currentTask?.task?.customer?.id,
+      customerId: validCustomerId,
     });
   };
 
