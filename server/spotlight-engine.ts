@@ -3341,21 +3341,25 @@ class SpotlightEngine {
       return parts.join(' | ');
     };
     
-    try {
-      await db.insert(customerActivityEvents).values({
-        customerId,
-        eventType: getActivityEventType(),
-        title: `${bucketInfo(bucket)}: ${selectedOutcome?.label || outcomeId}`,
-        description: buildDescription(),
-        sourceType: 'auto',
-        sourceTable: 'spotlight',
-        sourceId: taskId,
-        createdAt: now,
-        updatedAt: now,
-        userId,
-      });
-    } catch (e) {
-      console.error('[Spotlight] Failed to log customer activity:', e);
+    // Only log customer activity for real customers (not leads with synthetic IDs)
+    // Lead-prefixed IDs like 'lead-123' are not valid customer IDs in the database
+    if (!isLeadTask && !customerId.startsWith('lead-')) {
+      try {
+        await db.insert(customerActivityEvents).values({
+          customerId,
+          eventType: getActivityEventType(),
+          title: `${bucketInfo(bucket)}: ${selectedOutcome?.label || outcomeId}`,
+          description: buildDescription(),
+          sourceType: 'auto',
+          sourceTable: 'spotlight',
+          sourceId: taskId,
+          createdAt: now,
+          updatedAt: now,
+          userId,
+        });
+      } catch (e) {
+        console.error('[Spotlight] Failed to log customer activity:', e);
+      }
     }
 
     try {

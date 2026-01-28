@@ -1223,6 +1223,18 @@ export default function Spotlight() {
       body = body.replace(/\{\{user\.name\}\}/gi, salesRepName);
       body = body.replace(/\{\{sender\}\}/gi, salesRepName);
       
+      // Replace {{user.signature}} variable with actual signature HTML
+      // Track if template had the variable so we don't double-append
+      const hadSignatureVariable = /\{\{user\.signature\}\}/gi.test(body);
+      if (userSignature?.signatureHtml) {
+        body = body.replace(/\{\{user\.signature\}\}/gi, userSignature.signatureHtml);
+        subject = subject.replace(/\{\{user\.signature\}\}/gi, ''); // Remove from subject if present
+      } else {
+        // Remove the placeholder if no signature is configured
+        body = body.replace(/\{\{user\.signature\}\}/gi, '');
+        subject = subject.replace(/\{\{user\.signature\}\}/gi, '');
+      }
+      
       // Convert plain text with bullet points to HTML if needed
       if (!body.includes('<') || !body.includes('>')) {
         // Plain text - convert line breaks and bullets to HTML
@@ -1240,8 +1252,8 @@ export default function Spotlight() {
         body = body.replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>');
       }
       
-      // Append signature if available
-      if (userSignature?.signatureHtml) {
+      // Append signature if available (only if template didn't have {{user.signature}} variable)
+      if (userSignature?.signatureHtml && !hadSignatureVariable) {
         body = body + `<br><br>${userSignature.signatureHtml}`;
       }
       
