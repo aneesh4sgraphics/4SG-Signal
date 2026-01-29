@@ -168,7 +168,7 @@ Lead task outcomes automatically update lead records:
 
 **DRIP Email Integration:**
 SPOTLIGHT automatically surfaces drip campaign follow-ups:
-- **drip_reply_urgent** (calls bucket, priority 100): When a customer replies to a drip email (Re: or Fwd: subject within 14 days of drip send), surfaces as HIGHEST priority task with "Call Now!" action
+- **drip_reply_urgent** (calls bucket, priority 100): When a customer/lead replies to a drip email (Re: or Fwd: subject within 14 days of drip send), surfaces as HIGHEST priority task with "Call Now!" action
 - **drip_stale_followup** (follow_ups bucket, priority 70): When 10+ days pass since last drip email with no reply, surfaces creative follow-up options:
   - Send Another Email
   - Send Swatch Book
@@ -177,6 +177,7 @@ SPOTLIGHT automatically surfaces drip campaign follow-ups:
   - Connect on LinkedIn
   - Mark as Lost
 - Both task types check `spotlight_events` to prevent re-surfacing handled tasks
+- **Lead Support**: Drip campaigns now support both customers AND leads. The `dripCampaignAssignments` table has both `customerId` (for customers) and `leadId` (for leads) columns.
 - Detection uses stricter matching to avoid false positives (subject line matching, time windows)
 
 **Differentiated Task Cards:**

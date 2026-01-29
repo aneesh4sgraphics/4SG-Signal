@@ -11812,14 +11812,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Assign customers to a campaign
+  // Assign customers or leads to a campaign
   app.post("/api/drip-campaigns/:campaignId/assignments", isAuthenticated, async (req: any, res) => {
     try {
       const campaignId = parseInt(req.params.campaignId);
-      const { customerIds, startAt } = req.body;
+      const { customerIds, leadIds, startAt } = req.body;
       
-      if (!Array.isArray(customerIds) || customerIds.length === 0) {
-        return res.status(400).json({ error: "customerIds array is required" });
+      const hasCustomers = Array.isArray(customerIds) && customerIds.length > 0;
+      const hasLeads = Array.isArray(leadIds) && leadIds.length > 0;
+      
+      if (!hasCustomers && !hasLeads) {
+        return res.status(400).json({ error: "customerIds or leadIds array is required" });
       }
       
       // Get campaign steps to schedule
@@ -11831,54 +11834,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = startAt ? new Date(startAt) : new Date();
       const assignments = [];
       
-      for (const customerId of customerIds) {
-        // Check if already assigned
-        const existing = await storage.getDripCampaignAssignments(campaignId, customerId);
-        if (existing.some(a => a.status === 'active')) {
-          continue; // Skip if already active
-        }
-        
-        // Create assignment
-        const assignment = await storage.createDripCampaignAssignment({
-          campaignId,
-          customerId,
-          status: 'active',
-          startedAt: startDate,
-          assignedBy: req.user?.email,
-          metadata: {},
-        });
-        
-        // Schedule all steps for this assignment
-        let scheduledTime = new Date(startDate);
-        for (const step of steps) {
-          // Add delay based on unit
-          if (step.delayAmount > 0) {
-            switch (step.delayUnit) {
-              case 'minutes':
-                scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 1000);
-                break;
-              case 'hours':
-                scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 60 * 1000);
-                break;
-              case 'weeks':
-                scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 7 * 24 * 60 * 60 * 1000);
-                break;
-              case 'days':
-              default:
-                scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 24 * 60 * 60 * 1000);
-                break;
-            }
+      // Process customers
+      if (hasCustomers) {
+        for (const customerId of customerIds) {
+          // Check if already assigned
+          const existing = await storage.getDripCampaignAssignments(campaignId, customerId);
+          if (existing.some(a => a.status === 'active')) {
+            continue; // Skip if already active
           }
           
-          await storage.createDripCampaignStepStatus({
-            assignmentId: assignment.id,
-            stepId: step.id,
-            scheduledFor: scheduledTime,
-            status: 'scheduled',
+          // Create assignment
+          const assignment = await storage.createDripCampaignAssignment({
+            campaignId,
+            customerId,
+            status: 'active',
+            startedAt: startDate,
+            assignedBy: req.user?.email,
+            metadata: {},
           });
+          
+          // Schedule all steps for this assignment
+          await scheduleStepsForAssignment(assignment.id, steps, startDate);
+          assignments.push(assignment);
         }
-        
-        assignments.push(assignment);
+      }
+      
+      // Process leads
+      if (hasLeads) {
+        for (const leadId of leadIds) {
+          // Validate leadId is a valid integer
+          const parsedLeadId = parseInt(leadId);
+          if (isNaN(parsedLeadId)) {
+            console.warn(`[Drip Assign] Invalid leadId: ${leadId}, skipping`);
+            continue;
+          }
+          
+          // Check if already assigned (search by leadId)
+          const existing = await storage.getDripCampaignAssignments(campaignId, undefined, parsedLeadId);
+          if (existing.some(a => a.status === 'active')) {
+            continue; // Skip if already active
+          }
+          
+          // Create assignment for lead
+          const assignment = await storage.createDripCampaignAssignment({
+            campaignId,
+            leadId: parsedLeadId,
+            status: 'active',
+            startedAt: startDate,
+            assignedBy: req.user?.email,
+            metadata: {},
+          });
+          
+          // Schedule all steps for this assignment
+          await scheduleStepsForAssignment(assignment.id, steps, startDate);
+          assignments.push(assignment);
+        }
       }
       
       res.json({ created: assignments.length, assignments });
@@ -11887,6 +11897,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create drip campaign assignments" });
     }
   });
+  
+  // Helper function to schedule steps for an assignment
+  async function scheduleStepsForAssignment(assignmentId: number, steps: any[], startDate: Date) {
+    let scheduledTime = new Date(startDate);
+    for (const step of steps) {
+      // Add delay based on unit
+      if (step.delayAmount > 0) {
+        switch (step.delayUnit) {
+          case 'minutes':
+            scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 1000);
+            break;
+          case 'hours':
+            scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 60 * 1000);
+            break;
+          case 'weeks':
+            scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 7 * 24 * 60 * 60 * 1000);
+            break;
+          case 'days':
+          default:
+            scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 24 * 60 * 60 * 1000);
+            break;
+        }
+      }
+      
+      await storage.createDripCampaignStepStatus({
+        assignmentId,
+        stepId: step.id,
+        scheduledFor: scheduledTime,
+        status: 'scheduled',
+      });
+    }
+  }
 
   // Update assignment status (pause, resume, cancel)
   app.patch("/api/drip-campaigns/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {

@@ -5,10 +5,11 @@ import {
   dripCampaignAssignments, 
   dripCampaigns,
   customers,
+  leads,
   emailSends,
   emailTrackingTokens
 } from "@shared/schema";
-import { eq, and, lte, sql } from "drizzle-orm";
+import { eq, and, lte, sql, isNotNull } from "drizzle-orm";
 import { sendEmail } from "./gmail-client";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
 import crypto from "crypto";
@@ -24,16 +25,18 @@ interface ScheduledEmail {
   statusId: number;
   stepId: number;
   assignmentId: number;
-  customerId: string;
+  customerId: string | null;
+  leadId: number | null;
   stepName: string;
   subject: string;
   body: string;
   campaignName: string;
-  customerEmail: string | null;
-  customerFirstName: string | null;
-  customerLastName: string | null;
-  customerCompany: string | null;
+  recipientEmail: string | null;
+  recipientFirstName: string | null;
+  recipientLastName: string | null;
+  recipientCompany: string | null;
   odooPartnerId: number | null;
+  isLead: boolean;
 }
 
 export async function startDripEmailWorker() {
@@ -108,6 +111,7 @@ async function processScheduledEmails() {
     console.log(`[Drip Worker] Processing ${lockedIds.length} emails`);
 
     for (const statusId of lockedIds) {
+      // Query with LEFT JOINs to handle both customers and leads
       const emailData = await db
         .select({
           statusId: dripCampaignStepStatus.id,
@@ -117,23 +121,52 @@ async function processScheduledEmails() {
           subject: dripCampaignSteps.subject,
           body: dripCampaignSteps.body,
           customerId: dripCampaignAssignments.customerId,
+          leadId: dripCampaignAssignments.leadId,
           campaignName: dripCampaigns.name,
+          // Customer fields
           customerEmail: customers.email,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
           customerCompany: customers.company,
           odooPartnerId: customers.odooPartnerId,
+          // Lead fields
+          leadEmail: leads.email,
+          leadFirstName: sql<string>`SPLIT_PART(${leads.name}, ' ', 1)`,
+          leadLastName: sql<string>`SUBSTRING(${leads.name} FROM POSITION(' ' IN ${leads.name}) + 1)`,
+          leadCompany: leads.company,
         })
         .from(dripCampaignStepStatus)
         .innerJoin(dripCampaignSteps, eq(dripCampaignStepStatus.stepId, dripCampaignSteps.id))
         .innerJoin(dripCampaignAssignments, eq(dripCampaignStepStatus.assignmentId, dripCampaignAssignments.id))
         .innerJoin(dripCampaigns, eq(dripCampaignAssignments.campaignId, dripCampaigns.id))
-        .innerJoin(customers, eq(dripCampaignAssignments.customerId, customers.id))
+        .leftJoin(customers, eq(dripCampaignAssignments.customerId, customers.id))
+        .leftJoin(leads, eq(dripCampaignAssignments.leadId, leads.id))
         .where(eq(dripCampaignStepStatus.id, statusId))
         .limit(1);
 
       if (emailData.length > 0) {
-        await sendScheduledEmail(emailData[0] as ScheduledEmail);
+        const data = emailData[0];
+        const isLead = data.leadId !== null;
+        
+        const scheduledEmail: ScheduledEmail = {
+          statusId: data.statusId,
+          stepId: data.stepId,
+          assignmentId: data.assignmentId,
+          customerId: data.customerId,
+          leadId: data.leadId,
+          stepName: data.stepName,
+          subject: data.subject,
+          body: data.body,
+          campaignName: data.campaignName,
+          recipientEmail: isLead ? data.leadEmail : data.customerEmail,
+          recipientFirstName: isLead ? data.leadFirstName : data.customerFirstName,
+          recipientLastName: isLead ? data.leadLastName : data.customerLastName,
+          recipientCompany: isLead ? data.leadCompany : data.customerCompany,
+          odooPartnerId: isLead ? null : data.odooPartnerId,
+          isLead,
+        };
+        
+        await sendScheduledEmail(scheduledEmail);
       }
     }
   } catch (error) {
@@ -145,13 +178,16 @@ async function processScheduledEmails() {
 
 async function sendScheduledEmail(email: ScheduledEmail) {
   try {
-    if (!email.customerEmail) {
-      console.warn(`[Drip Worker] Skipping email for customer ${email.customerId} - no email address`);
+    const recipientType = email.isLead ? 'lead' : 'customer';
+    const recipientId = email.isLead ? email.leadId : email.customerId;
+    
+    if (!email.recipientEmail) {
+      console.warn(`[Drip Worker] Skipping email for ${recipientType} ${recipientId} - no email address`);
       await db
         .update(dripCampaignStepStatus)
         .set({ 
           status: 'skipped',
-          lastError: 'Customer has no email address'
+          lastError: `${recipientType} has no email address`
         })
         .where(eq(dripCampaignStepStatus.id, email.statusId));
       return;
@@ -194,7 +230,7 @@ async function sendScheduledEmail(email: ScheduledEmail) {
     }
 
     const result = await sendEmail(
-      email.customerEmail,
+      email.recipientEmail,
       processedSubject,
       processedBody,
       processedBody
@@ -211,12 +247,15 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       })
       .where(eq(dripCampaignStepStatus.id, email.statusId));
 
+    const recipientName = `${email.recipientFirstName || ''} ${email.recipientLastName || ''}`.trim() || email.recipientCompany || 'Unknown';
+    
     const [emailSendRecord] = await db.insert(emailSends).values({
-      customerId: email.customerId,
+      customerId: email.customerId || undefined,
+      leadId: email.leadId || undefined,
       subject: processedSubject,
       body: processedBody,
-      recipientEmail: email.customerEmail,
-      recipientName: `${email.customerFirstName || ''} ${email.customerLastName || ''}`.trim() || email.customerCompany || 'Unknown',
+      recipientEmail: email.recipientEmail,
+      recipientName,
       sentBy: 'drip-worker',
       status: 'sent',
       sentAt: new Date(),
@@ -224,6 +263,7 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         campaignName: email.campaignName,
         stepName: email.stepName,
         isDripEmail: 'true',
+        isLead: email.isLead ? 'true' : 'false',
       },
     }).returning();
 
@@ -238,8 +278,9 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         await db.insert(emailTrackingTokens).values({
           token: trackingToken,
           emailSendId: emailSendRecord.id,
-          customerId: email.customerId,
-          recipientEmail: email.customerEmail,
+          customerId: email.customerId || undefined,
+          leadId: email.leadId || undefined,
+          recipientEmail: email.recipientEmail,
           subject: processedSubject,
           sentBy: 'drip-worker',
         });
@@ -307,26 +348,26 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 function replaceVariables(text: string, email: ScheduledEmail): string {
   if (!text) return text;
   
-  const customerName = `${email.customerFirstName || ''} ${email.customerLastName || ''}`.trim() || email.customerCompany || 'Valued Customer';
+  const recipientName = `${email.recipientFirstName || ''} ${email.recipientLastName || ''}`.trim() || email.recipientCompany || 'Valued Customer';
   
   const replacements: Record<string, string> = {
-    'client.first_name': email.customerFirstName || '',
-    'client.last_name': email.customerLastName || '',
-    'client.company': email.customerCompany || '',
-    'client.email': email.customerEmail || '',
-    'client.name': customerName,
-    'client_first_name': email.customerFirstName || '',
-    'client_last_name': email.customerLastName || '',
-    'client_company': email.customerCompany || '',
-    'client_email': email.customerEmail || '',
-    'client_name': customerName,
-    'customer.first_name': email.customerFirstName || '',
-    'customer.last_name': email.customerLastName || '',
-    'customer.company': email.customerCompany || '',
-    'customer.email': email.customerEmail || '',
-    'customer.name': customerName,
-    'customer_name': customerName,
-    'company_name': email.customerCompany || '',
+    'client.first_name': email.recipientFirstName || '',
+    'client.last_name': email.recipientLastName || '',
+    'client.company': email.recipientCompany || '',
+    'client.email': email.recipientEmail || '',
+    'client.name': recipientName,
+    'client_first_name': email.recipientFirstName || '',
+    'client_last_name': email.recipientLastName || '',
+    'client_company': email.recipientCompany || '',
+    'client_email': email.recipientEmail || '',
+    'client_name': recipientName,
+    'customer.first_name': email.recipientFirstName || '',
+    'customer.last_name': email.recipientLastName || '',
+    'customer.company': email.recipientCompany || '',
+    'customer.email': email.recipientEmail || '',
+    'customer.name': recipientName,
+    'customer_name': recipientName,
+    'company_name': email.recipientCompany || '',
     'sender.name': '4S Graphics',
     'sender.company': '4S Graphics',
     'sender_name': '4S Graphics',

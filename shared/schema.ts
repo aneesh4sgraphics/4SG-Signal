@@ -1574,6 +1574,7 @@ export const emailSends = pgTable("email_sends", {
   recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
   recipientName: varchar("recipient_name", { length: 255 }),
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }), // Optional - use either customerId OR leadId
   subject: varchar("subject", { length: 500 }).notNull(),
   body: text("body").notNull(),
   variableData: jsonb("variable_data").$type<Record<string, string>>().default({}), // Snapshot of variables used
@@ -1583,6 +1584,7 @@ export const emailSends = pgTable("email_sends", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("IDX_email_sends_customer_id").on(table.customerId),
+  index("IDX_email_sends_lead_id").on(table.leadId),
   index("IDX_email_sends_sent_at").on(table.sentAt),
 ]);
 
@@ -1634,6 +1636,7 @@ export const emailTrackingTokens = pgTable("email_tracking_tokens", {
   token: varchar("token", { length: 64 }).notNull().unique(), // Unique tracking token
   emailSendId: integer("email_send_id").references(() => emailSends.id, { onDelete: "cascade" }),
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "set null" }), // Optional - use either customerId OR leadId
   recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
   subject: varchar("subject", { length: 500 }),
   sentBy: varchar("sent_by", { length: 255 }),
@@ -1645,6 +1648,7 @@ export const emailTrackingTokens = pgTable("email_tracking_tokens", {
 }, (table) => [
   index("IDX_email_tracking_tokens_token").on(table.token),
   index("IDX_email_tracking_tokens_customer_id").on(table.customerId),
+  index("IDX_email_tracking_tokens_lead_id").on(table.leadId),
   index("IDX_email_tracking_tokens_email_send_id").on(table.emailSendId),
 ]);
 
@@ -2472,11 +2476,12 @@ export const insertDripCampaignStepSchema = createInsertSchema(dripCampaignSteps
 export type DripCampaignStep = typeof dripCampaignSteps.$inferSelect;
 export type InsertDripCampaignStep = z.infer<typeof insertDripCampaignStepSchema>;
 
-// Drip Campaign Assignments - customer enrollments
+// Drip Campaign Assignments - customer and lead enrollments
 export const dripCampaignAssignments = pgTable("drip_campaign_assignments", {
   id: serial("id").primaryKey(),
   campaignId: integer("campaign_id").notNull().references(() => dripCampaigns.id, { onDelete: "cascade" }),
-  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "cascade" }), // nullable - use either customerId OR leadId
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }), // nullable - use either customerId OR leadId
   status: varchar("status", { length: 20 }).default("active"), // active, paused, completed, cancelled
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),

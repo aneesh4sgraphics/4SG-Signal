@@ -615,7 +615,7 @@ export interface IStorage {
   reorderDripCampaignSteps(campaignId: number, stepIds: number[]): Promise<void>;
   
   // Drip Campaign Assignments
-  getDripCampaignAssignments(campaignId?: number, customerId?: string): Promise<DripCampaignAssignment[]>;
+  getDripCampaignAssignments(campaignId?: number, customerId?: string, leadId?: number): Promise<DripCampaignAssignment[]>;
   getDripCampaignAssignment(id: number): Promise<DripCampaignAssignment | undefined>;
   getDripCampaignAssignmentCounts(): Promise<{ campaignId: number; count: number }[]>;
   createDripCampaignAssignment(data: InsertDripCampaignAssignment): Promise<DripCampaignAssignment>;
@@ -3279,19 +3279,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Drip Campaign Assignments
-  async getDripCampaignAssignments(campaignId?: number, customerId?: string): Promise<DripCampaignAssignment[]> {
-    let query = db.select().from(dripCampaignAssignments);
-    if (campaignId && customerId) {
+  async getDripCampaignAssignments(campaignId?: number, customerId?: string, leadId?: number): Promise<DripCampaignAssignment[]> {
+    const conditions: any[] = [];
+    if (campaignId) conditions.push(eq(dripCampaignAssignments.campaignId, campaignId));
+    if (customerId) conditions.push(eq(dripCampaignAssignments.customerId, customerId));
+    if (leadId) conditions.push(eq(dripCampaignAssignments.leadId, leadId));
+    
+    if (conditions.length > 0) {
       return await db.select().from(dripCampaignAssignments)
-        .where(and(eq(dripCampaignAssignments.campaignId, campaignId), eq(dripCampaignAssignments.customerId, customerId)))
-        .orderBy(desc(dripCampaignAssignments.createdAt));
-    } else if (campaignId) {
-      return await db.select().from(dripCampaignAssignments)
-        .where(eq(dripCampaignAssignments.campaignId, campaignId))
-        .orderBy(desc(dripCampaignAssignments.createdAt));
-    } else if (customerId) {
-      return await db.select().from(dripCampaignAssignments)
-        .where(eq(dripCampaignAssignments.customerId, customerId))
+        .where(and(...conditions))
         .orderBy(desc(dripCampaignAssignments.createdAt));
     }
     return await db.select().from(dripCampaignAssignments).orderBy(desc(dripCampaignAssignments.createdAt));
