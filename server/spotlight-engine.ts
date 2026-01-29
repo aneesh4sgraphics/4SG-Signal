@@ -4360,6 +4360,9 @@ class SpotlightEngine {
       console.error('[Spotlight] Error recording direct action event:', e);
     }
     
+    // Persist session state to database (survives server restarts)
+    await this.persistSessionState(userId, session);
+    
     return { 
       credited: true, 
       bucket, 

@@ -352,6 +352,28 @@ export default function LeadDetail() {
         </div>
         <div className="flex items-center gap-3">
           <Badge className={`${stageInfo.color} border`}>{stageInfo.label}</Badge>
+          {lead.email && (
+            <Link href={`/email-app?${new URLSearchParams({
+              to: lead.email,
+              recipientName: lead.name,
+              usageType: 'lead_email',
+              variables: JSON.stringify({
+                'lead.name': lead.name || '',
+                'lead.company': lead.company || '',
+                'lead.email': lead.email || '',
+                'lead.id': String(lead.id),
+              }),
+            })}`}>
+              <Button 
+                variant="outline"
+                className="border-green-200 text-green-600 hover:bg-green-50"
+                title="Send email to lead"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Compose Email
+              </Button>
+            </Link>
+          )}
           <Button variant="outline" onClick={handleEditClick}>
             <Edit className="w-4 h-4 mr-2" /> Edit
           </Button>

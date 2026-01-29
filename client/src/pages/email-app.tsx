@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,10 +43,31 @@ const TEMPLATE_USAGE_TYPES = [
 export default function EmailApp() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [location] = useLocation();
   const isAdmin = (user as any)?.role === "admin";
+  
+  // Parse URL query params for pre-filling recipient from Leads/Contacts pages
+  const urlParams = useMemo(() => {
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    return new URLSearchParams(search);
+  }, [location]);
+  
+  const prefilledRecipient = useMemo(() => {
+    const to = urlParams.get('to');
+    const recipientName = urlParams.get('recipientName');
+    if (to) {
+      return {
+        email: to,
+        name: recipientName || to,
+        usageType: urlParams.get('usageType') || 'lead_email',
+      };
+    }
+    return null;
+  }, [urlParams]);
   
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [manualRecipient, setManualRecipient] = useState<{ email: string; name: string } | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProductPricingMaster | null>(null);
   const [selectedPriceTier, setSelectedPriceTier] = useState<string>("dealer");
   const [customVariables, setCustomVariables] = useState<Record<string, string>>({});
@@ -96,6 +118,16 @@ export default function EmailApp() {
       });
     }
   }, [userSignature]);
+  
+  // Set manual recipient from URL params (from Lead/Contact compose links)
+  useEffect(() => {
+    if (prefilledRecipient && !selectedCustomer && !manualRecipient) {
+      setManualRecipient({
+        email: prefilledRecipient.email,
+        name: prefilledRecipient.name,
+      });
+    }
+  }, [prefilledRecipient]);
 
   const saveSignatureMutation = useMutation({
     mutationFn: async (data: typeof signatureForm) => {
@@ -289,7 +321,17 @@ export default function EmailApp() {
   };
 
   const handleSendEmail = () => {
-    if (!selectedTemplate || !selectedCustomer) {
+    const recipient = selectedCustomer 
+      ? { 
+          email: selectedCustomer.email, 
+          name: selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
+          customerId: selectedCustomer.id,
+        }
+      : manualRecipient 
+        ? { email: manualRecipient.email, name: manualRecipient.name, customerId: null }
+        : null;
+    
+    if (!selectedTemplate || !recipient) {
       toast({ title: "Please select a template and recipient", variant: "destructive" });
       return;
     }
@@ -298,9 +340,9 @@ export default function EmailApp() {
     
     sendEmailMutation.mutate({
       templateId: selectedTemplate.id,
-      recipientEmail: selectedCustomer.email,
-      recipientName: selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`,
-      customerId: selectedCustomer.id,
+      recipientEmail: recipient.email,
+      recipientName: recipient.name,
+      customerId: recipient.customerId,
       subject,
       body,
       variableData: customVariables,
@@ -471,6 +513,23 @@ export default function EmailApp() {
                       </Button>
                     </div>
                   )}
+                  {!selectedCustomer && manualRecipient && (
+                    <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                      <div className="text-sm">
+                        <span className="font-medium">{manualRecipient.name}</span>
+                        <span className="text-emerald-600 ml-2 text-xs">{manualRecipient.email}</span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setManualRecipient(null)}
+                        className="ml-auto h-6 px-2"
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Product Selection (optional) */}
@@ -599,7 +658,7 @@ export default function EmailApp() {
                       <Button
                         className="flex-1 bg-purple-600 hover:bg-purple-700"
                         onClick={handleSendEmail}
-                        disabled={!selectedCustomer || sendEmailMutation.isPending}
+                        disabled={(!selectedCustomer && !manualRecipient) || sendEmailMutation.isPending}
                         data-testid="button-send-email"
                       >
                         <Send className="h-4 w-4 mr-2" />

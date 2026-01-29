@@ -172,6 +172,12 @@ Lead task outcomes automatically update lead records:
 - Task is temporarily skipped but tracked in session.remindTodayTasks
 - Persisted in `spotlight_events` with event_type = 'remind_today' for cross-restart durability
 
+**Session State Persistence:**
+- Progress bars and session state survive server restarts/republishing
+- Bucket completions stored in `spotlight_session_state` table
+- Automatically restored when session is created for a user/date
+- Includes: bucket completed counts, combo count, energy level, gamification state
+
 **DRIP Email Integration:**
 SPOTLIGHT automatically surfaces drip campaign follow-ups:
 - **drip_reply_urgent** (calls bucket, priority 100): When a customer/lead replies to a drip email (Re: or Fwd: subject within 14 days of drip send), surfaces as HIGHEST priority task with "Call Now!" action
