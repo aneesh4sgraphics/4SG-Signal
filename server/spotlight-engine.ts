@@ -198,31 +198,38 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
   hygiene_sales_rep: [
     { id: 'assigned', label: 'Assign to Me', icon: 'user-check', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Not My Territory', icon: 'x', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   hygiene_pricing_tier: [
     { id: 'assigned', label: 'Pricing Tier Assigned', icon: 'tag', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Need More Info', icon: 'help-circle', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'research' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   hygiene_email: [
     { id: 'found', label: 'Email Found', icon: 'mail', nextAction: { type: 'mark_complete' } },
     { id: 'no_email', label: 'No Email Available', icon: 'x', nextAction: { type: 'mark_complete' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
     { id: 'skip', label: 'Research Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
   ],
   hygiene_name: [
     { id: 'found', label: 'Name Added', icon: 'user', nextAction: { type: 'mark_complete' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
     { id: 'skip', label: 'Research Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
   ],
   hygiene_company: [
     { id: 'found', label: 'Company Added', icon: 'building', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Research Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   hygiene_phone: [
     { id: 'found', label: 'Phone Added', icon: 'phone', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Research Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   hygiene_machines: [
     { id: 'confirmed', label: 'Machines Confirmed', icon: 'settings', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Ask Later', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 14, taskType: 'research' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   hygiene_bounced_email: [
     { id: 'mark_inactive', label: 'Mark as Do Not Contact', icon: 'user-x', nextAction: { type: 'mark_dnc' } },
@@ -234,6 +241,7 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'printer', label: 'Printing Company', icon: 'printer', nextAction: { type: 'set_customer_type', customerType: 'printer' } },
     { id: 'reseller', label: 'Reseller/Distributor', icon: 'truck', nextAction: { type: 'set_customer_type', customerType: 'reseller' } },
     { id: 'skip', label: 'Not Sure Yet', icon: 'clock', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'research' } },
+    { id: 'bad_fit', label: 'Bad Fit / DNC', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   sales_call: [
     { id: 'connected', label: 'Connected', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
