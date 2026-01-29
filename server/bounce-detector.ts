@@ -175,17 +175,23 @@ async function matchEmailToRecord(email: string): Promise<MatchResult> {
 }
 
 async function getGmailClientForUser(userId: string): Promise<{ gmail: gmail_v1.Gmail; email: string } | null> {
+  console.log(`[Bounce Detector] Looking for Gmail connection for user ${userId}`);
+  
   const connection = await db.select()
     .from(userGmailConnections)
     .where(and(
       eq(userGmailConnections.userId, userId),
-      eq(userGmailConnections.status, 'active')
+      eq(userGmailConnections.isActive, true)
     ))
     .limit(1);
   
   if (connection.length === 0 || !connection[0].accessToken) {
+    console.log(`[Bounce Detector] No active Gmail connection found for user ${userId}`);
     return null;
   }
+  
+  console.log(`[Bounce Detector] Found Gmail connection for ${connection[0].gmailAddress}`);
+  
   
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({ access_token: connection[0].accessToken });
