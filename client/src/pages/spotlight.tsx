@@ -167,6 +167,7 @@ interface SpotlightTask {
     salesRepName: string | null;
     pricingTier: string | null;
     isHotProspect: boolean | null;
+    customerType: string | null;
   };
   lead?: {
     id: number;
@@ -186,6 +187,7 @@ interface SpotlightTask {
     firstEmailReplyAt: string | null;
     lastContactAt: string | null;
     totalTouchpoints: number | null;
+    customerType: string | null;
   };
   context?: {
     followUpId?: number;
@@ -1884,6 +1886,60 @@ export default function Spotlight() {
                     Mark Hot
                   </Button>
                 ) : null}
+              </div>
+
+              {/* Printer/Reseller Toggle */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm text-slate-500">Type:</span>
+                <div className="inline-flex items-center border rounded-lg p-0.5 bg-slate-50">
+                  <button
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      (task.isLeadTask ? task.lead?.customerType : customer.customerType) === 'printer'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    onClick={() => {
+                      const endpoint = task.isLeadTask 
+                        ? `/api/leads/${task.lead?.id}` 
+                        : `/api/customers/${customer.id}`;
+                      apiRequest('PUT', endpoint, { customerType: 'printer' })
+                        .then(() => {
+                          toast({ title: "Marked as Printing Company" });
+                          refetch();
+                        })
+                        .catch(() => toast({ title: "Error updating type", variant: "destructive" }));
+                    }}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Printer
+                  </button>
+                  <button
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      (task.isLeadTask ? task.lead?.customerType : customer.customerType) === 'reseller'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    onClick={() => {
+                      const endpoint = task.isLeadTask 
+                        ? `/api/leads/${task.lead?.id}` 
+                        : `/api/customers/${customer.id}`;
+                      apiRequest('PUT', endpoint, { customerType: 'reseller' })
+                        .then(() => {
+                          toast({ title: "Marked as Reseller" });
+                          refetch();
+                        })
+                        .catch(() => toast({ title: "Error updating type", variant: "destructive" }));
+                    }}
+                  >
+                    <Truck className="w-4 h-4" />
+                    Reseller
+                  </button>
+                </div>
+                {(task.isLeadTask ? task.lead?.customerType : customer.customerType) && (
+                  <span className="text-xs text-slate-400">
+                    ({task.isLeadTask ? task.lead?.customerType : customer.customerType})
+                  </span>
+                )}
               </div>
 
               {/* Email & Phone Row */}

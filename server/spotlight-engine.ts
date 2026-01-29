@@ -966,6 +966,7 @@ class SpotlightEngine {
           const machineProfileCandidates = await db.select({ 
             id: customers.id,
             pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
             phone: customers.phone,
             salesRepId: customers.salesRepId,
             address1: customers.address1
@@ -1722,6 +1723,7 @@ class SpotlightEngine {
         salesRepId: customers.salesRepId,
         salesRepName: customers.salesRepName,
         pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
         updatedAt: customers.updatedAt,
         isHotProspect: customers.isHotProspect,
       })
@@ -1772,6 +1774,7 @@ class SpotlightEngine {
             salesRepId: customers.salesRepId,
             salesRepName: customers.salesRepName,
             pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           },
         })
         .from(dripCampaignStepStatus)
@@ -1898,6 +1901,7 @@ class SpotlightEngine {
             salesRepId: customers.salesRepId,
             salesRepName: customers.salesRepName,
             pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           },
         })
         .from(dripCampaignAssignments)
@@ -2171,6 +2175,7 @@ class SpotlightEngine {
             salesRepId: customers.salesRepId,
             salesRepName: customers.salesRepName,
             pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
             updatedAt: customers.updatedAt,
             isHotProspect: customers.isHotProspect,
           },
@@ -2287,6 +2292,7 @@ class SpotlightEngine {
             salesRepId: customers.salesRepId,
             salesRepName: customers.salesRepName,
             pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
             updatedAt: customers.updatedAt,
             isHotProspect: customers.isHotProspect,
           },
@@ -2397,6 +2403,7 @@ class SpotlightEngine {
           salesRepId: customers.salesRepId,
           salesRepName: customers.salesRepName,
           pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           updatedAt: customers.updatedAt,
           isHotProspect: customers.isHotProspect,
         },
@@ -2496,6 +2503,7 @@ class SpotlightEngine {
         salesRepId: customers.salesRepId,
         salesRepName: customers.salesRepName,
         pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
         updatedAt: customers.updatedAt,
         isHotProspect: customers.isHotProspect,
       })
@@ -2610,6 +2618,7 @@ class SpotlightEngine {
           salesRepId: customers.salesRepId,
           salesRepName: customers.salesRepName,
           pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           updatedAt: customers.updatedAt,
           isHotProspect: customers.isHotProspect,
         })
@@ -2678,6 +2687,7 @@ class SpotlightEngine {
           salesRepId: customers.salesRepId,
           salesRepName: customers.salesRepName,
           pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           updatedAt: customers.updatedAt,
           isHotProspect: customers.isHotProspect,
         })
@@ -2854,6 +2864,7 @@ class SpotlightEngine {
               salesRepId: customers.salesRepId,
               salesRepName: customers.salesRepName,
               pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
               updatedAt: customers.updatedAt,
               isHotProspect: customers.isHotProspect,
             })
@@ -2967,6 +2978,7 @@ class SpotlightEngine {
         salesRepId: customers.salesRepId,
         salesRepName: customers.salesRepName,
         pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
         updatedAt: customers.updatedAt,
         isHotProspect: customers.isHotProspect,
       })
@@ -3023,6 +3035,7 @@ class SpotlightEngine {
         salesRepId: customers.salesRepId,
         salesRepName: customers.salesRepName,
         pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
         updatedAt: customers.updatedAt,
         isHotProspect: customers.isHotProspect,
       })
@@ -3218,6 +3231,7 @@ class SpotlightEngine {
         salesRepId: lead.salesRepId,
         salesRepName: lead.salesRepName,
         pricingTier: lead.pricingTier,
+        customerType: lead.customerType,
       },
       lead: {
         id: lead.id,
@@ -3237,6 +3251,7 @@ class SpotlightEngine {
         firstEmailReplyAt: lead.firstEmailReplyAt,
         lastContactAt: lead.lastContactAt,
         totalTouchpoints: lead.totalTouchpoints,
+        customerType: lead.customerType,
       },
       context: {
         sourceType: 'lead',
@@ -3519,6 +3534,7 @@ class SpotlightEngine {
           id: customers.id,
           odooPartnerId: customers.odooPartnerId,
           pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
           salesRepId: customers.salesRepId,
           salesRepName: customers.salesRepName,
           email: customers.email,
