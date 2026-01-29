@@ -122,21 +122,6 @@ normalizeEmail("John.Doe@GMAIL.COM") → "johndoe@gmail.com"
 ### 3. SPOTLIGHT Coaching System
 Generates daily prioritized tasks for sales reps using a bucket-based system:
 
-**Compact Single-Screen UI (Jan 2026 Redesign):**
-- Slim horizontal progress bar at top with task count, streak, and efficiency
-- Color-coded task cards based on bucket type:
-  - `calls`: Blue/indigo gradient (calm action)
-  - `follow_ups`: Purple gradient (nurturing)
-  - `outreach`: Teal/emerald gradient (fresh)
-  - `data_hygiene`: Amber/yellow gradient (attention)
-  - `enablement`: Cyan/sky gradient (helpful)
-  - `email_intelligence`: Rose gradient (urgent)
-  - `drip_reply`: Orange gradient (hot)
-- Source badge in top-right corner (LEAD, CONTACT, EMAIL, CUSTOMER, DRIP)
-- Compact customer info in rounded pill area with quick actions
-- Horizontal action buttons for outcomes
-- Collapsible coaching tips sidebar (desktop only)
-
 **Task Buckets (with difficulty levels):**
 - `calls` (hard) - Phone calls to customers and hot leads
 - `follow_ups` (medium) - Scheduled follow-ups, lead nurturing

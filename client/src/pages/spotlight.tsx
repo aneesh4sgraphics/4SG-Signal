@@ -303,82 +303,6 @@ const BUCKET_INFO: Record<TaskBucket, { label: string; icon: any; color: string 
   enablement: { label: 'Enablement', icon: Package, color: '#06B6D4' },
 };
 
-// Creative Director Redesign: Color-coded task cards
-const TASK_CARD_STYLES: Record<string, { 
-  gradient: string; 
-  border: string; 
-  badge: string;
-  accent: string;
-  icon: string;
-}> = {
-  calls: { 
-    gradient: 'from-blue-50 via-indigo-50 to-purple-50',
-    border: 'border-indigo-200',
-    badge: 'bg-indigo-100 text-indigo-700',
-    accent: 'bg-indigo-500',
-    icon: 'text-indigo-600'
-  },
-  follow_ups: { 
-    gradient: 'from-purple-50 via-violet-50 to-fuchsia-50',
-    border: 'border-purple-200',
-    badge: 'bg-purple-100 text-purple-700',
-    accent: 'bg-purple-500',
-    icon: 'text-purple-600'
-  },
-  outreach: { 
-    gradient: 'from-emerald-50 via-teal-50 to-cyan-50',
-    border: 'border-teal-200',
-    badge: 'bg-teal-100 text-teal-700',
-    accent: 'bg-teal-500',
-    icon: 'text-teal-600'
-  },
-  data_hygiene: { 
-    gradient: 'from-amber-50 via-yellow-50 to-orange-50',
-    border: 'border-amber-200',
-    badge: 'bg-amber-100 text-amber-700',
-    accent: 'bg-amber-500',
-    icon: 'text-amber-600'
-  },
-  enablement: { 
-    gradient: 'from-cyan-50 via-sky-50 to-blue-50',
-    border: 'border-sky-200',
-    badge: 'bg-sky-100 text-sky-700',
-    accent: 'bg-sky-500',
-    icon: 'text-sky-600'
-  },
-  // Special task types
-  email_intelligence: { 
-    gradient: 'from-rose-50 via-pink-50 to-red-50',
-    border: 'border-rose-200',
-    badge: 'bg-rose-100 text-rose-700',
-    accent: 'bg-rose-500',
-    icon: 'text-rose-600'
-  },
-  drip_reply: { 
-    gradient: 'from-orange-100 via-amber-100 to-yellow-100',
-    border: 'border-orange-300',
-    badge: 'bg-orange-200 text-orange-800',
-    accent: 'bg-orange-500',
-    icon: 'text-orange-600'
-  },
-  lead: { 
-    gradient: 'from-emerald-50 via-green-50 to-teal-50',
-    border: 'border-emerald-200',
-    badge: 'bg-emerald-100 text-emerald-700',
-    accent: 'bg-emerald-500',
-    icon: 'text-emerald-600'
-  },
-};
-
-// Source badge styles (Lead, Contact, Email Intelligence)
-const SOURCE_BADGES = {
-  lead: { label: 'LEAD', bg: 'bg-emerald-500', text: 'text-white' },
-  contact: { label: 'CONTACT', bg: 'bg-blue-500', text: 'text-white' },
-  email: { label: 'EMAIL', bg: 'bg-rose-500', text: 'text-white' },
-  customer: { label: 'CUSTOMER', bg: 'bg-slate-500', text: 'text-white' },
-  drip: { label: 'DRIP', bg: 'bg-orange-500', text: 'text-white' },
-};
-
 const OUTCOME_ICONS: Record<string, any> = {
   'check': Check,
   'user-check': CheckCircle,
@@ -1600,417 +1524,1258 @@ export default function Spotlight() {
   const isPaused = currentTask?.isPaused;
   const isComplete = currentTask?.allDone || currentTask?.session?.dayComplete;
 
-  // Determine task card styling based on task type
-  const getTaskCardStyle = () => {
-    if (task.context?.sourceType === 'drip_reply') return TASK_CARD_STYLES.drip_reply;
-    if (task.context?.sourceType === 'email_pricing_samples' || 
-        task.context?.sourceType === 'unreplied_email') return TASK_CARD_STYLES.email_intelligence;
-    if (task.isLeadTask || task.context?.sourceType === 'lead') return TASK_CARD_STYLES.lead;
-    return TASK_CARD_STYLES[task.bucket] || TASK_CARD_STYLES.calls;
-  };
-  
-  const getSourceBadge = () => {
-    if (task.context?.sourceType === 'drip_reply') return SOURCE_BADGES.drip;
-    if (task.context?.sourceType === 'email_pricing_samples' || 
-        task.context?.sourceType === 'unreplied_email') return SOURCE_BADGES.email;
-    if (task.isLeadTask || task.context?.sourceType === 'lead') return SOURCE_BADGES.lead;
-    return SOURCE_BADGES.customer;
-  };
-  
-  const cardStyle = getTaskCardStyle();
-  const sourceBadge = getSourceBadge();
-
   return (
-    <div className="spotlight-container min-h-screen p-4 lg:p-6">
-      {/* COMPACT SINGLE-SCREEN LAYOUT */}
-      <div className="max-w-6xl mx-auto h-[calc(100vh-3rem)] flex flex-col">
+    <div className="spotlight-container min-h-screen p-6">
+      {/* Three-Column Layout - Responsive */}
+      <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
         
-        {/* TOP BAR - Slim Progress Strip */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-100 p-3 mb-3 flex-shrink-0">
-          <div className="flex items-center gap-4">
-            {/* Progress Bar */}
-            <div className="flex-1 flex items-center gap-3">
-              <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ 
-                    width: `${progress}%`,
-                    background: 'linear-gradient(90deg, #F87171 0%, #A78BFA 50%, #3B82F6 100%)'
-                  }}
-                />
+        {/* Left Sidebar - Progress & Stats */}
+        <div className="w-full lg:w-72 flex-shrink-0 order-2 lg:order-1">
+          <div className="spotlight-sidebar p-6 sticky top-6">
+            {/* Progress Card - V0 Style */}
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Progress</p>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, #F87171 0%, #A78BFA 50%, #3B82F6 100%)'
+                    }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-foreground">{session?.totalCompleted || 0}/{session?.totalTarget || 30}</span>
               </div>
-              <span className="text-sm font-bold text-slate-700 whitespace-nowrap">
-                {session?.totalCompleted || 0}/{session?.totalTarget || 30}
-              </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-xs text-muted-foreground">Efficiency</span>
+                  </div>
+                  <span className="text-sm font-bold text-foreground">{efficiency?.score || 0}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-3 h-3 text-orange-500" />
+                    <span className="text-xs text-muted-foreground">Streak</span>
+                  </div>
+                  <span className="text-sm font-bold text-foreground">{efficiency?.streak || 0}</span>
+                </div>
+              </div>
             </div>
-            
-            {/* Quick Stats */}
-            <div className="hidden sm:flex items-center gap-4 border-l border-slate-200 pl-4">
-              <div className="flex items-center gap-1.5">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-semibold text-slate-600">{efficiency?.streak || 0}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-semibold text-slate-600">{efficiency?.score || 0}%</span>
-              </div>
-            </div>
-            
-            {/* Bucket Pills */}
-            <div className="hidden md:flex items-center gap-1.5">
-              {session?.buckets
-                ?.filter((b) => ['calls', 'outreach', 'data_hygiene'].includes(b.bucket))
-                .map((bucket) => {
-                  const info = BUCKET_INFO[bucket.bucket];
-                  const isCurrent = bucket.bucket === task.bucket;
-                  return (
+
+            {/* Bucket Progress Card - V0 Style */}
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Today's Progress</p>
+              <div className="space-y-2">
+                {/* SwatchBooks - Required 3 per day */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                      key={bucket.bucket} 
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                        isCurrent 
-                          ? 'bg-slate-800 text-white' 
-                          : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      {bucket.completed}/{bucket.target}
-                    </div>
-                  );
-                })}
+                      className="h-full rounded-full" 
+                      style={{ 
+                        width: `${todayKits?.swatchBookProgress || 0}%`, 
+                        backgroundColor: todayKits?.swatchBookGoalMet ? '#22C55E' : '#EAB308' 
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-20">SwatchBooks</span>
+                  <span className={`text-xs font-medium w-10 text-right ${todayKits?.swatchBookGoalMet ? 'text-green-600' : 'text-amber-600'}`}>
+                    {todayKits?.swatchBookCount || 0}/{todayKits?.swatchBookGoal || 3}
+                  </span>
+                </div>
+                {session?.buckets
+                  .filter((b) => ['calls', 'outreach', 'data_hygiene'].includes(b.bucket))
+                  .map((bucket) => {
+                    const info = BUCKET_INFO[bucket.bucket];
+                    const bucketProgress = bucket.target > 0 ? (bucket.completed / bucket.target) * 100 : 0;
+                    return (
+                      <div key={bucket.bucket} className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full" 
+                            style={{ width: `${bucketProgress}%`, backgroundColor: info.color }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-20">{info.label}</span>
+                        <span className="text-xs font-medium text-gray-600 w-10 text-right">{bucket.completed}/{bucket.target}</span>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
+
+            {/* Kits To Go Card - V0 Style */}
+            {(() => {
+              const kitsRemaining = (session?.totalTarget || 30) - (session?.totalCompleted || 0);
+              const kitsToShow = Math.min(kitsRemaining, 10);
+              return (
+                <div className="rounded-xl p-4 border-2 border-amber-200 bg-amber-50/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-700">{kitsRemaining} kits to go</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {Array.from({ length: kitsToShow }).map((_, i) => (
+                      <div key={i} className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
         
-        {/* MAIN CONTENT - Two Column Layout */}
-        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+        {/* Center - Main Task Card */}
+        <div className="flex-1 min-w-0 order-1 lg:order-2">
+          {/* Success Overlay */}
+          {showSuccess && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+              <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center animate-ping">
+                <Check className="w-10 h-10 text-white" />
+              </div>
+            </div>
+          )}
           
-          {/* LEFT - Main Task Card (takes most space) */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            {/* Success Overlay */}
-            {showSuccess && (
-              <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-                <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center animate-ping">
-                  <Check className="w-8 h-8 text-white" />
+          {/* Task Card Container with Animation */}
+          <div className={`transition-all duration-300 ease-out ${isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+            
+            {/* Why Now Banner - Differentiated by task source type */}
+            {/* EMAIL TASK BANNER - Gmail-inspired red accent */}
+            {(task.context?.sourceType === 'email_pricing_samples' || 
+              task.context?.sourceType === 'unreplied_email' || 
+              task.context?.sourceType === 'email_event') ? (
+              <div className="bg-white border-l-4 border-red-500 rounded-2xl px-5 py-4 mb-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Email Follow-up</span>
+                        {task.context?.daysSinceEmail && (
+                          <Badge className="bg-red-100 text-red-700 text-xs px-2 py-0">
+                            {task.context.daysSinceEmail} {task.context.daysSinceEmail === 1 ? 'day' : 'days'} ago
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-slate-800 mb-1">
+                        {task.context?.originalSubject ? `"${task.context.originalSubject}"` : task.whyNow}
+                      </p>
+                      <p className="text-xs text-slate-500">{task.whyNow}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {task.context?.gmailMessageId && (
+                      <a
+                        href={`https://mail.google.com/mail/u/0/#inbox/${task.context.gmailMessageId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-full border border-red-200 transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Open in Gmail
+                      </a>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-slate-600 border-slate-200 hover:bg-slate-50 rounded-full"
+                      onClick={() => setShowRemindLaterDialog(true)}
+                    >
+                      <Clock className="w-3 h-3 mr-1" />
+                      Remind Later
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : task.context?.sourceType === 'drip_reply' ? (
+              /* DRIP REPLY BANNER - Urgent amber/orange glow */
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl px-5 py-4 mb-4 shadow-lg ring-2 ring-amber-300 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <Flame className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-bold uppercase tracking-wide">🔥 Customer Replied!</p>
+                    <p className="text-amber-100 text-sm mt-0.5">
+                      {task.context?.replySubject ? `"${task.context.replySubject}"` : 'They replied to your drip campaign'}
+                    </p>
+                    {task.context?.repliedAt && (
+                      <p className="text-amber-200 text-xs mt-1">
+                        Replied {new Date(task.context.repliedAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <Badge className="bg-white text-orange-600 text-sm font-bold px-3 py-1">
+                    Call Now!
+                  </Badge>
+                </div>
+              </div>
+            ) : task.context?.sourceType === 'drip_stale' ? (
+              /* DRIP STALE BANNER - Needs creative follow-up */
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl px-5 py-4 mb-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-semibold">Drip Campaign Stalled</p>
+                    <p className="text-purple-100 text-xs">
+                      {task.context?.emailsSent} emails sent, {task.context?.daysSinceLastEmail} days since last - time for something creative!
+                    </p>
+                  </div>
+                  <Badge className="bg-white/20 text-white text-xs px-2 py-0.5">
+                    {task.context?.campaignName || 'Drip Campaign'}
+                  </Badge>
+                </div>
+              </div>
+            ) : task.context?.sourceType === 'lead' || task.isLeadTask ? (
+              /* LEAD BANNER - Green pipeline-focused */
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl px-5 py-3 mb-4 flex items-center gap-3 shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-sm font-semibold">Lead: {bucketInfo.label}</p>
+                  <p className="text-emerald-100 text-xs">{task.whyNow}</p>
+                </div>
+                {task.lead?.stage && (
+                  <Badge className="bg-white/20 text-white text-xs px-2 py-0.5 capitalize">
+                    {task.lead.stage}
+                  </Badge>
+                )}
+                {(task.lead?.priority === 'high' || task.lead?.priority === 'urgent') && (
+                  <Badge className="bg-red-500 text-white text-xs px-2 py-0.5">
+                    <Flame className="w-3 h-3 mr-1" />
+                    {task.lead.priority === 'urgent' ? 'Urgent' : 'Hot'}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              /* DEFAULT BANNER - Standard blue */
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl px-5 py-3 mb-4 flex items-center gap-3 shadow-sm">
+                <div className="w-2 h-2 rounded-full bg-white opacity-75" />
+                <div>
+                  <p className="text-white text-sm font-semibold">Why Now: {bucketInfo.label}</p>
+                  <p className="text-blue-100 text-xs">{task.whyNow}</p>
                 </div>
               </div>
             )}
             
-            {/* COLOR-CODED TASK CARD */}
-            <div className={`transition-all duration-300 flex-1 flex flex-col min-h-0 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-              <div className={`bg-gradient-to-br ${cardStyle.gradient} rounded-3xl border-2 ${cardStyle.border} shadow-lg flex-1 flex flex-col overflow-hidden relative`}>
-                
-                {/* SOURCE BADGE - Top Right Corner */}
-                <div className="absolute top-4 right-4 z-10">
-                  <span className={`${sourceBadge.bg} ${sourceBadge.text} text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm tracking-wider`}>
-                    {sourceBadge.label}
-                  </span>
-                </div>
-                
-                {/* COMPACT HEADER - Task Type + Why Now */}
-                <div className="p-4 pb-2">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`w-10 h-10 rounded-xl ${cardStyle.accent} flex items-center justify-center shadow-sm`}>
-                      <BucketIcon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold uppercase tracking-wider ${cardStyle.icon}`}>
-                        {bucketInfo.label}
-                      </p>
-                      <p className="text-sm text-slate-600 truncate">{task.whyNow}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Smart Hints - Compact */}
-                  {currentTask.hints && currentTask.hints.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {currentTask.hints.slice(0, 2).map((hint, idx) => {
-                        const style = HINT_STYLES[hint.type];
-                        return (
-                          <span 
-                            key={idx}
-                            className={`text-[11px] px-2 py-0.5 rounded-full ${style.bg} ${style.textColor} font-medium`}
+            {/* Smart Hints */}
+            {currentTask.hints && currentTask.hints.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {currentTask.hints.map((hint, idx) => {
+                  const style = HINT_STYLES[hint.type];
+                  const HintIcon = style.icon;
+                  return (
+                    <div 
+                      key={idx}
+                      className={`spotlight-card p-3 border ${style.bg} ${style.border} flex items-center justify-between gap-3`}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <HintIcon className={`w-4 h-4 flex-shrink-0 ${style.textColor}`} />
+                        <span className={`text-sm ${style.textColor}`}>{hint.message}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && !task.isLeadTask && !customer.id?.startsWith('lead-') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs rounded-full"
+                            onClick={() => handleOpenMergeModal(hint.metadata?.duplicateIds || [], customer.id)}
                           >
-                            {hint.message.length > 40 ? hint.message.slice(0, 40) + '...' : hint.message}
-                          </span>
-                        );
-                      })}
+                            {hint.ctaLabel}
+                          </Button>
+                        )}
+                        {hint.ctaAction !== 'view_duplicate' && (
+                          <Button
+                            size="sm"
+                            variant={hint.severity === 'high' ? 'default' : 'outline'}
+                            className={`rounded-full ${hint.severity === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-xs'}`}
+                            onClick={() => {
+                              if (hint.ctaAction === 'bad_fit') {
+                                completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' });
+                              } else if (hint.ctaAction === 'skip_recent') {
+                                skipMutation.mutate({ taskId: task.id, reason: hint.type });
+                              } else if (hint.ctaAction === 'reactivation_email') {
+                                completeMutation.mutate({ taskId: task.id, outcomeId: 'send_email', outcomeLabel: 'Send Reactivation Email' });
+                              } else if (hint.ctaAction === 'fix_data') {
+                                handleFixData(hint.metadata?.missingFields || []);
+                              }
+                            }}
+                            disabled={completeMutation.isPending || skipMutation.isPending}
+                          >
+                            {hint.ctaLabel}
+                          </Button>
+                        )}
+                        {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && !task.isLeadTask && !customer.id?.startsWith('lead-') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-full"
+                            onClick={() => {
+                              const duplicateId = hint.metadata?.duplicateIds?.[0];
+                              if (duplicateId && customer.id) {
+                                doNotMergeMutation.mutate({ 
+                                  customerId1: customer.id, 
+                                  customerId2: duplicateId,
+                                  taskId: task.id
+                                });
+                              }
+                            }}
+                            disabled={doNotMergeMutation.isPending || completeMutation.isPending}
+                          >
+                            Not a Duplicate
+                          </Button>
+                        )}
+                        {hint.ctaAction === 'view_duplicate' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-gray-500 rounded-full"
+                            onClick={() => skipMutation.mutate({ taskId: task.id, reason: 'duplicate' })}
+                            disabled={skipMutation.isPending}
+                          >
+                            Skip
+                          </Button>
+                        )}
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Main Customer/Lead Card - V0 Style - Green for Leads */}
+            <div className={`spotlight-card p-6 mb-4 ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 shadow-emerald-100' : ''}`}>
+              {/* Lead Badge - shown only for lead tasks */}
+              {task.isLeadTask && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold border border-emerald-300">
+                    <UserPlus className="w-4 h-4" />
+                    Lead
+                  </span>
+                  {task.lead?.stage && (
+                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
+                    </span>
+                  )}
+                  {(task.lead?.priority === 'high' || task.lead?.priority === 'urgent') && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-xs font-medium border border-red-200">
+                      <Flame className="w-3 h-3" />
+                      {task.lead.priority === 'urgent' ? 'Urgent' : 'Hot'}
+                    </span>
                   )}
                 </div>
+              )}
+              
+              {/* Customer Header with Hot Badge */}
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <h2 className={`text-2xl font-semibold ${task.isLeadTask ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    {task.isLeadTask ? (task.lead?.name || customer.company || customerName) : (customer.company || customerName)}
+                  </h2>
+                  {task.isLeadTask && task.lead?.company && (
+                    <p className="text-sm text-emerald-600 mt-0.5">{task.lead.company}</p>
+                  )}
+                  {!task.isLeadTask && customer.firstName && customer.company && (
+                    <p className="text-sm text-slate-600 mt-0.5">{customer.firstName} {customer.lastName || ''}</p>
+                  )}
+                </div>
+                {(() => {
+                  const isHot = optimisticHotProspect ?? customer.isHotProspect;
+                  if (task.isLeadTask) return null;
+                  if (isHot) {
+                    return (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-500 text-sm font-medium border border-red-200">
+                        <Flame className="w-4 h-4" />
+                        Hot
+                      </span>
+                    );
+                  }
+                  return (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 rounded-full"
+                      onClick={() => {
+                        setOptimisticHotProspect(true);
+                        apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
+                          .then(() => {
+                            toast({ title: "Marked as Hot Prospect" });
+                          })
+                          .catch(() => {
+                            setOptimisticHotProspect(null);
+                            toast({ title: "Error", variant: "destructive" });
+                          });
+                      }}
+                    >
+                      <Flame className="w-4 h-4" />
+                      Mark Hot
+                    </Button>
+                  );
+                })()}
+              </div>
+
+              {/* Printer/Reseller Toggle */}
+              {(() => {
+                // Use optimistic value if set, otherwise use server value
+                const serverType = task.isLeadTask ? task.lead?.customerType : customer.customerType;
+                const displayType = optimisticCustomerType || serverType;
                 
-                {/* CUSTOMER INFO - Rounded Pill Area (inspiration from attached image) */}
-                <div className="mx-4 bg-white/90 backdrop-blur-sm rounded-2xl shadow-inner p-4 border border-white/50">
-                  {/* Customer Name & Hot Badge Row */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-xl font-bold text-slate-800 truncate">
-                        {customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
-                      </h2>
-                      {(customer.firstName || customer.lastName) && customer.company && (
-                        <p className="text-sm text-slate-500 truncate">
-                          {customer.firstName} {customer.lastName}
-                        </p>
-                      )}
+                return (
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-sm text-slate-500">Type:</span>
+                    <div className="inline-flex items-center border rounded-lg p-0.5 bg-slate-50">
+                      <button
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                          displayType === 'printer'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                        onClick={() => {
+                          setOptimisticCustomerType('printer');
+                          const endpoint = task.isLeadTask 
+                            ? `/api/leads/${task.lead?.id}` 
+                            : `/api/customers/${customer.id}`;
+                          apiRequest('PUT', endpoint, { customerType: 'printer' })
+                            .then(() => {
+                              toast({ title: "Marked as Printing Company" });
+                            })
+                            .catch(() => {
+                              setOptimisticCustomerType(null);
+                              toast({ title: "Error updating type", variant: "destructive" });
+                            });
+                        }}
+                      >
+                        <Printer className="w-4 h-4" />
+                        Printer
+                      </button>
+                      <button
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                          displayType === 'reseller'
+                            ? 'bg-amber-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                        onClick={() => {
+                          setOptimisticCustomerType('reseller');
+                          const endpoint = task.isLeadTask 
+                            ? `/api/leads/${task.lead?.id}` 
+                            : `/api/customers/${customer.id}`;
+                          apiRequest('PUT', endpoint, { customerType: 'reseller' })
+                            .then(() => {
+                              toast({ title: "Marked as Reseller" });
+                            })
+                            .catch(() => {
+                              setOptimisticCustomerType(null);
+                              toast({ title: "Error updating type", variant: "destructive" });
+                            });
+                        }}
+                      >
+                        <Truck className="w-4 h-4" />
+                        Reseller
+                      </button>
                     </div>
-                    
-                    {/* Hot Prospect Badge */}
-                    {(() => {
-                      const isHot = optimisticHotProspect ?? (task.isLeadTask ? (task.lead?.score && task.lead.score >= 50) : customer.isHotProspect);
-                      if (isHot) {
-                        return (
-                          <span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">
-                            <Flame className="w-3 h-3" />
-                            HOT
-                          </span>
-                        );
-                      }
-                      return (
-                        <button
-                          className="text-xs text-slate-400 hover:text-orange-500 flex items-center gap-1 px-2 py-1 rounded-full hover:bg-orange-50 transition-colors"
-                          onClick={() => {
-                            setOptimisticHotProspect(true);
-                            apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
-                              .catch(() => setOptimisticHotProspect(null));
-                          }}
-                        >
-                          <Flame className="w-3 h-3" />
-                          Mark Hot
-                        </button>
-                      );
-                    })()}
-                  </div>
-                  
-                  {/* Contact Info Grid */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    {/* Email */}
-                    {customer.email && (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Mail className={`w-4 h-4 flex-shrink-0 ${cardStyle.icon}`} />
-                        <a href={`mailto:${customer.email}`} className="text-slate-600 hover:text-blue-600 truncate">
-                          {customer.email}
-                        </a>
-                      </div>
-                    )}
-                    {/* Phone */}
-                    {customer.phone && (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Phone className={`w-4 h-4 flex-shrink-0 ${cardStyle.icon}`} />
-                        <a href={`tel:${customer.phone}`} className="text-slate-600 hover:text-blue-600 truncate">
-                          {customer.phone}
-                        </a>
-                      </div>
-                    )}
-                    {/* Type Toggle */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">Type:</span>
-                      <div className="inline-flex bg-slate-100 rounded-lg p-0.5">
-                        {(['printer', 'reseller'] as const).map((type) => {
-                          const displayType = optimisticCustomerType || (task.isLeadTask ? task.lead?.customerType : customer.customerType);
-                          const isActive = displayType === type;
-                          return (
-                            <button
-                              key={type}
-                              className={`px-2 py-0.5 text-xs font-medium rounded transition-colors ${
-                                isActive 
-                                  ? type === 'printer' ? 'bg-blue-500 text-white' : 'bg-amber-500 text-white'
-                                  : 'text-slate-500 hover:bg-slate-200'
-                              }`}
-                              onClick={() => {
-                                setOptimisticCustomerType(type);
-                                const endpoint = task.isLeadTask ? `/api/leads/${task.lead?.id}` : `/api/customers/${customer.id}`;
-                                apiRequest('PUT', endpoint, { customerType: type }).catch(() => setOptimisticCustomerType(null));
-                              }}
-                            >
-                              {type === 'printer' ? '🖨️' : '🚚'}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {/* Machines (compact) */}
-                    {!task.isLeadTask && (
-                      <div className="flex items-center gap-2">
-                        <Settings className={`w-4 h-4 flex-shrink-0 ${cardStyle.icon}`} />
-                        <span className="text-xs text-slate-500">
-                          {customerMachines.length > 0 
-                            ? customerMachines.slice(0, 2).map(m => m.machineFamily).join(', ') 
-                            : 'No machines'}
-                        </span>
-                      </div>
+                    {displayType && (
+                      <span className="text-xs text-slate-400">
+                        ({displayType})
+                      </span>
                     )}
                   </div>
-                  
-                  {/* Quick Actions Row */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-                    <button 
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
+                );
+              })()}
+
+              {/* Email & Phone Row */}
+              <div className="flex items-center gap-6 mb-4 text-sm">
+                {customer.email && (
+                  <div className="flex items-center gap-2">
+                    <a href={`mailto:${customer.email}`} className="text-blue-600 hover:underline">
+                      {customer.email}
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
                       onClick={handleOpenEmailComposer}
                     >
-                      <Mail className="w-3.5 h-3.5" />
-                      Email
-                    </button>
-                    {effectiveAddress && (
-                      <button 
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-full transition-colors"
-                        onClick={() => setShowPrintLabel(true)}
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Label
-                      </button>
+                      <Mail className="w-3 h-3 mr-1" />
+                      Compose
+                    </Button>
+                  </div>
+                )}
+                {customer.phone && (
+                  <a href={`tel:${customer.phone}`} className="text-blue-600 hover:underline">
+                    {customer.phone}
+                  </a>
+                )}
+              </div>
+
+              {/* Pro Tip & Machines Row - V0 Style */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Pro Tip Box - Shows product focus from taxonomy */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Lightbulb className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-800">Pro Tip</span>
+                  </div>
+                  {task.context?.suggestedProducts && task.context.suggestedProducts.length > 0 ? (
+                    <div>
+                      <p className="text-sm text-amber-700 mb-2">
+                        {task.context.machineContext || `Focus on these products for this customer:`}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {task.context.suggestedProducts.map((product, idx) => (
+                          <Badge key={idx} className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
+                            {product}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-700">
+                      {currentTask?.coachTip?.content || task.whyNow || "Lead with value - ask about their current needs."}
+                    </p>
+                  )}
+                </div>
+
+                {/* Machines Box - Only for customers, not leads */}
+                <div className="bg-white border border-slate-200 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-slate-700 mb-2">Machines</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {task.isLeadTask ? (
+                      <span className="text-xs text-slate-400 italic">Convert to customer to add machines</span>
+                    ) : customerMachines.length > 0 ? (
+                      customerMachines.map((m) => (
+                        <Badge key={m.id} variant="outline" className="text-xs bg-slate-50">
+                          {m.machineFamily}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400">No machines on file</span>
                     )}
-                    <a 
-                      href={task.isLeadTask 
-                        ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead?.city || ''} ${task.lead?.state || ''}`)}` 
-                        : `https://maps.google.com/?q=${encodeURIComponent(`${customer.city || ''} ${customer.province || ''}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                      Map
-                    </a>
-                    <button 
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors ml-auto"
-                      onClick={() => setShowProfilePanel(true)}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Full Profile
-                    </button>
+                    {!task.isLeadTask && (
+                      showAddMachine ? (
+                        <Select
+                          onValueChange={(value) => {
+                            addMachineMutation.mutate(value);
+                          }}
+                          disabled={addMachineMutation.isPending}
+                        >
+                          <SelectTrigger className="h-6 w-32 text-xs">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {machineTypes.map((mt) => (
+                              <SelectItem key={mt.code} value={mt.code} className="text-xs">
+                                {mt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs bg-pink-50 text-pink-600 border-pink-200 cursor-pointer hover:bg-pink-100"
+                          onClick={() => setShowAddMachine(true)}
+                        >
+                          + Add
+                        </Badge>
+                      )
+                    )}
                   </div>
                 </div>
-                
-                {/* OUTCOME ACTIONS - Horizontal Pill Layout */}
-                <div className="p-4 mt-auto">
-                  {task.bucket !== 'data_hygiene' && task.outcomes.length > 0 && (
-                    <div className="space-y-3">
-                      {/* Primary Actions - Big Pills */}
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {task.outcomes.slice(0, 4).map((outcome) => {
-                          const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
-                          const isPositive = ['connected', 'completed', 'sent', 'done', 'email_sent', 'called'].includes(outcome.id);
-                          const isNegative = ['bad_number', 'not_interested', 'lost'].includes(outcome.id);
-                          return (
-                            <button
-                              key={outcome.id}
-                              onClick={() => handleOutcome(outcome.id)}
-                              disabled={completeMutation.isPending}
-                              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md ${
-                                isPositive 
-                                  ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
-                                  : isNegative
-                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
-                                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                              }`}
-                            >
-                              {OutcomeIcon && <OutcomeIcon className="w-4 h-4" />}
-                              {outcome.label}
-                            </button>
-                          );
-                        })}
+              </div>
+
+              {/* View Map, Tier Badge, Rep Row */}
+              <div className="flex items-center gap-4 mb-4 text-sm">
+                {effectiveAddress && (
+                  <a 
+                    href={task.isLeadTask && task.lead?.city
+                      ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
+                      : `https://maps.google.com/?q=${encodeURIComponent(`${customer.address1}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-slate-600 hover:text-blue-600"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    View Map
+                  </a>
+                )}
+                {customer.pricingTier && (
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 capitalize">
+                    {customer.pricingTier}
+                  </Badge>
+                )}
+                <span className="text-slate-600">
+                  Rep: <span className="font-medium">{customer.salesRepName || 'You'}</span>
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-3 text-xs bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 rounded-full"
+                  onClick={() => setShowProfilePanel(true)}
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  View Full Profile
+                </Button>
+              </div>
+
+              {/* Follow-up context */}
+              {task.context?.followUpTitle && (
+                <div className="bg-slate-100 rounded-xl p-3 mb-4">
+                  <p className="font-medium text-slate-800 text-sm">{task.context.followUpTitle}</p>
+                  {task.context.followUpDueDate && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Due: {new Date(task.context.followUpDueDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Customer Notes Section - V0 Style */}
+              <div className="border-t border-slate-100 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer Notes</span>
+                </div>
+                <div className="space-y-3">
+                  {customerNotes.length > 0 ? (
+                    customerNotes.slice(0, 5).map((note) => (
+                      <div key={note.id} className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-xs text-blue-600 mb-1">
+                          {new Date(note.occurredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        <p className="text-sm text-slate-700">{note.summary}</p>
                       </div>
-                      
-                      {/* Secondary Actions */}
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          className="px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                          onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit' })}
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No notes yet for this customer.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Data Hygiene: Sales Rep Assignment */}
+              {task.taskSubtype === 'hygiene_sales_rep' && (
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Assign sales rep:</Label>
+                  <Select onValueChange={(value) => handleOutcome('assigned', 'salesRepId', value)}>
+                    <SelectTrigger className="border-slate-200 rounded-xl">
+                      <SelectValue placeholder="Select sales rep..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesReps.map((rep) => (
+                        <SelectItem key={rep.id} value={rep.id}>
+                          {getSalesRepDisplayName(rep)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Data Hygiene: Pricing Tier */}
+              {task.taskSubtype === 'hygiene_pricing_tier' && (
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Assign pricing tier:</Label>
+                  <Select onValueChange={(value) => handleOutcome('assigned', 'pricingTier', value)}>
+                    <SelectTrigger className="border-slate-200 rounded-xl">
+                      <SelectValue placeholder="Select pricing tier..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRICING_TIERS.map((tier) => (
+                        <SelectItem key={tier} value={tier}>
+                          {tier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Data Hygiene: Email */}
+              {task.taskSubtype === 'hygiene_email' && (
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">Enter primary email:</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="email"
+                      value={fieldValue}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      placeholder="email@company.com"
+                      className="border-slate-200 rounded-xl"
+                      onKeyDown={(e) => e.key === 'Enter' && fieldValue.trim() && handleOutcome('found', 'email', fieldValue.trim())}
+                    />
+                    <Button 
+                      onClick={() => handleOutcome('found', 'email', fieldValue.trim())}
+                      className="spotlight-btn-primary px-6"
+                      disabled={!fieldValue.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Data Hygiene: Bounced Email */}
+              {task.taskSubtype === 'hygiene_bounced_email' && (
+                <div className="space-y-3 mb-4">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-red-800">Email Bounced</p>
+                          {(task as any).extraContext?.matchType === 'lead' && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Lead</span>
+                          )}
+                          {((task as any).extraContext?.matchType === 'contact') && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Contact</span>
+                          )}
+                        </div>
+                        {(task as any).extraContext?.bouncedEmail && (
+                          <div className="bg-red-100 rounded-lg p-3 text-xs space-y-1">
+                            <p className="text-red-700"><strong>Bounced Email:</strong> {(task as any).extraContext.bouncedEmail}</p>
+                            {(task as any).extraContext.bounceSubject && (
+                              <p className="text-red-600"><strong>Original Subject:</strong> {(task as any).extraContext.bounceSubject}</p>
+                            )}
+                            {(task as any).extraContext.bounceDate && (
+                              <p className="text-red-600"><strong>Bounce Date:</strong> {new Date((task as any).extraContext.bounceDate).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-sm text-red-700">
+                          This email address is no longer valid. The person may have left the company or the business may have closed.
+                        </p>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
+                          <p className="text-xs text-amber-800 font-medium">What would you like to do?</p>
+                          <ul className="text-xs text-amber-700 mt-1 list-disc pl-4 space-y-1">
+                            <li><strong>Mark as Do Not Contact</strong> - Stop all outreach to this {(task as any).extraContext?.matchType === 'lead' ? 'lead' : 'contact'} (recommended)</li>
+                            <li><strong>Keep Active</strong> - If you believe the bounce was temporary</li>
+                            <li><strong>Keep for Research</strong> - Open AI-powered investigation page to help you decide</li>
+                          </ul>
+                        </div>
+                        {(task as any).extraContext?.bounceId && (
+                          <button
+                            onClick={() => setLocation(`/bounce-investigation/${(task as any).extraContext.bounceId}`)}
+                            className="mt-3 w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+                          >
+                            <Search className="w-4 h-4" />
+                            Keep for Research (AI Analysis)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Data Hygiene: Customer Type */}
+              {task.taskSubtype === 'hygiene_customer_type' && (
+                <div className="space-y-3 mb-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2 w-full">
+                        <p className="text-sm font-medium text-blue-800">What type of customer is this?</p>
+                        <p className="text-sm text-blue-700">
+                          This helps us know what information to collect.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <button
+                            onClick={() => handleOutcome('printer')}
+                            className="flex flex-col items-center gap-2 p-4 bg-white border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+                          >
+                            <span className="text-3xl">🖨️</span>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-blue-800">Printing Company</p>
+                              <p className="text-xs text-blue-600 mt-1">Has printing equipment</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('reseller')}
+                            className="flex flex-col items-center gap-2 p-4 bg-white border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+                          >
+                            <span className="text-3xl">🚚</span>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-blue-800">Reseller</p>
+                              <p className="text-xs text-blue-600 mt-1">Buys to resell</p>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DRIP Stale Followup - Creative Options */}
+              {task.taskSubtype === 'drip_stale_followup' && (
+                <div className="space-y-3 mb-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <Clock className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2 w-full">
+                        <p className="text-sm font-medium text-amber-800">No response to your drip campaign</p>
+                        <p className="text-sm text-amber-700">
+                          {task.context?.emailsSent} emails sent, last one {task.context?.daysSinceLastEmail} days ago.
+                          Time to try something different!
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                          <button
+                            onClick={() => handleOutcome('send_drip')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-amber-200 rounded-xl hover:border-amber-400 hover:bg-amber-50 transition-all"
+                          >
+                            <Mail className="w-6 h-6 text-amber-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-amber-800">Send Email</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('send_swatchbook')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-purple-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-all"
+                          >
+                            <Package className="w-6 h-6 text-purple-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-purple-800">Swatch Book</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('send_press_test')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+                          >
+                            <Box className="w-6 h-6 text-blue-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-blue-800">Press Test Kit</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('call')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-green-200 rounded-xl hover:border-green-400 hover:bg-green-50 transition-all"
+                          >
+                            <Phone className="w-6 h-6 text-green-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-green-800">Call Them</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('linkedin')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-sky-200 rounded-xl hover:border-sky-400 hover:bg-sky-50 transition-all"
+                          >
+                            <Linkedin className="w-6 h-6 text-sky-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-sky-800">LinkedIn</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('lost')}
+                            className="flex flex-col items-center gap-2 p-3 bg-white border-2 border-red-200 rounded-xl hover:border-red-400 hover:bg-red-50 transition-all"
+                          >
+                            <X className="w-6 h-6 text-red-600" />
+                            <div className="text-center">
+                              <p className="text-xs font-semibold text-red-800">Mark Lost</p>
+                            </div>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleOutcome('skip')}
+                          className="w-full mt-2 py-2 text-sm text-amber-600 hover:text-amber-800 font-medium"
                         >
-                          <Ban className="w-3.5 h-3.5 inline mr-1" />
-                          Bad Fit
-                        </button>
-                        <button 
-                          className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
-                          onClick={handleSkip}
-                        >
-                          <SkipForward className="w-3.5 h-3.5 inline mr-1" />
-                          Skip
-                        </button>
-                        <button 
-                          className="px-3 py-1.5 text-xs font-medium text-amber-500 hover:bg-amber-50 rounded-full transition-colors"
-                          onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
-                        >
-                          <Clock className="w-3.5 h-3.5 inline mr-1" />
-                          Later
+                          Give More Time
                         </button>
                       </div>
                     </div>
-                  )}
-                  
-                  {/* Data Hygiene Actions */}
-                  {task.bucket === 'data_hygiene' && task.outcomes.length > 0 && (
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {task.outcomes.map((outcome) => {
+                  </div>
+                </div>
+              )}
+
+              {/* DRIP Reply Urgent - Call Now UI */}
+              {task.taskSubtype === 'drip_reply_urgent' && (
+                <div className="space-y-3 mb-4">
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <Flame className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0 animate-pulse" />
+                      <div className="space-y-2 w-full">
+                        <p className="text-sm font-medium text-red-800">🔥 They replied to your drip campaign!</p>
+                        <p className="text-sm text-red-700">
+                          From campaign: "{task.context?.campaignName}"
+                          {task.context?.replySubject && (
+                            <span className="block mt-1 italic">Subject: "{task.context.replySubject}"</span>
+                          )}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <button
+                            onClick={() => handleOutcome('called')}
+                            className="flex flex-col items-center gap-2 p-4 bg-white border-2 border-green-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all"
+                          >
+                            <Phone className="w-8 h-8 text-green-600" />
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-green-800">Call Them Now!</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('email_sent')}
+                            className="flex flex-col items-center gap-2 p-4 bg-white border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+                          >
+                            <Mail className="w-8 h-8 text-blue-600" />
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-blue-800">Reply to Email</p>
+                            </div>
+                          </button>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => handleOutcome('qualified')}
+                            className="flex-1 py-2 px-3 text-sm bg-emerald-100 border border-emerald-300 rounded-lg text-emerald-700 hover:bg-emerald-200"
+                          >
+                            ⭐ Qualified!
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('not_interested')}
+                            className="flex-1 py-2 px-3 text-sm bg-slate-100 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-200"
+                          >
+                            Not Interested
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Data Hygiene: Name, Company, Phone */}
+              {(task.taskSubtype === 'hygiene_name' || task.taskSubtype === 'hygiene_company' || task.taskSubtype === 'hygiene_phone') && (
+                <div className="space-y-3 mb-4">
+                  <Label className="text-sm text-slate-600">
+                    {task.taskSubtype === 'hygiene_name' && 'Enter contact name:'}
+                    {task.taskSubtype === 'hygiene_company' && 'Enter company name:'}
+                    {task.taskSubtype === 'hygiene_phone' && 'Enter phone number:'}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={fieldValue}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      placeholder={
+                        task.taskSubtype === 'hygiene_name' ? 'First Last' :
+                        task.taskSubtype === 'hygiene_company' ? 'Company Name' : 
+                        '(555) 555-5555'
+                      }
+                      className="border-slate-200 rounded-xl"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && fieldValue.trim()) {
+                          const field = task.taskSubtype === 'hygiene_name' ? 'firstName' :
+                                        task.taskSubtype === 'hygiene_company' ? 'company' : 'phone';
+                          handleOutcome('found', field, fieldValue.trim());
+                        }
+                      }}
+                    />
+                    <Button 
+                      onClick={() => {
+                        const field = task.taskSubtype === 'hygiene_name' ? 'firstName' :
+                                      task.taskSubtype === 'hygiene_company' ? 'company' : 'phone';
+                        handleOutcome('found', field, fieldValue.trim());
+                      }}
+                      className="spotlight-btn-primary px-6"
+                      disabled={!fieldValue.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing Feedback Icons for Quote-Related Tasks */}
+              {(task.taskSubtype === 'sales_quote_follow_up' || 
+                (task.context?.followUpTitle && task.context.followUpTitle.toLowerCase().includes('quote'))) && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-600 font-medium">Quick Feedback</span>
+                    <span className="text-xs text-slate-400">(tap any that apply)</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {PRICING_FEEDBACK_OPTIONS.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = selectedFeedback.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => handleFeedbackClick(option.id)}
+                          disabled={feedbackMutation.isPending}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                            isSelected 
+                              ? option.activeColor + ' border-transparent shadow-sm' 
+                              : option.color
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          {option.label}
+                          {isSelected && <Check className="w-3 h-3 ml-0.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Notes */}
+              {!showNotes ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-slate-400 hover:text-slate-600 w-full mb-4"
+                  onClick={() => setShowNotes(true)}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Add a note (optional)
+                </Button>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Quick note about this interaction..."
+                    className="border-slate-200 min-h-[80px] text-sm rounded-xl"
+                  />
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-slate-400"
+                    onClick={() => { setShowNotes(false); setNotes(""); }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              {/* Outcome Buttons - Prominent Action Cards */}
+              {task.bucket !== 'data_hygiene' && task.outcomes.length > 0 && (
+                <div className="bg-gradient-to-b from-white to-slate-50 rounded-2xl p-5 border-2 border-slate-200 shadow-sm">
+                  <p className="text-xs font-bold text-slate-600 mb-4 uppercase tracking-wide flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    What happened?
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {task.outcomes.slice(0, 4).map((outcome) => {
+                      const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                      const isPositive = ['connected', 'completed', 'sent', 'done', 'email_sent', 'called', 'already_has', 'already_engaged'].includes(outcome.id);
+                      const isNegative = ['bad_number', 'not_interested', 'lost', 'no_answer', 'voicemail'].includes(outcome.id);
+                      return (
+                        <button
+                          key={outcome.id}
+                          onClick={() => handleOutcome(outcome.id)}
+                          disabled={completeMutation.isPending || skipMutation.isPending}
+                          className={`flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md ${
+                            isPositive 
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400' 
+                              : isNegative
+                                ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400'
+                                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
+                          }`}
+                        >
+                          {OutcomeIcon && <OutcomeIcon className="w-5 h-5" />}
+                          {outcome.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {task.outcomes.length > 4 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {task.outcomes.slice(4).map((outcome) => {
                         const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                        const isDNC = outcome.id === 'bad_fit' || outcome.nextAction?.type === 'mark_dnc';
                         return (
                           <button
                             key={outcome.id}
                             onClick={() => handleOutcome(outcome.id)}
-                            disabled={completeMutation.isPending}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm transition-all"
+                            disabled={completeMutation.isPending || skipMutation.isPending}
+                            className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all border ${
+                              isDNC 
+                                ? 'border-red-300 text-red-600 hover:bg-red-50' 
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
                           >
-                            {OutcomeIcon && <OutcomeIcon className="w-4 h-4" />}
                             {outcome.label}
                           </button>
                         );
                       })}
                     </div>
                   )}
+                  {/* Default Action Buttons - BAD FIT and SKIP */}
+                  <div className="flex gap-3 justify-center pt-4 border-t border-slate-200">
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300"
+                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
+                      disabled={completeMutation.isPending}
+                    >
+                      <Ban className="w-4 h-4" />
+                      Bad Fit
+                    </button>
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
+                      onClick={handleSkip}
+                      disabled={skipMutation.isPending}
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      Skip
+                    </button>
+                    <button 
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-amber-200 text-amber-600 hover:bg-amber-50"
+                      onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
+                      disabled={remindTodayMutation.isPending}
+                    >
+                      <Clock className="w-4 h-4" />
+                      Later Today
+                    </button>
+                  </div>
+                  
+                  {/* Secondary Actions */}
+                  <div className="flex gap-3 justify-center pt-2">
+                    {effectiveEmail && (
+                      <button 
+                        className="text-sm font-medium text-blue-500 hover:text-blue-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                        onClick={handleOpenEmailComposer}
+                      >
+                        <Mail className="w-4 h-4" />
+                        Compose
+                      </button>
+                    )}
+                    {effectiveAddress && (
+                      <button 
+                        className="text-sm font-medium text-purple-500 hover:text-purple-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+                        onClick={() => setShowPrintLabel(true)}
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Label
+                      </button>
+                    )}
+                    {task.customerId && !task.isLeadTask && (
+                      <button 
+                        className="text-sm font-medium text-emerald-500 hover:text-emerald-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        onClick={() => assignAsLeadMutation.mutate({ customerId: task.customerId, taskId: task.id })}
+                        disabled={assignAsLeadMutation.isPending}
+                      >
+                        {assignAsLeadMutation.isPending ? 'Assigning...' : 'Assign as Lead'}
+                      </button>
+                    )}
+                    {task.bucket === 'data_hygiene' && (
+                      <button 
+                        className="text-sm font-medium text-red-400 hover:text-red-600 px-4 py-2 rounded-lg transition"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Data Hygiene outcome buttons */}
+              {task.bucket === 'data_hygiene' && task.outcomes.length > 0 && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {task.outcomes.map((outcome) => {
+                      const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                      return (
+                        <Button
+                          key={outcome.id}
+                          variant="outline"
+                          className="h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center rounded-xl border-slate-200 hover:bg-slate-50"
+                          onClick={() => handleOutcome(outcome.id)}
+                        >
+                          {OutcomeIcon && <OutcomeIcon className="w-5 h-5 text-slate-600" />}
+                          <span className="text-xs font-medium leading-tight">{outcome.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {/* Default Action Buttons - BAD FIT and SKIP for Data Hygiene */}
+                  <div className="flex gap-3 justify-center pt-3 border-t border-slate-200">
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300"
+                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
+                      disabled={completeMutation.isPending}
+                    >
+                      <Ban className="w-4 h-4" />
+                      Bad Fit
+                    </button>
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
+                      onClick={handleSkip}
+                      disabled={skipMutation.isPending}
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+        
+        {/* Right Sidebar - Coaching Trays */}
+        <div className="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 order-3">
+          {/* Calling Script Ideas Tray */}
+          <div className="spotlight-tray">
+            <button
+              onClick={() => setCallScriptOpen(!callScriptOpen)}
+              className="spotlight-tray-header w-full px-4 py-3 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold text-slate-800">Calling Script Ideas</span>
+              </div>
+              {callScriptOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+            {callScriptOpen && (
+              <div className="px-4 pb-4 space-y-2">
+                {callScriptIdeas.map((idea, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                    <p className="text-xs text-slate-500 leading-relaxed">{idea}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Email Ideas Tray */}
+          <div className="spotlight-tray">
+            <button
+              onClick={() => setEmailIdeasOpen(!emailIdeasOpen)}
+              className="spotlight-tray-header w-full px-4 py-3 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-slate-800">Email Ideas</span>
+              </div>
+              {emailIdeasOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              )}
+            </button>
+            {emailIdeasOpen && (
+              <div className="px-4 pb-4 space-y-2">
+                {emailIdeas.map((idea, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+                    <p className="text-xs text-slate-500 leading-relaxed">{idea}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
-          {/* RIGHT - Coaching Tips (Collapsible) */}
-          <div className="hidden lg:flex w-64 flex-shrink-0 flex-col">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-100 p-4 flex-1 overflow-y-auto">
-              {/* Coaching Script */}
-              <div className="mb-4">
-                <button 
-                  className="w-full flex items-center justify-between text-left"
-                  onClick={() => setCallScriptOpen(!callScriptOpen)}
-                >
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
-                    <PhoneCall className="w-4 h-4" />
-                    Calling Tips
-                  </span>
-                  {callScriptOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
-                {callScriptOpen && (
-                  <div className="mt-2 space-y-1.5">
-                    {callScriptIdeas.map((idea, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-blue-400 mt-1.5" />
-                        <p className="text-xs text-slate-500">{idea}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Email Ideas */}
-              <div>
-                <button 
-                  className="w-full flex items-center justify-between text-left"
-                  onClick={() => setEmailIdeasOpen(!emailIdeasOpen)}
-                >
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    Email Ideas
-                  </span>
-                  {emailIdeasOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
-                {emailIdeasOpen && (
-                  <div className="mt-2 space-y-1.5">
-                    {emailIdeas.map((idea, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full bg-purple-400 mt-1.5" />
-                        <p className="text-xs text-slate-500">{idea}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       
