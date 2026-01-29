@@ -8570,6 +8570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update lead's firstEmailSentAt if this email is to a lead (non-blocking)
+      let matchedLeadId: number | undefined;
       try {
         const normalizedRecipient = to.toLowerCase().trim();
         const leadByEmail = await db.select().from(leads)
@@ -8577,6 +8578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .limit(1);
         
         if (leadByEmail.length > 0) {
+          matchedLeadId = leadByEmail[0].id;
           await db.update(leads)
             .set({ firstEmailSentAt: new Date() })
             .where(eq(leads.id, leadByEmail[0].id));
@@ -8584,6 +8586,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (leadError: any) {
         console.error("Error updating lead firstEmailSentAt (non-critical):", leadError.message);
+      }
+      
+      // Credit SPOTLIGHT progress for direct email sends (non-blocking)
+      try {
+        const authUserId = req.user?.claims?.sub || req.user?.id;
+        if (authUserId) {
+          const { spotlightEngine } = await import("./spotlight-engine");
+          const creditResult = await spotlightEngine.creditDirectAction(
+            authUserId,
+            'email_sent',
+            customerId || undefined,
+            matchedLeadId,
+            { recipientEmail: to, subject }
+          );
+          if (creditResult.credited) {
+            console.log(`[Spotlight] Email credited to outreach bucket: ${creditResult.newProgress.completed}/${creditResult.newProgress.target}`);
+          }
+        }
+      } catch (spotlightError: any) {
+        console.error("Error crediting SPOTLIGHT (non-critical):", spotlightError.message);
       }
       
       res.json({ 

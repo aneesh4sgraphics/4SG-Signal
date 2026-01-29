@@ -4188,6 +4188,64 @@ class SpotlightEngine {
     const sessionKey = `${userId}_${today}`;
     this.sessions.delete(sessionKey);
   }
+
+  async creditDirectAction(
+    userId: string, 
+    actionType: 'email_sent' | 'call_made' | 'swatchbook_sent',
+    customerId?: string,
+    leadId?: number,
+    metadata?: Record<string, any>
+  ): Promise<{ credited: boolean; bucket: TaskBucket; newProgress: { completed: number; target: number } }> {
+    const session = await this.getSessionAsync(userId);
+    
+    const bucketMap: Record<string, TaskBucket> = {
+      'email_sent': 'outreach',
+      'call_made': 'calls',
+      'swatchbook_sent': 'enablement',
+    };
+    
+    const bucket = bucketMap[actionType];
+    const bucketData = session.buckets.find(b => b.bucket === bucket);
+    
+    if (!bucketData) {
+      console.log(`[Spotlight] Could not find bucket ${bucket} for action ${actionType}`);
+      return { credited: false, bucket, newProgress: { completed: 0, target: 0 } };
+    }
+    
+    if (bucketData.completed >= bucketData.target) {
+      console.log(`[Spotlight] Bucket ${bucket} already at target, not crediting ${actionType}`);
+      return { credited: false, bucket, newProgress: { completed: bucketData.completed, target: bucketData.target } };
+    }
+    
+    bucketData.completed++;
+    session.totalCompleted++;
+    
+    console.log(`[Spotlight] Credited direct action ${actionType} to ${bucket} bucket for user ${userId}. Progress: ${bucketData.completed}/${bucketData.target}`);
+    
+    try {
+      await db.insert(spotlightEvents).values({
+        userId,
+        eventType: 'completed',
+        customerId: customerId || null,
+        leadId: leadId || null,
+        bucket,
+        taskSubtype: actionType,
+        metadata: {
+          outcome: actionType,
+          directAction: true,
+          ...metadata,
+        },
+      });
+    } catch (e) {
+      console.error('[Spotlight] Error recording direct action event:', e);
+    }
+    
+    return { 
+      credited: true, 
+      bucket, 
+      newProgress: { completed: bucketData.completed, target: bucketData.target } 
+    };
+  }
 }
 
 export const spotlightEngine = new SpotlightEngine();
