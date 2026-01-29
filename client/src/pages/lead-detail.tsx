@@ -106,6 +106,7 @@ interface Lead {
   isCompany: boolean;
   primaryContactName: string | null;
   primaryContactEmail: string | null;
+  customerType: string | null;
   createdAt: string;
   updatedAt: string;
   activities?: LeadActivity[];
