@@ -706,6 +706,48 @@ class SpotlightEngine {
           
           console.log(`[Spotlight] Restored progress: ${session.totalCompleted}/${session.totalTarget}`);
         }
+        
+        // Restore skipped customer/lead IDs from today's spotlight_events
+        // This ensures that completed/skipped tasks don't reappear after a server restart
+        // Align with session date (getTodayKey uses 6pm cutoff - after 6pm returns "tomorrow")
+        const now = new Date();
+        const hour = now.getHours();
+        let sessionStart: Date;
+        if (hour >= 18) {
+          // After 6pm, session is for "tomorrow" but events are still from 6pm today onward
+          sessionStart = new Date(now);
+          sessionStart.setHours(18, 0, 0, 0);
+        } else {
+          // Before 6pm, session is for "today" starting from 6pm yesterday
+          sessionStart = new Date(now);
+          sessionStart.setDate(sessionStart.getDate() - 1);
+          sessionStart.setHours(18, 0, 0, 0);
+        }
+        
+        const todayEvents = await db
+          .selectDistinct({ 
+            customerId: spotlightEvents.customerId,
+            leadId: spotlightEvents.leadId 
+          })
+          .from(spotlightEvents)
+          .where(
+            and(
+              eq(spotlightEvents.userId, userId),
+              gte(spotlightEvents.createdAt, sessionStart),
+              inArray(spotlightEvents.eventType, ['completed', 'skipped', 'remind_today'])
+            )
+          );
+        
+        for (const event of todayEvents) {
+          if (event.customerId && !session.skippedCustomerIds.includes(event.customerId)) {
+            session.skippedCustomerIds.push(event.customerId);
+          }
+          if (event.leadId && !session.skippedCustomerIds.includes(`lead-${event.leadId}`)) {
+            session.skippedCustomerIds.push(`lead-${event.leadId}`);
+          }
+        }
+        
+        console.log(`[Spotlight] Restored ${session.skippedCustomerIds.length} skipped IDs from today's events`);
       } catch (restoreError) {
         console.error('[Spotlight] Error restoring session state:', restoreError);
       }
@@ -3471,7 +3513,7 @@ class SpotlightEngine {
     notes?: string,
     customFollowUpDays?: number
   ): Promise<{ success: boolean; nextFollowUp?: { date: Date; type: string }; deleted?: boolean }> {
-    const session = this.getSession(userId);
+    const session = await this.getSessionAsync(userId);
     
     let bucket: TaskBucket;
     let customerId: string;
@@ -4076,7 +4118,7 @@ class SpotlightEngine {
   }
 
   async skipTask(userId: string, taskId: string, reason: string): Promise<void> {
-    const session = this.getSession(userId);
+    const session = await this.getSessionAsync(userId);
     
     let customerId: string;
     let bucket: TaskBucket;
@@ -4162,7 +4204,7 @@ class SpotlightEngine {
    * Uses spotlight_events with 'remind_today' event_type to persist across restarts
    */
   async remindToday(userId: string, taskId: string): Promise<void> {
-    const session = this.getSession(userId);
+    const session = await this.getSessionAsync(userId);
     
     let customerId: string;
     let bucket: TaskBucket;
