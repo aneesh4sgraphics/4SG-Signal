@@ -84,6 +84,7 @@ import {
   Box,
   UserX,
   Linkedin,
+  SkipForward,
 } from "lucide-react";
 
 // Progress Ring SVG Component for Pastel & Soft design
@@ -2501,25 +2502,39 @@ export default function Spotlight() {
                       })}
                     </div>
                   )}
-                  <div className="flex gap-4 justify-center pt-3 border-t border-slate-200">
+                  {/* Default Action Buttons - BAD FIT and SKIP */}
+                  <div className="flex gap-3 justify-center pt-4 border-t border-slate-200">
                     <button 
-                      className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300"
+                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
+                      disabled={completeMutation.isPending}
+                    >
+                      <Ban className="w-4 h-4" />
+                      Bad Fit
+                    </button>
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
                       onClick={handleSkip}
                       disabled={skipMutation.isPending}
                     >
+                      <SkipForward className="w-4 h-4" />
                       Skip
                     </button>
                     <button 
-                      className="text-sm font-medium text-amber-500 hover:text-amber-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-amber-200 text-amber-600 hover:bg-amber-50"
                       onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
                       disabled={remindTodayMutation.isPending}
                     >
                       <Clock className="w-4 h-4" />
-                      Remind Me Again Today
+                      Later Today
                     </button>
+                  </div>
+                  
+                  {/* Secondary Actions */}
+                  <div className="flex gap-3 justify-center pt-2">
                     {effectiveEmail && (
                       <button 
-                        className="text-sm font-medium text-blue-500 hover:text-blue-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        className="text-sm font-medium text-blue-500 hover:text-blue-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
                         onClick={handleOpenEmailComposer}
                       >
                         <Mail className="w-4 h-4" />
@@ -2528,19 +2543,13 @@ export default function Spotlight() {
                     )}
                     {effectiveAddress && (
                       <button 
-                        className="text-sm font-medium text-purple-500 hover:text-purple-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
+                        className="text-sm font-medium text-purple-500 hover:text-purple-700 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
                         onClick={() => setShowPrintLabel(true)}
                       >
                         <Printer className="w-4 h-4" />
                         Print Label
                       </button>
                     )}
-                    <button 
-                      className="text-sm font-medium text-slate-400 hover:text-slate-600 px-4 py-2 rounded-lg transition"
-                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit' })}
-                    >
-                      Bad Fit
-                    </button>
                     {task.customerId && !task.isLeadTask && (
                       <button 
                         className="text-sm font-medium text-emerald-500 hover:text-emerald-700 px-4 py-2 rounded-lg transition flex items-center gap-1"
@@ -2564,21 +2573,42 @@ export default function Spotlight() {
 
               {/* Data Hygiene outcome buttons */}
               {task.bucket === 'data_hygiene' && task.outcomes.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {task.outcomes.map((outcome) => {
-                    const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
-                    return (
-                      <Button
-                        key={outcome.id}
-                        variant="outline"
-                        className="h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center rounded-xl border-slate-200 hover:bg-slate-50"
-                        onClick={() => handleOutcome(outcome.id)}
-                      >
-                        {OutcomeIcon && <OutcomeIcon className="w-5 h-5 text-slate-600" />}
-                        <span className="text-xs font-medium leading-tight">{outcome.label}</span>
-                      </Button>
-                    );
-                  })}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {task.outcomes.map((outcome) => {
+                      const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
+                      return (
+                        <Button
+                          key={outcome.id}
+                          variant="outline"
+                          className="h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center rounded-xl border-slate-200 hover:bg-slate-50"
+                          onClick={() => handleOutcome(outcome.id)}
+                        >
+                          {OutcomeIcon && <OutcomeIcon className="w-5 h-5 text-slate-600" />}
+                          <span className="text-xs font-medium leading-tight">{outcome.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {/* Default Action Buttons - BAD FIT and SKIP for Data Hygiene */}
+                  <div className="flex gap-3 justify-center pt-3 border-t border-slate-200">
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300"
+                      onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
+                      disabled={completeMutation.isPending}
+                    >
+                      <Ban className="w-4 h-4" />
+                      Bad Fit
+                    </button>
+                    <button 
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
+                      onClick={handleSkip}
+                      disabled={skipMutation.isPending}
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      Skip
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
