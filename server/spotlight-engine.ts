@@ -501,6 +501,18 @@ class SpotlightEngine {
           )
         );
       
+      // Also check leads with last_contact_at set to today (may have been updated by Gmail sync etc.)
+      const leadsContactedToday = await db
+        .selectDistinct({ id: leads.id })
+        .from(leads)
+        .where(gte(leads.lastContactAt, today));
+      
+      // Also check customers with last_contact_at set to today
+      const customersContactedToday = await db
+        .selectDistinct({ id: customers.id })
+        .from(customers)
+        .where(gte(customers.lastContactAt, today));
+      
       const customerIds = new Set<string>();
       const leadIds = new Set<number>();
       
@@ -510,6 +522,12 @@ class SpotlightEngine {
       }
       for (const row of activityToday) {
         if (row.customerId) customerIds.add(row.customerId);
+      }
+      for (const row of leadsContactedToday) {
+        if (row.id) leadIds.add(row.id);
+      }
+      for (const row of customersContactedToday) {
+        if (row.id) customerIds.add(row.id);
       }
       
       return { 
