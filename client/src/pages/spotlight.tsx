@@ -654,14 +654,17 @@ export default function Spotlight() {
         quantity: data.quantity,
         notes: data.notes,
       });
-      return res;
+      // Parse the JSON response to get pdfUrl
+      return res.json();
     },
     onSuccess: (data: any) => {
-      // Download the PDF
+      // Open the PDF in a new tab
       if (data?.pdfUrl) {
         window.open(data.pdfUrl, '_blank');
+        toast({ title: 'Label created!', description: `Opening ${labelQuantity} label(s) in new tab` });
+      } else {
+        toast({ title: 'Label created', description: 'Label was generated but no PDF URL returned', variant: 'destructive' });
       }
-      toast({ title: 'Label printed!', description: `${labelQuantity} label(s) ready for printing` });
       setShowPrintLabel(false);
       setLabelType('swatch_book');
       setLabelOtherDescription('');
