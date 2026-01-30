@@ -2187,18 +2187,28 @@ export default function Spotlight() {
                             : customer.company || customerName)}
                     </h2>
                     {/* Open Detail Page Button */}
-                    <Link 
-                      href={task.isLeadTask && task.leadId 
-                        ? `/leads/${task.leadId}` 
-                        : `/contacts/${customer.id}`}
-                    >
+                    {(task.isLeadTask && task.leadId) || customer.odooPartnerId ? (
+                      <Link 
+                        href={task.isLeadTask && task.leadId 
+                          ? `/leads/${task.leadId}` 
+                          : `/odoo-contacts/${customer.odooPartnerId}`}
+                      >
+                        <button 
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-all"
+                          title={task.isLeadTask ? "Open lead detail page" : "Open customer detail page"}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </Link>
+                    ) : (
                       <button 
                         className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-all"
-                        title={task.isLeadTask ? "Open lead detail page" : "Open customer detail page"}
+                        title="View customer profile"
+                        onClick={() => setShowProfilePanel(true)}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </button>
-                    </Link>
+                    )}
                     {/* Source Logos */}
                     {!task.isLeadTask && (
                       <div className="flex items-center gap-1.5 ml-1">
