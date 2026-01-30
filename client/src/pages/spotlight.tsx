@@ -1867,312 +1867,322 @@ export default function Spotlight() {
               </div>
             )}
 
-            {/* Main Customer/Lead Card - V0 Style - Green for Leads */}
-            <div className={`spotlight-card p-6 mb-4 ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-100 via-emerald-50 to-green-50 shadow-emerald-100' : ''}`}>
-              {/* Lead Badge - shown only for lead tasks */}
-              {task.isLeadTask && (
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold border border-emerald-300">
-                    <UserPlus className="w-4 h-4" />
-                    Lead
-                  </span>
-                  {task.lead?.stage && (
-                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            {/* Main Customer/Lead Card - REDESIGNED FIGMA LAYOUT */}
+            <div className={`spotlight-card p-6 mb-4 relative ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-green-50 shadow-emerald-100' : 'bg-white'}`}>
+              
+              {/* Lead/Hot Badge - Top Right Corner */}
+              <div className="absolute top-4 right-4">
+                {task.isLeadTask ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                      <Star className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-700 uppercase">Lead</span>
+                  </div>
+                ) : (
+                  (() => {
+                    const isHot = optimisticHotProspect ?? customer.isHotProspect;
+                    if (isHot) {
+                      return (
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
+                            <Flame className="w-6 h-6 text-white" />
+                          </div>
+                          <span className="text-xs font-semibold text-orange-600 uppercase">Hot</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 rounded-full"
+                        onClick={() => {
+                          setOptimisticHotProspect(true);
+                          apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
+                            .then(() => toast({ title: "Marked as Hot Prospect" }))
+                            .catch(() => {
+                              setOptimisticHotProspect(null);
+                              toast({ title: "Error", variant: "destructive" });
+                            });
+                        }}
+                      >
+                        <Flame className="w-4 h-4" />
+                        Mark Hot
+                      </Button>
+                    );
+                  })()
+                )}
+              </div>
+
+              {/* Header: Name & Company */}
+              <div className="flex items-start gap-4 mb-4 pr-20">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center border border-blue-200">
+                  <Building2 className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className={`text-2xl font-bold ${task.isLeadTask ? 'text-emerald-800' : 'text-slate-800'}`}>
+                    {task.isLeadTask 
+                      ? (task.lead?.name || customer.company || customerName)
+                      : (customer.firstName && customer.lastName 
+                          ? `${customer.firstName} ${customer.lastName}` 
+                          : customer.company || customerName)}
+                  </h2>
+                  <p className="text-base text-slate-600">
+                    {task.isLeadTask 
+                      ? task.lead?.company 
+                      : (customer.company && customer.firstName ? customer.company : '')}
+                  </p>
+                  {task.isLeadTask && task.lead?.stage && (
+                    <span className="inline-flex items-center mt-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                       {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
                     </span>
                   )}
-                  {(task.lead?.priority === 'high' || task.lead?.priority === 'urgent') && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-xs font-medium border border-red-200">
-                      <Flame className="w-3 h-3" />
-                      {task.lead.priority === 'urgent' ? 'Urgent' : 'Hot'}
-                    </span>
-                  )}
                 </div>
-              )}
-              
-              {/* Customer Header with Hot Badge */}
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <h2 className={`text-2xl font-semibold ${task.isLeadTask ? 'text-emerald-800' : 'text-slate-800'}`}>
-                    {task.isLeadTask ? (task.lead?.name || customer.company || customerName) : (customer.company || customerName)}
-                  </h2>
-                  {task.isLeadTask && task.lead?.company && (
-                    <p className="text-sm text-emerald-600 mt-0.5">{task.lead.company}</p>
+              </div>
+
+              {/* Two-Column Layout: Contact Info + Metadata */}
+              <div className="grid grid-cols-2 gap-6 mb-5">
+                {/* Left Column: Contact Details */}
+                <div className="space-y-2.5">
+                  {effectiveAddress && (
+                    <div className="flex items-start gap-2.5 text-sm">
+                      <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <a 
+                        href={task.isLeadTask && task.lead?.city
+                          ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
+                          : `https://maps.google.com/?q=${encodeURIComponent(`${customer.address1 || ''}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-700 hover:text-blue-600"
+                      >
+                        {effectiveAddress}
+                      </a>
+                    </div>
                   )}
-                  {!task.isLeadTask && customer.firstName && customer.company && (
-                    <p className="text-sm text-slate-600 mt-0.5">{customer.firstName} {customer.lastName || ''}</p>
+                  {(customer.phone || task.lead?.phone) && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <a href={`tel:${customer.phone || task.lead?.phone}`} className="text-slate-700 hover:text-blue-600">
+                        {customer.phone || task.lead?.phone}
+                      </a>
+                    </div>
                   )}
+                  {(customer.email || task.lead?.email) && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <a href={`mailto:${customer.email || task.lead?.email}`} className="text-slate-700 hover:text-blue-600">
+                        {customer.email || task.lead?.email}
+                      </a>
+                    </div>
+                  )}
+                  {customer.website && (
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <a 
+                        href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-700 hover:text-blue-600"
+                      >
+                        {customer.website}
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span className="text-slate-700">{customer.salesRepName || 'Unassigned'}</span>
+                  </div>
                 </div>
-                {(() => {
-                  const isHot = optimisticHotProspect ?? customer.isHotProspect;
-                  if (task.isLeadTask) return null;
-                  if (isHot) {
+
+                {/* Right Column: Type, Machines, Pricing */}
+                <div className="space-y-3">
+                  {/* Type Toggle */}
+                  {(() => {
+                    const serverType = task.isLeadTask ? task.lead?.customerType : customer.customerType;
+                    const displayType = optimisticCustomerType || serverType;
                     return (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 text-red-500 text-sm font-medium border border-red-200">
-                        <Flame className="w-4 h-4" />
-                        Hot
-                      </span>
-                    );
-                  }
-                  return (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 rounded-full"
-                      onClick={() => {
-                        setOptimisticHotProspect(true);
-                        apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
-                          .then(() => {
-                            toast({ title: "Marked as Hot Prospect" });
-                          })
-                          .catch(() => {
-                            setOptimisticHotProspect(null);
-                            toast({ title: "Error", variant: "destructive" });
-                          });
-                      }}
-                    >
-                      <Flame className="w-4 h-4" />
-                      Mark Hot
-                    </Button>
-                  );
-                })()}
-              </div>
-
-              {/* Printer/EndUser/Reseller Toggle */}
-              {(() => {
-                // Use optimistic value if set, otherwise use server value
-                const serverType = task.isLeadTask ? task.lead?.customerType : customer.customerType;
-                const displayType = optimisticCustomerType || serverType;
-                
-                return (
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-sm text-slate-500">Type:</span>
-                    <div className="inline-flex items-center border rounded-lg p-0.5 bg-slate-50">
-                      <button
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          displayType === 'printer'
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                        onClick={() => {
-                          setOptimisticCustomerType('printer');
-                          const endpoint = task.isLeadTask 
-                            ? `/api/leads/${task.lead?.id}` 
-                            : `/api/customers/${customer.id}`;
-                          apiRequest('PUT', endpoint, { customerType: 'printer' })
-                            .then(() => {
-                              toast({ title: "Marked as Printing Company" });
-                            })
-                            .catch(() => {
-                              setOptimisticCustomerType(null);
-                              toast({ title: "Error updating type", variant: "destructive" });
-                            });
-                        }}
-                      >
-                        <Printer className="w-4 h-4" />
-                        Printer
-                      </button>
-                      <button
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          displayType === 'enduser'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                        onClick={() => {
-                          setOptimisticCustomerType('enduser');
-                          const endpoint = task.isLeadTask 
-                            ? `/api/leads/${task.lead?.id}` 
-                            : `/api/customers/${customer.id}`;
-                          apiRequest('PUT', endpoint, { customerType: 'enduser' })
-                            .then(() => {
-                              toast({ title: "Marked as End User" });
-                            })
-                            .catch(() => {
-                              setOptimisticCustomerType(null);
-                              toast({ title: "Error updating type", variant: "destructive" });
-                            });
-                        }}
-                      >
-                        <User className="w-4 h-4" />
-                        End User
-                      </button>
-                      <button
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          displayType === 'reseller'
-                            ? 'bg-amber-600 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                        onClick={() => {
-                          setOptimisticCustomerType('reseller');
-                          const endpoint = task.isLeadTask 
-                            ? `/api/leads/${task.lead?.id}` 
-                            : `/api/customers/${customer.id}`;
-                          apiRequest('PUT', endpoint, { customerType: 'reseller' })
-                            .then(() => {
-                              toast({ title: "Marked as Reseller" });
-                            })
-                            .catch(() => {
-                              setOptimisticCustomerType(null);
-                              toast({ title: "Error updating type", variant: "destructive" });
-                            });
-                        }}
-                      >
-                        <Truck className="w-4 h-4" />
-                        Reseller
-                      </button>
-                    </div>
-                    {displayType && (
-                      <span className="text-xs text-slate-400">
-                        ({displayType})
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Email & Phone Row */}
-              <div className="flex items-center gap-6 mb-4 text-sm">
-                {customer.email && (
-                  <div className="flex items-center gap-2">
-                    <a href={`mailto:${customer.email}`} className="text-blue-600 hover:underline">
-                      {customer.email}
-                    </a>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-2 text-xs bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
-                      onClick={handleOpenEmailComposer}
-                    >
-                      <Mail className="w-3 h-3 mr-1" />
-                      Compose
-                    </Button>
-                  </div>
-                )}
-                {customer.phone && (
-                  <a href={`tel:${customer.phone}`} className="text-blue-600 hover:underline">
-                    {customer.phone}
-                  </a>
-                )}
-              </div>
-
-              {/* Pro Tip & Machines Row - V0 Style */}
-              {/* Hide Machines box for resellers and end users - only printers have machines */}
-              {(() => {
-                const customerType = customer?.customerType || task.lead?.customerType;
-                const hideMachines = customerType === 'reseller' || customerType === 'enduser';
-                return (
-                  <div className={`grid gap-3 mb-4 ${hideMachines ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                    {/* Pro Tip Box - Shows product focus from taxonomy */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Lightbulb className="w-4 h-4 text-amber-600" />
-                        <span className="text-sm font-semibold text-amber-800">Pro Tip</span>
-                      </div>
-                      {task.context?.suggestedProducts && task.context.suggestedProducts.length > 0 ? (
-                        <div>
-                          <p className="text-sm text-amber-700 mb-2">
-                            {task.context.machineContext || `Focus on these products for this customer:`}
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {task.context.suggestedProducts.map((product, idx) => (
-                              <Badge key={idx} className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
-                                {product}
-                              </Badge>
-                            ))}
-                          </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-500 w-20">Type:</span>
+                        <div className="inline-flex items-center border rounded-lg p-0.5 bg-slate-50">
+                          <button
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                              displayType === 'reseller' ? 'bg-slate-200 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                            }`}
+                            onClick={() => {
+                              setOptimisticCustomerType('reseller');
+                              const endpoint = task.isLeadTask ? `/api/leads/${task.lead?.id}` : `/api/customers/${customer.id}`;
+                              apiRequest('PUT', endpoint, { customerType: 'reseller' }).then(() => toast({ title: "Marked as Reseller" })).catch(() => setOptimisticCustomerType(null));
+                            }}
+                          >
+                            Reseller
+                          </button>
+                          <button
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                              displayType === 'enduser' ? 'bg-slate-200 text-slate-700' : 'text-slate-500 hover:bg-slate-100'
+                            }`}
+                            onClick={() => {
+                              setOptimisticCustomerType('enduser');
+                              const endpoint = task.isLeadTask ? `/api/leads/${task.lead?.id}` : `/api/customers/${customer.id}`;
+                              apiRequest('PUT', endpoint, { customerType: 'enduser' }).then(() => toast({ title: "Marked as End User" })).catch(() => setOptimisticCustomerType(null));
+                            }}
+                          >
+                            Enduser
+                          </button>
+                          <button
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                              displayType === 'printer' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'
+                            }`}
+                            onClick={() => {
+                              setOptimisticCustomerType('printer');
+                              const endpoint = task.isLeadTask ? `/api/leads/${task.lead?.id}` : `/api/customers/${customer.id}`;
+                              apiRequest('PUT', endpoint, { customerType: 'printer' }).then(() => toast({ title: "Marked as Printer" })).catch(() => setOptimisticCustomerType(null));
+                            }}
+                          >
+                            Printer
+                          </button>
                         </div>
-                      ) : (
-                        <p className="text-sm text-amber-700">
-                          {currentTask?.coachTip?.content || task.whyNow || "Lead with value - ask about their current needs."}
-                        </p>
-                      )}
-                    </div>
+                      </div>
+                    );
+                  })()}
 
-                    {/* Machines Box - Only for printers (not resellers or end users) */}
-                    {!hideMachines && (
-                      <div className="bg-white border border-slate-200 rounded-xl p-3">
-                        <p className="text-sm font-semibold text-slate-700 mb-2">Machines</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {task.isLeadTask ? (
-                            <span className="text-xs text-slate-400 italic">Convert to customer to add machines</span>
-                          ) : customerMachines.length > 0 ? (
+                  {/* Machines - Only show for printers */}
+                  {(() => {
+                    const customerType = customer?.customerType || task.lead?.customerType;
+                    const hideMachines = customerType === 'reseller' || customerType === 'enduser';
+                    if (hideMachines || task.isLeadTask) return null;
+                    return (
+                      <div className="flex items-start gap-2">
+                        <span className="text-sm text-slate-500 w-20 pt-0.5">Machines:</span>
+                        <div className="flex flex-wrap gap-1.5 flex-1">
+                          {customerMachines.length > 0 ? (
                             customerMachines.map((m) => (
-                              <Badge key={m.id} variant="outline" className="text-xs bg-slate-50">
+                              <Badge key={m.id} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                                 {m.machineFamily}
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-400">No machines on file</span>
+                            <span className="text-xs text-slate-400 italic">None</span>
                           )}
-                          {!task.isLeadTask && (
-                            showAddMachine ? (
-                              <Select
-                                onValueChange={(value) => {
-                                  addMachineMutation.mutate(value);
-                                }}
-                                disabled={addMachineMutation.isPending}
-                              >
-                                <SelectTrigger className="h-6 w-32 text-xs">
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {machineTypes.map((mt) => (
-                                    <SelectItem key={mt.code} value={mt.code} className="text-xs">
-                                      {mt.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs bg-pink-50 text-pink-600 border-pink-200 cursor-pointer hover:bg-pink-100"
-                                onClick={() => setShowAddMachine(true)}
-                              >
-                                + Add
-                              </Badge>
-                            )
+                          {!showAddMachine ? (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs bg-pink-50 text-pink-600 border-pink-200 cursor-pointer hover:bg-pink-100"
+                              onClick={() => setShowAddMachine(true)}
+                            >
+                              + Add
+                            </Badge>
+                          ) : (
+                            <Select onValueChange={(value) => addMachineMutation.mutate(value)} disabled={addMachineMutation.isPending}>
+                              <SelectTrigger className="h-6 w-28 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
+                              <SelectContent>
+                                {machineTypes.map((mt) => (<SelectItem key={mt.code} value={mt.code} className="text-xs">{mt.label}</SelectItem>))}
+                              </SelectContent>
+                            </Select>
                           )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
+                    );
+                  })()}
 
-              {/* View Map, Tier Badge, Rep Row */}
-              <div className="flex items-center gap-4 mb-4 text-sm">
-                {effectiveAddress && (
-                  <a 
-                    href={task.isLeadTask && task.lead?.city
-                      ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
-                      : `https://maps.google.com/?q=${encodeURIComponent(`${customer.address1}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-slate-600 hover:text-blue-600"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    View Map
-                  </a>
-                )}
-                {customer.pricingTier && (
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 capitalize">
-                    {customer.pricingTier}
-                  </Badge>
-                )}
-                <span className="text-slate-600">
-                  Rep: <span className="font-medium">{customer.salesRepName || 'You'}</span>
-                </span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 px-3 text-xs bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 rounded-full"
-                  onClick={() => setShowProfilePanel(true)}
-                >
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  View Full Profile
-                </Button>
+                  {/* Pricing Tier */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-500 w-20">Pricing:</span>
+                    <Select 
+                      value={customer.pricingTier || undefined}
+                      onValueChange={(value) => {
+                        apiRequest('PUT', `/api/customers/${customer.id}`, { pricingTier: value })
+                          .then(() => {
+                            toast({ title: `Pricing set to ${value}` });
+                            queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+                          });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-32 text-xs border-slate-200">
+                        <SelectValue placeholder="Select tier..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRICING_TIERS.map((tier) => (
+                          <SelectItem key={tier} value={tier} className="text-xs">{tier}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trust Level + Pro Tip Row */}
+              <div className="grid grid-cols-2 gap-4 mb-5">
+                {/* Trust Level Card - Using available data from activity notes and task context */}
+                {(() => {
+                  const activityCount = customerNotes.length;
+                  const hasPurchaseHistory = task.context?.hasPurchaseHistory || false;
+                  const trustScore = Math.min(100, activityCount * 15 + (hasPurchaseHistory ? 40 : 0));
+                  const trustLabel = hasPurchaseHistory ? 'Returning' : activityCount > 2 ? 'Growing' : 'New';
+                  
+                  return (
+                    <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-pink-500">❤️</span>
+                          <span className="text-sm font-semibold text-slate-700">TRUST Level</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-xs ${
+                            trustLabel === 'Returning' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                            trustLabel === 'Growing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                            'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {trustLabel}
+                          </Badge>
+                          <span className="text-lg font-bold text-slate-800">{trustScore}%</span>
+                        </div>
+                      </div>
+                      <Progress 
+                        value={trustScore} 
+                        className="h-2 mb-4"
+                      />
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="text-center">
+                          <FileText className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{activityCount}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Notes</p>
+                        </div>
+                        <div className="text-center">
+                          <Package className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{customerMachines.length}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Machines</p>
+                        </div>
+                        <div className="text-center">
+                          <Tag className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{customer.pricingTier ? '✓' : '—'}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Pricing</p>
+                        </div>
+                        <div className="text-center">
+                          <DollarSign className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{hasPurchaseHistory ? '✓' : '—'}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Orders</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Pro Tip Card */}
+                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-yellow-300 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                      <Lightbulb className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-red-600 mb-1">PRO Tip!!</p>
+                      <p className="text-sm text-amber-800">
+                        {currentTask?.coachTip?.content || task.whyNow || "Follow up within 24 hours for best conversion rates. Consider sending a personalized quote or sample material based on their customer type."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Follow-up context */}
@@ -2187,13 +2197,14 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Customer Notes Section - V0 Style */}
-              <div className="border-t border-slate-100 pt-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer Notes</span>
-                </div>
-                <div className="space-y-3">
+              {/* Notes & Activity - Collapsible */}
+              <details className="border-t border-slate-100 pt-4">
+                <summary className="flex items-center gap-2 cursor-pointer select-none">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Notes & Activity</span>
+                  <Badge variant="outline" className="text-xs">{customerNotes.length}</Badge>
+                  <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
+                </summary>
+                <div className="space-y-3 mt-3">
                   {customerNotes.length > 0 ? (
                     customerNotes.slice(0, 5).map((note) => (
                       <div key={note.id} className="bg-slate-50 rounded-xl p-3">
@@ -2207,7 +2218,7 @@ export default function Spotlight() {
                     <p className="text-sm text-slate-400 italic">No notes yet for this customer.</p>
                   )}
                 </div>
-              </div>
+              </details>
 
               {/* Data Hygiene: Sales Rep Assignment */}
               {task.taskSubtype === 'hygiene_sales_rep' && (
