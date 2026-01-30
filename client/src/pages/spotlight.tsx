@@ -2685,185 +2685,181 @@ export default function Spotlight() {
               {task.bucket !== 'data_hygiene' && (
                 <div className="bg-gradient-to-b from-white to-slate-50 rounded-2xl p-5 border-2 border-slate-200 shadow-sm space-y-4">
                   
-                  {/* CALLING BUTTONS - Show for calls bucket */}
+                  {/* CALLING BUTTONS - Show for calls bucket - Single Row */}
                   {task.bucket === 'calls' && (
                     <div>
-                      <p className="text-xs font-bold text-purple-600 mb-3 uppercase tracking-wide flex items-center gap-2">
+                      <p className="text-xs font-bold text-purple-600 mb-2 uppercase tracking-wide flex items-center gap-2">
                         <Phone className="w-4 h-4" />
                         Calling Actions
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => handleOutcome('connected')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                         >
-                          <CheckCircle className="w-5 h-5" />
+                          <CheckCircle className="w-4 h-4" />
                           Connected
                         </button>
                         <button
                           onClick={() => handleOutcome('voicemail')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
                         >
-                          <PhoneCall className="w-5 h-5" />
-                          Left Voicemail
+                          <PhoneCall className="w-4 h-4" />
+                          Voicemail
                         </button>
                         <button
                           onClick={() => handleOutcome('no_answer')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100"
                         >
-                          <PhoneMissed className="w-5 h-5" />
+                          <PhoneMissed className="w-4 h-4" />
                           No Answer
                         </button>
                         <button
                           onClick={() => handleOutcome('bad_number')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-red-50 border-red-300 text-red-700 hover:bg-red-100 hover:border-red-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
                         >
-                          <PhoneOff className="w-5 h-5" />
-                          Bad Number
+                          <PhoneOff className="w-4 h-4" />
+                          Bad #
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* SEND MATERIALS BUTTONS - Show for enablement bucket */}
+                  {/* SEND MATERIALS BUTTONS - Show for enablement bucket - Single Row */}
                   {task.bucket === 'enablement' && (
                     <div>
-                      <p className="text-xs font-bold text-cyan-600 mb-3 uppercase tracking-wide flex items-center gap-2">
+                      <p className="text-xs font-bold text-cyan-600 mb-2 uppercase tracking-wide flex items-center gap-2">
                         <Package className="w-4 h-4" />
                         Send Materials
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => handleOutcome('send_swatchbook')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100 hover:border-cyan-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100"
                         >
-                          <BookOpen className="w-5 h-5" />
-                          Send Swatchbook
+                          <BookOpen className="w-4 h-4" />
+                          Swatchbook
                         </button>
                         <button
                           onClick={() => handleOutcome('send_press_test')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100 hover:border-cyan-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100"
                         >
-                          <Printer className="w-5 h-5" />
-                          Send Press Test Kit
+                          <Printer className="w-4 h-4" />
+                          Press Test Kit
                         </button>
                         <button
                           onClick={() => handleOutcome('send_pricelist')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100 hover:border-cyan-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100"
                         >
-                          <FileText className="w-5 h-5" />
-                          Send Price List
+                          <FileText className="w-4 h-4" />
+                          Price List
                         </button>
                         <button
                           onClick={() => handleOutcome('already_has')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                         >
-                          <Check className="w-5 h-5" />
+                          <Check className="w-4 h-4" />
                           Already Has
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* EMAIL/FOLLOW-UP BUTTONS - Show for outreach and follow_ups buckets */}
+                  {/* EMAIL/FOLLOW-UP BUTTONS - Show for outreach and follow_ups buckets - Single Row */}
                   {(task.bucket === 'outreach' || task.bucket === 'follow_ups') && (
                     <div>
-                      <p className="text-xs font-bold text-orange-600 mb-3 uppercase tracking-wide flex items-center gap-2">
+                      <p className="text-xs font-bold text-orange-600 mb-2 uppercase tracking-wide flex items-center gap-2">
                         <Mail className="w-4 h-4" />
                         Follow-up Actions
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => handleOutcome('email_sent')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                         >
-                          <Send className="w-5 h-5" />
+                          <Send className="w-4 h-4" />
                           Email Sent
                         </button>
                         <button
                           onClick={() => handleOutcome('called')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
                         >
-                          <Phone className="w-5 h-5" />
+                          <Phone className="w-4 h-4" />
                           Called
                         </button>
                         <button
                           onClick={() => handleOutcome('not_interested')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
                         >
-                          <XCircle className="w-5 h-5" />
+                          <XCircle className="w-4 h-4" />
                           Not Interested
                         </button>
                         <button
                           onClick={() => handleOutcome('schedule_followup')}
                           disabled={completeMutation.isPending}
-                          className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all border-2 shadow-sm hover:shadow-md bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 hover:border-blue-400"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm hover:shadow bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
                         >
-                          <Calendar className="w-5 h-5" />
-                          Schedule Follow-up
+                          <Calendar className="w-4 h-4" />
+                          Follow-up
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* OTHER ACTIONS - Always shown */}
-                  <div className="pt-4 border-t border-slate-200">
-                    <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide flex items-center gap-2">
-                      <MoreHorizontal className="w-4 h-4" />
-                      Other Actions
-                    </p>
-                    <div className="flex flex-wrap gap-3 justify-center">
+                  {/* OTHER ACTIONS - Always shown - Compact */}
+                  <div className="pt-3 border-t border-slate-200">
+                    <div className="flex flex-wrap gap-2 justify-end">
                       <button 
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-red-200 text-red-600 bg-red-50 hover:bg-red-100"
                         onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
                         disabled={completeMutation.isPending}
                       >
-                        <Ban className="w-4 h-4" />
+                        <Ban className="w-3.5 h-3.5" />
                         Bad Fit
                       </button>
                       <button 
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border-2 border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100"
                         onClick={handleSkip}
                         disabled={skipMutation.isPending}
                       >
-                        <SkipForward className="w-4 h-4" />
+                        <SkipForward className="w-3.5 h-3.5" />
                         Skip
                       </button>
                       <button 
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-amber-200 text-amber-600 hover:bg-amber-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-amber-200 text-amber-600 hover:bg-amber-50"
                         onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
                         disabled={remindTodayMutation.isPending}
                       >
-                        <Clock className="w-4 h-4" />
-                        Later Today
+                        <Clock className="w-3.5 h-3.5" />
+                        Later
                       </button>
                       {effectiveEmail && (
                         <button 
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-blue-200 text-blue-600 hover:bg-blue-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-blue-200 text-blue-600 hover:bg-blue-50"
                           onClick={handleOpenEmailComposer}
                         >
-                          <Mail className="w-4 h-4" />
-                          Compose Email
+                          <Mail className="w-3.5 h-3.5" />
+                          Email
                         </button>
                       )}
                       {effectiveAddress && (
                         <button 
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-purple-200 text-purple-600 hover:bg-purple-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-purple-200 text-purple-600 hover:bg-purple-50"
                           onClick={() => setShowPrintLabel(true)}
                         >
-                          <Printer className="w-4 h-4" />
-                          Print Label
+                          <Printer className="w-3.5 h-3.5" />
+                          Label
                         </button>
                       )}
                     </div>
@@ -2871,22 +2867,21 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Data Hygiene outcome buttons */}
+              {/* Data Hygiene outcome buttons - Compact Single Row */}
               {task.bucket === 'data_hygiene' && task.outcomes.length > 0 && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
                     {task.outcomes.map((outcome) => {
                       const OutcomeIcon = outcome.icon ? OUTCOME_ICONS[outcome.icon] : Check;
                       return (
-                        <Button
+                        <button
                           key={outcome.id}
-                          variant="outline"
-                          className="h-auto py-3 px-3 flex flex-col items-center justify-center gap-1 text-center rounded-xl border-slate-200 hover:bg-slate-50"
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-slate-200 hover:bg-slate-50"
                           onClick={() => handleOutcome(outcome.id)}
                         >
-                          {OutcomeIcon && <OutcomeIcon className="w-5 h-5 text-slate-600" />}
-                          <span className="text-xs font-medium leading-tight">{outcome.label}</span>
-                        </Button>
+                          {OutcomeIcon && <OutcomeIcon className="w-4 h-4 text-slate-600" />}
+                          <span className="leading-tight">{outcome.label}</span>
+                        </button>
                       );
                     })}
                   </div>
@@ -4198,8 +4193,8 @@ export default function Spotlight() {
                     key={t.taskId}
                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
                     onClick={() => {
-                      // Navigate to this task by setting force bucket (closest we can get)
-                      setForceBucket(t.bucket as any);
+                      // Navigate to this bucket via URL param
+                      window.location.href = `/spotlight?forceBucket=${t.bucket}`;
                       setScratchPadOpen(false);
                     }}
                   >
