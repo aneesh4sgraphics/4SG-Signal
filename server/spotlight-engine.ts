@@ -3001,11 +3001,14 @@ class SpotlightEngine {
             bounceId: bouncedResult.bounceId,
             matchType: bouncedResult.matchType,
           });
-          // If this is a lead bounce, mark the task appropriately
+          // If this is a lead bounce, mark the task appropriately and fix the task ID format
           if (bouncedResult.matchType === 'lead' && bouncedResult.lead) {
             task.isLeadTask = true;
             task.leadId = bouncedResult.lead.id;
             task.lead = bouncedResult.lead;
+            // Use the proper lead task ID format: bucket::lead::leadId::subtype
+            // This ensures completeTask correctly parses it as a lead task
+            task.id = `data_hygiene::lead::${bouncedResult.lead.id}::hygiene_bounced_email`;
           }
           return task;
         }
@@ -3965,6 +3968,25 @@ class SpotlightEngine {
 
     const outcomes = TASK_OUTCOMES[subtype] || [];
     const selectedOutcome = outcomes.find(o => o.id === outcomeId);
+    
+    // For bounced email tasks, look up the bounceId from the database
+    // since extraContext isn't passed through the complete API
+    let extraContext: Record<string, any> | undefined;
+    if (subtype === 'hygiene_bounced_email') {
+      // Find the pending bounce record for this lead/customer
+      const bounceQuery = isLeadTask && leadId
+        ? db.select({ id: bouncedEmails.id }).from(bouncedEmails)
+            .where(and(eq(bouncedEmails.leadId, leadId), eq(bouncedEmails.status, 'pending')))
+            .limit(1)
+        : db.select({ id: bouncedEmails.id }).from(bouncedEmails)
+            .where(and(eq(bouncedEmails.customerId, customerId), eq(bouncedEmails.status, 'pending')))
+            .limit(1);
+      
+      const [bounce] = await bounceQuery;
+      if (bounce) {
+        extraContext = { bounceId: bounce.id };
+      }
+    }
     
     if (bucket === 'data_hygiene' && field && value) {
       const subtypeAllowedFields: Record<string, string[]> = {

@@ -958,7 +958,21 @@ export default function Spotlight() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const deleteMutation = useMutation({
-    mutationFn: async (customerId: string) => {
+    mutationFn: async ({ customerId, isLead, leadId }: { customerId: string; isLead?: boolean; leadId?: number }) => {
+      // For leads, delete from leads table
+      if (isLead && leadId) {
+        const res = await apiRequest('DELETE', `/api/leads/${leadId}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            return { alreadyDeleted: true, isLead: true };
+          }
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to delete lead');
+        }
+        return { ...await res.json(), isLead: true };
+      }
+      
+      // For customers, delete from customers table
       const res = await apiRequest('DELETE', `/api/customers/${customerId}?reason=Deleted via Spotlight hygiene`);
       if (!res.ok) {
         if (res.status === 404) {
@@ -978,20 +992,22 @@ export default function Spotlight() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       setTimeout(() => setIsTransitioning(false), 100);
       
+      const entityType = result?.isLead ? 'Lead' : 'Customer';
       toast({ 
-        title: result?.alreadyDeleted ? "Customer already deleted" : "Customer deleted", 
+        title: result?.alreadyDeleted ? `${entityType} already deleted` : `${entityType} deleted`, 
         description: result?.alreadyDeleted 
-          ? "This customer was already removed from the system"
+          ? `This ${entityType.toLowerCase()} was already removed from the system`
           : result?.excluded 
-            ? "Customer removed and blocked from re-import" 
-            : "Customer removed from database"
+            ? `${entityType} removed and blocked from re-import` 
+            : `${entityType} removed from database`
       });
     },
     onError: (error: any) => {
       setIsTransitioning(false);
-      toast({ title: "Error", description: error.message || "Failed to delete customer", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to delete", variant: "destructive" });
     },
   });
 
@@ -3881,18 +3897,18 @@ export default function Spotlight() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <Trash2 className="w-5 h-5" />
-              Delete Customer?
+              Delete {task?.isLeadTask ? 'Lead' : 'Customer'}?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <span className="block">
                   <span className="font-medium text-gray-900">
-                    {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'This customer'}
+                    {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || (task?.isLeadTask ? 'This lead' : 'This customer')}
                   </span>
                   {customer?.email && <span className="text-gray-500 ml-1">({customer.email})</span>}
                 </span>
                 <span className="block text-amber-600">
-                  This action cannot be undone. The customer will be permanently removed and blocked from future imports.
+                  This action cannot be undone. The {task?.isLeadTask ? 'lead' : 'customer'} will be permanently removed{task?.isLeadTask ? '' : ' and blocked from future imports'}.
                 </span>
               </div>
             </AlertDialogDescription>
@@ -3901,10 +3917,16 @@ export default function Spotlight() {
             <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => customer?.id && deleteMutation.mutate(customer.id)}
+              onClick={() => {
+                if (task?.isLeadTask && task?.leadId) {
+                  deleteMutation.mutate({ customerId: customer?.id || '', isLead: true, leadId: task.leadId });
+                } else if (customer?.id) {
+                  deleteMutation.mutate({ customerId: customer.id });
+                }
+              }}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete Customer"}
+              {deleteMutation.isPending ? "Deleting..." : `Delete ${task?.isLeadTask ? 'Lead' : 'Customer'}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
