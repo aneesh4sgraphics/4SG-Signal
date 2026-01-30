@@ -515,8 +515,7 @@ class SpotlightEngine {
       const contactOutcomes = "'email_sent','called','connected','voicemail','quoted','followed_up','sent_content','sent_email','sent','replied','qualified'";
       const completedToday = await db
         .select({ 
-          customerId: spotlightEvents.customerId,
-          leadId: spotlightEvents.leadId 
+          customerId: spotlightEvents.customerId
         })
         .from(spotlightEvents)
         .where(
@@ -557,8 +556,15 @@ class SpotlightEngine {
       const leadIds = new Set<number>();
       
       for (const row of completedToday) {
-        if (row.customerId) customerIds.add(row.customerId);
-        if (row.leadId) leadIds.add(row.leadId);
+        if (row.customerId) {
+          // Check if this is a lead ID stored as "lead-123" format
+          if (row.customerId.startsWith('lead-')) {
+            const leadId = parseInt(row.customerId.replace('lead-', ''), 10);
+            if (!isNaN(leadId)) leadIds.add(leadId);
+          } else {
+            customerIds.add(row.customerId);
+          }
+        }
       }
       for (const row of activityToday) {
         if (row.customerId) customerIds.add(row.customerId);
@@ -767,8 +773,7 @@ class SpotlightEngine {
         
         const todayEvents = await db
           .select({ 
-            customerId: spotlightEvents.customerId,
-            leadId: spotlightEvents.leadId 
+            customerId: spotlightEvents.customerId
           })
           .from(spotlightEvents)
           .where(
@@ -779,20 +784,13 @@ class SpotlightEngine {
             )
           );
         
-        // Use Set to deduplicate
+        // Use Set to deduplicate - customerId may contain "lead-123" format for leads
         const seenIds = new Set<string>();
         for (const event of todayEvents) {
           if (event.customerId && !seenIds.has(event.customerId)) {
             seenIds.add(event.customerId);
             if (!session.skippedCustomerIds.includes(event.customerId)) {
               session.skippedCustomerIds.push(event.customerId);
-            }
-          }
-          if (event.leadId) {
-            const leadKey = `lead-${event.leadId}`;
-            if (!seenIds.has(leadKey) && !session.skippedCustomerIds.includes(leadKey)) {
-              seenIds.add(leadKey);
-              session.skippedCustomerIds.push(leadKey);
             }
           }
         }
