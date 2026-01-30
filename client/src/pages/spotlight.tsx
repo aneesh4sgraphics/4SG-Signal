@@ -1696,127 +1696,70 @@ export default function Spotlight() {
           {/* Task Card Container with Animation */}
           <div className={`transition-all duration-300 ease-out ${isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
             
-            {/* Why Now Banner - Differentiated by task source type */}
-            {/* EMAIL TASK BANNER - Gmail-inspired red accent */}
+            {/* Email-specific actions bar - Only for email tasks */}
             {(task.context?.sourceType === 'email_pricing_samples' || 
               task.context?.sourceType === 'unreplied_email' || 
-              task.context?.sourceType === 'email_event') ? (
-              <div className="bg-white border-l-4 border-red-500 rounded-2xl px-5 py-4 mb-4 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                      <Mail className="w-5 h-5 text-red-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">Email Follow-up</span>
-                        {task.context?.daysSinceEmail && (
-                          <Badge className="bg-red-100 text-red-700 text-xs px-2 py-0">
-                            {task.context.daysSinceEmail} {task.context.daysSinceEmail === 1 ? 'day' : 'days'} ago
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm font-medium text-slate-800 mb-1">
-                        {task.context?.originalSubject ? `"${task.context.originalSubject}"` : task.whyNow}
-                      </p>
-                      <p className="text-xs text-slate-500">{task.whyNow}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {task.context?.gmailMessageId && (
-                      <a
-                        href={`https://mail.google.com/mail/u/0/#inbox/${task.context.gmailMessageId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-full border border-red-200 transition-colors"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Open in Gmail
-                      </a>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs text-slate-600 border-slate-200 hover:bg-slate-50 rounded-full"
-                      onClick={() => setShowRemindLaterDialog(true)}
+              task.context?.sourceType === 'email_event') && (
+              <div className="flex items-center justify-between gap-3 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-red-600" />
+                  <span className="text-sm font-medium text-red-700">
+                    {task.context?.originalSubject ? `"${task.context.originalSubject}"` : 'Email Follow-up'}
+                  </span>
+                  {task.context?.daysSinceEmail && (
+                    <Badge className="bg-red-100 text-red-700 text-xs px-2 py-0">
+                      {task.context.daysSinceEmail}d ago
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {task.context?.gmailMessageId && (
+                    <a
+                      href={`https://mail.google.com/mail/u/0/#inbox/${task.context.gmailMessageId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 rounded-full transition-colors"
                     >
-                      <Clock className="w-3 h-3 mr-1" />
-                      Remind Later
-                    </Button>
-                  </div>
+                      <ExternalLink className="w-3 h-3" />
+                      Gmail
+                    </a>
+                  )}
                 </div>
               </div>
-            ) : task.context?.sourceType === 'drip_reply' ? (
-              /* DRIP REPLY BANNER - Urgent amber/orange glow */
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl px-5 py-4 mb-4 shadow-lg ring-2 ring-amber-300 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <Flame className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-bold uppercase tracking-wide">🔥 Customer Replied!</p>
-                    <p className="text-amber-100 text-sm mt-0.5">
-                      {task.context?.replySubject ? `"${task.context.replySubject}"` : 'They replied to your drip campaign'}
-                    </p>
-                    {task.context?.repliedAt && (
-                      <p className="text-amber-200 text-xs mt-1">
-                        Replied {new Date(task.context.repliedAt).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <Badge className="bg-white text-orange-600 text-sm font-bold px-3 py-1">
-                    Call Now!
-                  </Badge>
-                </div>
+            )}
+            
+            {/* Drip Reply urgent banner */}
+            {task.context?.sourceType === 'drip_reply' && (
+              <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl shadow-sm ring-1 ring-amber-300">
+                <Flame className="w-5 h-5 text-white" />
+                <span className="text-white text-sm font-semibold flex-1">🔥 Customer Replied!</span>
+                <Badge className="bg-white text-orange-600 text-xs font-bold px-2 py-0.5">Call Now!</Badge>
               </div>
-            ) : task.context?.sourceType === 'drip_stale' ? (
-              /* DRIP STALE BANNER - Needs creative follow-up */
-              <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl px-5 py-4 mb-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-semibold">Drip Campaign Stalled</p>
-                    <p className="text-purple-100 text-xs">
-                      {task.context?.emailsSent} emails sent, {task.context?.daysSinceLastEmail} days since last - time for something creative!
-                    </p>
-                  </div>
-                  <Badge className="bg-white/20 text-white text-xs px-2 py-0.5">
-                    {task.context?.campaignName || 'Drip Campaign'}
-                  </Badge>
-                </div>
+            )}
+            
+            {/* Drip Stale banner */}
+            {task.context?.sourceType === 'drip_stale' && (
+              <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl shadow-sm">
+                <Clock className="w-4 h-4 text-white" />
+                <span className="text-white text-sm font-medium flex-1">Drip stalled - time for something creative!</span>
+                <Badge className="bg-white/20 text-white text-xs px-2 py-0.5">{task.context?.campaignName || 'Drip'}</Badge>
               </div>
-            ) : task.context?.sourceType === 'lead' || task.isLeadTask ? (
-              /* LEAD BANNER - Green pipeline-focused */
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl px-5 py-3 mb-4 flex items-center gap-3 shadow-sm">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <UserPlus className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-white text-sm font-semibold">Lead: {bucketInfo.label}</p>
-                  <p className="text-emerald-100 text-xs">{task.whyNow}</p>
-                </div>
+            )}
+            
+            {/* Lead badge */}
+            {(task.context?.sourceType === 'lead' || task.isLeadTask) && (
+              <div className="flex items-center gap-3 mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <UserPlus className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-700 flex-1">Lead Pipeline</span>
                 {task.lead?.stage && (
-                  <Badge className="bg-white/20 text-white text-xs px-2 py-0.5 capitalize">
-                    {task.lead.stage}
-                  </Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 capitalize">{task.lead.stage}</Badge>
                 )}
                 {(task.lead?.priority === 'high' || task.lead?.priority === 'urgent') && (
-                  <Badge className="bg-red-500 text-white text-xs px-2 py-0.5">
-                    <Flame className="w-3 h-3 mr-1" />
+                  <Badge className="bg-red-100 text-red-600 text-xs px-2 py-0.5">
+                    <Flame className="w-3 h-3 mr-0.5" />
                     {task.lead.priority === 'urgent' ? 'Urgent' : 'Hot'}
                   </Badge>
                 )}
-              </div>
-            ) : (
-              /* DEFAULT BANNER - Standard blue */
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl px-5 py-3 mb-4 flex items-center gap-3 shadow-sm">
-                <div className="w-2 h-2 rounded-full bg-white opacity-75" />
-                <div>
-                  <p className="text-white text-sm font-semibold">Why Now: {bucketInfo.label}</p>
-                  <p className="text-blue-100 text-xs">{task.whyNow}</p>
-                </div>
               </div>
             )}
             
@@ -2295,13 +2238,20 @@ export default function Spotlight() {
                   );
                 })()}
 
-                {/* Pro Tip Card - includes data hygiene hints and Why Now */}
+                {/* Pro Tip Card - includes data hygiene hints and context-dependent action reason */}
                 <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-yellow-300 rounded-2xl p-4">
-                  {/* Why Now section */}
+                  {/* Context-dependent action label */}
                   {task.whyNow && (
                     <div className="flex items-center gap-2 mb-3 pb-3 border-b border-amber-200">
                       <Target className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                      <span className="text-xs font-semibold text-blue-600 uppercase">Why Now:</span>
+                      <span className="text-xs font-semibold text-blue-600 uppercase">
+                        {task.bucket === 'calls' ? 'Call Reason:' :
+                         task.bucket === 'follow_ups' ? 'Follow-up Reason:' :
+                         task.bucket === 'outreach' ? 'Outreach Opportunity:' :
+                         task.bucket === 'data_hygiene' ? 'Issue:' :
+                         task.bucket === 'enablement' ? 'Materials Needed:' :
+                         'Action Needed:'}
+                      </span>
                       <span className="text-sm text-slate-700">{task.whyNow}</span>
                     </div>
                   )}
