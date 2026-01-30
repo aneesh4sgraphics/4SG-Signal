@@ -373,6 +373,15 @@ export default function Spotlight() {
   const [mergeFieldSelections, setMergeFieldSelections] = useState<Record<string, string>>({});
   const [mergeEmailSelections, setMergeEmailSelections] = useState<{ primary: string; secondary: string }>({ primary: '', secondary: '' });
   const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const [profileEditMode, setProfileEditMode] = useState(false);
+  const [profileEditData, setProfileEditData] = useState<{
+    phone: string;
+    address1: string;
+    city: string;
+    province: string;
+    zip: string;
+    website: string;
+  }>({ phone: '', address1: '', city: '', province: '', zip: '', website: '' });
   const lastActivityRef = useRef(Date.now());
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -612,6 +621,22 @@ export default function Spotlight() {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/efficiency'] });
       toast({ title: "Let's go!", description: "Session resumed" });
+    },
+  });
+
+  // Update customer profile from edit mode
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: { customerId: string; updates: Record<string, any> }) => {
+      const res = await apiRequest('PUT', `/api/customers/${data.customerId}`, data.updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+      setProfileEditMode(false);
+      toast({ title: "Saved!", description: "Contact information updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to update contact", variant: "destructive" });
     },
   });
 
@@ -3532,14 +3557,146 @@ export default function Spotlight() {
       <Sheet open={showProfilePanel} onOpenChange={setShowProfilePanel}>
         <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
           <SheetHeader className="pb-4 border-b">
-            <SheetTitle className="flex items-center gap-3">
-              <Building2 className="w-5 h-5 text-slate-600" />
-              {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Customer Profile'}
+            <SheetTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-slate-600" />
+                {customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Customer Profile'}
+              </div>
+              {customer && !profileEditMode && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setProfileEditData({
+                      phone: customer.phone || '',
+                      address1: customer.address1 || '',
+                      city: customer.city || '',
+                      province: customer.province || '',
+                      zip: customer.zip || '',
+                      website: customer.website || '',
+                    });
+                    setProfileEditMode(true);
+                  }}
+                >
+                  <Pencil className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+              )}
             </SheetTitle>
-            <SheetDescription>Full customer details - no page navigation needed</SheetDescription>
+            <SheetDescription>
+              {profileEditMode ? 'Edit contact information' : 'Full customer details - no page navigation needed'}
+            </SheetDescription>
           </SheetHeader>
           
-          {customer && (
+          {customer && profileEditMode ? (
+            <div className="py-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                <p className="text-sm text-blue-700">
+                  Edit the contact information below. Changes will be saved to the customer record.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone" className="text-sm font-medium">Phone Number</Label>
+                  <Input
+                    id="edit-phone"
+                    value={profileEditData.phone}
+                    onChange={(e) => setProfileEditData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                    className="border-slate-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address" className="text-sm font-medium">Street Address</Label>
+                  <Input
+                    id="edit-address"
+                    value={profileEditData.address1}
+                    onChange={(e) => setProfileEditData(prev => ({ ...prev, address1: e.target.value }))}
+                    placeholder="Enter street address"
+                    className="border-slate-200"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-city" className="text-sm font-medium">City</Label>
+                    <Input
+                      id="edit-city"
+                      value={profileEditData.city}
+                      onChange={(e) => setProfileEditData(prev => ({ ...prev, city: e.target.value }))}
+                      placeholder="City"
+                      className="border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-province" className="text-sm font-medium">State</Label>
+                    <Input
+                      id="edit-province"
+                      value={profileEditData.province}
+                      onChange={(e) => setProfileEditData(prev => ({ ...prev, province: e.target.value }))}
+                      placeholder="State"
+                      className="border-slate-200"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-zip" className="text-sm font-medium">ZIP</Label>
+                    <Input
+                      id="edit-zip"
+                      value={profileEditData.zip}
+                      onChange={(e) => setProfileEditData(prev => ({ ...prev, zip: e.target.value }))}
+                      placeholder="ZIP"
+                      className="border-slate-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-website" className="text-sm font-medium">Website</Label>
+                  <Input
+                    id="edit-website"
+                    value={profileEditData.website}
+                    onChange={(e) => setProfileEditData(prev => ({ ...prev, website: e.target.value }))}
+                    placeholder="https://example.com"
+                    className="border-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setProfileEditMode(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    updateProfileMutation.mutate({
+                      customerId: customer.id,
+                      updates: profileEditData
+                    });
+                  }}
+                  disabled={updateProfileMutation.isPending}
+                >
+                  {updateProfileMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : customer && (
             <div className="py-6 space-y-6">
               {/* Key Contact */}
               <div className="space-y-3">
@@ -3559,43 +3716,52 @@ export default function Spotlight() {
                       </a>
                     </div>
                   )}
-                  {customer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-slate-500" />
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-slate-500" />
+                    {customer.phone ? (
                       <a href={`tel:${customer.phone}`} className="text-blue-600 hover:underline text-sm">
                         {customer.phone}
                       </a>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-slate-400 italic text-sm">No phone on file</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Address */}
-              {customer.address1 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Address</h4>
-                  <div className="bg-slate-50 rounded-xl p-4">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-slate-500 mt-0.5" />
-                      <div className="text-sm text-slate-700">
-                        <p>{customer.address1}</p>
-                        {customer.address2 && <p>{customer.address2}</p>}
-                        <p>{customer.city}, {customer.province} {customer.zip}</p>
-                        {customer.country && <p>{customer.country}</p>}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Address</h4>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  {customer.address1 ? (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-slate-500 mt-0.5" />
+                        <div className="text-sm text-slate-700">
+                          <p>{customer.address1}</p>
+                          {customer.address2 && <p>{customer.address2}</p>}
+                          <p>{customer.city}, {customer.province} {customer.zip}</p>
+                          {customer.country && <p>{customer.country}</p>}
+                        </div>
                       </div>
+                      <a 
+                        href={`https://maps.google.com/?q=${encodeURIComponent(`${customer.address1}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline"
+                      >
+                        <Globe className="w-3 h-3" />
+                        Open in Maps
+                      </a>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                      <span className="text-slate-400 italic text-sm">No address on file</span>
                     </div>
-                    <a 
-                      href={`https://maps.google.com/?q=${encodeURIComponent(`${customer.address1}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline"
-                    >
-                      <Globe className="w-3 h-3" />
-                      Open in Maps
-                    </a>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Business Info */}
               <div className="space-y-3">
