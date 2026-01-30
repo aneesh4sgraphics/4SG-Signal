@@ -2570,16 +2570,17 @@ export default function Spotlight() {
                         size="sm"
                         variant="ghost"
                         className="text-xs rounded-full text-slate-500 hover:bg-slate-100"
-                        onClick={async () => {
+                        onClick={() => {
                           const duplicateId = hint.metadata?.duplicateIds?.[0];
                           if (duplicateId && customer.id) {
-                            await apiRequest('POST', '/api/customers/not-duplicate', {
-                              customerId1: customer.id,
+                            doNotMergeMutation.mutate({ 
+                              customerId1: customer.id, 
                               customerId2: duplicateId,
+                              taskId: task.id
                             });
-                            toast({ title: "Marked as separate customers" });
                           }
                         }}
+                        disabled={doNotMergeMutation.isPending}
                       >
                         Not a Duplicate
                       </Button>
