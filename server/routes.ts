@@ -4107,6 +4107,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer Trust Metrics - aggregated stats for Trust Level card
+  app.get("/api/customers/:id/trust-metrics", isAuthenticated, async (req, res) => {
+    try {
+      const customerId = req.params.id;
+      
+      // Get all completed spotlight events for this customer
+      const allEvents = await db.select({
+        metadata: spotlightEvents.metadata
+      })
+        .from(spotlightEvents)
+        .where(and(
+          eq(spotlightEvents.customerId, customerId),
+          eq(spotlightEvents.eventType, 'completed')
+        ));
+      
+      // Count outcomes by category
+      const callOutcomes = new Set(['called', 'connected', 'voicemail', 'left_voicemail', 'no_answer']);
+      const sampleOutcomes = new Set(['send_swatchbook', 'send_press_test', 'swatchbook_sent', 'press_test_sent', 'sample_sent']);
+      const emailOutcomes = new Set(['email_sent', 'sent_email', 'compose_email']);
+      
+      let calls = 0, samples = 0, emails = 0;
+      for (const event of allEvents) {
+        const meta = event.metadata as any;
+        const outcome = meta?.outcomeId || meta?.outcome || '';
+        if (callOutcomes.has(outcome)) calls++;
+        else if (sampleOutcomes.has(outcome)) samples++;
+        else if (emailOutcomes.has(outcome)) emails++;
+      }
+      
+      // Get orders total from sent quotes (as a proxy for order value)
+      const orderStats = await db.select({
+        totalValue: sql<number>`COALESCE(SUM(total_price), 0)`,
+        orderCount: sql<number>`COUNT(*)`
+      }).from(sentQuotes).where(eq(sentQuotes.customerId, customerId));
+      
+      const orders = orderStats[0] || { totalValue: 0, orderCount: 0 };
+      
+      res.json({
+        calls,
+        samples,
+        emails,
+        ordersValue: Number(orders.totalValue) || 0,
+        ordersCount: Number(orders.orderCount) || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching customer trust metrics:", error);
+      res.status(500).json({ error: "Failed to fetch trust metrics" });
+    }
+  });
+
   // Create new customer (Admin only)
   app.post("/api/customers", isAuthenticated, requireAdmin, async (req, res) => {
     try {

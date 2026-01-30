@@ -578,6 +578,24 @@ export default function Spotlight() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch customer trust metrics (calls, samples, orders, emails)
+  const { data: trustMetrics } = useQuery<{
+    calls: number;
+    samples: number;
+    emails: number;
+    ordersValue: number;
+    ordersCount: number;
+  }>({
+    queryKey: ['/api/customers', customerId, 'trust-metrics'],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/trust-metrics`, { credentials: 'include' });
+      if (!res.ok) return { calls: 0, samples: 0, emails: 0, ordersValue: 0, ordersCount: 0 };
+      return res.json();
+    },
+    enabled: !!customerId && !isLeadTask,
+    staleTime: 2 * 60 * 1000,
+  });
+
   // Add machine mutation (not available for leads)
   const addMachineMutation = useMutation({
     mutationFn: async (machineFamily: string) => {
@@ -2114,12 +2132,22 @@ export default function Spotlight() {
 
               {/* Trust Level + Pro Tip Row */}
               <div className="grid grid-cols-2 gap-4 mb-5">
-                {/* Trust Level Card - Using available data from activity notes and task context */}
+                {/* Trust Level Card - Real metrics from API */}
                 {(() => {
-                  const activityCount = customerNotes.length;
-                  const hasPurchaseHistory = task.context?.hasPurchaseHistory || false;
-                  const trustScore = Math.min(100, activityCount * 15 + (hasPurchaseHistory ? 40 : 0));
-                  const trustLabel = hasPurchaseHistory ? 'Returning' : activityCount > 2 ? 'Growing' : 'New';
+                  const calls = trustMetrics?.calls || 0;
+                  const samples = trustMetrics?.samples || 0;
+                  const emails = trustMetrics?.emails || 0;
+                  const ordersValue = trustMetrics?.ordersValue || 0;
+                  const ordersCount = trustMetrics?.ordersCount || 0;
+                  
+                  // Calculate trust score based on engagement (max 100%)
+                  const trustScore = Math.min(100, calls * 5 + samples * 15 + emails * 3 + (ordersCount > 0 ? 30 : 0) + (ordersValue > 1000 ? 20 : 0));
+                  const trustLabel = ordersCount > 3 ? 'Loyal' : ordersCount > 0 ? 'Returning' : (calls + emails) > 3 ? 'Growing' : 'New';
+                  
+                  // Format orders value as currency
+                  const formattedOrders = ordersValue >= 1000 
+                    ? `$${(ordersValue / 1000).toFixed(1)}k` 
+                    : ordersValue > 0 ? `$${ordersValue.toFixed(0)}` : '—';
                   
                   return (
                     <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-2xl p-4">
@@ -2130,6 +2158,7 @@ export default function Spotlight() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge className={`text-xs ${
+                            trustLabel === 'Loyal' ? 'bg-purple-100 text-purple-700 border-purple-200' :
                             trustLabel === 'Returning' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                             trustLabel === 'Growing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                             'bg-slate-100 text-slate-700 border-slate-200'
@@ -2145,24 +2174,24 @@ export default function Spotlight() {
                       />
                       <div className="grid grid-cols-4 gap-2">
                         <div className="text-center">
-                          <FileText className="w-4 h-4 text-slate-400 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-800">{activityCount}</p>
-                          <p className="text-[10px] text-slate-500 uppercase">Notes</p>
+                          <Phone className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{calls}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Calls</p>
                         </div>
                         <div className="text-center">
                           <Package className="w-4 h-4 text-slate-400 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-800">{customerMachines.length}</p>
-                          <p className="text-[10px] text-slate-500 uppercase">Machines</p>
-                        </div>
-                        <div className="text-center">
-                          <Tag className="w-4 h-4 text-slate-400 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-800">{customer.pricingTier ? '✓' : '—'}</p>
-                          <p className="text-[10px] text-slate-500 uppercase">Pricing</p>
+                          <p className="text-lg font-bold text-slate-800">{samples}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Samples</p>
                         </div>
                         <div className="text-center">
                           <DollarSign className="w-4 h-4 text-slate-400 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-800">{hasPurchaseHistory ? '✓' : '—'}</p>
+                          <p className="text-lg font-bold text-slate-800">{formattedOrders}</p>
                           <p className="text-[10px] text-slate-500 uppercase">Orders</p>
+                        </div>
+                        <div className="text-center">
+                          <Mail className="w-4 h-4 text-slate-400 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-slate-800">{emails}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">Emails</p>
                         </div>
                       </div>
                     </div>
