@@ -1993,10 +1993,17 @@ export default function Spotlight() {
                       </div>
                     )}
                   </div>
-                  <p className="text-base text-slate-600">
+                  {/* Company Name */}
+                  <p className="text-base text-slate-600 font-medium">
                     {task.isLeadTask 
                       ? task.lead?.company 
-                      : (customer.company && customer.firstName ? customer.company : '')}
+                      : (customer.company || '')}
+                  </p>
+                  {/* Address below company */}
+                  <p className="text-sm text-slate-500">
+                    {task.isLeadTask 
+                      ? [task.lead?.address, task.lead?.city, task.lead?.state, task.lead?.zip].filter(Boolean).join(', ')
+                      : [customer.address1, customer.city, customer.province, customer.zip].filter(Boolean).join(', ')}
                   </p>
                   {task.isLeadTask && task.lead?.stage && (
                     <span className="inline-flex items-center mt-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -3022,15 +3029,14 @@ export default function Spotlight() {
                       )}
                       
                       {/* Print Label */}
-                      {effectiveAddress && (
-                        <button
-                          onClick={() => setShowPrintLabel(true)}
-                          className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-purple-100 text-purple-600 hover:bg-purple-200"
-                          title="Print Label"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setShowPrintLabel(true)}
+                        disabled={!effectiveAddress}
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveAddress ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                        title={effectiveAddress ? "Print Label" : "No address available"}
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
                       
                       {/* Later */}
                       <button
