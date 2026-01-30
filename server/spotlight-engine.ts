@@ -546,12 +546,6 @@ class SpotlightEngine {
         .from(leads)
         .where(gte(leads.lastContactAt, today));
       
-      // Also check customers with last_contact_at set to today
-      const customersContactedToday = await db
-        .select({ id: customers.id })
-        .from(customers)
-        .where(gte(customers.lastContactAt, today));
-      
       const customerIds = new Set<string>();
       const leadIds = new Set<number>();
       
@@ -571,9 +565,6 @@ class SpotlightEngine {
       }
       for (const row of leadsContactedToday) {
         if (row.id) leadIds.add(row.id);
-      }
-      for (const row of customersContactedToday) {
-        if (row.id) customerIds.add(row.id);
       }
       
       console.log(`[Spotlight Cross-User Filter] Leads contacted today: ${leadIds.size}, Customers: ${customerIds.size}`);
