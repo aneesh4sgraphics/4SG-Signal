@@ -91,6 +91,7 @@ import {
   ClipboardList,
   Pencil,
   Gift,
+  MessageCircle,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
