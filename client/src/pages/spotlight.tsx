@@ -1888,8 +1888,63 @@ export default function Spotlight() {
 
             {/* Main Customer/Lead Card - REDESIGNED FIGMA LAYOUT with Vertical Tabs */}
             <div className="flex items-stretch mb-4">
+              {/* LEFT TAB - Actions Panel */}
+              <div className="w-16 bg-slate-50 border border-r-0 border-slate-200 rounded-l-xl flex flex-col items-center py-4 gap-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Actions</p>
+                
+                {/* Email */}
+                <button
+                  onClick={handleOpenEmailComposer}
+                  disabled={!effectiveEmail}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveEmail ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                  title={effectiveEmail ? "Compose Email" : "No email available"}
+                >
+                  <Mail className="w-4 h-4" />
+                </button>
+                
+                {/* Print Label */}
+                <button
+                  onClick={() => setShowPrintLabel(true)}
+                  disabled={!effectiveAddress}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveAddress ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                  title={effectiveAddress ? "Print Label" : "No address available"}
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+                
+                {/* Later */}
+                <button
+                  onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
+                  disabled={remindTodayMutation.isPending}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-yellow-100 text-yellow-600 hover:bg-yellow-200"
+                  title="Remind Me Later Today"
+                >
+                  <Clock className="w-4 h-4" />
+                </button>
+                
+                {/* Skip */}
+                <button
+                  onClick={handleSkip}
+                  disabled={skipMutation.isPending}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-slate-200 text-slate-500 hover:bg-slate-300"
+                  title="Skip This Task"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </button>
+                
+                {/* Bad Fit */}
+                <button
+                  onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
+                  disabled={completeMutation.isPending}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-red-100 text-red-500 hover:bg-red-200"
+                  title="Bad Fit - Not Printing Related"
+                >
+                  <Ban className="w-4 h-4" />
+                </button>
+              </div>
+              
               {/* Card Container */}
-              <div className={`spotlight-card p-6 flex-1 relative ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-green-50 shadow-emerald-100' : 'bg-white'} rounded-r-none`}>
+              <div className={`spotlight-card p-6 flex-1 relative ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-green-50 shadow-emerald-100' : 'bg-white'} rounded-l-none`}>
               
               {/* Lead/Hot Badge - Top Right Corner */}
               <div className="absolute top-4 right-4">
@@ -1940,19 +1995,8 @@ export default function Spotlight() {
 
               {/* Header: Name & Company */}
               <div className="flex items-start gap-4 mb-4 pr-20">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${task.isLeadTask ? 'bg-gradient-to-br from-emerald-100 to-emerald-50 border-emerald-200' : 'bg-gradient-to-br from-blue-100 to-blue-50 border-blue-200'}`}>
-                  {task.isLeadTask ? (
-                    <UserPlus className="w-6 h-6 text-emerald-600" />
-                  ) : (
-                    <Building2 className="w-6 h-6 text-blue-600" />
-                  )}
-                </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    {/* LEAD or CONTACT badge */}
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${task.isLeadTask ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
-                      {task.isLeadTask ? 'Lead' : 'Contact'}
-                    </span>
                     <h2 className={`text-2xl font-bold ${task.isLeadTask ? 'text-emerald-800' : 'text-slate-800'}`}>
                       {task.isLeadTask 
                         ? (task.lead?.name || customer.company || customerName)
@@ -3023,61 +3067,6 @@ export default function Spotlight() {
                       )}
                     </div>
 
-                    {/* RIGHT PANEL - Quick Actions (Icon-Only) */}
-                    <div className="w-20 p-3 bg-slate-50 flex flex-col items-center gap-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center mb-1">Actions</p>
-                      
-                      {/* Email Composer */}
-                      {effectiveEmail && (
-                        <button
-                          onClick={handleOpenEmailComposer}
-                          className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-blue-100 text-blue-600 hover:bg-blue-200"
-                          title="Compose Email"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </button>
-                      )}
-                      
-                      {/* Print Label */}
-                      <button
-                        onClick={() => setShowPrintLabel(true)}
-                        disabled={!effectiveAddress}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveAddress ? 'bg-purple-100 text-purple-600 hover:bg-purple-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-                        title={effectiveAddress ? "Print Label" : "No address available"}
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
-                      
-                      {/* Later */}
-                      <button
-                        onClick={() => remindTodayMutation.mutate({ taskId: task.id })}
-                        disabled={remindTodayMutation.isPending}
-                        className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-amber-100 text-amber-600 hover:bg-amber-200"
-                        title="Remind Me Later Today"
-                      >
-                        <Clock className="w-4 h-4" />
-                      </button>
-                      
-                      {/* Skip */}
-                      <button
-                        onClick={handleSkip}
-                        disabled={skipMutation.isPending}
-                        className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-slate-200 text-slate-500 hover:bg-slate-300"
-                        title="Skip This Task"
-                      >
-                        <SkipForward className="w-4 h-4" />
-                      </button>
-                      
-                      {/* Bad Fit */}
-                      <button
-                        onClick={() => completeMutation.mutate({ taskId: task.id, outcomeId: 'bad_fit', outcomeLabel: 'Bad Fit - Not Printing Related' })}
-                        disabled={completeMutation.isPending}
-                        className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-red-100 text-red-500 hover:bg-red-200"
-                        title="Bad Fit - Not Printing Related"
-                      >
-                        <Ban className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}
