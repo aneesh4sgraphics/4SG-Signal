@@ -395,7 +395,7 @@ export default function Spotlight() {
     ? `/api/spotlight/current?forceBucket=${forceBucket}` 
     : '/api/spotlight/current';
 
-  const { data: currentTask, isLoading, refetch } = useQuery<{ 
+  const { data: currentTask, isLoading, isFetching, refetch } = useQuery<{ 
     task: SpotlightTask | null; 
     session: SpotlightSession; 
     allDone: boolean; 
@@ -896,11 +896,9 @@ export default function Spotlight() {
       setNotes("");
       setShowNotes(false);
       
-      // End transition after a brief moment for smooth animation
-      setTimeout(() => {
-        setIsTransitioning(false);
-        setShowSuccess(false);
-      }, 100);
+      // Clear success overlay quickly, but let isFetching control card visibility
+      setIsTransitioning(false);
+      setTimeout(() => setShowSuccess(false), 300);
       
       if (result.nextFollowUp) {
         const date = new Date(result.nextFollowUp.date).toLocaleDateString();
@@ -929,7 +927,7 @@ export default function Spotlight() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       toast({ title: "Skipped", description: "Moving to next moment..." });
-      setTimeout(() => setIsTransitioning(false), 100);
+      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
     },
     onError: () => {
       setIsTransitioning(false);
@@ -949,7 +947,7 @@ export default function Spotlight() {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/remind-today'] });
       toast({ title: "Reminder set", description: "This will come up again at end of day" });
-      setTimeout(() => setIsTransitioning(false), 100);
+      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
     },
     onError: () => {
       setIsTransitioning(false);
@@ -995,7 +993,7 @@ export default function Spotlight() {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-      setTimeout(() => setIsTransitioning(false), 100);
+      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
       
       const entityType = result?.isLead ? 'Lead' : 'Customer';
       toast({ 
@@ -1213,11 +1211,9 @@ export default function Spotlight() {
       // Refresh to get next task
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       
-      // End transition after brief moment
-      setTimeout(() => {
-        setIsTransitioning(false);
-        setShowSuccess(false);
-      }, 100);
+      // Clear transition state - isFetching will keep card hidden until new data arrives
+      setIsTransitioning(false);
+      setTimeout(() => setShowSuccess(false), 300);
     },
     onError: (error: any) => {
       setIsTransitioning(false);
@@ -1928,8 +1924,8 @@ export default function Spotlight() {
             </div>
           )}
           
-          {/* Task Card Container with Animation */}
-          <div className={`transition-all duration-300 ease-out ${isTransitioning ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+          {/* Task Card Container with Animation - stays hidden while fetching new data */}
+          <div className={`transition-all duration-150 ease-out ${(isTransitioning || isFetching) ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
             
             {/* Email-specific actions bar - Only for email tasks */}
             {(task.context?.sourceType === 'email_pricing_samples' || 
