@@ -2604,6 +2604,28 @@ class SpotlightEngine {
       { subtype: 'hygiene_phone_generic', condition: isNull(customers.phone), onlyGeneric: true },
     ];
 
+    // CRITICAL: Get customer IDs with pending bounced emails
+    // These customers should ONLY appear as bounced email tasks, not regular hygiene tasks
+    // Bounced emails must be investigated FIRST before any data hygiene work
+    const pendingBouncedCustomerIds: string[] = [];
+    try {
+      const pendingBounces = await db
+        .select({ customerId: bouncedEmails.customerId })
+        .from(bouncedEmails)
+        .where(and(
+          isNotNull(bouncedEmails.customerId),
+          or(
+            eq(bouncedEmails.status, 'pending'),
+            eq(bouncedEmails.status, 'investigating')
+          )
+        ));
+      for (const b of pendingBounces) {
+        if (b.customerId) pendingBouncedCustomerIds.push(b.customerId);
+      }
+    } catch (e) {
+      console.error('[Spotlight] Error getting bounced customer IDs:', e);
+    }
+
     for (let i = 0; i < priorityOrder.length; i++) {
       const item = priorityOrder[i];
       const { subtype, condition } = item;
@@ -2650,6 +2672,10 @@ class SpotlightEngine {
         }
         if (skippedIds.length > 0) {
           machineConditions.push(notInArray(customers.id, skippedIds));
+        }
+        // Exclude customers with pending bounced emails
+        if (pendingBouncedCustomerIds.length > 0) {
+          machineConditions.push(notInArray(customers.id, pendingBouncedCustomerIds));
         }
         
         const machineProfileCandidates = await db.select({
@@ -2698,6 +2724,12 @@ class SpotlightEngine {
       
       if (skippedIds.length > 0) {
         whereConditions.push(notInArray(customers.id, skippedIds));
+      }
+      
+      // CRITICAL: Exclude customers with pending bounced emails from regular hygiene tasks
+      // They should ONLY appear as bounced email tasks until the bounce is resolved
+      if (pendingBouncedCustomerIds.length > 0) {
+        whereConditions.push(notInArray(customers.id, pendingBouncedCustomerIds));
       }
       
       // Filter by generic email domain based on priority
