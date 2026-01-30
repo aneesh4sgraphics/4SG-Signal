@@ -1896,9 +1896,9 @@ export default function Spotlight() {
                 {task.isLeadTask ? (
                   <div className="flex flex-col items-center gap-1">
                     <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                      <Star className="w-6 h-6 text-white" />
+                      <Star className="w-6 h-6 text-white fill-white" />
                     </div>
-                    <span className="text-xs font-semibold text-emerald-700 uppercase">Lead</span>
+                    <span className="text-xs font-semibold text-emerald-600 uppercase">Lead</span>
                   </div>
                 ) : (
                   (() => {
@@ -1914,23 +1914,25 @@ export default function Spotlight() {
                       );
                     }
                     return (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 rounded-full"
-                        onClick={() => {
-                          setOptimisticHotProspect(true);
-                          apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
-                            .then(() => toast({ title: "Marked as Hot Prospect" }))
-                            .catch(() => {
-                              setOptimisticHotProspect(null);
-                              toast({ title: "Error", variant: "destructive" });
-                            });
-                        }}
-                      >
-                        <Flame className="w-4 h-4" />
-                        Mark Hot
-                      </Button>
+                      <div className="flex flex-col items-center gap-1">
+                        <div 
+                          className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center shadow-lg cursor-pointer hover:bg-orange-500 transition-colors group"
+                          onClick={() => {
+                            setOptimisticHotProspect(true);
+                            apiRequest('PUT', `/api/customers/${customer.id}`, { isHotProspect: true })
+                              .then(() => toast({ title: "Marked as Hot Prospect" }))
+                              .catch(() => {
+                                setOptimisticHotProspect(null);
+                                toast({ title: "Error", variant: "destructive" });
+                              });
+                          }}
+                          title="Click to mark as Hot Prospect"
+                        >
+                          <Building2 className="w-6 h-6 text-white group-hover:hidden" />
+                          <Flame className="w-6 h-6 text-white hidden group-hover:block" />
+                        </div>
+                        <span className="text-xs font-semibold text-blue-600 uppercase group-hover:text-orange-600">Contact</span>
+                      </div>
                     );
                   })()
                 )}
