@@ -2801,19 +2801,43 @@ export default function Spotlight() {
                           )}
                           {' '}The contact may have left the company or the business closed.
                         </p>
-                        {/* Action Buttons inside the issue box */}
-                        <div className="flex gap-3">
+                        {/* Primary Action Buttons - DELETE and DNC */}
+                        <div className="flex gap-2 mb-2">
                           <button
                             onClick={() => setShowDeleteConfirm(true)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg"
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg"
                           >
                             <Trash2 className="w-4 h-4" />
                             DELETE
                           </button>
+                          <button
+                            onClick={() => handleOutcome('mark_inactive')}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-slate-600 hover:bg-slate-700 text-white shadow-md hover:shadow-lg"
+                          >
+                            <UserX className="w-4 h-4" />
+                            DNC
+                          </button>
+                        </div>
+                        {/* Secondary Action Buttons - KEEP, LATER, RESEARCH */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOutcome('keep')}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border border-emerald-300"
+                          >
+                            <Check className="w-4 h-4" />
+                            KEEP
+                          </button>
+                          <button
+                            onClick={() => handleOutcome('skip')}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                          >
+                            <Clock className="w-4 h-4" />
+                            LATER
+                          </button>
                           {(task as any).extraContext?.bounceId && (
                             <button
                               onClick={() => setLocation(`/bounce-investigation/${(task as any).extraContext.bounceId}`)}
-                              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all bg-purple-600 hover:bg-purple-700 text-white shadow-md hover:shadow-lg"
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-300"
                             >
                               <Search className="w-4 h-4" />
                               RESEARCH
