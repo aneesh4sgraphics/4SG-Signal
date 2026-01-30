@@ -1938,7 +1938,7 @@ export default function Spotlight() {
                 })()}
               </div>
 
-              {/* Printer/Reseller Toggle */}
+              {/* Printer/EndUser/Reseller Toggle */}
               {(() => {
                 // Use optimistic value if set, otherwise use server value
                 const serverType = task.isLeadTask ? task.lead?.customerType : customer.customerType;
@@ -1971,6 +1971,30 @@ export default function Spotlight() {
                       >
                         <Printer className="w-4 h-4" />
                         Printer
+                      </button>
+                      <button
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                          displayType === 'enduser'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                        onClick={() => {
+                          setOptimisticCustomerType('enduser');
+                          const endpoint = task.isLeadTask 
+                            ? `/api/leads/${task.lead?.id}` 
+                            : `/api/customers/${customer.id}`;
+                          apiRequest('PUT', endpoint, { customerType: 'enduser' })
+                            .then(() => {
+                              toast({ title: "Marked as End User" });
+                            })
+                            .catch(() => {
+                              setOptimisticCustomerType(null);
+                              toast({ title: "Error updating type", variant: "destructive" });
+                            });
+                        }}
+                      >
+                        <User className="w-4 h-4" />
+                        End User
                       </button>
                       <button
                         className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -2032,11 +2056,12 @@ export default function Spotlight() {
               </div>
 
               {/* Pro Tip & Machines Row - V0 Style */}
-              {/* Hide Machines box for resellers - they don't have machines */}
+              {/* Hide Machines box for resellers and end users - only printers have machines */}
               {(() => {
-                const isReseller = customer?.customerType === 'reseller' || task.lead?.customerType === 'reseller';
+                const customerType = customer?.customerType || task.lead?.customerType;
+                const hideMachines = customerType === 'reseller' || customerType === 'enduser';
                 return (
-                  <div className={`grid gap-3 mb-4 ${isReseller ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  <div className={`grid gap-3 mb-4 ${hideMachines ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     {/* Pro Tip Box - Shows product focus from taxonomy */}
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                       <div className="flex items-center gap-2 mb-1">
@@ -2063,8 +2088,8 @@ export default function Spotlight() {
                       )}
                     </div>
 
-                    {/* Machines Box - Only for customers/leads that are NOT resellers */}
-                    {!isReseller && (
+                    {/* Machines Box - Only for printers (not resellers or end users) */}
+                    {!hideMachines && (
                       <div className="bg-white border border-slate-200 rounded-xl p-3">
                         <p className="text-sm font-semibold text-slate-700 mb-2">Machines</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2904,8 +2929,8 @@ export default function Spotlight() {
                 )}
               </div>
 
-              {/* Machines - Hide for resellers */}
-              {customer?.customerType !== 'reseller' && (
+              {/* Machines - Hide for resellers and end users (only printers have machines) */}
+              {customer?.customerType !== 'reseller' && customer?.customerType !== 'enduser' && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Machines</h4>
                   <div className="bg-slate-50 rounded-xl p-4">
