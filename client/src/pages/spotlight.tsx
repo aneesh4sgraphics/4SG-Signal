@@ -361,6 +361,8 @@ export default function Spotlight() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showIdleModal, setShowIdleModal] = useState(false);
+  const [showCallCoachingModal, setShowCallCoachingModal] = useState(false);
+  const [callCoachingDismissedToday, setCallCoachingDismissedToday] = useState(false);
   const [showFixDataModal, setShowFixDataModal] = useState(false);
   const [fixDataFields, setFixDataFields] = useState<{ email: string; pricingTier: string; salesRepId: string }>({ email: '', pricingTier: '', salesRepId: '' });
   const [missingFieldsToFix, setMissingFieldsToFix] = useState<string[]>([]);
@@ -573,6 +575,21 @@ export default function Spotlight() {
       events.forEach(event => window.removeEventListener(event, resetIdleTimer));
     };
   }, [currentTask]);
+
+  // Check if user is avoiding calls and show coaching popup
+  useEffect(() => {
+    const tasksCompleted = session?.totalCompleted || 0;
+    const callsMade = todayProgress?.calls?.count || 0;
+    
+    // Show coaching popup if:
+    // - User has completed 10+ tasks (about 1 full cycle)
+    // - User has made 0 calls
+    // - User hasn't dismissed the popup today
+    // - Not already showing the popup
+    if (tasksCompleted >= 10 && callsMade === 0 && !callCoachingDismissedToday && !showCallCoachingModal) {
+      setShowCallCoachingModal(true);
+    }
+  }, [session?.totalCompleted, todayProgress?.calls?.count, callCoachingDismissedToday, showCallCoachingModal]);
 
   const pauseMutation = useMutation({
     mutationFn: async () => {
@@ -3783,6 +3800,87 @@ export default function Spotlight() {
             >
               <Play className="w-4 h-4 mr-2" />
               Keep Going
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Call Coaching Modal - Encourages users to make calls */}
+      <Dialog open={showCallCoachingModal} onOpenChange={(open) => {
+        setShowCallCoachingModal(open);
+        if (!open) setCallCoachingDismissedToday(true);
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-600">
+              <Phone className="w-5 h-5" />
+              Time to Pick Up the Phone!
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              You've completed {session?.totalCompleted || 0} tasks today but haven't made any calls yet. 
+              Calls are the secret sauce that makes this whole system work!
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Why Calls Matter
+              </h4>
+              <p className="text-sm text-blue-700">
+                Emails and data tasks are great, but <strong>calls create real connections</strong>. 
+                A quick call builds more trust than 10 emails. It's how we turn contacts into customers!
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Quick Tips for Calling
+              </h4>
+              <ul className="text-sm text-amber-700 space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span><strong>Be genuine</strong> — Just say "I'm checking in to see how things are going"</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span><strong>Ask about their machines</strong> — "What equipment are you running these days?"</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span><strong>It's OK to leave voicemail</strong> — Just be friendly and brief</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-500 mt-0.5">•</span>
+                  <span><strong>No pressure!</strong> — You're not selling, you're connecting</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Your Call Goal
+              </h4>
+              <p className="text-sm text-green-700">
+                Try to make at least <strong>3-5 calls today</strong>. Even if you just leave voicemails, 
+                you're building relationships and staying top of mind!
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowCallCoachingModal(false);
+                setCallCoachingDismissedToday(true);
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Phone className="w-4 h-4 mr-2" />
+              Got It — Let's Make Some Calls!
             </Button>
           </DialogFooter>
         </DialogContent>
