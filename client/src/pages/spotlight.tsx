@@ -1800,10 +1800,10 @@ export default function Spotlight() {
               </div>
             )}
             
-            {/* Smart Hints */}
-            {currentTask.hints && currentTask.hints.length > 0 && (
+            {/* Smart Hints - excluding missing_field which goes into PRO TIP */}
+            {currentTask.hints && currentTask.hints.filter(h => h.type !== 'missing_field').length > 0 && (
               <div className="space-y-2 mb-4">
-                {currentTask.hints.map((hint, idx) => {
+                {currentTask.hints.filter(h => h.type !== 'missing_field').map((hint, idx) => {
                   const style = HINT_STYLES[hint.type];
                   const HintIcon = style.icon;
                   return (
@@ -2198,8 +2198,25 @@ export default function Spotlight() {
                   );
                 })()}
 
-                {/* Pro Tip Card */}
+                {/* Pro Tip Card - includes data hygiene hints */}
                 <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-yellow-300 rounded-2xl p-4">
+                  {/* Missing field hints displayed first */}
+                  {currentTask.hints?.filter(h => h.type === 'missing_field').map((hint, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-amber-200">
+                      <div className="flex items-center gap-2 flex-1">
+                        <UserCog className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span className="text-sm text-amber-800">{hint.message}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs rounded-full border-amber-400 text-amber-700 hover:bg-amber-100"
+                        onClick={() => handleFixData(hint.metadata?.missingFields || [])}
+                      >
+                        {hint.ctaLabel}
+                      </Button>
+                    </div>
+                  ))}
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
                       <Lightbulb className="w-5 h-5 text-white" />
