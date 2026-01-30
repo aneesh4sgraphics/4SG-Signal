@@ -449,6 +449,21 @@ class SpotlightEngine {
     return now.toISOString().split('T')[0];
   }
 
+  // Get customer IDs that THIS user has skipped as "not my territory" (persisted across sessions)
+  private async getUserTerritorySkippedIds(userId: string): Promise<string[]> {
+    try {
+      // Get customers where this user is in the skippedByUsers array
+      const result = await db.select({ customerId: territorySkipFlags.customerId })
+        .from(territorySkipFlags)
+        .where(sql`${userId} = ANY(${territorySkipFlags.skippedByUsers})`);
+      
+      return result.map(r => r.customerId);
+    } catch (e) {
+      console.error('[Spotlight] Error getting user territory skipped IDs:', e);
+      return [];
+    }
+  }
+
   // Get customer IDs that have been contacted within the last N days (auto-skip these)
   private async getRecentlyContactedIds(daysBack: number = 7): Promise<string[]> {
     const cutoffDate = new Date();
@@ -1655,14 +1670,16 @@ class SpotlightEngine {
 
       // PERFORMANCE: Parallelize exclusion queries
       // Apply TODAY's contacts exclusion to ALL buckets to prevent duplicate outreach across users
-      const [claimedByOthers, recentlyContacted, todayContacted] = await Promise.all([
+      const [claimedByOthers, recentlyContacted, todayContacted, territorySkipped] = await Promise.all([
         this.getClaimedCustomerIds(userId),
         this.getRecentlyContactedIds(7),
-        this.getTodayContactedByAnyUser()
+        this.getTodayContactedByAnyUser(),
+        this.getUserTerritorySkippedIds(userId) // Persist "not my territory" skips across sessions
       ]);
       
       // Merge all customer IDs to exclude (includes today's contacted to prevent duplicate outreach)
-      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers, ...recentlyContacted, ...todayContacted.customerIds];
+      // territorySkipped ensures users don't see customers they've already marked as "not my territory"
+      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers, ...recentlyContacted, ...todayContacted.customerIds, ...territorySkipped];
       // Add lead IDs contacted today as 'lead-{id}' format for lead task filtering
       for (const leadId of todayContacted.leadIds) {
         excludeIds.push(`lead-${leadId}`);
