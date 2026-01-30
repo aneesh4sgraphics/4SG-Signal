@@ -1189,26 +1189,39 @@ export default function Spotlight() {
   // Do Not Merge mutation - mark customers as separate entities and complete the task
   const doNotMergeMutation = useMutation({
     mutationFn: async ({ customerId1, customerId2, taskId }: { customerId1: string; customerId2: string; taskId?: string }) => {
-      const result = await apiRequest("POST", `/api/customers/do-not-merge`, { customerId1, customerId2 });
-      return { result, taskId };
+      // Make both API calls in parallel for faster response
+      const [mergeResult] = await Promise.all([
+        apiRequest("POST", `/api/customers/do-not-merge`, { customerId1, customerId2 }),
+        taskId ? apiRequest("POST", `/api/spotlight/complete`, { 
+          taskId, 
+          outcomeId: 'not_duplicate',
+          notes: 'Marked as separate customers - not duplicates'
+        }) : Promise.resolve(null)
+      ]);
+      return { result: mergeResult, taskId };
     },
-    onSuccess: ({ taskId }) => {
+    onMutate: () => {
+      // INSTANT feedback - show transition immediately
+      setIsTransitioning(true);
+      setShowSuccess(true);
+    },
+    onSuccess: () => {
       toast({
         title: "Marked as separate",
         description: "These customers won't be suggested as duplicates again",
       });
-      // Complete the task to move to the next card
-      if (taskId) {
-        completeMutation.mutate({ 
-          taskId, 
-          outcomeId: 'not_duplicate',
-          notes: 'Marked as separate customers - not duplicates'
-        });
-      } else {
-        refetch(); // Fallback: just refresh hints
-      }
+      // Refresh to get next task
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      
+      // End transition after brief moment
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setShowSuccess(false);
+      }, 100);
     },
     onError: (error: any) => {
+      setIsTransitioning(false);
+      setShowSuccess(false);
       toast({
         title: "Error",
         description: error.message || "Failed to mark as do not merge",
