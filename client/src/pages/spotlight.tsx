@@ -1999,18 +1999,6 @@ export default function Spotlight() {
                       ? (task.lead?.company || 'No Company')
                       : (customer.company || 'No Company')}
                   </p>
-                  {/* Address below company */}
-                  <div className="flex items-center gap-2.5 text-sm">
-                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    {(() => {
-                      const addressParts = task.isLeadTask 
-                        ? [task.lead?.address, task.lead?.city, task.lead?.state, task.lead?.zip].filter(Boolean)
-                        : [customer.address1, customer.city, customer.province, customer.zip].filter(Boolean);
-                      return addressParts.length > 0 
-                        ? <span className="text-slate-700">{addressParts.join(', ')}</span>
-                        : <span className="text-slate-400 italic">No address available</span>;
-                    })()}
-                  </div>
                   {task.isLeadTask && task.lead?.stage && (
                     <span className="inline-flex items-center mt-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                       {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
@@ -2023,9 +2011,10 @@ export default function Spotlight() {
               <div className="grid grid-cols-2 gap-6 mb-5">
                 {/* Left Column: Contact Details */}
                 <div className="space-y-2.5">
-                  {effectiveAddress && (
-                    <div className="flex items-start gap-2.5 text-sm">
-                      <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  {/* Address - always show with placeholder */}
+                  <div className="flex items-start gap-2.5 text-sm">
+                    <MapPin className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    {effectiveAddress ? (
                       <a 
                         href={task.isLeadTask && task.lead?.city
                           ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
@@ -2036,28 +2025,40 @@ export default function Spotlight() {
                         className="text-slate-700 hover:text-blue-600"
                       >
                         {effectiveAddress}
+                        {task.isLeadTask 
+                          ? (task.lead?.city ? `, ${task.lead.city}` : '') + (task.lead?.state ? `, ${task.lead.state}` : '') + (task.lead?.zip ? ` ${task.lead.zip}` : '')
+                          : (customer.city ? `, ${customer.city}` : '') + (customer.province ? `, ${customer.province}` : '') + (customer.zip ? ` ${customer.zip}` : '')}
                       </a>
-                    </div>
-                  )}
-                  {(customer.phone || task.lead?.phone) && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    ) : (
+                      <span className="text-slate-400 italic">No address available</span>
+                    )}
+                  </div>
+                  {/* Phone - always show with placeholder */}
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Phone className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    {(customer.phone || task.lead?.phone) ? (
                       <a href={`tel:${customer.phone || task.lead?.phone}`} className="text-slate-700 hover:text-blue-600">
                         {customer.phone || task.lead?.phone}
                       </a>
-                    </div>
-                  )}
-                  {(customer.email || task.lead?.email) && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    ) : (
+                      <span className="text-slate-400 italic">No phone available</span>
+                    )}
+                  </div>
+                  {/* Email - always show with placeholder */}
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    {(customer.email || task.lead?.email) ? (
                       <a href={`mailto:${customer.email || task.lead?.email}`} className="text-slate-700 hover:text-blue-600">
                         {customer.email || task.lead?.email}
                       </a>
-                    </div>
-                  )}
-                  {customer.website && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    ) : (
+                      <span className="text-slate-400 italic">No email available</span>
+                    )}
+                  </div>
+                  {/* Website - always show with placeholder */}
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    {customer.website ? (
                       <a 
                         href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`}
                         target="_blank"
@@ -2066,11 +2067,13 @@ export default function Spotlight() {
                       >
                         {customer.website}
                       </a>
-                    </div>
-                  )}
-                  {/* Sales Rep - Only show edit dropdown if unassigned */}
+                    ) : (
+                      <span className="text-slate-400 italic">No website available</span>
+                    )}
+                  </div>
+                  {/* Sales Rep */}
                   <div className="flex items-center gap-2.5 text-sm">
-                    <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
                     {customer.salesRepName ? (
                       <span className="text-slate-700">{customer.salesRepName}</span>
                     ) : (
@@ -2082,17 +2085,16 @@ export default function Spotlight() {
                             salesRepName: rep ? getSalesRepDisplayName(rep) : null
                           })
                             .then(() => {
-                              toast({ title: "Sales rep assigned" });
                               queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
                             });
                         }}
                       >
-                        <SelectTrigger className="h-7 w-36 text-xs border-amber-300 bg-amber-50 text-amber-700">
-                          <SelectValue placeholder="Assign rep..." />
+                        <SelectTrigger className="h-7 w-40 text-xs">
+                          <SelectValue placeholder="Assign Sales Rep" />
                         </SelectTrigger>
                         <SelectContent>
-                          {salesReps.map((rep) => (
-                            <SelectItem key={rep.id} value={rep.id} className="text-xs">
+                          {salesReps.map(rep => (
+                            <SelectItem key={rep.id} value={rep.id}>
                               {getSalesRepDisplayName(rep)}
                             </SelectItem>
                           ))}
