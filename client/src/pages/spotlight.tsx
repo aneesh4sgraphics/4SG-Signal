@@ -2000,14 +2000,14 @@ export default function Spotlight() {
                       : (customer.company || 'No Company')}
                   </p>
                   {/* Address below company */}
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2.5 text-sm">
+                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     {(() => {
                       const addressParts = task.isLeadTask 
                         ? [task.lead?.address, task.lead?.city, task.lead?.state, task.lead?.zip].filter(Boolean)
                         : [customer.address1, customer.city, customer.province, customer.zip].filter(Boolean);
                       return addressParts.length > 0 
-                        ? <span className="text-slate-500">{addressParts.join(', ')}</span>
+                        ? <span className="text-slate-700">{addressParts.join(', ')}</span>
                         : <span className="text-slate-400 italic">No address available</span>;
                     })()}
                   </div>
