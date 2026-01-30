@@ -4617,13 +4617,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Customer Delete] Recorded exclusion for ${customer.company || customer.email} (Odoo: ${customer.odooPartnerId}, Shopify: ${shopifyCustomerId})`);
       }
 
+      // Also delete from Odoo if linked
+      let odooDeleted = false;
+      if (customer.odooPartnerId) {
+        try {
+          await odooClient.unlink('res.partner', [customer.odooPartnerId]);
+          console.log(`[Customer Delete] Deleted partner ${customer.odooPartnerId} from Odoo`);
+          odooDeleted = true;
+        } catch (odooError: any) {
+          console.error(`[Customer Delete] Failed to delete from Odoo (continuing with local delete):`, odooError.message);
+          // Continue with local delete even if Odoo delete fails
+        }
+      }
+
       const deleteResult = await storage.deleteCustomer(customerId);
       if (!deleteResult) {
         return res.status(404).json({ error: "Customer not found" });
       }
 
       setCachedData("customers", null);
-      res.json({ message: "Customer deleted successfully", excluded: !!(customer.odooPartnerId || shopifyCustomerId) });
+      res.json({ 
+        message: "Customer deleted successfully", 
+        excluded: !!(customer.odooPartnerId || shopifyCustomerId),
+        odooDeleted
+      });
     } catch (error) {
       console.error("Error deleting customer:", error);
       res.status(500).json({ error: "Failed to delete customer" });

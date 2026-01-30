@@ -90,6 +90,9 @@ export default function BounceInvestigation() {
   const [newContactEmail, setNewContactEmail] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactTitle, setNewContactTitle] = useState('');
+  
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery<BounceInvestigation>({
     queryKey: ['/api/bounce-investigation', bounceId],
@@ -182,6 +185,32 @@ export default function BounceInvestigation() {
       setNewContactEmail('');
       setNewContactPhone('');
       setNewContactTitle('');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Mutation to delete contact (also from Odoo)
+  const deleteContactMutation = useMutation({
+    mutationFn: async () => {
+      if (!data?.record) throw new Error('No record to delete');
+      const recordId = data.record.id;
+      return apiRequest(`/api/customers/${recordId}?reason=bounced_email`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Contact Deleted',
+        description: 'Contact has been removed from the system and Odoo.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
+      setLocation('/spotlight');
     },
     onError: (error: Error) => {
       toast({
@@ -411,7 +440,7 @@ export default function BounceInvestigation() {
                       </p>
                     )}
                     
-                    <div className="pt-3 border-t">
+                    <div className="pt-3 border-t space-y-2">
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -420,6 +449,15 @@ export default function BounceInvestigation() {
                       >
                         <UserPlus className="h-4 w-4 mr-2" />
                         Add New Contact to Company
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete This Contact
                       </Button>
                     </div>
                   </>
@@ -652,6 +690,48 @@ export default function BounceInvestigation() {
               disabled={addContactMutation.isPending || !newContactName.trim()}
             >
               {addContactMutation.isPending ? 'Creating...' : 'Create Contact'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Contact Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Contact
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this contact? This action will remove them from both the local system and Odoo. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {data?.record && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="font-semibold">{data.record.name}</p>
+                <p className="text-sm text-gray-500">{data.record.email}</p>
+                {data.record.companyName && (
+                  <p className="text-sm text-gray-500">{data.record.companyName}</p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteContactMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => deleteContactMutation.mutate()}
+              disabled={deleteContactMutation.isPending}
+            >
+              {deleteContactMutation.isPending ? 'Deleting...' : 'Delete Contact'}
             </Button>
           </DialogFooter>
         </DialogContent>
