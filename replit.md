@@ -147,11 +147,18 @@ Lead task outcomes automatically update lead records:
 - Uses both `spotlight_events` (completed tasks) and `customerActivityEvents` to detect contacts
 - Applies to ALL task buckets (calls, follow-ups, outreach, data hygiene, enablement)
 
-**Territory Skip Tracking:**
-- When a rep marks "Not My Territory", it's tracked per customer
+**Territory Skip Tracking (Cycling Logic):**
+- When a rep marks "Not My Territory", it's tracked per customer in `territorySkipFlags` table
+- The customer cycles to the next user who hasn't skipped it yet
+- Territory skips persist across sessions/restarts - users won't see customers they've already skipped as "not my territory"
 - If ALL active users skip the same customer, it's flagged for admin review
 - Admin can view flagged customers in Settings > Territory tab
 - Admin can decide to keep, delete, or reassign these customers
+
+**Sales Rep Assignment:**
+- Once a `salesRepId` is assigned to a customer or lead, only that user sees the task
+- Unassigned customers/leads (NULL salesRepId) can appear to any user
+- Assignment happens through data hygiene tasks or manual assignment
 
 **Bounced Email Detection:**
 - Scans Gmail for bounce notifications (mailer-daemon, postmaster, Mail Delivery Subsystem)
