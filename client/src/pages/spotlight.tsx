@@ -714,22 +714,23 @@ export default function Spotlight() {
       const res = await apiRequest('POST', '/api/spotlight/complete', data);
       return res.json();
     },
-    onSuccess: (result) => {
+    onMutate: () => {
+      // INSTANT feedback - start transition immediately when button is clicked
       setIsTransitioning(true);
       setShowSuccess(true);
+    },
+    onSuccess: (result) => {
+      // Immediately invalidate and fetch next task
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      setFieldValue("");
+      setNotes("");
+      setShowNotes(false);
       
-      // PERFORMANCE: Reduced transition delays (was 400ms + 300ms = 700ms)
+      // End transition after a brief moment for smooth animation
       setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
-        setFieldValue("");
-        setNotes("");
-        setShowNotes(false);
-        
-        setTimeout(() => {
-          setIsTransitioning(false);
-          setShowSuccess(false);
-        }, 150); // Reduced from 300ms
-      }, 200); // Reduced from 400ms
+        setIsTransitioning(false);
+        setShowSuccess(false);
+      }, 100);
       
       if (result.nextFollowUp) {
         const date = new Date(result.nextFollowUp.date).toLocaleDateString();
@@ -740,6 +741,8 @@ export default function Spotlight() {
       }
     },
     onError: (error: any) => {
+      setIsTransitioning(false);
+      setShowSuccess(false);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
@@ -749,9 +752,17 @@ export default function Spotlight() {
       const res = await apiRequest('POST', '/api/spotlight/skip', data);
       return res.json();
     },
+    onMutate: () => {
+      // INSTANT feedback - start transition immediately
+      setIsTransitioning(true);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       toast({ title: "Skipped", description: "Moving to next moment..." });
+      setTimeout(() => setIsTransitioning(false), 100);
+    },
+    onError: () => {
+      setIsTransitioning(false);
     },
   });
 
@@ -760,11 +771,17 @@ export default function Spotlight() {
       const res = await apiRequest('POST', '/api/spotlight/remind-today', data);
       return res.json();
     },
+    onMutate: () => {
+      // INSTANT feedback - start transition immediately
+      setIsTransitioning(true);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
       toast({ title: "Reminder set", description: "This will come up again at end of day" });
+      setTimeout(() => setIsTransitioning(false), 100);
     },
     onError: () => {
+      setIsTransitioning(false);
       toast({ title: "Error", description: "Failed to set reminder", variant: "destructive" });
     },
   });
@@ -784,19 +801,15 @@ export default function Spotlight() {
       }
       return res.json();
     },
-    onSuccess: (result) => {
+    onMutate: () => {
+      // INSTANT feedback - start transition immediately
       setShowDeleteConfirm(false);
       setIsTransitioning(true);
-      
-      // PERFORMANCE: Reduced transition delays
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-        
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 150); // Reduced from 300ms
-      }, 200); // Reduced from 400ms
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      setTimeout(() => setIsTransitioning(false), 100);
       
       toast({ 
         title: result?.alreadyDeleted ? "Customer already deleted" : "Customer deleted", 
@@ -808,6 +821,7 @@ export default function Spotlight() {
       });
     },
     onError: (error: any) => {
+      setIsTransitioning(false);
       toast({ title: "Error", description: error.message || "Failed to delete customer", variant: "destructive" });
     },
   });
