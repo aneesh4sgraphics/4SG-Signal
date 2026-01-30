@@ -30,6 +30,17 @@ This is a full-stack TypeScript sales management application designed for a spec
 - **Odoo V19 Integration:** Synchronizes customer, product, pricelist, and order data. Handles specific Odoo V19 field limitations (e.g., `mobile` field for `res.partner`). Distinguishes between Odoo "Customers" (companies) and "Contacts" (individuals linked to companies).
 - **Email as Universal ID:** All internal and external systems use a normalized email format for consistent cross-platform user identification.
 - **SPOTLIGHT Coaching System:** A robust system for generating prioritized daily tasks for sales reps.
+    - **Sequenced Task Pattern:** 50 tasks/day organized in 5 repeating cycles of 10 tasks each:
+      1. **Data Hygiene (3 tasks)** - Start each cycle with easy wins
+      2. **Quote Follow-up (1 task)** - Follow up on pending quotes
+      3. **SwatchBooks/Press Test Kits (3 tasks)** - Trust building activities
+      4. **Lapsed Customer Call (1 task)** - Reconnect with dormant customers
+      5. **Data Hygiene (2 tasks)** - End cycle with easy tasks
+    - **Fallback Priority** (when primary bucket exhausted):
+      1. Connect with 3 Leads (email or phone)
+      2. Follow up on 5 Quotes
+      3. Follow up with 5 customers (calls or email)
+      4. Send at least 3 Mailers/SwatchBooks/Press test kits
     - **Task Buckets:** Organizes tasks by difficulty and type (calls, follow-ups, outreach, data hygiene, enablement).
     - **Lead Integration:** Fully integrates leads into daily tasks based on urgency and stage.
     - **Cross-User Contact Prevention:** Automatically prevents multiple reps from contacting the same customer/lead on the same day.

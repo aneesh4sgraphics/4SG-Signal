@@ -185,14 +185,24 @@ export interface SpotlightSession {
   }[];
 }
 
+/**
+ * SEQUENCED DAILY QUOTAS (50 tasks/day = 5 cycles of 10 tasks)
+ * 
+ * Each cycle pattern:
+ * - Positions 1-3: Data Hygiene (3 tasks)
+ * - Position 4: Quote Follow-up (1 task)
+ * - Positions 5-7: SwatchBooks/Press Test Kits (3 tasks)
+ * - Position 8: Lapsed Customer Call (1 task)
+ * - Positions 9-10: Data Hygiene (2 tasks)
+ */
 const DAILY_QUOTAS: Record<TaskBucket, number> = {
-  calls: 4,           // Increased for lead integration
-  follow_ups: 6,      // Increased for lead follow-ups
-  outreach: 8,        // Increased for lead outreach
-  data_hygiene: 27,   // Increased for data hygiene
-  enablement: 5,      // Increased for enablement tasks
+  calls: 5,           // 1 lapsed customer per cycle × 5 cycles
+  follow_ups: 5,      // 1 quote follow-up per cycle × 5 cycles
+  outreach: 15,       // 3 swatchbooks/trust building per cycle × 5 cycles
+  data_hygiene: 25,   // 5 per cycle (3 start + 2 end) × 5 cycles
+  enablement: 0,      // Not in the sequenced pattern (fallback only)
 };
-// Total: 50 tasks per day
+// Total: 50 tasks per day (5 + 5 + 15 + 25 = 50)
 
 const TOTAL_DAILY_QUOTA = Object.values(DAILY_QUOTAS).reduce((a, b) => a + b, 0);
 
@@ -1273,92 +1283,99 @@ class SpotlightEngine {
     session.lastActivityAt = new Date();
   }
 
+  /**
+   * SEQUENCED TASK PATTERN (50 tasks/day = 5 cycles of 10 tasks each)
+   * 
+   * Each cycle of 10 tasks:
+   * Position 1-3: Data Hygiene (3 tasks) - start day with easy wins
+   * Position 4:   Quote Follow-up (1 task) - follow up on pending quotes
+   * Position 5-7: SwatchBooks/Press Test Kits (3 tasks) - trust building
+   * Position 8:   Lapsed Customer (1 task) - reconnect with dormant customer
+   * Position 9-10: Data Hygiene (2 tasks) - end cycle with easy tasks
+   * 
+   * FALLBACK when Data Hygiene is exhausted:
+   * 1. Connect with 3 Leads (email or phone)
+   * 2. Follow up on 5 Quotes
+   * 3. Follow up with 5 customers (calls or email)
+   * 4. Send at least 3 Mailers/SwatchBooks/Press test kits
+   */
   private getNextBucket(session: SpotlightSession): TaskBucket | null {
     const incomplete = session.buckets.filter(b => b.completed < b.target);
     if (incomplete.length === 0) return null;
     
-    const SKIP_THRESHOLD = 3;
-    const MAX_CONSECUTIVE_SAME_DIFFICULTY = 2;
+    // Calculate position in current cycle (0-9)
+    const positionInCycle = session.totalCompleted % 10;
     
-    // Get available buckets with their difficulties
-    const availableBuckets = incomplete.map(b => ({
-      bucket: b.bucket,
-      remaining: b.target - b.completed,
-      difficulty: BUCKET_DIFFICULTY[b.bucket],
-      consecutiveSkips: session.consecutiveSkipsPerBucket?.[b.bucket] || 0,
-    })).filter(b => b.remaining > 0 && b.consecutiveSkips < SKIP_THRESHOLD);
-    
-    if (availableBuckets.length === 0) {
-      // All buckets hit skip threshold, find least skipped
-      const leastSkipped = incomplete.reduce((min, b) => {
-        const currentSkips = session.consecutiveSkipsPerBucket?.[b.bucket] || 0;
-        const minSkips = session.consecutiveSkipsPerBucket?.[min.bucket] || 0;
-        return currentSkips < minSkips ? b : min;
-      }, incomplete[0]);
-      return leastSkipped.bucket;
-    }
-    
-    // Check last task difficulties for interleaving
-    const lastTypes = session.lastTaskTypes || [];
-    const lastDifficulties = lastTypes.slice(-MAX_CONSECUTIVE_SAME_DIFFICULTY);
-    
-    // Count consecutive same-difficulty tasks
-    const countConsecutiveDifficulty = (difficulty: string): number => {
-      let count = 0;
-      for (let i = lastDifficulties.length - 1; i >= 0; i--) {
-        if (lastDifficulties[i] === difficulty) count++;
-        else break;
-      }
-      return count;
+    // Helper to check if bucket has remaining tasks
+    const hasTasksRemaining = (bucket: TaskBucket): boolean => {
+      const bucketState = session.buckets.find(b => b.bucket === bucket);
+      return bucketState ? bucketState.completed < bucketState.target : false;
     };
     
-    // Energy-based task selection: after hard tasks, prefer easy; when high energy, allow hard
-    const lastTaskWasHard = lastDifficulties.length > 0 && lastDifficulties[lastDifficulties.length - 1] === 'hard';
-    const currentEnergy = session.currentEnergy ?? 100;
+    // Define the sequenced pattern
+    // Positions 0-2 (first 3): Data Hygiene
+    // Position 3: Quote Follow-up (follow_ups bucket)
+    // Positions 4-6 (next 3): SwatchBooks/Trust Building (outreach bucket)
+    // Position 7: Lapsed Customer (calls bucket)
+    // Positions 8-9 (last 2): Data Hygiene
     
-    // Sort buckets by interleaving priority
-    const sortedBuckets = availableBuckets.sort((a, b) => {
-      const aConsecutive = countConsecutiveDifficulty(a.difficulty);
-      const bConsecutive = countConsecutiveDifficulty(b.difficulty);
-      
-      // Penalize buckets that would create too many consecutive same-difficulty tasks
-      const aPenalty = aConsecutive >= MAX_CONSECUTIVE_SAME_DIFFICULTY ? 100 : 0;
-      const bPenalty = bConsecutive >= MAX_CONSECUTIVE_SAME_DIFFICULTY ? 100 : 0;
-      
-      // Energy-based scoring: prefer easy after hard, and hard when energy is high
-      let aEnergyScore = 0;
-      let bEnergyScore = 0;
-      
-      if (lastTaskWasHard) {
-        // After hard task, strongly prefer easy
-        aEnergyScore = a.difficulty === 'easy' ? -20 : a.difficulty === 'hard' ? 20 : 0;
-        bEnergyScore = b.difficulty === 'easy' ? -20 : b.difficulty === 'hard' ? 20 : 0;
-      } else if (currentEnergy > 80) {
-        // High energy: slightly prefer medium/hard to make progress on those
-        aEnergyScore = a.difficulty === 'hard' ? -5 : a.difficulty === 'medium' ? -3 : 0;
-        bEnergyScore = b.difficulty === 'hard' ? -5 : b.difficulty === 'medium' ? -3 : 0;
-      } else if (currentEnergy < 40) {
-        // Low energy: prefer easy tasks
-        aEnergyScore = a.difficulty === 'easy' ? -10 : a.difficulty === 'hard' ? 15 : 0;
-        bEnergyScore = b.difficulty === 'easy' ? -10 : b.difficulty === 'hard' ? 15 : 0;
+    let targetBucket: TaskBucket | null = null;
+    
+    if (positionInCycle <= 2) {
+      // Positions 0-2: Data Hygiene (3 tasks)
+      targetBucket = 'data_hygiene';
+    } else if (positionInCycle === 3) {
+      // Position 3: Quote Follow-up
+      targetBucket = 'follow_ups';
+    } else if (positionInCycle >= 4 && positionInCycle <= 6) {
+      // Positions 4-6: SwatchBooks/Trust Building (3 tasks)
+      targetBucket = 'outreach';
+    } else if (positionInCycle === 7) {
+      // Position 7: Lapsed Customer Call
+      targetBucket = 'calls';
+    } else {
+      // Positions 8-9: Data Hygiene (2 tasks)
+      targetBucket = 'data_hygiene';
+    }
+    
+    // Check if target bucket has remaining tasks
+    if (targetBucket && hasTasksRemaining(targetBucket)) {
+      return targetBucket;
+    }
+    
+    // FALLBACK PRIORITY when primary bucket is exhausted
+    // Special handling when Data Hygiene is exhausted (positions 0-2 or 8-9):
+    // 1. Connect with 3 Leads (calls bucket - lead subtypes)
+    // 2. Follow up on 5 Quotes (follow_ups bucket)
+    // 3. Follow up with 5 customers (calls bucket - customer calls)
+    // 4. Send at least 3 Mailers/SwatchBooks (outreach bucket)
+    
+    const isDataHygienePosition = positionInCycle <= 2 || positionInCycle >= 8;
+    const dataHygieneExhausted = !hasTasksRemaining('data_hygiene');
+    
+    if (isDataHygienePosition && dataHygieneExhausted) {
+      // Data hygiene is exhausted at a data hygiene position - use priority fallback
+      // Priority: calls (leads) → follow_ups (quotes) → outreach (swatchbooks)
+      const priorityFallback: TaskBucket[] = ['calls', 'follow_ups', 'outreach'];
+      for (const bucket of priorityFallback) {
+        if (hasTasksRemaining(bucket)) {
+          console.log(`[Spotlight] Cycle position ${positionInCycle}: Data Hygiene exhausted, falling back to ${bucket} (priority fallback)`);
+          return bucket;
+        }
       }
-      
-      // Priority order for buckets when all else is equal: follow_ups > calls > outreach > data_hygiene > enablement
-      const priorityOrder: Record<TaskBucket, number> = {
-        follow_ups: 1,
-        calls: 2,
-        outreach: 3,
-        data_hygiene: 4,
-        enablement: 5,
-      };
-      
-      const aScore = aPenalty + aEnergyScore + priorityOrder[a.bucket];
-      const bScore = bPenalty + bEnergyScore + priorityOrder[b.bucket];
-      
-      return aScore - bScore;
-    });
+    }
     
-    return sortedBuckets[0]?.bucket || null;
+    // Standard fallback for non-data-hygiene positions or when priority fallback is exhausted
+    const standardFallback: TaskBucket[] = ['follow_ups', 'outreach', 'calls', 'data_hygiene', 'enablement'];
+    
+    for (const bucket of standardFallback) {
+      if (hasTasksRemaining(bucket)) {
+        console.log(`[Spotlight] Cycle position ${positionInCycle}: ${targetBucket} exhausted, falling back to ${bucket}`);
+        return bucket;
+      }
+    }
+    
+    return null;
   }
   
   // Get a micro-coaching card if it's time to show one
