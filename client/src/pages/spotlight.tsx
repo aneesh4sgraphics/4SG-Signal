@@ -1820,10 +1820,10 @@ export default function Spotlight() {
               </div>
             )}
             
-            {/* Smart Hints - excluding missing_field which goes into PRO TIP */}
-            {currentTask.hints && currentTask.hints.filter(h => h.type !== 'missing_field').length > 0 && (
+            {/* Smart Hints - excluding missing_field (in PRO TIP) and duplicate (in bar below contact details) */}
+            {currentTask.hints && currentTask.hints.filter(h => h.type !== 'missing_field' && h.type !== 'duplicate').length > 0 && (
               <div className="space-y-2 mb-4">
-                {currentTask.hints.filter(h => h.type !== 'missing_field').map((hint, idx) => {
+                {currentTask.hints.filter(h => h.type !== 'missing_field' && h.type !== 'duplicate').map((hint, idx) => {
                   const style = HINT_STYLES[hint.type];
                   const HintIcon = style.icon;
                   return (
@@ -2183,6 +2183,50 @@ export default function Spotlight() {
                 </div>
               </div>
 
+              {/* Possible Duplicate Bar - Under contact details */}
+              {currentTask.hints?.filter(h => h.type === 'duplicate').map((hint, idx) => (
+                <div 
+                  key={`dup-${idx}`}
+                  className="flex items-center justify-between gap-3 mb-4 px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-700">{hint.message}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && !task.isLeadTask && !customer.id?.startsWith('lead-') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs rounded-full border-purple-300 text-purple-700 hover:bg-purple-100"
+                        onClick={() => handleOpenMergeModal(hint.metadata?.duplicateIds || [], customer.id)}
+                      >
+                        Review & Merge
+                      </Button>
+                    )}
+                    {hint.ctaAction === 'view_duplicate' && hint.metadata?.duplicateIds?.[0] && !task.isLeadTask && !customer.id?.startsWith('lead-') && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs rounded-full text-slate-500 hover:bg-slate-100"
+                        onClick={async () => {
+                          const duplicateId = hint.metadata?.duplicateIds?.[0];
+                          if (duplicateId && customer.id) {
+                            await apiRequest('POST', '/api/customers/not-duplicate', {
+                              customerId1: customer.id,
+                              customerId2: duplicateId,
+                            });
+                            toast({ title: "Marked as separate customers" });
+                          }
+                        }}
+                      >
+                        Not a Duplicate
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
               {/* Trust Level + Pro Tip Row */}
               <div className="grid grid-cols-2 gap-4 mb-5">
                 {/* Trust Level Card - Real metrics from API */}
@@ -2251,9 +2295,17 @@ export default function Spotlight() {
                   );
                 })()}
 
-                {/* Pro Tip Card - includes data hygiene hints */}
+                {/* Pro Tip Card - includes data hygiene hints and Why Now */}
                 <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-yellow-300 rounded-2xl p-4">
-                  {/* Missing field hints displayed first */}
+                  {/* Why Now section */}
+                  {task.whyNow && (
+                    <div className="flex items-center gap-2 mb-3 pb-3 border-b border-amber-200">
+                      <Target className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-blue-600 uppercase">Why Now:</span>
+                      <span className="text-sm text-slate-700">{task.whyNow}</span>
+                    </div>
+                  )}
+                  {/* Missing field hints displayed */}
                   {currentTask.hints?.filter(h => h.type === 'missing_field').map((hint, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-amber-200">
                       <div className="flex items-center gap-2 flex-1">
@@ -2277,7 +2329,7 @@ export default function Spotlight() {
                     <div>
                       <p className="text-sm font-bold text-red-600 mb-1">PRO Tip!!</p>
                       <p className="text-sm text-amber-800">
-                        {currentTask?.coachTip?.content || task.whyNow || "Follow up within 24 hours for best conversion rates. Consider sending a personalized quote or sample material based on their customer type."}
+                        {currentTask?.coachTip?.content || "Follow up within 24 hours for best conversion rates. Consider sending a personalized quote or sample material based on their customer type."}
                       </p>
                     </div>
                   </div>
