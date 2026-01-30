@@ -483,7 +483,7 @@ class SpotlightEngine {
     
     try {
       const result = await db
-        .selectDistinct({ customerId: customerActivityEvents.customerId })
+        .select({ customerId: customerActivityEvents.customerId })
         .from(customerActivityEvents)
         .where(
           and(
@@ -492,7 +492,12 @@ class SpotlightEngine {
           )
         );
       
-      return result.map(r => r.customerId);
+      // Use Set for deduplication instead of selectDistinct
+      const uniqueIds = new Set<string>();
+      for (const r of result) {
+        if (r.customerId) uniqueIds.add(r.customerId);
+      }
+      return Array.from(uniqueIds);
     } catch (e) {
       console.error('[Spotlight] Error getting recently contacted IDs:', e);
       return [];
@@ -509,7 +514,7 @@ class SpotlightEngine {
       // Comprehensive list of outcomes that indicate contact was made
       const contactOutcomes = "'email_sent','called','connected','voicemail','quoted','followed_up','sent_content','sent_email','sent','replied','qualified'";
       const completedToday = await db
-        .selectDistinct({ 
+        .select({ 
           customerId: spotlightEvents.customerId,
           leadId: spotlightEvents.leadId 
         })
@@ -527,7 +532,7 @@ class SpotlightEngine {
       
       // Also check customerActivityEvents for today
       const activityToday = await db
-        .selectDistinct({ customerId: customerActivityEvents.customerId })
+        .select({ customerId: customerActivityEvents.customerId })
         .from(customerActivityEvents)
         .where(
           and(
@@ -538,13 +543,13 @@ class SpotlightEngine {
       
       // Also check leads with last_contact_at set to today (may have been updated by Gmail sync etc.)
       const leadsContactedToday = await db
-        .selectDistinct({ id: leads.id })
+        .select({ id: leads.id })
         .from(leads)
         .where(gte(leads.lastContactAt, today));
       
       // Also check customers with last_contact_at set to today
       const customersContactedToday = await db
-        .selectDistinct({ id: customers.id })
+        .select({ id: customers.id })
         .from(customers)
         .where(gte(customers.lastContactAt, today));
       
@@ -761,7 +766,7 @@ class SpotlightEngine {
         }
         
         const todayEvents = await db
-          .selectDistinct({ 
+          .select({ 
             customerId: spotlightEvents.customerId,
             leadId: spotlightEvents.leadId 
           })
@@ -774,12 +779,21 @@ class SpotlightEngine {
             )
           );
         
+        // Use Set to deduplicate
+        const seenIds = new Set<string>();
         for (const event of todayEvents) {
-          if (event.customerId && !session.skippedCustomerIds.includes(event.customerId)) {
-            session.skippedCustomerIds.push(event.customerId);
+          if (event.customerId && !seenIds.has(event.customerId)) {
+            seenIds.add(event.customerId);
+            if (!session.skippedCustomerIds.includes(event.customerId)) {
+              session.skippedCustomerIds.push(event.customerId);
+            }
           }
-          if (event.leadId && !session.skippedCustomerIds.includes(`lead-${event.leadId}`)) {
-            session.skippedCustomerIds.push(`lead-${event.leadId}`);
+          if (event.leadId) {
+            const leadKey = `lead-${event.leadId}`;
+            if (!seenIds.has(leadKey) && !session.skippedCustomerIds.includes(leadKey)) {
+              seenIds.add(leadKey);
+              session.skippedCustomerIds.push(leadKey);
+            }
           }
         }
         
@@ -3217,6 +3231,10 @@ class SpotlightEngine {
     return null;
   }
   
+  // Cache for bounce scan to avoid repeated Gmail API calls
+  private bounceScanCache: Map<string, { lastScan: number }> = new Map();
+  private BOUNCE_SCAN_INTERVAL = 5 * 60 * 1000; // 5 minutes between scans
+
   private async findBouncedEmailCustomer(userId: string, skippedIds: string[]): Promise<{
     customer: any;
     lead?: any;
@@ -3227,16 +3245,24 @@ class SpotlightEngine {
     matchType: string;
   } | null> {
     try {
-      // First, trigger a scan for new bounced emails (runs quickly if no new bounces)
-      try {
-        await scanForBouncedEmails(userId);
-      } catch (scanError) {
-        console.log('[Spotlight] Bounce scan skipped:', scanError);
+      // Only scan for bounced emails every 5 minutes to avoid slow Gmail API calls
+      const cacheKey = userId;
+      const cached = this.bounceScanCache.get(cacheKey);
+      const now = Date.now();
+      
+      if (!cached || (now - cached.lastScan) > this.BOUNCE_SCAN_INTERVAL) {
+        try {
+          await scanForBouncedEmails(userId);
+          this.bounceScanCache.set(cacheKey, { lastScan: now });
+        } catch (scanError) {
+          // Don't block on scan errors, just skip
+          this.bounceScanCache.set(cacheKey, { lastScan: now }); // Still cache to avoid retrying
+        }
       }
       
       // Query the bouncedEmails table for pending or investigating bounces
       // "investigating" bounces resurface after their investigateUntil date
-      const now = new Date();
+      const currentDate = new Date();
       
       // Priority: customer matches first, then contact matches, then lead matches
       const pendingBounces = await db
@@ -3261,7 +3287,7 @@ class SpotlightEngine {
           and(
             eq(bouncedEmails.status, 'investigating'),
             or(
-              lt(bouncedEmails.investigateUntil, now),
+              lt(bouncedEmails.investigateUntil, currentDate),
               isNull(bouncedEmails.investigateUntil)
             )
           )
