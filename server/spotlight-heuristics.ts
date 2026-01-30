@@ -3,7 +3,7 @@ import { customers, customerActivityEvents, customerMachineProfiles, adminCatego
 import { eq, and, sql, desc, lt, count, arrayContains, or } from "drizzle-orm";
 
 export interface SpotlightHint {
-  type: 'bad_fit' | 'stale_contact' | 'duplicate' | 'missing_field' | 'already_handled' | 'quick_win';
+  type: 'bad_fit' | 'stale_contact' | 'duplicate' | 'missing_field' | 'quick_win';
   severity: 'high' | 'medium' | 'low';
   message: string;
   ctaLabel: string;
@@ -168,39 +168,6 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
   return null;
 }
 
-async function checkAlreadyHandled(customerId: string): Promise<SpotlightHint | null> {
-  try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentActivity = await db.select()
-      .from(customerActivityEvents)
-      .where(and(
-        eq(customerActivityEvents.customerId, customerId),
-        sql`${customerActivityEvents.createdAt} > ${thirtyDaysAgo}`
-      ))
-      .orderBy(desc(customerActivityEvents.createdAt))
-      .limit(1);
-    
-    if (recentActivity.length > 0) {
-      const daysSince = Math.floor((Date.now() - new Date(recentActivity[0].createdAt!).getTime()) / (1000 * 60 * 60 * 24));
-      if (daysSince < 7) {
-        return {
-          type: 'already_handled',
-          severity: 'low',
-          message: `Already contacted ${daysSince === 0 ? 'today' : daysSince === 1 ? 'yesterday' : `${daysSince} days ago`}: "${recentActivity[0].description?.slice(0, 50) || 'Recent activity'}"`,
-          ctaLabel: 'Skip (Recent)',
-          ctaAction: 'skip_recent',
-          metadata: { lastActivityId: recentActivity[0].id, daysSince },
-        };
-      }
-    }
-  } catch (e) {
-    console.error('[Heuristics] Already handled check error:', e);
-  }
-  
-  return null;
-}
 
 function checkMissingCriticalField(customer: {
   phone: string | null;
@@ -349,15 +316,13 @@ export async function analyzeForHints(
   const quickWin = checkQuickWin(customer);
   if (quickWin) hints.push(quickWin);
   
-  const [stale, duplicate, alreadyHandled] = await Promise.all([
+  const [stale, duplicate] = await Promise.all([
     checkStaleContact(customerId, customer.updatedAt),
     checkDuplicate(customer.email, customer.phone, customerId),
-    checkAlreadyHandled(customerId),
   ]);
   
   if (stale) hints.push(stale);
   if (duplicate) hints.push(duplicate);
-  if (alreadyHandled) hints.push(alreadyHandled);
   
   const missingField = checkMissingCriticalField(customer, momentType);
   if (missingField) hints.push(missingField);
