@@ -375,6 +375,8 @@ export default function Spotlight() {
   const [mergeEmailSelections, setMergeEmailSelections] = useState<{ primary: string; secondary: string }>({ primary: '', secondary: '' });
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [profileEditMode, setProfileEditMode] = useState(false);
+  const [editingWebsite, setEditingWebsite] = useState(false);
+  const [websiteValue, setWebsiteValue] = useState('');
   const [profileEditData, setProfileEditData] = useState<{
     phone: string;
     address1: string;
@@ -2320,10 +2322,52 @@ export default function Spotlight() {
                       </>
                     )}
                   </div>
-                  {/* Website - always show with placeholder */}
+                  {/* Website - always show with placeholder and inline edit */}
                   <div className="flex items-center gap-2.5 text-sm">
                     <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    {customer.website ? (
+                    {editingWebsite ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={websiteValue}
+                          onChange={(e) => setWebsiteValue(e.target.value)}
+                          placeholder="www.example.com"
+                          className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              apiRequest('PUT', `/api/customers/${customer.id}`, { website: websiteValue })
+                                .then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+                                  setEditingWebsite(false);
+                                });
+                            } else if (e.key === 'Escape') {
+                              setEditingWebsite(false);
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            apiRequest('PUT', `/api/customers/${customer.id}`, { website: websiteValue })
+                              .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+                                setEditingWebsite(false);
+                              });
+                          }}
+                          className="p-1 rounded bg-green-100 hover:bg-green-200 text-green-600"
+                          title="Save"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditingWebsite(false)}
+                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500"
+                          title="Cancel"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : customer.website ? (
                       <a 
                         href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`}
                         target="_blank"
@@ -2336,9 +2380,12 @@ export default function Spotlight() {
                       <>
                         <span className="text-slate-400 italic">No website available</span>
                         <button
-                          onClick={() => setShowProfilePanel(true)}
+                          onClick={() => {
+                            setWebsiteValue('');
+                            setEditingWebsite(true);
+                          }}
                           className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
-                          title="Edit website"
+                          title="Add website"
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
