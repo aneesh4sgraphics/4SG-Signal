@@ -89,6 +89,7 @@ import {
   XCircle,
   MoreHorizontal,
   ClipboardList,
+  Pencil,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
@@ -2076,7 +2077,16 @@ export default function Spotlight() {
                           : (customer.city ? `, ${customer.city}` : '') + (customer.province ? `, ${customer.province}` : '') + (customer.zip ? ` ${customer.zip}` : '')}
                       </a>
                     ) : (
-                      <span className="text-slate-400 italic">No address available</span>
+                      <>
+                        <span className="text-slate-400 italic">No address available</span>
+                        <button
+                          onClick={() => setShowProfilePanel(true)}
+                          className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                          title="Edit address"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </>
                     )}
                   </div>
                   {/* Phone - always show with placeholder */}
@@ -2087,7 +2097,16 @@ export default function Spotlight() {
                         {customer.phone || task.lead?.phone}
                       </a>
                     ) : (
-                      <span className="text-slate-400 italic">No phone available</span>
+                      <>
+                        <span className="text-slate-400 italic">No phone available</span>
+                        <button
+                          onClick={() => setShowProfilePanel(true)}
+                          className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                          title="Edit phone"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </>
                     )}
                   </div>
                   {/* Email - always show with placeholder */}
@@ -2098,7 +2117,16 @@ export default function Spotlight() {
                         {customer.email || task.lead?.email}
                       </a>
                     ) : (
-                      <span className="text-slate-400 italic">No email available</span>
+                      <>
+                        <span className="text-slate-400 italic">No email available</span>
+                        <button
+                          onClick={() => setShowProfilePanel(true)}
+                          className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                          title="Edit email"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </>
                     )}
                   </div>
                   {/* Website - always show with placeholder */}
@@ -2114,7 +2142,16 @@ export default function Spotlight() {
                         {customer.website}
                       </a>
                     ) : (
-                      <span className="text-slate-400 italic">No website available</span>
+                      <>
+                        <span className="text-slate-400 italic">No website available</span>
+                        <button
+                          onClick={() => setShowProfilePanel(true)}
+                          className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                          title="Edit website"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </>
                     )}
                   </div>
                   {/* Sales Rep */}
