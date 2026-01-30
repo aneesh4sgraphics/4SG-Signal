@@ -1633,20 +1633,20 @@ export default function Spotlight() {
           </CardDescription>
           
           {session && (
-            <div className="grid grid-cols-5 gap-2 mb-6">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
               {session.buckets.map((bucket) => {
                 const info = BUCKET_INFO[bucket.bucket];
                 const BucketIcon = info.icon;
                 return (
                   <div key={bucket.bucket} className="text-center">
                     <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-1"
+                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mx-auto mb-1"
                       style={{ backgroundColor: info.color + '20' }}
                     >
-                      <BucketIcon className="w-5 h-5" style={{ color: info.color }} />
+                      <BucketIcon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: info.color }} />
                     </div>
-                    <p className="text-xs font-medium text-[#111111]">{bucket.completed}/{bucket.target}</p>
-                    <p className="text-xs text-[#999999]">{info.label}</p>
+                    <p className="text-[10px] sm:text-xs font-medium text-[#111111]">{bucket.completed}/{bucket.target}</p>
+                    <p className="text-[10px] sm:text-xs text-[#999999]">{info.label}</p>
                   </div>
                 );
               })}
@@ -2219,7 +2219,7 @@ export default function Spotlight() {
               </div>
 
               {/* Two-Column Layout: Contact Info + Metadata */}
-              <div className="grid grid-cols-2 gap-6 mb-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-5">
                 {/* Left Column: Contact Details */}
                 <div className="space-y-2.5">
                   {/* Address - always show with placeholder */}
@@ -2515,7 +2515,7 @@ export default function Spotlight() {
               ))}
 
               {/* Trust Level + Pro Tip Row */}
-              <div className="grid grid-cols-2 gap-4 mb-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 {/* Trust Level Card - Real metrics from API */}
                 {(() => {
                   const calls = trustMetrics?.calls || 0;
@@ -2556,7 +2556,7 @@ export default function Spotlight() {
                         value={trustScore} 
                         className="h-2 mb-4"
                       />
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <div className="text-center">
                           <Phone className="w-4 h-4 text-slate-400 mx-auto mb-1" />
                           <p className="text-lg font-bold text-slate-800">{calls}</p>
@@ -4607,7 +4607,7 @@ export default function Spotlight() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[1, 3, 7, 14].map((days) => (
                 <Button
                   key={days}
@@ -4666,7 +4666,7 @@ export default function Spotlight() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[1, 2, 3, 7].map((days) => (
                 <Button
                   key={days}
