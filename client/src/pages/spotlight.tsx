@@ -1994,17 +1994,23 @@ export default function Spotlight() {
                     )}
                   </div>
                   {/* Company Name */}
-                  <p className="text-base text-slate-600 font-medium">
+                  <p className={`text-base font-medium ${(task.isLeadTask ? task.lead?.company : customer.company) ? 'text-slate-600' : 'text-slate-400 italic'}`}>
                     {task.isLeadTask 
-                      ? task.lead?.company 
-                      : (customer.company || '')}
+                      ? (task.lead?.company || 'No Company')
+                      : (customer.company || 'No Company')}
                   </p>
                   {/* Address below company */}
-                  <p className="text-sm text-slate-500">
-                    {task.isLeadTask 
-                      ? [task.lead?.address, task.lead?.city, task.lead?.state, task.lead?.zip].filter(Boolean).join(', ')
-                      : [customer.address1, customer.city, customer.province, customer.zip].filter(Boolean).join(', ')}
-                  </p>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    {(() => {
+                      const addressParts = task.isLeadTask 
+                        ? [task.lead?.address, task.lead?.city, task.lead?.state, task.lead?.zip].filter(Boolean)
+                        : [customer.address1, customer.city, customer.province, customer.zip].filter(Boolean);
+                      return addressParts.length > 0 
+                        ? <span className="text-slate-500">{addressParts.join(', ')}</span>
+                        : <span className="text-slate-400 italic">No address available</span>;
+                    })()}
+                  </div>
                   {task.isLeadTask && task.lead?.stage && (
                     <span className="inline-flex items-center mt-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                       {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
