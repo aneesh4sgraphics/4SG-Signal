@@ -2645,8 +2645,9 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Notes & Activity - Collapsible */}
-              <details className="border-t border-slate-100 pt-4">
+              {/* Notes & Activity - Collapsible (hidden for bounced email tasks) */}
+              {task.taskSubtype !== 'hygiene_bounced_email' && (
+                <details className="border-t border-slate-100 pt-4">
                 <summary className="flex items-center gap-2 cursor-pointer select-none">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Notes & Activity</span>
                   <Badge variant="outline" className="text-xs">{customerNotes.length + emailHistory.length}</Badge>
@@ -2705,6 +2706,7 @@ export default function Spotlight() {
                   )}
                 </div>
               </details>
+              )}
 
               {/* Data Hygiene: Sales Rep Assignment */}
               {task.taskSubtype === 'hygiene_sales_rep' && (
