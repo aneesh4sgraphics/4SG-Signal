@@ -4726,8 +4726,8 @@ class SpotlightEngine {
    * Get tasks that were marked "Remind Me Again Today" - for EOD surfacing
    * Returns tasks that should reappear at end of current session
    */
-  getRemindTodayTasks(userId: string): Array<{taskId: string; customerId: string; bucket: TaskBucket; subtype: string; remindedAt: Date}> {
-    const session = this.getSession(userId);
+  async getRemindTodayTasks(userId: string): Promise<Array<{taskId: string; customerId: string; bucket: TaskBucket; subtype: string; remindedAt: Date}>> {
+    const session = await this.getSessionAsync(userId);
     return session.remindTodayTasks || [];
   }
 

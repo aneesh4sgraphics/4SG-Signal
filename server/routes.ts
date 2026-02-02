@@ -22674,7 +22674,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const tasks = spotlightEngine.getRemindTodayTasks(userId);
+      const tasks = await spotlightEngine.getRemindTodayTasks(userId);
       
       // Enrich with customer/lead names for display
       const enrichedTasks = await Promise.all(tasks.map(async (t) => {

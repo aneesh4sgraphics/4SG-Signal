@@ -950,6 +950,8 @@ export default function Spotlight() {
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/remind-today'] });
       toast({ title: "Reminder set", description: "This will come up again at end of day" });
       setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
+      // Auto-open scratch pad so user can see the contact was added
+      setTimeout(() => setScratchPadOpen(true), 300);
     },
     onError: () => {
       setIsTransitioning(false);
