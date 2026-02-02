@@ -377,6 +377,8 @@ export default function Spotlight() {
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState(false);
   const [websiteValue, setWebsiteValue] = useState('');
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressValues, setAddressValues] = useState({ address1: '', city: '', province: '', zip: '' });
   const [profileEditData, setProfileEditData] = useState<{
     phone: string;
     address1: string;
@@ -2287,31 +2289,111 @@ export default function Spotlight() {
                   {/* Address - always show with placeholder */}
                   <div className="flex items-start gap-2.5 text-sm">
                     <MapPin className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                    {effectiveAddress ? (
-                      <a 
-                        href={task.isLeadTask && task.lead?.city
-                          ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
-                          : `https://maps.google.com/?q=${encodeURIComponent(`${customer.address1 || ''}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-700 hover:text-blue-600"
-                      >
-                        {effectiveAddress}
-                        {task.isLeadTask 
-                          ? (task.lead?.city ? `, ${task.lead.city}` : '') + (task.lead?.state ? `, ${task.lead.state}` : '') + (task.lead?.zip ? ` ${task.lead.zip}` : '')
-                          : (customer.city ? `, ${customer.city}` : '') + (customer.province ? `, ${customer.province}` : '') + (customer.zip ? ` ${customer.zip}` : '')}
-                      </a>
+                    {editingAddress ? (
+                      <div className="flex flex-col gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={addressValues.address1}
+                          onChange={(e) => setAddressValues(v => ({ ...v, address1: e.target.value }))}
+                          placeholder="Street address"
+                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={addressValues.city}
+                            onChange={(e) => setAddressValues(v => ({ ...v, city: e.target.value }))}
+                            placeholder="City"
+                            className="px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={addressValues.province}
+                            onChange={(e) => setAddressValues(v => ({ ...v, province: e.target.value }))}
+                            placeholder="State"
+                            className="px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={addressValues.zip}
+                            onChange={(e) => setAddressValues(v => ({ ...v, zip: e.target.value }))}
+                            placeholder="ZIP"
+                            className="px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              apiRequest('PUT', `/api/customers/${customer.id}`, addressValues)
+                                .then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current'] });
+                                  setEditingAddress(false);
+                                  toast({ title: "Address updated" });
+                                })
+                                .catch(() => toast({ title: "Error updating address", variant: "destructive" }));
+                            }}
+                            className="px-3 py-1 rounded bg-green-100 hover:bg-green-200 text-green-600 text-xs font-medium"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingAddress(false)}
+                            className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : effectiveAddress ? (
+                      <div className="flex items-center gap-1">
+                        <a 
+                          href={task.isLeadTask && task.lead?.city
+                            ? `https://maps.google.com/?q=${encodeURIComponent(`${task.lead.address || ''}, ${task.lead.city || ''} ${task.lead.state || ''} ${task.lead.zip || ''}`)}`
+                            : `https://maps.google.com/?q=${encodeURIComponent(`${customer.address1 || ''}, ${customer.city || ''} ${customer.province || ''} ${customer.zip || ''}`)}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-700 hover:text-blue-600"
+                        >
+                          {effectiveAddress}
+                          {task.isLeadTask 
+                            ? (task.lead?.city ? `, ${task.lead.city}` : '') + (task.lead?.state ? `, ${task.lead.state}` : '') + (task.lead?.zip ? ` ${task.lead.zip}` : '')
+                            : (customer.city ? `, ${customer.city}` : '') + (customer.province ? `, ${customer.province}` : '') + (customer.zip ? ` ${customer.zip}` : '')}
+                        </a>
+                        {!task.isLeadTask && (
+                          <button
+                            onClick={() => {
+                              setAddressValues({
+                                address1: customer.address1 || '',
+                                city: customer.city || '',
+                                province: customer.province || '',
+                                zip: customer.zip || ''
+                              });
+                              setEditingAddress(true);
+                            }}
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                            title="Edit address"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <>
                         <span className="text-slate-400 italic">No address available</span>
-                        <button
-                          onClick={() => setShowProfilePanel(true)}
-                          className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
-                          title="Edit address"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
+                        {!task.isLeadTask && (
+                          <button
+                            onClick={() => {
+                              setAddressValues({ address1: '', city: '', province: '', zip: '' });
+                              setEditingAddress(true);
+                            }}
+                            className="ml-1 p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600"
+                            title="Add address"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
