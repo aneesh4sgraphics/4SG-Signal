@@ -1853,7 +1853,16 @@ class SpotlightEngine {
           isNull(bouncedEmails.customerId)
         ));
       
+      // Get user's Odoo user ID for territory matching (some customers have Odoo IDs, others have internal IDs)
+      const [currentUser] = await db
+        .select({ odooUserId: users.odooUserId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const odooUserId = currentUser?.odooUserId?.toString() || '';
+      
       // Find bounced emails with customers in user's territory
+      // Check both internal user ID and Odoo user ID for territory matching
       const bouncedResults = await db
         .select({
           id: bouncedEmails.id,
@@ -1868,11 +1877,12 @@ class SpotlightEngine {
           isNotNull(bouncedEmails.customerId),
           excludeIds.length > 0 ? notInArray(bouncedEmails.customerId, excludeIds) : sql`1=1`,
           // Subquery to check customer is in user's territory and not doNotContact
+          // Match on either internal user ID or Odoo user ID
           sql`EXISTS (
             SELECT 1 FROM customers c 
             WHERE c.id = ${bouncedEmails.customerId}
             AND c.do_not_contact = false
-            AND (c.sales_rep_id IS NULL OR c.sales_rep_id = ${userId})
+            AND (c.sales_rep_id IS NULL OR c.sales_rep_id = ${userId} OR c.sales_rep_id = ${odooUserId})
           )`
         ))
         .orderBy(desc(bouncedEmails.bounceDate))
