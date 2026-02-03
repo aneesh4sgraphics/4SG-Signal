@@ -1894,6 +1894,7 @@ class SpotlightEngine {
             pricingTier: null
           },
           extraContext: {
+            bounceId: bounced.id,
             bouncedEmail: bounced.bouncedEmail,
             bounceSubject: bounced.bounceSubject,
             bounceDate: bounced.bounceDate?.toISOString(),
@@ -1970,6 +1971,7 @@ class SpotlightEngine {
                 pricingTier: customer.pricingTier
               },
               extraContext: {
+                bounceId: bounced.id,
                 bouncedEmail: bounced.bouncedEmail,
                 bounceSubject: bounced.bounceSubject,
                 bounceDate: bounced.bounceDate?.toISOString()
