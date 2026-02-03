@@ -679,7 +679,14 @@ export default function PriceList() {
       
       // Default product type orders for specific categories (applied when no saved order exists)
       const defaultCategoryOrders: Record<string, string[]> = {
-        'Graffiti Polyester Paper': ['Graffiti Polyester 5mil', 'Graffiti Polyester 8mil']
+        'Graffiti Polyester Paper': [
+          'Graffiti Polyester 5mil',
+          'Graffiti Polyester 8mil',
+          'Graffiti Polyester 10mil',
+          'Graffiti Polyester 11mil',
+          'Graffiti Polyester 11mil Blockout',
+          'Graffiti Polyester 14mil'
+        ]
       };
       
       // Try to load saved product type order from localStorage (scoped by category)
