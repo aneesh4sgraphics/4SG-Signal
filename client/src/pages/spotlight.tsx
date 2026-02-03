@@ -93,6 +93,7 @@ import {
   Gift,
   MessageCircle,
   ShoppingCart,
+  Layers,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 

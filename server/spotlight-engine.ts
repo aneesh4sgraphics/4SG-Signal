@@ -1840,28 +1840,29 @@ class SpotlightEngine {
   private async findBouncedEmailTask(userId: string, excludeIds: string[]): Promise<SpotlightTask | null> {
     try {
       // Find unresolved bounced emails - scoped to user's territory (salesRepId matches or is null)
+      // Use raw SQL subquery to filter by customer territory without join issues
       const bouncedResults = await db
         .select({
           id: bouncedEmails.id,
           customerId: bouncedEmails.customerId,
-          bouncedEmail: bouncedEmails.originalRecipient,
-          bounceSubject: bouncedEmails.subject,
-          bounceDate: bouncedEmails.detectedAt
+          bouncedEmail: bouncedEmails.bouncedEmail,
+          bounceSubject: bouncedEmails.bounceSubject,
+          bounceDate: bouncedEmails.bounceDate
         })
         .from(bouncedEmails)
-        .innerJoin(customers, eq(bouncedEmails.customerId, customers.id))
         .where(and(
-          eq(bouncedEmails.resolved, false),
+          eq(bouncedEmails.status, 'pending'),
           isNotNull(bouncedEmails.customerId),
-          // Scope to user's territory - matches user or unassigned
-          or(
-            isNull(customers.salesRepId),
-            eq(customers.salesRepId, userId)
-          ),
-          eq(customers.doNotContact, false),
-          excludeIds.length > 0 ? notInArray(bouncedEmails.customerId, excludeIds) : sql`1=1`
+          excludeIds.length > 0 ? notInArray(bouncedEmails.customerId, excludeIds) : sql`1=1`,
+          // Subquery to check customer is in user's territory and not doNotContact
+          sql`EXISTS (
+            SELECT 1 FROM customers c 
+            WHERE c.id = ${bouncedEmails.customerId}
+            AND c.do_not_contact = false
+            AND (c.sales_rep_id IS NULL OR c.sales_rep_id = ${userId})
+          )`
         ))
-        .orderBy(desc(bouncedEmails.detectedAt))
+        .orderBy(desc(bouncedEmails.bounceDate))
         .limit(1);
       
       if (bouncedResults.length > 0) {
