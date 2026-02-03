@@ -677,6 +677,11 @@ export default function PriceList() {
       // Normalize product types to match groupedByType logic (use 'Unknown' for falsy values)
       const types = Array.from(new Set(priceListItems.map(item => item.productType || 'Unknown'))).sort();
       
+      // Default product type orders for specific categories (applied when no saved order exists)
+      const defaultCategoryOrders: Record<string, string[]> = {
+        'Graffiti Polyester Paper': ['Graffiti Polyester 5mil', 'Graffiti Polyester 8mil']
+      };
+      
       // Try to load saved product type order from localStorage (scoped by category)
       const typeOrderKey = `priceListTypeOrder_${selectedCategory}`;
       const savedOrder = localStorage.getItem(typeOrderKey);
@@ -693,7 +698,17 @@ export default function PriceList() {
           setProductTypeOrder(types);
         }
       } else {
-        setProductTypeOrder(types);
+        // Check if there's a default order for this category
+        const defaultOrder = defaultCategoryOrders[selectedCategory];
+        if (defaultOrder) {
+          // Apply default order: default types first, then remaining types alphabetically
+          const defaultSet = new Set(defaultOrder);
+          const remainingTypes = types.filter(t => !defaultSet.has(t)).sort();
+          const validDefaultOrder = defaultOrder.filter(t => types.includes(t));
+          setProductTypeOrder([...validDefaultOrder, ...remainingTypes]);
+        } else {
+          setProductTypeOrder(types);
+        }
       }
       
       // Try to restore saved item order for this category+tier combination
