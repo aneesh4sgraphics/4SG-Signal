@@ -82,6 +82,7 @@ interface Customer {
   phone: string;
   note: string;
   tags: string;
+  pricingTier?: string;
 }
 
 const allPricingTiers = [
@@ -117,6 +118,9 @@ export default function PriceList() {
   const [orderedItems, setOrderedItems] = useState<PriceListItem[]>([]);
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
   const [includeShipping, setIncludeShipping] = useState<boolean>(false);
+  const [shippingMode, setShippingMode] = useState<'same' | 'individual'>('same');
+  const [globalShippingCost, setGlobalShippingCost] = useState<number>(0);
+  const [globalShippingInput, setGlobalShippingInput] = useState<string>('');
   const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
   const [shippingInputs, setShippingInputs] = useState<Record<string, string>>({});
   const [productTypeOrder, setProductTypeOrder] = useState<string[]>([]);
@@ -160,7 +164,10 @@ export default function PriceList() {
   const getAdjustedItems = (items: PriceListItem[]): PriceListItem[] => {
     if (!includeShipping) return items;
     return items.map(item => {
-      const shippingCost = shippingCosts[item.itemCode] || 0;
+      // Use global cost if "same" mode, otherwise use individual costs
+      const shippingCost = shippingMode === 'same' 
+        ? globalShippingCost 
+        : (shippingCosts[item.itemCode] || 0);
       const adjustedPricePerSheet = item.pricePerSheet + shippingCost;
       const adjustedPricePerPack = adjustedPricePerSheet * item.minQty;
       return {
@@ -265,10 +272,11 @@ export default function PriceList() {
               size: item.size,
               minOrderQty: item.minQty,
               pricePerSheet: item.pricePerSheet,
+              pricePerThousand: item.rollSheet?.toLowerCase() !== 'roll' ? item.pricePerSheet * 1000 : null,
               total: item.pricePerPack,
               sortOrder: item.sortOrder,
               rollSheet: item.rollSheet,
-              shippingCost: includeShipping ? (shippingCosts[item.itemCode] || 0) : undefined
+              shippingCost: includeShipping ? (shippingMode === 'same' ? globalShippingCost : (shippingCosts[item.itemCode] || 0)) : undefined
             }))
           })
         });
@@ -326,7 +334,7 @@ export default function PriceList() {
                 minQty: item.minQty,
                 pricePerUnit: item.pricePerSheet.toString(),
                 pricePerPack: item.pricePerPack.toString(),
-                shippingCost: includeShipping ? (shippingCosts[item.itemCode] || 0).toString() : null,
+                shippingCost: includeShipping ? (shippingMode === 'same' ? globalShippingCost : (shippingCosts[item.itemCode] || 0)).toString() : null,
                 priceTier: selectedTier,
                 category: selectedCategory
               }))
@@ -576,6 +584,35 @@ export default function PriceList() {
       setSelectedTypes([]);
     }
   }, [selectedCategory]);
+
+  // Auto-select pricing tier based on customer's saved tier
+  useEffect(() => {
+    if (selectedCustomer?.pricingTier) {
+      // Map customer's pricingTier to the tier key format used in the selector
+      const tierMapping: Record<string, string> = {
+        'LANDED PRICE': 'Landed',
+        'EXPORT': 'Export',
+        'MASTER DISTRIBUTOR': 'M.Distributor',
+        'DEALER': 'Dealer',
+        'DEALER 2': 'Dealer2',
+        'APPROVAL NEEDED': 'ApprovalNeeded',
+        'TIER STAGE 2.5': 'TierStage25',
+        'TIER STAGE 2': 'TierStage2',
+        'TIER STAGE 1.5': 'TierStage15',
+        'TIER STAGE 1': 'TierStage1',
+        'RETAIL': 'Retail',
+      };
+      
+      const mappedTier = tierMapping[selectedCustomer.pricingTier.toUpperCase()];
+      if (mappedTier) {
+        // Only auto-select if user has access to this tier
+        const tierExists = pricingTiers.find(t => t.key === mappedTier);
+        if (tierExists) {
+          setSelectedTier(mappedTier);
+        }
+      }
+    }
+  }, [selectedCustomer, pricingTiers]);
 
   // Handle product reordering
   const handleProductReorder = (reorderedItems: any[]) => {
@@ -971,7 +1008,38 @@ export default function PriceList() {
         <div className="glass-card mb-6 overflow-visible relative z-20">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Product Category */}
+              {/* 1. Customer Selection - FIRST */}
+              <div className="space-y-2">
+                <label className="block label-medium text-gray-800">Customer</label>
+                <SearchableCustomerSelect
+                  selectedCustomer={selectedCustomer}
+                  onCustomerSelect={setSelectedCustomer}
+                  placeholder="Search customers..."
+                  className="w-full"
+                />
+                {selectedCustomer?.pricingTier && (
+                  <p className="text-xs text-green-600">Tier: {selectedCustomer.pricingTier}</p>
+                )}
+              </div>
+
+              {/* 2. Pricing Tier - Auto-filled from customer if available */}
+              <div className="space-y-2">
+                <label className="block label-medium text-gray-800">Pricing Tier</label>
+                <Select value={selectedTier} onValueChange={setSelectedTier}>
+                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
+                    <SelectValue placeholder="Select pricing tier" />
+                  </SelectTrigger>
+                  <SelectContent className="w-full">
+                    {pricingTiers.map(tier => (
+                      <SelectItem key={tier.key} value={tier.key} className="text-sm">
+                        {tier.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 3. Product Category */}
               <div className="space-y-2">
                 <label className="block label-medium text-gray-800">Product Category</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -998,7 +1066,7 @@ export default function PriceList() {
                 </Select>
               </div>
 
-              {/* Product Types (Multi-Select) */}
+              {/* 4. Product Types (Multi-Select) */}
               <div className="space-y-2">
                 <label className="block label-medium text-gray-800">Product Types</label>
                 <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
@@ -1081,34 +1149,6 @@ export default function PriceList() {
                   </PopoverContent>
                 </Popover>
               </div>
-
-              {/* Pricing Tier */}
-              <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Pricing Tier</label>
-                <Select value={selectedTier} onValueChange={setSelectedTier}>
-                  <SelectTrigger className="w-full h-10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border border-gray-300 hover:border-gray-400 transition-colors">
-                    <SelectValue placeholder="Select pricing tier" />
-                  </SelectTrigger>
-                  <SelectContent className="w-full">
-                    {pricingTiers.map(tier => (
-                      <SelectItem key={tier.key} value={tier.key} className="text-sm">
-                        {tier.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Customer Selection */}
-              <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Customer (Optional)</label>
-                <SearchableCustomerSelect
-                  selectedCustomer={selectedCustomer}
-                  onCustomerSelect={setSelectedCustomer}
-                  placeholder="Search customers..."
-                  className="w-full"
-                />
-              </div>
             </div>
             
             {/* Shipping Costs Toggle */}
@@ -1118,7 +1158,7 @@ export default function PriceList() {
                   <Truck className="h-5 w-5 text-gray-600" />
                   <div>
                     <label className="block label-medium text-gray-800">Add Shipping Costs</label>
-                    <p className="text-xs text-gray-500">Enable to add per-unit shipping costs to prices</p>
+                    <p className="text-xs text-gray-500">Enable to add shipping costs to prices</p>
                   </div>
                 </div>
                 <Switch
@@ -1128,11 +1168,81 @@ export default function PriceList() {
                     if (!checked) {
                       setShippingCosts({});
                       setShippingInputs({});
+                      setGlobalShippingCost(0);
+                      setGlobalShippingInput('');
                     }
                   }}
                   data-testid="switch-include-shipping"
                 />
               </div>
+              
+              {/* Shipping Mode Options - Only show when shipping is enabled */}
+              {includeShipping && (
+                <div className="mt-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                  <div className="flex items-center gap-6 mb-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="shippingMode"
+                        checked={shippingMode === 'same'}
+                        onChange={() => setShippingMode('same')}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">Same price for all lines</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="shippingMode"
+                        checked={shippingMode === 'individual'}
+                        onChange={() => setShippingMode('individual')}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700">Individual line pricing</span>
+                    </label>
+                  </div>
+                  
+                  {/* Global shipping cost input - Only show when "same" mode is selected */}
+                  {shippingMode === 'same' && (
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-600">Shipping cost per unit:</label>
+                      <div className="flex items-center">
+                        <span className="text-gray-500 mr-1">$</span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={globalShippingInput}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                              setGlobalShippingInput(val);
+                              const numValue = parseFloat(val);
+                              if (!isNaN(numValue) && numValue >= 0) {
+                                setGlobalShippingCost(numValue);
+                              } else if (val === '' || val === '0' || val === '0.') {
+                                setGlobalShippingCost(0);
+                              }
+                            }
+                          }}
+                          placeholder="0.00"
+                          className="w-24 h-8 text-sm text-center"
+                        />
+                      </div>
+                      {globalShippingCost > 0 && (
+                        <span className="text-xs text-green-600">
+                          Applied to all {priceListItems.length} items
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {shippingMode === 'individual' && (
+                    <p className="text-xs text-gray-500">
+                      Enter shipping costs for each item in the table below
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1284,7 +1394,7 @@ export default function PriceList() {
                           {(user as any)?.role === 'admin' && (
                             <TableHead className="w-[100px] text-right">Price/Sq.M</TableHead>
                           )}
-                          {includeShipping && (
+                          {includeShipping && shippingMode === 'individual' && (
                             <TableHead className="w-[120px] text-center">Shipping/Unit</TableHead>
                           )}
                           <TableHead className="w-[120px] text-right">Price/Unit</TableHead>
@@ -1293,7 +1403,7 @@ export default function PriceList() {
                       </TableHeader>
                       <TableBody>
                         {items.map((item, idx) => {
-                          const shippingCost = shippingCosts[item.itemCode] || 0;
+                          const shippingCost = shippingMode === 'same' ? globalShippingCost : (shippingCosts[item.itemCode] || 0);
                           const adjustedPricePerSheet = includeShipping ? item.pricePerSheet + shippingCost : item.pricePerSheet;
                           const adjustedPricePerPack = adjustedPricePerSheet * item.minQty;
                           const unitLabel = item.minQty === 1 ? 'roll' : 'sheet';
@@ -1313,7 +1423,7 @@ export default function PriceList() {
                               {(user as any)?.role === 'admin' && (
                                 <TableCell className="text-right text-sm text-gray-600">${Number(item.pricePerSqM || 0).toFixed(2)}</TableCell>
                               )}
-                              {includeShipping && (
+                              {includeShipping && shippingMode === 'individual' && (
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center">
                                     <span className="text-gray-500 mr-1">$</span>

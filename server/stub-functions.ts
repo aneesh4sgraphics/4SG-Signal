@@ -722,11 +722,17 @@ export async function generatePriceListHTML(data: any): Promise<string> {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   // Helper function to generate table rows
-  const generateRowHtml = (rows: any[], startIndex: number = 0) => {
+  const generateRowHtml = (rows: any[], isRoll: boolean, startIndex: number = 0) => {
     return rows.map((row: any, index: number) => {
       const minQtyValue = Number(row.minOrderQty || row.minQty || row.minQuantity || row.min_quantity) || 1;
       const pricePerSheet = Number(row.pricePerSheet) || 0;
       const pricePerPack = Number(row.total || row.pricePerPack) || (pricePerSheet * minQtyValue);
+      const pricePerThousand = row.pricePerThousand ? Number(row.pricePerThousand) : (pricePerSheet * 1000);
+      
+      // Price/1000 column only for sheets, not rolls
+      const pricePerThousandCell = isRoll ? '' : `
+        <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 6px 8px; text-align: right; font-size: 9px; color: #666;">$${pricePerThousand.toFixed(2)}</td>
+      `;
       
       return `
       <tr style="background-color: ${(startIndex + index) % 2 === 0 ? '#ffffff' : '#f5f5f5'}; border-bottom: 1px solid #ddd;">
@@ -734,6 +740,7 @@ export async function generatePriceListHTML(data: any): Promise<string> {
         <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 6px 8px; font-size: 9px;">${row.size || 'N/A'}</td>
         <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 6px 8px; text-align: center; font-size: 9px;">${minQtyValue}</td>
         <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 6px 8px; text-align: right; font-size: 9px;">$${pricePerSheet.toFixed(2)}</td>
+        ${pricePerThousandCell}
         <td style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 6px 8px; text-align: right; font-size: 9px; font-weight: 600; border-right: 1px solid #ccc;">$${pricePerPack.toFixed(2)}</td>
       </tr>
       `;
@@ -745,26 +752,33 @@ export async function generatePriceListHTML(data: any): Promise<string> {
     const priceUnitLabel = isRoll ? 'Price/Roll' : 'Price/Sheet';
     const priceTotalLabel = isRoll ? 'Price' : 'Price/Pack';
     const typeLabel = subLabel ? `${type} - ${subLabel}` : type;
+    const columnCount = isRoll ? 5 : 6; // 6 columns for sheets (includes Price/1000), 5 for rolls
+    
+    // Price/1000 header only for sheets
+    const pricePerThousandHeader = isRoll ? '' : `
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: right; font-size: 9px; width: 15%;">Price/1000</th>
+    `;
     
     return `
       <div style="page-break-inside: avoid; margin-bottom: 20px;">
         <table width="100%" style="border-collapse: collapse; margin-bottom: 0;">
           <thead>
             <tr style="background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);">
-              <th colspan="5" style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 10px 12px; color: white; font-weight: 700; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #1a252f;">
+              <th colspan="${columnCount}" style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 10px 12px; color: white; font-weight: 700; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #1a252f;">
                 ${typeLabel}
               </th>
             </tr>
             <tr style="background: #e8e8e8;">
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: left; font-size: 9px; width: 25%;">Product Code</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: left; font-size: 9px; width: 20%;">Size</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: center; font-size: 9px; width: 15%;">Packing</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: right; font-size: 9px; width: 18%;">${priceUnitLabel}</th>
-              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: right; font-size: 9px; width: 22%;">${priceTotalLabel}</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: left; font-size: 9px; width: ${isRoll ? '25%' : '22%'};">Product Code</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: left; font-size: 9px; width: ${isRoll ? '20%' : '18%'};">Size</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: center; font-size: 9px; width: ${isRoll ? '15%' : '12%'};">Packing</th>
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: right; font-size: 9px; width: ${isRoll ? '18%' : '15%'};">${priceUnitLabel}</th>
+              ${pricePerThousandHeader}
+              <th style="font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 8px; border: 1px solid #ccc; color: #333; font-weight: 600; text-align: right; font-size: 9px; width: ${isRoll ? '22%' : '18%'};">${priceTotalLabel}</th>
             </tr>
           </thead>
           <tbody>
-            ${generateRowHtml(rows)}
+            ${generateRowHtml(rows, isRoll)}
           </tbody>
         </table>
       </div>
