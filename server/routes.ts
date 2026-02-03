@@ -11155,7 +11155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(eventId)) {
         return res.status(400).json({ error: "Invalid event ID" });
       }
-      await db.delete(activityEvents).where(eq(activityEvents.id, eventId));
+      await db.delete(customerActivityEvents).where(eq(customerActivityEvents.id, eventId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting activity event:", error);
