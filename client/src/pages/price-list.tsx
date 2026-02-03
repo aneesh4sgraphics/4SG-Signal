@@ -614,17 +614,29 @@ export default function PriceList() {
     }
   }, [selectedCustomer, pricingTiers]);
 
-  // Handle product reordering
+  // Handle product reordering (items within the list, not product types)
   const handleProductReorder = (reorderedItems: any[]) => {
-    const updatedItems = reorderedItems.map(item => {
-      // Find the original item to preserve all pricing data
-      const originalItem = priceListItems.find(original => original.itemCode === item.itemCode);
-      return originalItem || item;
-    });
+    const updatedItems = reorderedItems
+      .map(item => {
+        // Find the original item to preserve all pricing data
+        const originalItem = priceListItems.find(original => original.itemCode === item.itemCode);
+        return originalItem || item;
+      })
+      .filter(item => item.itemCode); // Filter out any items without valid itemCode
+    
     setOrderedItems(updatedItems);
+    
+    // Only persist item order, NOT product type order (those are separate concerns)
+    // Item order is keyed by category+tier for context-specific ordering
+    if (selectedCategory && selectedTier) {
+      const itemOrderKey = `priceListItemOrder_${selectedCategory}_${selectedTier}`;
+      const itemCodeOrder = updatedItems.map(item => item.itemCode).filter(Boolean);
+      localStorage.setItem(itemOrderKey, JSON.stringify(itemCodeOrder));
+    }
+    
     toast({
       title: "Products Reordered",
-      description: "Product order updated successfully for PDF generation"
+      description: "Product order saved and will be remembered for future use"
     });
   };
 
@@ -659,17 +671,81 @@ export default function PriceList() {
     });
   }, [groupedByType, productTypeOrder]);
 
-  // Initialize productTypeOrder and selectedForPDF when priceListItems changes
+  // Initialize productTypeOrder, orderedItems, and selectedForPDF when priceListItems changes
   useEffect(() => {
-    if (priceListItems.length > 0) {
+    if (priceListItems.length > 0 && selectedCategory) {
       // Normalize product types to match groupedByType logic (use 'Unknown' for falsy values)
       const types = Array.from(new Set(priceListItems.map(item => item.productType || 'Unknown'))).sort();
-      setProductTypeOrder(types);
+      
+      // Try to load saved product type order from localStorage (scoped by category)
+      const typeOrderKey = `priceListTypeOrder_${selectedCategory}`;
+      const savedOrder = localStorage.getItem(typeOrderKey);
+      if (savedOrder) {
+        try {
+          const parsedOrder = JSON.parse(savedOrder) as string[];
+          // Merge saved order with current types: saved order first, then any new types
+          const savedSet = new Set(parsedOrder);
+          const newTypes = types.filter(t => !savedSet.has(t));
+          // Filter saved order to only include types that exist in current data
+          const validSavedOrder = parsedOrder.filter(t => types.includes(t));
+          setProductTypeOrder([...validSavedOrder, ...newTypes]);
+        } catch (e) {
+          setProductTypeOrder(types);
+        }
+      } else {
+        setProductTypeOrder(types);
+      }
+      
+      // Try to restore saved item order for this category+tier combination
+      if (selectedTier) {
+        const itemOrderKey = `priceListItemOrder_${selectedCategory}_${selectedTier}`;
+        const savedItemOrder = localStorage.getItem(itemOrderKey);
+        if (savedItemOrder) {
+          try {
+            const itemCodeOrder = JSON.parse(savedItemOrder) as string[];
+            // Filter out invalid/empty codes
+            const validCodes = itemCodeOrder.filter(code => code && typeof code === 'string');
+            if (validCodes.length > 0) {
+              // Create a map for quick lookup of saved positions
+              const orderMap = new Map(validCodes.map((code, index) => [code, index]));
+              // Sort items based on saved order, new items go to end
+              const restoredItems = [...priceListItems].sort((a, b) => {
+                const aIndex = orderMap.has(a.itemCode) ? orderMap.get(a.itemCode)! : Infinity;
+                const bIndex = orderMap.has(b.itemCode) ? orderMap.get(b.itemCode)! : Infinity;
+                // If both are new items (not in saved order), maintain alphabetical order
+                if (aIndex === Infinity && bIndex === Infinity) {
+                  return (a.itemCode || '').localeCompare(b.itemCode || '');
+                }
+                return aIndex - bIndex;
+              });
+              setOrderedItems(restoredItems);
+            }
+            // If no valid codes, don't set orderedItems - keep default order
+          } catch (e) {
+            // On parse error, don't change orderedItems
+            console.error('Failed to parse saved item order:', e);
+          }
+        }
+        // If no saved order exists, don't reset orderedItems - keep current state or default
+      }
+      
       setCollapsedTypes(new Set());
-      // Default all items selected for PDF
-      setSelectedForPDF(new Set(priceListItems.map(item => item.itemCode)));
+      
+      // Default all items selected for PDF, EXCEPT items containing "Samples" in their name/code
+      const selectedItems = priceListItems
+        .filter(item => {
+          const itemCode = (item.itemCode || '').toLowerCase();
+          const productType = (item.productType || '').toLowerCase();
+          const size = (item.size || '').toLowerCase();
+          // Check if any field contains "sample" or "samples"
+          return !itemCode.includes('sample') && 
+                 !productType.includes('sample') && 
+                 !size.includes('sample');
+        })
+        .map(item => item.itemCode);
+      setSelectedForPDF(new Set(selectedItems));
     }
-  }, [priceListItems]);
+  }, [priceListItems, selectedCategory, selectedTier]);
 
   // Toggle single item selection for PDF
   const toggleItemSelection = (itemCode: string) => {
@@ -733,6 +809,10 @@ export default function PriceList() {
     const newOrder = [...productTypeOrder];
     [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
     setProductTypeOrder(newOrder);
+    // Persist order to localStorage scoped by category
+    if (selectedCategory) {
+      localStorage.setItem(`priceListTypeOrder_${selectedCategory}`, JSON.stringify(newOrder));
+    }
   };
 
   // Move product type down in order
@@ -743,6 +823,10 @@ export default function PriceList() {
     const newOrder = [...productTypeOrder];
     [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
     setProductTypeOrder(newOrder);
+    // Persist order to localStorage scoped by category
+    if (selectedCategory) {
+      localStorage.setItem(`priceListTypeOrder_${selectedCategory}`, JSON.stringify(newOrder));
+    }
   };
 
   // Serialize pricingTiers keys for stable dependency
