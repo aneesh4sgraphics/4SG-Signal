@@ -590,12 +590,20 @@ class SpotlightEngine {
     }
 
     try {
+      // Get user's Odoo ID for territory matching (some customers use Odoo IDs, others use internal IDs)
+      const [currentUser] = await db
+        .select({ odooUserId: users.odooUserId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const odooUserId = currentUser?.odooUserId?.toString() || '';
+      
       const result = await db.execute(sql`
         SELECT 
           COUNT(*) FILTER (WHERE phone IS NOT NULL AND do_not_contact = false 
-            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId})) as calls_ready,
+            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId} OR sales_rep_id = ${odooUserId})) as calls_ready,
           COUNT(*) FILTER (WHERE email IS NOT NULL AND pricing_tier IS NOT NULL AND do_not_contact = false
-            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId})) as outreach_ready,
+            AND (sales_rep_id IS NULL OR sales_rep_id = ${userId} OR sales_rep_id = ${odooUserId})) as outreach_ready,
           COUNT(*) FILTER (WHERE (phone IS NULL OR pricing_tier IS NULL OR email IS NULL OR sales_rep_id IS NULL)
             AND do_not_contact = false) as hygiene_needed,
           COUNT(*) as total_customers

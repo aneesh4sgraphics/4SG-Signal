@@ -1936,6 +1936,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Treat both admin and manager as privileged users who can see all customers
       const isPrivileged = userRole === 'admin' || userRole === 'manager';
       
+      // Get user's Odoo ID for territory matching (some customers use Odoo IDs, others use internal IDs)
+      const [currentUser] = await db
+        .select({ odooUserId: users.odooUserId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const odooUserId = currentUser?.odooUserId?.toString() || '';
+      
       // Get all relevant data for scoring
       const [pendingTasks, todayTasks, overdueTasks, customers] = await Promise.all([
         storage.getPendingFollowUpTasks(),
@@ -1978,9 +1986,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const customer of customers) {
         // Filter by sales rep assignment (unless admin/manager)
-        // Check against both user ID and email for compatibility
+        // Check against user ID, email, and Odoo user ID for compatibility
         if (!isPrivileged && customer.salesRepId) {
-          const isAssignedToMe = customer.salesRepId === userId || customer.salesRepId === userEmail;
+          const isAssignedToMe = customer.salesRepId === userId || customer.salesRepId === userEmail || customer.salesRepId === odooUserId;
           if (!isAssignedToMe) {
             continue;
           }
@@ -2109,7 +2117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const myCustomers = customers.filter(c => {
           if (usedCustomerIds.has(c.id)) return false;
           if (!isPrivileged) {
-            const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail;
+            const isAssignedToMe = c.salesRepId === userId || c.salesRepId === userEmail || c.salesRepId === odooUserId;
             if (!isAssignedToMe) return false;
           }
           return true;
@@ -2147,7 +2155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check various hygiene issues and outreach opportunities
           const isUnassigned = !customer.salesRepId || customer.salesRepId.trim() === '';
-          const isMyCustomer = !isPrivileged && (customer.salesRepId === userId || customer.salesRepId === userEmail);
+          const isMyCustomer = !isPrivileged && (customer.salesRepId === userId || customer.salesRepId === userEmail || customer.salesRepId === odooUserId);
           const hasPhone = customer.phone || customer.phone2 || customer.cell || customer.defaultAddressPhone;
           const hasAddress = customer.address1 && customer.city;
           
