@@ -692,7 +692,7 @@ export default function EmailApp() {
                         {TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label}
                       </CardDescription>
                     </div>
-                    {isAdmin && (
+                    {(isAdmin || template.createdBy === user?.id) && (
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"

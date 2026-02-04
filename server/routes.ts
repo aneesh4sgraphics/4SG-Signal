@@ -11737,10 +11737,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update email template (admin only)
-  app.patch("/api/email/templates/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+  // Update email template (owner or admin)
+  app.patch("/api/email/templates/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.user?.id;
+      const isAdmin = req.user?.role === 'admin';
+      
+      // Check ownership or admin status
+      const existingTemplate = await storage.getEmailTemplate(id);
+      if (!existingTemplate) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      if (!isAdmin && existingTemplate.createdBy !== userId) {
+        return res.status(403).json({ error: "Not authorized to edit this template" });
+      }
+      
       const { name, description, subject, body, category, variables, isActive } = req.body;
       
       const updateData: any = {};
@@ -11752,7 +11764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isActive !== undefined) updateData.isActive = isActive;
       
       // Get current template to preserve existing variables and merge with detected ones
-      const currentTemplate = await storage.getEmailTemplate(id);
+      const currentTemplate = existingTemplate;
       if (currentTemplate) {
         const finalSubject = subject !== undefined ? subject : currentTemplate.subject;
         const finalBody = body !== undefined ? body : currentTemplate.body;
@@ -11777,10 +11789,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete email template (admin only)
-  app.delete("/api/email/templates/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+  // Delete email template (owner or admin)
+  app.delete("/api/email/templates/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.user?.id;
+      const isAdmin = req.user?.role === 'admin';
+      
+      // Check ownership or admin status
+      const existingTemplate = await storage.getEmailTemplate(id);
+      if (!existingTemplate) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      if (!isAdmin && existingTemplate.createdBy !== userId) {
+        return res.status(403).json({ error: "Not authorized to delete this template" });
+      }
+      
       await storage.deleteEmailTemplate(id);
       res.json({ success: true });
     } catch (error) {
