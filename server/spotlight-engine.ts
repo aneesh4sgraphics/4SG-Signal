@@ -74,6 +74,8 @@ export interface SpotlightTask {
   priority: number;
   whyNow: string;
   emailCount?: number; // Number of emails sent from this app to this contact
+  sampleCount?: number; // Number of swatchbooks/press test kits sent to this contact
+  sources?: string[]; // Where this contact comes from: 'odoo_lead', 'odoo_contact', 'shopify'
   outcomes: TaskOutcome[];
   customer: {
     id: string;
@@ -1750,8 +1752,8 @@ class SpotlightEngine {
             session.skippedCustomerIds.push(task.customerId);
             return this.getNextTask(userId, forceBucket, workType);
           }
-          // Enrich with email count
-          const enrichedTask = await this.enrichTaskWithEmailCount(task);
+          // Enrich with email count, sample count, and sources
+          const enrichedTask = await this.enrichTaskWithCounts(task);
           return { task: enrichedTask, session, allDone: false };
         }
         // No tasks for this work type - return null but DON'T mark day complete
@@ -1810,8 +1812,8 @@ class SpotlightEngine {
         return this.getNextTask(userId);
       }
       
-      // Enrich with email count
-      const enrichedTask = await this.enrichTaskWithEmailCount(task);
+      // Enrich with email count, sample count, and sources
+      const enrichedTask = await this.enrichTaskWithCounts(task);
       return { task: enrichedTask, session, allDone: false };
     } catch (error) {
       console.error('[Spotlight] Error getting next task:', error);
@@ -3802,6 +3804,8 @@ class SpotlightEngine {
         pricingTier: customer.pricingTier,
         isHotProspect: customer.isHotProspect,
         updatedAt: customer.updatedAt,
+        odooPartnerId: customer.odooPartnerId,
+        sources: customer.sources,
       },
       context,
     };
@@ -3851,6 +3855,8 @@ class SpotlightEngine {
         pricingTier: customer.pricingTier,
         isHotProspect: customer.isHotProspect,
         updatedAt: customer.updatedAt,
+        odooPartnerId: customer.odooPartnerId,
+        sources: customer.sources,
       },
       extraContext,
     };
@@ -5147,9 +5153,6 @@ class SpotlightEngine {
    */
   private async getEmailCountForCustomer(customerId: string): Promise<number> {
     try {
-      // Handle lead IDs (format: "lead-123")
-      const isLead = customerId.startsWith('lead-');
-      
       // Count from spotlightEvents where outcomeId was email-related
       const emailOutcomes = ['email_sent', 'sent_email', 'compose_email', 'send_drip', 'replied'];
       
@@ -5171,11 +5174,75 @@ class SpotlightEngine {
   }
 
   /**
-   * Enrich a task with email count data
+   * Get the count of swatchbooks/press test kits sent to a customer or lead
    */
-  private async enrichTaskWithEmailCount(task: SpotlightTask): Promise<SpotlightTask> {
-    const emailCount = await this.getEmailCountForCustomer(task.customerId);
-    return { ...task, emailCount };
+  private async getSampleCountForCustomer(customerId: string): Promise<number> {
+    try {
+      // Count from spotlightEvents where outcomeId was sample-related
+      const sampleOutcomes = ['sent', 'send_swatchbook', 'send_press_test', 'sample_sent', 'swatchbook_sent', 'press_test_sent'];
+      
+      const result = await db
+        .select({ count: count() })
+        .from(spotlightEvents)
+        .where(
+          and(
+            eq(spotlightEvents.customerId, customerId),
+            inArray(spotlightEvents.outcomeId, sampleOutcomes)
+          )
+        );
+      
+      return result[0]?.count || 0;
+    } catch (e) {
+      console.error('[Spotlight] Error getting sample count:', e);
+      return 0;
+    }
+  }
+
+  /**
+   * Determine the sources for a customer or lead
+   */
+  private getSourcesForTask(task: SpotlightTask): string[] {
+    const sources: string[] = [];
+    
+    if (task.isLeadTask) {
+      // Lead tasks always come from Odoo Leads
+      sources.push('odoo_lead');
+    } else {
+      // For customers, check the customer object for source info
+      const customer = task.customer;
+      const customerId = customer.id;
+      
+      // Check for Odoo contact (has odooPartnerId or sources includes 'odoo')
+      if ((customer as any).odooPartnerId || (customer as any).sources?.includes('odoo')) {
+        sources.push('odoo_contact');
+      }
+      
+      // Check for Shopify (ID starts with 'shopify_' or sources includes 'shopify')
+      if (customerId.startsWith('shopify_') || (customer as any).sources?.includes('shopify')) {
+        sources.push('shopify');
+      }
+      
+      // If no sources detected, default based on ID patterns
+      if (sources.length === 0) {
+        if (customerId.startsWith('odoo_')) {
+          sources.push('odoo_contact');
+        }
+      }
+    }
+    
+    return sources;
+  }
+
+  /**
+   * Enrich a task with email count, sample count, and source data
+   */
+  private async enrichTaskWithCounts(task: SpotlightTask): Promise<SpotlightTask> {
+    const [emailCount, sampleCount] = await Promise.all([
+      this.getEmailCountForCustomer(task.customerId),
+      this.getSampleCountForCustomer(task.customerId)
+    ]);
+    const sources = this.getSourcesForTask(task);
+    return { ...task, emailCount, sampleCount, sources };
   }
 }
 

@@ -159,6 +159,8 @@ interface SpotlightTask {
   priority: number;
   whyNow: string;
   emailCount?: number;
+  sampleCount?: number;
+  sources?: string[];
   outcomes: TaskOutcome[];
   customer: {
     id: string;
@@ -179,6 +181,8 @@ interface SpotlightTask {
     pricingTier: string | null;
     isHotProspect: boolean | null;
     customerType: string | null;
+    odooPartnerId?: number | null;
+    sources?: string[] | null;
   };
   lead?: {
     id: number;
@@ -2324,8 +2328,20 @@ export default function Spotlight() {
               {/* Card Container */}
               <div className={`spotlight-card p-6 flex-1 relative ${task.isLeadTask ? 'ring-2 ring-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-green-50 shadow-emerald-100' : 'bg-white'} rounded-l-none`}>
               
-              {/* Email Count + Lead/Hot Badge - Top Right Corner */}
-              <div className="absolute top-4 right-4 flex items-start gap-3">
+              {/* Email/Sample Count + Lead/Hot Badge - Top Right Corner */}
+              <div className="absolute top-4 right-4 flex items-start gap-2">
+                {/* Sample Count Circle - shows swatchbooks/press test kits sent */}
+                {(task.sampleCount ?? 0) > 0 && (
+                  <div className="flex flex-col items-center gap-1" title={`${task.sampleCount} sample${task.sampleCount === 1 ? '' : 's'}/swatchbook${task.sampleCount === 1 ? '' : 's'} sent`}>
+                    <div className="w-10 h-10 rounded-full bg-cyan-100 border-2 border-cyan-300 flex items-center justify-center shadow-sm">
+                      <div className="flex flex-col items-center">
+                        <Package className="w-4 h-4 text-cyan-600" />
+                        <span className="text-[10px] font-bold text-cyan-700 -mt-0.5">{task.sampleCount}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Email Count Circle - shows how many emails sent to this contact */}
                 {(task.emailCount ?? 0) > 0 && (
                   <div className="flex flex-col items-center gap-1" title={`${task.emailCount} email${task.emailCount === 1 ? '' : 's'} sent from this app`}>
@@ -2417,27 +2433,39 @@ export default function Spotlight() {
                         <ExternalLink className="w-4 h-4" />
                       </button>
                     )}
-                    {/* Source Logos */}
-                    {!task.isLeadTask && (
-                      <div className="flex items-center gap-1.5 ml-1">
-                        {(customer.sources?.includes('odoo') || customer.odooPartnerId) && (
-                          <span 
-                            className="flex items-center justify-center w-6 h-6 rounded bg-purple-100 text-purple-600"
-                            title="Customer from Odoo"
-                          >
-                            <span className="text-[10px] font-bold">O</span>
-                          </span>
-                        )}
-                        {(customer.sources?.includes('shopify') || customer.id?.startsWith('shopify_')) && (
-                          <span 
-                            className="flex items-center justify-center w-6 h-6 rounded bg-green-100 text-green-600"
-                            title="Customer from Shopify"
-                          >
-                            <SiShopify className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Source Badges - shows where this contact/lead comes from */}
+                    <div className="flex items-center gap-1.5 ml-1">
+                      {/* Odoo Lead */}
+                      {(task.sources?.includes('odoo_lead') || task.isLeadTask) && (
+                        <span 
+                          className="flex items-center gap-1 px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200"
+                          title="From Odoo Leads"
+                        >
+                          <span className="text-[10px] font-bold">O</span>
+                          <span className="text-[9px] font-medium">Lead</span>
+                        </span>
+                      )}
+                      {/* Odoo Contact */}
+                      {(task.sources?.includes('odoo_contact') || (!task.isLeadTask && (customer.sources?.includes('odoo') || customer.odooPartnerId))) && (
+                        <span 
+                          className="flex items-center gap-1 px-2 py-0.5 rounded bg-violet-100 text-violet-700 border border-violet-200"
+                          title="From Odoo Contacts"
+                        >
+                          <span className="text-[10px] font-bold">O</span>
+                          <span className="text-[9px] font-medium">Contact</span>
+                        </span>
+                      )}
+                      {/* Shopify */}
+                      {(task.sources?.includes('shopify') || customer.sources?.includes('shopify') || customer.id?.startsWith('shopify_')) && (
+                        <span 
+                          className="flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-200"
+                          title="From Shopify"
+                        >
+                          <SiShopify className="w-3 h-3" />
+                          <span className="text-[9px] font-medium">Shopify</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {/* Company Name */}
                   <p className={`text-base font-medium ${(task.isLeadTask ? task.lead?.company : customer.company) ? 'text-slate-600' : 'text-slate-400 italic'}`}>
