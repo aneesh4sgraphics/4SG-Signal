@@ -2822,6 +2822,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get customers worked on today for SPOTLIGHT sidebar navigation
+  app.get("/api/spotlight/worked-today", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      
+      // Use consistent 6pm cutoff date logic
+      const now = new Date();
+      const hour = now.getHours();
+      let today: Date;
+      if (hour >= 18) {
+        today = new Date(now);
+        today.setHours(18, 0, 0, 0);
+      } else {
+        today = new Date(now);
+        today.setDate(today.getDate() - 1);
+        today.setHours(18, 0, 0, 0);
+      }
+      
+      // Get distinct customers from spotlight_events for this user today
+      // Use subquery to get most recent interaction per customer, then get distinct
+      const workedCustomersRaw = await db.select({
+        customerId: spotlightEvents.customerId,
+        createdAt: sql<Date>`MAX(${spotlightEvents.createdAt})`.as('max_created'),
+      })
+      .from(spotlightEvents)
+      .where(
+        and(
+          eq(spotlightEvents.userId, userId),
+          isNotNull(spotlightEvents.customerId),
+          gte(spotlightEvents.createdAt, today)
+        )
+      )
+      .groupBy(spotlightEvents.customerId)
+      .orderBy(desc(sql`MAX(${spotlightEvents.createdAt})`));
+      
+      const workedCustomers = workedCustomersRaw.map(r => ({ customerId: r.customerId }));
+      
+      // Get customer details for each worked customer
+      const customerIds = workedCustomers.map(c => c.customerId).filter(Boolean) as string[];
+      
+      if (customerIds.length === 0) {
+        return res.json({ customers: [] });
+      }
+      
+      const customerDetails = await db.select({
+        id: customers.id,
+        companyName: customers.companyName,
+        email: customers.email,
+      })
+      .from(customers)
+      .where(inArray(customers.id, customerIds));
+      
+      // Also check leads table for any lead IDs
+      const leadDetails = await db.select({
+        id: leads.id,
+        companyName: leads.companyName,
+        email: leads.email,
+      })
+      .from(leads)
+      .where(inArray(leads.id, customerIds));
+      
+      // Combine and map to preserve order
+      const allDetails = [...customerDetails, ...leadDetails];
+      const detailsMap = new Map(allDetails.map(c => [c.id, c]));
+      
+      const result = customerIds
+        .map(id => detailsMap.get(id))
+        .filter(Boolean)
+        .map(c => ({
+          id: c!.id,
+          name: c!.companyName || c!.email || 'Unknown',
+          email: c!.email,
+        }));
+      
+      res.json({ customers: result });
+    } catch (error) {
+      console.error("Error getting worked customers:", error);
+      res.status(500).json({ error: "Failed to fetch worked customers" });
+    }
+  });
+
   // --- Comprehensive diagnostics endpoint ---
   app.get('/api/diagnostics', async (_req, res) => {
     try {

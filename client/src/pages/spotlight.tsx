@@ -617,6 +617,14 @@ export default function Spotlight() {
     staleTime: 30 * 1000, // Refresh every 30 seconds
   });
 
+  // Fetch customers worked on today for sidebar navigation
+  const { data: workedTodayData } = useQuery<{
+    customers: Array<{ id: string; name: string; email: string | null }>;
+  }>({
+    queryKey: ['/api/spotlight/worked-today'],
+    staleTime: 30 * 1000,
+  });
+
   useEffect(() => {
     const resetIdleTimer = () => {
       lastActivityRef.current = Date.now();
@@ -1984,6 +1992,40 @@ export default function Spotlight() {
                 </div>
               );
             })()}
+
+            {/* Worked On Today - Quick Navigation */}
+            {workedTodayData?.customers && workedTodayData.customers.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm p-4 mt-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  Worked On Today
+                </p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {workedTodayData.customers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      onClick={() => {
+                        // Navigate to the customer detail page
+                        setLocation(`/odoo-contacts/${customer.id}`);
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors group"
+                    >
+                      <div className="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">
+                        {customer.name}
+                      </div>
+                      {customer.email && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {customer.email}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-center text-muted-foreground mt-2 pt-2 border-t">
+                  {workedTodayData.customers.length} contact{workedTodayData.customers.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         
