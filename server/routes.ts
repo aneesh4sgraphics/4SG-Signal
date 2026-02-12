@@ -23022,17 +23022,22 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         recent_customers AS (
           SELECT 
             se.user_id,
+            c.odoo_partner_id,
+            c.id as customer_id,
             COALESCE(NULLIF(c.company, ''), NULLIF(CONCAT(c.first_name, ' ', c.last_name), ' '), c.email) as customer_name
           FROM spotlight_events se
           JOIN customers c ON se.customer_id::text = c.id::text
           WHERE se.event_type = 'completed'
             AND se.created_at >= ${thisWeekStart}
-          GROUP BY se.user_id, c.company, c.first_name, c.last_name, c.email
+          GROUP BY se.user_id, c.id, c.odoo_partner_id, c.company, c.first_name, c.last_name, c.email
         ),
         customer_names AS (
           SELECT 
             user_id,
-            array_agg(DISTINCT customer_name ORDER BY customer_name) as customers_worked
+            jsonb_agg(
+              jsonb_build_object('name', customer_name, 'odooPartnerId', odoo_partner_id, 'id', customer_id)
+              ORDER BY customer_name
+            ) as customers_worked
           FROM recent_customers
           WHERE customer_name IS NOT NULL AND customer_name != ''
           GROUP BY user_id
@@ -23049,7 +23054,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
           COALESCE(lt.total_leads, 0)::int as total_leads,
           COALESCE(lt.leads_emailed, 0)::int as leads_emailed,
           COALESCE(lt.leads_replied, 0)::int as leads_replied,
-          COALESCE(cn.customers_worked, ARRAY[]::text[]) as customers_worked
+          COALESCE(cn.customers_worked, '[]'::jsonb) as customers_worked
         FROM bucket_agg ba
         LEFT JOIN hot_leads hl ON ba.user_id = hl.sales_rep_id
         LEFT JOIN leads_touched lt ON ba.user_id = lt.sales_rep_id

@@ -140,7 +140,7 @@ export default function Dashboard() {
     total_leads: number;
     leads_emailed: number;
     leads_replied: number;
-    customers_worked: string[];
+    customers_worked: { name: string; odooPartnerId: number | null; id: string }[];
   }
 
   const { data: leaderboardData } = useQuery<{
@@ -422,11 +422,15 @@ export default function Dashboard() {
                             Customers This Week ({repUser.customers_worked.length})
                           </div>
                           <div className="max-h-24 overflow-y-auto space-y-0.5">
-                            {repUser.customers_worked.slice(0, 15).map((name, i) => (
-                              <div key={i} className="text-xs text-gray-700 truncate flex items-center gap-1">
-                                <span className="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0" />
-                                {name}
-                              </div>
+                            {repUser.customers_worked.slice(0, 15).map((cust, i) => (
+                              <Link
+                                key={i}
+                                href={cust.odooPartnerId ? `/odoo-contacts/${cust.odooPartnerId}` : `/odoo-contacts/${cust.id}`}
+                                className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate flex items-center gap-1 cursor-pointer"
+                              >
+                                <span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />
+                                {cust.name}
+                              </Link>
                             ))}
                             {repUser.customers_worked.length > 15 && (
                               <div className="text-[10px] text-gray-400 italic mt-0.5">
