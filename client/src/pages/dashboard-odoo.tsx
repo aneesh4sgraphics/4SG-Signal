@@ -31,13 +31,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { primaryApps, filterAppsByUser } from "@/lib/nav-links";
 import { useAuth } from "@/hooks/useAuth";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ConnectionPrompt } from "@/components/ConnectionPrompt";
 import { DailyProgressHero } from "@/components/DailyProgressHero";
 import { useQuery } from "@tanstack/react-query";
-import { useAppUsage } from "@/hooks/useAppUsage";
 
 interface DashboardStats {
   totalQuotes: number;
@@ -103,7 +100,6 @@ interface ApiCostStats {
 export default function Dashboard() {
   const { user, isLoading } = useAuth();
 
-  const { trackUsage } = useAppUsage();
 
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -144,6 +140,7 @@ export default function Dashboard() {
     total_leads: number;
     leads_emailed: number;
     leads_replied: number;
+    customers_worked: string[];
   }
 
   const { data: leaderboardData } = useQuery<{
@@ -417,89 +414,34 @@ export default function Dashboard() {
                           })}
                         </div>
                       )}
+
+                      {/* Customers Worked This Week */}
+                      {repUser.customers_worked && repUser.customers_worked.length > 0 && (
+                        <div className="mt-2 bg-white/80 rounded-lg p-2">
+                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            Customers This Week ({repUser.customers_worked.length})
+                          </div>
+                          <div className="max-h-24 overflow-y-auto space-y-0.5">
+                            {repUser.customers_worked.slice(0, 15).map((name, i) => (
+                              <div key={i} className="text-xs text-gray-700 truncate flex items-center gap-1">
+                                <span className="w-1 h-1 rounded-full bg-gray-400 flex-shrink-0" />
+                                {name}
+                              </div>
+                            ))}
+                            {repUser.customers_worked.length > 15 && (
+                              <div className="text-[10px] text-gray-400 italic mt-0.5">
+                                +{repUser.customers_worked.length - 15} more
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
-
-          {/* Notion-style Top Icon Bar */}
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '12px',
-            border: '1px solid #EAEAEA',
-            marginBottom: '24px',
-            padding: '12px 16px',
-          }}>
-            <ScrollArea className="w-full">
-              <div style={{ display: 'flex', gap: '8px', paddingBottom: '4px' }}>
-                {filterAppsByUser(primaryApps, user?.email).map((app) => {
-                  const Icon = app.icon;
-                  return (
-                    <Link
-                      key={app.path}
-                      href={app.path}
-                      onClick={() => trackUsage(app.path)}
-                      style={{ textDecoration: 'none' }}
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'flex-start',
-                              padding: '12px 8px',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              transition: 'background 0.15s ease',
-                              width: '80px',
-                              minHeight: '72px',
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#F2F2F2'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            data-testid={`icon-${app.label.toLowerCase().replace(/\s+/g, '-')}`}
-                          >
-                            <div style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '8px',
-                              backgroundColor: app.iconBg || '#878682',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginBottom: '8px',
-                            }}>
-                              <Icon size={18} style={{ color: app.iconColor || '#FFFFFF' }} />
-                            </div>
-                            <span style={{
-                              fontSize: '9px',
-                              fontWeight: 600,
-                              color: '#37352F',
-                              textAlign: 'center',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              lineHeight: 1.3,
-                              maxWidth: '72px',
-                              wordWrap: 'break-word',
-                            }}>
-                              {app.label}
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>{app.description || app.label}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Link>
-                  );
-                })}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </div>
 
           {/* Quick Action Cards - Two Column Grid */}
           <div style={{ 
