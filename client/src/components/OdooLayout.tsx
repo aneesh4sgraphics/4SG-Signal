@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppUsage, AppUsageProvider } from '@/hooks/useAppUsage';
 import { CommandPalette, useCommandPalette, NAV_ITEMS } from './CommandPalette';
 import { AppSwitcherDrawer } from './AppSwitcherDrawer';
-import TutorialCenter from './TutorialCenter';
 import {
   SettingsIcon,
   LogoutIcon,
@@ -18,7 +17,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CommandIcon,
-  TutorialIcon,
 } from '@/components/HandDrawnIcons';
 import {
   DropdownMenu,
@@ -95,7 +93,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
   const { trackUsage } = useAppUsage();
@@ -255,18 +252,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
           {sidebarExpanded ? <ChevronLeftIcon className="h-3 w-3 text-[#73726E]" /> : <ChevronRightIcon className="h-3 w-3 text-[#73726E]" />}
         </button>
 
-        <div className="px-3 py-3">
-          <button
-            onClick={() => setTutorialOpen(true)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]"
-            title={!sidebarExpanded ? 'Learning Center' : undefined}
-            data-testid="button-tutorials"
-          >
-            <TutorialIcon className="h-5 w-5 flex-shrink-0" />
-            {sidebarExpanded && <span className="text-sm">Tutorials</span>}
-          </button>
-        </div>
-
         <nav className="flex-1 py-2 overflow-y-auto">
           <div className="px-3 space-y-1">
             {sidebarExpanded && (
@@ -403,7 +388,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
         onClose={() => setAppSwitcherOpen(false)}
         onOpenCommandPalette={() => setCommandOpen(true)}
       />
-      <TutorialCenter open={tutorialOpen} onOpenChange={setTutorialOpen} />
     </div>
   );
 }
