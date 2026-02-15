@@ -2538,6 +2538,22 @@ export default function Spotlight() {
                           <span className="text-[9px] font-medium">Shopify</span>
                         </span>
                       )}
+                      {/* Opportunity Score Badge */}
+                      {(task as any).extraContext?.opportunityScore && (
+                        <span 
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded border font-semibold ${
+                            (task as any).extraContext.opportunityScore >= 70
+                              ? 'bg-green-100 text-green-800 border-green-300'
+                              : (task as any).extraContext.opportunityScore >= 50
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-blue-100 text-blue-800 border-blue-300'
+                          }`}
+                          title={`Opportunity Score: ${(task as any).extraContext.opportunityScore}/100`}
+                        >
+                          <Star className="w-3 h-3" />
+                          <span className="text-[9px]">{(task as any).extraContext.opportunityScore}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                   {/* Company Name */}

@@ -53,6 +53,8 @@ import {
   GitMerge,
   Trash2,
   Truck,
+  Star,
+  Target,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
@@ -191,6 +193,17 @@ export default function OdooCompanyDetail() {
     queryFn: async () => {
       const res = await fetch(`/api/odoo/customer/${companyId}/business-metrics`);
       if (!res.ok) throw new Error('Failed to fetch metrics');
+      return res.json();
+    },
+    enabled: !!companyId,
+    staleTime: 60000,
+  });
+
+  const { data: opportunityData } = useQuery<any>({
+    queryKey: ['/api/opportunities/customer', companyId],
+    queryFn: async () => {
+      const res = await fetch(`/api/opportunities/customer/${companyId}`);
+      if (!res.ok) return null;
       return res.json();
     },
     enabled: !!companyId,
@@ -939,6 +952,18 @@ export default function OdooCompanyDetail() {
                   {company.isHotProspect && (
                     <Badge className="bg-orange-100 text-orange-700">Hot Prospect</Badge>
                   )}
+                  {opportunityData?.score > 0 && (
+                    <Badge className={`flex items-center gap-1 ${
+                      opportunityData.score >= 70
+                        ? 'bg-green-100 text-green-800 border-green-300'
+                        : opportunityData.score >= 50
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-blue-100 text-blue-800 border-blue-300'
+                    }`}>
+                      <Star className="w-3 h-3" />
+                      Score: {opportunityData.score}
+                    </Badge>
+                  )}
                   {!metrics?.connected && (
                     <Badge variant="outline" className="text-amber-600 border-amber-300">
                       Not linked to Odoo
@@ -1490,6 +1515,41 @@ export default function OdooCompanyDetail() {
                 </CardContent>
               </Card>
             </div>
+
+            {opportunityData?.score > 0 && opportunityData?.signals?.length > 0 && (
+              <Card className="border-amber-200 bg-amber-50/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Target className="w-5 h-5 text-amber-500" />
+                    Opportunity Signals
+                    <Badge className={`ml-auto ${
+                      opportunityData.score >= 70
+                        ? 'bg-green-100 text-green-800'
+                        : opportunityData.score >= 50
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      Score: {opportunityData.score}/100
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {opportunityData.signals.map((signal: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 text-sm p-2 bg-white rounded-lg border border-amber-100">
+                        <span className="text-green-600 font-semibold shrink-0">+{signal.points}</span>
+                        <span className="text-gray-700">{signal.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {opportunityData.opportunityType && (
+                    <div className="mt-3 text-xs text-gray-500">
+                      Type: <span className="capitalize font-medium">{opportunityData.opportunityType.replace(/_/g, ' ')}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-2">

@@ -24600,6 +24600,99 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // ========================================
+  // OPPORTUNITY ENGINE ROUTES
+  // ========================================
+
+  app.get("/api/opportunities", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const { type, limit, minScore } = req.query;
+      const opportunities = await opportunityEngine.getTopOpportunities({
+        salesRepId: req.user?.id,
+        opportunityType: type as any,
+        limit: limit ? parseInt(limit as string) : 50,
+        minScore: minScore ? parseInt(minScore as string) : 20,
+      });
+      res.json(opportunities);
+    } catch (error) {
+      console.error("Error fetching opportunities:", error);
+      res.status(500).json({ error: "Failed to fetch opportunities" });
+    }
+  });
+
+  app.get("/api/opportunities/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const summary = await opportunityEngine.getOpportunitySummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching opportunity summary:", error);
+      res.status(500).json({ error: "Failed to fetch summary" });
+    }
+  });
+
+  app.get("/api/opportunities/customer/:customerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const result = await opportunityEngine.getCustomerOpportunityScore(req.params.customerId);
+      res.json(result || { score: 0, signals: [], opportunities: [] });
+    } catch (error) {
+      console.error("Error fetching customer opportunity score:", error);
+      res.status(500).json({ error: "Failed to fetch score" });
+    }
+  });
+
+  app.post("/api/opportunities/recalculate", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const result = await opportunityEngine.calculateAndStoreScores();
+      res.json(result);
+    } catch (error) {
+      console.error("Error recalculating opportunities:", error);
+      res.status(500).json({ error: "Failed to recalculate" });
+    }
+  });
+
+  app.post("/api/opportunities/detect-samples", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const detected = await opportunityEngine.detectSampleShipments();
+      res.json({ detected });
+    } catch (error) {
+      console.error("Error detecting samples:", error);
+      res.status(500).json({ error: "Failed to detect samples" });
+    }
+  });
+
+  app.get("/api/opportunities/sample-followups", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const followUps = await opportunityEngine.getSampleShipmentsNeedingFollowUp();
+      res.json(followUps);
+    } catch (error) {
+      console.error("Error fetching sample follow-ups:", error);
+      res.status(500).json({ error: "Failed to fetch follow-ups" });
+    }
+  });
+
+  app.post("/api/opportunities/sample-followup/:shipmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const { type, outcome } = req.body;
+      await opportunityEngine.recordFollowUp(
+        parseInt(req.params.shipmentId),
+        type || 'other',
+        req.user?.id,
+        outcome
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error recording follow-up:", error);
+      res.status(500).json({ error: "Failed to record follow-up" });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });

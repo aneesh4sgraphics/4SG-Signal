@@ -2608,6 +2608,258 @@ class SpotlightEngine {
     return null;
   }
 
+  private async findOpportunitySampleFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const followUps = await opportunityEngine.getSampleShipmentsNeedingFollowUp();
+      
+      for (const fu of followUps) {
+        const shipment = fu.shipment;
+        if (!shipment.customerId) continue;
+        if (skippedIds.includes(shipment.customerId)) continue;
+        
+        const [cust] = await db
+          .select({
+            id: customers.id,
+            salesRepId: customers.salesRepId,
+            doNotContact: customers.doNotContact,
+          })
+          .from(customers)
+          .where(eq(customers.id, shipment.customerId))
+          .limit(1);
+        
+        if (!cust || cust.doNotContact) continue;
+        if (cust.salesRepId && cust.salesRepId !== userId) continue;
+        
+        const step = (shipment.followUpStep || 0) + 1;
+        const history = (shipment.followUpHistory || []) as any[];
+        const hasCall = history.some((h: any) => h.type === 'call');
+        const needsCall = step === 3 && !hasCall;
+        
+        const daysSinceDelivery = shipment.estimatedDeliveryAt
+          ? Math.floor((Date.now() - new Date(shipment.estimatedDeliveryAt).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        let whyNow = `📦 Samples delivered ~${daysSinceDelivery} days ago`;
+        if (shipment.sourceOrderName) whyNow += ` (${shipment.sourceOrderName})`;
+        whyNow += ` — Follow-up ${step} of 3`;
+        if (needsCall) whyNow += ' (Call required!)';
+
+        const outcomes: TaskOutcome[] = needsCall
+          ? [
+              { id: 'called', label: 'Called Customer', icon: 'phone', nextAction: { type: 'mark_complete' } },
+              { id: 'voicemail', label: 'Left Voicemail', icon: 'voicemail', nextAction: { type: 'schedule_follow_up', daysUntil: 2 } },
+              { id: 'order_placed', label: 'They Ordered!', icon: 'check', nextAction: { type: 'mark_complete' } },
+              { id: 'not_interested', label: 'Not Interested', icon: 'x', nextAction: { type: 'mark_complete' } },
+            ]
+          : [
+              { id: 'called', label: 'Called Customer', icon: 'phone', nextAction: { type: 'mark_complete' } },
+              { id: 'email_sent', label: 'Sent Follow-up Email', icon: 'mail', nextAction: { type: 'mark_complete' } },
+              { id: 'order_placed', label: 'They Ordered!', icon: 'check', nextAction: { type: 'mark_complete' } },
+              { id: 'not_interested', label: 'Not Interested', icon: 'x', nextAction: { type: 'mark_complete' } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+
+        return {
+          id: `follow_ups::${shipment.customerId}::opportunity_sample_${shipment.id}_step${step}`,
+          customerId: shipment.customerId,
+          bucket: 'follow_ups',
+          taskSubtype: 'opportunity_sample_followup',
+          priority: 88,
+          whyNow,
+          outcomes,
+          customer: {
+            id: shipment.customerId,
+            company: fu.customerCompany,
+            firstName: fu.customerFirstName,
+            lastName: fu.customerLastName,
+            email: fu.customerEmail,
+            phone: fu.customerPhone,
+            address1: null,
+            address2: null,
+            city: null,
+            province: fu.customerProvince,
+            zip: null,
+            country: null,
+            website: null,
+            salesRepId: cust.salesRepId,
+            salesRepName: null,
+            pricingTier: null,
+          },
+          extraContext: {
+            shipmentId: shipment.id,
+            followUpStep: step,
+            needsCall,
+            estimatedDeliveryDate: shipment.estimatedDeliveryAt?.toISOString(),
+            sourceOrderName: shipment.sourceOrderName,
+            isProTip: true,
+            proTipMessage: needsCall
+              ? `This is follow-up #${step} of 3. At least one follow-up must be a call — time to pick up the phone!`
+              : `Follow-up #${step} of 3. You can call or email. Samples were shipped ${shipment.estimatedTransitDays || '?'} days transit to ${shipment.deliveryState || 'their state'}.`,
+          },
+        };
+      }
+    } catch (error) {
+      console.error('[Spotlight] Error finding opportunity sample follow-up task:', error);
+    }
+    return null;
+  }
+
+  private async findOpportunityTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    try {
+      const { opportunityEngine } = await import("./opportunity-engine");
+      const opportunities = await opportunityEngine.getTopOpportunities({
+        salesRepId: userId,
+        minScore: 30,
+        limit: 20,
+      });
+
+      for (const opp of opportunities) {
+        if (!opp.customerId) continue;
+        if (skippedIds.includes(opp.customerId)) continue;
+        
+        const [cust] = await db
+          .select({
+            id: customers.id,
+            salesRepId: customers.salesRepId,
+            doNotContact: customers.doNotContact,
+            company: customers.company,
+            firstName: customers.firstName,
+            lastName: customers.lastName,
+            email: customers.email,
+            phone: customers.phone,
+            address1: customers.address1,
+            address2: customers.address2,
+            city: customers.city,
+            province: customers.province,
+            zip: customers.zip,
+            country: customers.country,
+            website: customers.website,
+            salesRepName: customers.salesRepName,
+            pricingTier: customers.pricingTier,
+          })
+          .from(customers)
+          .where(eq(customers.id, opp.customerId))
+          .limit(1);
+
+        if (!cust || cust.doNotContact) continue;
+        if (cust.salesRepId && cust.salesRepId !== userId) continue;
+
+        const alreadyHandled = await db
+          .select({ id: spotlightEvents.id })
+          .from(spotlightEvents)
+          .where(and(
+            eq(spotlightEvents.customerId, opp.customerId),
+            eq(spotlightEvents.eventType, 'task_completed'),
+            sql`${spotlightEvents.metadata}->>'opportunityId' = ${String(opp.id)}`,
+          ))
+          .limit(1);
+
+        if (alreadyHandled.length > 0) continue;
+
+        const signalSummary = opp.signals.map(s => s.detail).filter(Boolean).join(' | ');
+        let whyNow = '';
+        let taskSubtype = '';
+        let outcomes: TaskOutcome[] = [];
+
+        switch (opp.opportunityType) {
+          case 'went_quiet':
+            whyNow = `🔕 Was engaged but went quiet — Score: ${opp.score}/100. ${signalSummary}`;
+            taskSubtype = 'opportunity_quiet_rescue';
+            outcomes = [
+              { id: 'called', label: 'Called to Check In', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'email_sent', label: 'Sent Re-engagement Email', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 7 } },
+              { id: 'responded', label: 'Got Response!', icon: 'check', nextAction: { type: 'mark_complete' } },
+              { id: 'not_interested', label: 'Not Interested', icon: 'x', nextAction: { type: 'mark_complete' } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+            break;
+          case 'upsell_potential':
+            whyNow = `📈 Small order placed — upsell opportunity! Score: ${opp.score}/100. ${signalSummary}`;
+            taskSubtype = 'opportunity_upsell';
+            outcomes = [
+              { id: 'called', label: 'Discussed Larger Order', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 7 } },
+              { id: 'email_sent', label: 'Sent Product Suggestions', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'order_placed', label: 'New Order Placed!', icon: 'check', nextAction: { type: 'mark_complete' } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+            break;
+          case 'machine_match':
+            whyNow = `🖨️ Has digital printing machines — great fit! Score: ${opp.score}/100. ${signalSummary}`;
+            taskSubtype = 'opportunity_new_fit';
+            outcomes = [
+              { id: 'called', label: 'Introduced Ourselves', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'email_sent', label: 'Sent Introduction', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 7 } },
+              { id: 'sample_sent', label: 'Sending Samples', icon: 'package', nextAction: { type: 'schedule_follow_up', daysUntil: 10 } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+            break;
+          case 'new_fit':
+            whyNow = `⭐ High-potential prospect — Score: ${opp.score}/100. ${signalSummary}`;
+            taskSubtype = 'opportunity_new_fit';
+            outcomes = [
+              { id: 'called', label: 'Made Contact', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'email_sent', label: 'Sent Email', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'sample_sent', label: 'Sending Samples', icon: 'package', nextAction: { type: 'schedule_follow_up', daysUntil: 10 } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+            break;
+          case 'reorder_due':
+            whyNow = `🔄 Likely due for reorder — Score: ${opp.score}/100. ${signalSummary}`;
+            taskSubtype = 'opportunity_reorder';
+            outcomes = [
+              { id: 'called', label: 'Called About Reorder', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 7 } },
+              { id: 'email_sent', label: 'Sent Reorder Reminder', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 5 } },
+              { id: 'order_placed', label: 'Reorder Placed!', icon: 'check', nextAction: { type: 'mark_complete' } },
+              { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+            ];
+            break;
+          default:
+            continue;
+        }
+
+        return {
+          id: `follow_ups::${opp.customerId}::opportunity_${opp.opportunityType}_${opp.id}`,
+          customerId: opp.customerId,
+          bucket: 'follow_ups',
+          taskSubtype,
+          priority: Math.min(opp.score, 85),
+          whyNow,
+          outcomes,
+          customer: {
+            id: cust.id,
+            company: cust.company,
+            firstName: cust.firstName,
+            lastName: cust.lastName,
+            email: cust.email,
+            phone: cust.phone,
+            address1: cust.address1,
+            address2: cust.address2,
+            city: cust.city,
+            province: cust.province,
+            zip: cust.zip,
+            country: cust.country,
+            website: cust.website,
+            salesRepId: cust.salesRepId,
+            salesRepName: cust.salesRepName,
+            pricingTier: cust.pricingTier,
+          },
+          extraContext: {
+            opportunityId: opp.id,
+            opportunityType: opp.opportunityType,
+            opportunityScore: opp.score,
+            signals: opp.signals,
+            isProTip: true,
+            proTipMessage: `Opportunity Score: ${opp.score}/100 — This prospect is worth pursuing!`,
+          },
+        };
+      }
+    } catch (error) {
+      console.error('[Spotlight] Error finding opportunity task:', error);
+    }
+    return null;
+  }
+
   private async findFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
     const now = new Date();
     const customerSkippedIds = skippedIds.filter(id => !id.startsWith('lead-'));
@@ -2748,6 +3000,18 @@ class SpotlightEngine {
     const sampleOrderTask = await this.findOdooSampleOrderFollowUpTask(userId, customerSkippedIds);
     if (sampleOrderTask) {
       return sampleOrderTask;
+    }
+    
+    // PRIORITY 1.7: Smart sample follow-up (delivery-aware, 3-touch sequence)
+    const opportunitySampleTask = await this.findOpportunitySampleFollowUpTask(userId, customerSkippedIds);
+    if (opportunitySampleTask) {
+      return opportunitySampleTask;
+    }
+    
+    // PRIORITY 1.8: High-scoring opportunity tasks (went quiet, upsell, machine match)
+    const opportunityTask = await this.findOpportunityTask(userId, customerSkippedIds);
+    if (opportunityTask) {
+      return opportunityTask;
     }
     
     // PRIORITY 2: Lead follow-up tasks (leads that need nurturing/follow-up)

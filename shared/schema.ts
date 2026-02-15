@@ -3384,5 +3384,149 @@ export const TASK_ENERGY_COSTS: Record<string, { energyCost: number; difficulty:
   'enablement_swatchbook': { energyCost: 12, difficulty: 'medium' },
   'enablement_press_test': { energyCost: 12, difficulty: 'medium' },
   'enablement_price_list': { energyCost: 10, difficulty: 'easy' },
+  'opportunity_sample_followup': { energyCost: 15, difficulty: 'medium' },
+  'opportunity_quiet_rescue': { energyCost: 20, difficulty: 'hard' },
+  'opportunity_upsell': { energyCost: 15, difficulty: 'medium' },
+  'opportunity_new_fit': { energyCost: 10, difficulty: 'easy' },
+  'opportunity_reorder': { energyCost: 15, difficulty: 'medium' },
 };
+
+// ========================================
+// OPPORTUNITY SCORING & DETECTION SCHEMA
+// ========================================
+
+export const OPPORTUNITY_TYPES = [
+  'sample_no_order',
+  'went_quiet',
+  'upsell_potential',
+  'new_fit',
+  'reorder_due',
+  'machine_match',
+] as const;
+export type OpportunityType = typeof OPPORTUNITY_TYPES[number];
+
+export const OPPORTUNITY_TYPE_LABELS: Record<OpportunityType, string> = {
+  'sample_no_order': 'Samples Sent, No Order Yet',
+  'went_quiet': 'Went Quiet After Interest',
+  'upsell_potential': 'Small Order — Upsell Potential',
+  'new_fit': 'Great Fit — Not Contacted Yet',
+  'reorder_due': 'Reorder Due Soon',
+  'machine_match': 'Has Target Machines — Worth Pursuing',
+};
+
+export const opportunityScores = pgTable("opportunity_scores", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  score: integer("score").notNull().default(0),
+  opportunityType: varchar("opportunity_type", { length: 50 }).notNull(),
+  signals: jsonb("signals").$type<OpportunitySignal[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+  followUpSequenceStep: integer("follow_up_sequence_step").default(0),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  lastFollowUpAt: timestamp("last_follow_up_at"),
+  followUpHistory: jsonb("follow_up_history").$type<FollowUpEntry[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("opp_scores_customer_idx").on(table.customerId),
+  leadIdx: index("opp_scores_lead_idx").on(table.leadId),
+  scoreIdx: index("opp_scores_score_idx").on(table.score),
+  typeIdx: index("opp_scores_type_idx").on(table.opportunityType),
+  activeIdx: index("opp_scores_active_idx").on(table.isActive),
+  nextFollowUpIdx: index("opp_scores_next_followup_idx").on(table.nextFollowUpAt),
+}));
+
+export const insertOpportunityScoreSchema = createInsertSchema(opportunityScores).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OpportunityScore = typeof opportunityScores.$inferSelect;
+export type InsertOpportunityScore = z.infer<typeof insertOpportunityScoreSchema>;
+
+export interface OpportunitySignal {
+  signal: string;
+  points: number;
+  detail?: string;
+}
+
+export interface FollowUpEntry {
+  step: number;
+  type: 'call' | 'email' | 'other';
+  date: string;
+  outcome?: string;
+  userId?: string;
+}
+
+export const sampleShipments = pgTable("sample_shipments", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  source: varchar("source", { length: 30 }).notNull(),
+  sourceOrderId: varchar("source_order_id", { length: 100 }),
+  sourceOrderName: varchar("source_order_name", { length: 255 }),
+  shippedAt: timestamp("shipped_at").notNull(),
+  estimatedDeliveryAt: timestamp("estimated_delivery_at"),
+  deliveryState: varchar("delivery_state", { length: 50 }),
+  estimatedTransitDays: integer("estimated_transit_days"),
+  followUpStatus: varchar("follow_up_status", { length: 30 }).notNull().default("pending"),
+  followUpStep: integer("follow_up_step").default(0),
+  lastFollowUpAt: timestamp("last_follow_up_at"),
+  followUpHistory: jsonb("follow_up_history").$type<FollowUpEntry[]>().default([]),
+  orderAmount: decimal("order_amount", { precision: 10, scale: 2 }).default("0"),
+  clientRef: varchar("client_ref", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("sample_ship_customer_idx").on(table.customerId),
+  leadIdx: index("sample_ship_lead_idx").on(table.leadId),
+  statusIdx: index("sample_ship_status_idx").on(table.followUpStatus),
+  deliveryIdx: index("sample_ship_delivery_idx").on(table.estimatedDeliveryAt),
+}));
+
+export const insertSampleShipmentSchema = createInsertSchema(sampleShipments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type SampleShipment = typeof sampleShipments.$inferSelect;
+export type InsertSampleShipment = z.infer<typeof insertSampleShipmentSchema>;
+
+export const UPS_GROUND_TRANSIT_DAYS: Record<string, number> = {
+  'FL': 1,
+  'GA': 2, 'AL': 2, 'SC': 2,
+  'NC': 2, 'TN': 3, 'MS': 3, 'LA': 3,
+  'VA': 3, 'KY': 3, 'AR': 3,
+  'TX': 3, 'WV': 3, 'MD': 3, 'DC': 3, 'DE': 3,
+  'PA': 4, 'NJ': 4, 'NY': 4, 'CT': 4, 'OH': 4, 'IN': 4, 'IL': 4, 'MO': 4, 'OK': 4,
+  'MA': 4, 'RI': 4, 'MI': 4, 'WI': 4, 'IA': 4, 'MN': 4, 'KS': 4, 'NE': 4,
+  'NH': 5, 'VT': 5, 'ME': 5, 'SD': 5, 'ND': 5, 'CO': 5, 'NM': 5, 'WY': 5,
+  'MT': 6, 'ID': 6, 'UT': 6, 'AZ': 5, 'NV': 6,
+  'WA': 7, 'OR': 7, 'CA': 6,
+  'AK': 10, 'HI': 10,
+  'PR': 5, 'VI': 7,
+};
+
+export const OPPORTUNITY_SCORING_WEIGHTS = {
+  isPrintingCompany: 20,
+  hasDigitalMachines: 15,
+  sampleSentNoOrder: 15,
+  emailEngagement: 10,
+  highPerformingRegion: 10,
+  smallOrderUpsell: 15,
+  wentQuietAfterInterest: 10,
+  hasWebsite: 5,
+} as const;
+
+export const DIGITAL_PRINTING_MACHINES = [
+  'digital_toner',
+  'digital_inkjet',
+] as const;
+
+export const HIGH_PERFORMING_REGIONS = [
+  'CA', 'TX', 'FL', 'NY', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI',
+  'NJ', 'VA', 'WA', 'MA', 'AZ', 'TN', 'IN', 'MO', 'WI', 'MN',
+] as const;
 
