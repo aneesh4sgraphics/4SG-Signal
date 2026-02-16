@@ -368,7 +368,7 @@ export default function ReportsPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={invoiceData.chartData.map((d, idx) => ({
                         ...d,
-                        waitingToInvoice: idx === 0 ? (invoiceData.waitingToInvoice?.amount || 0) : 0
+                        waitingToInvoice: idx === new Date().getMonth() ? (invoiceData.waitingToInvoice?.amount || 0) : 0
                       }))}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                         <XAxis dataKey="month" fontSize={12} />
