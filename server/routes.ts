@@ -15647,6 +15647,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer Margin Search - search customers and return their average margin from Odoo
+  app.get("/api/customer-margins/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const { q = '' } = req.query;
+      const searchTerm = String(q).trim().toLowerCase();
+      
+      if (searchTerm.length < 2) {
+        return res.json({ results: [] });
+      }
+      
+      const allCustomers = await storage.getCustomers();
+      const matched = allCustomers
+        .filter((c: any) => {
+          const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+          const company = (c.company || '').toLowerCase();
+          const email = (c.email || '').toLowerCase();
+          return name.includes(searchTerm) || company.includes(searchTerm) || email.includes(searchTerm);
+        })
+        .slice(0, 20);
+      
+      const results = await Promise.all(
+        matched.map(async (c: any) => {
+          let marginData: { averageMargin: number | null; lifetimeSales: number; orderCount: number } = {
+            averageMargin: null,
+            lifetimeSales: 0,
+            orderCount: 0,
+          };
+          
+          if (c.odooPartnerId) {
+            try {
+              const saleOrders = await odooClient.searchRead('sale.order', [
+                ['partner_id', '=', c.odooPartnerId],
+                ['state', 'in', ['sale', 'done']],
+              ], ['id', 'margin_percent', 'margin', 'amount_total', 'amount_untaxed'], { limit: 500 });
+              
+              let validMargins = saleOrders
+                .map((order: any) => order.margin_percent)
+                .filter((m: any) => typeof m === 'number' && !isNaN(m) && m !== 0)
+                .map((f: number) => f * 100);
+              
+              if (validMargins.length === 0) {
+                validMargins = saleOrders
+                  .filter((order: any) => {
+                    const margin = parseFloat(order.margin) || 0;
+                    const total = parseFloat(order.amount_total) || 0;
+                    return total > 0 && margin !== 0;
+                  })
+                  .map((order: any) => {
+                    const margin = parseFloat(order.margin) || 0;
+                    const total = parseFloat(order.amount_total) || 0;
+                    return (margin / total) * 100;
+                  });
+              }
+              
+              if (validMargins.length > 0) {
+                const sum = validMargins.reduce((acc: number, val: number) => acc + val, 0);
+                marginData.averageMargin = Math.round((sum / validMargins.length) * 10) / 10;
+              }
+              
+              marginData.lifetimeSales = saleOrders.reduce((sum: number, o: any) => sum + (parseFloat(o.amount_untaxed) || 0), 0);
+              marginData.orderCount = saleOrders.length;
+            } catch (err: any) {
+              console.error(`[Margin Search] Error fetching margin for partner ${c.odooPartnerId}:`, err.message);
+            }
+          }
+          
+          return {
+            id: c.id,
+            company: c.company,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            email: c.email,
+            phone: c.phone,
+            city: c.city,
+            province: c.province,
+            pricingTier: c.pricingTier,
+            odooPartnerId: c.odooPartnerId,
+            ...marginData,
+          };
+        })
+      );
+      
+      res.json({ results });
+    } catch (error: any) {
+      console.error("Error in customer margin search:", error);
+      res.status(500).json({ error: error.message || "Failed to search customer margins" });
+    }
+  });
+
   // Get company contacts (people belonging to this company) from Odoo
   app.get("/api/odoo/customer/:customerId/contacts", requireApproval, async (req: any, res) => {
     try {

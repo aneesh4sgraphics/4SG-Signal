@@ -61,6 +61,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/leads', icon: SparkleIcon, label: 'Leads', keywords: ['leads', 'prospects', 'pipeline', 'sales', 'trust', 'new'], iconBg: '#10B981', iconColor: '#FFFFFF' },
   { path: '/opportunities', icon: SparkleIcon, label: 'Opportunities', keywords: ['opportunities', 'scoring', 'prospects', 'samples', 'upsell', 'follow-up', 'machine', 'fit'], iconBg: '#F59E0B', iconColor: '#FFFFFF' },
   { path: '/odoo-products', icon: PackageIcon, label: 'Products', keywords: ['products', 'inventory', 'catalog', 'items', 'odoo', 'sku'], iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
+  { path: '/customer-margins', icon: ReportsIcon, label: 'Customer Margins', keywords: ['margin', 'margins', 'profit', 'customer', 'average', 'search', 'profitability'], iconBg: '#7C3AED', iconColor: '#FFFFFF' },
   { path: '/reports', icon: ReportsIcon, label: 'Reports', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: CalendarIcon, label: 'Calendar', keywords: ['calendar', 'tasks', 'events', 'schedule', 'google', 'meetings'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/price-list', icon: PriceListIcon, label: 'Price List', keywords: ['prices', 'costs', 'rates'], iconBg: '#DFAB00', iconColor: '#37352F' },
