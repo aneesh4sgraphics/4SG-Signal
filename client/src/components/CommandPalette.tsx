@@ -55,7 +55,8 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { path: '/', icon: DashboardIcon, label: 'Dashboard', keywords: ['home', 'main', 'overview'], iconBg: '#0C6E99', iconColor: '#FFFFFF' },
+  { path: '/', icon: DashboardIcon, label: 'Spotlight', keywords: ['home', 'main', 'overview', 'spotlight', 'coaching', 'tasks', 'email intelligence', 'ai', 'insights'], iconBg: '#0C6E99', iconColor: '#FFFFFF' },
+  { path: '/dashboard', icon: ReportsIcon, label: 'Dashboard', keywords: ['dashboard', 'analytics', 'overview', 'stats', 'charts'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
   { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', keywords: ['quote', 'estimate', 'pricing'], iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/odoo-contacts', icon: ClientsIcon, label: 'Clients', keywords: ['customers', 'contacts', 'database', 'odoo', 'partners'], iconBg: '#693FA5', iconColor: '#FFFFFF' },
   { path: '/leads', icon: SparkleIcon, label: 'Leads', keywords: ['leads', 'prospects', 'pipeline', 'sales', 'trust', 'new'], iconBg: '#10B981', iconColor: '#FFFFFF' },
@@ -74,7 +75,6 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/crm-journey', icon: CrmJourneyIcon, label: 'CRM Journey', keywords: ['pipeline', 'sales', 'customers', 'conversion', 'samples', 'swatches'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/objections', icon: ObjectionsIcon, label: 'Objections', keywords: ['objections', 'issues', 'blockers', 'concerns', 'problems'], iconBg: '#DFAB00', iconColor: '#37352F' },
   { path: '/email-app', icon: EmailIcon, label: 'Email Studio', keywords: ['email', 'templates', 'mail', 'compose', 'send'], adminOnly: true, iconBg: '#AD1972', iconColor: '#FFFFFF' },
-  { path: '/email-insights', icon: SparkleIcon, label: 'Email Intelligence', keywords: ['ai', 'insights', 'promises', 'followup', 'sales', 'opportunities', 'reminders'], iconBg: '#64473A', iconColor: '#FFFFFF' },
   { path: '/integrations', icon: IntegrationsIcon, label: 'Integrations', keywords: ['gmail', 'calendar', 'odoo', 'connect', 'settings', 'google'], adminOnly: true, iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/product-mapping', icon: ProductMappingIcon, label: 'Product Mapping', keywords: ['map', 'category', 'type', 'size', 'sqm', 'fix', 'unmapped'], adminOnly: true, iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/shopify-settings', icon: SiShopify, label: 'Shopify', keywords: ['shopify', 'orders', 'ecommerce', 'integration'], adminOnly: true, iconBg: '#0E7B6C', iconColor: '#FFFFFF' },

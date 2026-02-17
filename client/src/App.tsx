@@ -38,7 +38,6 @@ import ProductMappingPage from "@/pages/product-mapping";
 import SalesAnalyticsPage from "@/pages/sales-analytics";
 import ReportsPage from "@/pages/reports";
 import CostDashboard from "@/pages/cost-dashboard";
-import GmailInsightsPage from "@/pages/gmail-insights";
 import EmailSyncDebug from "@/pages/email-sync-debug";
 import Spotlight from "@/pages/spotlight";
 import CalendarPage from "@/pages/calendar";
@@ -105,7 +104,7 @@ const AppRoutes = () => (
     <Route path="/product-labels" component={ProductLabels} />
     <Route path="/crm-journey" component={CRMJourneyDashboard} />
     <Route path="/email-app" component={EmailApp} />
-    <Route path="/email-insights" component={GmailInsightsPage} />
+    <Route path="/email-insights" component={Spotlight} />
     <Route path="/email-sync-debug" component={EmailSyncDebug} />
     <Route path="/objections" component={ObjectionsPage} />
     <Route path="/shopify-settings" component={ShopifySettingsPage} />

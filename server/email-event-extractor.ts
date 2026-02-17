@@ -177,6 +177,14 @@ const EVENT_TO_TASK_CONFIG: Record<string, {
     dueDaysFromNow: 2,
     minConfidence: 0.85,
   },
+  pricing_objection: {
+    taskType: 'handle_objection',
+    titleTemplate: 'Pricing objection from {customer}',
+    descriptionTemplate: 'Customer raised pricing concerns. Review their account, check for volume discount eligibility, and prepare a value-based response. Trigger: {trigger}',
+    priority: 'high',
+    dueDaysFromNow: 0,
+    minConfidence: 0.75,
+  },
 };
 
 interface EventRule {
@@ -434,6 +442,33 @@ const EVENT_RULES: EventRule[] = [
       /(initial|trial|test).*(order|purchase)/i,
     ],
     baseConfidence: 0.75,
+    direction: 'inbound',
+  },
+  {
+    eventType: 'pricing_objection',
+    keywords: [
+      'too expensive', 'too high', 'over budget', 'out of budget',
+      'cheaper', 'lower price', 'discount', 'price match', 'better price',
+      'competitive pricing', 'reduce the price', 'cost too much',
+      'can you do better', 'price concern', 'budget constraints',
+      'affordability', 'more affordable', 'price break', 'volume discount',
+      'can\'t afford', 'not in our budget', 'price objection',
+      'price is steep', 'sticker shock', 'way too much',
+      'need a better deal', 'less expensive', 'cut the price'
+    ],
+    regexPatterns: [
+      /too (expensive|high|much|costly|pricey)/i,
+      /(over|out of|exceeds?|beyond).*(budget|range)/i,
+      /(cheaper|lower|better|reduced).*(price|pricing|rate|cost)/i,
+      /can you.*(discount|reduce|lower|drop|cut).*(price|cost|rate)/i,
+      /price.*(concern|issue|problem|objection|too|high)/i,
+      /(budget|cost).*(constraint|limit|concern|issue)/i,
+      /need.*(better|lower|reduced).*(price|deal|rate)/i,
+      /(match|beat|compete with).*(price|pricing|rate)/i,
+      /volume.*(discount|pricing|break)/i,
+      /can('t|not).*(afford|justify|budget)/i,
+    ],
+    baseConfidence: 0.80,
     direction: 'inbound',
   },
   // OUTBOUND EVENTS - detecting when sales rep sends pricing/quotes

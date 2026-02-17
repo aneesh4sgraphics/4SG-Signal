@@ -435,7 +435,7 @@ Best regards`);
 
           {tasks.length > 5 && (
             <Button variant="ghost" size="sm" className="w-full" asChild>
-              <Link href="/gmail-insights">
+              <Link href="/">
                 View all {tasks.length} follow-ups
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Link>

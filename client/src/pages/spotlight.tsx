@@ -2186,35 +2186,103 @@ export default function Spotlight() {
           {/* Task Card Container with Animation - stays hidden while fetching new data */}
           <div className={`transition-all duration-150 ease-out ${(isTransitioning || isFetching) ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
             
-            {/* Email-specific actions bar - Only for email tasks */}
+            {/* Email Intelligence banner - rich context for email-derived tasks */}
             {(task.context?.sourceType === 'email_pricing_samples' || 
               task.context?.sourceType === 'unreplied_email' || 
-              task.context?.sourceType === 'email_event') && (
-              <div className="flex items-center justify-between gap-3 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-red-600" />
-                  <span className="text-sm font-medium text-red-700">
-                    {task.context?.originalSubject ? `"${task.context.originalSubject}"` : 'Email Follow-up'}
-                  </span>
-                  {task.context?.daysSinceEmail && (
-                    <Badge className="bg-red-100 text-red-700 text-xs px-2 py-0">
-                      {task.context.daysSinceEmail}d ago
-                    </Badge>
-                  )}
+              task.context?.sourceType === 'email_event' ||
+              task.context?.sourceType === 'gmail_insight') && (
+              <div className="mb-4 rounded-xl border overflow-hidden">
+                <div className={`flex items-center justify-between gap-3 px-4 py-2.5 ${
+                  task.context?.sourceType === 'gmail_insight' ? 'bg-purple-50 border-purple-200' :
+                  task.context?.emailEventType === 'po' ? 'bg-emerald-50 border-emerald-200' :
+                  task.context?.emailEventType === 'pricing_objection' ? 'bg-amber-50 border-amber-200' :
+                  task.context?.emailEventType === 'samples' ? 'bg-blue-50 border-blue-200' :
+                  task.context?.emailEventType === 'urgent' ? 'bg-red-50 border-red-200' :
+                  task.context?.emailEventType === 'sales_win' ? 'bg-emerald-50 border-emerald-200' :
+                  'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Mail className={`w-4 h-4 flex-shrink-0 ${
+                      task.context?.sourceType === 'gmail_insight' ? 'text-purple-600' :
+                      task.context?.emailEventType === 'po' ? 'text-emerald-600' :
+                      task.context?.emailEventType === 'pricing_objection' ? 'text-amber-600' :
+                      task.context?.emailEventType === 'samples' ? 'text-blue-600' :
+                      task.context?.emailEventType === 'urgent' ? 'text-red-600' :
+                      task.context?.emailEventType === 'sales_win' ? 'text-emerald-600' :
+                      'text-red-600'
+                    }`} />
+                    {task.context?.sourceType === 'gmail_insight' && !task.context?.emailEventType && (
+                      <Badge className="bg-purple-100 text-purple-700 text-xs px-2 py-0 flex-shrink-0">
+                        AI Insight
+                      </Badge>
+                    )}
+                    {task.context?.emailEventType && (
+                      <Badge className={`text-xs px-2 py-0 flex-shrink-0 ${
+                        task.context.emailEventType === 'po' ? 'bg-emerald-100 text-emerald-700' :
+                        task.context.emailEventType === 'pricing_objection' ? 'bg-amber-100 text-amber-700' :
+                        task.context.emailEventType === 'samples' ? 'bg-blue-100 text-blue-700' :
+                        task.context.emailEventType === 'urgent' ? 'bg-red-100 text-red-700' :
+                        task.context.emailEventType === 'sales_win' ? 'bg-emerald-100 text-emerald-700' :
+                        task.context.emailEventType === 'approval' ? 'bg-green-100 text-green-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {task.context.emailEventType === 'po' ? 'Purchase Order' :
+                         task.context.emailEventType === 'pricing_objection' ? 'Pricing Objection' :
+                         task.context.emailEventType === 'samples' ? 'Sample Request' :
+                         task.context.emailEventType === 'urgent' ? 'Urgent' :
+                         task.context.emailEventType === 'sales_win' ? 'Sales Win' :
+                         task.context.emailEventType === 'approval' ? 'Approval' :
+                         task.context.emailEventType === 'press_test_success' ? 'Press Test' :
+                         task.context.emailEventType === 'swatch_received' ? 'Swatch Received' :
+                         task.context.emailEventType === 'lead' ? 'New Lead' :
+                         task.context.emailEventType === 'opportunity' ? 'Opportunity' :
+                         task.context.emailEventType === 'feedback' ? 'Feedback' :
+                         task.context.emailEventType.replace(/_/g, ' ')}
+                      </Badge>
+                    )}
+                    <span className="text-sm font-medium truncate" style={{ color: 'var(--foreground)' }}>
+                      {task.context?.originalSubject ? `"${task.context.originalSubject}"` : 'Email Follow-up'}
+                    </span>
+                    {task.context?.daysSinceEmail != null && (
+                      <Badge className="bg-gray-100 text-gray-600 text-xs px-2 py-0 flex-shrink-0">
+                        {task.context.daysSinceEmail}d ago
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {task.context?.emailConfidence && (
+                      <span className="text-xs text-gray-500 font-mono">
+                        {Math.round(task.context.emailConfidence * 100)}%
+                      </span>
+                    )}
+                    {task.context?.gmailMessageId && (
+                      <a
+                        href={`https://mail.google.com/mail/u/0/#inbox/${task.context.gmailMessageId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Gmail
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {task.context?.gmailMessageId && (
-                    <a
-                      href={`https://mail.google.com/mail/u/0/#inbox/${task.context.gmailMessageId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 rounded-full transition-colors"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Gmail
-                    </a>
-                  )}
-                </div>
+                {/* Trigger text + coaching tip */}
+                {(task.context?.emailTriggerText || task.context?.emailCoachingTip) && (
+                  <div className="px-4 py-2 bg-white/80 border-t border-gray-100 space-y-1">
+                    {task.context?.emailTriggerText && (
+                      <p className="text-xs text-gray-600 italic truncate">
+                        "{task.context.emailTriggerText}"
+                      </p>
+                    )}
+                    {task.context?.emailCoachingTip && !task.context.emailCoachingTip.startsWith('Auto-created') && (
+                      <p className="text-xs text-purple-600 font-medium">
+                        {task.context.emailCoachingTip}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             

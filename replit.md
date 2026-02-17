@@ -49,7 +49,10 @@ This is a full-stack TypeScript sales management application designed for a spec
     - **Remind Me Again Today:** A feature to defer tasks to later in the day, tracked via a "Later Today Scratch Pad."
     - **Session State Persistence:** Ensures progress bars and session state survive restarts.
     - **DRIP Email Integration:** Automatically surfaces urgent replies to drip campaigns and stale drip follow-ups as high-priority tasks.
-    - **Differentiated Task Cards:** Visually distinct task cards based on their source (email, drip, lead, Odoo quote/sample) to provide context.
+    - **Differentiated Task Cards:** Visually distinct task cards based on their source (email, drip, lead, Odoo quote/sample) to provide context. Email intelligence cards show color-coded event type badges (PO=emerald, Pricing Objection=amber, Samples=blue, Urgent=red, AI Insight=purple), trigger text, confidence percentage, and coaching tips.
+    - **Email Intelligence → Spotlight Bridge:** Two pipelines feed email signals into Spotlight:
+      1. **Email Event Extractor** (regex-based): Detects 16 event types including `pricing_objection`, creates followUpTasks with `sourceType='email_event'`. Spotlight enriches these with event details from `emailSalesEvents` table.
+      2. **Gmail Insights** (OpenAI-analyzed): High-confidence insights (≥0.70) for sales_opportunity/follow_up/promise/task types auto-create followUpTasks with `sourceType='gmail_insight'`. The separate `/email-insights` page now redirects to Spotlight.
     - **Odoo Quotation Follow-up:** Generates follow-up tasks for pending Odoo quotations with relevant details and actions.
     - **Odoo Sample Order Follow-up:** Detects sample orders from Odoo using two methods: (1) $0.00 sales orders, or (2) orders where Customer Reference field contains "Samples". Creates follow-up tasks with context about how the sample was identified.
     - **Today's Progress Bars:** Five dedicated progress bars tracking daily activity:

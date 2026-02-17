@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends, emailSalesEvents } from "@shared/schema";
 import { scanForBouncedEmails } from "./bounce-detector";
 import { odooClient, isOdooConfigured } from "./odoo";
 
@@ -3310,9 +3310,12 @@ class SpotlightEngine {
         taskId: followUpTasks.id,
         customerId: followUpTasks.customerId,
         title: followUpTasks.title,
+        description: followUpTasks.description,
         taskType: followUpTasks.taskType,
+        priority: followUpTasks.priority,
         dueDate: followUpTasks.dueDate,
         sourceType: followUpTasks.sourceType,
+        sourceId: followUpTasks.sourceId,
         customer: {
           id: customers.id,
           company: customers.company,
@@ -3352,10 +3355,83 @@ class SpotlightEngine {
       const subtype = task.taskType === 'quote_follow_up' ? 'sales_quote_follow_up' : 'sales_follow_up';
       const baseTask = this.buildTask(task.customer, 'follow_ups', subtype);
       
-      // Add email source badge for tasks created from email intelligence
       let whyNowPrefix = '';
-      if (task.sourceType === 'email_event') {
+      let emailEventContext: Record<string, any> = {};
+      
+      if (task.sourceType === 'gmail_insight') {
+        whyNowPrefix = '🤖 AI Insight: ';
+      }
+      
+      if (task.sourceType === 'email_event' && task.sourceId) {
         whyNowPrefix = '📧 Email Intelligence: ';
+        try {
+          const eventId = parseInt(task.sourceId);
+          if (!isNaN(eventId)) {
+            const [event] = await db.select({
+              eventType: emailSalesEvents.eventType,
+              confidence: emailSalesEvents.confidence,
+              triggerText: emailSalesEvents.triggerText,
+              triggerKeywords: emailSalesEvents.triggerKeywords,
+              coachingTip: emailSalesEvents.coachingTip,
+              gmailMessageId: emailSalesEvents.gmailMessageId,
+            }).from(emailSalesEvents).where(eq(emailSalesEvents.id, eventId)).limit(1);
+            
+            if (event) {
+              emailEventContext = {
+                emailEventType: event.eventType,
+                emailConfidence: event.confidence ? parseFloat(String(event.confidence)) : undefined,
+                emailTriggerText: event.triggerText || undefined,
+                emailTriggerKeywords: event.triggerKeywords || undefined,
+                emailCoachingTip: event.coachingTip || undefined,
+              };
+              if (event.gmailMessageId) {
+                const [msg] = await db.select({ 
+                  messageId: gmailMessages.messageId,
+                  subject: gmailMessages.subject,
+                  fromEmail: gmailMessages.fromEmail,
+                  receivedAt: gmailMessages.receivedAt,
+                }).from(gmailMessages).where(eq(gmailMessages.id, event.gmailMessageId)).limit(1);
+                if (msg) {
+                  emailEventContext.gmailMessageId = msg.messageId;
+                  emailEventContext.originalSubject = msg.subject;
+                  emailEventContext.fromEmail = msg.fromEmail;
+                  if (msg.receivedAt) {
+                    const daysSince = Math.floor((Date.now() - new Date(msg.receivedAt).getTime()) / (1000 * 60 * 60 * 24));
+                    emailEventContext.daysSinceEmail = daysSince;
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Spotlight] Error enriching email event context:', err);
+        }
+      } else if (task.sourceType === 'gmail_insight' && task.sourceId) {
+        try {
+          const msgId = parseInt(task.sourceId);
+          if (!isNaN(msgId)) {
+            const [msg] = await db.select({ 
+              messageId: gmailMessages.messageId,
+              subject: gmailMessages.subject,
+              fromEmail: gmailMessages.fromEmail,
+              receivedAt: gmailMessages.receivedAt,
+            }).from(gmailMessages).where(eq(gmailMessages.id, msgId)).limit(1);
+            if (msg) {
+              emailEventContext = {
+                sourceType: 'gmail_insight',
+                gmailMessageId: msg.messageId,
+                originalSubject: msg.subject,
+                fromEmail: msg.fromEmail,
+              };
+              if (msg.receivedAt) {
+                const daysSince = Math.floor((Date.now() - new Date(msg.receivedAt).getTime()) / (1000 * 60 * 60 * 24));
+                emailEventContext.daysSinceEmail = daysSince;
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Spotlight] Error enriching gmail insight context:', err);
+        }
       }
       
       return {
@@ -3365,8 +3441,11 @@ class SpotlightEngine {
         context: {
           followUpId: task.taskId,
           followUpTitle: task.title || undefined,
+          followUpDescription: task.description || undefined,
           followUpDueDate: task.dueDate?.toISOString(),
+          followUpPriority: task.priority || undefined,
           sourceType: task.sourceType || undefined,
+          ...emailEventContext,
         },
       };
     }

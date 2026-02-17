@@ -2848,6 +2848,7 @@ export const EMAIL_SALES_EVENT_TYPES = [
   'price_sent',         // Price Sent - pricing information sent to customer (outbound)
   'pricelist_sent',     // Price List Sent - PDF price list sent to customer (outbound)
   'quote_sent',         // Quote Sent - formal quote from Odoo sent to customer (outbound)
+  'pricing_objection',  // Pricing Objection - customer pushing back on price, asking for discount
 ] as const;
 
 export const emailSalesEvents = pgTable("email_sales_events", {
