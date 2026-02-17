@@ -109,7 +109,7 @@ export default function BounceInvestigation() {
         description: 'The bounced email has been resolved.',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
-      setLocation('/spotlight');
+      setLocation('/');
     },
     onError: (error: Error) => {
       toast({
@@ -197,7 +197,7 @@ export default function BounceInvestigation() {
         description: 'Contact has been removed from the system and Odoo.',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
-      setLocation('/spotlight');
+      setLocation('/');
     },
     onError: (error: Error) => {
       toast({
@@ -254,7 +254,7 @@ export default function BounceInvestigation() {
                 <AlertTriangle className="h-5 w-5" />
                 <span>Failed to load bounce investigation data</span>
               </div>
-              <Button variant="outline" className="mt-4" onClick={() => setLocation('/spotlight')}>
+              <Button variant="outline" className="mt-4" onClick={() => setLocation('/')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to SPOTLIGHT
               </Button>
@@ -281,7 +281,7 @@ export default function BounceInvestigation() {
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => setLocation('/spotlight')}>
+            <Button variant="ghost" onClick={() => setLocation('/')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to SPOTLIGHT
             </Button>

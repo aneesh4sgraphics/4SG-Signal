@@ -1773,7 +1773,7 @@ export default function Spotlight() {
           )}
 
           <div className="flex gap-4 justify-center">
-            <Link href="/">
+            <Link href="/dashboard">
               <Button variant="outline" className="border-[#EAEAEA] text-[#111111] hover:bg-[#F2F2F2]">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
@@ -1851,7 +1851,7 @@ export default function Spotlight() {
           </div>
 
           <div className="flex gap-4 justify-center">
-            <Link href="/">
+            <Link href="/dashboard">
               <Button variant="outline" className="border-[#EAEAEA] text-[#111111] hover:bg-[#F2F2F2]">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
@@ -1910,7 +1910,7 @@ export default function Spotlight() {
                 Show All Tasks
               </Button>
             )}
-            <Link href="/">
+            <Link href="/dashboard">
               <Button variant="outline" className="border-[#EAEAEA]">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
@@ -5439,7 +5439,7 @@ export default function Spotlight() {
                     className={`flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group ${t.isCarryover ? 'border-l-2 border-red-400 bg-red-50/50' : ''}`}
                     onClick={() => {
                       // Navigate to this bucket via URL param
-                      window.location.href = `/spotlight?forceBucket=${t.bucket}`;
+                      window.location.href = `/?forceBucket=${t.bucket}`;
                       setScratchPadOpen(false);
                     }}
                   >

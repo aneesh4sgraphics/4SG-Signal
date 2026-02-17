@@ -426,7 +426,7 @@ export default function StartYourDayDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Link href="/spotlight">
+        <Link href="/">
           <Card data-testid="stat-spotlight-tasks" className="cursor-pointer transition-all hover:shadow-md border-purple-200 bg-gradient-to-br from-purple-50 to-white">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">

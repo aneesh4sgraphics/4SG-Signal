@@ -101,7 +101,7 @@ export function DailyProgressHero({
 
         {/* Right Section: Spotlight CTA - Star Product (Takes Half Width) */}
         <div className="hidden md:flex items-end flex-1">
-          <Link href="/spotlight" className="flex-1">
+          <Link href="/" className="flex-1">
             <div className="group relative h-full min-h-[120px] flex items-center justify-center gap-6 px-8 rounded-2xl bg-gradient-to-br from-[#8B7EC8] via-[#7B6BA5] to-[#6B5B95] hover:from-[#9B8ED8] hover:via-[#8B7BB5] hover:to-[#7B6BA5] cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl">
               <div className="absolute inset-0 rounded-2xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="w-16 h-16 rounded-xl bg-white/25 flex items-center justify-center group-hover:bg-white/35 transition-colors shadow-inner flex-shrink-0">
@@ -119,7 +119,7 @@ export function DailyProgressHero({
       </div>
 
       {/* Mobile Spotlight Button */}
-      <Link href="/spotlight" className="md:hidden block mt-4">
+      <Link href="/" className="md:hidden block mt-4">
         <div className="flex items-center justify-between p-5 rounded-2xl bg-gradient-to-r from-[#8B7EC8] via-[#7B6BA5] to-[#6B5B95] cursor-pointer shadow-lg active:scale-[0.98] transition-transform">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-white/25 flex items-center justify-center shadow-inner">

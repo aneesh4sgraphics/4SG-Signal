@@ -1129,7 +1129,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
             {fromSpotlight ? (
-              <Link href="/spotlight">
+              <Link href="/">
                 <Button variant="outline" size="sm" className="h-8 text-[#111111] border-[#EAEAEA] hover:bg-[#F2F2F2]" data-testid="btn-back-spotlight">
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back to Spotlight

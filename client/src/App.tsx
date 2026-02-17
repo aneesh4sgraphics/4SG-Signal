@@ -84,7 +84,8 @@ const PendingPage = () => (
 
 const AppRoutes = () => (
   <Switch>
-    <Route path="/" component={Dashboard} />
+    <Route path="/" component={Spotlight} />
+    <Route path="/dashboard" component={Dashboard} />
     <Route path="/quick-quotes" component={QuoteCalculator} />
     <Route path="/quote-calculator" component={QuoteCalculator} />
     <Route path="/price-list" component={PriceList} />
@@ -114,7 +115,7 @@ const AppRoutes = () => (
     <Route path="/sales-analytics" component={SalesAnalyticsPage} />
     <Route path="/reports" component={ReportsPage} />
     <Route path="/admin/costs" component={CostDashboard} />
-    <Route path="/spotlight" component={Spotlight} />
+    <Route path="/spotlight"><Redirect to="/" /></Route>
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/tasks" component={TaskInbox} />
     <Route path="/hot-leads" component={HotLeads} />

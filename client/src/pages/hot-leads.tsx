@@ -165,7 +165,7 @@ export default function HotLeadsPage() {
                                   View Details
                                 </Button>
                               </Link>
-                              <Link href="/spotlight">
+                              <Link href="/">
                                 <Button size="sm" className="gap-1.5 bg-purple-600 hover:bg-purple-700">
                                   <Zap className="h-3.5 w-3.5" />
                                   SPOTLIGHT
@@ -202,7 +202,7 @@ export default function HotLeadsPage() {
                   <p className="text-sm text-muted-foreground mt-1">
                     Mark customers as hot leads from SPOTLIGHT or customer details
                   </p>
-                  <Link href="/spotlight">
+                  <Link href="/">
                     <Button className="mt-4 gap-2 bg-purple-600 hover:bg-purple-700">
                       <Zap className="h-4 w-4" />
                       Start SPOTLIGHT

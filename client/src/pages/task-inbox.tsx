@@ -106,7 +106,7 @@ export default function TaskInboxPage() {
 
   const handleEnterSpotlight = () => {
     setShowSpotlightPrompt(false);
-    setLocation("/spotlight");
+    setLocation("/");
   };
 
   const handleViewTaskDetail = () => {
