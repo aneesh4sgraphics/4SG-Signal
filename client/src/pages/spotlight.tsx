@@ -621,9 +621,25 @@ export default function Spotlight() {
       goalMet: boolean;
       highPriority: boolean;
     };
+    coachingCompliance: {
+      score: number;
+      breakdown: {
+        taskCompletion: number;
+        followUpTimeliness: number;
+        callsLogged: number;
+      };
+      components: {
+        tasksCompleted: number;
+        tasksTarget: number;
+        followUpsOnTime: number;
+        followUpsTotal: number;
+        callsMade: number;
+        callsGoal: number;
+      };
+    };
   }>({
     queryKey: ['/api/spotlight/today-progress'],
-    staleTime: 30 * 1000, // Refresh every 30 seconds
+    staleTime: 30 * 1000,
   });
 
   // Fetch customers worked on today for sidebar navigation
@@ -1981,6 +1997,52 @@ export default function Spotlight() {
                 </div>
               </div>
             </div>
+
+            {/* Coaching Compliance - Executive Culture Metric */}
+            {todayProgress?.coachingCompliance && (
+              <div className="bg-white rounded-xl shadow-sm p-4 mb-3">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coaching Compliance</p>
+                  <span className={`text-2xl font-bold ${
+                    todayProgress.coachingCompliance.score >= 80 ? 'text-green-600' :
+                    todayProgress.coachingCompliance.score >= 60 ? 'text-amber-600' :
+                    'text-red-500'
+                  }`}>
+                    {todayProgress.coachingCompliance.score}%
+                  </span>
+                </div>
+                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+                  <div 
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${todayProgress.coachingCompliance.score}%`,
+                      background: todayProgress.coachingCompliance.score >= 80 
+                        ? 'linear-gradient(90deg, #22C55E, #16A34A)'
+                        : todayProgress.coachingCompliance.score >= 60
+                        ? 'linear-gradient(90deg, #F59E0B, #D97706)'
+                        : 'linear-gradient(90deg, #EF4444, #DC2626)',
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-1.5 rounded-lg bg-blue-50">
+                    <p className="text-[10px] text-muted-foreground leading-tight">Tasks Done</p>
+                    <p className="text-xs font-bold text-blue-700">{todayProgress.coachingCompliance.breakdown.taskCompletion}%</p>
+                    <p className="text-[9px] text-muted-foreground">{todayProgress.coachingCompliance.components.tasksCompleted}/{todayProgress.coachingCompliance.components.tasksTarget}</p>
+                  </div>
+                  <div className="text-center p-1.5 rounded-lg bg-purple-50">
+                    <p className="text-[10px] text-muted-foreground leading-tight">On Time</p>
+                    <p className="text-xs font-bold text-purple-700">{todayProgress.coachingCompliance.breakdown.followUpTimeliness}%</p>
+                    <p className="text-[9px] text-muted-foreground">{todayProgress.coachingCompliance.components.followUpsOnTime}/{todayProgress.coachingCompliance.components.followUpsTotal || '—'}</p>
+                  </div>
+                  <div className="text-center p-1.5 rounded-lg bg-emerald-50">
+                    <p className="text-[10px] text-muted-foreground leading-tight">Calls</p>
+                    <p className="text-xs font-bold text-emerald-700">{todayProgress.coachingCompliance.breakdown.callsLogged}%</p>
+                    <p className="text-[9px] text-muted-foreground">{todayProgress.coachingCompliance.components.callsMade}/{todayProgress.coachingCompliance.components.callsGoal}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Today's Progress Card - 5 Dedicated Bars */}
             <div className="bg-white rounded-xl shadow-sm p-4 mb-3">

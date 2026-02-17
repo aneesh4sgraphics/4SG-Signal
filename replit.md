@@ -55,6 +55,7 @@ This is a full-stack TypeScript sales management application designed for a spec
       2. **Gmail Insights** (OpenAI-analyzed): High-confidence insights (≥0.70) for sales_opportunity/follow_up/promise/task types auto-create followUpTasks with `sourceType='gmail_insight'`. The separate `/email-insights` page now redirects to Spotlight.
     - **Odoo Quotation Follow-up:** Generates follow-up tasks for pending Odoo quotations with relevant details and actions.
     - **Odoo Sample Order Follow-up:** Detects sample orders from Odoo using two methods: (1) $0.00 sales orders, or (2) orders where Customer Reference field contains "Samples". Creates follow-up tasks with context about how the sample was identified.
+    - **Coaching Compliance Metric:** Executive culture metric showing weighted composite score (50% task completion rate, 30% follow-up timeliness, 20% calls vs goal). Color-coded: green ≥80%, amber ≥60%, red <60%. Shows breakdown tiles for Tasks Done, On Time, and Calls.
     - **Today's Progress Bars:** Five dedicated progress bars tracking daily activity:
       1. **Quotes FollowedUp** (⭐ high priority): Count of Odoo/Shopify quotes followed up via call or email
       2. **SwatchBooks**: Count of swatch books + press test kits sent + $0 sample order follow-ups

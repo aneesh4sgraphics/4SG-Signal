@@ -148,6 +148,7 @@ import {
   insertLeadActivitySchema,
   territorySkipFlags,
   spotlightEvents,
+  spotlightSessionState,
   bouncedEmails,
   dripCampaigns,
   dripCampaignSteps,
@@ -2821,8 +2822,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotesFollowedUp = quoteStats[0]?.count || 0;
       const quotesGoal = 5;
       
+      // 6. COACHING COMPLIANCE: Weighted composite score
+      // Component 1: Tasks completed vs assigned (50% weight)
+      const sessionResult = await db.select({
+        totalCompleted: spotlightSessionState.totalCompleted,
+        totalTarget: spotlightSessionState.totalTarget,
+      })
+      .from(spotlightSessionState)
+      .where(
+        and(
+          eq(spotlightSessionState.userId, userId),
+          gte(spotlightSessionState.updatedAt, today)
+        )
+      )
+      .orderBy(desc(spotlightSessionState.updatedAt))
+      .limit(1);
+      
+      const tasksCompleted = sessionResult[0]?.totalCompleted || 0;
+      const tasksTarget = sessionResult[0]?.totalTarget || 30;
+      const taskCompletionRate = Math.min(100, (tasksCompleted / tasksTarget) * 100);
+      
+      // Component 2: Follow-ups on time (30% weight) - pending follow-ups completed before due date
+      const onTimeFollowUps = await db.select({
+        total: sql<number>`COUNT(*)::int`,
+        onTime: sql<number>`COUNT(CASE WHEN ${followUpTasks.completedAt} <= ${followUpTasks.dueDate} THEN 1 END)::int`,
+      })
+      .from(followUpTasks)
+      .where(
+        and(
+          eq(followUpTasks.assignedTo, userId),
+          eq(followUpTasks.status, 'completed'),
+          gte(followUpTasks.completedAt, today)
+        )
+      );
+      
+      const followUpTotal = onTimeFollowUps[0]?.total || 0;
+      const followUpOnTime = onTimeFollowUps[0]?.onTime || 0;
+      const followUpRate = followUpTotal > 0 ? (followUpOnTime / followUpTotal) * 100 : 100;
+      
+      // Component 3: Calls logged (20% weight) - calls vs goal
+      const callRate = Math.min(100, (callsCount / callsGoal) * 100);
+      
+      // Weighted composite: 50% task completion + 30% follow-up timeliness + 20% calls
+      const coachingCompliance = Math.round(
+        (taskCompletionRate * 0.5) + (followUpRate * 0.3) + (callRate * 0.2)
+      );
+      
       res.json({
-        // Swatchbooks (includes press test kits and sample follow-ups)
         swatchbooks: {
           count: totalSwatchbooks,
           goal: swatchbookGoal,
@@ -2834,34 +2880,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sampleFollowUps: sampleFollowUpCount,
           }
         },
-        // Calls made
         calls: {
           count: callsCount,
           goal: callsGoal,
           progress: Math.min(100, (callsCount / callsGoal) * 100),
           goalMet: callsCount >= callsGoal,
         },
-        // Emails sent
         emails: {
           count: emailsCount,
           goal: emailsGoal,
           progress: Math.min(100, (emailsCount / emailsGoal) * 100),
           goalMet: emailsCount >= emailsGoal,
         },
-        // Data hygiene + research
         dataHygiene: {
           count: hygieneCount,
           goal: hygieneGoal,
           progress: Math.min(100, (hygieneCount / hygieneGoal) * 100),
           goalMet: hygieneCount >= hygieneGoal,
         },
-        // Quotes followed up (HIGH PRIORITY)
         quotesFollowedUp: {
           count: quotesFollowedUp,
           goal: quotesGoal,
           progress: Math.min(100, (quotesFollowedUp / quotesGoal) * 100),
           goalMet: quotesFollowedUp >= quotesGoal,
           highPriority: true,
+        },
+        coachingCompliance: {
+          score: coachingCompliance,
+          breakdown: {
+            taskCompletion: Math.round(taskCompletionRate),
+            followUpTimeliness: Math.round(followUpRate),
+            callsLogged: Math.round(callRate),
+          },
+          components: {
+            tasksCompleted,
+            tasksTarget,
+            followUpsOnTime: followUpOnTime,
+            followUpsTotal: followUpTotal,
+            callsMade: callsCount,
+            callsGoal,
+          },
         },
       });
     } catch (error) {
