@@ -2330,9 +2330,8 @@ export default function Spotlight() {
                     )}
                   </div>
                 </div>
-                {/* Trigger text + coaching tip */}
-                {(task.context?.emailTriggerText || task.context?.emailCoachingTip) && (
-                  <div className="px-4 py-2 bg-white/80 border-t border-gray-100 space-y-1">
+                {(task.context?.emailTriggerText || task.context?.emailCoachingTip || task.context?.emailEventType) && (
+                  <div className="px-4 py-2 bg-white/80 border-t border-gray-100 space-y-1.5">
                     {task.context?.emailTriggerText && (
                       <p className="text-xs text-gray-600 italic truncate">
                         "{task.context.emailTriggerText}"
@@ -2341,6 +2340,24 @@ export default function Spotlight() {
                     {task.context?.emailCoachingTip && !task.context.emailCoachingTip.startsWith('Auto-created') && (
                       <p className="text-xs text-purple-600 font-medium">
                         {task.context.emailCoachingTip}
+                      </p>
+                    )}
+                    {task.context?.emailEventType && (
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        <span className="font-semibold text-gray-700">Suggested: </span>
+                        {task.context.emailEventType === 'po' ? 'Confirm receipt, verify quantities & delivery timeline. Thank them for the order.' :
+                         task.context.emailEventType === 'pricing_objection' ? 'Acknowledge their concern. Highlight value, not just price. Check volume discount eligibility.' :
+                         task.context.emailEventType === 'samples' ? 'Confirm sample shipment timing. Ask what substrates they need and for which application.' :
+                         task.context.emailEventType === 'urgent' ? 'Respond within the hour. Acknowledge urgency and provide a specific timeline.' :
+                         task.context.emailEventType === 'approval' ? 'Move to production quickly. Confirm specs and send order acknowledgment.' :
+                         task.context.emailEventType === 'sales_win' ? 'Send a thank-you note. Set up onboarding and schedule a check-in call.' :
+                         task.context.emailEventType === 'opportunity' ? 'Reply with relevant product info and offer to schedule a call to discuss needs.' :
+                         task.context.emailEventType === 'feedback' ? 'Thank them for feedback. Address any concerns directly and offer solutions.' :
+                         task.context.emailEventType === 'lead' ? 'Welcome them warmly. Share a swatch book and price list within 24 hours.' :
+                         task.context.emailEventType === 'press_test_success' ? 'Great news! Follow up to convert this into a production order.' :
+                         task.context.emailEventType === 'swatch_received' ? 'Check in on their reaction. Ask which materials caught their eye.' :
+                         task.context.emailEventType === 'commitment' ? 'Confirm the commitment details and set clear next steps.' :
+                         'Reply promptly and address their specific needs.'}
                       </p>
                     )}
                   </div>
@@ -3968,40 +3985,81 @@ export default function Spotlight() {
                       {/* OUTREACH/FOLLOW-UPS - Hero button + secondary options */}
                       {(task.bucket === 'outreach' || task.bucket === 'follow_ups') && (
                         <div className="space-y-3">
-                          <button
-                            onClick={() => handleOutcome('email_sent')}
-                            disabled={completeMutation.isPending}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700"
-                          >
-                            <Send className="w-5 h-5" />
-                            Email Sent!
-                          </button>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleOutcome('called')}
-                              disabled={completeMutation.isPending}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                              Called
-                            </button>
-                            <button
-                              onClick={() => handleOutcome('schedule_followup')}
-                              disabled={completeMutation.isPending}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            >
-                              <Calendar className="w-3.5 h-3.5" />
-                              Schedule
-                            </button>
-                            <button
-                              onClick={() => handleOutcome('not_interested')}
-                              disabled={completeMutation.isPending}
-                              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-amber-50 text-amber-600 hover:bg-amber-100"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              Not Now
-                            </button>
-                          </div>
+                          {(task.context?.sourceType === 'email_event' || task.context?.sourceType === 'gmail_insight') ? (
+                            <>
+                              <button
+                                onClick={() => handleOutcome('replied')}
+                                disabled={completeMutation.isPending}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700"
+                              >
+                                <Send className="w-5 h-5" />
+                                Replied
+                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleOutcome('called')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  Called
+                                </button>
+                                <button
+                                  onClick={() => handleOutcome('remind_later')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                  Snooze
+                                </button>
+                                <button
+                                  onClick={() => handleOutcome('not_relevant')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-red-50 text-red-500 hover:bg-red-100"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Not Relevant
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleOutcome('email_sent')}
+                                disabled={completeMutation.isPending}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700"
+                              >
+                                <Send className="w-5 h-5" />
+                                Email Sent!
+                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleOutcome('called')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  Called
+                                </button>
+                                <button
+                                  onClick={() => handleOutcome('schedule_followup')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                >
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  Schedule
+                                </button>
+                                <button
+                                  onClick={() => handleOutcome('not_interested')}
+                                  disabled={completeMutation.isPending}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-amber-50 text-amber-600 hover:bg-amber-100"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Not Now
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
