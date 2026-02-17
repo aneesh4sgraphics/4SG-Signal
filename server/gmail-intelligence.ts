@@ -255,16 +255,18 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       
       const bodyText = stripHtml(fullMessage.body);
 
+      const truncate = (val: string | null | undefined, maxLen: number) => val ? val.substring(0, maxLen) : null;
+
       const [insertedMessage] = await db.insert(gmailMessages).values({
         userId,
         gmailMessageId: msg.id,
-        threadId: msg.threadId || null,
+        threadId: truncate(msg.threadId, 100),
         direction: msg.direction,
-        fromEmail: fromParsed.email,
-        fromName: fromParsed.name,
-        toEmail: toParsed.email,
-        toName: toParsed.name,
-        subject: fullMessage.subject,
+        fromEmail: truncate(fromParsed.email, 255),
+        fromName: truncate(fromParsed.name, 255),
+        toEmail: truncate(toParsed.email, 255),
+        toName: truncate(toParsed.name, 255),
+        subject: truncate(fullMessage.subject, 1000),
         snippet: fullMessage.snippet || null,
         bodyText: bodyText.substring(0, 10000),
         sentAt: msg.date ? new Date(msg.date) : null,

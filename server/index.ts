@@ -14,6 +14,27 @@ import { ensureTaxonomySeeded } from "./taxonomy-seed";
 import { seedSpotlightCoachingContent } from "./spotlight-coaching-seed";
 import { sessionConfig } from "./replitAuth";
 
+process.on('uncaughtException', (err: any) => {
+  const isNeonDisconnect = err?.code === '57P01' || 
+    err?.message?.includes('terminating connection due to administrator command');
+  if (isNeonDisconnect) {
+    console.error('[Process] Database connection dropped by Neon — will reconnect on next request');
+    return;
+  }
+  console.error('[Process] Uncaught exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  const isNeonDisconnect = reason?.code === '57P01' || 
+    reason?.message?.includes('terminating connection due to administrator command');
+  if (isNeonDisconnect) {
+    console.error('[Process] Database rejection (Neon disconnect) — will reconnect on next request');
+    return;
+  }
+  console.error('[Process] Unhandled rejection:', reason);
+});
+
 // Configure Puppeteer to use system Chromium for PDF generation
 if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
   process.env.PUPPETEER_EXECUTABLE_PATH = "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium";
