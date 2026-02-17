@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -154,40 +154,39 @@ interface InvestorReturnsData extends ReportMetaWrapper {
 export default function ReportsPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   
   const isAdmin = (user as any)?.role === 'admin';
   
-  // All hooks must be called before any conditional returns (Rules of Hooks)
-  const { data: invoiceData, isLoading: invoiceLoading, refetch: refetchInvoices } = useQuery<InvoiceData>({
+  const { data: invoiceData, isLoading: invoiceLoading } = useQuery<InvoiceData>({
     queryKey: ['/api/reports/invoices-2026'],
-    enabled: isAdmin, // Only fetch if admin
+    enabled: isAdmin,
   });
 
-  const { data: inventoryData, isLoading: inventoryLoading, refetch: refetchInventory } = useQuery<InventoryTurnoverData>({
+  const { data: inventoryData, isLoading: inventoryLoading } = useQuery<InventoryTurnoverData>({
     queryKey: ['/api/reports/inventory-turnover-2026'],
     enabled: isAdmin,
   });
 
-  const { data: grossProfitData, isLoading: profitLoading, refetch: refetchProfit } = useQuery<GrossProfitData>({
+  const { data: grossProfitData, isLoading: profitLoading } = useQuery<GrossProfitData>({
     queryKey: ['/api/reports/gross-profit-2026'],
     enabled: isAdmin,
   });
 
-  const { data: debtEquityData, isLoading: debtLoading, refetch: refetchDebtEquity } = useQuery<DebtEquityData>({
+  const { data: debtEquityData, isLoading: debtLoading } = useQuery<DebtEquityData>({
     queryKey: ['/api/reports/debt-equity-2026'],
     enabled: isAdmin,
   });
 
-  const { data: badDebtData, isLoading: badDebtLoading, refetch: refetchBadDebt } = useQuery<BadDebtData>({
+  const { data: badDebtData, isLoading: badDebtLoading } = useQuery<BadDebtData>({
     queryKey: ['/api/reports/bad-debt-2026'],
     enabled: isAdmin,
   });
 
-  // State for initial investment input
   const [initialInvestment, setInitialInvestment] = useState(100000);
   const [investmentInput, setInvestmentInput] = useState('100000');
 
-  const { data: investorData, isLoading: investorLoading, refetch: refetchInvestor } = useQuery<InvestorReturnsData>({
+  const { data: investorData, isLoading: investorLoading } = useQuery<InvestorReturnsData>({
     queryKey: ['/api/reports/investor-returns', { initialInvestment }],
     queryFn: async () => {
       const res = await fetch(`/api/reports/investor-returns?initialInvestment=${initialInvestment}`);
@@ -231,14 +230,35 @@ export default function ReportsPage() {
     return new Intl.NumberFormat('en-CA').format(value);
   };
 
-  const handleRefreshAll = () => {
-    refetchInvoices();
-    refetchInventory();
-    refetchProfit();
-    refetchDebtEquity();
-    refetchBadDebt();
-    refetchInvestor();
-  };
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshAll = useCallback(async () => {
+    setIsRefreshing(true);
+    const endpoints = [
+      '/api/reports/invoices-2026',
+      '/api/reports/inventory-turnover-2026',
+      '/api/reports/gross-profit-2026',
+      '/api/reports/debt-equity-2026',
+      '/api/reports/bad-debt-2026',
+      `/api/reports/investor-returns?initialInvestment=${initialInvestment}`,
+    ];
+    
+    await Promise.allSettled(
+      endpoints.map(url => {
+        const separator = url.includes('?') ? '&' : '?';
+        return fetch(`${url}${separator}refresh=true`);
+      })
+    );
+    
+    queryClient.invalidateQueries({ queryKey: ['/api/reports'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/invoices-2026'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/inventory-turnover-2026'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/gross-profit-2026'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/debt-equity-2026'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/bad-debt-2026'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/reports/investor-returns'] });
+    setIsRefreshing(false);
+  }, [initialInvestment, queryClient]);
 
   const handleInvestmentUpdate = () => {
     const value = parseFloat(investmentInput);
@@ -304,10 +324,10 @@ export default function ReportsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleRefreshAll}
-            disabled={invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading}
+            disabled={isRefreshing || invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading) ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 mr-2 ${(isRefreshing || invoiceLoading || inventoryLoading || profitLoading || debtLoading || badDebtLoading || investorLoading) ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
 

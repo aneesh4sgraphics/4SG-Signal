@@ -189,7 +189,10 @@ interface ReportCacheResult {
   fetchedAt: number | null;
 }
 
-function getReportCache(userId: string, reportKey: string): ReportCacheResult {
+function getReportCache(userId: string, reportKey: string, bypass: boolean = false): ReportCacheResult {
+  if (bypass) {
+    return { data: null, isStale: false, isCached: false, fetchedAt: null };
+  }
   const key = `${userId}:${reportKey}`;
   const cached = reportCache.get(key);
   
@@ -832,7 +835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.email || 'anonymous';
       const reportKey = 'invoices-2026';
-      const cached = getReportCache(userId, reportKey);
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
       
       if (cached.isCached) {
         if (cached.isStale) {
@@ -921,7 +925,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.email || 'anonymous';
       const reportKey = 'quotes-vs-orders-2026';
-      const cached = getReportCache(userId, reportKey);
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
       
       if (cached.isCached) {
         if (cached.isStale) {
@@ -1013,7 +1018,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.email || 'anonymous';
       const reportKey = 'gross-profit-2026';
-      const cached = getReportCache(userId, reportKey);
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
       
       if (cached.isCached) {
         if (cached.isStale) {
@@ -1033,49 +1039,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports 2026 - Debt to Equity Ratio
+  async function fetchDebtEquity2026Data() {
+    const year = 2026;
+    const asOfDate = `${year}-12-31`;
+    
+    const liabilityLines = await odooClient.searchRead('account.move.line', [
+      ['account_id.account_type', 'in', ['liability_payable', 'liability_current', 'liability_non_current']],
+      ['date', '<=', asOfDate],
+      ['parent_state', '=', 'posted'],
+    ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
+    
+    const equityLines = await odooClient.searchRead('account.move.line', [
+      ['account_id.account_type', 'in', ['equity', 'equity_unaffected']],
+      ['date', '<=', asOfDate],
+      ['parent_state', '=', 'posted'],
+    ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
+    
+    const totalDebt = liabilityLines.reduce((sum: number, line: any) => 
+      sum + ((line.credit || 0) - (line.debit || 0)), 0);
+    
+    const totalEquity = equityLines.reduce((sum: number, line: any) => 
+      sum + ((line.credit || 0) - (line.debit || 0)), 0);
+    
+    const debtToEquityRatio = totalEquity !== 0 
+      ? Math.abs(totalDebt) / Math.abs(totalEquity)
+      : null;
+    
+    return {
+      success: true,
+      year,
+      totalDebt: Math.abs(totalDebt),
+      totalEquity: Math.abs(totalEquity),
+      debtToEquityRatio,
+      hasData: liabilityLines.length > 0 || equityLines.length > 0,
+    };
+  }
+
   app.get("/api/reports/debt-equity-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const year = 2026;
-      const asOfDate = `${year}-12-31`;
+      const userId = req.user?.email || 'anonymous';
+      const reportKey = 'debt-equity-2026';
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
       
-      // Get liability accounts (payable, non_current_liabilities, etc.)
-      // In Odoo, liability account types include: liability_payable, liability_non_current, liability_current
-      const liabilityLines = await odooClient.searchRead('account.move.line', [
-        ['account_id.account_type', 'in', ['liability_payable', 'liability_current', 'liability_non_current']],
-        ['date', '<=', asOfDate],
-        ['parent_state', '=', 'posted'],
-      ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
+      if (cached.isCached) {
+        if (cached.isStale) {
+          refreshReportInBackground(userId, reportKey, fetchDebtEquity2026Data);
+        }
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
+      }
       
-      // Get equity accounts (equity, equity_unaffected)
-      const equityLines = await odooClient.searchRead('account.move.line', [
-        ['account_id.account_type', 'in', ['equity', 'equity_unaffected']],
-        ['date', '<=', asOfDate],
-        ['parent_state', '=', 'posted'],
-      ], ['credit', 'debit', 'balance', 'account_id'], { limit: 50000 });
-      
-      // Calculate totals
-      // Liabilities: credit increases, debit decreases (credit - debit = positive liability)
-      const totalDebt = liabilityLines.reduce((sum: number, line: any) => 
-        sum + ((line.credit || 0) - (line.debit || 0)), 0);
-      
-      // Equity: credit increases, debit decreases  
-      const totalEquity = equityLines.reduce((sum: number, line: any) => 
-        sum + ((line.credit || 0) - (line.debit || 0)), 0);
-      
-      // Calculate D/E ratio (handle division by zero)
-      const debtToEquityRatio = totalEquity !== 0 
-        ? Math.abs(totalDebt) / Math.abs(totalEquity)
-        : null;
-      
-      res.json({
-        success: true,
-        year,
-        totalDebt: Math.abs(totalDebt),
-        totalEquity: Math.abs(totalEquity),
-        debtToEquityRatio,
-        hasData: liabilityLines.length > 0 || equityLines.length > 0,
-        ...buildReportMeta('odoo', false, Date.now()),
-      });
+      const data = await fetchDebtEquity2026Data();
+      setReportCache(userId, reportKey, data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Debt to Equity 2026 report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -1089,11 +1105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports - ROI & MOIC (Investor Returns)
-  app.get("/api/reports/investor-returns", isAuthenticated, requireAdmin, async (req: any, res) => {
-    try {
-      // Get initial investment from query param, default to 100,000 if not provided
-      const initialInvestment = parseFloat(req.query.initialInvestment as string) || 100000;
-      const companyStartDate = req.query.startDate as string || '2020-01-01'; // Company inception date
+  async function fetchInvestorReturnsData(initialInvestment: number, companyStartDate: string) {
       const today = new Date().toISOString().split('T')[0];
       
       // Get all equity accounts (current total equity = book value)
@@ -1209,7 +1221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      res.json({
+      return {
         success: true,
         initialInvestment,
         currentValue,
@@ -1226,8 +1238,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyStartDate,
         yearlyData,
         hasData: equityLines.length > 0 || lifetimeIncome.length > 0,
-        ...buildReportMeta('odoo', false, Date.now()),
-      });
+      };
+  }
+
+  app.get("/api/reports/investor-returns", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const initialInvestment = parseFloat(req.query.initialInvestment as string) || 100000;
+      const companyStartDate = req.query.startDate as string || '2020-01-01';
+      const userId = req.user?.email || 'anonymous';
+      const reportKey = `investor-returns-${initialInvestment}-${companyStartDate}`;
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
+      
+      if (cached.isCached) {
+        if (cached.isStale) {
+          refreshReportInBackground(userId, reportKey, () => fetchInvestorReturnsData(initialInvestment, companyStartDate));
+        }
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
+      }
+      
+      const data = await fetchInvestorReturnsData(initialInvestment, companyStartDate);
+      setReportCache(userId, reportKey, data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Investor Returns report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -1241,35 +1273,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports 2026 - Bad Debt & Collections
-  app.get("/api/reports/bad-debt-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
-    try {
+  async function fetchBadDebt2026Data() {
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
       
-      // Get all open (unpaid) customer invoices
       const openInvoices = await odooClient.searchRead('account.move', [
         ['move_type', '=', 'out_invoice'],
         ['state', '=', 'posted'],
         ['payment_state', 'in', ['not_paid', 'partial']],
       ], ['id', 'name', 'partner_id', 'invoice_date', 'invoice_date_due', 'amount_total', 'amount_residual', 'payment_state'], { limit: 5000 });
       
-      // Calculate aging buckets
       const agingBuckets = {
-        current: 0,      // Not yet due
-        days1_30: 0,     // 1-30 days overdue
-        days31_60: 0,    // 31-60 days overdue
-        days61_90: 0,    // 61-90 days overdue
-        days90Plus: 0,   // 90+ days overdue (high risk)
+        current: 0,
+        days1_30: 0,
+        days31_60: 0,
+        days61_90: 0,
+        days90Plus: 0,
       };
-      
-      const overdueCustomers: Array<{
-        id: number;
-        name: string;
-        amountDue: number;
-        oldestDueDate: string;
-        daysOverdue: number;
-        invoiceCount: number;
-      }> = [];
       
       const customerTotals = new Map<number, { 
         name: string; 
@@ -1289,7 +1308,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const dueDate = invoice.invoice_date_due ? new Date(invoice.invoice_date_due) : null;
         const daysOverdue = dueDate ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
         
-        // Categorize into aging buckets
         if (daysOverdue <= 0) {
           agingBuckets.current += amountDue;
         } else if (daysOverdue <= 30) {
@@ -1306,7 +1324,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOverdue += amountDue;
         }
         
-        // Track by customer for top overdue list
         if (daysOverdue > 0 && invoice.partner_id) {
           const partnerId = invoice.partner_id[0];
           const partnerName = invoice.partner_id[1] || 'Unknown';
@@ -1331,23 +1348,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Convert to array and sort by amount due (highest first)
       const sortedCustomers = Array.from(customerTotals.entries())
         .map(([id, data]) => ({ id, ...data }))
         .sort((a, b) => b.amountDue - a.amountDue)
-        .slice(0, 10); // Top 10
+        .slice(0, 10);
       
-      // Calculate bad debt ratio (90+ days as % of total receivables)
       const badDebtRatio = totalReceivables > 0 
         ? (agingBuckets.days90Plus / totalReceivables) * 100 
         : 0;
       
-      // Collection health score (0-100, higher is better)
       const collectionScore = Math.max(0, Math.min(100, 
         100 - (badDebtRatio * 2) - (agingBuckets.days61_90 / Math.max(totalReceivables, 1) * 100)
       ));
       
-      // Collection tips based on data
       const collectionTips: string[] = [];
       
       if (agingBuckets.days90Plus > 0) {
@@ -1366,7 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         collectionTips.push('Collection health is good. Keep monitoring aging weekly.');
       }
       
-      res.json({
+      return {
         success: true,
         totalReceivables,
         totalOverdue,
@@ -1377,8 +1390,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         collectionTips,
         invoiceCount: openInvoices.length,
         hasData: openInvoices.length > 0,
-        ...buildReportMeta('odoo', false, Date.now()),
-      });
+      };
+  }
+
+  app.get("/api/reports/bad-debt-2026", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user?.email || 'anonymous';
+      const reportKey = 'bad-debt-2026';
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
+      
+      if (cached.isCached) {
+        if (cached.isStale) {
+          refreshReportInBackground(userId, reportKey, fetchBadDebt2026Data);
+        }
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
+      }
+      
+      const data = await fetchBadDebt2026Data();
+      setReportCache(userId, reportKey, data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Bad Debt report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -1392,8 +1423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports 2026 - Inventory Turnover
-  app.get("/api/reports/inventory-turnover-2026", isAuthenticated, async (req: any, res) => {
-    try {
+  async function fetchInventoryTurnover2026Data() {
       const year = 2026;
       const startDate = `${year}-01-01`;
       const endDate = `${year}-12-31`;
@@ -1480,7 +1510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get product count with stock
       const productsWithStock = products.length;
       
-      res.json({
+      return {
         success: true,
         year,
         cogs: totalCogs,
@@ -1490,8 +1520,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inventoryTurnover: Math.round(inventoryTurnover * 100) / 100,
         daysToSellInventory,
         hasData: products.length > 0 || totalCogs > 0,
-        ...buildReportMeta('odoo', false, Date.now()),
-      });
+      };
+  }
+
+  app.get("/api/reports/inventory-turnover-2026", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.email || 'anonymous';
+      const reportKey = 'inventory-turnover-2026';
+      const bypass = req.query.refresh === 'true';
+      const cached = getReportCache(userId, reportKey, bypass);
+      
+      if (cached.isCached) {
+        if (cached.isStale) {
+          refreshReportInBackground(userId, reportKey, fetchInventoryTurnover2026Data);
+        }
+        return res.json({ ...cached.data, ...buildReportMeta('odoo', true, cached.fetchedAt) });
+      }
+      
+      const data = await fetchInventoryTurnover2026Data();
+      setReportCache(userId, reportKey, data);
+      res.json({ ...data, ...buildReportMeta('odoo', false, Date.now()) });
     } catch (error) {
       console.error("Inventory Turnover 2026 report error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
