@@ -140,8 +140,9 @@ class OdooClient {
   private lastError: string | null = null;
 
   constructor() {
+    const odooTimeout = Number(process.env.ODOO_TIMEOUT ?? 30000);
     this.axiosInstance = axios.create({
-      timeout: 120000, // 2 minutes timeout for large data fetches
+      timeout: odooTimeout,
       headers: {
         'Content-Type': 'application/json',
       },
