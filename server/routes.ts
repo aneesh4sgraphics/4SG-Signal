@@ -24843,10 +24843,11 @@ Analyze this bounced email and provide insights in JSON format:
     try {
       const { opportunityEngine } = await import("./opportunity-engine");
       const { type, limit, minScore } = req.query;
+      const isAdmin = req.user?.role === 'admin';
       const opportunities = await opportunityEngine.getTopOpportunities({
-        salesRepId: req.user?.id,
+        salesRepId: isAdmin ? undefined : req.user?.id,
         opportunityType: type as any,
-        limit: limit ? parseInt(limit as string) : 50,
+        limit: limit ? parseInt(limit as string) : 100,
         minScore: minScore ? parseInt(minScore as string) : 20,
       });
       res.json(opportunities);
