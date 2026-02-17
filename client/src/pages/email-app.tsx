@@ -79,6 +79,7 @@ export default function EmailApp() {
   const [templateToDelete, setTemplateToDelete] = useState<EmailTemplate | null>(null);
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
+  const [templateToPreview, setTemplateToPreview] = useState<EmailTemplate | null>(null);
   const [templateForm, setTemplateForm] = useState({
     name: "",
     description: "",
@@ -849,28 +850,39 @@ export default function EmailApp() {
                         {TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label}
                       </CardDescription>
                     </div>
-                    {(isAdmin || template.createdBy === user?.id) && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditTemplate(template)}
-                          className="text-gray-500 hover:text-purple-600 hover:bg-purple-50"
-                          data-testid={`button-edit-template-${template.id}`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setTemplateToDelete(template)}
-                          className="text-gray-500 hover:text-red-600 hover:bg-red-50"
-                          data-testid={`button-delete-template-${template.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTemplateToPreview(template)}
+                        className="text-gray-500 hover:text-orange-600 hover:bg-orange-50"
+                        title="Preview template"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {(isAdmin || template.createdBy === user?.id) && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditTemplate(template)}
+                            className="text-gray-500 hover:text-purple-600 hover:bg-purple-50"
+                            data-testid={`button-edit-template-${template.id}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setTemplateToDelete(template)}
+                            className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                            data-testid={`button-delete-template-${template.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -1113,6 +1125,197 @@ Start typing your email content here. Use the toolbar above to format text, add 
                 {editingTemplate ? "Update Template" : "Create Template"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!templateToPreview} onOpenChange={(open) => { if (!open) setTemplateToPreview(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-orange-600" />
+                {templateToPreview?.name}
+              </DialogTitle>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 mr-6">
+                <button
+                  onClick={() => setPreviewDevice('mobile')}
+                  className={`p-1.5 rounded-md transition-all ${previewDevice === 'mobile' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Mobile preview"
+                >
+                  <Smartphone className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('desktop')}
+                  className={`p-1.5 rounded-md transition-all ${previewDevice === 'desktop' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Desktop preview"
+                >
+                  <Monitor className="h-4 w-4" />
+                </button>
+                <div className="w-px h-5 bg-gray-300 mx-0.5" />
+                <button
+                  onClick={() => setPreviewTheme('light')}
+                  className={`p-1.5 rounded-md transition-all ${previewTheme === 'light' ? 'bg-white shadow-sm text-amber-500' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Light mode"
+                >
+                  <Sun className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setPreviewTheme('dark')}
+                  className={`p-1.5 rounded-md transition-all ${previewTheme === 'dark' ? 'bg-gray-700 shadow-sm text-blue-300' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Dark mode"
+                >
+                  <Moon className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <DialogDescription>
+              {TEMPLATE_CATEGORIES.find(c => c.value === templateToPreview?.category)?.label || templateToPreview?.category}
+            </DialogDescription>
+          </DialogHeader>
+
+          {templateToPreview && (
+            <div className="flex justify-center py-2">
+              <div className={`transition-all duration-300 ${previewDevice === 'mobile' ? 'w-[320px]' : 'w-full'}`}>
+                {previewDevice === 'mobile' ? (
+                  <div className={`rounded-[2.5rem] border-[6px] p-1 shadow-xl ${
+                    previewTheme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-100'
+                  }`}>
+                    <div className={`w-12 h-1.5 rounded-full mx-auto mt-1 mb-2 ${
+                      previewTheme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'
+                    }`} />
+                    <div className={`rounded-[1.8rem] overflow-hidden ${
+                      previewTheme === 'dark' ? 'bg-gray-900' : 'bg-white'
+                    }`}>
+                      <div className={`px-4 py-2.5 border-b ${
+                        previewTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            previewTheme === 'dark' ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-600'
+                          }`}>
+                            {(user as any)?.email?.[0]?.toUpperCase() || 'Y'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate ${
+                              previewTheme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                            }`}>
+                              {(user as any)?.email || 'You'}
+                            </p>
+                            <p className={`text-[10px] truncate ${
+                              previewTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              to recipient@example.com
+                            </p>
+                          </div>
+                          <span className={`text-[10px] ${previewTheme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Now</span>
+                        </div>
+                        <p className={`text-sm font-semibold truncate ${
+                          previewTheme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                        }`}>
+                          {templateToPreview.subject}
+                        </p>
+                      </div>
+                      <div
+                        className={`px-4 py-3 text-sm overflow-y-auto prose prose-sm max-w-none ${
+                          previewTheme === 'dark'
+                            ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
+                            : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
+                        }`}
+                        style={{ maxHeight: '360px', fontSize: '13px', lineHeight: '1.5' }}
+                        dangerouslySetInnerHTML={{ __html: templateToPreview.body }}
+                      />
+                    </div>
+                    <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${
+                      previewTheme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'
+                    }`} />
+                  </div>
+                ) : (
+                  <div className={`rounded-xl border shadow-lg overflow-hidden ${
+                    previewTheme === 'dark' ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'
+                  }`}>
+                    <div className={`px-4 py-3 border-b ${
+                      previewTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                          previewTheme === 'dark' ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-600'
+                        }`}>
+                          {(user as any)?.email?.[0]?.toUpperCase() || 'Y'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-semibold ${
+                            previewTheme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                          }`}>
+                            {(user as any)?.email || 'You'}
+                          </p>
+                          <p className={`text-xs ${
+                            previewTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            to recipient@example.com
+                          </p>
+                        </div>
+                        <span className={`text-xs ${previewTheme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Just now</span>
+                      </div>
+                      <p className={`text-base font-semibold ${
+                        previewTheme === 'dark' ? 'text-gray-100' : 'text-gray-900'
+                      }`}>
+                        {templateToPreview.subject}
+                      </p>
+                    </div>
+                    <div
+                      className={`px-6 py-4 text-sm overflow-y-auto prose max-w-none ${
+                        previewTheme === 'dark'
+                          ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
+                          : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
+                      }`}
+                      style={{ maxHeight: '400px' }}
+                      dangerouslySetInnerHTML={{ __html: templateToPreview.body }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center pt-2 border-t">
+            <div className="flex gap-2">
+              {(isAdmin || templateToPreview?.createdBy === user?.id) && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (templateToPreview) {
+                        openEditTemplate(templateToPreview);
+                        setTemplateToPreview(null);
+                      }
+                    }}
+                    className="text-purple-600 hover:bg-purple-50"
+                  >
+                    <Edit2 className="h-4 w-4 mr-1.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (templateToPreview) {
+                        setTemplateToDelete(templateToPreview);
+                        setTemplateToPreview(null);
+                      }
+                    }}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Delete
+                  </Button>
+                </>
+              )}
+            </div>
+            <Button variant="outline" onClick={() => setTemplateToPreview(null)}>
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
