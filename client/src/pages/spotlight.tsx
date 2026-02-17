@@ -94,6 +94,8 @@ import {
   MessageCircle,
   ShoppingCart,
   Layers,
+  Droplets,
+  MailPlus,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
@@ -506,10 +508,14 @@ export default function Spotlight() {
       localStorage.setItem('spotlight_scratchpad_open', scratchPadOpen ? 'true' : 'false');
     } catch {}
   }, [scratchPadOpen]);
-  
+
   // Email composer state
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [showPrintLabel, setShowPrintLabel] = useState(false);
+  const [showEmailMenu, setShowEmailMenu] = useState(false);
+  const [showDripEnroll, setShowDripEnroll] = useState(false);
+  const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>('');
+  const emailMenuRef = useRef<HTMLDivElement>(null);
   
   // Remind Later dialog state
   const [showRemindLaterDialog, setShowRemindLaterDialog] = useState(false);
@@ -524,6 +530,18 @@ export default function Spotlight() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const emailEditorRef = useRef<EmailRichTextEditorRef>(null);
   
+  // Close email menu on outside click
+  useEffect(() => {
+    if (!showEmailMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (emailMenuRef.current && !emailMenuRef.current.contains(e.target as Node)) {
+        setShowEmailMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmailMenu]);
+
   // Optimistic states for immediate UI feedback
   const [optimisticCustomerType, setOptimisticCustomerType] = useState<string | null>(null);
   const [optimisticHotProspect, setOptimisticHotProspect] = useState<boolean | null>(null);
@@ -821,6 +839,41 @@ export default function Spotlight() {
   const { data: emailTemplates = [] } = useQuery<{ id: number; name: string; subject: string; body: string; category?: string }[]>({
     queryKey: ['/api/email/templates'],
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch drip campaigns for enrollment
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; status: string; stepCount?: number }[]>({
+    queryKey: ['/api/drip-campaigns'],
+    staleTime: 5 * 60 * 1000,
+    enabled: showDripEnroll,
+  });
+
+  // Enroll customer/lead in drip campaign
+  const enrollDripMutation = useMutation({
+    mutationFn: async (data: { campaignId: number; customerId?: string; leadId?: number }) => {
+      const body: any = {};
+      if (data.leadId) {
+        body.leadIds = [data.leadId];
+      } else if (data.customerId) {
+        body.customerIds = [data.customerId];
+      }
+      return apiRequest('POST', `/api/drip-campaigns/${data.campaignId}/assignments`, body);
+    },
+    onSuccess: () => {
+      setShowDripEnroll(false);
+      setSelectedDripCampaignId('');
+      toast({ title: 'Drip Campaign Started!', description: 'Customer has been enrolled in the drip campaign' });
+      if (currentTask?.task?.id) {
+        completeMutation.mutate({
+          taskId: currentTask.task.id,
+          outcomeId: 'send_drip',
+          notes: `Enrolled in drip campaign`,
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: 'Enrollment Failed', description: error.message || 'Could not enroll in campaign', variant: 'destructive' });
+    },
   });
 
   // Send email mutation - also marks task as complete for Follow-Up credit
@@ -2490,15 +2543,44 @@ export default function Spotlight() {
               <div className="w-16 bg-slate-50 border border-r-0 border-slate-200 rounded-l-xl flex flex-col items-center py-4 gap-2">
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Actions</p>
                 
-                {/* Email */}
-                <button
-                  onClick={handleOpenEmailComposer}
-                  disabled={!effectiveEmail}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveEmail ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-                  title={effectiveEmail ? "Compose Email" : "No email available"}
-                >
-                  <Mail className="w-4 h-4" />
-                </button>
+                {/* Email - with menu for single email or drip */}
+                <div className="relative" ref={emailMenuRef}>
+                  <button
+                    onClick={() => {
+                      if (!effectiveEmail) return;
+                      setShowEmailMenu(!showEmailMenu);
+                    }}
+                    disabled={!effectiveEmail}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveEmail ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                    title={effectiveEmail ? "Email Options" : "No email available"}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </button>
+                  {showEmailMenu && (
+                    <div className="absolute left-12 top-0 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[180px]">
+                      <button
+                        onClick={() => {
+                          setShowEmailMenu(false);
+                          handleOpenEmailComposer();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                      >
+                        <MailPlus className="w-4 h-4" />
+                        <span>Send Email</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowEmailMenu(false);
+                          setShowDripEnroll(true);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                      >
+                        <Droplets className="w-4 h-4" />
+                        <span>Start Drip Campaign</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 
                 {/* Print Label */}
                 <button
@@ -5473,6 +5555,90 @@ export default function Spotlight() {
                 <>
                   <Send className="w-4 h-4 mr-2" />
                   Send Email
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Drip Campaign Enrollment Dialog */}
+      <Dialog open={showDripEnroll} onOpenChange={(open) => { setShowDripEnroll(open); if (!open) setSelectedDripCampaignId(''); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Droplets className="h-5 w-5 text-purple-600" />
+              Start Drip Campaign
+            </DialogTitle>
+            <DialogDescription>
+              Enroll {task?.isLeadTask ? (task?.lead?.company || task?.lead?.name || 'this lead') : (task?.customer?.company || 'this customer')} in an automated email drip campaign
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Select Campaign</Label>
+              <Select value={selectedDripCampaignId} onValueChange={setSelectedDripCampaignId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a drip campaign..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dripCampaigns.filter(c => c.status === 'active').map((campaign) => (
+                    <SelectItem key={campaign.id} value={campaign.id.toString()}>
+                      <div className="flex flex-col">
+                        <span>{campaign.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  {dripCampaigns.filter(c => c.status === 'active').length === 0 && (
+                    <SelectItem value="__none" disabled>No active campaigns available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {selectedDripCampaignId && dripCampaigns.find(c => c.id.toString() === selectedDripCampaignId)?.description && (
+                <p className="text-xs text-slate-500 mt-1">
+                  {dripCampaigns.find(c => c.id.toString() === selectedDripCampaignId)?.description}
+                </p>
+              )}
+            </div>
+
+            <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-sm text-purple-800">
+                <Mail className="w-4 h-4 flex-shrink-0" />
+                <span>Emails will be sent to: <strong>{effectiveEmail}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => { setShowDripEnroll(false); setSelectedDripCampaignId(''); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedDripCampaignId) return;
+                const campaignId = parseInt(selectedDripCampaignId);
+                const isLeadTask = currentTask?.task?.isLeadTask;
+                const customerId = currentTask?.task?.customer?.id;
+                const leadId = currentTask?.task?.leadId || (isLeadTask && customerId ? parseInt(customerId.replace('lead-', '')) : undefined);
+                enrollDripMutation.mutate({
+                  campaignId,
+                  customerId: isLeadTask ? undefined : customerId,
+                  leadId: isLeadTask ? leadId : undefined,
+                });
+              }}
+              disabled={!selectedDripCampaignId || enrollDripMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {enrollDripMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Enrolling...
+                </>
+              ) : (
+                <>
+                  <Droplets className="w-4 h-4 mr-2" />
+                  Start Campaign
                 </>
               )}
             </Button>
