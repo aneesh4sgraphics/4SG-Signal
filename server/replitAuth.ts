@@ -373,15 +373,7 @@ export async function setupAuth(app: Express) {
           console.log(`[Auth] Login successful in ${totalTime}ms. Session ID: ${req.sessionID}`);
           console.log(`[Auth] User authenticated: ${req.user?.claims?.email}`);
 
-          // Small delay page to ensure cookie is set before redirect
-          res.send(`<!DOCTYPE html><html><head><title>Logging in...</title></head>
-            <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;">
-            <p>Logging you in...</p>
-            <script>
-              sessionStorage.setItem('authComplete', 'true');
-              setTimeout(function(){window.location.replace('/');},500);
-            </script>
-            </body></html>`);
+          res.redirect("/");
         } catch (loginErr) {
           console.error("[Auth] Login/session save failed:", loginErr);
           res.redirect("/?error=session_failed");

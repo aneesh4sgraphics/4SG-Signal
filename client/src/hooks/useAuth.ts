@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
 
 interface AuthUser {
   id: string;
@@ -33,41 +32,16 @@ async function fetchAuthUser(): Promise<AuthUser | null> {
 }
 
 export function useAuth() {
-  const handledAuth = useRef(false);
-
-  const wasJustAuthenticated = typeof window !== "undefined" && 
-    sessionStorage.getItem("authComplete") === "true";
-
   const { data: user, isLoading, error, refetch } = useQuery<AuthUser | null>({
     queryKey: ["/api/auth/user"],
     queryFn: fetchAuthUser,
-    retry: wasJustAuthenticated ? 3 : 1,
+    retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * (attemptIndex + 1), 3000),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
   });
-
-  useEffect(() => {
-    if (wasJustAuthenticated && !handledAuth.current) {
-      handledAuth.current = true;
-      sessionStorage.removeItem("authComplete");
-      
-      const timer = setTimeout(() => {
-        refetch();
-      }, 500);
-      
-      const cleanupTimer = setTimeout(() => {
-        sessionStorage.removeItem("authTimestamp");
-      }, 10000);
-      
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(cleanupTimer);
-      };
-    }
-  }, [wasJustAuthenticated, refetch]);
 
   const isAuthenticated = !!user && !error;
   const isApproved = isAuthenticated && user?.status === "approved";
