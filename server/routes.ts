@@ -1799,9 +1799,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Unified sales reps endpoint - single source of truth for all sales rep dropdowns
+  let salesRepsCache: { data: Array<{ id: string; name: string; email: string }>; timestamp: number } | null = null;
+  const SALES_REPS_CACHE_TTL = 10 * 60 * 1000;
+
   app.get("/api/sales-reps", isAuthenticated, async (req: any, res) => {
     try {
-      // Try to get sales people from Odoo first (authoritative source)
+      if (salesRepsCache && (Date.now() - salesRepsCache.timestamp < SALES_REPS_CACHE_TTL)) {
+        return res.json(salesRepsCache.data);
+      }
+
       let odooSalesReps: Array<{ id: string; name: string; email: string }> = [];
       try {
         const users = await odooClient.getUsers();
@@ -1814,14 +1820,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("[Sales Reps] Odoo unavailable, falling back to local users");
       }
       
-      // If we got Odoo users, use them; otherwise fall back to local app users
       if (odooSalesReps.length > 0) {
-        // Sort by name and return
         const sorted = odooSalesReps.sort((a, b) => a.name.localeCompare(b.name));
+        salesRepsCache = { data: sorted, timestamp: Date.now() };
         return res.json(sorted);
       }
       
-      // Fallback: use local approved users
       const allUsers = await storage.getAllUsers();
       const salesReps = allUsers
         .filter(u => u.status === 'approved')
@@ -1832,6 +1836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
       
+      salesRepsCache = { data: salesReps, timestamp: Date.now() };
       res.json(salesReps);
     } catch (error) {
       console.error("Error fetching sales reps:", error);
@@ -4534,7 +4539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get orders total from sent quotes (as a proxy for order value)
       const orderStats = await db.select({
-        totalValue: sql<number>`COALESCE(SUM(total_price), 0)`,
+        totalValue: sql<number>`COALESCE(SUM(total_amount), 0)`,
         orderCount: sql<number>`COUNT(*)`
       }).from(sentQuotes).where(eq(sentQuotes.customerId, customerId));
       

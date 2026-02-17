@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface AuthUser {
   id: string;
@@ -33,7 +33,7 @@ async function fetchAuthUser(): Promise<AuthUser | null> {
 }
 
 export function useAuth() {
-  const [isInitializing, setIsInitializing] = useState(true);
+  const handledAuth = useRef(false);
 
   const wasJustAuthenticated = typeof window !== "undefined" && 
     sessionStorage.getItem("authComplete") === "true";
@@ -50,14 +50,14 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    if (wasJustAuthenticated) {
+    if (wasJustAuthenticated && !handledAuth.current) {
+      handledAuth.current = true;
       sessionStorage.removeItem("authComplete");
       
       const timer = setTimeout(() => {
         refetch();
       }, 500);
       
-      // Remove authTimestamp after 10 seconds (allowing grace period to work for all queries)
       const cleanupTimer = setTimeout(() => {
         sessionStorage.removeItem("authTimestamp");
       }, 10000);
@@ -69,19 +69,13 @@ export function useAuth() {
     }
   }, [wasJustAuthenticated, refetch]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      setIsInitializing(false);
-    }
-  }, [isLoading]);
-
   const isAuthenticated = !!user && !error;
   const isApproved = isAuthenticated && user?.status === "approved";
   const isAdmin = isAuthenticated && user?.role === "admin";
 
   return {
     user,
-    isLoading: isLoading || isInitializing,
+    isLoading,
     isAuthenticated,
     isApproved,
     isAdmin,

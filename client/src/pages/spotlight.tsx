@@ -456,8 +456,8 @@ export default function Spotlight() {
       return res.json();
     },
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000, // Increased from 30s to reduce refetches
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 
   // Fetch "Later Today" scratch pad tasks
@@ -579,7 +579,7 @@ export default function Spotlight() {
 
   const { data: efficiency } = useQuery<EfficiencyData>({
     queryKey: ['/api/spotlight/efficiency'],
-    staleTime: 60 * 1000,
+    staleTime: 2 * 60 * 1000,
     enabled: !!currentTask,
   });
 
@@ -639,15 +639,14 @@ export default function Spotlight() {
     };
   }>({
     queryKey: ['/api/spotlight/today-progress'],
-    staleTime: 30 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
-  // Fetch customers worked on today for sidebar navigation
   const { data: workedTodayData } = useQuery<{
     customers: Array<{ id: string; name: string; email: string | null }>;
   }>({
     queryKey: ['/api/spotlight/worked-today'],
-    staleTime: 30 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
   useEffect(() => {

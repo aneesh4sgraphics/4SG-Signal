@@ -5,56 +5,61 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { ShopifyAppBridgeProvider } from "@/components/ShopifyAppBridgeProvider";
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import { AuthWatcher } from "@/components/AuthWatcher";
 import { EmailComposerProvider } from "@/components/email-composer";
 import OdooLayout from "@/components/OdooLayout";
-import AreaPricer from "@/pages/area-pricer-fixed";
-import CompetitorPricing from "@/pages/competitor-pricing-fixed";
-import SavedQuotes from "@/pages/saved-quotes";
-import CustomerManagement from "@/pages/customer-management";
-import CustomerTable from "@/pages/customer-table";
-import ProductPricingManagement from "@/pages/product-pricing-management-new";
-import QuoteCalculator from "@/pages/quote-calculator";
-import PriceList from "@/pages/price-list";
-import ShippingCalculator from "@/pages/shipping-calculator";
-import Admin from "@/pages/admin";
-import AdminConfig from "@/pages/admin-config";
-import SetupWizard from "@/pages/setup-wizard";
-import ActivityLogsPage from "@/pages/activity-logs";
-import PdfCategoryAdmin from "@/pages/pdf-category-admin";
-import Dashboard from "@/pages/dashboard-odoo";
-import ShippingLabels from "@/pages/shipping-labels";
-import ProductLabels from "@/pages/product-labels";
-import CRMJourneyDashboard from "@/pages/crm-journey";
-import EmailApp from "@/pages/email-app";
-import ObjectionsPage from "@/pages/objections";
-import ShopifySettingsPage from "@/pages/shopify-settings";
-import OdooSettingsPage from "@/pages/odoo-settings";
-import IntegrationsSettingsPage from "@/pages/integrations-settings";
-import ProductMappingPage from "@/pages/product-mapping";
-import SalesAnalyticsPage from "@/pages/sales-analytics";
-import ReportsPage from "@/pages/reports";
-import CostDashboard from "@/pages/cost-dashboard";
-import EmailSyncDebug from "@/pages/email-sync-debug";
-import Spotlight from "@/pages/spotlight";
-import CalendarPage from "@/pages/calendar";
-import TaskInbox from "@/pages/task-inbox";
-import HotLeads from "@/pages/hot-leads";
-import OdooContacts from "@/pages/odoo-contacts";
-import OdooCompanyDetail from "@/pages/odoo-company-detail";
-import OdooProducts from "@/pages/odoo-products";
-import OdooProductDetail from "@/pages/odoo-product-detail";
-import LeadsPage from "@/pages/leads";
-import LeadDetail from "@/pages/lead-detail";
-import BounceInvestigation from "@/pages/bounce-investigation";
-import OpportunitiesPage from "@/pages/opportunities";
-import CustomerMarginsPage from "@/pages/customer-margins";
-
-import NotFound from "@/pages/not-found";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
+
+const Spotlight = lazy(() => import("@/pages/spotlight"));
+const Dashboard = lazy(() => import("@/pages/dashboard-odoo"));
+const QuoteCalculator = lazy(() => import("@/pages/quote-calculator"));
+const PriceList = lazy(() => import("@/pages/price-list"));
+const AreaPricer = lazy(() => import("@/pages/area-pricer-fixed"));
+const CompetitorPricing = lazy(() => import("@/pages/competitor-pricing-fixed"));
+const SavedQuotes = lazy(() => import("@/pages/saved-quotes"));
+const CustomerManagement = lazy(() => import("@/pages/customer-management"));
+const CustomerTable = lazy(() => import("@/pages/customer-table"));
+const ProductPricingManagement = lazy(() => import("@/pages/product-pricing-management-new"));
+const ShippingCalculator = lazy(() => import("@/pages/shipping-calculator"));
+const Admin = lazy(() => import("@/pages/admin"));
+const AdminConfig = lazy(() => import("@/pages/admin-config"));
+const SetupWizard = lazy(() => import("@/pages/setup-wizard"));
+const ActivityLogsPage = lazy(() => import("@/pages/activity-logs"));
+const PdfCategoryAdmin = lazy(() => import("@/pages/pdf-category-admin"));
+const ShippingLabels = lazy(() => import("@/pages/shipping-labels"));
+const ProductLabels = lazy(() => import("@/pages/product-labels"));
+const CRMJourneyDashboard = lazy(() => import("@/pages/crm-journey"));
+const EmailApp = lazy(() => import("@/pages/email-app"));
+const ObjectionsPage = lazy(() => import("@/pages/objections"));
+const ShopifySettingsPage = lazy(() => import("@/pages/shopify-settings"));
+const OdooSettingsPage = lazy(() => import("@/pages/odoo-settings"));
+const IntegrationsSettingsPage = lazy(() => import("@/pages/integrations-settings"));
+const ProductMappingPage = lazy(() => import("@/pages/product-mapping"));
+const SalesAnalyticsPage = lazy(() => import("@/pages/sales-analytics"));
+const ReportsPage = lazy(() => import("@/pages/reports"));
+const CostDashboard = lazy(() => import("@/pages/cost-dashboard"));
+const EmailSyncDebug = lazy(() => import("@/pages/email-sync-debug"));
+const CalendarPage = lazy(() => import("@/pages/calendar"));
+const TaskInbox = lazy(() => import("@/pages/task-inbox"));
+const HotLeads = lazy(() => import("@/pages/hot-leads"));
+const OdooContacts = lazy(() => import("@/pages/odoo-contacts"));
+const OdooCompanyDetail = lazy(() => import("@/pages/odoo-company-detail"));
+const OdooProducts = lazy(() => import("@/pages/odoo-products"));
+const OdooProductDetail = lazy(() => import("@/pages/odoo-product-detail"));
+const LeadsPage = lazy(() => import("@/pages/leads"));
+const LeadDetail = lazy(() => import("@/pages/lead-detail"));
+const BounceInvestigation = lazy(() => import("@/pages/bounce-investigation"));
+const OpportunitiesPage = lazy(() => import("@/pages/opportunities"));
+const CustomerMarginsPage = lazy(() => import("@/pages/customer-margins"));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+  </div>
+);
 
 const PendingPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -82,53 +87,55 @@ const PendingPage = () => (
 );
 
 const AppRoutes = () => (
-  <Switch>
-    <Route path="/" component={Spotlight} />
-    <Route path="/dashboard" component={Dashboard} />
-    <Route path="/quick-quotes" component={QuoteCalculator} />
-    <Route path="/quote-calculator" component={QuoteCalculator} />
-    <Route path="/price-list" component={PriceList} />
-    <Route path="/area-pricer" component={AreaPricer} />
-    <Route path="/competitor-pricing" component={CompetitorPricing} />
-    <Route path="/saved-quotes" component={SavedQuotes} />
-    <Route path="/customer-management" component={CustomerManagement} />
-    <Route path="/customer-table" component={CustomerTable} />
-    <Route path="/product-pricing-management" component={ProductPricingManagement} />
-    <Route path="/activity-logs" component={ActivityLogsPage} />
-    <Route path="/shipping-calculator" component={ShippingCalculator} />
-    <Route path="/admin" component={Admin} />
-    <Route path="/admin/config" component={AdminConfig} />
-    <Route path="/admin/setup" component={SetupWizard} />
-    <Route path="/pdf-settings" component={PdfCategoryAdmin} />
-    <Route path="/shipping-labels" component={ShippingLabels} />
-    <Route path="/product-labels" component={ProductLabels} />
-    <Route path="/crm-journey" component={CRMJourneyDashboard} />
-    <Route path="/email-app" component={EmailApp} />
-    <Route path="/email-insights" component={Spotlight} />
-    <Route path="/email-sync-debug" component={EmailSyncDebug} />
-    <Route path="/objections" component={ObjectionsPage} />
-    <Route path="/shopify-settings" component={ShopifySettingsPage} />
-    <Route path="/odoo-settings" component={OdooSettingsPage} />
-    <Route path="/integrations" component={IntegrationsSettingsPage} />
-    <Route path="/product-mapping" component={ProductMappingPage} />
-    <Route path="/sales-analytics" component={SalesAnalyticsPage} />
-    <Route path="/reports" component={ReportsPage} />
-    <Route path="/admin/costs" component={CostDashboard} />
-    <Route path="/spotlight"><Redirect to="/" /></Route>
-    <Route path="/calendar" component={CalendarPage} />
-    <Route path="/tasks" component={TaskInbox} />
-    <Route path="/hot-leads" component={HotLeads} />
-    <Route path="/leads" component={LeadsPage} />
-    <Route path="/leads/:id" component={LeadDetail} />
-    <Route path="/opportunities" component={OpportunitiesPage} />
-    <Route path="/customer-margins" component={CustomerMarginsPage} />
-    <Route path="/bounce-investigation/:bounceId" component={BounceInvestigation} />
-    <Route path="/odoo-contacts" component={OdooContacts} />
-    <Route path="/odoo-contacts/:id" component={OdooCompanyDetail} />
-    <Route path="/odoo-products" component={OdooProducts} />
-    <Route path="/odoo-products/:id" component={OdooProductDetail} />
-    <Route><Redirect to="/" /></Route>
-  </Switch>
+  <Suspense fallback={<PageLoader />}>
+    <Switch>
+      <Route path="/" component={Spotlight} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/quick-quotes" component={QuoteCalculator} />
+      <Route path="/quote-calculator" component={QuoteCalculator} />
+      <Route path="/price-list" component={PriceList} />
+      <Route path="/area-pricer" component={AreaPricer} />
+      <Route path="/competitor-pricing" component={CompetitorPricing} />
+      <Route path="/saved-quotes" component={SavedQuotes} />
+      <Route path="/customer-management" component={CustomerManagement} />
+      <Route path="/customer-table" component={CustomerTable} />
+      <Route path="/product-pricing-management" component={ProductPricingManagement} />
+      <Route path="/activity-logs" component={ActivityLogsPage} />
+      <Route path="/shipping-calculator" component={ShippingCalculator} />
+      <Route path="/admin" component={Admin} />
+      <Route path="/admin/config" component={AdminConfig} />
+      <Route path="/admin/setup" component={SetupWizard} />
+      <Route path="/pdf-settings" component={PdfCategoryAdmin} />
+      <Route path="/shipping-labels" component={ShippingLabels} />
+      <Route path="/product-labels" component={ProductLabels} />
+      <Route path="/crm-journey" component={CRMJourneyDashboard} />
+      <Route path="/email-app" component={EmailApp} />
+      <Route path="/email-insights" component={Spotlight} />
+      <Route path="/email-sync-debug" component={EmailSyncDebug} />
+      <Route path="/objections" component={ObjectionsPage} />
+      <Route path="/shopify-settings" component={ShopifySettingsPage} />
+      <Route path="/odoo-settings" component={OdooSettingsPage} />
+      <Route path="/integrations" component={IntegrationsSettingsPage} />
+      <Route path="/product-mapping" component={ProductMappingPage} />
+      <Route path="/sales-analytics" component={SalesAnalyticsPage} />
+      <Route path="/reports" component={ReportsPage} />
+      <Route path="/admin/costs" component={CostDashboard} />
+      <Route path="/spotlight"><Redirect to="/" /></Route>
+      <Route path="/calendar" component={CalendarPage} />
+      <Route path="/tasks" component={TaskInbox} />
+      <Route path="/hot-leads" component={HotLeads} />
+      <Route path="/leads" component={LeadsPage} />
+      <Route path="/leads/:id" component={LeadDetail} />
+      <Route path="/opportunities" component={OpportunitiesPage} />
+      <Route path="/customer-margins" component={CustomerMarginsPage} />
+      <Route path="/bounce-investigation/:bounceId" component={BounceInvestigation} />
+      <Route path="/odoo-contacts" component={OdooContacts} />
+      <Route path="/odoo-contacts/:id" component={OdooCompanyDetail} />
+      <Route path="/odoo-products" component={OdooProducts} />
+      <Route path="/odoo-products/:id" component={OdooProductDetail} />
+      <Route><Redirect to="/" /></Route>
+    </Switch>
+  </Suspense>
 );
 
 function Router() {
