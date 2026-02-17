@@ -2898,6 +2898,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEmailTemplate(id: number): Promise<void> {
+    await db.update(emailSends).set({ templateId: null }).where(eq(emailSends.templateId, id));
+    await db.update(dripCampaignSteps).set({ templateId: null }).where(eq(dripCampaignSteps.templateId, id));
     await db.delete(emailTemplates).where(eq(emailTemplates.id, id));
   }
 

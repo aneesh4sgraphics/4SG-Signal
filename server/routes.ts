@@ -11904,7 +11904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/email/templates/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const userId = req.user?.id;
+      const userEmail = req.user?.email;
       const isAdmin = req.user?.role === 'admin';
       
       // Check ownership or admin status
@@ -11912,7 +11912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingTemplate) {
         return res.status(404).json({ error: "Template not found" });
       }
-      if (!isAdmin && existingTemplate.createdBy !== userId) {
+      if (!isAdmin && existingTemplate.createdBy !== userEmail) {
         return res.status(403).json({ error: "Not authorized to delete this template" });
       }
       
