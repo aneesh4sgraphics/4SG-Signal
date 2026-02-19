@@ -1019,24 +1019,31 @@ export default function Spotlight() {
 
   // Use PRICING_TIERS constant from shared/schema.ts - single source of truth
 
+  const spotlightQueryKey = ['/api/spotlight/current', forceBucket, workTypeFocus];
+  
+  const applyPiggybackedTask = (nextTaskData: any) => {
+    if (nextTaskData) {
+      queryClient.setQueryData(spotlightQueryKey, nextTaskData);
+    } else {
+      queryClient.invalidateQueries({ queryKey: spotlightQueryKey });
+    }
+  };
+
   const completeMutation = useMutation({
     mutationFn: async (data: { taskId: string; outcomeId: string; field?: string; value?: string; notes?: string; customFollowUpDays?: number }) => {
       const res = await apiRequest('POST', '/api/spotlight/complete', data);
       return res.json();
     },
     onMutate: () => {
-      // INSTANT feedback - start transition immediately when button is clicked
       setIsTransitioning(true);
       setShowSuccess(true);
     },
     onSuccess: (result) => {
-      // Immediately invalidate and fetch next task
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      applyPiggybackedTask(result.nextTaskData);
       setFieldValue("");
       setNotes("");
       setShowNotes(false);
       
-      // Clear success overlay quickly, but let isFetching control card visibility
       setIsTransitioning(false);
       setTimeout(() => setShowSuccess(false), 300);
       
@@ -1061,13 +1068,12 @@ export default function Spotlight() {
       return res.json();
     },
     onMutate: () => {
-      // INSTANT feedback - start transition immediately
       setIsTransitioning(true);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+    onSuccess: (result) => {
+      applyPiggybackedTask(result.nextTaskData);
       toast({ title: "Skipped", description: "Moving to next moment..." });
-      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
+      setIsTransitioning(false);
     },
     onError: () => {
       setIsTransitioning(false);
@@ -1084,11 +1090,10 @@ export default function Spotlight() {
       setIsTransitioning(true);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      queryClient.invalidateQueries({ queryKey: spotlightQueryKey });
       queryClient.invalidateQueries({ queryKey: ['/api/spotlight/remind-today'] });
       toast({ title: "Reminder set", description: "This will come up again at end of day" });
-      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
-      // Auto-open scratch pad so user can see the contact was added
+      setIsTransitioning(false);
       setTimeout(() => setScratchPadOpen(true), 300);
     },
     onError: () => {
@@ -1132,10 +1137,10 @@ export default function Spotlight() {
       setIsTransitioning(true);
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/current', forceBucket] });
+      queryClient.invalidateQueries({ queryKey: spotlightQueryKey });
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-      setIsTransitioning(false); // isFetching will keep card hidden until new data arrives
+      setIsTransitioning(false);
       
       const entityType = result?.isLead ? 'Lead' : 'Customer';
       toast({ 

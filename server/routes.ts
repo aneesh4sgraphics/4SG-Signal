@@ -22968,18 +22968,21 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         return res.status(400).json({ error: "taskId and outcomeId are required" });
       }
 
+      spotlightEngine.invalidateExcludeCache(userId);
+      spotlightEngine.invalidatePrefetchCache(userId);
+
       const result = await spotlightEngine.completeTask(userId, taskId, outcomeId, field, value, notes, customFollowUpDays);
       
-      // Update gamification state
       const session = spotlightEngine.getSessionStats(userId);
       if (taskSubtype) {
         spotlightEngine.updateGamificationOnComplete(session as any, taskSubtype);
       }
       
-      // Get updated gamification state
       const gamification = spotlightEngine.getGamificationState(session as any);
       
-      res.json({ ...result, gamification });
+      const nextTaskData = await spotlightEngine.getNextTaskForPiggyback(userId);
+      
+      res.json({ ...result, gamification, nextTaskData });
     } catch (error) {
       console.error("[Spotlight] Error completing task:", error);
       res.status(500).json({ error: "Failed to complete task" });
@@ -22998,9 +23001,14 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         return res.status(400).json({ error: "taskId is required" });
       }
 
+      spotlightEngine.invalidateExcludeCache(userId);
+      spotlightEngine.invalidatePrefetchCache(userId);
+
       await spotlightEngine.skipTask(userId, taskId, reason || 'not_now');
       
-      res.json({ success: true });
+      const nextTaskData = await spotlightEngine.getNextTaskForPiggyback(userId);
+      
+      res.json({ success: true, nextTaskData });
     } catch (error) {
       console.error("[Spotlight] Error skipping task:", error);
       res.status(500).json({ error: "Failed to skip task" });

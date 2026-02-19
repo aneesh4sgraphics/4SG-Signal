@@ -452,6 +452,11 @@ class SpotlightEngine {
   private sessions: Map<string, SpotlightSession> = new Map();
   private streakCache: Map<string, { streak: number; lastChecked: string }> = new Map();
   private readinessCache: Map<string, { data: DataReadiness; checkedAt: Date }> = new Map();
+  private prefetchedTask: Map<string, { task: SpotlightTask; generatedAt: number }> = new Map();
+  private prefetchInProgress: Set<string> = new Set();
+  private excludeListCache: Map<string, { excludeIds: string[]; generatedAt: number }> = new Map();
+  private static PREFETCH_TTL = 30 * 1000; // 30 second TTL for prefetched tasks
+  private static EXCLUDE_CACHE_TTL = 10 * 1000; // 10 second TTL for exclude lists
 
   private getTodayKey(): string {
     const now = new Date();
@@ -1703,7 +1708,114 @@ class SpotlightEngine {
     }
   }
 
+  private async getExcludeIds(userId: string, session: SpotlightSession): Promise<string[]> {
+    const cacheKey = `${userId}-${this.getTodayKey()}`;
+    const cached = this.excludeListCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.generatedAt) < SpotlightEngine.EXCLUDE_CACHE_TTL) {
+      return [...cached.excludeIds, ...session.skippedCustomerIds];
+    }
+    
+    const [claimedByOthers, recentlyContacted, todayContacted, territorySkipped] = await Promise.all([
+      this.getClaimedCustomerIds(userId),
+      this.getRecentlyContactedIds(7),
+      this.getTodayContactedByAnyUser(),
+      this.getUserTerritorySkippedIds(userId)
+    ]);
+    
+    const baseExcludeIds = [...claimedByOthers, ...recentlyContacted, ...todayContacted.customerIds, ...territorySkipped];
+    for (const leadId of todayContacted.leadIds) {
+      baseExcludeIds.push(`lead-${leadId}`);
+    }
+    
+    this.excludeListCache.set(cacheKey, { excludeIds: baseExcludeIds, generatedAt: now });
+    return [...baseExcludeIds, ...session.skippedCustomerIds];
+  }
+  
+  invalidateExcludeCache(userId: string): void {
+    const cacheKey = `${userId}-${this.getTodayKey()}`;
+    this.excludeListCache.delete(cacheKey);
+  }
+  
+  invalidatePrefetchCache(userId: string): void {
+    this.prefetchedTask.delete(userId);
+    this.prefetchGeneration.set(userId, (this.prefetchGeneration.get(userId) || 0) + 1);
+  }
+  
+  private prefetchGeneration: Map<string, number> = new Map();
+
+  private prefetchNextTask(userId: string): void {
+    if (this.prefetchInProgress.has(userId)) return;
+    
+    this.prefetchInProgress.add(userId);
+    const gen = this.prefetchGeneration.get(userId) || 0;
+    
+    this.findNextTaskWithoutClaiming(userId).then(result => {
+      const currentGen = this.prefetchGeneration.get(userId) || 0;
+      if (currentGen !== gen) {
+        return;
+      }
+      if (result.task) {
+        this.prefetchedTask.set(userId, { task: result.task, generatedAt: Date.now() });
+      }
+    }).catch(err => {
+      console.error('[Spotlight] Prefetch error:', err);
+    }).finally(() => {
+      this.prefetchInProgress.delete(userId);
+    });
+  }
+
+  private async findNextTaskWithoutClaiming(userId: string): Promise<{ task: SpotlightTask | null }> {
+    const session = await this.getSessionAsync(userId);
+    
+    if (session.isPaused || (session.totalCompleted >= session.totalTarget && !session.continueAfterComplete)) {
+      return { task: null };
+    }
+    
+    try {
+      let excludeIds = await this.getExcludeIds(userId, session);
+      
+      const nextBucket = this.getNextBucket(session);
+      if (!nextBucket) return { task: null };
+      
+      let task: SpotlightTask | null = null;
+      
+      switch (nextBucket) {
+        case 'calls':
+          task = await this.findCallTask(userId, excludeIds);
+          break;
+        case 'follow_ups':
+          task = await this.findFollowUpTask(userId, excludeIds);
+          break;
+        case 'outreach':
+          task = await this.findOutreachTask(userId, excludeIds);
+          break;
+        case 'data_hygiene':
+          task = await this.findHygieneTask(userId, excludeIds);
+          break;
+        case 'enablement':
+          task = await this.findEnablementTask(userId, excludeIds);
+          break;
+      }
+
+      if (!task) {
+        task = await this.findFallbackTask(nextBucket, userId, excludeIds);
+      }
+      
+      if (task) {
+        const enrichedTask = await this.enrichTaskWithCounts(task);
+        return { task: enrichedTask };
+      }
+      return { task: null };
+    } catch (error) {
+      console.error('[Spotlight] Prefetch find error:', error);
+      return { task: null };
+    }
+  }
+
   async getNextTask(userId: string, forceBucket?: string, workType?: string): Promise<{ task: SpotlightTask | null; session: SpotlightSession; allDone: boolean; isPaused?: boolean; emptyReason?: string; emptyDetail?: string }> {
+    const startTime = Date.now();
     const session = await this.getSessionAsync(userId);
     
     if (session.isPaused) {
@@ -1712,25 +1824,27 @@ class SpotlightEngine {
     
     session.lastActivityAt = new Date();
     
-    // Check if daily target is reached
     if (session.totalCompleted >= session.totalTarget && !session.continueAfterComplete) {
       session.dayComplete = true;
       return { task: null, session, allDone: true, emptyReason: 'ALL_DONE_TODAY', emptyDetail: `You completed ${session.totalCompleted} of ${session.totalTarget} tasks today.` };
     }
     
-    try {
-      const [claimedByOthers, recentlyContacted, todayContacted, territorySkipped] = await Promise.all([
-        this.getClaimedCustomerIds(userId),
-        this.getRecentlyContactedIds(7),
-        this.getTodayContactedByAnyUser(),
-        this.getUserTerritorySkippedIds(userId)
-      ]);
-      
-      let excludeIds = [...session.skippedCustomerIds, ...claimedByOthers, ...recentlyContacted, ...todayContacted.customerIds, ...territorySkipped];
-      for (const leadId of todayContacted.leadIds) {
-        excludeIds.push(`lead-${leadId}`);
+    if (!forceBucket && !workType) {
+      const cached = this.prefetchedTask.get(userId);
+      if (cached && (Date.now() - cached.generatedAt) < SpotlightEngine.PREFETCH_TTL) {
+        this.prefetchedTask.delete(userId);
+        const claimSuccess = await this.claimCustomer(userId, cached.task.customerId);
+        if (claimSuccess) {
+          console.log(`[Spotlight] Served prefetched task in ${Date.now() - startTime}ms`);
+          this.prefetchNextTask(userId);
+          return { task: cached.task, session, allDone: false };
+        }
+        console.log(`[Spotlight] Prefetched task claim failed, falling through to full generation`);
       }
-
+    }
+    
+    try {
+      let excludeIds = await this.getExcludeIds(userId, session);
       let task: SpotlightTask | null = null;
       
       if (workType) {
@@ -1738,12 +1852,12 @@ class SpotlightEngine {
         if (task) {
           const claimSuccess = await this.claimCustomer(userId, task.customerId);
           if (!claimSuccess) {
-            console.log(`[Spotlight] Claim failed for customer ${task.customerId}, retrying with different task`);
             excludeIds.push(task.customerId);
             session.skippedCustomerIds.push(task.customerId);
             return this.getNextTask(userId, forceBucket, workType);
           }
           const enrichedTask = await this.enrichTaskWithCounts(task);
+          console.log(`[Spotlight] Generated task (workType) in ${Date.now() - startTime}ms`);
           return { task: enrichedTask, session, allDone: false };
         }
         return { task: null, session, allDone: false, noTasksForWorkType: true, emptyReason: 'FILTERS_TOO_STRICT', emptyDetail: `No tasks match the "${workType}" focus right now. Try a different focus or view all tasks.` } as any;
@@ -1788,18 +1902,81 @@ class SpotlightEngine {
       const claimSuccess = await this.claimCustomer(userId, task.customerId);
       
       if (!claimSuccess) {
-        console.log(`[Spotlight] Claim failed for customer ${task.customerId}, retrying with different task`);
         excludeIds.push(task.customerId);
         session.skippedCustomerIds.push(task.customerId);
         return this.getNextTask(userId);
       }
       
       const enrichedTask = await this.enrichTaskWithCounts(task);
+      console.log(`[Spotlight] Generated task in ${Date.now() - startTime}ms`);
+      
+      if (!forceBucket && !workType) {
+        this.prefetchNextTask(userId);
+      }
+      
       return { task: enrichedTask, session, allDone: false };
     } catch (error) {
       console.error('[Spotlight] Error getting next task:', error);
       const emptyReason = await this.diagnoseEmptyReason(userId);
       return { task: null, session, allDone: true, ...emptyReason };
+    }
+  }
+
+  async getNextTaskForPiggyback(userId: string): Promise<any> {
+    const startTime = Date.now();
+    try {
+      const result = await this.getNextTask(userId);
+      const { task, session, allDone } = result;
+      const noTasksForWorkType = (result as any).noTasksForWorkType || false;
+      const emptyReason = (result as any).emptyReason || null;
+      const emptyDetail = (result as any).emptyDetail || null;
+      
+      const gamification = this.getGamificationState(session as any);
+      
+      const [hints, microCard, coachTip] = await Promise.all([
+        task && task.customer ? analyzeForHints(
+          task.customer.id,
+          {
+            company: task.customer.company,
+            website: task.customer.website,
+            email: task.customer.email,
+            phone: task.customer.phone,
+            pricingTier: task.customer.pricingTier,
+            salesRepId: task.customer.salesRepId,
+            updatedAt: null,
+            isHotProspect: null,
+          },
+          task.taskSubtype
+        ) : Promise.resolve([]),
+        (session as any).tasksSinceMicroCard >= 3 
+          ? this.getMicroCoachingCard(userId) 
+          : Promise.resolve(null),
+        task ? this.getCoachTip(task.taskSubtype) : Promise.resolve(null)
+      ]);
+
+      console.log(`[Spotlight] Piggyback next task generated in ${Date.now() - startTime}ms`);
+      return {
+        task,
+        session: {
+          totalCompleted: session.totalCompleted,
+          totalTarget: session.totalTarget,
+          buckets: session.buckets,
+          dayComplete: session.dayComplete,
+          currentEnergy: (session as any).currentEnergy || 100,
+          warmupShown: (session as any).warmupShown || false,
+        },
+        gamification,
+        microCard,
+        coachTip,
+        allDone,
+        hints,
+        noTasksForWorkType,
+        emptyReason,
+        emptyDetail,
+      };
+    } catch (err) {
+      console.error('[Spotlight] Error generating piggyback task:', err);
+      return null;
     }
   }
 
