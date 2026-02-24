@@ -152,11 +152,13 @@ export default function OdooContacts() {
   const [bulkEditOpen, setBulkEditOpen] = useState<'tags' | 'salesRep' | 'paymentTerms' | null>(null);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
 
+  const [searchActiveFilterSnapshot, setSearchActiveFilterSnapshot] = useState<typeof filters | null>(null);
+
   // Debounced search
   const debouncedSetSearch = useCallback(
     debounce((value: string) => {
       setDebouncedSearch(value);
-      setCurrentPage(1); // Reset to first page on search
+      setCurrentPage(1);
     }, 300),
     []
   );
@@ -164,6 +166,21 @@ export default function OdooContacts() {
   useEffect(() => {
     debouncedSetSearch(searchQuery);
   }, [searchQuery, debouncedSetSearch]);
+
+  useEffect(() => {
+    if (searchQuery && !searchActiveFilterSnapshot) {
+      setSearchActiveFilterSnapshot({ ...filters });
+      setFilters({
+        isCompany: null,
+        pricingTier: null,
+        hasEmail: null,
+        isHotProspect: null,
+      });
+    } else if (!searchQuery && searchActiveFilterSnapshot) {
+      setFilters(searchActiveFilterSnapshot);
+      setSearchActiveFilterSnapshot(null);
+    }
+  }, [searchQuery]);
 
   // Build query params for paginated endpoint
   const queryParams = new URLSearchParams({

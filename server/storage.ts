@@ -1088,7 +1088,10 @@ export class DatabaseStorage implements IStorage {
         ${customers.firstName} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.lastName} ILIKE ${'%' + searchTerm + '%'} OR
         ${customers.phone} ILIKE ${'%' + searchTerm + '%'} OR
-        ${customers.website} ILIKE ${'%' + searchTerm + '%'}
+        ${customers.website} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.city} ILIKE ${'%' + searchTerm + '%'} OR
+        ${customers.id} ILIKE ${'%' + searchTerm + '%'} OR
+        CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${'%' + searchTerm + '%'}
       )`);
     }
     
