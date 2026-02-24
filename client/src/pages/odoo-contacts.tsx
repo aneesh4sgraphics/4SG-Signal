@@ -143,6 +143,7 @@ export default function OdooContacts() {
     pricingTier: null as string | null,
     hasEmail: null as boolean | null,
     isHotProspect: null as boolean | null,
+    state: null as string | null,
   });
   const [showFilters, setShowFilters] = useState(false);
   
@@ -394,6 +395,7 @@ export default function OdooContacts() {
       }
       if (filters.hasEmail === true && !c.email) return false;
       if (filters.hasEmail === false && c.email) return false;
+      if (filters.state && c.province !== filters.state) return false;
       return true;
     })
     .sort((a, b) => {
@@ -649,12 +651,15 @@ export default function OdooContacts() {
     return { type: 'none', value: '' };
   };
 
+  const uniqueProvinces = Array.from(new Set(contacts.map(c => c.province).filter(Boolean) as string[])).sort();
+
   // Active filters count
   const activeFiltersCount = [
     filters.isCompany !== null && filters.isCompany !== true ? 1 : 0,
     filters.pricingTier !== null ? 1 : 0,
     filters.hasEmail !== null ? 1 : 0,
     filters.isHotProspect !== null ? 1 : 0,
+    filters.state !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   // Clear filters
@@ -664,6 +669,7 @@ export default function OdooContacts() {
       pricingTier: null,
       hasEmail: null,
       isHotProspect: null,
+      state: null,
     });
   };
 
@@ -905,6 +911,22 @@ export default function OdooContacts() {
                       <SelectItem value="all">Any Email</SelectItem>
                       <SelectItem value="yes">Has Email</SelectItem>
                       <SelectItem value="no">No Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* State Filter */}
+                  <Select
+                    value={filters.state || 'all'}
+                    onValueChange={(v) => setFilters(f => ({ ...f, state: v === 'all' ? null : v }))}
+                  >
+                    <SelectTrigger className="w-[160px] bg-white">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All States</SelectItem>
+                      {uniqueProvinces.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
 

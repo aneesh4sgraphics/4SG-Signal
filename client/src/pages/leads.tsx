@@ -154,6 +154,7 @@ export default function LeadsPage() {
   
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [stateFilter, setStateFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban' | 'funnel'>('cards');
   const [sortField, setSortField] = useState<'name' | 'company' | 'state' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -359,7 +360,13 @@ export default function LeadsPage() {
     },
   });
 
-  const leads = (leadsData?.leads || []).sort((a, b) => {
+  const allLeads = leadsData?.leads || [];
+  const uniqueStates = Array.from(new Set(allLeads.map(l => l.state).filter(Boolean) as string[])).sort();
+
+  const leads = allLeads.filter(l => {
+    if (stateFilter !== 'all' && l.state !== stateFilter) return false;
+    return true;
+  }).sort((a, b) => {
     let aVal: string | number, bVal: string | number;
     switch (sortField) {
       case 'name':
@@ -534,6 +541,17 @@ export default function LeadsPage() {
               <SelectItem value="all">All Stages</SelectItem>
               {STAGES.map(s => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={stateFilter} onValueChange={setStateFilter}>
+            <SelectTrigger className="w-40 bg-white/80">
+              <SelectValue placeholder="All States" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All States</SelectItem>
+              {uniqueStates.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
