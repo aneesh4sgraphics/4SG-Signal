@@ -20121,6 +20121,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(shopifyOrders.shopifyCreatedAt))
         .limit(parseInt(queryLimit as string) || 100);
       
+      // Auto-match unmatched orders by email (exact single match only)
+      const unmatchedOrders = orders.filter(o => !o.customerId && o.customerEmail);
+      const uniqueEmails = [...new Set(unmatchedOrders.map(o => o.customerEmail!.toLowerCase()))];
+      
+      if (uniqueEmails.length > 0) {
+        const autoMatched: Record<string, string> = {};
+        
+        for (const email of uniqueEmails) {
+          const matchingCustomers = await db.select({ id: customers.id })
+            .from(customers)
+            .where(ilike(customers.email, email))
+            .limit(2);
+          
+          if (matchingCustomers.length === 1) {
+            autoMatched[email] = matchingCustomers[0].id;
+          }
+        }
+        
+        // Bulk update auto-matched orders and create mappings
+        for (const [email, crmCustomerId] of Object.entries(autoMatched)) {
+          await db.update(shopifyOrders)
+            .set({ customerId: crmCustomerId, updatedAt: new Date() })
+            .where(and(
+              ilike(shopifyOrders.customerEmail, email),
+              isNull(shopifyOrders.customerId)
+            ));
+          
+          // Create mapping if not exists
+          const existingMapping = await db.select().from(shopifyCustomerMappings)
+            .where(or(
+              ilike(shopifyCustomerMappings.shopifyEmail, email),
+              eq(shopifyCustomerMappings.crmCustomerId, crmCustomerId)
+            ))
+            .limit(1);
+          
+          if (existingMapping.length === 0) {
+            const crmCust = await db.select().from(customers).where(eq(customers.id, crmCustomerId)).limit(1);
+            await db.insert(shopifyCustomerMappings).values({
+              crmCustomerId,
+              crmCustomerName: crmCust[0]?.company || `${crmCust[0]?.firstName || ''} ${crmCust[0]?.lastName || ''}`.trim() || null,
+              shopifyEmail: email,
+            });
+          }
+        }
+        
+        // Re-fetch if any were auto-matched
+        if (Object.keys(autoMatched).length > 0) {
+          let refetchQuery = db.select().from(shopifyOrders);
+          if (customerId) {
+            refetchQuery = refetchQuery.where(eq(shopifyOrders.customerId, customerId as string)) as any;
+          }
+          const refreshedOrders = await refetchQuery
+            .orderBy(desc(shopifyOrders.shopifyCreatedAt))
+            .limit(parseInt(queryLimit as string) || 100);
+          
+          const refreshedWithDomain = refreshedOrders.map(order => ({
+            ...order,
+            shopDomain: SHOPIFY_STORE_DOMAIN || null,
+          }));
+          return res.json(refreshedWithDomain);
+        }
+      }
+
       // Add store domain to each order for constructing Shopify admin links
       const ordersWithDomain = orders.map(order => ({
         ...order,
@@ -20164,11 +20227,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(shopifyOrders.shopifyOrderId, String(order.id)))
           .limit(1);
 
+        const customerEmail = order.email || order.customer?.email || null;
         const orderData: any = {
           shopifyOrderId: String(order.id),
           orderNumber: order.name,
           shopifyCustomerId: order.customer?.id ? String(order.customer.id) : null,
-          email: order.email || order.customer?.email,
+          customerEmail,
           customerName: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : order.shipping_address?.name,
           companyName: order.customer?.default_address?.company || order.billing_address?.company,
           totalPrice: order.total_price,
@@ -20180,6 +20244,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           shopifyCreatedAt: new Date(order.created_at),
           updatedAt: new Date(),
         };
+
+        // Auto-match by email if exactly one CRM customer matches
+        if (!orderData.customerId && customerEmail) {
+          const emailMatches = await db.select({ id: customers.id })
+            .from(customers)
+            .where(ilike(customers.email, customerEmail))
+            .limit(2);
+          if (emailMatches.length === 1) {
+            orderData.customerId = emailMatches[0].id;
+          }
+        }
         
         console.log(`Order ${order.name}: shipping_address=${!!order.shipping_address}, billing_address=${!!order.billing_address}`);
 
