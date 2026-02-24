@@ -2469,6 +2469,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.end();
       const pdfBuffer = await pdfPromise;
 
+      if (leadId) {
+        try {
+          await db.insert(leadActivities).values({
+            leadId,
+            activityType: 'sample_sent',
+            summary: `Printed ${labelTypeDisplay} label (x${quantity})`,
+            details: notes || null,
+            performedBy: userId,
+            performedByName: userName,
+          });
+        } catch (actErr) {
+          console.error("[Label Print] Failed to log lead activity:", actErr);
+        }
+      } else if (customerId) {
+        try {
+          const eventType = ['swatch_book', 'press_test_kit'].includes(labelType) ? 'sample_shipped' : 'product_info_shared';
+          await db.insert(customerActivityEvents).values({
+            customerId,
+            eventType,
+            title: `${labelTypeDisplay} label printed (x${quantity})`,
+            description: notes || null,
+            sourceType: 'auto',
+            sourceId: String(labelPrint.id),
+            sourceTable: 'label_prints',
+            createdBy: userId,
+            createdByName: userName,
+            eventDate: new Date(),
+          });
+        } catch (actErr) {
+          console.error("[Label Print] Failed to log customer activity:", actErr);
+        }
+      }
+
       // Return success with PDF as base64
       res.json({
         success: true,

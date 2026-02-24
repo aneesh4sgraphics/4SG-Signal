@@ -107,8 +107,12 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
       setLabelQuantity(1);
       setLabelNotes('');
       queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'label-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'activity'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/label-stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/labels/today'] });
+      if (leadId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/leads', leadId, 'activities'] });
+      }
     },
     onError: (error: any) => {
       console.error('[PrintLabel] Error:', error);
