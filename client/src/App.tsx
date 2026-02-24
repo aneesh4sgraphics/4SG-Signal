@@ -10,6 +10,7 @@ import { ShopifyAppBridgeProvider } from "@/components/ShopifyAppBridgeProvider"
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import { AuthWatcher } from "@/components/AuthWatcher";
 import { EmailComposerProvider } from "@/components/email-composer";
+import { LabelQueueProvider, LabelQueueIndicator } from "@/components/PrintLabelButton";
 import OdooLayout from "@/components/OdooLayout";
 import logoPath from "@assets/4s logo Clean 150x_1753410902611.png";
 
@@ -204,12 +205,15 @@ function App() {
       <ShopifyAppBridgeProvider>
         <TooltipProvider>
           <EmailComposerProvider>
-            <MicroFeedbackProvider>
-              <Toaster />
-              <AuthWatcher />
-              <Router />
-              <ServiceWorkerUpdater />
-            </MicroFeedbackProvider>
+            <LabelQueueProvider>
+              <MicroFeedbackProvider>
+                <Toaster />
+                <AuthWatcher />
+                <Router />
+                <LabelQueueIndicator />
+                <ServiceWorkerUpdater />
+              </MicroFeedbackProvider>
+            </LabelQueueProvider>
           </EmailComposerProvider>
         </TooltipProvider>
       </ShopifyAppBridgeProvider>

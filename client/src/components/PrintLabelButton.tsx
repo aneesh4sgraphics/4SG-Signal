@@ -1,18 +1,17 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, createContext, useContext } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Printer, Loader2 } from "lucide-react";
+import { Printer, Loader2, X, Plus, Minus } from "lucide-react";
 
-interface CustomerAddress {
+export interface CustomerAddress {
   id: string;
   company?: string | null;
   firstName?: string | null;
@@ -25,62 +24,99 @@ interface CustomerAddress {
   country?: string | null;
 }
 
-interface LabelStats {
-  stats: Array<{ labelType: string; label: string; count: number; totalQuantity: number; lastPrintedAt: string | null }>;
-  total: number;
-}
-
-interface PrintLabelButtonProps {
+interface QueuedLabel {
   customer: CustomerAddress;
   leadId?: number;
-  variant?: "icon" | "button";
-  size?: "sm" | "default";
 }
 
-export function PrintLabelButton({ customer, leadId, variant = "icon", size = "sm" }: PrintLabelButtonProps) {
-  const [isOpen, setIsOpen] = useState(false);
+interface LabelQueueContextType {
+  queue: QueuedLabel[];
+  addToQueue: (customer: CustomerAddress, leadId?: number) => void;
+  removeFromQueue: (customerId: string) => void;
+  clearQueue: () => void;
+  isInQueue: (customerId: string) => boolean;
+  openPrintDialog: () => void;
+}
+
+const LabelQueueContext = createContext<LabelQueueContextType | null>(null);
+
+export function useLabelQueue() {
+  const ctx = useContext(LabelQueueContext);
+  if (!ctx) throw new Error("useLabelQueue must be used within LabelQueueProvider");
+  return ctx;
+}
+
+export function LabelQueueProvider({ children }: { children: React.ReactNode }) {
+  const [queue, setQueue] = useState<QueuedLabel[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const addToQueue = (customer: CustomerAddress, leadId?: number) => {
+    setQueue(prev => {
+      if (prev.some(q => q.customer.id === customer.id)) return prev;
+      return [...prev, { customer, leadId }];
+    });
+  };
+
+  const removeFromQueue = (customerId: string) => {
+    setQueue(prev => prev.filter(q => q.customer.id !== customerId));
+  };
+
+  const clearQueue = () => setQueue([]);
+  const isInQueue = (customerId: string) => queue.some(q => q.customer.id === customerId);
+  const openPrintDialog = () => setDialogOpen(true);
+
+  return (
+    <LabelQueueContext.Provider value={{ queue, addToQueue, removeFromQueue, clearQueue, isInQueue, openPrintDialog }}>
+      {children}
+      <BatchPrintDialog open={dialogOpen} onOpenChange={setDialogOpen} queue={queue} removeFromQueue={removeFromQueue} clearQueue={clearQueue} />
+    </LabelQueueContext.Provider>
+  );
+}
+
+function formatContactName(c: CustomerAddress) {
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ');
+  return name || c.company || 'Customer';
+}
+
+function formatAddressPreview(c: CustomerAddress) {
+  const name = formatContactName(c);
+  const lines = [name];
+  if (c.company && name !== c.company) lines.push(c.company);
+  if (c.address1) lines.push(c.address1);
+  if (c.address2) lines.push(c.address2);
+  const cityLine = [c.city, c.province, c.zip].filter(Boolean).join(', ');
+  if (cityLine) lines.push(cityLine);
+  return lines;
+}
+
+function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQueue }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  queue: QueuedLabel[];
+  removeFromQueue: (id: string) => void;
+  clearQueue: () => void;
+}) {
   const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'other'>('swatch_book');
   const [labelOtherDescription, setLabelOtherDescription] = useState('');
-  const [labelQuantity, setLabelQuantity] = useState(1);
-  const [labelNotes, setLabelNotes] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: labelStats } = useQuery<LabelStats>({
-    queryKey: ['/api/customers', customer.id, 'label-stats'],
-    queryFn: async () => {
-      const res = await fetch(`/api/customers/${customer.id}/label-stats`);
-      if (!res.ok) throw new Error('Failed to fetch label stats');
+  const printMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        labelType,
+        otherDescription: labelType === 'other' ? labelOtherDescription : undefined,
+        addresses: queue.map(q => ({
+          customerId: q.leadId ? undefined : q.customer.id,
+          leadId: q.leadId,
+        })),
+      };
+      const res = await apiRequest('POST', '/api/labels/print-batch', payload);
       return res.json();
-    },
-    enabled: isOpen,
-    staleTime: 30000,
-  });
-
-  const printLabelMutation = useMutation({
-    mutationFn: async (data: { labelType: string; otherDescription?: string; quantity: number; notes?: string }) => {
-      console.log('[PrintLabel] Starting print request for customer:', customer.id);
-      try {
-        const payload: any = { ...data };
-        if (leadId) {
-          payload.leadId = leadId;
-        } else {
-          payload.customerId = customer.id;
-        }
-        const res = await apiRequest('POST', '/api/labels/print', payload);
-        console.log('[PrintLabel] Response status:', res.status);
-        const json = await res.json();
-        console.log('[PrintLabel] Response data:', json.success ? 'success' : 'failed');
-        return json;
-      } catch (err: any) {
-        console.error('[PrintLabel] Request failed:', err.message, err);
-        throw err;
-      }
     },
     onSuccess: (data) => {
       if (!data.pdf) {
-        console.error('[PrintLabel] No PDF in response:', data);
-        toast({ title: 'Failed to print label', description: 'No PDF data received', variant: 'destructive' });
+        toast({ title: 'Failed to print labels', description: 'No PDF data received', variant: 'destructive' });
         return;
       }
       const byteCharacters = atob(data.pdf);
@@ -93,183 +129,241 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const recipientName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'customer';
-      a.download = `label-${recipientName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.pdf`;
+      a.download = `labels-batch-${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast({ title: 'Label printed successfully', description: data.message });
-      setIsOpen(false);
-      setLabelType('swatch_book');
-      setLabelOtherDescription('');
-      setLabelQuantity(1);
-      setLabelNotes('');
-      queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'label-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'activity'] });
+      toast({ title: 'Labels printed', description: `${queue.length} labels generated on ${Math.ceil(queue.length / 4)} page(s)` });
+
+      queue.forEach(q => {
+        queryClient.invalidateQueries({ queryKey: ['/api/customers', q.customer.id, 'label-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/customers', q.customer.id, 'activity'] });
+        if (q.leadId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/leads', q.leadId, 'activities'] });
+        }
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/label-stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/labels/today'] });
-      if (leadId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/leads', leadId, 'activities'] });
-      }
+
+      clearQueue();
+      onOpenChange(false);
     },
     onError: (error: any) => {
-      console.error('[PrintLabel] Error:', error);
-      const details = error.details ? ` (${error.details.status}: ${error.details.responseText?.substring(0, 100)})` : '';
-      toast({ title: 'Failed to print label', description: `${error.message}${details}`, variant: 'destructive' });
+      toast({ title: 'Failed to print labels', description: error.message, variant: 'destructive' });
     },
   });
 
-  const recipientName = customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer';
-  const hasAddress = customer.address1 || customer.city;
-
-  if (!hasAddress) return null;
+  const canPrint = queue.length >= 4 && (labelType !== 'other' || labelOtherDescription.trim());
 
   return (
-    <>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {variant === "icon" ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-                className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
-                title="Print shipping label"
-              >
-                <Printer className="w-4 h-4" />
-              </button>
-            ) : (
-              <Button
-                variant="outline"
-                size={size}
-                onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-                className="border-blue-200 text-blue-600 hover:bg-blue-50"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Print Label
-              </Button>
-            )}
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Print shipping label</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Printer className="w-5 h-5 text-blue-600" />
+            Print Address Labels
+          </DialogTitle>
+          <DialogDescription>
+            Add at least 4 addresses to print on a 4×6 thermal label. Labels are stacked with cut lines between them.
+          </DialogDescription>
+        </DialogHeader>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="w-5 h-5 text-blue-600" />
-              Print Address Label
-            </DialogTitle>
-            <DialogDescription>
-              Generate a 4"x3" thermal label for shipping marketing materials.
-            </DialogDescription>
-          </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label>What are you sending?</Label>
+            <Select value={labelType} onValueChange={(v: any) => setLabelType(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="swatch_book">Swatch Book</SelectItem>
+                <SelectItem value="press_test_kit">Press Test Kit</SelectItem>
+                <SelectItem value="mailer">Mailer</SelectItem>
+                <SelectItem value="other">Something Else</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="grid gap-4 py-4">
+          {labelType === 'other' && (
             <div className="grid gap-2">
-              <Label>What are you sending?</Label>
-              <Select value={labelType} onValueChange={(v: 'swatch_book' | 'press_test_kit' | 'mailer' | 'other') => setLabelType(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select label type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="swatch_book">Swatch Book</SelectItem>
-                  <SelectItem value="press_test_kit">Press Test Kit</SelectItem>
-                  <SelectItem value="mailer">Mailer</SelectItem>
-                  <SelectItem value="other">Something Else</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {labelType === 'other' && (
-              <div className="grid gap-2">
-                <Label htmlFor="otherDescription">Description</Label>
-                <Input
-                  id="otherDescription"
-                  value={labelOtherDescription}
-                  onChange={(e) => setLabelOtherDescription(e.target.value)}
-                  placeholder="What are you sending?"
-                />
-              </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="batchOtherDesc">Description</Label>
               <Input
-                id="quantity"
-                type="number"
-                min={1}
-                value={labelQuantity}
-                onChange={(e) => setLabelQuantity(parseInt(e.target.value) || 1)}
+                id="batchOtherDesc"
+                value={labelOtherDescription}
+                onChange={(e) => setLabelOtherDescription(e.target.value)}
+                placeholder="What are you sending?"
               />
             </div>
+          )}
 
-            <div className="grid gap-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={labelNotes}
-                onChange={(e) => setLabelNotes(e.target.value)}
-                placeholder="Any special instructions..."
-                rows={2}
-              />
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <p className="text-xs text-gray-500 mb-2">Shipping To:</p>
-              <p className="font-semibold">{recipientName}</p>
-              {customer.address1 && <p className="text-sm text-gray-700">{customer.address1}</p>}
-              {customer.address2 && <p className="text-sm text-gray-700">{customer.address2}</p>}
-              <p className="text-sm text-gray-700">
-                {[customer.city, customer.province, customer.zip].filter(Boolean).join(', ')}
-              </p>
-              {customer.country && !['US', 'USA', 'CA', 'CAN'].includes(customer.country) && (
-                <p className="text-sm text-gray-700">{customer.country}</p>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Addresses ({queue.length})</Label>
+              {queue.length < 4 && (
+                <span className="text-xs text-amber-600">Need at least {4 - queue.length} more</span>
               )}
             </div>
-
-            {labelStats && labelStats.total > 0 && (
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                <p className="text-xs text-blue-600 mb-2 font-medium">Previously Sent:</p>
-                <div className="flex flex-wrap gap-2">
-                  {labelStats.stats.map(stat => (
-                    <Badge key={stat.labelType} variant="secondary" className="bg-blue-100 text-blue-700">
-                      {stat.label}: {stat.count}
-                    </Badge>
-                  ))}
-                </div>
+            {queue.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-6 border border-dashed border-gray-300 text-center">
+                <Printer className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500">Click the printer icon next to contacts to add them here</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {queue.map((q, i) => {
+                  const lines = formatAddressPreview(q.customer);
+                  return (
+                    <div key={q.customer.id} className="bg-gray-50 rounded-lg p-3 border flex items-start gap-3">
+                      <span className="text-xs text-gray-400 font-mono mt-0.5 w-5 text-center flex-shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        {lines.map((line, li) => (
+                          <p key={li} className={`text-sm ${li === 0 ? 'font-semibold text-gray-900' : 'text-gray-600'} truncate`}>{line}</p>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => removeFromQueue(q.customer.id)}
+                        className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
+          {queue.length >= 4 && (
+            <p className="text-xs text-gray-500">
+              {Math.ceil(queue.length / 4)} page(s) will be generated with {queue.length % 4 === 0 ? 4 : queue.length % 4} label(s) on the last page
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          {queue.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearQueue} className="mr-auto text-red-500 hover:text-red-600">
+              Clear All
             </Button>
-            <Button 
-              onClick={() => printLabelMutation.mutate({
-                labelType,
-                otherDescription: labelType === 'other' ? labelOtherDescription : undefined,
-                quantity: labelQuantity,
-                notes: labelNotes || undefined,
-              })}
-              disabled={printLabelMutation.isPending || (labelType === 'other' && !labelOtherDescription.trim())}
-              className="bg-blue-600 hover:bg-blue-700"
+          )}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => printMutation.mutate()}
+            disabled={!canPrint || printMutation.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {printMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Printer className="w-4 h-4 mr-2" />
+            )}
+            Print {queue.length} Label{queue.length !== 1 ? 's' : ''}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface PrintLabelButtonProps {
+  customer: CustomerAddress;
+  leadId?: number;
+  variant?: "icon" | "button";
+  size?: "sm" | "default";
+}
+
+export function PrintLabelButton({ customer, leadId, variant = "icon", size = "sm" }: PrintLabelButtonProps) {
+  const { toast } = useToast();
+  let labelQueue: LabelQueueContextType | null = null;
+  try {
+    labelQueue = useLabelQueue();
+  } catch {
+    labelQueue = null;
+  }
+
+  const hasAddress = customer.address1 || customer.city;
+  if (!hasAddress) return null;
+
+  const inQueue = labelQueue?.isInQueue(customer.id) ?? false;
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!labelQueue) {
+      toast({ title: 'Label queue not available', variant: 'destructive' });
+      return;
+    }
+    if (inQueue) {
+      labelQueue.removeFromQueue(customer.id);
+      toast({ title: 'Removed from label queue' });
+    } else {
+      labelQueue.addToQueue(customer, leadId);
+      toast({ title: 'Added to label queue', description: `${labelQueue.queue.length + 1} label(s) queued` });
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {variant === "icon" ? (
+            <button
+              onClick={handleClick}
+              className={`p-1 rounded transition-colors ${
+                inQueue
+                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                  : 'hover:bg-gray-100 text-gray-400 hover:text-blue-600'
+              }`}
+              title={inQueue ? "Remove from label queue" : "Add to label queue"}
             >
-              {printLabelMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4 mr-2" />
-              )}
-              Print Label
+              <Printer className="w-4 h-4" />
+            </button>
+          ) : (
+            <Button
+              variant={inQueue ? "default" : "outline"}
+              size={size}
+              onClick={handleClick}
+              className={inQueue ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200 text-blue-600 hover:bg-blue-50"}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              {inQueue ? 'In Queue' : 'Add to Labels'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          )}
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{inQueue ? 'Remove from label queue' : 'Add to label queue'}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+export function LabelQueueIndicator() {
+  let labelQueue: LabelQueueContextType | null = null;
+  try {
+    labelQueue = useLabelQueue();
+  } catch {
+    return null;
+  }
+
+  if (!labelQueue || labelQueue.queue.length === 0) return null;
+
+  return (
+    <Button
+      onClick={() => labelQueue!.openPrintDialog()}
+      size="sm"
+      className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 shadow-lg rounded-full h-12 px-5 gap-2"
+    >
+      <Printer className="w-5 h-5" />
+      <span>{labelQueue.queue.length} Label{labelQueue.queue.length !== 1 ? 's' : ''}</span>
+      {labelQueue.queue.length < 4 && (
+        <Badge variant="secondary" className="bg-blue-500 text-white text-[10px] px-1.5">
+          need {4 - labelQueue.queue.length}
+        </Badge>
+      )}
+    </Button>
   );
 }

@@ -2516,6 +2516,218 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/labels/print-batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const userName = req.user?.firstName && req.user?.lastName 
+        ? `${req.user.firstName} ${req.user.lastName}` 
+        : req.user?.email || 'Unknown';
+
+      const schema = z.object({
+        labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'other']),
+        otherDescription: z.string().optional(),
+        addresses: z.array(z.object({
+          customerId: z.string().optional(),
+          leadId: z.number().optional(),
+        })).min(4, "At least 4 addresses required"),
+      });
+
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { labelType, otherDescription, addresses } = parsed.data;
+      const labelTypeDisplay = LABEL_TYPE_LABELS[labelType as keyof typeof LABEL_TYPE_LABELS] || labelType;
+
+      interface ResolvedAddress {
+        contactName: string;
+        companyName: string;
+        address1: string;
+        address2: string;
+        cityStateZip: string;
+        customerId?: string;
+        leadId?: number;
+      }
+
+      const resolved: ResolvedAddress[] = [];
+
+      for (const addr of addresses) {
+        if (addr.leadId) {
+          const [lead] = await db.select().from(leads).where(eq(leads.id, addr.leadId));
+          if (!lead) continue;
+          const contactName = lead.primaryContactName || lead.name || '';
+          const companyName = lead.company || '';
+          resolved.push({
+            contactName,
+            companyName: companyName !== contactName ? companyName : '',
+            address1: lead.street || '',
+            address2: lead.street2 || '',
+            cityStateZip: [lead.city, lead.state, lead.zip].filter(Boolean).join(', '),
+            leadId: addr.leadId,
+          });
+        } else if (addr.customerId) {
+          const customer = await storage.getCustomer(addr.customerId);
+          if (!customer) continue;
+          const firstName = customer.firstName || '';
+          const lastName = customer.lastName || '';
+          const contactName = [firstName, lastName].filter(Boolean).join(' ');
+          const companyName = customer.company || '';
+          resolved.push({
+            contactName: contactName || companyName,
+            companyName: contactName && companyName && contactName !== companyName ? companyName : '',
+            address1: customer.address1 || '',
+            address2: customer.address2 || '',
+            cityStateZip: [customer.city, customer.province, customer.zip].filter(Boolean).join(', '),
+            customerId: addr.customerId,
+          });
+        }
+      }
+
+      if (resolved.length < 4) {
+        return res.status(400).json({ error: "Not enough valid addresses. At least 4 required." });
+      }
+
+      // 4"x6" at 72 DPI = 288x432 points
+      const pageWidth = 288;
+      const pageHeight = 432;
+      const labelsPerPage = 4;
+      const labelHeight = pageHeight / labelsPerPage; // 108 points per label
+      const margin = 14;
+
+      const doc = new PDFDocument({
+        size: [pageWidth, pageHeight],
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        autoFirstPage: false,
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      const pdfPromise = new Promise<Buffer>((resolve) => {
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+
+      const totalPages = Math.ceil(resolved.length / labelsPerPage);
+
+      for (let page = 0; page < totalPages; page++) {
+        doc.addPage({ size: [pageWidth, pageHeight], margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+        const pageAddresses = resolved.slice(page * labelsPerPage, (page + 1) * labelsPerPage);
+
+        for (let i = 0; i < pageAddresses.length; i++) {
+          const addr = pageAddresses[i];
+          const yStart = i * labelHeight;
+
+          // Dashed divider line between labels (not before first)
+          if (i > 0) {
+            doc.save();
+            doc.strokeColor('#999999').lineWidth(0.5).dash(4, { space: 3 });
+            doc.moveTo(0, yStart).lineTo(pageWidth, yStart).stroke();
+            doc.restore();
+          }
+
+          let y = yStart + margin;
+
+          // Contact name (bold, larger)
+          if (addr.contactName) {
+            doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
+               .text(addr.contactName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            y += 14;
+          }
+
+          // Company name
+          if (addr.companyName) {
+            doc.fontSize(9).font('Helvetica').fillColor('#000000')
+               .text(addr.companyName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            y += 12;
+          }
+
+          // Street address
+          if (addr.address1) {
+            doc.fontSize(9).font('Helvetica').fillColor('#000000')
+               .text(addr.address1.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            y += 12;
+          }
+
+          // Street address 2
+          if (addr.address2) {
+            doc.fontSize(9).font('Helvetica').fillColor('#000000')
+               .text(addr.address2.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            y += 12;
+          }
+
+          // City, State, ZIP
+          if (addr.cityStateZip) {
+            doc.fontSize(9).font('Helvetica').fillColor('#000000')
+               .text(addr.cityStateZip.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+          }
+        }
+      }
+
+      doc.end();
+      const pdfBuffer = await pdfPromise;
+
+      // Log activity and create label print records for each address
+      for (const addr of resolved) {
+        try {
+          const finalCustomerId = addr.leadId ? `lead-${addr.leadId}` : addr.customerId!;
+          await db.insert(labelPrints).values({
+            customerId: finalCustomerId,
+            labelType,
+            otherDescription: labelType === 'other' ? (otherDescription || null) : null,
+            quantity: 1,
+            addressLine1: addr.address1,
+            addressLine2: addr.address2,
+            city: addr.cityStateZip.split(',')[0]?.trim() || '',
+            province: '',
+            country: '',
+            postalCode: '',
+            printedByUserId: userId,
+            printedByUserName: userName,
+            notes: null,
+          });
+
+          if (addr.leadId) {
+            await db.insert(leadActivities).values({
+              leadId: addr.leadId,
+              activityType: 'sample_sent',
+              summary: `Printed ${labelTypeDisplay} label`,
+              details: null,
+              performedBy: userId,
+              performedByName: userName,
+            });
+          } else if (addr.customerId) {
+            const eventType = ['swatch_book', 'press_test_kit'].includes(labelType) ? 'sample_shipped' : 'product_info_shared';
+            await db.insert(customerActivityEvents).values({
+              customerId: addr.customerId,
+              eventType,
+              title: `${labelTypeDisplay} label printed`,
+              description: null,
+              sourceType: 'auto',
+              sourceId: finalCustomerId,
+              sourceTable: 'label_prints',
+              createdBy: userId,
+              createdByName: userName,
+              eventDate: new Date(),
+            });
+          }
+        } catch (actErr) {
+          console.error("[Batch Label] Failed to log activity:", actErr);
+        }
+      }
+
+      res.json({
+        success: true,
+        pdf: pdfBuffer.toString('base64'),
+        message: `${resolved.length} labels printed on ${totalPages} page(s)`,
+        count: resolved.length,
+      });
+
+    } catch (error) {
+      console.error("Batch label print error:", error);
+      res.status(500).json({ error: "Failed to print labels" });
+    }
+  });
+
   // Get label stats for a customer
   app.get("/api/customers/:id/label-stats", isAuthenticated, async (req: any, res) => {
     try {

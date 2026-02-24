@@ -64,6 +64,17 @@ This is a full-stack TypeScript sales management application designed for a spec
       4. **Emails**: Count of all emails sent today (email_sent, send_drip, replied outcomes)
       5. **Data Hygiene**: Count of all data hygiene bucket tasks completed (includes research tasks)
 
+- **Batch Address Label Printing:** Queue-based label printing system for 4×6 thermal labels.
+    - Users click the printer icon next to contacts/leads to add addresses to a label queue.
+    - A floating indicator shows the queue count; at least 4 addresses required before printing.
+    - PDF generates 4 labels per 4×6 page, stacked vertically with dashed cut lines between them.
+    - Address format: Contact Name → Company Name → Street → Street 2 → City, State, ZIP.
+    - No label type text on the printed PDF (clean address-only labels).
+    - Each label logs activity to the correct customer (`sample_shipped` or `product_info_shared`) or lead (`sample_sent`).
+    - Backend endpoint: `POST /api/labels/print-batch` (accepts array of customer/lead IDs).
+    - Old single-print endpoint (`POST /api/labels/print`) still works for Spotlight's inline label flow.
+    - `LabelQueueProvider` wraps the app in `App.tsx`; `LabelQueueIndicator` shows the floating print button.
+
 ## External Dependencies
 
 - **Odoo V19 ERP:** Used for customer data, product catalogs, pricelists, and orders.
