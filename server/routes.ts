@@ -2525,6 +2525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const schema = z.object({
         labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'letter', 'other']),
+        labelFormat: z.enum(['thermal_4x6', 'letter_30up']).optional().default('thermal_4x6'),
         otherDescription: z.string().optional(),
         addresses: z.array(z.object({
           customerId: z.string().optional(),
@@ -2537,7 +2538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
 
-      const { labelType, otherDescription, addresses } = parsed.data;
+      const { labelType, labelFormat, otherDescription, addresses } = parsed.data;
       const labelTypeDisplay = LABEL_TYPE_LABELS[labelType as keyof typeof LABEL_TYPE_LABELS] || labelType;
 
       interface ResolvedAddress {
@@ -2588,83 +2589,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No valid addresses found." });
       }
 
-      // 4"x6" at 72 DPI = 288x432 points
-      const pageWidth = 288;
-      const pageHeight = 432;
-      const labelsPerPage = 4;
-      const labelHeight = pageHeight / labelsPerPage; // 108 points per label
-      const margin = 14;
-
-      const doc = new PDFDocument({
-        size: [pageWidth, pageHeight],
-        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        autoFirstPage: false,
-      });
-
       const chunks: Buffer[] = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
-      const pdfPromise = new Promise<Buffer>((resolve) => {
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
-      });
+      let totalPages: number;
+      let pdfBuffer: Buffer;
 
-      const totalPages = Math.ceil(resolved.length / labelsPerPage);
+      if (labelFormat === 'letter_30up') {
+        // Avery 5160/5260 compatible: 8.5" × 11" letter, 3 columns × 10 rows = 30 labels
+        // Label: 2.625" × 1" (189 × 72 pts), gaps: 0.125" (9 pts) between cols, ~0" between rows
+        // Margins: top 0.5" (36), left ~0.1875" (13.5), bottom 0.5" (36)
+        const pageW = 612; // 8.5"
+        const pageH = 792; // 11"
+        const labelsPerPage = 30;
+        const cols = 3;
+        const rows = 10;
+        const labelW = 189; // 2.625"
+        const labelH = 72;  // 1"
+        const topMargin = 36;
+        const leftMargin = 13.5;
+        const colGap = 9;   // 0.125" between columns
+        const rowGap = 0;
+        const innerPadX = 5;
+        const innerPadY = 6;
 
-      for (let page = 0; page < totalPages; page++) {
-        doc.addPage({ size: [pageWidth, pageHeight], margins: { top: 0, bottom: 0, left: 0, right: 0 } });
-        const pageAddresses = resolved.slice(page * labelsPerPage, (page + 1) * labelsPerPage);
+        const doc = new PDFDocument({
+          size: 'LETTER',
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+          autoFirstPage: false,
+        });
+        doc.on('data', (chunk) => chunks.push(chunk));
+        const pdfPromise = new Promise<Buffer>((resolve) => {
+          doc.on('end', () => resolve(Buffer.concat(chunks)));
+        });
 
-        for (let i = 0; i < pageAddresses.length; i++) {
-          const addr = pageAddresses[i];
-          const yStart = i * labelHeight;
+        totalPages = Math.ceil(resolved.length / labelsPerPage);
 
-          // Dashed divider line between labels (not before first)
-          if (i > 0) {
-            doc.save();
-            doc.strokeColor('#999999').lineWidth(0.5).dash(4, { space: 3 });
-            doc.moveTo(0, yStart).lineTo(pageWidth, yStart).stroke();
-            doc.restore();
-          }
+        for (let page = 0; page < totalPages; page++) {
+          doc.addPage({ size: 'LETTER', margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+          const pageAddresses = resolved.slice(page * labelsPerPage, (page + 1) * labelsPerPage);
 
-          let y = yStart + margin;
+          for (let i = 0; i < pageAddresses.length; i++) {
+            const addr = pageAddresses[i];
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = leftMargin + col * (labelW + colGap);
+            const yTop = topMargin + row * (labelH + rowGap);
 
-          // Contact name (bold, larger)
-          if (addr.contactName) {
-            doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
-               .text(addr.contactName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
-            y += 14;
-          }
+            let y = yTop + innerPadY;
+            const maxW = labelW - innerPadX * 2;
 
-          // Company name
-          if (addr.companyName) {
-            doc.fontSize(9).font('Helvetica').fillColor('#000000')
-               .text(addr.companyName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
-            y += 12;
-          }
-
-          // Street address
-          if (addr.address1) {
-            doc.fontSize(9).font('Helvetica').fillColor('#000000')
-               .text(addr.address1.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
-            y += 12;
-          }
-
-          // Street address 2
-          if (addr.address2) {
-            doc.fontSize(9).font('Helvetica').fillColor('#000000')
-               .text(addr.address2.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
-            y += 12;
-          }
-
-          // City, State, ZIP
-          if (addr.cityStateZip) {
-            doc.fontSize(9).font('Helvetica').fillColor('#000000')
-               .text(addr.cityStateZip.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            if (addr.contactName) {
+              doc.fontSize(7).font('Helvetica-Bold').fillColor('#000000')
+                 .text(addr.contactName.toUpperCase(), x + innerPadX, y, { width: maxW, lineBreak: false, ellipsis: true });
+              y += 9;
+            }
+            if (addr.companyName) {
+              doc.fontSize(6.5).font('Helvetica').fillColor('#000000')
+                 .text(addr.companyName.toUpperCase(), x + innerPadX, y, { width: maxW, lineBreak: false, ellipsis: true });
+              y += 8.5;
+            }
+            if (addr.address1) {
+              doc.fontSize(6.5).font('Helvetica').fillColor('#000000')
+                 .text(addr.address1.toUpperCase(), x + innerPadX, y, { width: maxW, lineBreak: false, ellipsis: true });
+              y += 8.5;
+            }
+            if (addr.address2) {
+              doc.fontSize(6.5).font('Helvetica').fillColor('#000000')
+                 .text(addr.address2.toUpperCase(), x + innerPadX, y, { width: maxW, lineBreak: false, ellipsis: true });
+              y += 8.5;
+            }
+            if (addr.cityStateZip) {
+              doc.fontSize(6.5).font('Helvetica').fillColor('#000000')
+                 .text(addr.cityStateZip.toUpperCase(), x + innerPadX, y, { width: maxW, lineBreak: false, ellipsis: true });
+            }
           }
         }
-      }
 
-      doc.end();
-      const pdfBuffer = await pdfPromise;
+        doc.end();
+        pdfBuffer = await pdfPromise;
+
+      } else {
+        // 4"x6" thermal at 72 DPI = 288x432 points
+        const pageWidth = 288;
+        const pageHeight = 432;
+        const labelsPerPage = 4;
+        const labelHeight = pageHeight / labelsPerPage;
+        const margin = 14;
+
+        const doc = new PDFDocument({
+          size: [pageWidth, pageHeight],
+          margins: { top: 0, bottom: 0, left: 0, right: 0 },
+          autoFirstPage: false,
+        });
+        doc.on('data', (chunk) => chunks.push(chunk));
+        const pdfPromise = new Promise<Buffer>((resolve) => {
+          doc.on('end', () => resolve(Buffer.concat(chunks)));
+        });
+
+        totalPages = Math.ceil(resolved.length / labelsPerPage);
+
+        for (let page = 0; page < totalPages; page++) {
+          doc.addPage({ size: [pageWidth, pageHeight], margins: { top: 0, bottom: 0, left: 0, right: 0 } });
+          const pageAddresses = resolved.slice(page * labelsPerPage, (page + 1) * labelsPerPage);
+
+          for (let i = 0; i < pageAddresses.length; i++) {
+            const addr = pageAddresses[i];
+            const yStart = i * labelHeight;
+
+            if (i > 0) {
+              doc.save();
+              doc.strokeColor('#999999').lineWidth(0.5).dash(4, { space: 3 });
+              doc.moveTo(0, yStart).lineTo(pageWidth, yStart).stroke();
+              doc.restore();
+            }
+
+            let y = yStart + margin;
+
+            if (addr.contactName) {
+              doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
+                 .text(addr.contactName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+              y += 14;
+            }
+            if (addr.companyName) {
+              doc.fontSize(9).font('Helvetica').fillColor('#000000')
+                 .text(addr.companyName.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+              y += 12;
+            }
+            if (addr.address1) {
+              doc.fontSize(9).font('Helvetica').fillColor('#000000')
+                 .text(addr.address1.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+              y += 12;
+            }
+            if (addr.address2) {
+              doc.fontSize(9).font('Helvetica').fillColor('#000000')
+                 .text(addr.address2.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+              y += 12;
+            }
+            if (addr.cityStateZip) {
+              doc.fontSize(9).font('Helvetica').fillColor('#000000')
+                 .text(addr.cityStateZip.toUpperCase(), margin, y, { width: pageWidth - margin * 2 });
+            }
+          }
+        }
+
+        doc.end();
+        pdfBuffer = await pdfPromise;
+      }
 
       // Log activity and create label print records for each address
       for (const addr of resolved) {

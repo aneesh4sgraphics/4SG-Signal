@@ -64,14 +64,18 @@ This is a full-stack TypeScript sales management application designed for a spec
       4. **Emails**: Count of all emails sent today (email_sent, send_drip, replied outcomes)
       5. **Data Hygiene**: Count of all data hygiene bucket tasks completed (includes research tasks)
 
-- **Batch Address Label Printing:** Queue-based label printing system for 4×6 thermal labels.
+- **Batch Address Label Printing:** Queue-based label printing system with two formats.
     - Users click the printer icon next to contacts/leads to add addresses to a label queue.
-    - A floating indicator shows the queue count; at least 4 addresses required before printing.
-    - PDF generates 4 labels per 4×6 page, stacked vertically with dashed cut lines between them.
+    - Bulk "Print Address Labels" button in Companies page multi-select bar adds all selected contacts to queue.
+    - A floating indicator shows the queue count; min 1 label to print.
+    - **Two label formats:**
+      1. **4×6 Thermal** (default): 4 labels per page, stacked vertically with dashed cut lines.
+      2. **Letter 30-up**: Avery 5160/5260 compatible, 3 columns × 10 rows = 30 labels per 8.5×11 sheet.
+    - Print dialog asks "What are you sending?" (Swatch Book, Press Test Kit, Mailer, Letter, Something Else) for activity tracking.
     - Address format: Contact Name → Company Name → Street → Street 2 → City, State, ZIP.
     - No label type text on the printed PDF (clean address-only labels).
     - Each label logs activity to the correct customer (`sample_shipped` or `product_info_shared`) or lead (`sample_sent`).
-    - Backend endpoint: `POST /api/labels/print-batch` (accepts array of customer/lead IDs).
+    - Backend endpoint: `POST /api/labels/print-batch` (accepts array of customer/lead IDs + `labelFormat` field).
     - Old single-print endpoint (`POST /api/labels/print`) still works for Spotlight's inline label flow.
     - `LabelQueueProvider` wraps the app in `App.tsx`; `LabelQueueIndicator` shows the floating print button.
 

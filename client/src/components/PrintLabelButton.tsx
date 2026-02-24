@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Printer, Loader2, X, Plus, Minus } from "lucide-react";
+import { Printer, Loader2, X } from "lucide-react";
 
 export interface CustomerAddress {
   id: string;
@@ -33,6 +34,7 @@ interface LabelQueueContextType {
   queue: QueuedLabel[];
   addToQueue: (customer: CustomerAddress, leadId?: number) => void;
   addToQueueAndOpen: (customer: CustomerAddress, leadId?: number) => void;
+  addBulkToQueueAndOpen: (items: { customer: CustomerAddress; leadId?: number }[]) => void;
   removeFromQueue: (customerId: string) => void;
   clearQueue: () => void;
   isInQueue: (customerId: string) => boolean;
@@ -66,6 +68,15 @@ export function LabelQueueProvider({ children }: { children: React.ReactNode }) 
     setDialogOpen(true);
   };
 
+  const addBulkToQueueAndOpen = (items: { customer: CustomerAddress; leadId?: number }[]) => {
+    setQueue(prev => {
+      const existingIds = new Set(prev.map(q => q.customer.id));
+      const newItems = items.filter(item => !existingIds.has(item.customer.id));
+      return [...prev, ...newItems];
+    });
+    setDialogOpen(true);
+  };
+
   const removeFromQueue = (customerId: string) => {
     setQueue(prev => prev.filter(q => q.customer.id !== customerId));
   };
@@ -75,7 +86,7 @@ export function LabelQueueProvider({ children }: { children: React.ReactNode }) 
   const openPrintDialog = () => setDialogOpen(true);
 
   return (
-    <LabelQueueContext.Provider value={{ queue, addToQueue, addToQueueAndOpen, removeFromQueue, clearQueue, isInQueue, openPrintDialog }}>
+    <LabelQueueContext.Provider value={{ queue, addToQueue, addToQueueAndOpen, addBulkToQueueAndOpen, removeFromQueue, clearQueue, isInQueue, openPrintDialog }}>
       {children}
       <BatchPrintDialog open={dialogOpen} onOpenChange={setDialogOpen} queue={queue} removeFromQueue={removeFromQueue} clearQueue={clearQueue} />
     </LabelQueueContext.Provider>
@@ -98,6 +109,8 @@ function formatAddressPreview(c: CustomerAddress) {
   return lines;
 }
 
+type LabelFormat = 'thermal_4x6' | 'letter_30up';
+
 function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQueue }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -107,6 +120,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
 }) {
   const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'letter' | 'other'>('swatch_book');
   const [labelOtherDescription, setLabelOtherDescription] = useState('');
+  const [labelFormat, setLabelFormat] = useState<LabelFormat>('thermal_4x6');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,6 +128,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
     mutationFn: async () => {
       const payload = {
         labelType,
+        labelFormat,
         otherDescription: labelType === 'other' ? labelOtherDescription : undefined,
         addresses: queue.map(q => ({
           customerId: q.leadId ? undefined : q.customer.id,
@@ -144,7 +159,8 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast({ title: 'Labels printed', description: `${queue.length} labels generated on ${Math.ceil(queue.length / 4)} page(s)` });
+      const labelsPerPage = labelFormat === 'letter_30up' ? 30 : 4;
+      toast({ title: 'Labels printed', description: `${queue.length} labels generated on ${Math.ceil(queue.length / labelsPerPage)} page(s)` });
 
       queue.forEach(q => {
         queryClient.invalidateQueries({ queryKey: ['/api/customers', q.customer.id, 'label-stats'] });
@@ -165,6 +181,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
   });
 
   const canPrint = queue.length >= 1 && (labelType !== 'other' || labelOtherDescription.trim());
+  const labelsPerPage = labelFormat === 'letter_30up' ? 30 : 4;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,11 +192,43 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
             Print Address Labels
           </DialogTitle>
           <DialogDescription>
-            Print address labels on 4×6 thermal paper. Labels are stacked with cut lines between them.
+            Choose your label format and what you're sending, then print.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label>Label Format</Label>
+            <RadioGroup value={labelFormat} onValueChange={(v) => setLabelFormat(v as LabelFormat)} className="grid grid-cols-2 gap-3">
+              <label
+                className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 cursor-pointer transition-all ${
+                  labelFormat === 'thermal_4x6' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <RadioGroupItem value="thermal_4x6" className="sr-only" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-6 border-2 border-current rounded-sm" />
+                  <span className="text-sm font-medium">4×6 Thermal</span>
+                </div>
+                <span className="text-[11px] text-slate-500">4 labels per sheet</span>
+              </label>
+              <label
+                className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 cursor-pointer transition-all ${
+                  labelFormat === 'letter_30up' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <RadioGroupItem value="letter_30up" className="sr-only" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-6 border-2 border-current rounded-sm grid grid-cols-3 grid-rows-3 gap-px p-px">
+                    {Array.from({length: 9}).map((_, i) => <div key={i} className="bg-current rounded-[1px] opacity-40" />)}
+                  </div>
+                  <span className="text-sm font-medium">Letter 30-up</span>
+                </div>
+                <span className="text-[11px] text-slate-500">30 labels per sheet (3×10)</span>
+              </label>
+            </RadioGroup>
+          </div>
+
           <div className="grid gap-2">
             <Label>What are you sending?</Label>
             <Select value={labelType} onValueChange={(v: any) => setLabelType(v)}>
@@ -212,12 +261,16 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
             <div className="grid gap-2">
               <Label>Label Preview</Label>
               <div className="bg-white rounded-lg border-2 border-dashed border-slate-300 p-4">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-3">How each label will print (4×6 format):</p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-3">
+                  How each label will print ({labelFormat === 'letter_30up' ? '2⅝″ × 1″ letter sheet' : '4×6 thermal'}):
+                </p>
                 {(() => {
                   const sample = queue[0];
                   const lines = formatAddressPreview(sample.customer);
                   return (
-                    <div className="bg-slate-50 rounded border border-slate-200 p-3 font-mono text-sm leading-relaxed">
+                    <div className={`bg-slate-50 rounded border border-slate-200 p-3 font-mono leading-relaxed ${
+                      labelFormat === 'letter_30up' ? 'text-xs' : 'text-sm'
+                    }`}>
                       {lines.map((line, i) => (
                         <p key={i} className={i === 0 ? 'font-bold text-slate-900' : 'text-slate-700'}>{line}</p>
                       ))}
@@ -275,7 +328,11 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
 
           {queue.length >= 1 && (
             <p className="text-xs text-gray-500">
-              {Math.ceil(queue.length / 4)} page(s) will be generated with {queue.length % 4 === 0 ? 4 : queue.length % 4} label(s) on the last page
+              {Math.ceil(queue.length / labelsPerPage)} page(s) will be generated
+              {labelFormat === 'letter_30up'
+                ? ` with up to 30 labels per sheet (3 columns × 10 rows)`
+                : ` with ${queue.length % 4 === 0 ? 4 : queue.length % 4} label(s) on the last page`
+              }
             </p>
           )}
         </div>

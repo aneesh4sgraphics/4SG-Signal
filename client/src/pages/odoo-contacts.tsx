@@ -71,9 +71,10 @@ import {
   CreditCard,
   UserCheck,
   SlidersHorizontal,
+  Printer,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
-import { PrintLabelButton } from "@/components/PrintLabelButton";
+import { PrintLabelButton, useLabelQueue, CustomerAddress } from "@/components/PrintLabelButton";
 import { useEmailComposer } from "@/components/email-composer";
 
 interface Contact {
@@ -154,6 +155,9 @@ export default function OdooContacts() {
   // Bulk edit state
   const [bulkEditOpen, setBulkEditOpen] = useState<'tags' | 'salesRep' | 'paymentTerms' | null>(null);
   const [bulkEditLoading, setBulkEditLoading] = useState(false);
+
+  let labelQueue: ReturnType<typeof useLabelQueue> | null = null;
+  try { labelQueue = useLabelQueue(); } catch { labelQueue = null; }
 
   const [searchActiveFilterSnapshot, setSearchActiveFilterSnapshot] = useState<typeof filters | null>(null);
 
@@ -1062,6 +1066,42 @@ export default function OdooContacts() {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {labelQueue && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white"
+                    onClick={() => {
+                      const items = filteredContacts
+                        .filter(c => selectedContacts.has(c.id))
+                        .filter(c => c.address1 || c.city)
+                        .map(c => ({
+                          customer: {
+                            id: c.id,
+                            company: c.company,
+                            firstName: c.firstName,
+                            lastName: c.lastName,
+                            address1: c.address1,
+                            address2: null,
+                            city: c.city,
+                            province: c.province,
+                            zip: c.zip,
+                            country: c.country,
+                          } as CustomerAddress,
+                        }));
+                      if (items.length === 0) {
+                        toast({ title: 'No addresses available', description: 'None of the selected contacts have addresses on file.', variant: 'destructive' });
+                        return;
+                      }
+                      labelQueue!.addBulkToQueueAndOpen(items);
+                      toast({ title: `${items.length} address${items.length !== 1 ? 'es' : ''} added to label queue` });
+                    }}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print Address Labels
+                  </Button>
+                )}
 
                 <div className="flex-1" />
                 
