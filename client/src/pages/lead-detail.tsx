@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useRoute, useLocation } from "wouter";
+import { useEmailComposer } from "@/components/email-composer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +151,7 @@ export default function LeadDetail() {
   const leadId = params?.id;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const emailComposer = useEmailComposer();
   const queryClientInstance = useQueryClient();
   
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
@@ -375,26 +377,25 @@ export default function LeadDetail() {
         <div className="flex items-center gap-3">
           <Badge className={`${stageInfo.color} border`}>{stageInfo.label}</Badge>
           {lead.email && (
-            <Link href={`/email-app?${new URLSearchParams({
-              to: lead.email,
-              recipientName: lead.name,
-              usageType: 'lead_email',
-              variables: JSON.stringify({
-                'lead.name': lead.name || '',
-                'lead.company': lead.company || '',
-                'lead.email': lead.email || '',
-                'lead.id': String(lead.id),
-              }),
-            })}`}>
               <Button 
                 variant="outline"
                 className="border-green-200 text-green-600 hover:bg-green-50"
                 title="Send email to lead"
+                onClick={() => emailComposer.open({
+                  to: lead.email || '',
+                  customerName: lead.name,
+                  usageType: 'lead_email',
+                  variables: {
+                    'lead.name': lead.name || '',
+                    'lead.company': lead.company || '',
+                    'lead.email': lead.email || '',
+                    'lead.id': String(lead.id),
+                  },
+                })}
               >
                 <Mail className="w-4 h-4 mr-2" />
                 Compose Email
               </Button>
-            </Link>
           )}
           <Button variant="outline" onClick={handleEditClick}>
             <Edit className="w-4 h-4 mr-2" /> Edit
@@ -444,7 +445,21 @@ export default function LeadDetail() {
                   {lead.email && (
                     <div className="flex items-center gap-3">
                       <Mail className="w-4 h-4 text-slate-400" />
-                      <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline">{lead.email}</a>
+                      <button 
+                        onClick={() => emailComposer.open({
+                          to: lead.email || '',
+                          customerName: lead.name,
+                          usageType: 'lead_email',
+                          variables: {
+                            'lead.name': lead.name || '',
+                            'lead.company': lead.company || '',
+                            'lead.email': lead.email || '',
+                            'lead.id': String(lead.id),
+                          },
+                        })}
+                        className="text-blue-600 hover:text-green-600 hover:underline transition-colors"
+                        title="Compose email"
+                      >{lead.email}</button>
                     </div>
                   )}
                   {lead.phone && (
