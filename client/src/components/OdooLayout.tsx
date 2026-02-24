@@ -44,7 +44,8 @@ interface OdooLayoutProps {
   children: React.ReactNode;
 }
 
-const mainItems = NAV_ITEMS.filter(item => !item.adminOnly);
+const coreItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'core');
+const toolItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'tools');
 const adminItems = NAV_ITEMS.filter(item => item.adminOnly);
 
 function SettingsMenu() {
@@ -92,6 +93,9 @@ function SettingsMenu() {
 
 function OdooLayoutContent({ children }: OdooLayoutProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [toolsExpanded, setToolsExpanded] = useState(() => {
+    try { return localStorage.getItem('4s-tools-expanded') === 'true'; } catch { return false; }
+  });
   const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [location] = useLocation();
@@ -116,6 +120,14 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
     sessionStorage.clear();
     window.location.href = '/api/logout';
   };
+
+  const toggleTools = () => {
+    const next = !toolsExpanded;
+    setToolsExpanded(next);
+    try { localStorage.setItem('4s-tools-expanded', String(next)); } catch {}
+  };
+
+  const isToolActive = toolItems.some(item => location === item.path);
 
   const isAdmin = (user as any)?.role === 'admin';
   
@@ -162,8 +174,44 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
           </button>
           
           <nav className="flex-1 px-4 py-2 overflow-y-auto">
-            <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Quick Access</p>
-            {mainItems.slice(0, 6).map((item) => {
+            <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
+            {coreItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out mb-1 relative ${
+                    isActive 
+                      ? 'bg-[#F7F7F5] text-[#37352F] font-medium' 
+                      : 'text-[#73726E] hover:bg-[#F7F7F5]'
+                  }`}
+                >
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#37352F] rounded-r-full" />
+                  )}
+                  <span 
+                    className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
+                  >
+                    <Icon className="h-5 w-5 text-[#37352F]" />
+                  </span>
+                  <span className="text-sm">{item.label}</span>
+                </Link>
+              );
+            })}
+
+            <button
+              onClick={toggleTools}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F] transition-all duration-150 ease-out mt-2 mb-1"
+            >
+              <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
+              <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
+              {isToolActive && !toolsExpanded && (
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
+              )}
+            </button>
+            {toolsExpanded && toolItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
               return (
@@ -259,9 +307,86 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
             {sidebarExpanded && (
               <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
             )}
-            {mainItems.map((item) => {
+            {coreItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
+              
+              const linkContent = (
+                <Link 
+                  key={item.path} 
+                  href={item.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out group relative ${
+                    isActive 
+                      ? 'bg-blue-50 text-blue-700 font-medium shadow-sm border border-blue-100'
+                      : 'text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]'
+                  }`}
+                >
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-blue-600 rounded-r-full" />
+                  )}
+                  <span 
+                    className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
+                      isActive ? 'bg-blue-100' : ''
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${isActive ? 'text-blue-700' : 'text-[#37352F]'}`} />
+                  </span>
+                  {sidebarExpanded && (
+                    <span className="text-sm truncate">{item.label}</span>
+                  )}
+                </Link>
+              );
+              
+              if (!sidebarExpanded) {
+                return (
+                  <Tooltip key={item.path}>
+                    <TooltipTrigger asChild>
+                      {linkContent}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="font-medium">
+                      <p>{item.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+              return <div key={item.path}>{linkContent}</div>;
+            })}
+          </div>
+
+          <div className="px-3 space-y-1 mt-3">
+            <button
+              onClick={toggleTools}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg w-full transition-all duration-150 ease-out ${
+                isToolActive && !toolsExpanded
+                  ? 'bg-blue-50 text-blue-700 font-medium'
+                  : 'text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F]'
+              }`}
+            >
+              {sidebarExpanded ? (
+                <>
+                  <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
+                  <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
+                  {isToolActive && !toolsExpanded && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
+                  )}
+                </>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0">
+                      <ChevronRightIcon className={`h-4 w-4 text-[#73726E] transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="font-medium">
+                    <p>Tools</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </button>
+            {(toolsExpanded || isToolActive) && toolItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.path;
+              if (!toolsExpanded && !isActive) return null;
               
               const linkContent = (
                 <Link 
