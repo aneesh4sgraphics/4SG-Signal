@@ -885,10 +885,26 @@ export default function OdooCompanyDetail() {
                 <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{displayName}</h1>
                 <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
                   {company.email && (
-                    <a href={`mailto:${company.email}`} className="flex items-center gap-2 hover:text-violet-600">
+                    <button 
+                      onClick={() => emailComposer.open({
+                        to: company.email || '',
+                        customerId: company.id,
+                        customerName: displayName,
+                        usageType: 'client_email',
+                        variables: {
+                          'client.firstName': company.firstName || '',
+                          'client.lastName': company.lastName || '',
+                          'client.name': displayName,
+                          'client.company': company.company || '',
+                          'client.email': company.email || '',
+                        },
+                      })}
+                      className="flex items-center gap-2 hover:text-green-600 text-sm text-gray-600 transition-colors"
+                      title="Compose email"
+                    >
                       <Mail className="w-4 h-4 text-gray-400" />
                       <span>{company.email}</span>
-                    </a>
+                    </button>
                   )}
                   {company.phone && (
                     <a href={`tel:${company.phone}`} className="flex items-center gap-2 hover:text-violet-600">
@@ -2153,9 +2169,22 @@ export default function OdooCompanyDetail() {
                       <div className="flex-1 space-y-2">
                         <p className="text-xs text-gray-500">Email</p>
                         {company.email && (
-                          <a 
-                            href={`mailto:${company.email}`}
-                            className="flex items-center gap-1 text-violet-600 hover:text-violet-800 hover:underline font-medium"
+                          <button 
+                            onClick={() => emailComposer.open({
+                              to: company.email || '',
+                              customerId: company.id,
+                              customerName: displayName,
+                              usageType: 'client_email',
+                              variables: {
+                                'client.firstName': company.firstName || '',
+                                'client.lastName': company.lastName || '',
+                                'client.name': displayName,
+                                'client.company': company.company || '',
+                                'client.email': company.email || '',
+                              },
+                            })}
+                            className="flex items-center gap-1 text-violet-600 hover:text-green-600 hover:underline font-medium transition-colors"
+                            title="Compose email"
                           >
                             {company.email}
                             {isShopifyEmail(company.email) && (
@@ -2164,16 +2193,29 @@ export default function OdooCompanyDetail() {
                                 title="Shopify customer"
                               />
                             )}
-                          </a>
+                          </button>
                         )}
                         {company.email2 && (
-                          <a 
-                            href={`mailto:${company.email2}`}
-                            className="flex items-center gap-1 text-violet-600 hover:text-violet-800 hover:underline text-sm"
+                          <button 
+                            onClick={() => emailComposer.open({
+                              to: company.email2 || '',
+                              customerId: company.id,
+                              customerName: displayName,
+                              usageType: 'client_email',
+                              variables: {
+                                'client.firstName': company.firstName || '',
+                                'client.lastName': company.lastName || '',
+                                'client.name': displayName,
+                                'client.company': company.company || '',
+                                'client.email': company.email2 || '',
+                              },
+                            })}
+                            className="flex items-center gap-1 text-violet-600 hover:text-green-600 hover:underline text-sm transition-colors"
+                            title="Compose email to secondary address"
                           >
                             {company.email2}
                             <span className="text-gray-400 text-xs">(secondary)</span>
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -2412,13 +2454,26 @@ export default function OdooCompanyDetail() {
                         <div className="flex flex-wrap gap-3 mt-2 text-xs">
                           {contact.email && (
                             <div className="flex items-center gap-1">
-                              <a
-                                href={`mailto:${contact.email}`}
-                                className="flex items-center gap-1 text-violet-600 hover:text-violet-700"
+                              <button
+                                onClick={() => emailComposer.open({
+                                  to: contact.email,
+                                  customerId: company?.id,
+                                  customerName: contact.name,
+                                  usageType: 'client_email',
+                                  variables: {
+                                    'client.firstName': contact.name?.split(' ')[0] || '',
+                                    'client.lastName': contact.name?.split(' ').slice(1).join(' ') || '',
+                                    'client.name': contact.name || '',
+                                    'client.company': company?.company || '',
+                                    'client.email': contact.email || '',
+                                  },
+                                })}
+                                className="flex items-center gap-1 text-violet-600 hover:text-green-600 transition-colors"
+                                title="Compose email"
                               >
                                 <Mail className="w-3 h-3" />
                                 {contact.email}
-                              </a>
+                              </button>
                               {isShopifyEmail(contact.email) && (
                                 <SiShopify 
                                   className="w-3.5 h-3.5 text-green-600" 

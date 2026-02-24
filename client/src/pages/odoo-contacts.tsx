@@ -1324,14 +1324,28 @@ export default function OdooContacts() {
                         ) : (
                           <div className="flex items-center gap-2 group/email">
                             {contact.email ? (
-                              <a 
-                                href={`mailto:${contact.email}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-gray-400 hover:text-primary"
-                                title="Send email"
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  emailComposer.open({
+                                    to: contact.email!,
+                                    customerId: contact.id,
+                                    customerName: getDisplayName(contact),
+                                    usageType: 'client_email',
+                                    variables: {
+                                      'client.firstName': contact.firstName || '',
+                                      'client.lastName': contact.lastName || '',
+                                      'client.name': getDisplayName(contact),
+                                      'client.company': contact.company || '',
+                                      'client.email': contact.email || '',
+                                    },
+                                  });
+                                }}
+                                className="text-gray-400 hover:text-green-600 transition-colors"
+                                title="Compose email"
                               >
                                 <Mail className="w-4 h-4" />
-                              </a>
+                              </button>
                             ) : (
                               <Mail className="w-4 h-4 text-gray-400" />
                             )}
