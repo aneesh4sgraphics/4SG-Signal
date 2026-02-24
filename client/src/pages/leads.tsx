@@ -62,6 +62,7 @@ import {
   GripVertical,
   SlidersHorizontal,
 } from "lucide-react";
+import { PrintLabelButton } from "@/components/PrintLabelButton";
 import { SiOdoo, SiShopify } from "react-icons/si";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,8 +80,11 @@ interface Lead {
   company: string | null;
   jobTitle: string | null;
   website: string | null;
+  street: string | null;
+  street2: string | null;
   city: string | null;
   state: string | null;
+  zip: string | null;
   country: string | null;
   stage: string;
   priority: string | null;
@@ -753,6 +757,24 @@ export default function LeadsPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <div onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+                        <PrintLabelButton
+                          customer={{
+                            id: `lead-${lead.id}`,
+                            company: lead.company,
+                            firstName: lead.name?.split(' ')[0] || null,
+                            lastName: lead.name?.split(' ').slice(1).join(' ') || null,
+                            address1: lead.street,
+                            address2: lead.street2,
+                            city: lead.city,
+                            province: lead.state,
+                            zip: lead.zip,
+                            country: lead.country,
+                          }}
+                          leadId={lead.id}
+                          variant="icon"
+                        />
+                      </div>
                       {lead.email && (
                         <Button
                           size="sm"

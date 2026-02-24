@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLabelQueue } from "@/components/PrintLabelButton";
 import { PRICING_TIERS } from "@shared/schema";
 import {
   AlertDialog,
@@ -511,19 +512,15 @@ export default function Spotlight() {
 
   // Email composer state
   const [showEmailComposer, setShowEmailComposer] = useState(false);
-  const [showPrintLabel, setShowPrintLabel] = useState(false);
   const [showEmailMenu, setShowEmailMenu] = useState(false);
   const [showDripEnroll, setShowDripEnroll] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>('');
   const emailMenuRef = useRef<HTMLDivElement>(null);
+  const labelQueue = useLabelQueue();
   
   // Remind Later dialog state
   const [showRemindLaterDialog, setShowRemindLaterDialog] = useState(false);
   const [remindLaterDays, setRemindLaterDays] = useState(1);
-  const [labelType, setLabelType] = useState<'swatch_book' | 'press_test_kit' | 'mailer' | 'other'>('swatch_book');
-  const [labelOtherDescription, setLabelOtherDescription] = useState('');
-  const [labelQuantity, setLabelQuantity] = useState(1);
-  const [labelNotes, setLabelNotes] = useState('');
   const [emailTo, setEmailTo] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -918,38 +915,6 @@ export default function Spotlight() {
     },
   });
 
-  const printLabelMutation = useMutation({
-    mutationFn: async (data: { labelType: string; otherDescription?: string; quantity: number; notes?: string }) => {
-      // For leads, pass leadId instead of customerId
-      const res = await apiRequest('POST', '/api/labels/print', {
-        customerId: isLeadTask ? undefined : customerId,
-        leadId: isLeadTask ? leadId : undefined,
-        labelType: data.labelType,
-        otherDescription: data.otherDescription,
-        quantity: data.quantity,
-        notes: data.notes,
-      });
-      // Parse the JSON response to get pdfUrl
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      // Open the PDF in a new tab
-      if (data?.pdfUrl) {
-        window.open(data.pdfUrl, '_blank');
-        toast({ title: 'Label created!', description: `Opening ${labelQuantity} label(s) in new tab` });
-      } else {
-        toast({ title: 'Label created', description: 'Label was generated but no PDF URL returned', variant: 'destructive' });
-      }
-      setShowPrintLabel(false);
-      setLabelType('swatch_book');
-      setLabelOtherDescription('');
-      setLabelQuantity(1);
-      setLabelNotes('');
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to print label', description: error?.message || 'Could not generate label', variant: 'destructive' });
-    },
-  });
 
   // Fetch activity events for current customer
   const { data: customerNotes = [] } = useQuery<{ id: number; eventType: string; summary: string; occurredAt: string; metadata?: any }[]>({
@@ -2587,15 +2552,61 @@ export default function Spotlight() {
                   )}
                 </div>
                 
-                {/* Print Label */}
-                <button
-                  onClick={() => setShowPrintLabel(true)}
-                  disabled={!effectiveAddress}
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${effectiveAddress ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-                  title={effectiveAddress ? "Print Label" : "No address available"}
-                >
-                  <Printer className="w-4 h-4" />
-                </button>
+                {/* Add to Label Queue */}
+                {(() => {
+                  const labelId = task.isLeadTask && task.lead 
+                    ? `lead-${task.lead.id}` 
+                    : String(customerId);
+                  const inQueue = labelQueue.isInQueue(labelId);
+                  const labelCustomer = task.isLeadTask && task.lead ? {
+                    id: labelId,
+                    company: task.lead.company || null,
+                    firstName: task.lead.name?.split(' ')[0] || null,
+                    lastName: task.lead.name?.split(' ').slice(1).join(' ') || null,
+                    address1: task.lead.address || null,
+                    address2: null,
+                    city: task.lead.city || null,
+                    province: task.lead.state || null,
+                    zip: task.lead.zip || null,
+                    country: null,
+                  } : {
+                    id: labelId,
+                    company: customer?.company || null,
+                    firstName: customer?.firstName || null,
+                    lastName: customer?.lastName || null,
+                    address1: customer?.address1 || null,
+                    address2: customer?.address2 || null,
+                    city: customer?.city || null,
+                    province: customer?.province || null,
+                    zip: customer?.zip || null,
+                    country: customer?.country || null,
+                  };
+                  const leadIdForQueue = task.isLeadTask ? task.lead?.id : undefined;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (inQueue) {
+                          labelQueue.removeFromQueue(labelId);
+                          toast({ title: 'Removed from label queue' });
+                        } else {
+                          labelQueue.addToQueue(labelCustomer, leadIdForQueue);
+                          toast({ title: 'Added to label queue', description: `${labelQueue.queue.length + 1} label(s) queued` });
+                        }
+                      }}
+                      disabled={!effectiveAddress}
+                      className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
+                        !effectiveAddress 
+                          ? 'bg-slate-100 text-slate-300 cursor-not-allowed' 
+                          : inQueue 
+                            ? 'bg-blue-200 text-blue-700 hover:bg-blue-300 ring-2 ring-blue-400' 
+                            : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                      }`}
+                      title={!effectiveAddress ? "No address available" : inQueue ? "Remove from label queue" : "Add to label queue"}
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
                 
                 {/* Later */}
                 <button
@@ -5671,122 +5682,6 @@ export default function Spotlight() {
         </DialogContent>
       </Dialog>
 
-      {/* Print Label Dialog */}
-      <Dialog open={showPrintLabel} onOpenChange={setShowPrintLabel}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="w-5 h-5 text-purple-600" />
-              Print Address Label
-            </DialogTitle>
-            <DialogDescription>
-              Generate a 4"x3" thermal label for shipping marketing materials.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>What are you sending?</Label>
-              <Select value={labelType} onValueChange={(v: 'swatch_book' | 'press_test_kit' | 'mailer' | 'other') => setLabelType(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select label type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="swatch_book">Swatch Book</SelectItem>
-                  <SelectItem value="press_test_kit">Press Test Kit</SelectItem>
-                  <SelectItem value="mailer">Mailer</SelectItem>
-                  <SelectItem value="other">Something Else</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {labelType === 'other' && (
-              <div className="grid gap-2">
-                <Label htmlFor="otherDescription">Description</Label>
-                <Input
-                  id="otherDescription"
-                  value={labelOtherDescription}
-                  onChange={(e) => setLabelOtherDescription(e.target.value)}
-                  placeholder="What are you sending?"
-                />
-              </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min={1}
-                value={labelQuantity}
-                onChange={(e) => setLabelQuantity(parseInt(e.target.value) || 1)}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={labelNotes}
-                onChange={(e) => setLabelNotes(e.target.value)}
-                placeholder="Any special instructions..."
-                rows={2}
-              />
-            </div>
-
-            {/* Address Preview - Use lead data for lead tasks */}
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <p className="text-xs text-gray-500 mb-2">Shipping To:</p>
-              {task?.isLeadTask && task?.lead ? (
-                <>
-                  <p className="font-semibold">{task.lead.company || task.lead.name || 'Lead'}</p>
-                  {task.lead.address && <p className="text-sm text-gray-700">{task.lead.address}</p>}
-                  {task.lead.city && (
-                    <p className="text-sm text-gray-700">
-                      {[task.lead.city, task.lead.state, task.lead.zip].filter(Boolean).join(', ')}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="font-semibold">{customer?.company || `${customer?.firstName} ${customer?.lastName}`.trim()}</p>
-                  {customer?.address1 && <p className="text-sm text-gray-700">{customer.address1}</p>}
-                  {customer?.address2 && <p className="text-sm text-gray-700">{customer.address2}</p>}
-                  <p className="text-sm text-gray-700">
-                    {[customer?.city, customer?.province, customer?.zip].filter(Boolean).join(', ')}
-                  </p>
-                  {customer?.country && !['US', 'USA', 'CA', 'CAN'].includes(customer.country) && (
-                    <p className="text-sm text-gray-700">{customer.country}</p>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowPrintLabel(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => printLabelMutation.mutate({
-                labelType,
-                otherDescription: labelType === 'other' ? labelOtherDescription : undefined,
-                quantity: labelQuantity,
-                notes: labelNotes || undefined,
-              })}
-              disabled={printLabelMutation.isPending || (labelType === 'other' && !labelOtherDescription.trim())}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {printLabelMutation.isPending ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4 mr-2" />
-              )}
-              Print Label
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Later Today Scratch Pad - Floating Panel */}
       {remindTodayTasks.length > 0 && (
