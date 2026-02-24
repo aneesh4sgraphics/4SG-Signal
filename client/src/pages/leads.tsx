@@ -62,6 +62,9 @@ import {
   GripVertical,
   SlidersHorizontal,
   ArrowUpDown,
+  Check,
+  X,
+  Printer,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -69,7 +72,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PrintLabelButton } from "@/components/PrintLabelButton";
+import { PrintLabelButton, useLabelQueue, CustomerAddress } from "@/components/PrintLabelButton";
+import { motion, AnimatePresence } from "framer-motion";
 import { SiOdoo, SiShopify } from "react-icons/si";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -160,6 +164,10 @@ export default function LeadsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const leadsPerPage = 50;
+  const [selectedLeads, setSelectedLeads] = useState<Set<number>>(new Set());
+
+  let labelQueue: ReturnType<typeof useLabelQueue> | null = null;
+  try { labelQueue = useLabelQueue(); } catch { labelQueue = null; }
 
   const LEAD_COLUMNS = [
     { key: 'name', label: 'Name', alwaysVisible: true },
@@ -660,6 +668,74 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {/* Multi-select bar */}
+        <AnimatePresence>
+          {selectedLeads.size > 0 && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-violet-50 rounded-lg border border-violet-200 mb-4 overflow-hidden"
+            >
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-violet-700">
+                    <Check className="w-4 h-4" />
+                    {selectedLeads.size} selected
+                  </div>
+                  <div className="h-4 w-px bg-violet-300" />
+                  {labelQueue && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 bg-white"
+                      onClick={() => {
+                        const items = paginatedLeads
+                          .filter(l => selectedLeads.has(l.id))
+                          .filter(l => l.street || l.city)
+                          .map(l => ({
+                            customer: {
+                              id: `lead-${l.id}`,
+                              company: l.company,
+                              firstName: l.name?.split(' ')[0] || null,
+                              lastName: l.name?.split(' ').slice(1).join(' ') || null,
+                              address1: l.street,
+                              address2: l.street2,
+                              city: l.city,
+                              province: l.state,
+                              zip: l.zip,
+                              country: l.country,
+                            } as CustomerAddress,
+                            leadId: l.id,
+                          }));
+                        if (items.length === 0) {
+                          toast({ title: 'No addresses available', description: 'None of the selected leads have addresses on file.', variant: 'destructive' });
+                          return;
+                        }
+                        labelQueue!.addBulkToQueueAndOpen(items);
+                        toast({ title: `${items.length} address${items.length !== 1 ? 'es' : ''} added to label queue` });
+                      }}
+                    >
+                      <Printer className="w-4 h-4" />
+                      Print Address Labels
+                    </Button>
+                  )}
+                  <div className="flex-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedLeads(new Set())}
+                    className="text-gray-500"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Leads Grid/List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -691,14 +767,29 @@ export default function LeadsPage() {
               const stageInfo = getStageInfo(lead.stage);
               const priorityInfo = getPriorityInfo(lead.priority);
               const trustProgress = getTrustBuildingProgress(lead);
+              const isSelected = selectedLeads.has(lead.id);
               
               return (
-                <Link key={lead.id} href={`/leads/${lead.id}`} className="block">
+                <div key={lead.id} className="relative block">
+                  <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        setSelectedLeads(prev => {
+                          const next = new Set(prev);
+                          if (checked) next.add(lead.id); else next.delete(lead.id);
+                          return next;
+                        });
+                      }}
+                      className="bg-white border-slate-300"
+                    />
+                  </div>
+                  <Link href={`/leads/${lead.id}`} className="block">
                   <Card 
-                    className="hover:shadow-lg transition-all cursor-pointer group"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)' }}
+                    className={`hover:shadow-lg transition-all cursor-pointer group ${isSelected ? 'ring-2 ring-violet-400 bg-violet-50/50' : ''}`}
+                    style={{ backgroundColor: isSelected ? undefined : 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)' }}
                   >
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 pl-10">
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
@@ -897,7 +988,8 @@ export default function LeadsPage() {
                     </div>
                     </CardContent>
                   </Card>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
@@ -907,6 +999,18 @@ export default function LeadsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50/80">
                   <tr>
+                    <th className="w-10 p-3">
+                      <Checkbox
+                        checked={paginatedLeads.length > 0 && paginatedLeads.every(l => selectedLeads.has(l.id))}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedLeads(new Set(paginatedLeads.map(l => l.id)));
+                          } else {
+                            setSelectedLeads(new Set());
+                          }
+                        }}
+                      />
+                    </th>
                     {visibleLeadColumns.name !== false && <th className="text-left p-3 font-medium text-slate-600">Name</th>}
                     {visibleLeadColumns.company && <th className="text-left p-3 font-medium text-slate-600">Company</th>}
                     {visibleLeadColumns.email && <th className="text-left p-3 font-medium text-slate-600">Email</th>}
@@ -926,12 +1030,25 @@ export default function LeadsPage() {
                   {paginatedLeads.map(lead => {
                     const stageInfo = getStageInfo(lead.stage);
                     const priorityInfo = getPriorityInfo(lead.priority);
+                    const isSelected = selectedLeads.has(lead.id);
                     return (
                       <tr 
                         key={lead.id} 
-                        className="border-t border-slate-100 hover:bg-slate-50/50 cursor-pointer"
+                        className={`border-t border-slate-100 hover:bg-slate-50/50 cursor-pointer ${isSelected ? 'bg-violet-50/50' : ''}`}
                         onClick={() => setLocation(`/leads/${lead.id}`)}
                       >
+                        <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedLeads(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(lead.id); else next.delete(lead.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        </td>
                         {visibleLeadColumns.name !== false && <td className="p-3 font-medium text-slate-800">{lead.name}</td>}
                         {visibleLeadColumns.company && <td className="p-3 text-slate-600">{lead.company || '-'}</td>}
                         {visibleLeadColumns.email && <td className="p-3 text-slate-600">{lead.email || '-'}</td>}
