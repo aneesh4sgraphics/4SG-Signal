@@ -2839,6 +2839,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get sales wins - Shopify orders that came after first email sent from this app
+  app.get("/api/dashboard/sales-wins", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.email || req.user?.id;
+      const { period } = req.query;
+      
+      // Get date range filter
+      const now = new Date();
+      let dateFilter = new Date(now.getFullYear(), now.getMonth(), 1); // default: this month
+      if (period === 'week') {
+        dateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === 'quarter') {
+        dateFilter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+      } else if (period === 'year') {
+        dateFilter = new Date(now.getFullYear(), 0, 1);
+      } else if (period === 'all') {
+        dateFilter = new Date(2020, 0, 1);
+      }
+
+      // Find all email sends grouped by customer with their earliest send date
+      const firstEmailsByCustomer = await db
+        .select({
+          customerId: emailSends.customerId,
+          firstEmailAt: sql<Date>`MIN(${emailSends.sentAt})`,
+          sentBy: sql<string>`(array_agg(${emailSends.sentBy} ORDER BY ${emailSends.sentAt} ASC))[1]`,
+        })
+        .from(emailSends)
+        .where(and(
+          isNotNull(emailSends.customerId),
+          eq(emailSends.status, 'sent')
+        ))
+        .groupBy(emailSends.customerId);
+
+      if (firstEmailsByCustomer.length === 0) {
+        return res.json({ wins: [], totalWins: 0, totalRevenue: 0, myWins: 0, myRevenue: 0 });
+      }
+
+      // Get all matched Shopify orders in the date range
+      const orders = await db.select({
+        id: shopifyOrders.id,
+        orderNumber: shopifyOrders.orderNumber,
+        customerId: shopifyOrders.customerId,
+        customerName: shopifyOrders.customerName,
+        companyName: shopifyOrders.companyName,
+        totalPrice: shopifyOrders.totalPrice,
+        shopifyCreatedAt: shopifyOrders.shopifyCreatedAt,
+        financialStatus: shopifyOrders.financialStatus,
+      })
+        .from(shopifyOrders)
+        .where(and(
+          isNotNull(shopifyOrders.customerId),
+          gte(shopifyOrders.shopifyCreatedAt, dateFilter)
+        ))
+        .orderBy(desc(shopifyOrders.shopifyCreatedAt));
+
+      // Match orders to first emails - an order is a "win" if it came after the first email
+      const emailMap = new Map(firstEmailsByCustomer.map(e => [e.customerId, e]));
+      
+      const wins = [];
+      let totalRevenue = 0;
+      let myWins = 0;
+      let myRevenue = 0;
+
+      for (const order of orders) {
+        const emailData = emailMap.get(order.customerId);
+        if (emailData && order.shopifyCreatedAt && new Date(order.shopifyCreatedAt) > new Date(emailData.firstEmailAt)) {
+          const price = parseFloat(order.totalPrice || '0');
+          const win = {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            customerName: order.companyName || order.customerName || 'Unknown',
+            totalPrice: price,
+            orderDate: order.shopifyCreatedAt,
+            firstEmailDate: emailData.firstEmailAt,
+            attributedTo: emailData.sentBy,
+            financialStatus: order.financialStatus,
+          };
+          wins.push(win);
+          totalRevenue += price;
+          
+          if (emailData.sentBy === userId) {
+            myWins++;
+            myRevenue += price;
+          }
+        }
+      }
+
+      res.json({
+        wins: wins.slice(0, 50),
+        totalWins: wins.length,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        myWins,
+        myRevenue: Math.round(myRevenue * 100) / 100,
+      });
+    } catch (error) {
+      console.error("Error fetching sales wins:", error);
+      res.status(500).json({ error: "Failed to fetch sales wins" });
+    }
+  });
+
   // Get team-wide label stats for dashboard
   app.get("/api/dashboard/label-stats", isAuthenticated, async (req: any, res) => {
     try {
