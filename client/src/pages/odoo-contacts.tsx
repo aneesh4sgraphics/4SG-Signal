@@ -143,6 +143,10 @@ export default function OdooContacts() {
     isCompany: true as boolean | null,
     pricingTier: null as string | null,
     hasEmail: null as boolean | null,
+    hasWebsite: null as boolean | null,
+    hasPhone: null as boolean | null,
+    hasAddress: null as boolean | null,
+    hasPricingTier: null as boolean | null,
     isHotProspect: null as boolean | null,
     state: null as string | null,
   });
@@ -212,7 +216,12 @@ export default function OdooContacts() {
         isCompany: null,
         pricingTier: null,
         hasEmail: null,
+        hasWebsite: null,
+        hasPhone: null,
+        hasAddress: null,
+        hasPricingTier: null,
         isHotProspect: null,
+        state: null,
       });
     } else if (!searchQuery && searchActiveFilterSnapshot) {
       setFilters(searchActiveFilterSnapshot);
@@ -399,6 +408,14 @@ export default function OdooContacts() {
       }
       if (filters.hasEmail === true && !c.email) return false;
       if (filters.hasEmail === false && c.email) return false;
+      if (filters.hasWebsite === true && !c.website) return false;
+      if (filters.hasWebsite === false && c.website) return false;
+      if (filters.hasPhone === true && !c.phone && !c.phone2 && !c.cell) return false;
+      if (filters.hasPhone === false && (c.phone || c.phone2 || c.cell)) return false;
+      if (filters.hasAddress === true && !c.address1 && !c.city) return false;
+      if (filters.hasAddress === false && (c.address1 || c.city)) return false;
+      if (filters.hasPricingTier === true && !c.pricingTier) return false;
+      if (filters.hasPricingTier === false && c.pricingTier) return false;
       if (filters.state && c.province !== filters.state) return false;
       return true;
     })
@@ -662,16 +679,23 @@ export default function OdooContacts() {
     filters.isCompany !== null && filters.isCompany !== true ? 1 : 0,
     filters.pricingTier !== null ? 1 : 0,
     filters.hasEmail !== null ? 1 : 0,
+    filters.hasWebsite !== null ? 1 : 0,
+    filters.hasPhone !== null ? 1 : 0,
+    filters.hasAddress !== null ? 1 : 0,
+    filters.hasPricingTier !== null ? 1 : 0,
     filters.isHotProspect !== null ? 1 : 0,
     filters.state !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
-  // Clear filters
   const clearFilters = () => {
     setFilters({
       isCompany: null,
       pricingTier: null,
       hasEmail: null,
+      hasWebsite: null,
+      hasPhone: null,
+      hasAddress: null,
+      hasPricingTier: null,
       isHotProspect: null,
       state: null,
     });
@@ -915,6 +939,78 @@ export default function OdooContacts() {
                       <SelectItem value="all">Any Email</SelectItem>
                       <SelectItem value="yes">Has Email</SelectItem>
                       <SelectItem value="no">No Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Website */}
+                  <Select
+                    value={filters.hasWebsite === null ? 'all' : filters.hasWebsite ? 'yes' : 'no'}
+                    onValueChange={(v) => setFilters(f => ({
+                      ...f,
+                      hasWebsite: v === 'all' ? null : v === 'yes'
+                    }))}
+                  >
+                    <SelectTrigger className="w-[150px] bg-white">
+                      <SelectValue placeholder="Website" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any Website</SelectItem>
+                      <SelectItem value="yes">Has Website</SelectItem>
+                      <SelectItem value="no">No Website</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Phone */}
+                  <Select
+                    value={filters.hasPhone === null ? 'all' : filters.hasPhone ? 'yes' : 'no'}
+                    onValueChange={(v) => setFilters(f => ({
+                      ...f,
+                      hasPhone: v === 'all' ? null : v === 'yes'
+                    }))}
+                  >
+                    <SelectTrigger className="w-[140px] bg-white">
+                      <SelectValue placeholder="Phone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any Phone</SelectItem>
+                      <SelectItem value="yes">Has Phone</SelectItem>
+                      <SelectItem value="no">No Phone</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Address */}
+                  <Select
+                    value={filters.hasAddress === null ? 'all' : filters.hasAddress ? 'yes' : 'no'}
+                    onValueChange={(v) => setFilters(f => ({
+                      ...f,
+                      hasAddress: v === 'all' ? null : v === 'yes'
+                    }))}
+                  >
+                    <SelectTrigger className="w-[150px] bg-white">
+                      <SelectValue placeholder="Address" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any Address</SelectItem>
+                      <SelectItem value="yes">Has Address</SelectItem>
+                      <SelectItem value="no">No Address</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Pricing Tier */}
+                  <Select
+                    value={filters.hasPricingTier === null ? 'all' : filters.hasPricingTier ? 'yes' : 'no'}
+                    onValueChange={(v) => setFilters(f => ({
+                      ...f,
+                      hasPricingTier: v === 'all' ? null : v === 'yes'
+                    }))}
+                  >
+                    <SelectTrigger className="w-[160px] bg-white">
+                      <SelectValue placeholder="Pricing Tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Any Pricing Tier</SelectItem>
+                      <SelectItem value="yes">Has Pricing Tier</SelectItem>
+                      <SelectItem value="no">No Pricing Tier</SelectItem>
                     </SelectContent>
                   </Select>
 

@@ -159,6 +159,10 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
+  const [hasEmail, setHasEmail] = useState<boolean | null>(null);
+  const [hasWebsite, setHasWebsite] = useState<boolean | null>(null);
+  const [hasPhone, setHasPhone] = useState<boolean | null>(null);
+  const [hasAddress, setHasAddress] = useState<boolean | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban' | 'funnel'>('cards');
   const [sortField, setSortField] = useState<'name' | 'company' | 'state' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -375,6 +379,14 @@ export default function LeadsPage() {
 
   const leads = allLeads.filter(l => {
     if (stateFilter !== 'all' && l.state !== stateFilter) return false;
+    if (hasEmail === true && !l.email) return false;
+    if (hasEmail === false && l.email) return false;
+    if (hasWebsite === true && !l.website) return false;
+    if (hasWebsite === false && l.website) return false;
+    if (hasPhone === true && !l.phone && !l.mobile) return false;
+    if (hasPhone === false && (l.phone || l.mobile)) return false;
+    if (hasAddress === true && !l.street && !l.city) return false;
+    if (hasAddress === false && (l.street || l.city)) return false;
     return true;
   }).sort((a, b) => {
     let aVal: string | number, bVal: string | number;
@@ -408,7 +420,25 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, stageFilter, stateFilter, sortField, sortOrder]);
+  }, [search, stageFilter, stateFilter, hasEmail, hasWebsite, hasPhone, hasAddress, sortField, sortOrder]);
+
+  const activeLeadFilters = [
+    stageFilter !== 'all' ? 1 : 0,
+    stateFilter !== 'all' ? 1 : 0,
+    hasEmail !== null ? 1 : 0,
+    hasWebsite !== null ? 1 : 0,
+    hasPhone !== null ? 1 : 0,
+    hasAddress !== null ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearLeadFilters = () => {
+    setStageFilter('all');
+    setStateFilter('all');
+    setHasEmail(null);
+    setHasWebsite(null);
+    setHasPhone(null);
+    setHasAddress(null);
+  };
 
   const getStageInfo = (stage: string) => STAGES.find(s => s.value === stage) || STAGES[0];
   const getPriorityInfo = (priority: string | null) => PRIORITIES.find(p => p.value === priority) || PRIORITIES[1];
@@ -540,7 +570,7 @@ export default function LeadsPage() {
         </div>
 
         {/* Filters Row */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
@@ -572,6 +602,64 @@ export default function LeadsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={hasEmail === null ? 'all' : hasEmail ? 'yes' : 'no'}
+            onValueChange={(v) => setHasEmail(v === 'all' ? null : v === 'yes')}
+          >
+            <SelectTrigger className="w-36 bg-white/80">
+              <SelectValue placeholder="Email" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any Email</SelectItem>
+              <SelectItem value="yes">Has Email</SelectItem>
+              <SelectItem value="no">No Email</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={hasWebsite === null ? 'all' : hasWebsite ? 'yes' : 'no'}
+            onValueChange={(v) => setHasWebsite(v === 'all' ? null : v === 'yes')}
+          >
+            <SelectTrigger className="w-36 bg-white/80">
+              <SelectValue placeholder="Website" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any Website</SelectItem>
+              <SelectItem value="yes">Has Website</SelectItem>
+              <SelectItem value="no">No Website</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={hasPhone === null ? 'all' : hasPhone ? 'yes' : 'no'}
+            onValueChange={(v) => setHasPhone(v === 'all' ? null : v === 'yes')}
+          >
+            <SelectTrigger className="w-36 bg-white/80">
+              <SelectValue placeholder="Phone" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any Phone</SelectItem>
+              <SelectItem value="yes">Has Phone</SelectItem>
+              <SelectItem value="no">No Phone</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={hasAddress === null ? 'all' : hasAddress ? 'yes' : 'no'}
+            onValueChange={(v) => setHasAddress(v === 'all' ? null : v === 'yes')}
+          >
+            <SelectTrigger className="w-36 bg-white/80">
+              <SelectValue placeholder="Address" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any Address</SelectItem>
+              <SelectItem value="yes">Has Address</SelectItem>
+              <SelectItem value="no">No Address</SelectItem>
+            </SelectContent>
+          </Select>
+          {activeLeadFilters > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearLeadFilters} className="text-gray-500">
+              <X className="w-4 h-4 mr-1" />
+              Clear ({activeLeadFilters})
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 bg-white/80">
