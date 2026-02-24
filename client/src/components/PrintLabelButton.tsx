@@ -32,6 +32,7 @@ interface QueuedLabel {
 interface LabelQueueContextType {
   queue: QueuedLabel[];
   addToQueue: (customer: CustomerAddress, leadId?: number) => void;
+  addToQueueAndOpen: (customer: CustomerAddress, leadId?: number) => void;
   removeFromQueue: (customerId: string) => void;
   clearQueue: () => void;
   isInQueue: (customerId: string) => boolean;
@@ -57,6 +58,14 @@ export function LabelQueueProvider({ children }: { children: React.ReactNode }) 
     });
   };
 
+  const addToQueueAndOpen = (customer: CustomerAddress, leadId?: number) => {
+    setQueue(prev => {
+      if (prev.some(q => q.customer.id === customer.id)) return prev;
+      return [...prev, { customer, leadId }];
+    });
+    setDialogOpen(true);
+  };
+
   const removeFromQueue = (customerId: string) => {
     setQueue(prev => prev.filter(q => q.customer.id !== customerId));
   };
@@ -66,7 +75,7 @@ export function LabelQueueProvider({ children }: { children: React.ReactNode }) 
   const openPrintDialog = () => setDialogOpen(true);
 
   return (
-    <LabelQueueContext.Provider value={{ queue, addToQueue, removeFromQueue, clearQueue, isInQueue, openPrintDialog }}>
+    <LabelQueueContext.Provider value={{ queue, addToQueue, addToQueueAndOpen, removeFromQueue, clearQueue, isInQueue, openPrintDialog }}>
       {children}
       <BatchPrintDialog open={dialogOpen} onOpenChange={setDialogOpen} queue={queue} removeFromQueue={removeFromQueue} clearQueue={clearQueue} />
     </LabelQueueContext.Provider>
@@ -155,7 +164,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
     },
   });
 
-  const canPrint = queue.length >= 4 && (labelType !== 'other' || labelOtherDescription.trim());
+  const canPrint = queue.length >= 1 && (labelType !== 'other' || labelOtherDescription.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,7 +175,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
             Print Address Labels
           </DialogTitle>
           <DialogDescription>
-            Add at least 4 addresses to print on a 4×6 thermal label. Labels are stacked with cut lines between them.
+            Print address labels on 4×6 thermal paper. Labels are stacked with cut lines between them.
           </DialogDescription>
         </DialogHeader>
 
@@ -230,8 +239,8 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label>Addresses ({queue.length})</Label>
-              {queue.length < 4 && (
-                <span className="text-xs text-amber-600">Need at least {4 - queue.length} more</span>
+              {queue.length > 0 && (
+                <span className="text-xs text-gray-500">You can add more addresses before printing</span>
               )}
             </div>
             {queue.length === 0 ? (
@@ -264,7 +273,7 @@ function BatchPrintDialog({ open, onOpenChange, queue, removeFromQueue, clearQue
             )}
           </div>
 
-          {queue.length >= 4 && (
+          {queue.length >= 1 && (
             <p className="text-xs text-gray-500">
               {Math.ceil(queue.length / 4)} page(s) will be generated with {queue.length % 4 === 0 ? 4 : queue.length % 4} label(s) on the last page
             </p>
@@ -329,8 +338,7 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
       labelQueue.removeFromQueue(customer.id);
       toast({ title: 'Removed from label queue' });
     } else {
-      labelQueue.addToQueue(customer, leadId);
-      toast({ title: 'Added to label queue', description: `${labelQueue.queue.length + 1} label(s) queued` });
+      labelQueue.addToQueueAndOpen(customer, leadId);
     }
   };
 
@@ -388,11 +396,6 @@ export function LabelQueueIndicator() {
     >
       <Printer className="w-5 h-5" />
       <span>{labelQueue.queue.length} Label{labelQueue.queue.length !== 1 ? 's' : ''}</span>
-      {labelQueue.queue.length < 4 && (
-        <Badge variant="secondary" className="bg-blue-500 text-white text-[10px] px-1.5">
-          need {4 - labelQueue.queue.length}
-        </Badge>
-      )}
     </Button>
   );
 }

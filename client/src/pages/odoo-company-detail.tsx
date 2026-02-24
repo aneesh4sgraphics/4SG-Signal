@@ -1017,7 +1017,7 @@ export default function OdooCompanyDetail() {
                       labelQueue.removeFromQueue(String(companyId));
                       toast({ title: 'Removed from label queue' });
                     } else {
-                      labelQueue.addToQueue({
+                      labelQueue.addToQueueAndOpen({
                         id: String(companyId),
                         company: company.company,
                         firstName: company.firstName,
@@ -1029,7 +1029,6 @@ export default function OdooCompanyDetail() {
                         zip: company.zip,
                         country: company.country,
                       });
-                      toast({ title: 'Added to label queue', description: `${labelQueue.queue.length + 1} label(s) queued` });
                     }
                   }}
                   className={labelQueue.isInQueue(String(companyId)) 

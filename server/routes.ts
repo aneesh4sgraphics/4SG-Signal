@@ -2524,12 +2524,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : req.user?.email || 'Unknown';
 
       const schema = z.object({
-        labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'other']),
+        labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'letter', 'other']),
         otherDescription: z.string().optional(),
         addresses: z.array(z.object({
           customerId: z.string().optional(),
           leadId: z.number().optional(),
-        })).min(4, "At least 4 addresses required"),
+        })).min(1, "At least 1 address required"),
       });
 
       const parsed = schema.safeParse(req.body);
