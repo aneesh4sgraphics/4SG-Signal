@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package, Edit2, Save, X, Search, Layers, Copy, Filter } from "lucide-react";
+import { Database, Upload, Download, RefreshCw, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Trash2, History, RotateCcw, Clock, Package, Edit2, Save, X, Search, Layers, Copy, Filter, LayoutGrid, List } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -215,6 +215,69 @@ function ProductPricingCard({
   );
 }
 
+function ProductPricingListRow({
+  item, isEditing, editValues, onEdit, onSave, onCancel, onValueChange, isSaving, isSelected, onToggleSelect
+}: {
+  item: ProductPricingMaster;
+  isEditing: boolean;
+  editValues: Record<string, string>;
+  onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onValueChange: (field: string, value: string) => void;
+  isSaving: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+}) {
+  const priceKeys = ['landedPrice','exportPrice','masterDistributorPrice','dealerPrice','dealer2Price','approvalNeededPrice','tierStage25Price','tierStage2Price','tierStage15Price','tierStage1Price','retailPrice'] as const;
+
+  return (
+    <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors text-xs ${isSelected ? 'bg-purple-50/40' : ''}`}>
+      <td className="pl-3 pr-1 py-2 w-8">
+        <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" />
+      </td>
+      <td className="px-2 py-2 whitespace-nowrap">
+        <span className="font-mono text-[11px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{item.itemCode}</span>
+      </td>
+      <td className="px-2 py-2 max-w-[200px]">
+        <p className="font-medium text-gray-800 truncate" title={item.productName}>{item.productName}</p>
+        <p className="text-[10px] text-gray-400 truncate">{item.productType}</p>
+      </td>
+      <td className="px-2 py-2 whitespace-nowrap text-gray-500">{item.size || '—'}</td>
+      {priceKeys.map(key => (
+        <td key={key} className="px-2 py-2 whitespace-nowrap text-right">
+          {isEditing ? (
+            <input
+              type="number" step="0.01" min="0"
+              value={editValues[key] || ''}
+              onChange={(e) => onValueChange(key, e.target.value)}
+              className="w-16 text-right text-xs px-1 py-0.5 border border-gray-300 rounded focus:border-purple-500 focus:ring-1 focus:ring-purple-200"
+            />
+          ) : (
+            <span className="text-gray-700">${Number(item[key]).toFixed(2)}</span>
+          )}
+        </td>
+      ))}
+      <td className="px-2 py-2 text-center w-12">
+        {!isEditing ? (
+          <button onClick={onEdit} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Edit pricing">
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <div className="flex gap-1 justify-center">
+            <button onClick={onSave} disabled={isSaving} className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50" title="Save">
+              <Save className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onCancel} disabled={isSaving} className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-50" title="Cancel">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export default function ProductPricingManagementNew() {
   const [isUploading, setIsUploading] = useState(false);
   const [clearDatabase, setClearDatabase] = useState(false);
@@ -233,6 +296,7 @@ export default function ProductPricingManagementNew() {
   const [bulkEditValues, setBulkEditValues] = useState<Record<string, string>>({});
   const [bulkEditProductIds, setBulkEditProductIds] = useState<number[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -946,6 +1010,22 @@ export default function ProductPricingManagementNew() {
                   Clear Filters
                 </Button>
               )}
+              <div className="flex items-center gap-1 ml-auto border border-gray-200 rounded-md p-0.5 bg-white">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-purple-100 text-purple-700' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Grid view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-purple-100 text-purple-700' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+              </div>
               {canBulkEdit && (
                 <Button
                   onClick={startBulkEditing}
@@ -1012,24 +1092,78 @@ export default function ProductPricingManagementNew() {
           
           <SectionDivider />
           
-          {/* Compact Card Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-3 max-h-[600px] overflow-y-auto">
-            {filteredPricingData.map((item) => (
-              <ProductPricingCard
-                key={item.id}
-                item={item}
-                isEditing={editingId === item.id}
-                editValues={editValues}
-                onEdit={() => startEditing(item)}
-                onSave={() => saveChanges(item.id)}
-                onCancel={cancelEditing}
-                onValueChange={(field, value) => setEditValues(prev => ({ ...prev, [field]: value }))}
-                isSaving={updateMutation.isPending}
-                isSelected={selectedProductIds.has(item.id)}
-                onToggleSelect={() => toggleProductSelection(item.id)}
-              />
-            ))}
-          </div>
+          {/* Grid View */}
+          {viewMode === 'grid' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 mt-3 max-h-[600px] overflow-y-auto">
+              {filteredPricingData.map((item) => (
+                <ProductPricingCard
+                  key={item.id}
+                  item={item}
+                  isEditing={editingId === item.id}
+                  editValues={editValues}
+                  onEdit={() => startEditing(item)}
+                  onSave={() => saveChanges(item.id)}
+                  onCancel={cancelEditing}
+                  onValueChange={(field, value) => setEditValues(prev => ({ ...prev, [field]: value }))}
+                  isSaving={updateMutation.isPending}
+                  isSelected={selectedProductIds.has(item.id)}
+                  onToggleSelect={() => toggleProductSelection(item.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="mt-3 max-h-[600px] overflow-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-xs border-collapse" style={{ minWidth: '1200px' }}>
+                <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="pl-3 pr-1 py-2 w-8">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={() => allFilteredSelected ? clearAllSelections() : selectAllFiltered()}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                    </th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Item Code</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">Product Name</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Size</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Landed</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Export</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Distributor</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dealer-VIP</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dealer</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify Lo.</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify3</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify2</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify1</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify-Ac.</th>
+                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Retail</th>
+                    <th className="px-2 py-2 text-center font-medium text-gray-600 w-12">Edit</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-50">
+                  {filteredPricingData.map((item) => (
+                    <ProductPricingListRow
+                      key={item.id}
+                      item={item}
+                      isEditing={editingId === item.id}
+                      editValues={editValues}
+                      onEdit={() => startEditing(item)}
+                      onSave={() => saveChanges(item.id)}
+                      onCancel={cancelEditing}
+                      onValueChange={(field, value) => setEditValues(prev => ({ ...prev, [field]: value }))}
+                      isSaving={updateMutation.isPending}
+                      isSelected={selectedProductIds.has(item.id)}
+                      onToggleSelect={() => toggleProductSelection(item.id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           
           {filteredPricingData.length === 0 && searchTerm && (
             <div className="text-center py-8 text-gray-500">
