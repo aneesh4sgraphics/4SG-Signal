@@ -383,6 +383,15 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'skip', label: 'Give More Time', icon: 'clock', nextAction: { type: 'no_action' } },
     { id: 'lost', label: 'Mark as Lost', icon: 'x', nextAction: { type: 'mark_complete' } },
   ],
+  // Mailer suggestion - physical outreach opportunity
+  outreach_mailer_suggestion: [
+    { id: 'send_swatchbook', label: 'SwatchBook Queued', icon: 'package', nextAction: { type: 'schedule_follow_up', daysUntil: 14, taskType: 'follow_up' } },
+    { id: 'send_press_test', label: 'Press Test Kit Queued', icon: 'box', nextAction: { type: 'schedule_follow_up', daysUntil: 14, taskType: 'follow_up' } },
+    { id: 'send_mailer', label: 'Mailer Queued', icon: 'mail-open', nextAction: { type: 'schedule_follow_up', daysUntil: 14, taskType: 'follow_up' } },
+    { id: 'email_sent', label: 'Emailed Instead', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
+    { id: 'called', label: 'Called First', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
+    { id: 'not_applicable', label: 'No Address on File', icon: 'x', nextAction: { type: 'no_action' } },
+  ],
 };
 
 const BUCKET_LABELS: Record<TaskBucket, string> = {
@@ -411,6 +420,8 @@ const WHY_NOW_MESSAGES: Record<string, string> = {
   sales_follow_up: 'Follow-up is due - keep the momentum going.',
   sales_quote_follow_up: 'Quote sent but no response - time to check in.',
   outreach_no_contact: 'No recent contact - reach out before they forget you.',
+  outreach_mailer_suggestion_email_engaged: 'You\'ve exchanged emails — now stand out with something physical. A SwatchBook or mailer lands differently than an inbox message.',
+  outreach_mailer_suggestion_went_quiet: 'They received your SwatchBook but went quiet. A follow-up mailer can reignite the conversation before you lose the momentum.',
   outreach_drip: 'Send a nurture email to stay top of mind.',
   enablement_swatchbook: 'Send a SwatchBook to showcase your products.',
   enablement_press_test: 'Send a Press Test Kit to demonstrate quality.',
@@ -3641,12 +3652,107 @@ class SpotlightEngine {
       return leadOutreachTask;
     }
 
-    // PRIORITY 2: Customer outreach (no recent contact)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // PRIORITY 2: Mailer suggestion — customers who need physical outreach
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
     // Filter out lead IDs from skipped IDs for customer queries
     const customerSkippedIds = skippedIds.filter(id => !id.startsWith('lead-'));
+
+    try {
+      // Trigger A: 3+ emails sent through our app, no swatchbook yet, quiet for 14+ days
+      const emailEngagedIds = await db
+        .select({ customerId: emailSends.customerId })
+        .from(emailSends)
+        .where(isNotNull(emailSends.customerId))
+        .groupBy(emailSends.customerId)
+        .having(sql`COUNT(*) >= 3`);
+
+      const engagedIds = emailEngagedIds.map(r => r.customerId).filter(Boolean) as string[];
+
+      if (engagedIds.length > 0) {
+        const mailerAConditions: any[] = [
+          eq(customers.doNotContact, false),
+          isNotNull(customers.email),
+          sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
+          isNull(customers.swatchbookSentAt),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.updatedAt), lt(customers.updatedAt, twoWeeksAgo)),
+          inArray(customers.id, engagedIds),
+        ];
+        if (customerSkippedIds.length > 0) mailerAConditions.push(notInArray(customers.id, customerSkippedIds));
+
+        const triggerAResult = await db
+          .select({
+            id: customers.id, company: customers.company,
+            firstName: customers.firstName, lastName: customers.lastName,
+            email: customers.email, phone: customers.phone,
+            address1: customers.address1, address2: customers.address2,
+            city: customers.city, province: customers.province,
+            zip: customers.zip, country: customers.country,
+            website: customers.website, salesRepId: customers.salesRepId,
+            salesRepName: customers.salesRepName, pricingTier: customers.pricingTier,
+            customerType: customers.customerType, updatedAt: customers.updatedAt,
+            isHotProspect: customers.isHotProspect,
+          })
+          .from(customers)
+          .where(and(...mailerAConditions))
+          .orderBy(desc(customers.isHotProspect), asc(customers.updatedAt))
+          .limit(1);
+
+        if (triggerAResult.length > 0) {
+          const c = triggerAResult[0];
+          const task = await this.buildTaskWithMachineContext(c, 'outreach', 'outreach_mailer_suggestion');
+          task.whyNow = WHY_NOW_MESSAGES['outreach_mailer_suggestion_email_engaged'];
+          task.payload = { ...task.payload, mailerTrigger: 'email_engaged' };
+          return task;
+        }
+      }
+
+      // Trigger B: SwatchBook sent, went quiet for 14+ days, no orders yet
+      const mailerBConditions: any[] = [
+        eq(customers.doNotContact, false),
+        isNotNull(customers.email),
+        sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
+        isNotNull(customers.swatchbookSentAt),
+        eq(customers.totalOrders, 0),
+        or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+        or(isNull(customers.updatedAt), lt(customers.updatedAt, twoWeeksAgo)),
+      ];
+      if (customerSkippedIds.length > 0) mailerBConditions.push(notInArray(customers.id, customerSkippedIds));
+
+      const triggerBResult = await db
+        .select({
+          id: customers.id, company: customers.company,
+          firstName: customers.firstName, lastName: customers.lastName,
+          email: customers.email, phone: customers.phone,
+          address1: customers.address1, address2: customers.address2,
+          city: customers.city, province: customers.province,
+          zip: customers.zip, country: customers.country,
+          website: customers.website, salesRepId: customers.salesRepId,
+          salesRepName: customers.salesRepName, pricingTier: customers.pricingTier,
+          customerType: customers.customerType, updatedAt: customers.updatedAt,
+          isHotProspect: customers.isHotProspect,
+        })
+        .from(customers)
+        .where(and(...mailerBConditions))
+        .orderBy(desc(customers.isHotProspect), asc(customers.swatchbookSentAt))
+        .limit(1);
+
+      if (triggerBResult.length > 0) {
+        const c = triggerBResult[0];
+        const task = await this.buildTaskWithMachineContext(c, 'outreach', 'outreach_mailer_suggestion');
+        task.whyNow = WHY_NOW_MESSAGES['outreach_mailer_suggestion_went_quiet'];
+        task.payload = { ...task.payload, mailerTrigger: 'went_quiet' };
+        return task;
+      }
+    } catch (err) {
+      console.error('[Spotlight] Mailer suggestion query error:', err);
+    }
+
+    // PRIORITY 3: Customer outreach (no recent contact)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     let conditions = [
       eq(customers.doNotContact, false),

@@ -3377,6 +3377,7 @@ export const TASK_ENERGY_COSTS: Record<string, { energyCost: number; difficulty:
   'sales_follow_up': { energyCost: 15, difficulty: 'medium' },
   'sales_quote_follow_up': { energyCost: 15, difficulty: 'medium' },
   'outreach_no_contact': { energyCost: 10, difficulty: 'medium' },
+  'outreach_mailer_suggestion': { energyCost: 12, difficulty: 'medium' },
   'outreach_drip': { energyCost: 8, difficulty: 'easy' },
   'hygiene_sales_rep': { energyCost: 5, difficulty: 'easy' },
   'hygiene_pricing_tier': { energyCost: 5, difficulty: 'easy' },
