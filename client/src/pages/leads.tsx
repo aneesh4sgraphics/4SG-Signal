@@ -159,6 +159,7 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [hasEmail, setHasEmail] = useState<boolean | null>(null);
   const [hasWebsite, setHasWebsite] = useState<boolean | null>(null);
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
@@ -376,9 +377,18 @@ export default function LeadsPage() {
 
   const allLeads = leadsData?.leads || [];
   const uniqueStates = Array.from(new Set(allLeads.map(l => l.state).filter(Boolean) as string[])).sort();
+  const uniqueSources = Array.from(new Set(allLeads.map(l => l.sourceType).filter(Boolean) as string[])).sort();
+
+  const SOURCE_LABELS: Record<string, string> = {
+    odoo: 'Odoo',
+    manual: 'Manual',
+    converted_contact: 'Converted Contact',
+    lusha: 'Lusha',
+  };
 
   const leads = allLeads.filter(l => {
     if (stateFilter !== 'all' && l.state !== stateFilter) return false;
+    if (sourceFilter !== 'all' && l.sourceType !== sourceFilter) return false;
     if (hasEmail === true && !l.email) return false;
     if (hasEmail === false && l.email) return false;
     if (hasWebsite === true && !l.website) return false;
@@ -420,11 +430,12 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, stageFilter, stateFilter, hasEmail, hasWebsite, hasPhone, hasAddress, sortField, sortOrder]);
+  }, [search, stageFilter, stateFilter, sourceFilter, hasEmail, hasWebsite, hasPhone, hasAddress, sortField, sortOrder]);
 
   const activeLeadFilters = [
     stageFilter !== 'all' ? 1 : 0,
     stateFilter !== 'all' ? 1 : 0,
+    sourceFilter !== 'all' ? 1 : 0,
     hasEmail !== null ? 1 : 0,
     hasWebsite !== null ? 1 : 0,
     hasPhone !== null ? 1 : 0,
@@ -434,6 +445,7 @@ export default function LeadsPage() {
   const clearLeadFilters = () => {
     setStageFilter('all');
     setStateFilter('all');
+    setSourceFilter('all');
     setHasEmail(null);
     setHasWebsite(null);
     setHasPhone(null);
@@ -599,6 +611,17 @@ export default function LeadsPage() {
               <SelectItem value="all">All States</SelectItem>
               {uniqueStates.map(s => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="w-36 bg-white/80">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {uniqueSources.map(s => (
+                <SelectItem key={s} value={s}>{SOURCE_LABELS[s] || s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
