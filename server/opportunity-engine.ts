@@ -2,6 +2,7 @@ import { db } from "./db";
 import {
   customers, leads, customerMachineProfiles, emailSends, gmailMessages,
   opportunityScores, sampleShipments, spotlightEvents, labelPrints,
+  shopifyOrders, customerCoachState,
   OPPORTUNITY_SCORING_WEIGHTS, DIGITAL_PRINTING_MACHINES, HIGH_PERFORMING_REGIONS,
   UPS_GROUND_TRANSIT_DAYS,
   type OpportunitySignal, type OpportunityType, type FollowUpEntry,
@@ -110,6 +111,31 @@ export class OpportunityEngine {
     const hasSamples = hasCrmSamples || hasSampleShipments;
     const totalSpent = parseFloat(customerData.totalSpent || '0');
     const hasOrders = customerData.totalOrders && customerData.totalOrders > 0 && totalSpent > 10;
+
+    // LAST ORDER DATE: Query Shopify orders for actual last order date
+    const [lastShopifyOrder] = await db
+      .select({
+        shopifyCreatedAt: shopifyOrders.shopifyCreatedAt,
+        totalPrice: shopifyOrders.totalPrice,
+        orderNumber: shopifyOrders.orderNumber,
+      })
+      .from(shopifyOrders)
+      .where(eq(shopifyOrders.customerId, customerId))
+      .orderBy(desc(shopifyOrders.shopifyCreatedAt))
+      .limit(1);
+
+    // Also check customerCoachState for daysSinceLastOrder (computed by coach engine)
+    const [coachState] = await db
+      .select({ daysSinceLastOrder: customerCoachState.daysSinceLastOrder })
+      .from(customerCoachState)
+      .where(eq(customerCoachState.customerId, customerId))
+      .limit(1);
+
+    const lastOrderDate = lastShopifyOrder?.shopifyCreatedAt || null;
+    const daysSinceLastOrderFromShopify = lastOrderDate
+      ? Math.floor((Date.now() - lastOrderDate.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const daysSinceLastOrder = daysSinceLastOrderFromShopify ?? coachState?.daysSinceLastOrder ?? null;
     
     if (hasSamples && !hasOrders) {
       const sampleSources: string[] = [];
@@ -153,14 +179,15 @@ export class OpportunityEngine {
       totalScore += OPPORTUNITY_SCORING_WEIGHTS.highPerformingRegion;
     }
 
-    // WENT QUIET: Customer replied at least once but no contact from us in 7+ days
+    // WENT QUIET: Customer replied but we dropped contact — ONLY for non-buyers
+    // If they have orders, we show reorder_due instead
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const hasInboundReplies = (emailActivity?.count ?? 0) > 0;
     const lastOutbound = customerData.lastOutboundEmailAt;
     const noRecentContact = !lastOutbound || lastOutbound < sevenDaysAgo;
     
-    if (hasInboundReplies && noRecentContact) {
+    if (hasInboundReplies && noRecentContact && !hasOrders) {
       const daysSinceContact = lastOutbound 
         ? Math.floor((Date.now() - lastOutbound.getTime()) / (1000 * 60 * 60 * 24))
         : null;
@@ -168,39 +195,58 @@ export class OpportunityEngine {
         signal: 'went_quiet',
         points: OPPORTUNITY_SCORING_WEIGHTS.wentQuietAfterInterest,
         detail: daysSinceContact 
-          ? `Replied to our emails but no contact in ${daysSinceContact} days`
-          : 'Replied to our emails but never followed up',
+          ? `Replied to our emails but no follow-up in ${daysSinceContact} days`
+          : 'Replied to our emails but was never followed up',
       });
       totalScore += OPPORTUNITY_SCORING_WEIGHTS.wentQuietAfterInterest;
       opportunityTypes.push('went_quiet');
     }
 
-    // UPSELL: Customer has purchased over $2000 (from Odoo or Shopify)
+    // REORDER DUE: Customer has placed orders but has gone quiet — prioritise re-engagement
+    if (hasOrders && noRecentContact) {
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const isLongOverdue = daysSinceLastOrder !== null && daysSinceLastOrder > 60;
+      const lastOrderUnknown = daysSinceLastOrder === null;
+
+      if (isLongOverdue || lastOrderUnknown) {
+        const orderContext = daysSinceLastOrder !== null
+          ? `last ordered ${daysSinceLastOrder} days ago`
+          : `${customerData.totalOrders} order(s) on record`;
+        signals.push({
+          signal: 'reorder_opportunity',
+          points: 20,
+          detail: `Paying customer (${customerData.totalOrders} order(s), $${totalSpent.toFixed(0)} spent) — ${orderContext}. Needs re-engagement.`,
+        });
+        totalScore += 20;
+        opportunityTypes.push('reorder_due');
+      }
+    }
+
+    // UPSELL: Customer has spent over $2000 — upsell to higher volume/tier
     if (hasOrders && totalSpent > 2000) {
+      const orderContext = daysSinceLastOrder !== null
+        ? ` — last ordered ${daysSinceLastOrder} days ago`
+        : '';
       signals.push({
         signal: 'small_order_upsell',
         points: OPPORTUNITY_SCORING_WEIGHTS.smallOrderUpsell,
-        detail: `Strong buyer — ${customerData.totalOrders} order(s) totaling $${totalSpent.toFixed(2)}. Upsell opportunity.`,
+        detail: `${customerData.totalOrders} order(s), $${totalSpent.toFixed(0)} spent${orderContext}. Upsell opportunity.`,
       });
       totalScore += OPPORTUNITY_SCORING_WEIGHTS.smallOrderUpsell;
       opportunityTypes.push('upsell_potential');
     }
 
-    // GREAT FIT: Monthly buyer with regular ordering pattern
-    // Criteria: 3+ orders AND last order within 90 days AND needs regular contact
-    if (customerData.totalOrders && customerData.totalOrders >= 3 && totalSpent > 0) {
-      const daysSinceLastOrder = customerData.daysSinceLastOrder;
-      if (daysSinceLastOrder !== null && daysSinceLastOrder !== undefined && daysSinceLastOrder < 90) {
-        const points = 15;
-        const contactNeeded = noRecentContact ? ' — needs follow-up!' : '';
-        signals.push({
-          signal: 'regular_buyer',
-          points,
-          detail: `Monthly buyer — ${customerData.totalOrders} orders, $${totalSpent.toFixed(2)} total, last order ${daysSinceLastOrder} days ago${contactNeeded}`,
-        });
-        totalScore += points;
-        opportunityTypes.push('new_fit');
-      }
+    // REGULAR BUYER: 3+ orders with last order within 90 days
+    if (customerData.totalOrders && customerData.totalOrders >= 3 && totalSpent > 0 && daysSinceLastOrder !== null && daysSinceLastOrder < 90) {
+      const contactNeeded = noRecentContact ? ' — needs follow-up!' : '';
+      signals.push({
+        signal: 'regular_buyer',
+        points: 15,
+        detail: `Regular buyer — ${customerData.totalOrders} orders, $${totalSpent.toFixed(0)} total, last order ${daysSinceLastOrder} days ago${contactNeeded}`,
+      });
+      totalScore += 15;
+      opportunityTypes.push('new_fit');
     }
 
     // Website bonus
@@ -552,9 +598,10 @@ export class OpportunityEngine {
     const OPPORTUNITY_TYPE_PRIORITY: Record<string, number> = {
       'sample_no_order': 1,
       'went_quiet': 2,
-      'upsell_potential': 3,
-      'new_fit': 4,
-      'machine_match': 5,
+      'reorder_due': 3,
+      'upsell_potential': 4,
+      'new_fit': 5,
+      'machine_match': 6,
     };
     
     if (!opportunityType) {
