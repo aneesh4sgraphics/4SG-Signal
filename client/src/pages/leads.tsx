@@ -67,6 +67,7 @@ import {
   Printer,
   Upload,
   CheckCircle,
+  Zap,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -211,6 +212,8 @@ export default function LeadsPage() {
   };
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [importStatus, setImportStatus] = useState<{ message: string; progress: number } | null>(null);
+  const [showBulkDrip, setShowBulkDrip] = useState(false);
+  const [selectedBulkDripCampaignId, setSelectedBulkDripCampaignId] = useState<string>('');
   const [showMondayReview, setShowMondayReview] = useState(false);
   const [mondayReviewDismissed, setMondayReviewDismissed] = useState(() => {
     // Check if user already dismissed the Monday review this week
@@ -270,6 +273,36 @@ export default function LeadsPage() {
       setShowMondayReview(true);
     }
   }, [isMonday, hasLeadsToReview, mondayReviewDismissed]);
+
+  // Drip campaign queries and mutations
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean }[]>({
+    queryKey: ['/api/drip-campaigns'],
+    staleTime: 5 * 60 * 1000,
+    enabled: showBulkDrip,
+  });
+
+  const bulkEnrollDripMutation = useMutation({
+    mutationFn: async ({ campaignId, leadIds }: { campaignId: number; leadIds: number[] }) => {
+      const res = await apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, { leadIds });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Enrollment failed');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: `${data.created} lead${data.created !== 1 ? 's' : ''} enrolled`,
+        description: data.created > 0 ? 'Drip campaign started for selected leads.' : 'All selected leads are already in this campaign.',
+      });
+      setShowBulkDrip(false);
+      setSelectedBulkDripCampaignId('');
+      setSelectedLeads(new Set());
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Enrollment failed', description: error.message, variant: 'destructive' });
+    },
+  });
 
   // Mutation to update lead stage for quick review actions
   const updateLeadStageMutation = useMutation({
@@ -835,6 +868,15 @@ export default function LeadsPage() {
                       Print Address Labels
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
+                    onClick={() => setShowBulkDrip(true)}
+                  >
+                    <Zap className="w-4 h-4" />
+                    Drip Campaign
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1662,6 +1704,65 @@ export default function LeadsPage() {
               </Button>
               <Button onClick={() => setShowMondayReview(false)}>
                 Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Drip Campaign Enrollment Dialog */}
+        <Dialog open={showBulkDrip} onOpenChange={setShowBulkDrip}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" />
+                Enroll in Drip Campaign
+              </DialogTitle>
+              <DialogDescription>
+                Enroll {selectedLeads.size} selected lead{selectedLeads.size !== 1 ? 's' : ''} in an automated email sequence.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
+              {dripCampaigns.filter(c => c.isActive).length === 0 ? (
+                <div className="text-center py-6 text-slate-400">
+                  <Zap className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                  <p className="text-sm">No active campaigns available.</p>
+                  <p className="text-xs mt-1">Create a drip campaign in the Email section first.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {dripCampaigns.filter(c => c.isActive).map((campaign) => (
+                    <button
+                      key={campaign.id}
+                      onClick={() => setSelectedBulkDripCampaignId(String(campaign.id))}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                        selectedBulkDripCampaignId === String(campaign.id)
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-slate-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-slate-800">{campaign.name}</p>
+                      {campaign.description && (
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{campaign.description}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowBulkDrip(false); setSelectedBulkDripCampaignId(''); }}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                disabled={!selectedBulkDripCampaignId || bulkEnrollDripMutation.isPending}
+                onClick={() => bulkEnrollDripMutation.mutate({
+                  campaignId: Number(selectedBulkDripCampaignId),
+                  leadIds: Array.from(selectedLeads),
+                })}
+              >
+                {bulkEnrollDripMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                Start Campaign
               </Button>
             </DialogFooter>
           </DialogContent>

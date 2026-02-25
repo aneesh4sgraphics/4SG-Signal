@@ -13080,6 +13080,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all drip campaign assignments for a specific lead
+  app.get("/api/leads/:id/drip-assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const leadId = parseInt(req.params.id);
+      if (isNaN(leadId)) return res.status(400).json({ error: "Invalid lead ID" });
+      const rows = await db
+        .select({
+          id: dripCampaignAssignments.id,
+          campaignId: dripCampaignAssignments.campaignId,
+          campaignName: dripCampaigns.name,
+          campaignDescription: dripCampaigns.description,
+          status: dripCampaignAssignments.status,
+          startedAt: dripCampaignAssignments.startedAt,
+          completedAt: dripCampaignAssignments.completedAt,
+          cancelledAt: dripCampaignAssignments.cancelledAt,
+          assignedBy: dripCampaignAssignments.assignedBy,
+        })
+        .from(dripCampaignAssignments)
+        .innerJoin(dripCampaigns, eq(dripCampaignAssignments.campaignId, dripCampaigns.id))
+        .where(eq(dripCampaignAssignments.leadId, leadId))
+        .orderBy(desc(dripCampaignAssignments.startedAt));
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching lead drip assignments:", error);
+      res.status(500).json({ error: "Failed to fetch drip assignments" });
+    }
+  });
+
   // Assign customers or leads to a campaign
   app.post("/api/drip-campaigns/:campaignId/assignments", isAuthenticated, async (req: any, res) => {
     try {

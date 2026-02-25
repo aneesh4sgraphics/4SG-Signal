@@ -840,7 +840,7 @@ export default function Spotlight() {
   });
 
   // Fetch drip campaigns for enrollment
-  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; status: string; stepCount?: number }[]>({
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean; stepCount?: number }[]>({
     queryKey: ['/api/drip-campaigns'],
     staleTime: 5 * 60 * 1000,
     enabled: showDripEnroll,
@@ -5813,14 +5813,14 @@ export default function Spotlight() {
                   <SelectValue placeholder="Choose a drip campaign..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {dripCampaigns.filter(c => c.status === 'active').map((campaign) => (
+                  {dripCampaigns.filter(c => c.isActive).map((campaign) => (
                     <SelectItem key={campaign.id} value={campaign.id.toString()}>
                       <div className="flex flex-col">
                         <span>{campaign.name}</span>
                       </div>
                     </SelectItem>
                   ))}
-                  {dripCampaigns.filter(c => c.status === 'active').length === 0 && (
+                  {dripCampaigns.filter(c => c.isActive).length === 0 && (
                     <SelectItem value="__none" disabled>No active campaigns available</SelectItem>
                   )}
                 </SelectContent>

@@ -47,6 +47,8 @@ import {
   Truck,
   Upload,
   CheckCircle,
+  Zap,
+  X,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -167,6 +169,8 @@ export default function LeadDetail() {
     details: "",
   });
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
+  const [showDripEnroll, setShowDripEnroll] = useState(false);
+  const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>('');
 
   const { data: lead, isLoading } = useQuery<Lead>({
     queryKey: ['/api/leads', leadId],
@@ -268,6 +272,64 @@ export default function LeadDetail() {
     },
     onError: (error: Error) => {
       toast({ title: 'Push to Odoo failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean }[]>({
+    queryKey: ['/api/drip-campaigns'],
+    staleTime: 5 * 60 * 1000,
+    enabled: showDripEnroll,
+  });
+
+  const { data: leadDripAssignments = [], refetch: refetchDripAssignments } = useQuery<{
+    id: number; campaignId: number; campaignName: string; campaignDescription: string | null;
+    status: string; startedAt: string; completedAt: string | null; cancelledAt: string | null; assignedBy: string | null;
+  }[]>({
+    queryKey: ['/api/leads', leadId, 'drip-assignments'],
+    queryFn: async () => {
+      const res = await fetch(`/api/leads/${leadId}/drip-assignments`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch drip assignments');
+      return res.json();
+    },
+    enabled: !!leadId,
+  });
+
+  const enrollDripMutation = useMutation({
+    mutationFn: async (campaignId: number) => {
+      const res = await apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, { leadIds: [Number(leadId)] });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to enroll in campaign');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.created === 0) {
+        toast({ title: 'Already enrolled', description: 'This lead is already active in that campaign.' });
+      } else {
+        toast({ title: 'Drip campaign started', description: 'This lead has been enrolled in the campaign.' });
+        refetchDripAssignments();
+      }
+      setShowDripEnroll(false);
+      setSelectedDripCampaignId('');
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Enrollment failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const cancelDripMutation = useMutation({
+    mutationFn: async (assignmentId: number) => {
+      const res = await apiRequest('PATCH', `/api/drip-campaigns/assignments/${assignmentId}`, { status: 'cancelled' });
+      if (!res.ok) throw new Error('Failed to cancel assignment');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Campaign cancelled', description: 'The drip campaign has been stopped for this lead.' });
+      refetchDripAssignments();
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to cancel', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -425,6 +487,15 @@ export default function LeadDetail() {
                 Compose Email
               </Button>
           )}
+          <Button
+            variant="outline"
+            className="border-amber-200 text-amber-700 hover:bg-amber-50"
+            onClick={() => setShowDripEnroll(true)}
+            title="Enroll this lead in a drip email campaign"
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Drip Campaign
+          </Button>
           {lead.odooPartnerId ? (
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-200 bg-green-50 text-green-700 text-sm font-medium"
@@ -936,8 +1007,124 @@ export default function LeadDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Drip Campaign Assignments */}
+          <Card className="bg-white/80 backdrop-blur-sm border-amber-100">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  Drip Campaigns
+                </CardTitle>
+                <Button size="sm" variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 h-7 text-xs" onClick={() => setShowDripEnroll(true)}>
+                  <Plus className="w-3 h-3 mr-1" /> Enroll
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {leadDripAssignments.length === 0 ? (
+                <div className="text-center py-4 text-slate-400">
+                  <Zap className="w-8 h-8 mx-auto mb-1 text-slate-200" />
+                  <p className="text-xs">No campaigns yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leadDripAssignments.map((a) => {
+                    const statusColors: Record<string, string> = {
+                      active: 'bg-green-100 text-green-700',
+                      completed: 'bg-blue-100 text-blue-700',
+                      cancelled: 'bg-gray-100 text-gray-500',
+                      paused: 'bg-amber-100 text-amber-700',
+                    };
+                    const isActive = a.status === 'active';
+                    return (
+                      <div key={a.id} className="flex items-start justify-between gap-2 p-2 rounded-lg border border-slate-100 bg-slate-50">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-700 truncate">{a.campaignName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColors[a.status] || 'bg-gray-100 text-gray-500'}`}>
+                              {a.status}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {new Date(a.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                        {isActive && (
+                          <button
+                            onClick={() => cancelDripMutation.mutate(a.id)}
+                            disabled={cancelDripMutation.isPending}
+                            className="shrink-0 text-slate-400 hover:text-red-500 p-0.5 rounded"
+                            title="Stop this campaign for this lead"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Drip Campaign Enrollment Dialog */}
+      <Dialog open={showDripEnroll} onOpenChange={setShowDripEnroll}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500" />
+              Enroll in Drip Campaign
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-slate-600">
+              Select a campaign to start sending automated emails to <span className="font-medium">{lead?.name}</span>.
+            </p>
+            {dripCampaigns.filter(c => c.isActive).length === 0 ? (
+              <div className="text-center py-6 text-slate-400">
+                <Zap className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                <p className="text-sm">No active campaigns available.</p>
+                <p className="text-xs mt-1">Create a drip campaign in the Email section first.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {dripCampaigns.filter(c => c.isActive).map((campaign) => (
+                  <button
+                    key={campaign.id}
+                    onClick={() => setSelectedDripCampaignId(String(campaign.id))}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      selectedDripCampaignId === String(campaign.id)
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-slate-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-slate-800">{campaign.name}</p>
+                    {campaign.description && (
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{campaign.description}</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDripEnroll(false); setSelectedDripCampaignId(''); }}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={!selectedDripCampaignId || enrollDripMutation.isPending}
+              onClick={() => enrollDripMutation.mutate(Number(selectedDripCampaignId))}
+            >
+              {enrollDripMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+              Start Campaign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
