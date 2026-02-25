@@ -1063,10 +1063,10 @@ export default function OdooCompanyDetail() {
                   className={labelQueue.isInQueue(String(companyId)) 
                     ? "bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200" 
                     : "border-blue-200 text-blue-600 hover:bg-blue-50"}
-                  title={labelQueue.isInQueue(String(companyId)) ? "Remove from label queue" : "Add to label queue"}
+                  title={labelQueue.isInQueue(String(companyId)) ? "Remove from queue" : "Add to Queue"}
                 >
                   <Printer className="w-4 h-4 mr-2" />
-                  {labelQueue.isInQueue(String(companyId)) ? 'In Label Queue' : 'Add to Labels'}
+                  {labelQueue.isInQueue(String(companyId)) ? 'In Queue' : 'Add to Queue'}
                 </Button>
               )}
               

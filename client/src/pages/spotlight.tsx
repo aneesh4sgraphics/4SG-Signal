@@ -2622,7 +2622,7 @@ export default function Spotlight() {
                           <Printer className="w-4 h-4" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="right"><p>{!effectiveAddress ? "No address" : inQueue ? "In label queue" : "Print label"}</p></TooltipContent>
+                      <TooltipContent side="right"><p>{!effectiveAddress ? "No address" : inQueue ? "In Queue (click to remove)" : "Add to Queue"}</p></TooltipContent>
                     </Tooltip>
                   );
                 })()}

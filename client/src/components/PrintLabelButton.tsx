@@ -412,7 +412,7 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
                   ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
                   : 'hover:bg-gray-100 text-gray-400 hover:text-blue-600'
               }`}
-              title={inQueue ? "Remove from label queue" : "Add to label queue"}
+              title={inQueue ? "Remove from queue" : "Add to Queue"}
             >
               <Printer className="w-4 h-4" />
             </button>
@@ -424,12 +424,12 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
               className={inQueue ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200 text-blue-600 hover:bg-blue-50"}
             >
               <Printer className="w-4 h-4 mr-2" />
-              {inQueue ? 'In Queue' : 'Add to Labels'}
+              {inQueue ? 'In Queue' : 'Add to Queue'}
             </Button>
           )}
         </TooltipTrigger>
         <TooltipContent>
-          <p>{inQueue ? 'Remove from label queue' : 'Add to label queue'}</p>
+          <p>{inQueue ? 'Remove from queue' : 'Add to Queue'}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
