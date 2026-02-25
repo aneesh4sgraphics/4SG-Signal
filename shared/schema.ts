@@ -2512,6 +2512,7 @@ export const dripCampaignStepStatus = pgTable("drip_campaign_step_status", {
   sentAt: timestamp("sent_at"),
   emailSendId: integer("email_send_id").references(() => emailSends.id, { onDelete: "set null" }),
   gmailMessageId: varchar("gmail_message_id", { length: 255 }),
+  gmailThreadId: varchar("gmail_thread_id", { length: 100 }),
   lastError: text("last_error"),
   retryCount: integer("retry_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),

@@ -237,13 +237,15 @@ async function sendScheduledEmail(email: ScheduledEmail) {
     );
 
     const messageId = result?.id;
+    const threadId = result?.threadId;
 
     await db
       .update(dripCampaignStepStatus)
       .set({ 
         status: 'sent',
         sentAt: new Date(),
-        gmailMessageId: messageId || null
+        gmailMessageId: messageId || null,
+        gmailThreadId: threadId || null
       })
       .where(eq(dripCampaignStepStatus.id, email.statusId));
 
