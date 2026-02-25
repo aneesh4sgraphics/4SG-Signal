@@ -241,21 +241,21 @@ function ProductPricingListRow({
 
   return (
     <tr className={`border-b border-gray-100 hover:bg-gray-50/60 transition-colors text-xs ${isSelected ? 'bg-purple-50/40' : ''} ${isEditing ? 'bg-blue-50/20' : ''}`}>
-      <td className="pl-3 pr-1 py-2 w-8">
+      <td className="pl-2 pr-1 py-1.5 w-7">
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" />
       </td>
-      <td className="px-2 py-2 whitespace-nowrap">
-        <span className="font-mono text-[11px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">{item.itemCode}</span>
+      <td className="px-1.5 py-1.5 whitespace-nowrap">
+        <span className="font-mono text-[10px] text-purple-600 bg-purple-50 px-1 py-0.5 rounded">{item.itemCode}</span>
       </td>
-      <td className="px-2 py-2 max-w-[200px]">
+      <td className="px-1.5 py-1.5 max-w-[160px]">
         <p className="font-medium text-gray-800 truncate" title={item.productName}>{item.productName}</p>
-        <p className="text-[10px] text-gray-400 truncate">{item.productType}</p>
+        <p className="text-[9px] text-gray-400 truncate">{item.productType}</p>
       </td>
-      <td className="px-2 py-2 whitespace-nowrap text-gray-500">{item.size || '—'}</td>
+      <td className="px-1.5 py-1.5 whitespace-nowrap text-gray-500 text-[10px]">{item.size || '—'}</td>
       {priceKeys.map(key => (
         <td
           key={key}
-          className={`px-2 py-2 whitespace-nowrap text-right ${!isEditing ? 'cursor-pointer group' : ''}`}
+          className={`px-1.5 py-1.5 whitespace-nowrap text-right ${!isEditing ? 'cursor-pointer group' : ''}`}
           onClick={() => handleCellClick(key)}
           title={!isEditing ? 'Click to edit' : undefined}
         >
@@ -266,7 +266,7 @@ function ProductPricingListRow({
               onChange={(e) => onValueChange(key, e.target.value)}
               autoFocus={focusField === key}
               onFocus={() => setFocusField(null)}
-              className="w-16 text-right text-xs px-1 py-0.5 border border-purple-300 rounded bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-200 focus:outline-none"
+              className="w-14 text-right text-xs px-1 py-0.5 border border-purple-300 rounded bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-200 focus:outline-none"
             />
           ) : (
             <span className="text-gray-700 group-hover:text-purple-700 group-hover:underline group-hover:underline-offset-2 group-hover:decoration-dotted transition-colors">
@@ -275,18 +275,18 @@ function ProductPricingListRow({
           )}
         </td>
       ))}
-      <td className="px-2 py-2 text-center w-14">
+      <td className="px-1 py-1.5 text-center w-10">
         {!isEditing ? (
           <button onClick={onEdit} className="p-1 text-gray-300 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Edit all prices">
-            <Edit2 className="h-3.5 w-3.5" />
+            <Edit2 className="h-3 w-3" />
           </button>
         ) : (
-          <div className="flex gap-1 justify-center">
+          <div className="flex gap-0.5 justify-center">
             <button onClick={onSave} disabled={isSaving} className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50" title="Save">
-              <Save className="h-3.5 w-3.5" />
+              <Save className="h-3 w-3" />
             </button>
             <button onClick={onCancel} disabled={isSaving} className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-50" title="Cancel">
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           </div>
         )}
@@ -793,7 +793,7 @@ export default function ProductPricingManagementNew() {
   };
 
   return (
-    <div className="max-w-screen-lg mx-auto px-6 py-6">
+    <div className="w-full px-4 py-6">
       <div className="flex items-center justify-between mb-6 relative">
         <FloatingElements />
         <div>
@@ -1133,10 +1133,10 @@ export default function ProductPricingManagementNew() {
           {/* List View */}
           {viewMode === 'list' && (
             <div className="mt-3 max-h-[600px] overflow-auto border border-gray-200 rounded-lg">
-              <table className="w-full text-xs border-collapse" style={{ minWidth: '1200px' }}>
+              <table className="w-full text-xs border-collapse">
                 <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="pl-3 pr-1 py-2 w-8">
+                    <th className="pl-2 pr-1 py-2 w-7">
                       <input
                         type="checkbox"
                         checked={allFilteredSelected}
@@ -1144,21 +1144,21 @@ export default function ProductPricingManagementNew() {
                         className="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                       />
                     </th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Item Code</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-600">Product Name</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Size</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Landed</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Export</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Distributor</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dealer-VIP</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dealer</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify Lo.</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify3</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify2</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify1</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shopify-Ac.</th>
-                    <th className="px-2 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Retail</th>
-                    <th className="px-2 py-2 text-center font-medium text-gray-600 w-12">Edit</th>
+                    <th className="px-1.5 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Code</th>
+                    <th className="px-1.5 py-2 text-left font-medium text-gray-600">Product Name</th>
+                    <th className="px-1.5 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Size</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Landed</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Export</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Distrib.</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dlr-VIP</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Dealer</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shpfy Lo.</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shpfy3</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shpfy2</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shpfy1</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Shpfy-Ac.</th>
+                    <th className="px-1.5 py-2 text-right font-medium text-gray-600 whitespace-nowrap">Retail</th>
+                    <th className="px-1.5 py-2 text-center font-medium text-gray-600 w-10"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-50">
