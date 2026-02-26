@@ -733,6 +733,20 @@ export default function Spotlight() {
   // Update customer profile from edit mode
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { customerId: string; updates: Record<string, any> }) => {
+      if (data.customerId.startsWith('lead-')) {
+        const leadId = parseInt(data.customerId.replace('lead-', ''), 10);
+        const leadUpdates: Record<string, any> = {
+          phone: data.updates.phone,
+          street: data.updates.address1,
+          city: data.updates.city,
+          state: data.updates.province,
+          zip: data.updates.zip,
+          website: data.updates.website,
+        };
+        Object.keys(leadUpdates).forEach(k => leadUpdates[k] === undefined && delete leadUpdates[k]);
+        const res = await apiRequest('PUT', `/api/leads/${leadId}`, leadUpdates);
+        return res.json();
+      }
       const res = await apiRequest('PUT', `/api/customers/${data.customerId}`, data.updates);
       return res.json();
     },
