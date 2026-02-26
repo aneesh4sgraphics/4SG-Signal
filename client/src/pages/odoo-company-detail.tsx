@@ -746,7 +746,7 @@ export default function OdooCompanyDetail() {
       });
       setIsDeleteConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-      navigate('/odoo-contacts');
+      setLocation('/odoo-contacts');
     },
     onError: (error: Error) => {
       toast({

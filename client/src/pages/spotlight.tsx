@@ -1219,7 +1219,7 @@ export default function Spotlight() {
     
     if (customerId && !isLeadTask) {
       try {
-        const res = await fetch(`/api/customers/${customerId}/contacts`);
+        const res = await fetch(`/api/crm/customer-contacts?customerId=${customerId}`);
         if (res.ok) {
           const contacts = await res.json();
           contacts.forEach((contact: any) => {
