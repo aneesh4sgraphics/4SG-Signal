@@ -1257,7 +1257,7 @@ export default function ProductPricingManagementNew() {
 
       {/* Bulk Edit Dialog */}
       <Dialog open={showBulkEditDialog} onOpenChange={setShowBulkEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5 text-purple-600" />
@@ -1269,45 +1269,123 @@ export default function ProductPricingManagementNew() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            {/* Products being updated */}
-            <div className="bg-gray-50 rounded-lg p-3 max-h-32 overflow-y-auto">
-              <p className="text-xs font-medium text-gray-600 mb-2">Products to update:</p>
-              <div className="flex flex-wrap gap-1">
-                {pricingData.filter(item => bulkEditProductIds.includes(item.id)).slice(0, 10).map(item => (
-                  <Badge key={item.id} variant="secondary" className="text-[10px]">
-                    {item.itemCode}
-                  </Badge>
+          <div className="flex gap-6 py-4">
+            {/* Left Column: Products + Price Inputs */}
+            <div className="flex-shrink-0 w-72 space-y-4">
+              {/* Products being updated */}
+              <div className="bg-gray-50 rounded-lg p-3 max-h-24 overflow-y-auto">
+                <p className="text-xs font-medium text-gray-600 mb-2">Products to update:</p>
+                <div className="flex flex-wrap gap-1">
+                  {pricingData.filter(item => bulkEditProductIds.includes(item.id)).slice(0, 10).map(item => (
+                    <Badge key={item.id} variant="secondary" className="text-[10px]">
+                      {item.itemCode}
+                    </Badge>
+                  ))}
+                  {bulkEditProductIds.length > 10 && (
+                    <Badge variant="outline" className="text-[10px]">
+                      +{bulkEditProductIds.length - 10} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Price Input Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(TIER_LABELS).map(([key, label]) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-xs text-gray-600">{label}</Label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={bulkEditValues[key] || ''}
+                        onChange={(e) => setBulkEditValues(prev => ({ ...prev, [key]: e.target.value }))}
+                        className="pl-6 h-8 text-sm"
+                        placeholder="0.00"
+                        data-testid={`bulk-input-${key}`}
+                      />
+                    </div>
+                  </div>
                 ))}
-                {bulkEditProductIds.length > 10 && (
-                  <Badge variant="outline" className="text-[10px]">
-                    +{bulkEditProductIds.length - 10} more
-                  </Badge>
-                )}
               </div>
             </div>
 
-            {/* Price Input Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(TIER_LABELS).map(([key, label]) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-xs text-gray-600">{label}</Label>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={bulkEditValues[key] || ''}
-                      onChange={(e) => setBulkEditValues(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="pl-6 h-9 text-sm"
-                      placeholder="0.00"
-                      data-testid={`bulk-input-${key}`}
-                    />
+            {/* Divider */}
+            <div className="w-px bg-gray-200 flex-shrink-0" />
+
+            {/* Right Column: Price Per Sheet Reference */}
+            {(() => {
+              const STANDARD_SIZE_ORDER = ['8.5', '11', '12', '13', '21'];
+              const getSizeOrder = (size: string) => {
+                for (let i = 0; i < STANDARD_SIZE_ORDER.length; i++) {
+                  if (size.replace('×', 'x').startsWith(STANDARD_SIZE_ORDER[i])) return i;
+                }
+                return 99;
+              };
+              const referenceProducts = pricingData
+                .filter(item =>
+                  bulkEditProductIds.includes(item.id) &&
+                  !item.itemCode.toUpperCase().includes('SAMPLE')
+                )
+                .sort((a, b) => getSizeOrder(a.size) - getSizeOrder(b.size));
+
+              const tierKeys = Object.keys(TIER_LABELS);
+
+              if (referenceProducts.length === 0) return null;
+
+              return (
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-xs font-semibold text-gray-700">Price Per Sheet Reference</p>
+                    <span className="text-[10px] text-gray-400">(current prices)</span>
                   </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-[10px] font-medium text-gray-500 pb-2 pr-3 whitespace-nowrap">Tier</th>
+                          {referenceProducts.map(item => (
+                            <th key={item.id} className="text-center text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-1.5 rounded-t border border-purple-100 whitespace-nowrap">
+                              {item.size}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierKeys.map((key, rowIdx) => (
+                          <tr key={key} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                            <td className="text-[10px] text-gray-600 py-1.5 pr-3 whitespace-nowrap font-medium">
+                              {TIER_LABELS[key]}
+                            </td>
+                            {referenceProducts.map(item => {
+                              const price = (item as any)[key];
+                              const newVal = bulkEditValues[key];
+                              const newPrice = newVal ? parseFloat(newVal) : null;
+                              const isChanged = newPrice !== null && !isNaN(newPrice) && Math.abs(newPrice - price) > 0.001;
+                              return (
+                                <td key={item.id} className="text-center py-1.5 px-2 border-x border-gray-100">
+                                  <span className={`font-mono text-[11px] ${isChanged ? 'line-through text-gray-300' : 'text-gray-700'}`}>
+                                    ${Number(price).toFixed(2)}
+                                  </span>
+                                  {isChanged && newPrice !== null && (
+                                    <span className="font-mono text-[11px] text-purple-600 font-semibold ml-1">
+                                      ${newPrice.toFixed(2)}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-2">Strikethrough = current price being replaced</p>
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
 
           <DialogFooter>
