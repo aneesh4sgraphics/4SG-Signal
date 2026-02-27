@@ -1354,8 +1354,10 @@ export default function ProductPricingManagementNew() {
                         </tr>
                       </thead>
                       <tbody>
-                        {tierKeys.map((key, rowIdx) => (
-                          <tr key={key} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                        {tierKeys.map((key, rowIdx) => {
+                          const isHighlighted = key === 'masterDistributorPrice' || key === 'approvalNeededPrice' || key === 'tierStage2Price';
+                          return (
+                          <tr key={key} className={isHighlighted ? 'bg-amber-50' : rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
                             <td className="text-[10px] text-gray-600 py-1.5 pr-3 whitespace-nowrap font-medium">
                               {TIER_LABELS[key]}
                             </td>
@@ -1385,7 +1387,8 @@ export default function ProductPricingManagementNew() {
                               );
                             })}
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
