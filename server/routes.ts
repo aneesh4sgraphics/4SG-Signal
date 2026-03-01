@@ -9220,7 +9220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Parsed Contacts endpoints
-  app.get("/api/parsed-contacts", async (req, res) => {
+  app.get("/api/parsed-contacts", isAuthenticated, async (req, res) => {
     try {
       const contacts = await storage.getParsedContacts();
       res.json(contacts);
@@ -9230,7 +9230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/parsed-contacts/:id", async (req, res) => {
+  app.get("/api/parsed-contacts/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const contact = await storage.getParsedContact(id);
@@ -9244,7 +9244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/parsed-contacts", async (req, res) => {
+  app.post("/api/parsed-contacts", isAuthenticated, async (req, res) => {
     try {
       const { insertParsedContactSchema } = await import("@shared/schema");
       const validatedData = insertParsedContactSchema.parse(req.body);
@@ -9259,7 +9259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/parsed-contacts/:id", async (req, res) => {
+  app.put("/api/parsed-contacts/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { insertParsedContactSchema } = await import("@shared/schema");
@@ -9275,7 +9275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/parsed-contacts/:id", async (req, res) => {
+  app.delete("/api/parsed-contacts/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteParsedContact(id);
