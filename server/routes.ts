@@ -4660,7 +4660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers", async (req, res) => {
+  app.get("/api/customers", isAuthenticated, async (req, res) => {
     try {
       // Check if pagination mode is explicitly requested
       const usePagination = req.query.page !== undefined || req.query.limit !== undefined || req.query.paginated === 'true';
@@ -4720,35 +4720,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // NOTE: Customer creation route with full validation is defined later (line ~2268)
   // This simple version removed to prevent route conflicts.
 
-  app.put("/api/customers/:id", async (req, res) => {
+  app.put("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
       const customerId = req.params.id;
-      const customerData = { ...req.body };
-      
+
+      // Explicit allowlist — block mass-assignment of Odoo sync fields, system
+      // timestamps, and read-only aggregates that only workers may write.
+      const ALLOWED_FIELDS = new Set([
+        'firstName', 'lastName', 'email', 'email2',
+        'acceptsEmailMarketing', 'acceptsSmsMarketing', 'taxExempt',
+        'company', 'address1', 'address2', 'city', 'province', 'country', 'zip',
+        'phone', 'phone2', 'cell', 'website', 'defaultAddressPhone',
+        'note', 'tags',
+        'salesRepId', 'salesRepName',
+        'pricingTier',
+        'isHotProspect',
+        'pausedUntil', 'pauseReason',
+        'isCompany', 'contactType',
+        'doNotContact', 'doNotContactReason',
+        'customerType',
+        'parentCustomerId',
+      ]);
+
+      const raw = req.body as Record<string, unknown>;
+      const customerData: Record<string, unknown> = {};
+      for (const key of ALLOWED_FIELDS) {
+        if (raw[key] !== undefined) customerData[key] = raw[key];
+      }
+
       console.log(`[Customer Update] PUT /api/customers/${customerId}`, {
         pricingTier: customerData.pricingTier,
         salesRepName: customerData.salesRepName,
         fieldsReceived: Object.keys(customerData)
       });
-      
-      // Get existing customer to check if pricing tier changed
+
+      // Get existing customer to check what changed
       const existingCustomer = await storage.getCustomer(customerId);
       const oldPricingTier = existingCustomer?.pricingTier;
-      const newPricingTier = customerData.pricingTier;
-      
+      const newPricingTier = customerData.pricingTier as string | undefined;
+
       console.log(`[Customer Update] Tier change: ${oldPricingTier} -> ${newPricingTier}`);
-      
-      // Convert date strings to Date objects for all timestamp fields
-      const timestampFields = ['pausedUntil', 'updatedAt', 'createdAt', 'pricingTierSetAt', 'lastOdooSyncAt'];
+
+      // Server-side: re-derive normalised email columns so client can't inject stale values
+      if (customerData.email && typeof customerData.email === 'string') {
+        customerData.emailNormalized = normalizeEmail(customerData.email);
+      }
+      if (customerData.email2 && typeof customerData.email2 === 'string') {
+        customerData.email2Normalized = normalizeEmail(customerData.email2);
+      }
+
+      // Server-side: stamp who/when set the pricing tier (client must not control these)
+      if (newPricingTier && newPricingTier !== oldPricingTier) {
+        customerData.pricingTierSetBy = req.user?.claims?.email || req.user?.email || 'system';
+        if (!existingCustomer?.pricingTierSetAt) {
+          customerData.pricingTierSetAt = new Date();
+        }
+      }
+
+      // Server-side: stamp doNotContact audit fields
+      if (customerData.doNotContact === true && !existingCustomer?.doNotContact) {
+        customerData.doNotContactSetBy = req.user?.claims?.email || req.user?.email || 'system';
+        customerData.doNotContactSetAt = new Date();
+      }
+
+      // Convert allowed date strings to Date objects
+      const timestampFields = ['pausedUntil'];
       for (const field of timestampFields) {
         if (customerData[field] !== undefined && customerData[field] !== null) {
           if (typeof customerData[field] === 'string') {
-            customerData[field] = new Date(customerData[field]);
+            customerData[field] = new Date(customerData[field] as string);
           }
         }
       }
-      
-      const customer = await storage.updateCustomer(customerId, customerData);
+
+      const customer = await storage.updateCustomer(customerId, customerData as any);
       
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
@@ -5049,7 +5094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get customer by ID
-  app.get("/api/customers/:id", async (req, res) => {
+  app.get("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
       
@@ -5064,7 +5109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lightweight navigation endpoint - returns only prev/next company IDs
-  app.get("/api/customers/:id/navigation", async (req, res) => {
+  app.get("/api/customers/:id/navigation", isAuthenticated, async (req, res) => {
     try {
       const currentId = req.params.id;
       
