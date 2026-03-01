@@ -5946,7 +5946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload product data file
-  app.post("/api/admin/upload-product-data", upload.single('file'), async (req, res) => {
+  app.post("/api/admin/upload-product-data", isAuthenticated, requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -6328,7 +6328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload pricing data file
-  app.post("/api/admin/upload-pricing-data", upload.single('file'), async (req, res) => {
+  app.post("/api/admin/upload-pricing-data", isAuthenticated, requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
@@ -6845,7 +6845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download product data
-  app.get("/api/admin/download-product-data", async (req, res) => {
+  app.get("/api/admin/download-product-data", isAuthenticated, requireAdmin, async (req, res) => {
     try {
       const filePath = path.join(process.cwd(), 'attached_assets', 'PricePAL_All_Product_Data.csv');
       
@@ -6865,7 +6865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download pricing data
-  app.get("/api/admin/download-pricing-data", async (req, res) => {
+  app.get("/api/admin/download-pricing-data", isAuthenticated, requireAdmin, async (req, res) => {
     try {
       const filePath = path.join(process.cwd(), 'attached_assets', 'tier_pricing_template.csv');
       
@@ -6885,7 +6885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download customer data
-  app.get("/api/admin/download-customer-data", async (req, res) => {
+  app.get("/api/admin/download-customer-data", isAuthenticated, requireAdmin, async (req, res) => {
     try {
       const filePath = path.join(process.cwd(), 'attached_assets', 'customers_export.csv');
       
