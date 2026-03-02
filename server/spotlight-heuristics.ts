@@ -122,6 +122,8 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
       firstName: customers.firstName,
       lastName: customers.lastName,
       email: customers.email,
+      odooPartnerId: customers.odooPartnerId,
+      sources: customers.sources,
     })
       .from(customers)
       .where(and(
@@ -146,6 +148,19 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
           excludedIds.add(record.customerId2);
         } else {
           excludedIds.add(record.customerId1);
+        }
+      }
+
+      // Determine if the current customer is from Odoo
+      const currentIsOdoo = !customerId.startsWith('shopify_');
+
+      // Suppress cross-source Odoo↔Shopify pairs — same entity in two systems,
+      // resolved automatically by the Shopify sync, not by manual merge.
+      for (const dup of duplicates) {
+        const dupIsShopify = dup.id.startsWith('shopify_');
+        const dupIsOdoo = !dupIsShopify;
+        if ((currentIsOdoo && dupIsShopify) || (!currentIsOdoo && dupIsOdoo)) {
+          excludedIds.add(dup.id);
         }
       }
       

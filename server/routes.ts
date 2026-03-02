@@ -21532,6 +21532,33 @@ Return only the JSON object. No markdown, no code blocks.`
             });
             mappingsCreated++;
           }
+
+          // Clean up any stale shopify_XXXX record for this Shopify customer.
+          // This happens when: Shopify sync ran first (creating shopify_XXXX), then Odoo
+          // imported the same person — leaving two records with the same email.
+          const staleShopifyId = `shopify_${shopifyCustomer.id}`;
+          if (staleShopifyId !== existingCustomer.id) {
+            const staleRecord = await db.select({ id: customers.id })
+              .from(customers)
+              .where(eq(customers.id, staleShopifyId))
+              .limit(1);
+
+            if (staleRecord.length > 0) {
+              try {
+                // Re-point any Shopify orders that were linked to the stale record
+                await db.update(shopifyOrders)
+                  .set({ customerId: existingCustomer.id })
+                  .where(eq(shopifyOrders.customerId, staleShopifyId));
+
+                // Delete the stale shopify_XXXX customer record
+                await db.delete(customers).where(eq(customers.id, staleShopifyId));
+
+                console.log(`[Shopify Sync] Cleaned up stale record ${staleShopifyId} → merged into ${existingCustomer.id}`);
+              } catch (cleanupErr) {
+                console.warn(`[Shopify Sync] Could not clean up stale record ${staleShopifyId}:`, cleanupErr);
+              }
+            }
+          }
         } else {
           // Customer doesn't exist by email - check if exists by Shopify ID
           const newId = `shopify_${shopifyCustomer.id}`;
