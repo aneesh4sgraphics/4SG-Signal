@@ -1661,57 +1661,77 @@ export default function LeadsPage() {
                   {reviewLeads.map((lead) => {
                     const stageInfo = getStageInfo(lead.stage);
                     return (
-                      <div key={lead.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-800 truncate">{lead.name}</span>
-                            <Badge className={stageInfo.color} variant="outline">{stageInfo.label}</Badge>
+                      <div key={lead.id} className="p-3 bg-slate-50 rounded-lg border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-800 truncate">{lead.name}</span>
+                              <Badge className={stageInfo.color} variant="outline">{stageInfo.label}</Badge>
+                            </div>
+                            <div className="text-sm text-slate-500">
+                              {lead.company && <span>{lead.company} • </span>}
+                              {lead.email || lead.phone || 'No contact info'}
+                            </div>
                           </div>
-                          <div className="text-sm text-slate-500">
-                            {lead.company && <span>{lead.company} • </span>}
-                            {lead.email || lead.phone || 'No contact info'}
+                          <div className="flex items-center gap-2 ml-4">
+                            {(lead.street || lead.city) && (
+                              <PrintLabelButton
+                                customer={{
+                                  id: String(lead.id),
+                                  company: lead.company,
+                                  firstName: lead.name?.split(' ')[0] || null,
+                                  lastName: lead.name?.split(' ').slice(1).join(' ') || null,
+                                  address1: lead.street,
+                                  city: lead.city,
+                                  province: lead.state,
+                                  zip: lead.zip,
+                                  country: lead.country,
+                                }}
+                                leadId={lead.id}
+                                variant="icon"
+                                size="sm"
+                              />
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                              onClick={() => {
+                                updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'contact_later' });
+                                toast({ title: 'Lead updated', description: `${lead.name} marked as Contact Later` });
+                              }}
+                              disabled={updateLeadStageMutation.isPending}
+                            >
+                              <Clock className="w-4 h-4 mr-1" />
+                              Later
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-slate-600 border-slate-200 hover:bg-slate-100"
+                              onClick={() => {
+                                updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'not_a_fit' });
+                                toast({ title: 'Lead updated', description: `${lead.name} marked as Not a Fit` });
+                              }}
+                              disabled={updateLeadStageMutation.isPending}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Not a Fit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 border-green-200 hover:bg-green-50"
+                              onClick={() => {
+                                updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'qualified' });
+                                toast({ title: 'Lead updated', description: `${lead.name} marked as Qualified` });
+                              }}
+                              disabled={updateLeadStageMutation.isPending}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Qualified
+                            </Button>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
-                            onClick={() => {
-                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'contact_later' });
-                              toast({ title: 'Lead updated', description: `${lead.name} marked as Contact Later` });
-                            }}
-                            disabled={updateLeadStageMutation.isPending}
-                          >
-                            <Clock className="w-4 h-4 mr-1" />
-                            Later
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-slate-600 border-slate-200 hover:bg-slate-100"
-                            onClick={() => {
-                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'not_a_fit' });
-                              toast({ title: 'Lead updated', description: `${lead.name} marked as Not a Fit` });
-                            }}
-                            disabled={updateLeadStageMutation.isPending}
-                          >
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Not a Fit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-green-600 border-green-200 hover:bg-green-50"
-                            onClick={() => {
-                              updateLeadStageMutation.mutate({ leadId: lead.id, stage: 'qualified' });
-                              toast({ title: 'Lead updated', description: `${lead.name} marked as Qualified` });
-                            }}
-                            disabled={updateLeadStageMutation.isPending}
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-1" />
-                            Qualified
-                          </Button>
                         </div>
                       </div>
                     );
