@@ -371,8 +371,23 @@ interface PrintLabelButtonProps {
   size?: "sm" | "default";
 }
 
+type SendType = 'swatch_book' | 'press_test_kit' | 'mailer' | 'letter' | 'other';
+
+const SEND_TYPE_LABELS: Record<SendType, string> = {
+  swatch_book: 'Swatch Book',
+  press_test_kit: 'Press Test Kit',
+  mailer: 'Mailer',
+  letter: 'Letter',
+  other: 'Something Else',
+};
+
 export function PrintLabelButton({ customer, leadId, variant = "icon", size = "sm" }: PrintLabelButtonProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [sendType, setSendType] = useState<SendType>('swatch_book');
+  const [otherDesc, setOtherDesc] = useState('');
+
   let labelQueue: LabelQueueContextType | null = null;
   try {
     labelQueue = useLabelQueue();
@@ -385,54 +400,172 @@ export function PrintLabelButton({ customer, leadId, variant = "icon", size = "s
 
   const inQueue = labelQueue?.isInQueue(customer.id) ?? false;
 
+  const printNowMutation = useMutation({
+    mutationFn: async () => {
+      const payload: Record<string, unknown> = {
+        labelType: sendType === 'letter' ? 'other' : sendType,
+        otherDescription: sendType === 'letter' ? 'Letter' : (sendType === 'other' ? otherDesc : undefined),
+        quantity: 1,
+      };
+      if (leadId) {
+        payload.leadId = leadId;
+      } else {
+        payload.customerId = customer.id;
+      }
+      const res = await apiRequest('POST', '/api/labels/print', payload);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!data.pdf) {
+        toast({ title: 'Failed to print label', variant: 'destructive' });
+        return;
+      }
+      const byteCharacters = atob(data.pdf);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `label-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Label printed', description: `${SEND_TYPE_LABELS[sendType]} label generated` });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/label-stats'] });
+      if (leadId) queryClient.invalidateQueries({ queryKey: ['/api/leads', leadId, 'activities'] });
+      else queryClient.invalidateQueries({ queryKey: ['/api/customers', customer.id, 'activity'] });
+      setDialogOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: 'Print failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (inQueue) {
+      labelQueue?.removeFromQueue(customer.id);
+      toast({ title: 'Removed from label queue' });
+      return;
+    }
+    setDialogOpen(true);
+  };
+
+  const handleAddToQueue = () => {
     if (!labelQueue) {
       toast({ title: 'Label queue not available', variant: 'destructive' });
       return;
     }
-    if (inQueue) {
-      labelQueue.removeFromQueue(customer.id);
-      toast({ title: 'Removed from label queue' });
-    } else {
-      labelQueue.addToQueue(customer, leadId);
-      toast({ title: 'Added to label queue', description: 'Click the labels button to print when ready.' });
-    }
+    labelQueue.addToQueue(customer, leadId);
+    toast({ title: 'Added to label queue', description: 'Click the floating button to print when ready.' });
+    setDialogOpen(false);
   };
 
+  const canConfirm = sendType !== 'other' || otherDesc.trim().length > 0;
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {variant === "icon" ? (
-            <button
-              onClick={handleClick}
-              className={`p-1 rounded transition-colors ${
-                inQueue
-                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-                  : 'hover:bg-gray-100 text-gray-400 hover:text-blue-600'
-              }`}
-              title={inQueue ? "Remove from queue" : "Add to Queue"}
-            >
-              <Printer className="w-4 h-4" />
-            </button>
-          ) : (
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {variant === "icon" ? (
+              <button
+                onClick={handleClick}
+                className={`p-1 rounded transition-colors ${
+                  inQueue
+                    ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                    : 'hover:bg-gray-100 text-gray-400 hover:text-blue-600'
+                }`}
+                title={inQueue ? "Remove from queue" : "Print label"}
+              >
+                <Printer className="w-4 h-4" />
+              </button>
+            ) : (
+              <Button
+                variant={inQueue ? "default" : "outline"}
+                size={size}
+                onClick={handleClick}
+                className={inQueue ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200 text-blue-600 hover:bg-blue-50"}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                {inQueue ? 'In Queue' : 'Print Label'}
+              </Button>
+            )}
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{inQueue ? 'Remove from queue' : 'Print label'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="w-4 h-4 text-blue-600" />
+              Print Address Label
+            </DialogTitle>
+            <DialogDescription>
+              What are you sending to {customer.company || [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'this contact'}?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid gap-2">
+              <Label>What are you sending?</Label>
+              <Select value={sendType} onValueChange={(v) => setSendType(v as SendType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="swatch_book">Swatch Book</SelectItem>
+                  <SelectItem value="press_test_kit">Press Test Kit</SelectItem>
+                  <SelectItem value="mailer">Mailer</SelectItem>
+                  <SelectItem value="letter">Letter</SelectItem>
+                  <SelectItem value="other">Something Else</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {sendType === 'other' && (
+              <div className="grid gap-2">
+                <Label>Describe what you're sending</Label>
+                <Input
+                  value={otherDesc}
+                  onChange={(e) => setOtherDesc(e.target.value)}
+                  placeholder="e.g. Catalog, Sample pack..."
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button
-              variant={inQueue ? "default" : "outline"}
-              size={size}
-              onClick={handleClick}
-              className={inQueue ? "bg-blue-600 hover:bg-blue-700" : "border-blue-200 text-blue-600 hover:bg-blue-50"}
+              variant="outline"
+              size="sm"
+              onClick={handleAddToQueue}
+              disabled={!canConfirm || printNowMutation.isPending}
+              className="flex-1"
             >
-              <Printer className="w-4 h-4 mr-2" />
-              {inQueue ? 'In Queue' : 'Add to Queue'}
+              Add to Queue
             </Button>
-          )}
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{inQueue ? 'Remove from queue' : 'Add to Queue'}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+            <Button
+              size="sm"
+              onClick={() => printNowMutation.mutate()}
+              disabled={!canConfirm || printNowMutation.isPending}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {printNowMutation.isPending
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Printing...</>
+                : <><Printer className="w-4 h-4 mr-2" />Print Now</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
