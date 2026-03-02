@@ -374,11 +374,12 @@ export class BestPriceEngine {
       console.error('[BestPrice] Error fetching Odoo metrics:', error);
     }
 
-    // Calculate sheet area from product dimensions
-    // sheetWidth and sheetLength are in meters, area is in m²
-    const sheetWidth = parseFloat(String(product.sheetWidth || 0));
-    const sheetLength = parseFloat(String(product.sheetLength || 0));
-    const sheetArea = sheetWidth * sheetLength;
+    // Calculate sqm-per-sheet using the same formula as the quote calculator:
+    //   pricePerSheet = (pricePerSqm × totalSqm) / minQuantity
+    // totalSqm = total area of the minimum order pack; minQuantity = sheets in that pack.
+    const totalSqm = parseFloat(String(product.totalSqm || 0));
+    const minQty = Math.max(1, parseInt(String(product.minQuantity || 1)));
+    const sheetArea = totalSqm / minQty;
 
     // Tier prices in $/m² from database
     const tierPrices: Record<string, number> = {};
