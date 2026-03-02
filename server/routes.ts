@@ -5093,6 +5093,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer health check — returns companies that haven't been contacted recently
+  app.get("/api/customers/needs-review", isAuthenticated, async (_req, res) => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const reviewCustomers = await db
+        .select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          company: customers.company,
+          email: customers.email,
+          phone: customers.phone,
+          pricingTier: customers.pricingTier,
+          salesRepName: customers.salesRepName,
+          totalSpent: customers.totalSpent,
+          totalOrders: customers.totalOrders,
+          isHotProspect: customers.isHotProspect,
+          lastOutboundEmailAt: customers.lastOutboundEmailAt,
+          swatchbookSentAt: customers.swatchbookSentAt,
+          updatedAt: customers.updatedAt,
+          province: customers.province,
+          country: customers.country,
+        })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.isCompany, true),
+            eq(customers.doNotContact, false),
+            or(
+              isNull(customers.lastOutboundEmailAt),
+              lte(customers.lastOutboundEmailAt, thirtyDaysAgo)
+            )
+          )
+        )
+        .orderBy(customers.lastOutboundEmailAt)
+        .limit(100);
+
+      res.json({ customers: reviewCustomers, count: reviewCustomers.length });
+    } catch (error) {
+      console.error("Error fetching customers for review:", error);
+      res.status(500).json({ error: "Failed to fetch customers for review" });
+    }
+  });
+
   // Get customer by ID
   app.get("/api/customers/:id", isAuthenticated, async (req, res) => {
     try {
