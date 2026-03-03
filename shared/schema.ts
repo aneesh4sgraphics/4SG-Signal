@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, varchar, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, varchar, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -3196,7 +3196,7 @@ export const spotlightSessionState = pgTable("spotlight_session_state", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  userDateIdx: index("spotlight_session_state_user_date_idx").on(table.userId, table.sessionDate),
+  userDateIdx: uniqueIndex("spotlight_session_state_user_date_idx").on(table.userId, table.sessionDate),
   userIdx: index("spotlight_session_state_user_idx").on(table.userId),
   claimedCustomerIdx: index("spotlight_session_state_claimed_customer_idx").on(table.currentClaimedCustomerId),
 }));
