@@ -309,6 +309,18 @@ app.use((req, res, next) => {
         console.log('[Workers] Odoo sync worker disabled via ENABLE_ODOO_SYNC=false');
       }
       
+      // Batch dedup: runs 20s after startup to avoid slowing initial boot
+      setTimeout(async () => {
+        try {
+          console.log('[BatchDedup] Starting customer dedup and lead-contact enrichment…');
+          const { runBatchDedup } = await import("./batch-dedup");
+          const result = await runBatchDedup();
+          console.log(`[BatchDedup] Complete — ${result.customerMerges} merges, ${result.leadEnrichments} enrichments, ${result.errors.length} errors`);
+        } catch (err: any) {
+          console.error('[BatchDedup] Failed:', err.message);
+        }
+      }, 20000);
+
       let opportunityRecalcRunning = false;
       setTimeout(async () => {
         if (opportunityRecalcRunning) return;

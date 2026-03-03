@@ -3924,6 +3924,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Backfill: Propagate pricing tier and sales rep between companies and contacts
+  app.post('/api/admin/run-batch-dedup', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { runBatchDedup } = await import("./batch-dedup");
+      const result = await runBatchDedup(true);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      console.error('[Admin] Batch dedup error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/admin/backfill-pricing-propagation', isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
       console.log("[Backfill] Starting bidirectional pricing tier/sales rep propagation...");
