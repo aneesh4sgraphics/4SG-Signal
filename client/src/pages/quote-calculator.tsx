@@ -127,7 +127,6 @@ export default function QuoteCalculator() {
   const [customWidth, setCustomWidth] = useState<string>("");
   const [customHeight, setCustomHeight] = useState<string>("");
   const [filtersInitialized, setFiltersInitialized] = useState<boolean>(false);
-  const [sizeSortOrder, setSizeSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
   const [landedPriceRevealed, setLandedPriceRevealed] = useState<boolean>(false);
   const [sentPricesOpen, setSentPricesOpen] = useState<boolean>(false);
   const [isCreatingOdooOrder, setIsCreatingOdooOrder] = useState(false);
@@ -496,9 +495,7 @@ export default function QuoteCalculator() {
         ).sort((a, b) => {
           const sqmA = parseFloat(String(a.totalSqm || 0));
           const sqmB = parseFloat(String(b.totalSqm || 0));
-          if (sizeSortOrder === 'asc') return sqmA - sqmB;
-          if (sizeSortOrder === 'desc') return sqmB - sqmA;
-          return sqmA - sqmB; // default is ascending by size
+          return sqmA - sqmB; // always ascending by square meters
         });
         // Deduplicate by itemCode (SKU) - keep first occurrence of each unique product
         const seen = new Set<string>();
@@ -1986,17 +1983,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block label-medium text-gray-800">Size</label>
-                    <button
-                      onClick={() => {
-                        setSizeSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
-                      }}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                      title={sizeSortOrder === 'desc' ? 'Sorted: Largest first' : 'Sorted: Smallest first'}
-                      data-testid="button-sort-size"
-                    >
-                      <ArrowUpDown className="h-3 w-3" />
-                      {sizeSortOrder === 'desc' ? 'Largest first' : 'Smallest first'}
-                    </button>
                   </div>
                   <Select 
                     value={selectedSize} 
