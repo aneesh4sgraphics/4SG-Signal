@@ -1947,7 +1947,7 @@ class SpotlightEngine {
       
       const gamification = this.getGamificationState(session as any);
       
-      const [hints, microCard, coachTip] = await Promise.all([
+      const [hintsResult, microCard, coachTip] = await Promise.all([
         task && task.customer ? analyzeForHints(
           task.customer.id,
           {
@@ -1961,12 +1961,22 @@ class SpotlightEngine {
             isHotProspect: null,
           },
           task.taskSubtype
-        ) : Promise.resolve([]),
+        ) : Promise.resolve({ hints: [] }),
         (session as any).tasksSinceMicroCard >= 3 
           ? this.getMicroCoachingCard(userId) 
           : Promise.resolve(null),
         task ? this.getCoachTip(task.taskSubtype) : Promise.resolve(null)
       ]);
+
+      const hints = (hintsResult as any).hints ?? hintsResult;
+      const mergedCustomerId = (hintsResult as any).mergedCustomerId;
+
+      // If an auto-merge just happened, point the task at the surviving customer ID
+      if (task && mergedCustomerId) {
+        console.log(`[Spotlight] Task customer ${task.customerId} was merged → redirecting to ${mergedCustomerId}`);
+        task.customerId = mergedCustomerId;
+        if (task.customer) task.customer.id = mergedCustomerId;
+      }
 
       console.log(`[Spotlight] Piggyback next task generated in ${Date.now() - startTime}ms`);
       return {

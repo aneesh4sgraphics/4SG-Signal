@@ -115,8 +115,8 @@ function normalizePhone(phone: string | null): string {
   return phone.replace(/\D/g, '').slice(-10);
 }
 
-async function checkDuplicate(email: string | null, phone: string | null, customerId: string): Promise<SpotlightHint | null> {
-  if (!email && !phone) return null;
+async function checkDuplicate(email: string | null, phone: string | null, customerId: string): Promise<{ hint: SpotlightHint | null; mergedTo: string | null }> {
+  if (!email && !phone) return { hint: null, mergedTo: null };
   
   try {
     const normalizedEmail = email ? email.toLowerCase().trim() : null;
@@ -130,7 +130,7 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
       conditions.push(sql`RIGHT(REGEXP_REPLACE(${customers.phone}, '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`);
     }
     
-    if (conditions.length === 0) return null;
+    if (conditions.length === 0) return { hint: null, mergedTo: null };
     
     const duplicates = await db.select({ 
       id: customers.id, 
@@ -148,7 +148,7 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
       ))
       .limit(3);
     
-    if (duplicates.length === 0) return null;
+    if (duplicates.length === 0) return { hint: null, mergedTo: null };
 
     // Load "do not merge" exclusions
     const doNotMergeRecords = await db.select()
@@ -193,17 +193,21 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
       }
     }
 
-    // Auto-merge all exact-email pairs silently (fire-and-forget, non-blocking)
-    for (const dup of exactEmailMatches) {
-      const dupId = dup.id;
-      performAutoMerge(customerId, dupId).catch(err => {
-        console.error(`[AutoMerge] Failed to merge ${customerId} ↔ ${dupId}:`, err);
-      });
-      // After auto-merge the current task card will refresh on next Spotlight load — no hint needed
+    // Auto-merge with the BEST exact-email duplicate (only one, to avoid double-merge race conditions).
+    // Prefer Odoo records as primary; await the result so we can return the surviving ID.
+    if (exactEmailMatches.length > 0) {
+      const bestDup = exactEmailMatches.find(d => d.odooPartnerId != null) ?? exactEmailMatches[0];
+      try {
+        const mergeResult = await performAutoMerge(customerId, bestDup.id);
+        // Return the surviving (primary) customer ID so the caller can redirect the task card
+        return { hint: null, mergedTo: mergeResult.primaryId };
+      } catch (err) {
+        console.error(`[AutoMerge] Failed to merge ${customerId} ↔ ${bestDup.id}:`, err);
+      }
     }
 
     // Only show "Review & Merge" for phone-only / uncertain matches (not exact-email)
-    if (otherMatches.length === 0) return null;
+    if (otherMatches.length === 0) return { hint: null, mergedTo: null };
 
     const getDisplayName = (d: typeof otherMatches[0]) => {
       if (d.company && d.company.trim()) return d.company;
@@ -214,21 +218,24 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
     };
     const duplicateNames = otherMatches.map(getDisplayName).slice(0, 2).join(', ');
     return {
-      type: 'duplicate',
-      severity: 'medium',
-      message: `Possible duplicate of: ${duplicateNames}`,
-      ctaLabel: 'Review & Merge',
-      ctaAction: 'view_duplicate',
-      metadata: { 
-        duplicateIds: otherMatches.map(d => d.id),
-        duplicateNames: otherMatches.map(d => ({ id: d.id, company: d.company, displayName: getDisplayName(d) })),
+      hint: {
+        type: 'duplicate',
+        severity: 'medium',
+        message: `Possible duplicate of: ${duplicateNames}`,
+        ctaLabel: 'Review & Merge',
+        ctaAction: 'view_duplicate',
+        metadata: { 
+          duplicateIds: otherMatches.map(d => d.id),
+          duplicateNames: otherMatches.map(d => ({ id: d.id, company: d.company, displayName: getDisplayName(d) })),
+        },
       },
+      mergedTo: null,
     };
   } catch (e) {
     console.error('[Heuristics] Duplicate check error:', e);
   }
   
-  return null;
+  return { hint: null, mergedTo: null };
 }
 
 
@@ -370,7 +377,7 @@ export async function analyzeForHints(
     isHotProspect: boolean | null;
   },
   momentType: string
-): Promise<SpotlightHint[]> {
+): Promise<{ hints: SpotlightHint[]; mergedCustomerId?: string }> {
   const hints: SpotlightHint[] = [];
   
   const badFit = checkBadFitCompany(customer.company, customer.website);
@@ -379,13 +386,13 @@ export async function analyzeForHints(
   const quickWin = checkQuickWin(customer);
   if (quickWin) hints.push(quickWin);
   
-  const [stale, duplicate] = await Promise.all([
+  const [stale, duplicateResult] = await Promise.all([
     checkStaleContact(customerId, customer.updatedAt),
     checkDuplicate(customer.email, customer.phone, customerId),
   ]);
   
   if (stale) hints.push(stale);
-  if (duplicate) hints.push(duplicate);
+  if (duplicateResult.hint) hints.push(duplicateResult.hint);
   
   const missingField = checkMissingCriticalField(customer, momentType);
   if (missingField) hints.push(missingField);
@@ -395,5 +402,8 @@ export async function analyzeForHints(
     return severityOrder[a.severity] - severityOrder[b.severity];
   });
   
-  return hints.slice(0, 3);
+  return {
+    hints: hints.slice(0, 3),
+    ...(duplicateResult.mergedTo ? { mergedCustomerId: duplicateResult.mergedTo } : {}),
+  };
 }

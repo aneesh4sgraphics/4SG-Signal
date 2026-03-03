@@ -1224,9 +1224,16 @@ export default function Spotlight() {
         refetch();
       }
     },
-    onError: () => {
+    onError: (err: any) => {
       const isLead = currentTask?.task?.isLeadTask;
-      toast({ title: "Error", description: `Failed to update ${isLead ? 'lead' : 'customer'} data`, variant: "destructive" });
+      const msg = err?.message || '';
+      if (!isLead && (msg.toLowerCase().includes('not found') || msg.includes('404'))) {
+        setShowFixDataModal(false);
+        toast({ title: "Contact moved", description: "This contact was merged with another record. Loading next task…" });
+        refetch();
+      } else {
+        toast({ title: "Error", description: `Failed to update ${isLead ? 'lead' : 'customer'} data`, variant: "destructive" });
+      }
     },
   });
 

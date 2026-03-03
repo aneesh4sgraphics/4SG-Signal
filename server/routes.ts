@@ -24339,7 +24339,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
       // PERFORMANCE: Parallelize secondary data fetching
       const gamification = spotlightEngine.getGamificationState(session as any);
       
-      const [hints, microCard, coachTip] = await Promise.all([
+      const [hintsResult, microCard, coachTip] = await Promise.all([
         // Hints analysis
         task && task.customer ? analyzeForHints(
           task.customer.id,
@@ -24354,7 +24354,7 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
             isHotProspect: task.customer.isHotProspect || null,
           },
           task.taskSubtype
-        ) : Promise.resolve([]),
+        ) : Promise.resolve({ hints: [] }),
         // Micro coaching card
         (session as any).tasksSinceMicroCard >= 3 
           ? spotlightEngine.getMicroCoachingCard(userId) 
@@ -24362,6 +24362,16 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         // Coach tip
         task ? spotlightEngine.getCoachTip(task.taskSubtype) : Promise.resolve(null)
       ]);
+
+      const hints = (hintsResult as any).hints ?? hintsResult;
+      const mergedCustomerId = (hintsResult as any).mergedCustomerId;
+
+      // If an auto-merge just happened, redirect the task card to the surviving customer
+      if (task && mergedCustomerId) {
+        console.log(`[Spotlight] Task customer ${task.customerId} was merged → redirecting to ${mergedCustomerId}`);
+        task.customerId = mergedCustomerId;
+        if (task.customer) task.customer.id = mergedCustomerId;
+      }
 
       res.json({
         task,
