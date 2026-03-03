@@ -28,6 +28,49 @@ import { ALLOWED_CATEGORIES } from "@/lib/productCategories";
 import { PRICING_TIERS } from "@shared/schema";
 import { getSalesRepDisplayName } from "@/lib/utils";
 
+function getGraffitiPolyesterGroup(t: string): number {
+  const lc = t.toLowerCase();
+  if (lc.includes('luster') || lc.includes('lustre')) return 5;
+  if (lc.includes('frosted')) return 4;
+  if (lc.includes('clear')) return 3;
+  if (lc.includes('backlit')) return 2;
+  if (lc.includes('metallic') || lc.includes('film - gold') || lc.includes('film - silver') || lc.includes('film - rose') || lc.includes('film - mirror') || lc.includes('dual metallic')) return 1;
+  if (lc.includes('graffiti polyester') || lc.includes('polyester')) return 0;
+  return 6;
+}
+
+function getMetallicColorOrder(t: string): number {
+  const lc = t.toLowerCase();
+  if (lc.includes('gold')) return 0;
+  if (lc.includes('silver')) return 1;
+  if (lc.includes('rose')) return 2;
+  if (lc.includes('mirror')) return 3;
+  if (lc.includes('dual')) return 4;
+  return 5;
+}
+
+function getMilThickness(t: string): number {
+  const m = t.match(/(\d+(?:\.\d+)?)\s*mil/i);
+  return m ? parseFloat(m[1]) : 999;
+}
+
+function sortGraffitiPolyesterTypes(types: string[]): string[] {
+  return [...types].sort((a, b) => {
+    const groupA = getGraffitiPolyesterGroup(a);
+    const groupB = getGraffitiPolyesterGroup(b);
+    if (groupA !== groupB) return groupA - groupB;
+    if (groupA === 1) {
+      const colorA = getMetallicColorOrder(a);
+      const colorB = getMetallicColorOrder(b);
+      if (colorA !== colorB) return colorA - colorB;
+    }
+    const milA = getMilThickness(a);
+    const milB = getMilThickness(b);
+    if (milA !== milB) return milA - milB;
+    return a.localeCompare(b);
+  });
+}
+
 interface ProductData {
   id: number;
   itemCode: string;
@@ -484,7 +527,11 @@ export default function QuoteCalculator() {
       })
       .map(item => item.productType)
       .filter(Boolean);
-    return Array.from(new Set(typesInCategory)).sort();
+    const unique = Array.from(new Set(typesInCategory)) as string[];
+    if (selectedCategory === 'Graffiti Polyester Paper') {
+      return sortGraffitiPolyesterTypes(unique);
+    }
+    return unique.sort();
   })();
 
   // Get sizes for selected type with sorting (deduplicated by itemCode/SKU)
