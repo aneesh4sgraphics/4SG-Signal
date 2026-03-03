@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { customers, customerActivityEvents, customerMachineProfiles, adminCategories, adminMachineTypes, customerDoNotMerge } from "@shared/schema";
 import { eq, and, sql, desc, lt, count, arrayContains, or } from "drizzle-orm";
+import { performAutoMerge } from "./customer-merge";
 
 export interface SpotlightHint {
   type: 'bad_fit' | 'stale_contact' | 'duplicate' | 'missing_field' | 'quick_win';
@@ -118,16 +119,15 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
   if (!email && !phone) return null;
   
   try {
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
+    const normalizedPhone = phone ? normalizePhone(phone) : '';
+
     const conditions = [];
-    if (email) {
-      const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail) {
       conditions.push(sql`LOWER(TRIM(${customers.email})) = ${normalizedEmail}`);
     }
-    if (phone) {
-      const normalizedPhone = normalizePhone(phone);
-      if (normalizedPhone.length === 10) {
-        conditions.push(sql`RIGHT(REGEXP_REPLACE(${customers.phone}, '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`);
-      }
+    if (normalizedPhone.length === 10) {
+      conditions.push(sql`RIGHT(REGEXP_REPLACE(${customers.phone}, '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`);
     }
     
     if (conditions.length === 0) return null;
@@ -148,64 +148,82 @@ async function checkDuplicate(email: string | null, phone: string | null, custom
       ))
       .limit(3);
     
-    if (duplicates.length > 0) {
-      // Filter out pairs that are marked as "do not merge"
-      const doNotMergeRecords = await db.select()
-        .from(customerDoNotMerge)
-        .where(or(
-          and(eq(customerDoNotMerge.customerId1, customerId)),
-          and(eq(customerDoNotMerge.customerId2, customerId))
-        ));
-      
-      // Build a set of IDs that should not be suggested as duplicates
-      const excludedIds = new Set<string>();
-      for (const record of doNotMergeRecords) {
-        if (record.customerId1 === customerId) {
-          excludedIds.add(record.customerId2);
-        } else {
-          excludedIds.add(record.customerId1);
-        }
-      }
+    if (duplicates.length === 0) return null;
 
-      // Determine if the current customer is from Odoo
+    // Load "do not merge" exclusions
+    const doNotMergeRecords = await db.select()
+      .from(customerDoNotMerge)
+      .where(or(
+        and(eq(customerDoNotMerge.customerId1, customerId)),
+        and(eq(customerDoNotMerge.customerId2, customerId))
+      ));
+    
+    const doNotMergeIds = new Set<string>();
+    for (const record of doNotMergeRecords) {
+      doNotMergeIds.add(record.customerId1 === customerId ? record.customerId2 : record.customerId1);
+    }
+
+    // Partition duplicates into:
+    //   exactEmailMatch — same normalised email (auto-merge silently, Odoo takes precedence)
+    //   otherMatch     — phone-only or cross-source (show "Review & Merge" to user)
+    const exactEmailMatches: typeof duplicates = [];
+    const otherMatches: typeof duplicates = [];
+
+    for (const dup of duplicates) {
+      if (doNotMergeIds.has(dup.id)) continue; // user explicitly said "not a duplicate"
+
+      const dupEmail = dup.email ? dup.email.toLowerCase().trim() : null;
+      const isExactEmailMatch = normalizedEmail && dupEmail && dupEmail === normalizedEmail;
+
+      // Suppress cross-source Odoo↔Shopify pairs — resolved by Shopify sync automatically.
+      // Cross-source = one ID starts with "shopify_" and the other does not.
       const currentIsOdoo = !customerId.startsWith('shopify_');
-
-      // Suppress cross-source Odoo↔Shopify pairs — same entity in two systems,
-      // resolved automatically by the Shopify sync, not by manual merge.
-      for (const dup of duplicates) {
-        const dupIsShopify = dup.id.startsWith('shopify_');
-        const dupIsOdoo = !dupIsShopify;
-        if ((currentIsOdoo && dupIsShopify) || (!currentIsOdoo && dupIsOdoo)) {
-          excludedIds.add(dup.id);
-        }
+      const dupIsShopify = dup.id.startsWith('shopify_');
+      const isCrossSource = (currentIsOdoo && dupIsShopify) || (!currentIsOdoo && !dupIsShopify);
+      if (isCrossSource) {
+        // If they share the exact email, auto-merge (Odoo wins); otherwise just suppress.
+        if (isExactEmailMatch) exactEmailMatches.push(dup);
+        continue;
       }
-      
-      // Filter duplicates that are excluded
-      const filteredDuplicates = duplicates.filter(d => !excludedIds.has(d.id));
-      
-      if (filteredDuplicates.length > 0) {
-        // Build display name with better fallbacks: company > full name > email
-        const getDisplayName = (d: typeof filteredDuplicates[0]) => {
-          if (d.company && d.company.trim()) return d.company;
-          const fullName = [d.firstName, d.lastName].filter(Boolean).join(' ').trim();
-          if (fullName) return fullName;
-          if (d.email) return d.email;
-          return 'another record';
-        };
-        const duplicateNames = filteredDuplicates.map(getDisplayName).slice(0, 2).join(', ');
-        return {
-          type: 'duplicate',
-          severity: 'medium',
-          message: `Possible duplicate of: ${duplicateNames}`,
-          ctaLabel: 'Review & Merge',
-          ctaAction: 'view_duplicate',
-          metadata: { 
-            duplicateIds: filteredDuplicates.map(d => d.id),
-            duplicateNames: filteredDuplicates.map(d => ({ id: d.id, company: d.company, displayName: getDisplayName(d) })),
-          },
-        };
+
+      if (isExactEmailMatch) {
+        exactEmailMatches.push(dup);
+      } else {
+        otherMatches.push(dup);
       }
     }
+
+    // Auto-merge all exact-email pairs silently (fire-and-forget, non-blocking)
+    for (const dup of exactEmailMatches) {
+      const dupId = dup.id;
+      performAutoMerge(customerId, dupId).catch(err => {
+        console.error(`[AutoMerge] Failed to merge ${customerId} ↔ ${dupId}:`, err);
+      });
+      // After auto-merge the current task card will refresh on next Spotlight load — no hint needed
+    }
+
+    // Only show "Review & Merge" for phone-only / uncertain matches (not exact-email)
+    if (otherMatches.length === 0) return null;
+
+    const getDisplayName = (d: typeof otherMatches[0]) => {
+      if (d.company && d.company.trim()) return d.company;
+      const fullName = [d.firstName, d.lastName].filter(Boolean).join(' ').trim();
+      if (fullName) return fullName;
+      if (d.email) return d.email;
+      return 'another record';
+    };
+    const duplicateNames = otherMatches.map(getDisplayName).slice(0, 2).join(', ');
+    return {
+      type: 'duplicate',
+      severity: 'medium',
+      message: `Possible duplicate of: ${duplicateNames}`,
+      ctaLabel: 'Review & Merge',
+      ctaAction: 'view_duplicate',
+      metadata: { 
+        duplicateIds: otherMatches.map(d => d.id),
+        duplicateNames: otherMatches.map(d => ({ id: d.id, company: d.company, displayName: getDisplayName(d) })),
+      },
+    };
   } catch (e) {
     console.error('[Heuristics] Duplicate check error:', e);
   }
