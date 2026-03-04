@@ -1,10 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { toast } from "@/hooks/use-toast";
 
-let sessionExpiredToastShown = false;
-let lastSessionExpiredTime = 0;
 const appLoadTime = Date.now();
 let globalAuthFailed = false;
+let autoLogoutTriggered = false;
 
 // Export function to check if auth has globally failed (for components to stop polling)
 export function isAuthFailed(): boolean {
@@ -14,7 +12,18 @@ export function isAuthFailed(): boolean {
 // Reset auth failed state (called after successful login)
 export function resetAuthFailed(): void {
   globalAuthFailed = false;
-  sessionExpiredToastShown = false;
+  autoLogoutTriggered = false;
+}
+
+// Redirect to logout — clears the session server-side then sends user to the login page
+function triggerAutoLogout(): void {
+  if (autoLogoutTriggered) return;
+  autoLogoutTriggered = true;
+  globalAuthFailed = true;
+  // Small delay lets the current render cycle finish cleanly
+  setTimeout(() => {
+    window.location.href = '/api/logout';
+  }, 300);
 }
 
 function checkLoginGracePeriod(): boolean {
@@ -37,11 +46,6 @@ function checkLoginGracePeriod(): boolean {
   return false;
 }
 
-function resetSessionExpiredFlag() {
-  setTimeout(() => {
-    sessionExpiredToastShown = false;
-  }, 30000);
-}
 
 export class ApiError extends Error {
   status?: number;
@@ -78,6 +82,11 @@ async function throwIfResNotOk(res: Response) {
       const parsed = JSON.parse(text);
       serverMessage = parsed.error || parsed.message || parsed.details || null;
     } catch {}
+
+    if (res.status === 401) {
+      console.log('[Auth] Session expired (mutation) — auto-logout triggered');
+      triggerAutoLogout();
+    }
 
     let message: string;
     if (res.status === 401) {
@@ -169,31 +178,16 @@ export const getQueryFn: <T>(options: {
           });
         }
         
-        // On 401, trigger global auth failure to stop all polling
-        if (res.status === 401 && !globalAuthFailed) {
-          globalAuthFailed = true;
-          console.log('[Auth] Global auth failure - stopping retries');
-          // Note: queryClient operations deferred since we're in query execution
-          // The queryClient will be cleared on next page load/login
+        // On 401 outside the grace period, auto-logout and redirect to login
+        if (res.status === 401) {
+          console.log('[Auth] Session expired — auto-logout triggered');
+          triggerAutoLogout();
         }
-        
-        const message = res.status === 401 
+
+        const message = res.status === 401
           ? "Session expired. Please log in again."
           : "You don't have permission to access this resource.";
-        
-        if (!sessionExpiredToastShown && (now - lastSessionExpiredTime > 10000)) {
-          sessionExpiredToastShown = true;
-          lastSessionExpiredTime = now;
-          
-          toast({
-            title: res.status === 401 ? "Session Expired" : "Access Denied",
-            description: message,
-            variant: "destructive",
-          });
-          
-          resetSessionExpiredFlag();
-        }
-        
+
         throw new ApiError(message, {
           status: res.status,
           statusText: res.statusText,
