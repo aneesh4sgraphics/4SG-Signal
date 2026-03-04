@@ -6151,19 +6151,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No image file provided' });
       }
 
-      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      // Prefer a user-supplied key (no proxy); fall back to the integration key + its base URL
+      const directKey = process.env.OPENAI_API_KEY;
+      const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+
+      const openaiApiKey = directKey || integrationKey;
       if (!openaiApiKey) {
-        return res.status(503).json({ error: 'AI extraction is not configured' });
+        return res.status(503).json({ error: 'AI extraction is not configured. Add an OPENAI_API_KEY secret with available credits.' });
       }
 
-      // Vision/image calls must go to the real OpenAI API — never through a proxy
-      // that may not support multimodal inputs
-      const openaiClient = new OpenAI({ apiKey: openaiApiKey });
+      // Use the proxy base URL only for the integration key; direct key talks straight to OpenAI
+      const openaiClient = new OpenAI({
+        apiKey: openaiApiKey,
+        ...((!directKey && integrationBase) ? { baseURL: integrationBase } : {}),
+      });
 
       const base64Image = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype;
 
-      console.log(`[Screenshot Extract] Processing ${mimeType} image (${(req.file.size / 1024).toFixed(1)} KB)`);
+      console.log(`[Screenshot Extract] Processing ${mimeType} image (${(req.file.size / 1024).toFixed(1)} KB), using ${directKey ? 'direct OPENAI_API_KEY' : 'integration key'}`);
 
       const completion = await openaiClient.chat.completions.create({
         model: 'gpt-4o',
