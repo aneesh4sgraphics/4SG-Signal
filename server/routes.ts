@@ -6156,13 +6156,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: 'AI extraction is not configured' });
       }
 
-      const openaiClient = new OpenAI({
-        apiKey: openaiApiKey,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
+      // Vision/image calls must go to the real OpenAI API — never through a proxy
+      // that may not support multimodal inputs
+      const openaiClient = new OpenAI({ apiKey: openaiApiKey });
 
       const base64Image = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype;
+
+      console.log(`[Screenshot Extract] Processing ${mimeType} image (${(req.file.size / 1024).toFixed(1)} KB)`);
 
       const completion = await openaiClient.chat.completions.create({
         model: 'gpt-4o',
@@ -6215,9 +6216,13 @@ Return only the JSON object. No markdown, no code blocks.`
 
       console.log(`[Screenshot Extract] Extracted fields: ${Object.keys(extracted).filter(k => extracted[k]).join(', ')}`);
       res.json({ data: extracted });
-    } catch (error) {
-      console.error('[Screenshot Extract] Error:', error);
-      res.status(500).json({ error: 'Failed to extract contact information' });
+    } catch (error: any) {
+      console.error('[Screenshot Extract] Error:', error?.message || error);
+      const msg = error?.status === 401 ? 'OpenAI API key is invalid'
+        : error?.status === 429 ? 'AI rate limit reached — try again in a moment'
+        : error?.status === 400 ? 'Image could not be processed — try a clearer screenshot'
+        : 'Failed to extract contact information';
+      res.status(500).json({ error: msg });
     }
   });
 
