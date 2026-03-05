@@ -2924,6 +2924,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addToLabelQueue(customerId: string | null, leadId: number | null, addedBy: string): Promise<LabelQueueItem> {
+    // Prevent duplicates — if this customer/lead is already in the queue, return the existing entry
+    const existing = await db
+      .select()
+      .from(labelQueue)
+      .where(
+        customerId
+          ? eq(labelQueue.customerId, customerId)
+          : eq(labelQueue.leadId, leadId!)
+      )
+      .limit(1);
+    if (existing.length > 0) return existing[0];
+
     const [item] = await db.insert(labelQueue).values({ customerId, leadId, addedBy }).returning();
     return item;
   }
