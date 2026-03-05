@@ -466,6 +466,16 @@ export default function Spotlight() {
     },
   });
 
+  const markLostMutation = useMutation({
+    mutationFn: async ({ customerId, leadId }: { customerId: string; leadId?: number | null }) => {
+      const res = await apiRequest('POST', '/api/spotlight/outreach-review/mark-lost', { customerId, leadId });
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      setDismissedIds(prev => new Set([...prev, variables.customerId]));
+    },
+  });
+
   // Debug: allow forcing a specific bucket via URL param (e.g., ?forceBucket=data_hygiene)
   const urlParams = new URLSearchParams(window.location.search);
   const forceBucket = urlParams.get('forceBucket');
@@ -2436,14 +2446,28 @@ export default function Spotlight() {
                       : customer.daysAgo >= 3
                       ? 'text-amber-600 bg-amber-50 border-amber-200'
                       : 'text-emerald-600 bg-emerald-50 border-emerald-200';
+                    const isPotentiallyLost = customer.potentiallyLost;
+                    const contactHref = customer.odooPartnerId ? `/odoo-contacts/${customer.odooPartnerId}` : `/odoo-contacts/${customer.id}`;
                     return (
-                    <div key={customer.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div
+                      key={customer.id}
+                      className={`p-3 rounded-lg border ${isPotentiallyLost ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                      {/* Red "potentially lost" banner */}
+                      {isPotentiallyLost && (
+                        <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-red-700">
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>
+                            No response after {customer.contactAttempts} contact attempt{customer.contactAttempts !== 1 ? 's' : ''} — consider marking as lost
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <Link
-                              href={customer.odooPartnerId ? `/odoo-contacts/${customer.odooPartnerId}` : `/odoo-contacts/${customer.id}`}
-                              className="font-medium text-slate-800 text-sm hover:text-violet-700 hover:underline transition-colors"
+                              href={contactHref}
+                              className={`font-medium text-sm hover:underline transition-colors ${isPotentiallyLost ? 'text-red-800 hover:text-red-600' : 'text-slate-800 hover:text-violet-700'}`}
                             >
                               {customer.name}
                             </Link>
@@ -2456,15 +2480,15 @@ export default function Spotlight() {
                           {/* What was sent */}
                           <div className="flex flex-wrap gap-1.5 mt-1.5">
                             {customer.activities.map((act: any, i: number) => (
-                              <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-violet-50 text-violet-700 border border-violet-200 rounded px-2 py-0.5">
+                              <span key={i} className={`inline-flex items-center gap-1 text-[11px] border rounded px-2 py-0.5 ${isPotentiallyLost ? 'bg-red-100 text-red-700 border-red-200' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>
                                 <span>{typeIcon[act.type] || '📌'}</span>
                                 <span>{act.label}</span>
-                                <span className="text-violet-400">· {act.daysAgo === 0 ? 'today' : `${act.daysAgo}d ago`}</span>
+                                <span className={isPotentiallyLost ? 'text-red-400' : 'text-violet-400'}>· {act.daysAgo === 0 ? 'today' : `${act.daysAgo}d ago`}</span>
                               </span>
                             ))}
                           </div>
-                          {/* Next step suggestion */}
-                          {suggestion && (
+                          {/* Next step suggestion — only for non-lost */}
+                          {suggestion && !isPotentiallyLost && (
                             <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
                               <span className="flex-shrink-0 mt-px">{suggestion.icon}</span>
                               <span><span className="font-semibold">Suggested: </span>{suggestion.text}</span>
@@ -2472,48 +2496,73 @@ export default function Spotlight() {
                           )}
                         </div>
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 h-7 px-2 text-xs"
-                            disabled={markFollowedUpMutation.isPending}
-                            onClick={() => markFollowedUpMutation.mutate({ customerId: customer.id, actionType: 'called' })}
-                          >
-                            <Phone className="w-3 h-3 mr-1" />
-                            Called
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 px-2 text-xs"
-                            disabled={markFollowedUpMutation.isPending}
-                            onClick={() => markFollowedUpMutation.mutate({ customerId: customer.id, actionType: 'emailed' })}
-                          >
-                            <Mail className="w-3 h-3 mr-1" />
-                            Emailed
-                          </Button>
-                          <Link
-                            href={customer.odooPartnerId ? `/odoo-contacts/${customer.odooPartnerId}` : `/odoo-contacts/${customer.id}`}
-                          >
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-violet-600 border-violet-200 hover:bg-violet-50 h-7 px-2 text-xs w-full"
-                            >
-                              <ExternalLink className="w-3 h-3 mr-1" />
-                              View
-                            </Button>
-                          </Link>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-slate-400 hover:text-slate-600 h-7 px-2 text-xs"
-                            disabled={snoozeReviewMutation.isPending}
-                            onClick={() => snoozeReviewMutation.mutate(customer.id)}
-                            title="Hide for 7 days — will reappear next week"
-                          >
-                            Next Week
-                          </Button>
+                          {isPotentiallyLost ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 px-2 text-xs bg-red-600 hover:bg-red-700"
+                                disabled={markLostMutation.isPending}
+                                onClick={() => markLostMutation.mutate({ customerId: customer.id, leadId: customer.leadId })}
+                              >
+                                <Ban className="w-3 h-3 mr-1" />
+                                Mark Lost
+                              </Button>
+                              <Link href={contactHref}>
+                                <Button size="sm" variant="outline" className="text-violet-600 border-violet-200 hover:bg-violet-50 h-7 px-2 text-xs w-full">
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  View
+                                </Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-400 hover:text-slate-600 h-7 px-2 text-xs"
+                                onClick={() => setDismissedIds(prev => new Set([...prev, customer.id]))}
+                              >
+                                Keep Trying
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 h-7 px-2 text-xs"
+                                disabled={markFollowedUpMutation.isPending}
+                                onClick={() => markFollowedUpMutation.mutate({ customerId: customer.id, actionType: 'called' })}
+                              >
+                                <Phone className="w-3 h-3 mr-1" />
+                                Called
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 px-2 text-xs"
+                                disabled={markFollowedUpMutation.isPending}
+                                onClick={() => markFollowedUpMutation.mutate({ customerId: customer.id, actionType: 'emailed' })}
+                              >
+                                <Mail className="w-3 h-3 mr-1" />
+                                Emailed
+                              </Button>
+                              <Link href={contactHref}>
+                                <Button size="sm" variant="outline" className="text-violet-600 border-violet-200 hover:bg-violet-50 h-7 px-2 text-xs w-full">
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  View
+                                </Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-400 hover:text-slate-600 h-7 px-2 text-xs"
+                                disabled={snoozeReviewMutation.isPending}
+                                onClick={() => snoozeReviewMutation.mutate(customer.id)}
+                                title="Hide for 7 days — will reappear next week"
+                              >
+                                Next Week
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

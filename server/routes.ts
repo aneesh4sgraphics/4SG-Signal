@@ -3638,37 +3638,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(customers)
         .where(inArray(customers.id, customerIds));
 
-      // Fetch all follow-up events + active snoozes for these customers in one query
-      const followUpAndSnoozeRows = await db.select({
+      // Fetch follow-up events (past 30 days), positive outcomes, and snoozes in one query
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const allActivityRows = await db.select({
         customerId: customerActivityEvents.customerId,
         eventType: customerActivityEvents.eventType,
         eventDate: customerActivityEvents.eventDate,
       }).from(customerActivityEvents)
         .where(and(
           inArray(customerActivityEvents.customerId, customerIds),
-          inArray(customerActivityEvents.eventType, ['call_made', 'email_sent', 'outreach_snoozed'])
+          inArray(customerActivityEvents.eventType, [
+            'call_made', 'email_sent', 'outreach_snoozed',
+            'quote_sent', 'sample_shipped', 'order_placed', 'meeting_scheduled',
+          ]),
+          gte(customerActivityEvents.eventDate, thirtyDaysAgo)
         ));
 
-      // Build per-customer maps for follow-ups and snoozes
+      // Build per-customer tracking maps
       const latestFollowUp = new Map<string, Date>();
+      const contactAttempts = new Map<string, number>(); // calls + emails in past 30 days
+      const hasPositiveOutcome = new Set<string>(); // quote, sample, order, meeting
       const activeSnooze = new Set<string>();
-      for (const row of followUpAndSnoozeRows) {
+
+      for (const row of allActivityRows) {
         const date = new Date(row.eventDate);
         if (row.eventType === 'outreach_snoozed') {
-          // eventDate stores the "snooze until" date — if still in the future, exclude
           if (date > now) activeSnooze.add(row.customerId);
-        } else {
-          // call_made or email_sent — track the most recent
+        } else if (row.eventType === 'call_made' || row.eventType === 'email_sent') {
           const existing = latestFollowUp.get(row.customerId);
           if (!existing || date > existing) latestFollowUp.set(row.customerId, date);
+          contactAttempts.set(row.customerId, (contactAttempts.get(row.customerId) || 0) + 1);
+        } else {
+          // Positive outcome events
+          hasPositiveOutcome.add(row.customerId);
         }
       }
+
+      // Also check for Shopify orders as a positive outcome
+      if (customerIds.length > 0) {
+        const idList = sql.join(customerIds.map(id => sql`${id}`), sql`, `);
+        const recentOrdersResult = await db.execute(
+          sql`SELECT customer_id AS "customerId" FROM shopify_orders WHERE shopify_created_at >= ${thirtyDaysAgo} AND CAST(total_price AS numeric) > 0 AND customer_id IN (${idList})`
+        ).catch(() => ({ rows: [] as { customerId: string }[] }));
+        for (const o of (recentOrdersResult.rows as { customerId: string }[])) {
+          if (o.customerId) hasPositiveOutcome.add(o.customerId);
+        }
+      }
+
+      // Find matching active leads for these customers (by email) — batch query
+      const customerEmails = customerRows.map(c => c.email).filter(Boolean) as string[];
+      const matchingLeads = customerEmails.length > 0 ? await db.select({
+        id: leads.id,
+        email: leads.email,
+        stage: leads.stage,
+      }).from(leads)
+        .where(and(
+          inArray(leads.email, customerEmails),
+          inArray(leads.stage, ['new', 'contacted', 'qualified', 'nurturing'])
+        )) : [];
+      const leadByEmail = new Map(matchingLeads.map(l => [l.email?.toLowerCase(), l]));
 
       const result = customerRows
         .map(c => {
           const acts = (actMap.get(c.id) || []).sort((a, b) => b.date.getTime() - a.date.getTime());
           const mostRecentOutreach = acts[0]?.date || new Date();
           const daysAgo = Math.floor((now.getTime() - mostRecentOutreach.getTime()) / (1000 * 60 * 60 * 24));
+          const attempts = contactAttempts.get(c.id) || 0;
+          const matchedLead = c.email ? leadByEmail.get(c.email.toLowerCase()) : undefined;
+          // Potentially lost: 3+ contact attempts in past 30 days with no positive outcome
+          const potentiallyLost = attempts >= 3 && !hasPositiveOutcome.has(c.id);
           return {
             id: c.id,
             name: [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || 'Unknown',
@@ -3685,19 +3723,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })),
             mostRecentDate: mostRecentOutreach.toISOString(),
             daysAgo,
+            contactAttempts: attempts,
+            potentiallyLost,
+            leadId: matchedLead?.id || null,
+            leadStage: matchedLead?.stage || null,
             _mostRecentOutreach: mostRecentOutreach,
           };
         })
         .filter(c => {
-          // Exclude if snoozed until a future date
           if (activeSnooze.has(c.id)) return false;
-          // Exclude if already followed up after the most recent outreach
+          // Potentially lost customers always show (bypass the "already followed up" filter)
+          if (c.potentiallyLost) return true;
+          // Normal filter: hide if followed up after most recent outreach
           const followUp = latestFollowUp.get(c.id);
           if (followUp && followUp > c._mostRecentOutreach) return false;
           return true;
         })
-        .map(({ _mostRecentOutreach: _omit, ...rest }) => rest) // strip internal field
-        .sort((a, b) => b.daysAgo - a.daysAgo); // most overdue first
+        .map(({ _mostRecentOutreach: _omit, ...rest }) => rest)
+        // Sort: potentially lost first (red cards at top), then by daysAgo desc
+        .sort((a, b) => {
+          if (a.potentiallyLost && !b.potentiallyLost) return -1;
+          if (!a.potentiallyLost && b.potentiallyLost) return 1;
+          return b.daysAgo - a.daysAgo;
+        });
 
       res.json({ customers: result, count: result.length });
     } catch (error) {
@@ -3765,6 +3813,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Snooze error:", error);
       res.status(500).json({ error: "Failed to snooze" });
+    }
+  });
+
+  // Mark a contact/lead as lost from the outreach review panel
+  app.post("/api/spotlight/outreach-review/mark-lost", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId, leadId, reason } = req.body;
+      if (!customerId) return res.status(400).json({ error: "customerId required" });
+      const userId = req.user?.id;
+      const userName = req.user?.firstName
+        ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()
+        : req.user?.email || 'Unknown';
+      const lostReason = reason || 'No response after multiple contact attempts';
+
+      // Mark the lead as lost if a leadId is provided
+      if (leadId) {
+        await db.update(leads)
+          .set({ stage: 'lost', lostReason })
+          .where(eq(leads.id, leadId));
+      }
+
+      // Log a customer activity event
+      await db.insert(customerActivityEvents).values({
+        customerId,
+        eventType: 'marked_lost',
+        title: `Marked as lost: ${lostReason}`,
+        createdBy: userId,
+        createdByName: userName,
+        eventDate: new Date(),
+      });
+
+      // Snooze for 30 days (longer snooze for lost contacts)
+      const snoozeUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await db.insert(customerActivityEvents).values({
+        customerId,
+        eventType: 'outreach_snoozed',
+        title: 'Outreach review snoozed — marked as lost',
+        createdBy: userId,
+        createdByName: userName,
+        eventDate: snoozeUntil,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mark-lost error:", error);
+      res.status(500).json({ error: "Failed to mark as lost" });
     }
   });
 
