@@ -317,9 +317,9 @@ const HINT_STYLES: Record<SpotlightHint['type'], { bg: string; border: string; i
 };
 
 const BUCKET_INFO: Record<TaskBucket, { label: string; icon: any; color: string }> = {
-  calls: { label: 'Calls', icon: PhoneCall, color: '#A855F7' },
+  calls: { label: 'Lapsed Calls', icon: PhoneCall, color: '#A855F7' },
   follow_ups: { label: 'Follow-ups', icon: RefreshCw, color: '#22C55E' },
-  outreach: { label: 'Emails', icon: Mail, color: '#F97316' },
+  outreach: { label: 'Outreach', icon: Mail, color: '#F97316' },
   data_hygiene: { label: 'Data Hygiene', icon: UserCog, color: '#6366F1' },
   enablement: { label: 'Enablement', icon: Package, color: '#06B6D4' },
 };
@@ -1910,7 +1910,7 @@ export default function Spotlight() {
           </CardDescription>
           
           {session && (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-2">
               {session.buckets.map((bucket) => {
                 const info = BUCKET_INFO[bucket.bucket];
                 const BucketIcon = info.icon;
@@ -1929,6 +1929,7 @@ export default function Spotlight() {
               })}
             </div>
           )}
+          <p className="text-[10px] text-[#BBBBBB] mb-6">Each count shows tasks completed in that category — not individual calls or emails.</p>
 
           {/* Ask if user wants to continue */}
           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
