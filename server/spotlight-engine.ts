@@ -331,40 +331,45 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'voicemail', label: 'Left Voicemail', icon: 'voicemail', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'call' } },
     { id: 'no_answer', label: 'No Answer', icon: 'phone-missed', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'call' } },
     { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_outreach_new: [
     { id: 'email_sent', label: 'Sent Email', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
     { id: 'called', label: 'Called', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 2, taskType: 'follow_up' } },
     { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
-    { id: 'not_interested', label: 'Not a Fit', icon: 'x', nextAction: { type: 'mark_complete' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_outreach_intro: [
     { id: 'email_sent', label: 'Sent Intro Email', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 5, taskType: 'follow_up' } },
     { id: 'skip', label: 'Not Now', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_follow_up_no_reply: [
     { id: 'followed_up', label: 'Followed Up', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 5, taskType: 'follow_up' } },
     { id: 'called', label: 'Called Instead', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
     { id: 'replied', label: 'Got Reply!', icon: 'check', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Give More Time', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_follow_up_nurture: [
     { id: 'sent_content', label: 'Sent Helpful Content', icon: 'file-text', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
     { id: 'called', label: 'Called to Check In', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 5, taskType: 'follow_up' } },
     { id: 'progressing', label: 'Moving Forward!', icon: 'trending-up', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Not Now', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_follow_up_stale: [
     { id: 're_engaged', label: 'Re-engaged!', icon: 'check', nextAction: { type: 'schedule_follow_up', daysUntil: 5, taskType: 'follow_up' } },
     { id: 'sent_email', label: 'Sent Re-engagement Email', icon: 'send', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
-    { id: 'lost', label: 'Mark as Lost', icon: 'x', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Try Again Later', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   lead_follow_up_qualified: [
     { id: 'followed_up', label: 'Followed Up', icon: 'check', nextAction: { type: 'schedule_follow_up', daysUntil: 5, taskType: 'follow_up' } },
     { id: 'called', label: 'Called', icon: 'phone', nextAction: { type: 'schedule_follow_up', daysUntil: 3, taskType: 'follow_up' } },
     { id: 'converting', label: 'Ready to Convert!', icon: 'star', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
+    { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
   ],
   // DRIP email tasks - reply detected (HIGH PRIORITY)
   drip_reply_urgent: [
@@ -5004,11 +5009,11 @@ class SpotlightEngine {
         await db.update(leads)
           .set({ 
             stage: 'lost',
-            lostReason: 'Bounced email - marked as do not contact',
+            lostReason: 'Marked as Not a Fit via SPOTLIGHT',
             updatedAt: new Date(),
           })
           .where(eq(leads.id, leadId));
-        console.log(`[Spotlight] Lead ${leadId} marked as lost/DNC by user ${userId}`);
+        console.log(`[Spotlight] Lead ${leadId} marked as lost/Not a Fit by user ${userId}`);
       } else {
         await db.update(customers)
           .set({ 
@@ -5400,7 +5405,9 @@ class SpotlightEngine {
       await db.insert(spotlightEvents).values({
         eventType: 'completed',
         userId,
-        customerId,
+        // Lead tasks use a synthetic 'lead-123' customerId that isn't a real customer FK
+        // Store null instead to avoid FK violation; leadId is captured in metadata
+        customerId: isLeadTask ? null : customerId,
         bucket,
         taskSubtype: subtype,
         outcomeId,
@@ -5409,7 +5416,7 @@ class SpotlightEngine {
         markedDnc,
         dayOfWeek: now.getDay(),
         hourOfDay: now.getHours(),
-        metadata: { notes, field, value },
+        metadata: { notes, field, value, ...(isLeadTask && leadId ? { leadId } : {}) },
       });
     } catch (e) {
       console.error('[Spotlight] Failed to log spotlight event:', e);
