@@ -3279,13 +3279,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get team-wide label stats for dashboard
   app.get("/api/dashboard/label-stats", isAuthenticated, async (req: any, res) => {
     try {
-      // Get totals by label type across all customers
+      // Get totals by label type across all customers (all-time)
       const stats = await db.select({
         labelType: labelPrints.labelType,
         count: sql<number>`COUNT(*)::int`,
         totalQuantity: sql<number>`SUM(${labelPrints.quantity})::int`,
       })
       .from(labelPrints)
+      .groupBy(labelPrints.labelType);
+
+      // Get this-month totals by label type
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisMonthStats = await db.select({
+        labelType: labelPrints.labelType,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(labelPrints)
+      .where(gte(labelPrints.createdAt, monthStart))
       .groupBy(labelPrints.labelType);
 
       // Get totals by user (who printed the most)
@@ -3311,8 +3322,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .orderBy(desc(labelPrints.createdAt))
       .limit(10);
 
-      // Calculate grand total
+      // Calculate totals
       const grandTotal = stats.reduce((sum, s) => sum + (s.count || 0), 0);
+      const thisMonthTotal = thisMonthStats.reduce((sum, s) => sum + (s.count || 0), 0);
+
+      // Last day of current month for deadline display
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+      const deadline = `${monthName} ${lastDay.getDate()}, ${lastDay.getFullYear()}`;
 
       res.json({
         stats: stats.map(s => ({
@@ -3321,6 +3338,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           count: s.count || 0,
           totalQuantity: s.totalQuantity || 0,
         })),
+        thisMonthStats: thisMonthStats.map(s => ({
+          labelType: s.labelType,
+          label: LABEL_TYPE_LABELS[s.labelType as keyof typeof LABEL_TYPE_LABELS] || s.labelType,
+          count: s.count || 0,
+        })),
+        thisMonthTotal,
+        deadline,
         byUser,
         recentPrints,
         grandTotal

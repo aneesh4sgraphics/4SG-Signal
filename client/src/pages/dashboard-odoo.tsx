@@ -176,6 +176,9 @@ export default function Dashboard() {
 
   interface LabelDashboardStats {
     stats: Array<{ labelType: string; label: string; count: number; totalQuantity: number }>;
+    thisMonthStats: Array<{ labelType: string; label: string; count: number }>;
+    thisMonthTotal: number;
+    deadline: string;
     byUser: Array<{ userId: string; userName: string | null; count: number }>;
     recentPrints: Array<{ id: number; labelType: string; customerId: string; printedByUserName: string | null; createdAt: string }>;
     grandTotal: number;
@@ -740,75 +743,134 @@ export default function Dashboard() {
           </div>
 
           {/* Outbound Marketing Kits */}
-          <div style={{ marginBottom: '24px' }}>
-            <div 
-              onClick={() => labelDashboardStats && labelDashboardStats.grandTotal > 0 && setShowOutboundKitsDialog(true)}
-              style={{
-                background: '#FFFFFF',
-                borderRadius: '12px',
-                border: '1px solid #EAEAEA',
-                padding: '20px 24px',
-                cursor: labelDashboardStats && labelDashboardStats.grandTotal > 0 ? 'pointer' : 'default',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                if (labelDashboardStats && labelDashboardStats.grandTotal > 0) {
-                  e.currentTarget.style.borderColor = '#6366F1';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.15)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#EAEAEA';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: labelDashboardStats && labelDashboardStats.grandTotal > 0 ? '16px' : '0' }}>
+          {(() => {
+            const MONTHLY_GOAL = 50;
+            const thisMonthTotal = labelDashboardStats?.thisMonthTotal ?? 0;
+            const progressPct = Math.min(100, Math.round((thisMonthTotal / MONTHLY_GOAL) * 100));
+            const deadline = labelDashboardStats?.deadline ?? '';
+            const typeRows: Array<{ key: string; icon: string; label: string }> = [
+              { key: 'swatch_book', icon: '📚', label: 'Swatch Books' },
+              { key: 'press_test_kit', icon: '🧪', label: 'Press Test Kits' },
+              { key: 'mailer', icon: '📬', label: 'Mailers' },
+              { key: 'other', icon: '📦', label: 'Something Else' },
+            ];
+            const getMonthCount = (typeKey: string) =>
+              labelDashboardStats?.thisMonthStats?.find(s => s.labelType === typeKey)?.count ?? 0;
+            return (
+              <div style={{ marginBottom: '24px' }}>
                 <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid #EAEAEA',
+                  padding: '20px 24px',
                 }}>
-                  <Package size={18} style={{ color: '#FFFFFF' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#111111' }}>Outbound Marketing Kits</div>
-                  <div style={{ fontSize: '12px', color: '#666666' }}>
-                    {labelDashboardStats && labelDashboardStats.grandTotal > 0 
-                      ? 'Click to view all sent materials' 
-                      : 'Print labels from contact pages to start tracking'}
+                  {/* Header row */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <Package size={18} style={{ color: '#FFFFFF' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#111111' }}>Outbound Marketing Kits</span>
+                        <span style={{ fontSize: '12px', color: '#888888' }}>
+                          Physical touchpoints drive significantly more responses than email alone
+                        </span>
+                      </div>
+                      {deadline && (
+                        <div style={{ fontSize: '12px', color: '#F59E0B', fontWeight: 500, marginTop: '2px' }}>
+                          Monthly goal: {MONTHLY_GOAL} kits by {deadline}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      onClick={() => labelDashboardStats && labelDashboardStats.grandTotal > 0 && setShowOutboundKitsDialog(true)}
+                      style={{
+                        cursor: labelDashboardStats && labelDashboardStats.grandTotal > 0 ? 'pointer' : 'default',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <span style={{ fontSize: '22px', fontWeight: 700, color: '#6366F1' }}>{thisMonthTotal}</span>
+                      <span style={{ fontSize: '12px', color: '#999999', alignSelf: 'flex-end', paddingBottom: '2px' }}>/ {MONTHLY_GOAL}</span>
+                      {labelDashboardStats && labelDashboardStats.grandTotal > 0 && (
+                        <ChevronRight size={16} style={{ color: '#999999', marginLeft: '2px' }} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{
+                      height: '8px',
+                      borderRadius: '4px',
+                      background: '#F3F4F6',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${progressPct}%`,
+                        borderRadius: '4px',
+                        background: progressPct >= 100
+                          ? 'linear-gradient(90deg, #10B981, #059669)'
+                          : progressPct >= 60
+                          ? 'linear-gradient(90deg, #6366F1, #8B5CF6)'
+                          : 'linear-gradient(90deg, #F59E0B, #F97316)',
+                        transition: 'width 0.4s ease',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#888888' }}>
+                        {thisMonthTotal === 0
+                          ? 'No kits sent yet this month — print labels from any contact page'
+                          : `${thisMonthTotal} sent so far · ${Math.max(0, MONTHLY_GOAL - thisMonthTotal)} to go`}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#888888', fontWeight: 500 }}>{progressPct}%</span>
+                    </div>
+                  </div>
+
+                  {/* Type breakdown — always visible */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {typeRows.map(({ key, icon, label }) => {
+                      const count = getMonthCount(key);
+                      return (
+                        <div key={key} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: count > 0 ? '#F5F3FF' : '#F9F9F9',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
+                        }}>
+                          <span style={{ fontSize: '12px', color: count > 0 ? '#5B21B6' : '#AAAAAA' }}>
+                            {icon} {label}
+                          </span>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            color: count > 0 ? '#6D28D9' : '#CCCCCC',
+                            minWidth: '20px',
+                            textAlign: 'right',
+                          }}>
+                            {count}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '24px', fontWeight: 700, color: '#6366F1' }}>
-                    {labelDashboardStats?.grandTotal ?? 0}
-                  </span>
-                  {labelDashboardStats && labelDashboardStats.grandTotal > 0 && (
-                    <ChevronRight size={20} style={{ color: '#999999' }} />
-                  )}
-                </div>
               </div>
-              {labelDashboardStats && labelDashboardStats.grandTotal > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {labelDashboardStats.stats.map(stat => (
-                    <div key={stat.labelType} style={{
-                      background: '#F5F3FF',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      color: '#7C3AED',
-                      fontWeight: 500,
-                    }}>
-                      {stat.label}: {stat.count}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Outbound Kits Dialog */}
           <Dialog open={showOutboundKitsDialog} onOpenChange={setShowOutboundKitsDialog}>
