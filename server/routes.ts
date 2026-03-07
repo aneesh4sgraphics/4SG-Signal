@@ -7381,6 +7381,70 @@ Return only the JSON object. No markdown, no code blocks.`
     }
   });
 
+  // Cleanup contacts deleted from Odoo: compares local customers against live Odoo partner list
+  app.post("/api/admin/cleanup-deleted-odoo-contacts", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { odooClient: odoo } = await import('./odoo');
+
+      console.log("[Odoo Cleanup] Fetching all active partner IDs from Odoo...");
+      // Fetch only IDs of all active partners — fast and lightweight
+      const odooPartnerIds: number[] = await odoo.search('res.partner', [['active', '=', true]]);
+      const odooPartnerIdSet = new Set(odooPartnerIds);
+      console.log(`[Odoo Cleanup] Found ${odooPartnerIdSet.size} active partners in Odoo`);
+
+      // Find local customers with an odooPartnerId that no longer exists in Odoo
+      const localWithOdooId = await db.select({
+        id: customers.id,
+        odooPartnerId: customers.odooPartnerId,
+        company: customers.company,
+        email: customers.email,
+      }).from(customers).where(isNotNull(customers.odooPartnerId));
+
+      const stale = localWithOdooId.filter(c => c.odooPartnerId !== null && !odooPartnerIdSet.has(c.odooPartnerId!));
+      console.log(`[Odoo Cleanup] Found ${stale.length} local contacts whose Odoo partner no longer exists`);
+
+      if (stale.length === 0) {
+        return res.json({ success: true, deleted: 0, skipped: 0, message: "All contacts are in sync with Odoo" });
+      }
+
+      // For each stale contact, check if they have Shopify orders — if so, skip (keep history)
+      const staleIds = stale.map(c => c.id);
+      const withOrders = await db.execute(
+        sql`SELECT DISTINCT customer_id FROM shopify_orders WHERE customer_id IN (${sql.join(staleIds.map(id => sql`${id}`), sql`, `)})`
+      ).then(r => new Set((r.rows as { customer_id: string }[]).map(r => r.customer_id)));
+
+      const toDelete = stale.filter(c => !withOrders.has(c.id));
+      const skipped = stale.filter(c => withOrders.has(c.id));
+
+      if (skipped.length > 0) {
+        console.log(`[Odoo Cleanup] Skipping ${skipped.length} contacts with Shopify order history: ${skipped.map(c => c.company || c.email).slice(0, 5).join(', ')}`);
+      }
+
+      let deleted = 0;
+      if (toDelete.length > 0) {
+        const idsToDelete = toDelete.map(c => c.id);
+        console.log(`[Odoo Cleanup] Deleting ${idsToDelete.length} stale contacts: ${toDelete.map(c => c.company || c.email).slice(0, 10).join(', ')}`);
+        const BATCH = 100;
+        for (let i = 0; i < idsToDelete.length; i += BATCH) {
+          await db.delete(customers).where(inArray(customers.id, idsToDelete.slice(i, i + BATCH)));
+        }
+        deleted = idsToDelete.length;
+        setCachedData("customers", null);
+      }
+
+      res.json({
+        success: true,
+        deleted,
+        skipped: skipped.length,
+        skippedDetails: skipped.map(c => ({ id: c.id, name: c.company || c.email, odooPartnerId: c.odooPartnerId })),
+        message: `Deleted ${deleted} stale contact(s). Skipped ${skipped.length} with order history.`,
+      });
+    } catch (error: any) {
+      console.error("[Odoo Cleanup] Error:", error.message);
+      res.status(500).json({ error: error.message || "Cleanup failed" });
+    }
+  });
+
   // Upload pricing CSV for Price Management (REPLACED - See line 2296 for active endpoint)
   app.post("/api/upload-pricing-csv-OLD", upload.single('file'), async (req, res) => {
     try {
@@ -16230,11 +16294,36 @@ Return only the JSON object. No markdown, no code blocks.`
       }
       
       console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skippedExistingCustomer} skipped (already in Contacts)`);
-      
+
+      // --- Cleanup: delete local leads whose Odoo ID no longer exists in Odoo ---
+      // These were deleted in Odoo, so remove them here too (skip converted leads)
+      let deleted = 0;
+      const odooLeadIdSet = new Set(odooLeads.map((l: any) => l.id));
+      const localLeadsWithOdooId = await db.select({ id: leads.id, odooLeadId: leads.odooLeadId, stage: leads.stage })
+        .from(leads)
+        .where(isNotNull(leads.odooLeadId));
+
+      const toDelete = localLeadsWithOdooId.filter(l =>
+        l.odooLeadId !== null &&
+        !odooLeadIdSet.has(l.odooLeadId) &&
+        l.stage !== 'converted'
+      );
+
+      if (toDelete.length > 0) {
+        const idsToDelete = toDelete.map(l => l.id);
+        console.log(`[Leads] Deleting ${idsToDelete.length} leads removed from Odoo: ${idsToDelete.slice(0, 10).join(', ')}${idsToDelete.length > 10 ? '...' : ''}`);
+        const BATCH_DEL = 100;
+        for (let i = 0; i < idsToDelete.length; i += BATCH_DEL) {
+          await db.delete(leads).where(inArray(leads.id, idsToDelete.slice(i, i + BATCH_DEL)));
+        }
+        deleted = idsToDelete.length;
+      }
+
       res.json({
         success: true,
         imported,
         updated,
+        deleted,
         skipped: 0,
         skippedExistingCustomer,
         total: odooLeads.length
