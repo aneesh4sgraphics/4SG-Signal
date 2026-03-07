@@ -204,6 +204,49 @@ export default function CalendarPage() {
     }
   };
 
+  const getEventPillLabel = (event: CalendarEvent): string => {
+    if (event.source === 'google') return event.title;
+
+    const taskTypeShort: Record<string, string> = {
+      follow_up: 'FU',
+      call: 'Call',
+      email: 'Email',
+      quote_follow_up: 'Quote FU',
+      outreach: 'Outreach',
+      swatch_book: 'SB',
+      press_test_kit: 'PTK',
+      data_hygiene: 'Hygiene',
+      sample: 'Sample',
+    };
+
+    const parts: string[] = [];
+
+    if (event.customerName) {
+      const words = event.customerName.trim().split(/\s+/);
+      const shortName = words.length > 1
+        ? words.slice(0, 2).join(' ')
+        : event.customerName;
+      parts.push(shortName.length > 16 ? shortName.slice(0, 15) + '…' : shortName);
+    }
+
+    if (event.taskType) {
+      const short = taskTypeShort[event.taskType];
+      if (short) parts.push(short);
+    }
+
+    if (event.assignedToName) {
+      const initials = event.assignedToName
+        .trim()
+        .split(/\s+/)
+        .map(n => n[0]?.toUpperCase() || '')
+        .join('')
+        .slice(0, 2);
+      if (initials) parts.push(initials);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : event.title;
+  };
+
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
@@ -318,7 +361,7 @@ export default function CalendarPage() {
                         }`}
                         title={event.title}
                       >
-                        {event.title}
+                        {getEventPillLabel(event)}
                       </div>
                     ))}
                     {dayEvents.length > 3 && (
