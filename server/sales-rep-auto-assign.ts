@@ -2,11 +2,11 @@ import { db } from "./db";
 import { customers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-// Sales rep assignments with user IDs
+// Sales rep assignments — IDs match Odoo res.users IDs
 export const SALES_REPS = {
-  santiago: { id: '45165274', name: 'Santiago', email: 'santiago@4sgraphics.com' },
-  patricio: { id: '45163473', name: 'Patricio', email: 'patricio@4sgraphics.com' },
-  aneesh: { id: '45980257', name: 'Aneesh', email: 'aneesh@4sgraphics.com' },
+  aneesh:   { id: '26', name: 'Aneesh Prabhu',        email: 'aneesh@4sgraphics.com' },
+  patricio: { id: '27', name: 'Patricio Delgado',     email: 'patricio@4sgraphics.com' },
+  santiago: { id: '28', name: 'Santiago Castellanos', email: 'santiago@4sgraphics.com' },
 };
 
 // Latin American / Spanish-speaking countries

@@ -3051,11 +3051,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             activityCounts[a.eventType] = Number(a.count);
           }
 
-          // Get rep display name
+          // Get rep display name from users table
           const repEmail = emailData.sentBy;
-          const repRows = await db.select({ firstName: customers.firstName, lastName: customers.lastName })
-            .from(customers)
-            .where(eq(customers.email, repEmail))
+          const repRows = await db.select({ firstName: users.firstName, lastName: users.lastName })
+            .from(users)
+            .where(eq(users.email, repEmail))
             .limit(1);
           const repName = repRows[0]
             ? [repRows[0].firstName, repRows[0].lastName].filter(Boolean).join(' ') || repEmail?.split('@')[0]

@@ -474,6 +474,22 @@ class SpotlightEngine {
   private prefetchedTask: Map<string, { task: SpotlightTask; generatedAt: number }> = new Map();
   private prefetchInProgress: Set<string> = new Set();
   private excludeListCache: Map<string, { excludeIds: string[]; generatedAt: number }> = new Map();
+  private odooRepIdCache: Map<string, string> = new Map(); // userId -> odooUserId (or userId if not found)
+
+  /** Returns the Odoo user ID for territory filtering. Falls back to userId if not found.
+   *  All salesRepId values in customers/leads are normalized to Odoo user IDs. */
+  private async getOdooRepId(userId: string): Promise<string> {
+    if (this.odooRepIdCache.has(userId)) return this.odooRepIdCache.get(userId)!;
+    try {
+      const [user] = await db.select({ odooUserId: users.odooUserId })
+        .from(users).where(eq(users.id, userId)).limit(1);
+      const repId = user?.odooUserId ? String(user.odooUserId) : userId;
+      this.odooRepIdCache.set(userId, repId);
+      return repId;
+    } catch {
+      return userId;
+    }
+  }
   private static PREFETCH_TTL = 30 * 1000; // 30 second TTL for prefetched tasks
   private static EXCLUDE_CACHE_TTL = 10 * 1000; // 10 second TTL for exclude lists
 
@@ -960,6 +976,7 @@ class SpotlightEngine {
     dueAt?: Date;
     payload?: Record<string, any>;
   }>> {
+    const repId = await this.getOdooRepId(userId);
     const candidates: Array<{ customerId: string; priority: number; whyNow: string; dueAt?: Date; payload?: Record<string, any> }> = [];
     
     switch (type) {
@@ -969,7 +986,7 @@ class SpotlightEngine {
           .where(and(
             isNotNull(customers.phone),
             eq(customers.doNotContact, false),
-            or(isNull(customers.salesRepId), eq(customers.salesRepId, userId))
+            or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
           ))
           .orderBy(asc(customers.updatedAt))
           .limit(quota);
@@ -1021,7 +1038,7 @@ class SpotlightEngine {
             isNotNull(customers.email),
             isNotNull(customers.pricingTier),
             eq(customers.doNotContact, false),
-            or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+            or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
             or(isNull(customers.updatedAt), lt(customers.updatedAt, thirtyDaysAgo))
           ))
           .orderBy(asc(customers.updatedAt))
@@ -1094,7 +1111,7 @@ class SpotlightEngine {
               isNotNull(customers.phone),
               isNotNull(customers.salesRepId),
               eq(customers.doNotContact, false),
-              or(isNull(customers.salesRepId), eq(customers.salesRepId, userId))
+              or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
             ))
             .orderBy(asc(customers.updatedAt))
             .limit(Math.min(5, quota - hygieneCount));
@@ -1123,7 +1140,7 @@ class SpotlightEngine {
           .where(and(
             isNotNull(customers.pricingTier),
             eq(customers.doNotContact, false),
-            or(isNull(customers.salesRepId), eq(customers.salesRepId, userId))
+            or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
           ))
           .orderBy(asc(customers.updatedAt))
           .limit(quota);
@@ -2020,6 +2037,7 @@ class SpotlightEngine {
   }
 
   private async diagnoseEmptyReason(userId: string): Promise<{ emptyReason: string; emptyDetail: string }> {
+    const repId = await this.getOdooRepId(userId);
     try {
       const totalCustomers = await db.select({ count: sql<number>`count(*)` })
         .from(customers)
@@ -2034,7 +2052,7 @@ class SpotlightEngine {
         .from(customers)
         .where(and(
           eq(customers.doNotContact, false),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId))
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
         ));
       const assignedCount = Number(assigned[0]?.count || 0);
 
@@ -2046,7 +2064,7 @@ class SpotlightEngine {
         .from(customers)
         .where(and(
           eq(customers.doNotContact, false),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           isNotNull(customers.email),
           sql`${customers.email} != ''`
         ));
@@ -2056,7 +2074,7 @@ class SpotlightEngine {
         .from(customers)
         .where(and(
           eq(customers.doNotContact, false),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           isNotNull(customers.phone),
           sql`${customers.phone} != ''`
         ));
@@ -2079,6 +2097,7 @@ class SpotlightEngine {
   
   // Find tasks based on user-selected work type focus
   private async findTaskByWorkType(userId: string, excludeIds: string[], workType: string): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     const customerExcludeIds = excludeIds.filter(id => !id.startsWith('lead-'));
     
     switch (workType) {
@@ -2240,6 +2259,7 @@ class SpotlightEngine {
   }
 
   private async findCallTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     // PRIORITY 0: Check for DRIP email replies - HIGHEST PRIORITY
     const customerSkippedIds = skippedIds.filter(id => !id.startsWith('lead-'));
     const dripReplyTask = await this.findDripReplyTask(userId, customerSkippedIds);
@@ -2264,7 +2284,7 @@ class SpotlightEngine {
       isNotNull(customers.phone),
       or(
         isNull(customers.salesRepId),
-        eq(customers.salesRepId, userId)
+        eq(customers.salesRepId, repId)
       ),
       // Exclude internal 4sgraphics contacts from SPOTLIGHT
       sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
@@ -2311,6 +2331,7 @@ class SpotlightEngine {
 
   // Find DRIP email replies - customers who replied to a drip campaign email
   private async findDripReplyTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       // Find drip emails sent in the last 30 days that have replies in Gmail
       const thirtyDaysAgo = new Date();
@@ -2356,7 +2377,7 @@ class SpotlightEngine {
           eq(dripCampaignStepStatus.status, 'sent'),
           gte(dripCampaignStepStatus.sentAt, thirtyDaysAgo),
           eq(customers.doNotContact, false),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           ...(skippedIds.length > 0 ? [notInArray(customers.id, skippedIds)] : [])
         ))
         .orderBy(desc(dripCampaignStepStatus.sentAt))
@@ -2440,6 +2461,7 @@ class SpotlightEngine {
 
   // Find stale DRIP campaigns - 10 days since last email with no response
   private async findDripStaleFollowupTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
@@ -2481,7 +2503,7 @@ class SpotlightEngine {
         .where(and(
           or(eq(dripCampaignAssignments.status, 'completed'), eq(dripCampaignAssignments.status, 'active')),
           eq(customers.doNotContact, false),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           ...(skippedIds.length > 0 ? [notInArray(customers.id, skippedIds)] : [])
         ))
         .groupBy(
@@ -2569,6 +2591,7 @@ class SpotlightEngine {
 
   // Find customers with pending Odoo quotations (draft/sent state, not converted to sales order)
   private async findOdooQuoteFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     // Skip if Odoo is not configured
     if (!isOdooConfigured()) {
       return null;
@@ -2581,7 +2604,7 @@ class SpotlightEngine {
         eq(customers.doNotContact, false),
         or(
           isNull(customers.salesRepId),
-          eq(customers.salesRepId, userId)
+          eq(customers.salesRepId, repId)
         ),
       ];
 
@@ -2698,6 +2721,7 @@ class SpotlightEngine {
 
   // Find customers who received $0.00 sample orders and may need follow-up
   private async findOdooSampleOrderFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     // Skip if Odoo is not configured
     if (!isOdooConfigured()) {
       return null;
@@ -2726,7 +2750,7 @@ class SpotlightEngine {
         eq(customers.doNotContact, false),
         or(
           isNull(customers.salesRepId),
-          eq(customers.salesRepId, userId)
+          eq(customers.salesRepId, repId)
         ),
       ];
 
@@ -2865,6 +2889,7 @@ class SpotlightEngine {
   }
 
   private async findOpportunitySampleFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       const { opportunityEngine } = await import("./opportunity-engine");
       const followUps = await opportunityEngine.getSampleShipmentsNeedingFollowUp();
@@ -2885,7 +2910,7 @@ class SpotlightEngine {
           .limit(1);
         
         if (!cust || cust.doNotContact) continue;
-        if (cust.salesRepId && cust.salesRepId !== userId) continue;
+        if (cust.salesRepId && cust.salesRepId !== repId) continue;
         
         const step = (shipment.followUpStep || 0) + 1;
         const history = (shipment.followUpHistory || []) as any[];
@@ -2962,10 +2987,11 @@ class SpotlightEngine {
   }
 
   private async findOpportunityTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       const { opportunityEngine } = await import("./opportunity-engine");
       const opportunities = await opportunityEngine.getTopOpportunities({
-        salesRepId: userId,
+        salesRepId: repId,
         minScore: 30,
         limit: 20,
       });
@@ -2999,7 +3025,7 @@ class SpotlightEngine {
           .limit(1);
 
         if (!cust || cust.doNotContact) continue;
-        if (cust.salesRepId && cust.salesRepId !== userId) continue;
+        if (cust.salesRepId && cust.salesRepId !== repId) continue;
 
         const alreadyHandled = await db
           .select({ id: spotlightEvents.id })
@@ -3117,6 +3143,7 @@ class SpotlightEngine {
   }
 
   private async findFollowUpTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     const now = new Date();
     const customerSkippedIds = skippedIds.filter(id => !id.startsWith('lead-'));
     
@@ -3559,7 +3586,7 @@ class SpotlightEngine {
       .where(and(
         ...conditions,
         // Only show tasks for contacts assigned to this user OR unassigned contacts
-        or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+        or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
         // Exclude internal 4sgraphics contacts from SPOTLIGHT
         or(isNull(customers.email), sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`)
       ))
@@ -3669,6 +3696,7 @@ class SpotlightEngine {
   }
 
   private async findOutreachTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     // PRIORITY 1: New leads that need first contact (trust building step 1)
     const skippedLeadIds = skippedIds
       .filter(id => id.startsWith('lead-'))
@@ -3704,7 +3732,7 @@ class SpotlightEngine {
           isNotNull(customers.email),
           sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
           isNull(customers.swatchbookSentAt),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           or(isNull(customers.updatedAt), lt(customers.updatedAt, twoWeeksAgo)),
           inArray(customers.id, engagedIds),
         ];
@@ -3744,7 +3772,7 @@ class SpotlightEngine {
         sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
         isNotNull(customers.swatchbookSentAt),
         eq(customers.totalOrders, 0),
-        or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+        or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
         or(isNull(customers.updatedAt), lt(customers.updatedAt, twoWeeksAgo)),
       ];
       if (customerSkippedIds.length > 0) mailerBConditions.push(notInArray(customers.id, customerSkippedIds));
@@ -3788,7 +3816,7 @@ class SpotlightEngine {
       isNotNull(customers.pricingTier),
       or(
         isNull(customers.salesRepId),
-        eq(customers.salesRepId, userId)
+        eq(customers.salesRepId, repId)
       ),
       or(
         isNull(customers.updatedAt),
@@ -3868,6 +3896,7 @@ class SpotlightEngine {
   }
 
   private async findHygieneTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     // Build a SQL condition to exclude generic email domains (deprioritized)
     // These customers are saved for last when all other hygiene work is done
     const genericEmailConditions = GENERIC_EMAIL_DOMAINS.map(domain => 
@@ -3964,7 +3993,7 @@ class SpotlightEngine {
           isNotNull(customers.email),
           isNotNull(customers.phone),
           isNotNull(customers.pricingTier),
-          or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+          or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
           sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
         ];
         // Exclude generic email domains for machine hygiene (they're deprioritized)
@@ -4049,7 +4078,7 @@ class SpotlightEngine {
         whereConditions.push(
           or(
             isNull(customers.salesRepId),
-            eq(customers.salesRepId, userId)
+            eq(customers.salesRepId, repId)
           )
         );
       }
@@ -4143,7 +4172,7 @@ class SpotlightEngine {
     let leadConditions: any[] = [
       isNull(leads.customerType),
       notInArray(leads.stage, ['converted', 'lost']),
-      or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+      or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
     ];
     
     if (skippedLeadIds.length > 0) {
@@ -4269,7 +4298,7 @@ class SpotlightEngine {
             .where(and(
               eq(customers.id, bounce.customerId),
               eq(customers.doNotContact, false),
-              or(isNull(customers.salesRepId), eq(customers.salesRepId, userId)),
+              or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
             ))
             .limit(1);
           
@@ -4345,7 +4374,7 @@ class SpotlightEngine {
       isNotNull(customers.address1),
       or(
         isNull(customers.salesRepId),
-        eq(customers.salesRepId, userId)
+        eq(customers.salesRepId, repId)
       ),
       // Exclude internal 4sgraphics contacts from SPOTLIGHT
       sql`LOWER(${customers.email}) NOT LIKE '%4sgraphics%'`,
@@ -4407,7 +4436,7 @@ class SpotlightEngine {
     conditions.push(
       or(
         isNull(customers.salesRepId),
-        eq(customers.salesRepId, userId)
+        eq(customers.salesRepId, repId)
       )
     );
 
@@ -4660,6 +4689,7 @@ class SpotlightEngine {
 
   // Find hot/urgent leads that need calls (for the calls bucket)
   private async findLeadCallTask(userId: string, skippedLeadIds: number[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       let conditions = [
         // Only active leads (not converted or lost)
@@ -4667,7 +4697,7 @@ class SpotlightEngine {
         // Has phone number
         or(isNotNull(leads.phone), isNotNull(leads.mobile)),
         // Assigned to this user or unassigned
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
         // Priority conditions - only hot/urgent/qualified leads for calls
         or(
           eq(leads.priority, 'urgent'),
@@ -4709,6 +4739,7 @@ class SpotlightEngine {
 
   // Find new leads for outreach (for the outreach bucket)
   private async findLeadOutreachTask(userId: string, skippedLeadIds: number[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     try {
       let conditions = [
         // Only new or contacted leads that haven't been emailed yet
@@ -4718,7 +4749,7 @@ class SpotlightEngine {
         // Not yet emailed (trust building step 1)
         isNull(leads.firstEmailSentAt),
         // Assigned to this user or unassigned
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4751,6 +4782,7 @@ class SpotlightEngine {
 
   // Find leads that need follow-up (for the follow_ups bucket)
   private async findLeadFollowUpTask(userId: string, skippedLeadIds: number[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     const sevenDaysAgo = new Date();
@@ -4770,7 +4802,7 @@ class SpotlightEngine {
         isNotNull(leads.firstEmailSentAt),
         isNull(leads.firstEmailReplyAt),
         lt(leads.firstEmailSentAt, threeDaysAgo),
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4792,7 +4824,7 @@ class SpotlightEngine {
       conditions = [
         eq(leads.stage, 'qualified'),
         or(isNull(leads.lastContactAt), lt(leads.lastContactAt, threeDaysAgo)),
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4814,7 +4846,7 @@ class SpotlightEngine {
       conditions = [
         eq(leads.stage, 'nurturing'),
         or(isNull(leads.lastContactAt), lt(leads.lastContactAt, fourteenDaysAgo)),
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4836,7 +4868,7 @@ class SpotlightEngine {
       conditions = [
         inArray(leads.stage, ['contacted', 'nurturing']),
         or(isNull(leads.lastContactAt), lt(leads.lastContactAt, sevenDaysAgo)),
-        or(isNull(leads.salesRepId), eq(leads.salesRepId, userId)),
+        or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -5379,7 +5411,8 @@ class SpotlightEngine {
           
           // Assign to this sales rep if unassigned
           if (!currentLead.salesRepId) {
-            leadUpdateData.salesRepId = userId;
+            const assignRepId = await this.getOdooRepId(userId);
+            leadUpdateData.salesRepId = assignRepId;
             // Get sales rep name
             const [rep] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
               .from(users)
