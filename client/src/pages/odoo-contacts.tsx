@@ -133,32 +133,46 @@ export default function OdooContacts() {
   const [, navigate] = useLocation();
   
   // View state - Default to cards view
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortField, setSortField] = useState<SortField>('updatedAt');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const CONTACTS_SESSION_KEY = 'contacts_view_state';
+
+  const getSessionState = () => {
+    try {
+      const raw = sessionStorage.getItem(CONTACTS_SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+
+  const ss = getSessionState();
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => ss?.viewMode ?? 'cards');
+  const [searchQuery, setSearchQuery] = useState<string>(() => ss?.searchQuery ?? '');
+  const [debouncedSearch, setDebouncedSearch] = useState(ss?.searchQuery ?? '');
+  const [sortField, setSortField] = useState<SortField>(() => ss?.sortField ?? 'updatedAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>(() => ss?.sortOrder ?? 'desc');
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [detailContact, setDetailContact] = useState<Contact | null>(null);
   const [editingField, setEditingField] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   
   // Filters - Default to showing only companies
-  const [filters, setFilters] = useState({
-    isCompany: true as boolean | null,
-    pricingTier: null as string | null,
-    hasEmail: null as boolean | null,
-    hasWebsite: null as boolean | null,
-    hasPhone: null as boolean | null,
-    hasAddress: null as boolean | null,
-    hasPricingTier: null as boolean | null,
-    isHotProspect: null as boolean | null,
-    state: null as string | null,
+  const [filters, setFilters] = useState(() => {
+    const saved = ss?.filters;
+    return {
+      isCompany: saved?.isCompany !== undefined ? saved.isCompany : (true as boolean | null),
+      pricingTier: saved?.pricingTier ?? (null as string | null),
+      hasEmail: saved?.hasEmail ?? (null as boolean | null),
+      hasWebsite: saved?.hasWebsite ?? (null as boolean | null),
+      hasPhone: saved?.hasPhone ?? (null as boolean | null),
+      hasAddress: saved?.hasAddress ?? (null as boolean | null),
+      hasPricingTier: saved?.hasPricingTier ?? (null as boolean | null),
+      isHotProspect: saved?.isHotProspect ?? (null as boolean | null),
+      state: saved?.state ?? (null as string | null),
+    };
   });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState<boolean>(() => ss?.showFilters ?? false);
   
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(() => ss?.currentPage ?? 1);
   const [pageSize] = useState(50);
   
   // Bulk edit state
@@ -233,6 +247,21 @@ export default function OdooContacts() {
   };
 
   // Debounced search
+  // Persist view state to sessionStorage so it survives navigation
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CONTACTS_SESSION_KEY, JSON.stringify({
+        viewMode,
+        searchQuery,
+        sortField,
+        sortOrder,
+        filters,
+        showFilters,
+        currentPage,
+      }));
+    } catch { /* ignore quota errors */ }
+  }, [viewMode, searchQuery, sortField, sortOrder, filters, showFilters, currentPage]);
+
   const debouncedSetSearch = useCallback(
     debounce((value: string) => {
       setDebouncedSearch(value);
