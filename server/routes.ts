@@ -5960,8 +5960,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const createdCustomer = await storage.createCustomer(customer);
+      let createdCustomer = await storage.createCustomer(customer);
       
+      // EMAIL DOMAIN PROPAGATION on create: inherit pricing tier from same-domain contacts
+      if (!createdCustomer.pricingTier && createdCustomer.email) {
+        try {
+          const emailDomain = createdCustomer.email.split('@')[1]?.toLowerCase();
+          const genericDomains = ['gmail.com','yahoo.com','aol.com','hotmail.com','outlook.com','icloud.com','mail.com','msn.com','live.com','ymail.com','protonmail.com','zoho.com','comcast.net','att.net','verizon.net','sbcglobal.net','cox.net','charter.net','earthlink.net','me.com','mac.com'];
+          if (emailDomain && !genericDomains.includes(emailDomain)) {
+            const [domainMatch] = await db.select({ pricingTier: customers.pricingTier })
+              .from(customers)
+              .where(and(
+                sql`LOWER(SPLIT_PART(COALESCE(${customers.email}, ''), '@', 2)) = ${emailDomain}`,
+                isNotNull(customers.pricingTier),
+                ne(customers.id, createdCustomer.id),
+              ))
+              .orderBy(desc(customers.updatedAt))
+              .limit(1);
+            if (domainMatch?.pricingTier) {
+              await db.update(customers).set({ pricingTier: domainMatch.pricingTier }).where(eq(customers.id, createdCustomer.id));
+              createdCustomer = { ...createdCustomer, pricingTier: domainMatch.pricingTier };
+              console.log(`[Domain Pricing] New customer ${createdCustomer.email} inherited ${domainMatch.pricingTier} from domain @${emailDomain}`);
+            }
+          }
+        } catch (domainErr) {
+          console.error('[Domain Pricing] Error on create propagation:', domainErr);
+        }
+      }
+
       // Auto-assign sales rep based on location rules if not already assigned
       if (!createdCustomer.salesRepId) {
         const assignResult = await autoAssignSalesRepIfNeeded(
