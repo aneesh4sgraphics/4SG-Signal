@@ -1345,6 +1345,9 @@ export const customerActivityEvents = pgTable("customer_activity_events", {
   createdBy: varchar("created_by"),
   createdByName: varchar("created_by_name", { length: 255 }),
   
+  // Extra context (mailer thumbnail path, etc.)
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+
   // Timestamps
   eventDate: timestamp("event_date").defaultNow(), // When the event occurred
   createdAt: timestamp("created_at").defaultNow(),
@@ -3316,6 +3319,20 @@ export const insertSpotlightCoachTipSchema = createInsertSchema(spotlightCoachTi
 });
 export type SpotlightCoachTip = typeof spotlightCoachTips.$inferSelect;
 export type InsertSpotlightCoachTip = z.infer<typeof insertSpotlightCoachTipSchema>;
+
+// Mailer Types - admin-managed catalog of mailer designs with thumbnails
+export const mailerTypes = pgTable("mailer_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  thumbnailPath: varchar("thumbnail_path", { length: 255 }).notNull(), // static file path e.g. /mailers/xxx.jpg
+  isActive: boolean("is_active").default(true).notNull(),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMailerTypeSchema = createInsertSchema(mailerTypes).omit({ id: true, createdAt: true });
+export type MailerType = typeof mailerTypes.$inferSelect;
+export type InsertMailerType = z.infer<typeof insertMailerTypeSchema>;
 
 // Label print types
 export const LABEL_TYPES = ['swatch_book', 'press_test_kit', 'mailer', 'letter', 'other'] as const;

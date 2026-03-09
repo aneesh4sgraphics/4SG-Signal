@@ -155,6 +155,7 @@ import {
   dripCampaignAssignments,
   dripCampaignStepStatus,
   labelQueue,
+  mailerTypes,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -2535,6 +2536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         labelType: z.enum(['swatch_book', 'press_test_kit', 'mailer', 'letter', 'other']),
         labelFormat: z.enum(['thermal_4x6', 'letter_30up']).optional().default('thermal_4x6'),
         otherDescription: z.string().optional(),
+        mailerId: z.number().optional(), // ID of the mailer type selected (when labelType === 'mailer')
         addresses: z.array(z.object({
           customerId: z.string().optional(),
           leadId: z.number().optional(),
@@ -2546,8 +2548,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
 
-      const { labelType, labelFormat, otherDescription, addresses } = parsed.data;
-      const labelTypeDisplay = LABEL_TYPE_LABELS[labelType as keyof typeof LABEL_TYPE_LABELS] || labelType;
+      const { labelType, labelFormat, otherDescription, mailerId, addresses } = parsed.data;
+      let labelTypeDisplay = LABEL_TYPE_LABELS[labelType as keyof typeof LABEL_TYPE_LABELS] || labelType;
+      
+      // Look up mailer type details if a mailer is selected
+      let mailerInfo: { id: number; name: string; thumbnailPath: string } | null = null;
+      if (labelType === 'mailer' && mailerId) {
+        const [mt] = await db.select().from(mailerTypes).where(eq(mailerTypes.id, mailerId)).limit(1);
+        if (mt) {
+          mailerInfo = { id: mt.id, name: mt.name, thumbnailPath: mt.thumbnailPath };
+          labelTypeDisplay = mt.name; // Use specific mailer name in logs
+        }
+      }
 
       interface ResolvedAddress {
         contactName: string;
@@ -2765,21 +2777,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             notes: bulkNote,
           });
 
+          const activityTitle = labelType === 'mailer' && mailerInfo
+            ? `Mailer Sent: ${mailerInfo.name}`
+            : labelType === 'swatch_book' ? 'Swatch Book Sent'
+            : labelType === 'press_test_kit' ? 'Press Test Kit Sent'
+            : labelType === 'letter' ? 'Letter Sent'
+            : `${labelTypeDisplay} Sent`;
+          
           if (addr.leadId) {
             await db.insert(leadActivities).values({
               leadId: addr.leadId,
               activityType: 'sample_sent',
-              summary: `Printed ${labelTypeDisplay} label`,
+              summary: activityTitle,
               details: bulkNote,
               performedBy: userId,
               performedByName: userName,
             });
           } else if (addr.customerId) {
             const eventType = ['swatch_book', 'press_test_kit'].includes(labelType) ? 'sample_shipped' : 'product_info_shared';
+            const metadata: Record<string, any> = {};
+            if (mailerInfo) {
+              metadata.mailerId = mailerInfo.id;
+              metadata.mailerName = mailerInfo.name;
+              metadata.thumbnailPath = mailerInfo.thumbnailPath;
+            }
             await db.insert(customerActivityEvents).values({
               customerId: addr.customerId,
               eventType,
-              title: `${labelTypeDisplay} label printed`,
+              title: activityTitle,
               description: bulkNote,
               sourceType: 'auto',
               sourceId: finalCustomerId,
@@ -2787,6 +2812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               createdBy: userId,
               createdByName: userName,
               eventDate: new Date(),
+              metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
             });
           }
         } catch (actErr) {
@@ -12817,7 +12843,7 @@ Return only the JSON object. No markdown, no code blocks.`
         events = await storage.getRecentActivityEvents(limit ? parseInt(limit as string) : 50);
       }
       
-      // Return fields that frontend expects: id, eventType, title, description, createdAt, createdByName
+      // Return fields that frontend expects: id, eventType, title, description, createdAt, createdByName, metadata
       const transformed = events.map(e => ({
         id: e.id,
         eventType: e.eventType,
@@ -12829,6 +12855,7 @@ Return only the JSON object. No markdown, no code blocks.`
         sourceId: e.sourceId,
         amount: e.amount,
         productName: e.productName,
+        metadata: (e as any).metadata || null,
       }));
       
       res.json(transformed);
@@ -26760,6 +26787,54 @@ Analyze this bounced email and provide insights in JSON format:
   // ============= ADMIN SETTINGS API (Cost Optimization) =============
   const { getAllAdminSettings, setAdminSetting, ADMIN_SETTING_KEYS } = await import("./admin-settings");
   
+  // ===== MAILER TYPES ADMIN =====
+  app.get("/api/admin/mailer-types", isAuthenticated, async (req, res) => {
+    try {
+      const types = await db.select().from(mailerTypes).orderBy(asc(mailerTypes.displayOrder), asc(mailerTypes.id));
+      res.json(types);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch mailer types" });
+    }
+  });
+
+  app.post("/api/admin/mailer-types", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { name, thumbnailPath, displayOrder } = req.body;
+      if (!name || !thumbnailPath) return res.status(400).json({ error: "name and thumbnailPath are required" });
+      const [created] = await db.insert(mailerTypes).values({ name, thumbnailPath, displayOrder: displayOrder || 0, isActive: true }).returning();
+      res.status(201).json(created);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to create mailer type" });
+    }
+  });
+
+  app.put("/api/admin/mailer-types/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, thumbnailPath, isActive, displayOrder } = req.body;
+      const updates: Record<string, any> = {};
+      if (name !== undefined) updates.name = name;
+      if (thumbnailPath !== undefined) updates.thumbnailPath = thumbnailPath;
+      if (isActive !== undefined) updates.isActive = isActive;
+      if (displayOrder !== undefined) updates.displayOrder = displayOrder;
+      const [updated] = await db.update(mailerTypes).set(updates).where(eq(mailerTypes.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Mailer type not found" });
+      res.json(updated);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to update mailer type" });
+    }
+  });
+
+  app.delete("/api/admin/mailer-types/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(mailerTypes).where(eq(mailerTypes.id, id));
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to delete mailer type" });
+    }
+  });
+
   // Get all admin settings
   app.get("/api/admin/settings", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {

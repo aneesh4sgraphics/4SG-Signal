@@ -621,7 +621,7 @@ export default function Dashboard() {
                             whiteSpace: 'nowrap',
                             fontWeight: 600,
                           }}>
-                            🏆 Order
+                            🏆 Order ${win.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </span>
                         </div>
                       )}
