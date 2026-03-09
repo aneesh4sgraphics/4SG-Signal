@@ -452,14 +452,6 @@ class OdooClient {
     ], { limit: options.limit || 100, offset: options.offset || 0 });
   }
 
-  async getProductById(id: number): Promise<OdooProduct | null> {
-    const products = await this.read('product.template', [id], [
-      'id', 'name', 'default_code', 'list_price', 'standard_price', 'categ_id',
-      'type', 'description', 'description_sale', 'uom_id', 'active',
-    ]);
-    return products.length > 0 ? products[0] : null;
-  }
-
   async updateProductPrice(productId: number, listPrice: number): Promise<boolean> {
     return this.write('product.template', [productId], { list_price: listPrice });
   }
