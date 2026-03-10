@@ -6843,8 +6843,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const base64Image = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype;
 
-      console.log(`[Screenshot Extract] Processing ${mimeType} image (${(req.file.size / 1024).toFixed(1)} KB), using ${directKey ? 'direct OPENAI_API_KEY' : 'integration key'}`);
-
       const completion = await openaiClient.chat.completions.create({
         model: 'gpt-4o',
         messages: [
