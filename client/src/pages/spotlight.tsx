@@ -1783,9 +1783,8 @@ export default function Spotlight() {
       .replace(/<ul>|<\/ul>|<ol>|<\/ol>/gi, '\n');
     
     // Parse remaining HTML and get text content
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = text;
-    text = tempDiv.textContent || tempDiv.innerText || '';
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    text = doc.body.textContent || '';
     
     // Clean up excessive whitespace while preserving intentional line breaks
     return text
