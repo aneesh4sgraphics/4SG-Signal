@@ -8803,17 +8803,29 @@ Return only the JSON object. No markdown, no code blocks.`
       
       if (isExcelFile) {
         // Handle Excel files
-        const XLSX = await import('xlsx');
-        const workbook = XLSX.readFile(filePath);
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-        
-        if (jsonData.length === 0) {
+        const ExcelJSModule = await import('exceljs');
+        const ExcelJS = ExcelJSModule.default;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const worksheet = workbook.worksheets[0];
+
+        if (!worksheet || worksheet.rowCount <= 1) {
           return res.status(400).json({ error: "Empty Excel file" });
         }
-        
-        headers = Object.keys(jsonData[0] as object);
-        dataRows = jsonData;
+
+        const headerRow = worksheet.getRow(1);
+        headers = (headerRow.values as any[]).slice(1).map((v: any) => String(v ?? ''));
+
+        dataRows = [];
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const rowObj: Record<string, any> = {};
+          (row.values as any[]).slice(1).forEach((val: any, idx: number) => {
+            rowObj[headers[idx]] = val;
+          });
+          dataRows.push(rowObj);
+        });
+
         console.log('Excel Headers:', headers);
         console.log('Excel Data rows:', dataRows.length);
       } else {
@@ -9921,9 +9933,6 @@ Return only the JSON object. No markdown, no code blocks.`
         return res.status(400).json({ error: "Price list items are required" });
       }
 
-      // Import xlsx library
-      const XLSX = await import('xlsx');
-
       // ODOO template headers matching the uploaded template exactly
       const headers = [
         'External ID',
@@ -9945,14 +9954,14 @@ Return only the JSON object. No markdown, no code blocks.`
         'Pricelist Items/Max. Price Margin'
       ];
 
-      const worksheetData = [headers];
+      const worksheetData: any[][] = [headers];
 
       // Generate pricelist ID from tier and category (sanitized for ODOO)
       const sanitizedCategory = selectedCategory.replace(/[^\w]/g, '_').replace(/_+/g, '_');
       const pricelistExternalId = `pricelist_${selectedTier}_${sanitizedCategory}`;
       const pricelistDisplayName = tierLabel || selectedTier;
 
-      priceListItems.forEach((item, index) => {
+      priceListItems.forEach((item: any, index: number) => {
         const row = [
           index === 0 ? pricelistExternalId : '',  // External ID (only first row)
           index === 0 ? pricelistDisplayName : '', // Pricelist Name (only first row)
@@ -9975,44 +9984,33 @@ Return only the JSON object. No markdown, no code blocks.`
         worksheetData.push(row);
       });
 
-      // Create workbook and worksheet
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      // Create workbook and worksheet using ExcelJS
+      const ExcelJSModule = await import('exceljs');
+      const ExcelJS = ExcelJSModule.default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Template');
 
       // Set column widths for better readability
-      worksheet['!cols'] = [
-        { wch: 25 },  // External ID
-        { wch: 20 },  // Pricelist Name
-        { wch: 25 },  // Apply On
-        { wch: 50 },  // Product
-        { wch: 20 },  // Min. Quantity
-        { wch: 15 },  // Start Date
-        { wch: 15 },  // End Date
-        { wch: 25 },  // Compute Price
-        { wch: 15 },  // Fixed Price
-        { wch: 20 },  // Percentage Price
-        { wch: 15 },  // Based on
-        { wch: 20 },  // Other Pricelist
-        { wch: 18 },  // Price Discount
-        { wch: 18 },  // Price Surcharge
-        { wch: 18 },  // Price Rounding
-        { wch: 20 },  // Min. Price Margin
-        { wch: 20 }   // Max. Price Margin
-      ];
+      const colWidths = [25, 20, 25, 50, 20, 15, 15, 25, 15, 20, 15, 20, 18, 18, 18, 20, 20];
+      worksheet.columns = headers.map((h: string, i: number) => ({
+        key: `col${i}`,
+        width: colWidths[i] || 15
+      }));
 
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+      // Add all rows (header + data)
+      worksheet.addRows(worksheetData);
 
       // Generate buffer
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xls' });
+      const buffer = await workbook.xlsx.writeBuffer();
 
       // Set headers for Excel download
-      res.setHeader('Content-Type', 'application/vnd.ms-excel');
-      res.setHeader('Content-Disposition', `attachment; filename="PriceList_ODOO_${selectedCategory}_${pricelistDisplayName}_${new Date().toISOString().split('T')[0]}.xls"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="PriceList_ODOO_${selectedCategory}_${pricelistDisplayName}_${new Date().toISOString().split('T')[0]}.xlsx"`);
 
       // Send the Excel file
-      res.send(buffer);
+      res.send(Buffer.from(buffer));
 
-      logDownload(`PriceList_ODOO_${selectedCategory}_${selectedTier}.xls`, 'ODOO Excel format generation');
+      logDownload(`PriceList_ODOO_${selectedCategory}_${selectedTier}.xlsx`, 'ODOO Excel format generation');
 
     } catch (error) {
       console.error("Price List ODOO Excel generation error:", error);
@@ -10035,14 +10033,11 @@ Return only the JSON object. No markdown, no code blocks.`
         return res.status(400).json({ error: "Price list items are required" });
       }
 
-      // Import xlsx library for proper Excel generation
-      const XLSX = await import('xlsx');
-
       // Create worksheet data
-      const worksheetData = [];
+      const worksheetData: any[][] = [];
       
       // Add headers
-      const headers = ['Item Code', 'Product Type', 'Size', 'Min Qty'];
+      const headers: string[] = ['Item Code', 'Product Type', 'Size', 'Min Qty'];
       
       // Only add Price/Sq.M column for admin users
       if (userRole === 'admin') {
@@ -10053,8 +10048,8 @@ Return only the JSON object. No markdown, no code blocks.`
       worksheetData.push(headers);
 
       // Add data rows
-      priceListItems.forEach(item => {
-        const row = [
+      priceListItems.forEach((item: any) => {
+        const row: any[] = [
           item.itemCode || '',
           item.productType || '',
           item.size || '',
@@ -10074,37 +10069,34 @@ Return only the JSON object. No markdown, no code blocks.`
         worksheetData.push(row);
       });
 
-      // Create workbook and worksheet
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-      
+      // Create workbook and worksheet using ExcelJS
+      const ExcelJSModule = await import('exceljs');
+      const ExcelJS = ExcelJSModule.default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Price List');
+
       // Auto-fit column widths
-      const colWidths = headers.map((header, i) => {
+      worksheet.columns = headers.map((header: string, i: number) => {
         const maxLength = Math.max(
           header.length,
-          ...worksheetData.slice(1).map(row => String(row[i]).length)
+          ...worksheetData.slice(1).map((row: any[]) => String(row[i]).length)
         );
-        return { wch: Math.min(maxLength + 2, 50) };
+        return { key: `col${i}`, width: Math.min(maxLength + 2, 50) };
       });
-      worksheet['!cols'] = colWidths;
 
-      // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Price List');
+      // Add all rows (header + data)
+      worksheet.addRows(worksheetData);
 
       // Generate Excel buffer
-      const excelBuffer = XLSX.write(workbook, { 
-        type: 'buffer', 
-        bookType: 'xlsx',
-        compression: true 
-      });
+      const excelBuffer = await workbook.xlsx.writeBuffer();
 
       // Set headers for Excel download
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="PriceList_Full_${selectedCategory}_${selectedTier}_${new Date().toISOString().split('T')[0]}.xlsx"`);
-      res.setHeader('Content-Length', excelBuffer.length.toString());
+      res.setHeader('Content-Length', excelBuffer.byteLength.toString());
 
       // Send the Excel buffer
-      res.send(excelBuffer);
+      res.send(Buffer.from(excelBuffer));
 
       logDownload(`PriceList_Full_${selectedCategory}_${selectedTier}.xlsx`, 'Excel format generation');
 
