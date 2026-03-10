@@ -13871,7 +13871,20 @@ Return only the JSON object. No markdown, no code blocks.`
       }
       
       const decodedUrl = decodeURIComponent(url);
-      
+
+      // Security: only redirect to allowed domains to prevent open-redirect abuse
+      const ALLOWED_REDIRECT_HOSTS = ['4sgraphics.com', 'quote.4sgraphics.com'];
+      try {
+        const parsed = new URL(decodedUrl);
+        const host = parsed.hostname.toLowerCase();
+        if (!ALLOWED_REDIRECT_HOSTS.includes(host)) {
+          console.warn(`[TrackingClick] Blocked redirect to disallowed host: ${host}`);
+          return res.status(400).send('Redirect target not allowed');
+        }
+      } catch {
+        return res.status(400).send('Invalid redirect URL');
+      }
+
       // Look up the tracking token
       const trackingToken = await storage.getEmailTrackingTokenByToken(token);
       
@@ -13911,13 +13924,7 @@ Return only the JSON object. No markdown, no code blocks.`
       res.redirect(302, decodedUrl);
     } catch (error) {
       console.error("Error tracking email click:", error);
-      // Try to redirect anyway
-      const { url } = req.query;
-      if (url && typeof url === 'string') {
-        res.redirect(302, decodeURIComponent(url));
-      } else {
-        res.status(500).send('Error processing redirect');
-      }
+      res.status(500).send('Error processing redirect');
     }
   });
 
