@@ -56,11 +56,7 @@ import { PrintLabelButton } from "@/components/PrintLabelButton";
 // Helper function to strip HTML tags and extract plain text
 function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
-  // Create a temporary div to parse HTML
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  // Get text content which automatically strips tags
-  return temp.textContent || temp.innerText || "";
+  return new DOMParser().parseFromString(html, "text/html").body.textContent || "";
 }
 
 interface LeadActivity {
