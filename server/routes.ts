@@ -431,9 +431,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to auto-generate tasks:", err);
   }
   
-  // Register public/debug routes BEFORE auth middleware
-  // Test database connection (no auth required for debugging)
-  app.get("/api/test-db", async (req: any, res) => {
+  // Test database connection
+  app.get("/api/test-db", isAuthenticated, async (req: any, res) => {
     try {
       debugLog("Testing database connection...");
       
@@ -464,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Use /admin page to manage user roles instead
 
   // Integration connection status check - for connection popup
-  app.get("/api/integrations/status", async (req: any, res) => {
+  app.get("/api/integrations/status", isAuthenticated, async (req: any, res) => {
     const connectionStatus = {
       odoo: { connected: false, error: null as string | null },
       gmail: { connected: false, error: null as string | null },
@@ -584,8 +583,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(connectionStatus);
   });
 
-  // Dashboard statistics endpoint (with relaxed auth for now)
-  app.get("/api/dashboard/stats", async (req: any, res) => {
+  // Dashboard statistics endpoint
+  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
       debugLog("=== Dashboard Stats Request ===");
       
@@ -669,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CRM Dashboard statistics endpoint
-  app.get("/api/dashboard/crm", async (req: any, res) => {
+  app.get("/api/dashboard/crm", isAuthenticated, async (req: any, res) => {
     try {
       const crmStats = await storage.getCRMDashboardStats();
       res.json(crmStats);
@@ -5282,7 +5281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all product pricing - maps from pricing_data table to expected format
-  app.get("/api/product-pricing", async (req, res) => {
+  app.get("/api/product-pricing", isAuthenticated, async (req, res) => {
     try {
       const cacheKey = "product-pricing";
       const cachedData = getCachedData(cacheKey);
@@ -8579,7 +8578,7 @@ Return only the JSON object. No markdown, no code blocks.`
 
 
   // Get all sent quotes
-  app.get("/api/sent-quotes", async (req, res) => {
+  app.get("/api/sent-quotes", isAuthenticated, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
