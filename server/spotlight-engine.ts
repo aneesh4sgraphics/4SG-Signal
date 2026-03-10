@@ -3185,7 +3185,7 @@ class SpotlightEngine {
           ),
           lte(sentQuotes.followUpDueAt, now),
           // Exclude already processed quotes by checking for customerEmail not in skippedIds
-          ...(skippedIds.length > 0 ? [sql`${sentQuotes.customerEmail} NOT IN (${sql.raw(skippedIds.map(id => `'${id}'`).join(','))})`] : [])
+          ...(skippedIds.length > 0 ? [notInArray(sentQuotes.customerEmail, skippedIds)] : [])
         ))
         .orderBy(asc(sentQuotes.followUpDueAt))
         .limit(1);
@@ -3390,8 +3390,8 @@ class SpotlightEngine {
             sql`LOWER(${gmailMessages.snippet}) LIKE '%attached%'`
           ),
           // Exclude already skipped customers
-          ...(skippedIds.filter(id => !id.startsWith('lead-')).length > 0 
-            ? [sql`${gmailMessages.customerId} NOT IN (${sql.raw(skippedIds.filter(id => !id.startsWith('lead-')).map(id => `'${id}'`).join(','))})`] 
+          ...(skippedIds.filter(id => !id.startsWith('lead-')).length > 0
+            ? [notInArray(gmailMessages.customerId, skippedIds.filter(id => !id.startsWith('lead-')))]
             : []),
           // Exclude internal emails
           sql`LOWER(${gmailMessages.toEmail}) NOT LIKE '%4sgraphics%'`
@@ -3482,8 +3482,8 @@ class SpotlightEngine {
           lte(gmailMessages.sentAt, twoDaysAgo),
           isNotNull(gmailMessages.customerId),
           // Exclude already skipped customers
-          ...(skippedIds.filter(id => !id.startsWith('lead-')).length > 0 
-            ? [sql`${gmailMessages.customerId} NOT IN (${sql.raw(skippedIds.filter(id => !id.startsWith('lead-')).map(id => `'${id}'`).join(','))})`] 
+          ...(skippedIds.filter(id => !id.startsWith('lead-')).length > 0
+            ? [notInArray(gmailMessages.customerId, skippedIds.filter(id => !id.startsWith('lead-')))]
             : []),
           // Exclude internal emails
           sql`LOWER(${gmailMessages.toEmail}) NOT LIKE '%4sgraphics%'`
