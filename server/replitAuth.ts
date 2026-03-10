@@ -232,7 +232,6 @@ export async function setupAuth(app: Express) {
   // Tokens are required for refreshing expired sessions
   passport.serializeUser((user: any, cb) => {
     const userId = user?.claims?.sub || user?.id;
-    console.log(`[Auth] Serializing user: ${userId}, has refresh_token: ${!!user?.refresh_token}`);
     cb(null, { 
       id: userId, 
       claims: user?.claims,
