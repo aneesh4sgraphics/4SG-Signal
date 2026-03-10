@@ -15638,7 +15638,10 @@ Return only the JSON object. No markdown, no code blocks.`
       if (result.length === 0) {
         return res.status(404).json({ error: "Lead not found" });
       }
-      
+
+      // Invalidate Spotlight prefetch caches so the next task fetch reads fresh lead data
+      spotlightEngine.invalidateAllPrefetchCaches();
+
       res.json(result[0]);
     } catch (error) {
       console.error("Error updating lead:", error);

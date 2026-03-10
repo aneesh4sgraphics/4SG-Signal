@@ -1778,6 +1778,13 @@ class SpotlightEngine {
     this.prefetchedTask.delete(userId);
     this.prefetchGeneration.set(userId, (this.prefetchGeneration.get(userId) || 0) + 1);
   }
+
+  invalidateAllPrefetchCaches(): void {
+    for (const userId of this.prefetchedTask.keys()) {
+      this.prefetchGeneration.set(userId, (this.prefetchGeneration.get(userId) || 0) + 1);
+    }
+    this.prefetchedTask.clear();
+  }
   
   private prefetchGeneration: Map<string, number> = new Map();
 
@@ -4979,88 +4986,127 @@ class SpotlightEngine {
 
       const allowedFields = subtypeAllowedFields[subtype] || [];
       if (allowedFields.includes(field)) {
-        // Get the customer first to check for Odoo partner ID and get old value
-        const [existingCustomer] = await db.select({
-          id: customers.id,
-          odooPartnerId: customers.odooPartnerId,
-          pricingTier: customers.pricingTier,
-            customerType: customers.customerType,
-          salesRepId: customers.salesRepId,
-          salesRepName: customers.salesRepName,
-          email: customers.email,
-          phone: customers.phone,
-          company: customers.company,
-          firstName: customers.firstName,
-          lastName: customers.lastName,
-        })
-          .from(customers)
-          .where(eq(customers.id, customerId))
-          .limit(1);
-        
-        if (!existingCustomer) {
-          console.error(`[Spotlight] Data hygiene update FAILED: customer ${customerId} not found`);
-        } else {
-          const updateData: Record<string, any> = {
+        if (isLeadTask && leadId) {
+          // ── Lead hygiene update: write directly to the leads table ──────────
+          // Leads use slightly different column names for some fields
+          const leadFieldMap: Record<string, string> = {
+            pricingTier: 'pricingTier',
+            email: 'email',
+            phone: 'phone',
+            company: 'company',
+            salesRepId: 'salesRepId',
+            firstName: 'name', // leads store full name in `name`
+            lastName: 'name',
+          };
+          const leadColumn = leadFieldMap[field] ?? field;
+
+          const leadUpdateData: Record<string, any> = {
             updatedAt: new Date(),
-            [field]: value,
+            [leadColumn]: value,
           };
 
-          let salesRepName: string | null = null;
           if (field === 'salesRepId') {
             const [rep] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
-              .from(users)
-              .where(eq(users.id, value));
+              .from(users).where(eq(users.id, value));
             if (rep) {
-              salesRepName = rep.firstName && rep.lastName 
-                ? `${rep.firstName} ${rep.lastName}` 
-                : rep.email;
-              updateData.salesRepName = salesRepName;
+              leadUpdateData.salesRepName = rep.firstName && rep.lastName
+                ? `${rep.firstName} ${rep.lastName}` : rep.email;
             }
           }
 
-          console.log(`[Spotlight] Data hygiene update: customer=${customerId} field=${field} value=${value}`);
-          
-          const result = await db.update(customers)
-            .set(updateData)
-            .where(eq(customers.id, customerId))
-            .returning({ id: customers.id });
-          
-          if (result.length === 0) {
-            console.error(`[Spotlight] Data hygiene update FAILED: customer ${customerId} not found in database`);
+          if (field === 'pricingTier') {
+            leadUpdateData.pricingTierSetBy = userId;
+            leadUpdateData.pricingTierSetAt = new Date();
+          }
+
+          console.log(`[Spotlight] Lead hygiene update: lead=${leadId} field=${leadColumn} value=${value}`);
+          const leadResult = await db.update(leads)
+            .set(leadUpdateData)
+            .where(eq(leads.id, leadId))
+            .returning({ id: leads.id });
+
+          if (leadResult.length === 0) {
+            console.error(`[Spotlight] Lead hygiene update FAILED: lead ${leadId} not found`);
           } else {
-            console.log(`[Spotlight] Data hygiene update SUCCESS: customer ${customerId} ${field}=${value}`);
-            
-            // Queue for Odoo sync if customer has Odoo partner ID
-            if (existingCustomer.odooPartnerId) {
-              try {
-                // Map local field names to Odoo field names
-                const odooFieldMap: Record<string, string> = {
-                  'pricingTier': 'comment', // Store tier in comment for now
-                  'email': 'email',
-                  'phone': 'phone',
-                  'company': 'name',
-                };
-                
-                const odooField = odooFieldMap[field];
-                if (odooField) {
-                  const oldValue = (existingCustomer as any)[field];
-                  const queueValue = field === 'pricingTier' ? `Tier: ${value}` : value;
-                  
-                  await db.insert(customerSyncQueue).values({
-                    customerId,
-                    odooPartnerId: existingCustomer.odooPartnerId,
-                    fieldName: odooField,
-                    oldValue: oldValue?.toString() || null,
-                    newValue: queueValue,
-                    status: 'pending',
-                    changedBy: userId,
-                  });
-                  
-                  console.log(`[Spotlight] Queued ${field}=${value} for Odoo sync (partner ${existingCustomer.odooPartnerId})`);
+            console.log(`[Spotlight] Lead hygiene update SUCCESS: lead ${leadId} ${leadColumn}=${value}`);
+          }
+        } else {
+          // ── Customer hygiene update ─────────────────────────────────────────
+          const [existingCustomer] = await db.select({
+            id: customers.id,
+            odooPartnerId: customers.odooPartnerId,
+            pricingTier: customers.pricingTier,
+            customerType: customers.customerType,
+            salesRepId: customers.salesRepId,
+            salesRepName: customers.salesRepName,
+            email: customers.email,
+            phone: customers.phone,
+            company: customers.company,
+            firstName: customers.firstName,
+            lastName: customers.lastName,
+          })
+            .from(customers)
+            .where(eq(customers.id, customerId))
+            .limit(1);
+
+          if (!existingCustomer) {
+            console.error(`[Spotlight] Data hygiene update FAILED: customer ${customerId} not found`);
+          } else {
+            const updateData: Record<string, any> = {
+              updatedAt: new Date(),
+              [field]: value,
+            };
+
+            let salesRepName: string | null = null;
+            if (field === 'salesRepId') {
+              const [rep] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+                .from(users)
+                .where(eq(users.id, value));
+              if (rep) {
+                salesRepName = rep.firstName && rep.lastName
+                  ? `${rep.firstName} ${rep.lastName}` : rep.email;
+                updateData.salesRepName = salesRepName;
+              }
+            }
+
+            console.log(`[Spotlight] Data hygiene update: customer=${customerId} field=${field} value=${value}`);
+
+            const result = await db.update(customers)
+              .set(updateData)
+              .where(eq(customers.id, customerId))
+              .returning({ id: customers.id });
+
+            if (result.length === 0) {
+              console.error(`[Spotlight] Data hygiene update FAILED: customer ${customerId} not found in database`);
+            } else {
+              console.log(`[Spotlight] Data hygiene update SUCCESS: customer ${customerId} ${field}=${value}`);
+
+              if (existingCustomer.odooPartnerId) {
+                try {
+                  const odooFieldMap: Record<string, string> = {
+                    'pricingTier': 'comment',
+                    'email': 'email',
+                    'phone': 'phone',
+                    'company': 'name',
+                  };
+                  const odooField = odooFieldMap[field];
+                  if (odooField) {
+                    const oldValue = (existingCustomer as any)[field];
+                    const queueValue = field === 'pricingTier' ? `Tier: ${value}` : value;
+                    await db.insert(customerSyncQueue).values({
+                      customerId,
+                      odooPartnerId: existingCustomer.odooPartnerId,
+                      fieldName: odooField,
+                      oldValue: oldValue?.toString() || null,
+                      newValue: queueValue,
+                      status: 'pending',
+                      changedBy: userId,
+                    });
+                    console.log(`[Spotlight] Queued ${field}=${value} for Odoo sync (partner ${existingCustomer.odooPartnerId})`);
+                  }
+                } catch (syncError) {
+                  console.error(`[Spotlight] Failed to queue Odoo sync:`, syncError);
                 }
-              } catch (syncError) {
-                console.error(`[Spotlight] Failed to queue Odoo sync:`, syncError);
-                // Don't fail the whole operation - local save succeeded
               }
             }
           }
