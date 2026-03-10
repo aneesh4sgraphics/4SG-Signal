@@ -401,7 +401,7 @@ export async function setupAuth(app: Express) {
     });
 
     // Debug endpoint to diagnose authentication issues
-    app.get("/api/auth/debug", (req: any, res) => {
+    app.get("/api/auth/debug", isAuthenticated, requireAdmin, (req: any, res) => {
       const hasCookie = !!req.headers.cookie;
       const hasSessionCookie = req.headers.cookie?.includes('connect.sid') || false;
       const hasAuthTestCookie = req.headers.cookie?.includes('auth_test') || false;
