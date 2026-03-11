@@ -15983,7 +15983,7 @@ Return only the JSON object. No markdown, no code blocks.`
         const [bounced] = await db.select({ id: bouncedEmails.id })
           .from(bouncedEmails)
           .where(and(
-            ilike(bouncedEmails.email, lead.email),
+            ilike(bouncedEmails.bouncedEmail, lead.email),
             inArray(bouncedEmails.status, ['active', 'open', 'new'])
           ))
           .limit(1);
