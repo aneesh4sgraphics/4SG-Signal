@@ -5406,6 +5406,10 @@ class SpotlightEngine {
           phone: leads.phone,
           email: leads.email,
           pricingTier: leads.pricingTier,
+          street: leads.street,
+          city: leads.city,
+          state: leads.state,
+          zip: leads.zip,
         }).from(leads).where(eq(leads.id, leadId)).limit(1);
         
         if (!currentLead) {
@@ -5485,7 +5489,19 @@ class SpotlightEngine {
           // Prompt for qualification after any contact action, unless lead is already qualified/lost/converted
           if (contactMade && !markedDnc && !['converted', 'lost', 'qualified'].includes(currentLead.stage)) {
             const leadDisplayName = currentLead.company || currentLead.name || 'This Lead';
-            qualificationCheck = { leadId, leadName: leadDisplayName };
+            qualificationCheck = {
+              leadId,
+              leadName: leadDisplayName,
+              leadData: {
+                street: currentLead.street || null,
+                city: currentLead.city || null,
+                state: currentLead.state || null,
+                zip: currentLead.zip || null,
+                phone: currentLead.phone || null,
+                email: currentLead.email || null,
+                pricingTier: currentLead.pricingTier || null,
+              },
+            };
           }
         }
       } catch (e) {

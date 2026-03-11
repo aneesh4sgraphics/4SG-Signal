@@ -393,6 +393,15 @@ export default function Spotlight() {
     leadId: number;
     leadName: string;
     nextTaskData: any;
+    leadData?: {
+      street: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+      phone: string | null;
+      email: string | null;
+      pricingTier: string | null;
+    };
   } | null>(null);
   const [qualifyMissing, setQualifyMissing] = useState<string[]>([]);
   const [showIdleModal, setShowIdleModal] = useState(false);
@@ -1089,6 +1098,7 @@ export default function Spotlight() {
           leadId: result.qualificationCheck.leadId,
           leadName: result.qualificationCheck.leadName || 'This Lead',
           nextTaskData: result.nextTaskData,
+          leadData: result.qualificationCheck.leadData,
         });
         setQualifyMissing([]);
       } else {
@@ -2716,37 +2726,124 @@ export default function Spotlight() {
               </div>
 
               {/* Requirements checklist */}
-              <div className="space-y-2 mb-4">
-                {([
-                  { key: 'address', label: 'Complete address (street, city, state, ZIP)', icon: '📍' },
-                  { key: 'phone', label: 'Phone number on file', icon: '📞' },
-                  { key: 'pricing_tier', label: 'Pricing tier assigned', icon: '🏷️' },
-                  { key: 'email', label: 'Email address on file', icon: '✉️' },
-                  { key: 'email_bounced', label: 'Email is clean (not bouncing)', icon: '✅' },
-                ] as const).map(req => {
-                  const isMissing = qualifyMissing.includes(req.key);
-                  const wasChecked = qualifyMissing.length > 0;
-                  return (
-                    <div key={req.key} className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
-                      wasChecked
-                        ? isMissing ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-white text-slate-600 border border-amber-200'
-                    }`}>
-                      <span className="text-base">{wasChecked ? (isMissing ? '❌' : '✓') : req.icon}</span>
-                      <span className={isMissing ? 'font-semibold' : ''}>{req.label}</span>
-                      {isMissing && <span className="ml-auto text-xs font-medium text-red-500">Missing</span>}
+              {(() => {
+                const ld = pendingQualification.leadData;
+                const hasAddress = !!(ld?.street && ld?.city && ld?.state && ld?.zip);
+                const hasPhone = !!(ld?.phone);
+                const hasTier = !!(ld?.pricingTier);
+                const hasEmail = !!(ld?.email);
+                const wasChecked = qualifyMissing.length > 0;
+
+                const addressValue = hasAddress ? [ld!.street, ld!.city, [ld!.state, ld!.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ') : null;
+
+                const items = [
+                  {
+                    key: 'address',
+                    icon: '📍',
+                    label: 'Complete address',
+                    value: addressValue,
+                    missing: !hasAddress,
+                    prompt: 'Add street, city, state & ZIP',
+                  },
+                  {
+                    key: 'phone',
+                    icon: '📞',
+                    label: 'Phone number',
+                    value: ld?.phone || null,
+                    missing: !hasPhone,
+                    prompt: 'Add a phone number',
+                  },
+                  {
+                    key: 'pricing_tier',
+                    icon: '🏷️',
+                    label: 'Pricing tier',
+                    value: ld?.pricingTier || null,
+                    missing: !hasTier,
+                    prompt: 'Assign a pricing tier',
+                  },
+                  {
+                    key: 'email',
+                    icon: '✉️',
+                    label: 'Email address',
+                    value: ld?.email || null,
+                    missing: !hasEmail,
+                    prompt: 'Add an email address',
+                  },
+                ] as const;
+
+                // After qualify attempt: show bounce result; before: only show if email exists
+                const showBounceRow = wasChecked || hasEmail;
+
+                return (
+                  <div className="space-y-2 mb-4">
+                    {items.map(item => {
+                      const failedCheck = wasChecked && qualifyMissing.includes(item.key);
+                      const passedCheck = wasChecked && !qualifyMissing.includes(item.key);
+                      // Before check: green if value present, orange if missing
+                      const prePresent = !wasChecked && !item.missing;
+                      const preMissing = !wasChecked && item.missing;
+
+                      return (
+                        <div key={item.key} className={`flex items-center gap-3 text-sm rounded-lg px-3 py-2.5 ${
+                          failedCheck ? 'bg-red-50 text-red-700 border border-red-200' :
+                          passedCheck || prePresent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          'bg-orange-50 text-orange-700 border border-orange-200'
+                        }`}>
+                          <span className="text-base flex-shrink-0">
+                            {failedCheck ? '❌' : (passedCheck || prePresent) ? '✅' : '⚠️'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{item.label}</span>
+                            {(prePresent || passedCheck) && item.value && (
+                              <span className="ml-2 text-xs opacity-75 truncate">{item.value}</span>
+                            )}
+                            {(preMissing || failedCheck) && (
+                              <span className="ml-2 text-xs opacity-80">{item.prompt}</span>
+                            )}
+                          </div>
+                          {(preMissing || failedCheck) && (
+                            <span className="text-xs font-semibold flex-shrink-0">Missing</span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {showBounceRow && (
+                      <div className={`flex items-center gap-3 text-sm rounded-lg px-3 py-2.5 ${
+                        wasChecked && qualifyMissing.includes('email_bounced')
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : wasChecked
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-white text-slate-600 border border-amber-200'
+                      }`}>
+                        <span className="text-base flex-shrink-0">
+                          {wasChecked && qualifyMissing.includes('email_bounced') ? '❌' : wasChecked ? '✅' : '✉️'}
+                        </span>
+                        <span className="font-medium">Email is clean</span>
+                        {wasChecked && qualifyMissing.includes('email_bounced') && (
+                          <span className="ml-2 text-xs opacity-80">Marked as bouncing</span>
+                        )}
+                        {wasChecked && !qualifyMissing.includes('email_bounced') && (
+                          <span className="ml-2 text-xs opacity-75">Not bouncing</span>
+                        )}
+                        {!wasChecked && (
+                          <span className="ml-2 text-xs text-slate-400 italic">will be verified</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 text-sm rounded-lg px-3 py-2.5 bg-white text-slate-500 border border-amber-100">
+                      <span className="text-base flex-shrink-0">📬</span>
+                      <span className="font-medium">No returned USPS mail</span>
+                      <span className="ml-2 text-xs text-slate-400 italic">confirm manually</span>
                     </div>
-                  );
-                })}
-                <div className="flex items-center gap-2 text-sm rounded-lg px-3 py-2 bg-white text-slate-500 border border-amber-100">
-                  <span className="text-base">📬</span>
-                  <span>No returned USPS mail on record <span className="italic text-slate-400">(confirm manually)</span></span>
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
 
               {qualifyMissing.length > 0 && (
                 <p className="text-sm text-red-600 font-medium mb-3">
-                  Fix the missing items above before qualifying this lead.
+                  Fill in the missing details above before qualifying this lead.
                 </p>
               )}
 
