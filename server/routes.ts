@@ -149,6 +149,8 @@ import {
   territorySkipFlags,
   spotlightEvents,
   spotlightSessionState,
+  spotlightSnoozes,
+  spotlightTeamClaims,
   bouncedEmails,
   dripCampaigns,
   dripCampaignSteps,
@@ -4351,6 +4353,256 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting worked customers:", error);
       res.status(500).json({ error: "Failed to fetch worked customers" });
+    }
+  });
+
+  // ── Improvement 3: Snooze & Outcome Logging ──────────────────────────────
+
+  // POST /api/spotlight/snooze — snooze a customer card with optional outcome tag
+  app.post("/api/spotlight/snooze", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const { customerId, snoozeUntil, outcomeTag, note } = req.body;
+      if (!customerId) return res.status(400).json({ error: "customerId is required" });
+
+      const FAR_FUTURE = new Date("2099-01-01T00:00:00Z");
+      const snoozeDate = (outcomeTag === 'not_interested' && !snoozeUntil)
+        ? FAR_FUTURE
+        : snoozeUntil ? new Date(snoozeUntil) : null;
+
+      await db.insert(spotlightSnoozes).values({
+        customerId,
+        userId,
+        snoozeUntil: snoozeDate,
+        outcomeTag: outcomeTag || null,
+        note: note || null,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Spotlight snooze error:", error);
+      res.status(500).json({ error: "Failed to snooze" });
+    }
+  });
+
+  // GET /api/spotlight/snooze/:customerId — check snooze status for a customer
+  app.get("/api/spotlight/snooze/:customerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { customerId } = req.params;
+      const now = new Date();
+
+      const [snooze] = await db
+        .select()
+        .from(spotlightSnoozes)
+        .where(
+          and(
+            eq(spotlightSnoozes.customerId, customerId),
+            eq(spotlightSnoozes.userId, userId),
+            gt(spotlightSnoozes.snoozeUntil, now)
+          )
+        )
+        .orderBy(desc(spotlightSnoozes.createdAt))
+        .limit(1);
+
+      res.json({ snoozed: !!snooze, snooze: snooze || null });
+    } catch (error) {
+      console.error("Snooze check error:", error);
+      res.status(500).json({ error: "Failed to check snooze" });
+    }
+  });
+
+  // ── Improvement 4: Team Visibility & Claiming ─────────────────────────────
+
+  // POST /api/spotlight/claim — claim a customer for 24 hours
+  app.post("/api/spotlight/claim", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { customerId } = req.body;
+      if (!customerId) return res.status(400).json({ error: "customerId is required" });
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      // Release any existing active claim by this user for this customer
+      await db
+        .update(spotlightTeamClaims)
+        .set({ releasedAt: now })
+        .where(
+          and(
+            eq(spotlightTeamClaims.customerId, customerId),
+            eq(spotlightTeamClaims.userId, userId),
+            isNull(spotlightTeamClaims.releasedAt)
+          )
+        );
+
+      const [claim] = await db
+        .insert(spotlightTeamClaims)
+        .values({ customerId, userId, expiresAt })
+        .returning();
+
+      res.json({ success: true, claim });
+    } catch (error) {
+      console.error("Spotlight claim error:", error);
+      res.status(500).json({ error: "Failed to claim" });
+    }
+  });
+
+  // DELETE /api/spotlight/claim/:customerId — release a claim early
+  app.delete("/api/spotlight/claim/:customerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { customerId } = req.params;
+
+      await db
+        .update(spotlightTeamClaims)
+        .set({ releasedAt: new Date() })
+        .where(
+          and(
+            eq(spotlightTeamClaims.customerId, customerId),
+            eq(spotlightTeamClaims.userId, userId),
+            isNull(spotlightTeamClaims.releasedAt)
+          )
+        );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Spotlight unclaim error:", error);
+      res.status(500).json({ error: "Failed to release claim" });
+    }
+  });
+
+  // GET /api/spotlight/claims — get all active claims (for team visibility)
+  app.get("/api/spotlight/claims", isAuthenticated, async (req: any, res) => {
+    try {
+      const now = new Date();
+
+      const claims = await db
+        .select({
+          id: spotlightTeamClaims.id,
+          customerId: spotlightTeamClaims.customerId,
+          userId: spotlightTeamClaims.userId,
+          claimedAt: spotlightTeamClaims.claimedAt,
+          expiresAt: spotlightTeamClaims.expiresAt,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+        })
+        .from(spotlightTeamClaims)
+        .leftJoin(users, eq(spotlightTeamClaims.userId, users.id))
+        .where(
+          and(
+            isNull(spotlightTeamClaims.releasedAt),
+            gt(spotlightTeamClaims.expiresAt, now)
+          )
+        );
+
+      res.json({ claims });
+    } catch (error) {
+      console.error("Spotlight claims fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch claims" });
+    }
+  });
+
+  // ── Improvement 5 (Manager view): Spotlight Overview ─────────────────────
+
+  // GET /api/spotlight/overview — admin view of all claims + recent snooze outcomes
+  app.get("/api/spotlight/overview", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const now = new Date();
+
+      // Active claims
+      const activeClaims = await db
+        .select({
+          customerId: spotlightTeamClaims.customerId,
+          userId: spotlightTeamClaims.userId,
+          claimedAt: spotlightTeamClaims.claimedAt,
+          expiresAt: spotlightTeamClaims.expiresAt,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          customerCompany: customers.company,
+          customerEmail: customers.email,
+        })
+        .from(spotlightTeamClaims)
+        .leftJoin(users, eq(spotlightTeamClaims.userId, users.id))
+        .leftJoin(customers, eq(spotlightTeamClaims.customerId, customers.id))
+        .where(
+          and(
+            isNull(spotlightTeamClaims.releasedAt),
+            gt(spotlightTeamClaims.expiresAt, now)
+          )
+        );
+
+      // Recent snooze outcomes (last 7 days)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const recentSnoozes = await db
+        .select({
+          id: spotlightSnoozes.id,
+          customerId: spotlightSnoozes.customerId,
+          userId: spotlightSnoozes.userId,
+          snoozeUntil: spotlightSnoozes.snoozeUntil,
+          outcomeTag: spotlightSnoozes.outcomeTag,
+          note: spotlightSnoozes.note,
+          createdAt: spotlightSnoozes.createdAt,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          customerCompany: customers.company,
+          customerEmail: customers.email,
+        })
+        .from(spotlightSnoozes)
+        .leftJoin(users, eq(spotlightSnoozes.userId, users.id))
+        .leftJoin(customers, eq(spotlightSnoozes.customerId, customers.id))
+        .where(gte(spotlightSnoozes.createdAt, sevenDaysAgo))
+        .orderBy(desc(spotlightSnoozes.createdAt))
+        .limit(100);
+
+      res.json({ activeClaims, recentSnoozes });
+    } catch (error) {
+      console.error("Spotlight overview error:", error);
+      res.status(500).json({ error: "Failed to fetch overview" });
+    }
+  });
+
+  // GET /api/spotlight/score/:customerId — on-demand score for a single customer
+  app.get("/api/spotlight/score/:customerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      const { calculateSpotlightScore } = await import("./spotlight-engine");
+      const result = await calculateSpotlightScore(customerId);
+      res.json(result);
+    } catch (error) {
+      console.error("Spotlight score error:", error);
+      res.status(500).json({ error: "Failed to calculate score" });
+    }
+  });
+
+  // GET /api/users/me/spotlight-digest — get digest preference
+  app.get("/api/users/me/spotlight-digest", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const user = await db.select({ spotlightDigestEnabled: users.spotlightDigestEnabled }).from(users).where(eq(users.id, userId)).limit(1);
+      const enabled = user[0]?.spotlightDigestEnabled ?? true;
+      res.json({ spotlightDigestEnabled: enabled });
+    } catch (error) {
+      console.error("Get digest preference error:", error);
+      res.status(500).json({ error: "Failed to get preference" });
+    }
+  });
+
+  // PATCH /api/users/me/spotlight-digest — toggle digest email preference
+  app.patch("/api/users/me/spotlight-digest", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { enabled } = req.body;
+      if (typeof enabled !== 'boolean') return res.status(400).json({ error: "enabled must be boolean" });
+
+      await db.update(users).set({ spotlightDigestEnabled: enabled }).where(eq(users.id, userId));
+      res.json({ success: true, spotlightDigestEnabled: enabled });
+    } catch (error) {
+      console.error("Toggle digest error:", error);
+      res.status(500).json({ error: "Failed to update preference" });
     }
   });
 

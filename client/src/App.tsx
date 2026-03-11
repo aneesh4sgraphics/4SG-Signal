@@ -55,6 +55,7 @@ const LeadDetail = lazy(() => import("@/pages/lead-detail"));
 const BounceInvestigation = lazy(() => import("@/pages/bounce-investigation"));
 const OpportunitiesPage = lazy(() => import("@/pages/opportunities"));
 const CustomerMarginsPage = lazy(() => import("@/pages/customer-margins"));
+const SpotlightOverview = lazy(() => import("@/pages/SpotlightOverview"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center py-20">
@@ -134,6 +135,7 @@ const AppRoutes = () => (
       <Route path="/odoo-contacts/:id" component={OdooCompanyDetail} />
       <Route path="/odoo-products" component={OdooProducts} />
       <Route path="/odoo-products/:id" component={OdooProductDetail} />
+      <Route path="/spotlight-overview" component={SpotlightOverview} />
       <Route><Redirect to="/" /></Route>
     </Switch>
   </Suspense>

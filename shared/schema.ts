@@ -157,6 +157,7 @@ export const users = pgTable("users", {
   lastActivityAt: timestamp("last_activity_at"), // Last user activity for dormancy detection
   odooUserId: integer("odoo_user_id"), // Link to Odoo res.users ID (matched by email)
   odooUserName: varchar("odoo_user_name"), // Cached Odoo user display name
+  spotlightDigestEnabled: boolean("spotlight_digest_enabled").notNull().default(true), // Daily digest email opt-in
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -231,6 +232,7 @@ export const customers = pgTable("customers", {
   pressTestSentAt: timestamp("press_test_sent_at"), // Track press test send date
   priceListSentAt: timestamp("price_list_sent_at"), // Track price list send date
   customerType: varchar("customer_type", { length: 50 }), // 'reseller' or 'printer'
+  spotlightMeta: jsonb("spotlight_meta"), // Cached spotlight score + signal breakdown
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -3223,6 +3225,40 @@ export const spotlightCustomerClaims = pgTable("spotlight_customer_claims", {
 
 export const insertSpotlightCustomerClaimSchema = createInsertSchema(spotlightCustomerClaims);
 export type SpotlightCustomerClaim = typeof spotlightCustomerClaims.$inferSelect;
+
+// Spotlight Snoozes — rep-initiated snooze + outcome logging (Improvement 3)
+export const spotlightSnoozes = pgTable("spotlight_snoozes", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  snoozeUntil: timestamp("snooze_until", { withTimezone: true }),
+  outcomeTag: varchar("outcome_tag", { length: 30 }), // 'called_no_answer','called_spoke','email_sent','quote_updated','order_placed','not_interested'
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_snoozes_customer").on(table.customerId),
+  index("idx_snoozes_user").on(table.userId),
+]);
+
+export const insertSpotlightSnoozeSchema = createInsertSchema(spotlightSnoozes).omit({ id: true, createdAt: true });
+export type SpotlightSnooze = typeof spotlightSnoozes.$inferSelect;
+export type InsertSpotlightSnooze = z.infer<typeof insertSpotlightSnoozeSchema>;
+
+// Spotlight Team Claims — user-visible team claiming (Improvement 4)
+export const spotlightTeamClaims = pgTable("spotlight_team_claims", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+}, (table) => [
+  index("idx_team_claims_customer").on(table.customerId),
+]);
+
+export const insertSpotlightTeamClaimSchema = createInsertSchema(spotlightTeamClaims).omit({ id: true, claimedAt: true });
+export type SpotlightTeamClaim = typeof spotlightTeamClaims.$inferSelect;
+export type InsertSpotlightTeamClaim = z.infer<typeof insertSpotlightTeamClaimSchema>;
 
 // Spotlight Micro Cards - coaching content for product quizzes, objection practice, etc.
 export const spotlightMicroCards = pgTable("spotlight_micro_cards", {

@@ -10,6 +10,7 @@ import { startDripEmailWorker, stopDripEmailWorker } from "./drip-email-worker";
 import { startQuoteFollowUpWorker, stopQuoteFollowUpWorker } from "./quote-followup-worker";
 import { startDataRetentionWorker, stopDataRetentionWorker } from "./data-retention";
 import { startOdooSyncWorker, stopOdooSyncWorker } from "./odoo-sync-worker";
+import { startSpotlightDigestWorker, stopSpotlightDigestWorker } from "./spotlightDigestWorker";
 import { ensureTaxonomySeeded } from "./taxonomy-seed";
 import { seedSpotlightCoachingContent } from "./spotlight-coaching-seed";
 import { sessionConfig } from "./replitAuth";
@@ -329,6 +330,11 @@ app.use((req, res, next) => {
       } else {
         console.log('[Workers] Odoo sync worker disabled via ENABLE_ODOO_SYNC=false');
       }
+      if (process.env.ENABLE_SPOTLIGHT_DIGEST !== 'false') {
+        startSpotlightDigestWorker().catch(err => console.error('[Spotlight Digest] Failed to start:', err.message));
+      } else {
+        console.log('[Workers] Spotlight digest worker disabled via ENABLE_SPOTLIGHT_DIGEST=false');
+      }
       
       // Batch dedup: runs 20s after startup to avoid slowing initial boot
       setTimeout(async () => {
@@ -376,6 +382,7 @@ app.use((req, res, next) => {
         stopQuoteFollowUpWorker().catch(e => console.error('[Shutdown] Quote follow-up stop error:', e.message)),
         stopDataRetentionWorker().catch(e => console.error('[Shutdown] Data retention stop error:', e.message)),
         stopOdooSyncWorker().catch(e => console.error('[Shutdown] Odoo sync stop error:', e.message)),
+        stopSpotlightDigestWorker().catch(e => console.error('[Shutdown] Spotlight digest stop error:', e.message)),
       ];
 
       try {

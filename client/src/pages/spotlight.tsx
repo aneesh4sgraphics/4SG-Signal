@@ -100,6 +100,9 @@ import {
   CalendarCheck,
   CheckCircle2,
   Loader2,
+  Moon,
+  UserCheck,
+  UserX as UserXIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SiShopify } from "react-icons/si";
@@ -1161,6 +1164,65 @@ export default function Spotlight() {
       setIsTransitioning(false);
       toast({ title: "Error", description: "Failed to set reminder", variant: "destructive" });
     },
+  });
+
+  const [showSnoozeDialog, setShowSnoozeDialog] = useState(false);
+  const [snoozeOutcomeTag, setSnoozeOutcomeTag] = useState('');
+  const [snoozeNote, setSnoozeNote] = useState('');
+  const [customSnoozeDate, setCustomSnoozeDate] = useState('');
+  const [activeClaim, setActiveClaim] = useState<{ userId: string; userName: string; claimedAt: string } | null>(null);
+
+  const snoozeMutation = useMutation({
+    mutationFn: async ({ customerId, snoozeUntil, outcomeTag, note }: { customerId: string; snoozeUntil: string | null; outcomeTag: string; note?: string }) => {
+      const res = await apiRequest('POST', '/api/spotlight/snooze', { customerId, snoozeUntil, outcomeTag, note });
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowSnoozeDialog(false);
+      setSnoozeOutcomeTag('');
+      setSnoozeNote('');
+      setCustomSnoozeDate('');
+      queryClient.invalidateQueries({ queryKey: spotlightQueryKey });
+      toast({ title: "Snoozed", description: "Card hidden until your selected date" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to snooze", variant: "destructive" });
+    },
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const res = await apiRequest('POST', '/api/spotlight/claim', { customerId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/claims'] });
+      toast({ title: "Claimed", description: "You've claimed this customer for 24 hours" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to claim", variant: "destructive" });
+    },
+  });
+
+  const releaseMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const res = await apiRequest('DELETE', `/api/spotlight/claim/${customerId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/spotlight/claims'] });
+      toast({ title: "Released", description: "Claim released" });
+    },
+  });
+
+  const { data: claimsData } = useQuery<{ claims: Array<{ customerId: string; userId: string; claimedAt: string; userFirstName?: string; userLastName?: string; userEmail?: string }> }>({
+    queryKey: ['/api/spotlight/claims'],
+    queryFn: async () => {
+      const res = await fetch('/api/spotlight/claims', { credentials: 'include' });
+      if (!res.ok) return { claims: [] };
+      return res.json();
+    },
+    refetchInterval: 60000,
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -3048,6 +3110,20 @@ export default function Spotlight() {
                   <TooltipContent side="right"><p>Remind me later</p></TooltipContent>
                 </Tooltip>
                 
+                {/* Snooze */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowSnoozeDialog(true)}
+                      disabled={snoozeMutation.isPending}
+                      className="w-10 h-10 flex items-center justify-center rounded-lg transition-all bg-purple-100 text-purple-500 hover:bg-purple-200"
+                    >
+                      <Moon className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right"><p>Snooze customer</p></TooltipContent>
+                </Tooltip>
+
                 {/* Skip */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -3275,6 +3351,50 @@ export default function Spotlight() {
                       {task.lead.stage.charAt(0).toUpperCase() + task.lead.stage.slice(1)}
                     </span>
                   )}
+
+                  {/* Reason-Why label (Improvement 2) */}
+                  {task.whyNow && (
+                    <p className="mt-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-2 py-1 leading-snug">
+                      💡 {task.whyNow}
+                    </p>
+                  )}
+
+                  {/* Team Claim Status (Improvement 4) */}
+                  {(() => {
+                    const cardClaim = claimsData?.claims.find(c => c.customerId === task.customerId);
+                    if (!cardClaim) {
+                      return (
+                        <button
+                          onClick={() => claimMutation.mutate(task.customerId)}
+                          disabled={claimMutation.isPending}
+                          className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded px-2 py-1 transition-colors"
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          Claim
+                        </button>
+                      );
+                    }
+                    const claimUserName = [cardClaim.userFirstName, cardClaim.userLastName].filter(Boolean).join(' ') || cardClaim.userEmail || cardClaim.userId;
+                    const claimedMinsAgo = Math.floor((Date.now() - new Date(cardClaim.claimedAt).getTime()) / 60000);
+                    const claimedLabel = claimedMinsAgo < 60
+                      ? `${claimedMinsAgo}m ago`
+                      : `${Math.floor(claimedMinsAgo / 60)}h ago`;
+                    return (
+                      <div className="mt-2 flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                        <UserCheck className="w-3 h-3 text-amber-600" />
+                        <span className="text-amber-700 font-medium">Being handled by {claimUserName}</span>
+                        <span className="text-amber-500">— claimed {claimedLabel}</span>
+                        <button
+                          onClick={() => releaseMutation.mutate(task.customerId)}
+                          disabled={releaseMutation.isPending}
+                          className="ml-auto text-amber-600 hover:text-amber-800"
+                          title="Release claim"
+                        >
+                          <UserXIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -5214,6 +5334,107 @@ export default function Spotlight() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Snooze Dialog (Improvement 3) */}
+      <Dialog open={showSnoozeDialog} onOpenChange={setShowSnoozeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Moon className="w-5 h-5 text-purple-500" />
+              Snooze Customer
+            </DialogTitle>
+            <DialogDescription>
+              Hide this customer from Spotlight until a later date. Optionally log an outcome.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Snooze for</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: '2 days', days: 2 },
+                  { label: '1 week', days: 7 },
+                  { label: '1 month', days: 30 },
+                ].map(({ label, days }) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + days);
+                  const val = d.toISOString();
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => setCustomSnoozeDate(val)}
+                      className={`px-3 py-2 text-sm rounded border transition-colors ${customSnoozeDate === val ? 'bg-purple-100 border-purple-400 text-purple-700 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setCustomSnoozeDate('not_relevant')}
+                  className={`px-3 py-2 text-sm rounded border transition-colors col-span-2 ${customSnoozeDate === 'not_relevant' ? 'bg-red-100 border-red-400 text-red-700 font-medium' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
+                >
+                  Not relevant — remove permanently
+                </button>
+              </div>
+              <div className="mt-2">
+                <Label className="text-xs text-slate-500 mb-1 block">Custom date</Label>
+                <input
+                  type="date"
+                  value={customSnoozeDate && customSnoozeDate !== 'not_relevant' ? customSnoozeDate.slice(0, 10) : ''}
+                  onChange={(e) => setCustomSnoozeDate(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                  className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Outcome tag <span className="font-normal text-slate-400">(optional)</span></Label>
+              <Select value={snoozeOutcomeTag} onValueChange={setSnoozeOutcomeTag}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Select outcome..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="called_no_answer">Called — no answer</SelectItem>
+                  <SelectItem value="called_spoke">Called — spoke, follow-up scheduled</SelectItem>
+                  <SelectItem value="email_sent">Email sent</SelectItem>
+                  <SelectItem value="quote_updated">Quote updated</SelectItem>
+                  <SelectItem value="order_placed">Order placed</SelectItem>
+                  <SelectItem value="not_interested">Not interested</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Note <span className="font-normal text-slate-400">(optional)</span></Label>
+              <Textarea
+                value={snoozeNote}
+                onChange={(e) => setSnoozeNote(e.target.value)}
+                placeholder="Add a note..."
+                className="text-sm resize-none"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSnoozeDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!currentTask?.task?.customerId) return;
+                const snoozeUntil = customSnoozeDate === 'not_relevant' ? null : (customSnoozeDate || null);
+                const outcome = customSnoozeDate === 'not_relevant' ? 'not_interested' : (snoozeOutcomeTag || '');
+                snoozeMutation.mutate({
+                  customerId: currentTask.task.customerId,
+                  snoozeUntil,
+                  outcomeTag: outcome,
+                  note: snoozeNote || undefined,
+                });
+              }}
+              disabled={snoozeMutation.isPending || !customSnoozeDate}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {snoozeMutation.isPending ? 'Snoozing...' : 'Snooze'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

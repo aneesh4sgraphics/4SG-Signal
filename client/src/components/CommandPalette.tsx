@@ -81,6 +81,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/product-mapping', icon: ProductMappingIcon, label: 'Product Mapping', keywords: ['map', 'category', 'type', 'size', 'sqm', 'fix', 'unmapped'], adminOnly: true, iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/shopify-settings', icon: SiShopify, label: 'Shopify', keywords: ['shopify', 'orders', 'ecommerce', 'integration'], adminOnly: true, iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
   { path: '/odoo-settings', icon: OdooIcon, label: 'Odoo', keywords: ['odoo', 'erp', 'sync', 'partners', 'integration'], adminOnly: true, iconBg: '#693FA5', iconColor: '#FFFFFF' },
+  { path: '/spotlight-overview', icon: ClockIcon, label: 'Spotlight Overview', keywords: ['spotlight', 'overview', 'claims', 'snooze', 'manager', 'team'], adminOnly: true, iconBg: '#4F46E5', iconColor: '#FFFFFF' },
   { path: '/admin', icon: UsersIcon, label: 'Users', keywords: ['admin', 'management', 'roles'], adminOnly: true, iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/activity-logs', icon: ActivityIcon, label: 'Activity', keywords: ['logs', 'history', 'audit'], adminOnly: true, iconBg: '#DFAB00', iconColor: '#37352F' },
   { path: '/product-pricing-management', icon: DatabaseIcon, label: 'Products', keywords: ['inventory', 'catalog', 'items'], adminOnly: true, iconBg: '#AD1972', iconColor: '#FFFFFF' },

@@ -1,14 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Mail, Calendar, Database, CheckCircle2, XCircle, RefreshCw, 
-  ExternalLink, Settings, AlertCircle, ArrowLeft, Plug 
+  ExternalLink, Settings, AlertCircle, ArrowLeft, Plug, Sun
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface ConnectionStatus {
   odoo: { connected: boolean; error: string | null };
@@ -17,10 +21,31 @@ interface ConnectionStatus {
 }
 
 export default function IntegrationsSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
   const { data: status, isLoading, refetch, isFetching } = useQuery<ConnectionStatus>({
     queryKey: ['/api/integrations/status'],
     refetchOnWindowFocus: false,
     staleTime: 30 * 1000,
+  });
+
+  const { data: userPrefs } = useQuery<{ spotlightDigestEnabled: boolean }>({
+    queryKey: ['/api/users/me/spotlight-digest'],
+    staleTime: 60 * 1000,
+  });
+
+  const digestMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      return apiRequest('PATCH', '/api/users/me/spotlight-digest', { enabled });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/users/me/spotlight-digest'] });
+      toast({ title: 'Spotlight digest preference saved.' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update digest preference.', variant: 'destructive' });
+    },
   });
 
   const integrations = [
@@ -266,6 +291,37 @@ export default function IntegrationsSettings() {
           );
         })}
       </div>
+
+      <Separator className="my-8" />
+
+      {/* Spotlight Morning Digest */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sun className="h-5 w-5 text-amber-500" />
+            Morning Spotlight Digest
+          </CardTitle>
+          <CardDescription>
+            Receive a daily morning email with your top Spotlight customers — sent at 8 AM on weekdays.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Switch
+              id="digest-toggle"
+              checked={userPrefs?.spotlightDigestEnabled ?? true}
+              onCheckedChange={(v) => digestMutation.mutate(v)}
+              disabled={digestMutation.isPending}
+            />
+            <Label htmlFor="digest-toggle" className="text-sm text-slate-700 cursor-pointer">
+              {userPrefs?.spotlightDigestEnabled ?? true
+                ? 'Digest enabled — you will receive a morning email with top customers'
+                : 'Digest disabled — you will not receive morning Spotlight emails'}
+            </Label>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">Requires Gmail to be connected. You can re-enable this at any time.</p>
+        </CardContent>
+      </Card>
 
       <Separator className="my-8" />
 

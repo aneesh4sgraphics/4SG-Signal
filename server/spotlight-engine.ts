@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends, emailSalesEvents, opportunityScores } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends, emailSalesEvents, opportunityScores, shopifyOrders, spotlightSnoozes, spotlightTeamClaims } from "@shared/schema";
 import { scanForBouncedEmails } from "./bounce-detector";
 import { odooClient, isOdooConfigured } from "./odoo";
 
@@ -555,7 +555,7 @@ class SpotlightEngine {
     try {
       // Check spotlight_events for completed tasks TODAY that involve any form of customer/lead contact
       // Comprehensive list of outcomes that indicate contact was made
-      const contactOutcomes = "'email_sent','called','connected','voicemail','quoted','followed_up','sent_content','sent_email','sent','replied','qualified'";
+      const contactOutcomesArray = ['email_sent','called','connected','voicemail','quoted','followed_up','sent_content','sent_email','sent','replied','qualified'];
       const completedToday = await db
         .select({ 
           customerId: spotlightEvents.customerId
@@ -566,8 +566,8 @@ class SpotlightEngine {
             gte(spotlightEvents.createdAt, today),
             eq(spotlightEvents.eventType, 'completed'),
             or(
-              sql`${spotlightEvents.metadata}->>'outcome' IN (${sql.raw(contactOutcomes)})`,
-              sql`${spotlightEvents.metadata}->>'outcomeId' IN (${sql.raw(contactOutcomes)})`
+              sql`${spotlightEvents.metadata}->>'outcome' = ANY(${contactOutcomesArray}::text[])`,
+              sql`${spotlightEvents.metadata}->>'outcomeId' = ANY(${contactOutcomesArray}::text[])`
             )
           )
         );
@@ -6070,3 +6070,289 @@ class SpotlightEngine {
 }
 
 export const spotlightEngine = new SpotlightEngine();
+
+// ──────────────────────────────────────────────────────────────────────────
+// Improvement 1 — Smarter Scoring Signals (exported for digest worker + routes)
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface SpotlightSignal {
+  name: string;
+  weight: number;   // 0–10
+  value: number;    // 0.0–1.0
+  description: string;
+}
+
+export interface SpotlightScoreResult {
+  score: number;
+  signals: SpotlightSignal[];
+  reason: { primary: string; secondary?: string };
+}
+
+/**
+ * Calculate a spotlight score for a customer using weighted signals.
+ * Returns a score plus a breakdown of signals and a reason-why string.
+ */
+export async function calculateSpotlightScore(customerId: string): Promise<SpotlightScoreResult> {
+  const now = new Date();
+  const signals: SpotlightSignal[] = [];
+
+  // Fetch customer
+  const [customer] = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .limit(1);
+
+  if (!customer) {
+    return { score: 0, signals: [], reason: { primary: 'Customer not found' } };
+  }
+
+  // Fetch all shopify orders for this customer
+  const orders = await db
+    .select()
+    .from(shopifyOrders)
+    .where(eq(shopifyOrders.customerId, customerId))
+    .orderBy(desc(shopifyOrders.shopifyCreatedAt));
+
+  // Fetch quotes (sent_quotes) for this customer email
+  const quotes = customer.email ? await db
+    .select()
+    .from(sentQuotes)
+    .where(eq(sentQuotes.customerEmail, customer.email))
+    .orderBy(desc(sentQuotes.createdAt)) : [];
+
+  // Fetch overdue tasks
+  const overdueTasks = await db
+    .select()
+    .from(followUpTasks)
+    .where(
+      and(
+        eq(followUpTasks.customerId, customerId),
+        eq(followUpTasks.status, 'pending'),
+        lt(followUpTasks.dueDate, new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000))
+      )
+    );
+
+  // Fetch last contact activity
+  const recentActivities = await db
+    .select()
+    .from(customerActivityEvents)
+    .where(eq(customerActivityEvents.customerId, customerId))
+    .orderBy(desc(customerActivityEvents.createdAt))
+    .limit(1);
+
+  const lastActivity = recentActivities[0];
+  const daysSinceLastContact = lastActivity
+    ? Math.floor((now.getTime() - new Date(lastActivity.createdAt!).getTime()) / (1000 * 60 * 60 * 24))
+    : 999;
+
+  // ── Signal 1: Days since last Shopify order vs customer average (weight 10) ──
+  if (orders.length > 0) {
+    const sortedDates = orders
+      .map(o => new Date(o.shopifyCreatedAt!).getTime())
+      .filter(Boolean)
+      .sort((a, b) => b - a);
+
+    const daysSinceLastOrder = sortedDates.length > 0
+      ? Math.floor((now.getTime() - sortedDates[0]) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    let avgGapDays = 30;
+    if (sortedDates.length > 1) {
+      const gaps: number[] = [];
+      for (let i = 0; i < sortedDates.length - 1; i++) {
+        gaps.push((sortedDates[i] - sortedDates[i + 1]) / (1000 * 60 * 60 * 24));
+      }
+      avgGapDays = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    }
+
+    const ratio = avgGapDays > 0 ? daysSinceLastOrder / avgGapDays : 1;
+    const value = Math.min(ratio - 1, 2) / 2; // 0 when on time, 1 when 3x overdue
+    if (value > 0) {
+      signals.push({
+        name: 'order_frequency_drop',
+        weight: 10,
+        value: Math.max(0, value),
+        description: `Last order ${daysSinceLastOrder} days ago — their average is ${Math.round(avgGapDays)} days`,
+      });
+    }
+  }
+
+  // ── Signal 2: Quote aging > 5 days, no response (weight 8) ──
+  const pendingQuotes = quotes.filter(q =>
+    q.outcome === 'pending' || q.outcome === 'sent' || !q.outcome
+  );
+  if (pendingQuotes.length > 0) {
+    const oldestPending = pendingQuotes.sort(
+      (a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime()
+    )[0];
+    const ageDays = Math.floor(
+      (now.getTime() - new Date(oldestPending.createdAt!).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (ageDays >= 5) {
+      const value = Math.min((ageDays - 5) / 20, 1); // ramps up to 1 over 25 days
+      signals.push({
+        name: 'aging_quote',
+        weight: 8,
+        value,
+        description: `Quote #${oldestPending.quoteNumber || 'draft'} sent ${ageDays} days ago — no response yet`,
+      });
+    }
+  }
+
+  // ── Signal 3: Customer LTV decile (weight 7) ──
+  const ltv = parseFloat(customer.totalSpent as string || '0');
+  if (ltv > 0) {
+    // Rough LTV scoring: top 10% = 1.0, normalize against $50k
+    const ltvValue = Math.min(ltv / 50000, 1);
+    signals.push({
+      name: 'high_ltv',
+      weight: 7,
+      value: ltvValue,
+      description: `Customer lifetime value $${ltv.toFixed(0)} — higher priority`,
+    });
+  }
+
+  // ── Signal 4: Seasonal pattern — bought in same calendar month in prior years (weight 6) ──
+  const currentMonth = now.getMonth();
+  const priorYearOrders = orders.filter(o => {
+    if (!o.shopifyCreatedAt) return false;
+    const d = new Date(o.shopifyCreatedAt);
+    return d.getFullYear() < now.getFullYear() && d.getMonth() === currentMonth;
+  });
+  if (priorYearOrders.length > 0) {
+    signals.push({
+      name: 'seasonal_buyer',
+      weight: 6,
+      value: Math.min(priorYearOrders.length / 2, 1),
+      description: `Bought in ${now.toLocaleString('default', { month: 'long' })} in ${priorYearOrders.length} prior year(s) — worth a call this week`,
+    });
+  }
+
+  // ── Signal 5: Quote-to-order conversion rate (weight 5) ──
+  if (quotes.length > 0) {
+    const converted = quotes.filter(q => q.outcome === 'ordered' || q.outcome === 'won').length;
+    const conversionRate = converted / quotes.length;
+    if (conversionRate < 0.25 && quotes.length >= 2) {
+      signals.push({
+        name: 'low_conversion',
+        weight: 5,
+        value: 1 - conversionRate,
+        description: `${quotes.length} quotes sent, ${converted} converted — check in on their decision`,
+      });
+    }
+  }
+
+  // ── Signal 6: No contact in past 30 days (weight 4) ──
+  if (daysSinceLastContact > 30) {
+    const value = Math.min((daysSinceLastContact - 30) / 60, 1);
+    signals.push({
+      name: 'no_recent_contact',
+      weight: 4,
+      value,
+      description: `No contact in ${daysSinceLastContact} days`,
+    });
+  }
+
+  // ── Signal 7: Overdue open task > 2 days (weight 4) ──
+  if (overdueTasks.length > 0) {
+    const mostOverdue = overdueTasks.sort(
+      (a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
+    )[0];
+    const overdueDays = Math.floor(
+      (now.getTime() - new Date(mostOverdue.dueDate!).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    signals.push({
+      name: 'overdue_task',
+      weight: 4,
+      value: Math.min(overdueDays / 14, 1),
+      description: `Follow-up task was due ${overdueDays} days ago`,
+    });
+  }
+
+  // ── Compute final score with recency decay ──
+  const recencyDecay = 1 / (1 + daysSinceLastContact * 0.05);
+  const rawScore = signals.reduce((sum, s) => sum + s.weight * s.value, 0);
+  const maxPossibleScore = 44; // sum of all weights
+  const normalizedScore = (rawScore / maxPossibleScore) * 100;
+  const score = Math.round(normalizedScore * recencyDecay);
+
+  const reason = generateSpotlightReason(signals);
+
+  return { score, signals, reason };
+}
+
+/**
+ * Generate a human-readable reason-why explanation from scored signals.
+ */
+export function generateSpotlightReason(signals: SpotlightSignal[]): { primary: string; secondary?: string } {
+  if (signals.length === 0) {
+    return { primary: 'Review this customer' };
+  }
+
+  // Sort by weighted contribution descending
+  const sorted = [...signals].sort((a, b) => (b.weight * b.value) - (a.weight * a.value));
+  const top = sorted[0];
+  const second = sorted[1];
+
+  return {
+    primary: top.description,
+    secondary: second?.description,
+  };
+}
+
+/**
+ * Get top N scored customers for a given user (used by digest worker).
+ * Filters out snoozed customers for this user.
+ */
+export async function getTopSpotlightCustomers(userId: string, limit = 5): Promise<Array<{
+  customer: typeof customers.$inferSelect;
+  score: number;
+  reason: { primary: string; secondary?: string };
+}>> {
+  // Get snoozed customer IDs for this user
+  const now = new Date();
+  const snoozed = await db
+    .select({ customerId: spotlightSnoozes.customerId })
+    .from(spotlightSnoozes)
+    .where(
+      and(
+        eq(spotlightSnoozes.userId, userId),
+        gt(spotlightSnoozes.snoozeUntil, now)
+      )
+    );
+  const snoozedIds = snoozed.map(s => s.customerId);
+
+  // Fetch a pool of active customers to score
+  let customerQuery = db
+    .select()
+    .from(customers)
+    .where(
+      and(
+        eq(customers.doNotContact, false),
+        isNotNull(customers.email),
+        snoozedIds.length > 0 ? notInArray(customers.id, snoozedIds) : sql`true`
+      )
+    )
+    .orderBy(desc(customers.totalSpent))
+    .limit(200);
+
+  const pool = await customerQuery;
+
+  // Score each customer
+  const scored = await Promise.all(
+    pool.map(async (c) => {
+      try {
+        const result = await calculateSpotlightScore(c.id);
+        return { customer: c, score: result.score, reason: result.reason };
+      } catch {
+        return { customer: c, score: 0, reason: { primary: 'Review this customer' } };
+      }
+    })
+  );
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
