@@ -26644,15 +26644,18 @@ Analyze this bounced email and provide insights in JSON format:
   app.post("/api/bounce-investigation/:bounceId/resolve", isAuthenticated, async (req: any, res) => {
     try {
       const bounceId = parseInt(req.params.bounceId);
-      const { resolution } = req.body;
+      const { resolution, correctedEmail } = req.body;
       const userId = req.user?.claims?.sub || req.user?.id;
 
-      if (!['bad_fit', 'delete', 'keep'].includes(resolution)) {
+      if (!['bad_fit', 'delete', 'keep', 'fix_email'].includes(resolution)) {
         return res.status(400).json({ error: "Invalid resolution" });
       }
 
-      // Get bounce record - any authenticated user can resolve bounces
-      // (bounced emails are data quality issues visible to all users)
+      if (resolution === 'fix_email' && !correctedEmail) {
+        return res.status(400).json({ error: "correctedEmail is required for fix_email resolution" });
+      }
+
+      // Get bounce record
       const [bounce] = await db
         .select()
         .from(bouncedEmails)
@@ -26663,16 +26666,14 @@ Analyze this bounced email and provide insights in JSON format:
         return res.status(404).json({ error: "Bounce not found" });
       }
 
-      // Handle the resolution
+      // Handle the resolution action
       if (resolution === 'delete') {
-        // Delete the associated record
         if (bounce.leadId) {
           await db.delete(leads).where(eq(leads.id, bounce.leadId));
         } else if (bounce.customerId) {
           await db.delete(customers).where(eq(customers.id, bounce.customerId));
         }
       } else if (resolution === 'bad_fit') {
-        // Mark as do not contact
         if (bounce.leadId) {
           await db.update(leads)
             .set({ stage: 'lost', lostReason: 'Bad Fit - Email Bounced', doNotContact: true })
@@ -26682,10 +26683,27 @@ Analyze this bounced email and provide insights in JSON format:
             .set({ doNotContact: true, doNotContactReason: 'Bad Fit - Email Bounced' })
             .where(eq(customers.id, bounce.customerId));
         }
+      } else if (resolution === 'fix_email' && correctedEmail) {
+        // BUG-06 FIX: Update the email on the underlying customer, contact, or lead record
+        if (bounce.customerId) {
+          await db.update(customers)
+            .set({ email: correctedEmail })
+            .where(eq(customers.id, bounce.customerId));
+        }
+        if (bounce.contactId) {
+          await db.update(customerContacts)
+            .set({ email: correctedEmail })
+            .where(eq(customerContacts.id, bounce.contactId));
+        }
+        if (bounce.leadId) {
+          await db.update(leads)
+            .set({ email: correctedEmail })
+            .where(eq(leads.id, bounce.leadId));
+        }
       }
       // 'keep' just resolves the bounce without changing the record
 
-      // Update bounce record as resolved
+      // Mark bounce record as resolved
       await db.update(bouncedEmails)
         .set({
           status: 'resolved',

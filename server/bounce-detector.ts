@@ -1,6 +1,6 @@
 import { google, gmail_v1 } from 'googleapis';
 import { db } from './db';
-import { eq, and, or, sql, isNull } from 'drizzle-orm';
+import { eq, and, or, sql, isNull, lt, ilike } from 'drizzle-orm';
 import { 
   bouncedEmails, 
   customers, 
@@ -135,12 +135,12 @@ interface MatchResult {
   leadId?: number;
 }
 
+// BUG-01 FIX: Use ilike on the actual email column for case-insensitive matching.
+// emailNormalized may be null for older records, making eq() lookups miss real matches.
 async function matchEmailToRecord(email: string): Promise<MatchResult> {
-  const normalized = normalizeEmail(email);
-  
   const customerMatch = await db.select({ id: customers.id })
     .from(customers)
-    .where(eq(customers.emailNormalized, normalized))
+    .where(ilike(customers.email, email))
     .limit(1);
   
   if (customerMatch.length > 0) {
@@ -152,7 +152,7 @@ async function matchEmailToRecord(email: string): Promise<MatchResult> {
     customerId: customerContacts.customerId 
   })
     .from(customerContacts)
-    .where(eq(customerContacts.emailNormalized, normalized))
+    .where(ilike(customerContacts.email, email))
     .limit(1);
   
   if (contactMatch.length > 0) {
@@ -165,7 +165,7 @@ async function matchEmailToRecord(email: string): Promise<MatchResult> {
   
   const leadMatch = await db.select({ id: leads.id })
     .from(leads)
-    .where(eq(leads.emailNormalized, normalized))
+    .where(ilike(leads.email, email))
     .limit(1);
   
   if (leadMatch.length > 0) {
@@ -412,7 +412,11 @@ export async function scanForBouncedEmails(userId: string): Promise<number> {
   }
 }
 
+// BUG-04 FIX: Apply userId to WHERE clause so users only see their own detected bounces.
+// BUG-05 FIX: Include 'investigating' bounces whose investigateUntil date has passed.
 export async function getPendingBounces(userId?: string): Promise<any[]> {
+  const now = new Date();
+
   const bounces = await db.select({
     id: bouncedEmails.id,
     bouncedEmail: bouncedEmails.bouncedEmail,
@@ -425,21 +429,91 @@ export async function getPendingBounces(userId?: string): Promise<any[]> {
     matchType: bouncedEmails.matchType,
     status: bouncedEmails.status,
     customerName: customers.company,
+    customerFirstName: customers.firstName,
+    customerLastName: customers.lastName,
     customerEmail: customers.email,
   })
     .from(bouncedEmails)
     .leftJoin(customers, eq(bouncedEmails.customerId, customers.id))
-    .where(eq(bouncedEmails.status, 'pending'))
+    .where(and(
+      or(
+        eq(bouncedEmails.status, 'pending'),
+        and(
+          eq(bouncedEmails.status, 'investigating'),
+          or(
+            isNull(bouncedEmails.investigateUntil),
+            lt(bouncedEmails.investigateUntil, now)
+          )
+        )
+      ),
+      userId ? eq(bouncedEmails.detectedBy, userId) : undefined
+    ))
     .orderBy(bouncedEmails.bounceDate);
-  
-  return bounces;
+
+  return bounces.map(b => ({
+    ...b,
+    displayName: b.customerName
+      || `${b.customerFirstName || ''} ${b.customerLastName || ''}`.trim()
+      || b.customerEmail
+      || null,
+  }));
 }
 
+// BUG-03 FIX: Perform actual record actions (delete / DNC) after marking the bounce resolved.
+// BUG-06 FIX: Add 'fix_email' resolution path to update the customer or lead email address.
 export async function resolveBounce(
-  bounceId: number, 
-  resolution: 'delete' | 'mark_dnc' | 'keep',
-  userId: string
+  bounceId: number,
+  resolution: 'delete' | 'mark_dnc' | 'keep' | 'fix_email',
+  userId: string,
+  correctedEmail?: string
 ): Promise<void> {
+  const [bounceRecord] = await db.select()
+    .from(bouncedEmails)
+    .where(eq(bouncedEmails.id, bounceId))
+    .limit(1);
+
+  if (!bounceRecord) return;
+
+  if (resolution === 'delete') {
+    if (bounceRecord.customerId) {
+      await db.delete(customers).where(eq(customers.id, bounceRecord.customerId));
+    }
+    if (bounceRecord.leadId) {
+      await db.delete(leads).where(eq(leads.id, bounceRecord.leadId));
+    }
+  }
+
+  if (resolution === 'mark_dnc') {
+    if (bounceRecord.customerId) {
+      await db.update(customers)
+        .set({ doNotContact: true, doNotContactReason: 'Email bounced' })
+        .where(eq(customers.id, bounceRecord.customerId));
+    }
+    if (bounceRecord.leadId) {
+      await db.update(leads)
+        .set({ doNotContact: true, lostReason: 'Email bounced' })
+        .where(eq(leads.id, bounceRecord.leadId));
+    }
+  }
+
+  if (resolution === 'fix_email' && correctedEmail) {
+    if (bounceRecord.customerId) {
+      await db.update(customers)
+        .set({ email: correctedEmail })
+        .where(eq(customers.id, bounceRecord.customerId));
+    }
+    if (bounceRecord.contactId) {
+      await db.update(customerContacts)
+        .set({ email: correctedEmail })
+        .where(eq(customerContacts.id, bounceRecord.contactId));
+    }
+    if (bounceRecord.leadId) {
+      await db.update(leads)
+        .set({ email: correctedEmail })
+        .where(eq(leads.id, bounceRecord.leadId));
+    }
+  }
+
   await db.update(bouncedEmails)
     .set({
       status: 'resolved',
