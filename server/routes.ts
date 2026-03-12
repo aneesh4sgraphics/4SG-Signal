@@ -15984,7 +15984,7 @@ Return only the JSON object. No markdown, no code blocks.`
           .from(bouncedEmails)
           .where(and(
             ilike(bouncedEmails.bouncedEmail, lead.email),
-            inArray(bouncedEmails.status, ['active', 'open', 'new'])
+            inArray(bouncedEmails.status, ['pending', 'investigating'])
           ))
           .limit(1);
         if (bounced) missing.push('email_bounced');
