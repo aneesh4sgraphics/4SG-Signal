@@ -150,6 +150,16 @@ function Router() {
     }
   }, [isAuthenticated, isLoading, user]);
 
+  // Prefetch Spotlight data immediately on login so the page loads instantly
+  useEffect(() => {
+    if (!isAuthenticated || !user || (user as any)?.status === 'pending') return;
+    // Fire warmup and current task fetch in parallel — results land in the cache
+    // so when the user opens Spotlight the data is already there
+    queryClient.prefetchQuery({ queryKey: ['/api/spotlight/warmup'], staleTime: 2 * 60 * 1000 });
+    queryClient.prefetchQuery({ queryKey: ['/api/spotlight/current', undefined, undefined], staleTime: 2 * 60 * 1000 });
+    queryClient.prefetchQuery({ queryKey: ['/api/sales-reps'], staleTime: 30 * 60 * 1000 });
+  }, [isAuthenticated, user]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

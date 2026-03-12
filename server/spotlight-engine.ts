@@ -556,38 +556,38 @@ class SpotlightEngine {
       // Check spotlight_events for completed tasks TODAY that involve any form of customer/lead contact
       // Comprehensive list of outcomes that indicate contact was made
       const contactOutcomesList = sql.raw(`ARRAY['email_sent','called','connected','voicemail','quoted','followed_up','sent_content','sent_email','sent','replied','qualified']`);
-      const completedToday = await db
-        .select({ 
-          customerId: spotlightEvents.customerId
-        })
-        .from(spotlightEvents)
-        .where(
-          and(
-            gte(spotlightEvents.createdAt, today),
-            eq(spotlightEvents.eventType, 'completed'),
-            or(
-              sql`${spotlightEvents.metadata}->>'outcome' = ANY(${contactOutcomesList})`,
-              sql`${spotlightEvents.metadata}->>'outcomeId' = ANY(${contactOutcomesList})`
+
+      // Run all 3 queries in parallel
+      const [completedToday, activityToday, leadsContactedToday] = await Promise.all([
+        db
+          .select({ customerId: spotlightEvents.customerId })
+          .from(spotlightEvents)
+          .where(
+            and(
+              gte(spotlightEvents.createdAt, today),
+              eq(spotlightEvents.eventType, 'completed'),
+              or(
+                sql`${spotlightEvents.metadata}->>'outcome' = ANY(${contactOutcomesList})`,
+                sql`${spotlightEvents.metadata}->>'outcomeId' = ANY(${contactOutcomesList})`
+              )
             )
-          )
-        );
-      
-      // Also check customerActivityEvents for today
-      const activityToday = await db
-        .select({ customerId: customerActivityEvents.customerId })
-        .from(customerActivityEvents)
-        .where(
-          and(
-            gte(customerActivityEvents.createdAt, today),
-            inArray(customerActivityEvents.eventType, ['call', 'email', 'quote'])
-          )
-        );
-      
-      // Also check leads with last_contact_at set to today (may have been updated by Gmail sync etc.)
-      const leadsContactedToday = await db
-        .select({ id: leads.id })
-        .from(leads)
-        .where(gte(leads.lastContactAt, today));
+          ),
+        // Also check customerActivityEvents for today
+        db
+          .select({ customerId: customerActivityEvents.customerId })
+          .from(customerActivityEvents)
+          .where(
+            and(
+              gte(customerActivityEvents.createdAt, today),
+              inArray(customerActivityEvents.eventType, ['call', 'email', 'quote'])
+            )
+          ),
+        // Also check leads with last_contact_at set to today (may have been updated by Gmail sync etc.)
+        db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(gte(leads.lastContactAt, today)),
+      ]);
       
       const customerIds = new Set<string>();
       const leadIds = new Set<number>();
@@ -4220,13 +4220,14 @@ class SpotlightEngine {
       const now = Date.now();
       
       if (!cached || (now - cached.lastScan) > this.BOUNCE_SCAN_INTERVAL) {
-        try {
-          await scanForBouncedEmails(userId);
-          this.bounceScanCache.set(cacheKey, { lastScan: now });
-        } catch (scanError) {
-          // Don't block on scan errors, just skip
-          this.bounceScanCache.set(cacheKey, { lastScan: now }); // Still cache to avoid retrying
-        }
+        // Mark cache immediately so concurrent requests don't also trigger a scan
+        this.bounceScanCache.set(cacheKey, { lastScan: now });
+        // Fire async — do NOT await; scan runs in background so it never blocks task generation
+        scanForBouncedEmails(userId).catch((scanError) => {
+          console.error('[Bounce Detector] Background scan error:', scanError);
+          // Reset cache so it retries sooner on next call
+          this.bounceScanCache.delete(cacheKey);
+        });
       }
       
       // Query the bouncedEmails table for pending or investigating bounces
