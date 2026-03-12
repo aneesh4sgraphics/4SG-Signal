@@ -3224,33 +3224,22 @@ export default function Spotlight() {
                     country: customer?.country || null,
                   };
                   const leadIdForQueue = task.isLeadTask ? task.lead?.id : undefined;
+                  if (!effectiveAddress) {
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button disabled className="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-300 cursor-not-allowed">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right"><p>No address on file</p></TooltipContent>
+                      </Tooltip>
+                    );
+                  }
                   return (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => {
-                            if (inQueue) {
-                              labelQueue.removeFromQueue(labelId);
-                              toast({ title: 'Removed from label queue' });
-                            } else {
-                              labelQueue.addToQueue(labelCustomer, leadIdForQueue);
-                              toast({ title: 'Added to label queue', description: 'Click the labels button to print when ready.' });
-                            }
-                          }}
-                          disabled={!effectiveAddress}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
-                            !effectiveAddress 
-                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed' 
-                              : inQueue 
-                                ? 'bg-blue-200 text-blue-700 hover:bg-blue-300 ring-2 ring-blue-400' 
-                                : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                          }`}
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right"><p>{!effectiveAddress ? "No address" : inQueue ? "In Queue (click to remove)" : "Add to Queue"}</p></TooltipContent>
-                    </Tooltip>
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <PrintLabelButton customer={labelCustomer} leadId={leadIdForQueue} variant="icon" />
+                    </div>
                   );
                 })()}
                 
@@ -4220,28 +4209,7 @@ export default function Spotlight() {
                             <span className="text-sm text-slate-400 italic">No address on file — update their record first</span>
                           </div>
                         )}
-                        <button
-                          onClick={() => {
-                            if (mInQueue) {
-                              labelQueue.removeFromQueue(mlabelId);
-                              toast({ title: 'Removed from label queue' });
-                            } else {
-                              labelQueue.addToQueue(mlabelCustomer);
-                              toast({ title: 'Added to label queue!', description: 'Click the labels button to print when ready.' });
-                            }
-                          }}
-                          disabled={!mHasAddress}
-                          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                            !mHasAddress
-                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                              : mInQueue
-                                ? 'bg-blue-500 text-white hover:bg-blue-600 ring-2 ring-blue-300'
-                                : 'bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-md hover:shadow-lg hover:from-orange-500 hover:to-amber-600'
-                          }`}
-                        >
-                          <Printer className="w-4 h-4" />
-                          {mInQueue ? 'In Queue — Click to Remove' : 'Add to Label Queue'}
-                        </button>
+                        <PrintLabelButton customer={mlabelCustomer} variant="button" size="default" />
                       </div>
                     );
                   }
