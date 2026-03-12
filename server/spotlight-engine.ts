@@ -4304,7 +4304,6 @@ class SpotlightEngine {
             .where(and(
               eq(customers.id, bounce.customerId),
               eq(customers.doNotContact, false),
-              or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
             ))
             .limit(1);
           
