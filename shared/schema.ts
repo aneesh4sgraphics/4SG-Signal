@@ -3138,6 +3138,7 @@ export const spotlightEvents = pgTable("spotlight_events", {
   bucketIdx: index("spotlight_events_bucket_idx").on(table.bucket),
   createdAtIdx: index("spotlight_events_created_at_idx").on(table.createdAt),
   userDateIdx: index("spotlight_events_user_date_idx").on(table.userId, table.createdAt),
+  userEventDateIdx: index("spotlight_events_user_event_date_idx").on(table.userId, table.eventType, table.createdAt),
 }));
 
 export const insertSpotlightEventSchema = createInsertSchema(spotlightEvents).omit({

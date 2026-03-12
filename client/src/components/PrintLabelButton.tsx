@@ -66,7 +66,7 @@ export function LabelQueueProvider({ children }: { children: React.ReactNode }) 
 
   const { data: queue = [], isLoading } = useQuery<ServerQueueItem[]>({
     queryKey: ['/api/label-queue'],
-    refetchInterval: 8000,
+    refetchInterval: 30000,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['/api/label-queue'] });

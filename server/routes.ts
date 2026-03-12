@@ -1813,14 +1813,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Unified sales reps endpoint - single source of truth for all sales rep dropdowns
   let salesRepsCache: { data: Array<{ id: string; name: string; email: string }>; timestamp: number } | null = null;
-  const SALES_REPS_CACHE_TTL = 10 * 60 * 1000;
+  let salesRepsRefreshing = false;
+  const SALES_REPS_CACHE_TTL = 30 * 60 * 1000; // 30 min TTL
 
-  app.get("/api/sales-reps", isAuthenticated, async (req: any, res) => {
+  async function refreshSalesRepsCache() {
+    if (salesRepsRefreshing) return;
+    salesRepsRefreshing = true;
     try {
-      if (salesRepsCache && (Date.now() - salesRepsCache.timestamp < SALES_REPS_CACHE_TTL)) {
-        return res.json(salesRepsCache.data);
-      }
-
       let odooSalesReps: Array<{ id: string; name: string; email: string }> = [];
       try {
         const users = await odooClient.getUsers();
@@ -1832,13 +1831,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (odooError) {
         console.log("[Sales Reps] Odoo unavailable, falling back to local users");
       }
-      
       if (odooSalesReps.length > 0) {
-        const sorted = odooSalesReps.sort((a, b) => a.name.localeCompare(b.name));
-        salesRepsCache = { data: sorted, timestamp: Date.now() };
-        return res.json(sorted);
+        salesRepsCache = { data: odooSalesReps.sort((a, b) => a.name.localeCompare(b.name)), timestamp: Date.now() };
+        return;
       }
-      
       const allUsers = await storage.getAllUsers();
       const salesReps = allUsers
         .filter(u => u.status === 'approved')
@@ -1848,9 +1844,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: u.email
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
-      
       salesRepsCache = { data: salesReps, timestamp: Date.now() };
-      res.json(salesReps);
+    } catch (err) {
+      console.error("[Sales Reps] Background refresh failed:", err);
+    } finally {
+      salesRepsRefreshing = false;
+    }
+  }
+
+  // Warm the cache immediately at startup
+  refreshSalesRepsCache().catch(() => {});
+
+  app.get("/api/sales-reps", isAuthenticated, async (req: any, res) => {
+    try {
+      const isStale = !salesRepsCache || (Date.now() - salesRepsCache.timestamp > SALES_REPS_CACHE_TTL);
+      // If we have cached data (even stale), return it immediately and refresh in background
+      if (salesRepsCache) {
+        if (isStale) refreshSalesRepsCache().catch(() => {});
+        return res.json(salesRepsCache.data);
+      }
+      // No cache at all — wait for fresh data (first startup)
+      await refreshSalesRepsCache();
+      res.json(salesRepsCache?.data ?? []);
     } catch (error) {
       console.error("Error fetching sales reps:", error);
       res.status(500).json({ error: "Failed to fetch sales reps" });
@@ -3600,35 +3615,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/label-queue", isAuthenticated, async (req: any, res) => {
     try {
       const items = await storage.getLabelQueue();
-      // Enrich with address data for each item
-      const enriched = await Promise.all(items.map(async (item) => {
+      if (items.length === 0) return res.json([]);
+
+      // Batch-fetch all addresses in 2 queries instead of N
+      const customerIds = items.filter(i => i.customerId).map(i => i.customerId!);
+      const leadIds = items.filter(i => i.leadId).map(i => i.leadId!);
+
+      const [customerRows, leadRows] = await Promise.all([
+        customerIds.length > 0
+          ? db.select({
+              id: customers.id, company: customers.company,
+              firstName: customers.firstName, lastName: customers.lastName,
+              address1: customers.address1, address2: customers.address2,
+              city: customers.city, province: customers.province,
+              zip: customers.zip, country: customers.country,
+            }).from(customers).where(inArray(customers.id, customerIds))
+          : Promise.resolve([]),
+        leadIds.length > 0
+          ? db.select({
+              id: leads.id, name: leads.name, company: leads.company,
+              street: leads.street, street2: leads.street2,
+              city: leads.city, state: leads.state,
+              zip: leads.zip, country: leads.country,
+            }).from(leads).where(inArray(leads.id, leadIds))
+          : Promise.resolve([]),
+      ]);
+
+      const customerMap = new Map(customerRows.map(c => [c.id, c]));
+      const leadMap = new Map(leadRows.map(l => [l.id, l]));
+
+      const enriched = items.map(item => {
         let address = null;
         if (item.customerId) {
-          const [c] = await db.select({
-            id: customers.id,
-            company: customers.company,
-            firstName: customers.firstName,
-            lastName: customers.lastName,
-            address1: customers.address1,
-            address2: customers.address2,
-            city: customers.city,
-            province: customers.province,
-            zip: customers.zip,
-            country: customers.country,
-          }).from(customers).where(eq(customers.id, item.customerId)).limit(1);
-          if (c) address = c;
+          address = customerMap.get(item.customerId) || null;
         } else if (item.leadId) {
-          const lead = await db.select({
-            id: leads.id,
-            name: leads.name,
-            company: leads.company,
-            street: leads.street,
-            street2: leads.street2,
-            city: leads.city,
-            state: leads.state,
-            zip: leads.zip,
-            country: leads.country,
-          }).from(leads).where(eq(leads.id, item.leadId)).limit(1).then(r => r[0]);
+          const lead = leadMap.get(item.leadId);
           if (lead) {
             const nameParts = (lead.name || '').split(' ');
             address = {
@@ -3646,7 +3667,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         return { ...item, address };
-      }));
+      });
+
       res.json(enriched);
     } catch (error) {
       console.error("Error fetching label queue:", error);
@@ -4034,176 +4056,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         today.setHours(18, 0, 0, 0);
       }
       
-      // 1. SWATCHBOOKS: Count SwatchBooks + Press Test Kits + $0 sample order follow-ups
-      const labelStats = await db.select({
-        labelType: labelPrints.labelType,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(labelPrints)
-      .where(
-        and(
-          eq(labelPrints.printedByUserId, userId),
-          gte(labelPrints.createdAt, today),
-          or(
-            eq(labelPrints.labelType, 'swatch_book'),
-            eq(labelPrints.labelType, 'press_test_kit')
-          )
-        )
-      )
-      .groupBy(labelPrints.labelType);
+      // Run all queries in parallel: label prints + one aggregated spotlight_events + session + follow-ups
+      const [labelStats, eventsAgg, sessionResult, onTimeFollowUps] = await Promise.all([
+        // 1. SWATCHBOOKS: label prints (swatch_book / press_test_kit)
+        db.select({ labelType: labelPrints.labelType, count: sql<number>`COUNT(*)::int` })
+          .from(labelPrints)
+          .where(and(
+            eq(labelPrints.printedByUserId, userId),
+            gte(labelPrints.createdAt, today),
+            or(eq(labelPrints.labelType, 'swatch_book'), eq(labelPrints.labelType, 'press_test_kit'))
+          ))
+          .groupBy(labelPrints.labelType),
 
-      const swatchBookCount = labelStats.find(s => s.labelType === 'swatch_book')?.count || 0;
-      const pressTestKitCount = labelStats.find(s => s.labelType === 'press_test_kit')?.count || 0;
-      
-      // Count $0 sample order follow-ups (called or emailed)
-      const sampleFollowUps = await db.select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(spotlightEvents)
-      .where(
-        and(
+        // 2-5. Single aggregated query replaces 5 individual spotlight_events queries
+        db.select({
+          callsCount:        sql<number>`COUNT(CASE WHEN outcome_id = 'called' THEN 1 END)::int`,
+          emailsCount:       sql<number>`COUNT(CASE WHEN outcome_id IN ('email_sent','send_drip','replied') THEN 1 END)::int`,
+          hygieneCount:      sql<number>`COUNT(CASE WHEN bucket = 'data_hygiene' THEN 1 END)::int`,
+          sampleFollowups:   sql<number>`COUNT(CASE WHEN task_subtype = 'odoo_sample_followup' AND outcome_id IN ('called','email_sent') THEN 1 END)::int`,
+          quotesFollowedUp:  sql<number>`COUNT(CASE WHEN task_subtype IN ('odoo_quote_followup','shopify_draft_followup','shopify_abandoned_cart','saved_quote_followup') AND outcome_id IN ('called','email_sent','contacted','order_confirmed','order_placed') THEN 1 END)::int`,
+        })
+        .from(spotlightEvents)
+        .where(and(
           eq(spotlightEvents.userId, userId),
           eq(spotlightEvents.eventType, 'task_completed'),
-          eq(spotlightEvents.taskSubtype, 'odoo_sample_followup'),
-          or(
-            eq(spotlightEvents.outcomeId, 'called'),
-            eq(spotlightEvents.outcomeId, 'email_sent')
-          ),
           gte(spotlightEvents.createdAt, today)
-        )
-      );
-      
-      const sampleFollowUpCount = sampleFollowUps[0]?.count || 0;
-      const totalSwatchbooks = swatchBookCount + pressTestKitCount + sampleFollowUpCount;
-      const swatchbookGoal = 3;
-      
-      // 2. CALLS: Count all calls made today (any task with 'called' outcome)
-      const callStats = await db.select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(spotlightEvents)
-      .where(
-        and(
-          eq(spotlightEvents.userId, userId),
-          eq(spotlightEvents.eventType, 'task_completed'),
-          eq(spotlightEvents.outcomeId, 'called'),
-          gte(spotlightEvents.createdAt, today)
-        )
-      );
-      
-      const callsCount = callStats[0]?.count || 0;
-      const callsGoal = 10;
-      
-      // 3. EMAILS: Count all emails sent today (any task with email-related outcome)
-      const emailStats = await db.select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(spotlightEvents)
-      .where(
-        and(
-          eq(spotlightEvents.userId, userId),
-          eq(spotlightEvents.eventType, 'task_completed'),
-          or(
-            eq(spotlightEvents.outcomeId, 'email_sent'),
-            eq(spotlightEvents.outcomeId, 'send_drip'),
-            eq(spotlightEvents.outcomeId, 'replied')
-          ),
-          gte(spotlightEvents.createdAt, today)
-        )
-      );
-      
-      const emailsCount = emailStats[0]?.count || 0;
-      const emailsGoal = 15;
-      
-      // 4. DATA HYGIENE: Count data hygiene bucket tasks completed
-      // All hygiene tasks (hygiene_sales_rep, hygiene_email, hygiene_bounced_email, etc.) are in the data_hygiene bucket
-      // This also includes bounce research tasks when completed
-      const hygieneStats = await db.select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(spotlightEvents)
-      .where(
-        and(
-          eq(spotlightEvents.userId, userId),
-          eq(spotlightEvents.eventType, 'task_completed'),
-          eq(spotlightEvents.bucket, 'data_hygiene'), // All hygiene tasks are in this bucket
-          gte(spotlightEvents.createdAt, today)
-        )
-      );
-      
-      const hygieneCount = hygieneStats[0]?.count || 0;
-      const hygieneGoal = 5;
-      
-      // 5. QUOTES FOLLOWED UP: Count quote follow-ups (Shopify drafts + Odoo quotes)
-      // Only specific quote-related task subtypes, no wildcards
-      const quoteStats = await db.select({
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(spotlightEvents)
-      .where(
-        and(
-          eq(spotlightEvents.userId, userId),
-          eq(spotlightEvents.eventType, 'task_completed'),
-          inArray(spotlightEvents.taskSubtype, [
-            'odoo_quote_followup',
-            'shopify_draft_followup', 
-            'shopify_abandoned_cart',
-            'saved_quote_followup' // Internal saved quotes
-          ]),
-          inArray(spotlightEvents.outcomeId, [
-            'called',
-            'email_sent',
-            'contacted',
-            'order_confirmed',
-            'order_placed'
-          ]),
-          gte(spotlightEvents.createdAt, today)
-        )
-      );
-      
-      const quotesFollowedUp = quoteStats[0]?.count || 0;
-      const quotesGoal = 5;
-      
+        )),
+
+        // 6a. Session state for coaching compliance
+        db.select({ totalCompleted: spotlightSessionState.totalCompleted, totalTarget: spotlightSessionState.totalTarget })
+          .from(spotlightSessionState)
+          .where(and(eq(spotlightSessionState.userId, userId), gte(spotlightSessionState.updatedAt, today)))
+          .orderBy(desc(spotlightSessionState.updatedAt))
+          .limit(1),
+
+        // 6b. On-time follow-ups
+        db.select({
+          total: sql<number>`COUNT(*)::int`,
+          onTime: sql<number>`COUNT(CASE WHEN ${followUpTasks.completedAt} <= ${followUpTasks.dueDate} THEN 1 END)::int`,
+        })
+        .from(followUpTasks)
+        .where(and(eq(followUpTasks.assignedTo, userId), eq(followUpTasks.status, 'completed'), gte(followUpTasks.completedAt, today))),
+      ]);
+
+      const swatchBookCount    = labelStats.find(s => s.labelType === 'swatch_book')?.count || 0;
+      const pressTestKitCount  = labelStats.find(s => s.labelType === 'press_test_kit')?.count || 0;
+      const sampleFollowUpCount = eventsAgg[0]?.sampleFollowups || 0;
+      const totalSwatchbooks   = swatchBookCount + pressTestKitCount + sampleFollowUpCount;
+      const swatchbookGoal     = 3;
+
+      const callsCount         = eventsAgg[0]?.callsCount || 0;
+      const callsGoal          = 10;
+      const emailsCount        = eventsAgg[0]?.emailsCount || 0;
+      const emailsGoal         = 15;
+      const hygieneCount       = eventsAgg[0]?.hygieneCount || 0;
+      const hygieneGoal        = 5;
+      const quotesFollowedUp   = eventsAgg[0]?.quotesFollowedUp || 0;
+      const quotesGoal         = 5;
+
       // 6. COACHING COMPLIANCE: Weighted composite score
-      // Component 1: Tasks completed vs assigned (50% weight)
-      const sessionResult = await db.select({
-        totalCompleted: spotlightSessionState.totalCompleted,
-        totalTarget: spotlightSessionState.totalTarget,
-      })
-      .from(spotlightSessionState)
-      .where(
-        and(
-          eq(spotlightSessionState.userId, userId),
-          gte(spotlightSessionState.updatedAt, today)
-        )
-      )
-      .orderBy(desc(spotlightSessionState.updatedAt))
-      .limit(1);
-      
-      const tasksCompleted = sessionResult[0]?.totalCompleted || 0;
-      const tasksTarget = sessionResult[0]?.totalTarget || 30;
+      const tasksCompleted     = sessionResult[0]?.totalCompleted || 0;
+      const tasksTarget        = sessionResult[0]?.totalTarget || 30;
       const taskCompletionRate = Math.min(100, (tasksCompleted / tasksTarget) * 100);
-      
-      // Component 2: Follow-ups on time (30% weight) - pending follow-ups completed before due date
-      const onTimeFollowUps = await db.select({
-        total: sql<number>`COUNT(*)::int`,
-        onTime: sql<number>`COUNT(CASE WHEN ${followUpTasks.completedAt} <= ${followUpTasks.dueDate} THEN 1 END)::int`,
-      })
-      .from(followUpTasks)
-      .where(
-        and(
-          eq(followUpTasks.assignedTo, userId),
-          eq(followUpTasks.status, 'completed'),
-          gte(followUpTasks.completedAt, today)
-        )
-      );
-      
-      const followUpTotal = onTimeFollowUps[0]?.total || 0;
-      const followUpOnTime = onTimeFollowUps[0]?.onTime || 0;
-      const followUpRate = followUpTotal > 0 ? (followUpOnTime / followUpTotal) * 100 : 100;
-      
-      // Component 3: Calls logged (20% weight) - calls vs goal
-      const callRate = Math.min(100, (callsCount / callsGoal) * 100);
+      const followUpTotal      = onTimeFollowUps[0]?.total || 0;
+      const followUpOnTime     = onTimeFollowUps[0]?.onTime || 0;
+      const followUpRate       = followUpTotal > 0 ? (followUpOnTime / followUpTotal) * 100 : 100;
+      const callRate           = Math.min(100, (callsCount / callsGoal) * 100);
       
       // Weighted composite: 50% task completion + 30% follow-up timeliness + 20% calls
       const coachingCompliance = Math.round(
