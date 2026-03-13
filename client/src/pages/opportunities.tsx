@@ -127,14 +127,17 @@ export default function OpportunitiesPage() {
   const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
 
-  const { data: opportunities = [], isLoading } = useQuery<any[]>({
+  const { data: opportunities = [], isLoading, isError: oppsError } = useQuery<any[]>({
     queryKey: ['/api/opportunities', activeTab],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (activeTab !== 'all') params.set('type', activeTab);
       params.set('limit', '100');
-      const res = await fetch(`/api/opportunities?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch');
+      const res = await fetch(`/api/opportunities?${params.toString()}`, {
+        credentials: 'include',
+      });
+      if (res.status === 401) throw new Error('Session expired');
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
       return res.json();
     },
   });
@@ -172,10 +175,8 @@ export default function OpportunitiesPage() {
     },
   });
 
-  const typeFilter = activeTab === 'all' ? null : activeTab;
-  const filteredOpps = typeFilter
-    ? opportunities.filter((o: any) => o.opportunityType === typeFilter)
-    : opportunities;
+  // Server already filters by type via the ?type= param; use as-is
+  const filteredOpps = opportunities;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] p-4 md:p-6">
@@ -298,6 +299,22 @@ export default function OpportunitiesPage() {
                 <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 <span className="ml-2 text-gray-500">Loading opportunities...</span>
               </div>
+            ) : oppsError ? (
+              <Card className="bg-white/80">
+                <CardContent className="p-8 text-center">
+                  <AlertCircle className="w-10 h-10 text-red-300 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-700 mb-1">Could Not Load Opportunities</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Your session may have expired. Try refreshing the page.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh Page
+                  </Button>
+                </CardContent>
+              </Card>
             ) : filteredOpps.length === 0 ? (
               <Card className="bg-white/80">
                 <CardContent className="p-8 text-center">

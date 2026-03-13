@@ -2,15 +2,29 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const appLoadTime = Date.now();
 let globalAuthFailed = false;
+let authPreviouslyFailed = false;
 
 // Export function to check if auth has globally failed (for components to stop polling)
 export function isAuthFailed(): boolean {
   return globalAuthFailed;
 }
 
-// Reset auth failed state (called after successful login)
+// Reset auth failed state (called after successful login).
+// If auth was previously failed, refetch all stale queries so they recover automatically.
 export function resetAuthFailed(): void {
-  globalAuthFailed = false;
+  if (globalAuthFailed) {
+    authPreviouslyFailed = true;
+    globalAuthFailed = false;
+    // Refetch queries that may have been stuck in error state due to auth failure.
+    // Use a short delay so the auth query result propagates first.
+    setTimeout(() => {
+      if (authPreviouslyFailed) {
+        authPreviouslyFailed = false;
+        // Invalidate everything so stale/errored queries can refetch cleanly
+        queryClient.invalidateQueries();
+      }
+    }, 300);
+  }
 }
 
 export class ApiError extends Error {
