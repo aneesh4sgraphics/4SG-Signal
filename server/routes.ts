@@ -4571,6 +4571,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/admin/spotlight/digest/send — manually trigger the digest for one or all users (admin only)
+  app.post("/api/admin/spotlight/digest/send", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { triggerDigestForUser } = await import("./spotlightDigestWorker");
+      const { userId } = req.body; // optional — if omitted, send to all eligible users
+
+      if (userId) {
+        const result = await triggerDigestForUser(userId);
+        return res.json(result);
+      }
+
+      // Send to all approved users with digest enabled
+      const eligibleUsers = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(and(eq(users.status, 'approved'), eq(users.spotlightDigestEnabled, true)));
+
+      const results: Array<{ email: string; sent: boolean; error?: string }> = [];
+      for (const user of eligibleUsers) {
+        const r = await triggerDigestForUser(user.id);
+        results.push({ email: user.email, ...r });
+      }
+
+      res.json({ sent: results.filter(r => r.sent).length, skipped: results.filter(r => !r.sent).length, results });
+    } catch (error: any) {
+      console.error("Digest trigger error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // --- Comprehensive diagnostics endpoint ---
   app.get('/api/diagnostics', isAuthenticated, requireAdmin, async (_req, res) => {
     try {
