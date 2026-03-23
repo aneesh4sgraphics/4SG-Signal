@@ -147,6 +147,16 @@ import { PrintLabelButton } from "@/components/PrintLabelButton";
 
 type TaskBucket = 'calls' | 'follow_ups' | 'outreach' | 'data_hygiene' | 'enablement';
 
+interface OutreachSnapshot {
+  emailCount: number;
+  lastEmailSubject: string | null;
+  swatchBookCount: number;
+  pressTestKitCount: number;
+  callCount: number;
+  quoteCount: number;
+  capturedAt: string;
+}
+
 interface TaskOutcome {
   id: string;
   label: string;
@@ -239,6 +249,16 @@ interface SpotlightTask {
     replySubject?: string;
     repliedAt?: string;
   };
+  extraContext?: {
+    bounceId?: number;
+    bouncedEmail?: string;
+    bounceReason?: string;
+    bounceType?: string;
+    bounceSubject?: string | null;
+    bounceDate?: string;
+    outreachHistorySnapshot?: OutreachSnapshot | null;
+  };
+  customerEmail?: string;
 }
 
 interface BucketQuota {
@@ -431,7 +451,7 @@ export default function Spotlight() {
   const [bouncePersonEmail, setBouncePersonEmail] = useState('');
   const [bouncePersonPhone, setBouncePersonPhone] = useState('');
   const [bouncePersonTitle, setBouncePersonTitle] = useState('');
-  const [bounceResolutionDone, setBounceResolutionDone] = useState<{ snapshot: any } | null>(null);
+  const [bounceResolutionDone, setBounceResolutionDone] = useState<{ snapshot: OutreachSnapshot | null } | null>(null);
 
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [profileEditMode, setProfileEditMode] = useState(false);
@@ -4403,7 +4423,7 @@ export default function Spotlight() {
 
               {/* Data Hygiene: Bounced Email - Smart Resolution Flow */}
               {task.taskSubtype === 'hygiene_bounced_email' && (() => {
-                const bounceCtx = (task as any).extraContext || {};
+                const bounceCtx = task.extraContext || {};
                 const bounceId = bounceCtx.bounceId;
                 const bouncedEmail = bounceCtx.bouncedEmail || task.customerEmail;
                 const outreachSnap = bounceCtx.outreachHistorySnapshot;
@@ -4659,12 +4679,17 @@ export default function Spotlight() {
                                 <span className="font-semibold">{bounceResolutionDone.snapshot.callCount}</span> calls logged
                               </div>
                             )}
+                            {bounceResolutionDone.snapshot.quoteCount > 0 && (
+                              <div className="bg-slate-50 rounded p-2">
+                                <span className="font-semibold">{bounceResolutionDone.snapshot.quoteCount}</span> quotes sent
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
 
                       {/* Outreach history (from snapshot) shown when no path selected */}
-                      {!bounceActivePath && !bounceResolutionDone && outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0) && (
+                      {!bounceActivePath && !bounceResolutionDone && outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0 || outreachSnap.callCount > 0 || outreachSnap.pressTestKitCount > 0 || outreachSnap.quoteCount > 0) && (
                         <div className="bg-red-100/50 rounded-lg p-2 mb-3">
                           <p className="text-xs font-semibold text-red-800 mb-1">What we did before:</p>
                           <div className="text-xs text-red-700 space-y-0.5">
@@ -4672,6 +4697,7 @@ export default function Spotlight() {
                             {outreachSnap.swatchBookCount > 0 && <div>{outreachSnap.swatchBookCount} swatch book(s) sent</div>}
                             {outreachSnap.pressTestKitCount > 0 && <div>{outreachSnap.pressTestKitCount} press test kit(s) sent</div>}
                             {outreachSnap.callCount > 0 && <div>{outreachSnap.callCount} call(s) logged</div>}
+                            {outreachSnap.quoteCount > 0 && <div>{outreachSnap.quoteCount} quote(s) sent</div>}
                           </div>
                         </div>
                       )}

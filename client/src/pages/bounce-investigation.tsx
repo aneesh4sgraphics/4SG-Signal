@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -78,7 +78,7 @@ interface BounceInvestigation {
     screenshotUrl: string;
     linkedinSearchUrl: string;
   } | null;
-  aiResearch: any | null;
+  aiResearch: null;
 }
 
 type ActivePath = 'fix_typo' | 'person_left' | 'check_company' | null;
@@ -112,6 +112,23 @@ export default function BounceInvestigation() {
     enabled: !!bounceId,
   });
 
+  // Auto-run typo check when page loads and data is ready
+  useEffect(() => {
+    if (data && !typoResult && !typoLoading && bounceId) {
+      setTypoLoading(true);
+      apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-typo`, {})
+        .then(res => res.json())
+        .then((result: { suggestion: string | null; confidence: number; reasoning: string }) => {
+          setTypoResult(result);
+          if (result.suggestion) setTypoCorrected(result.suggestion);
+          else setTypoCorrected(data.bounce.bouncedEmail || '');
+        })
+        .catch(() => setTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' }))
+        .finally(() => setTypoLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   const handleCheckTypo = async () => {
     setActivePath('fix_typo');
     if (typoResult) return;
@@ -144,13 +161,23 @@ export default function BounceInvestigation() {
     }
   };
 
+  interface FixEmailResponse { success: boolean; odooUpdated: boolean; correctedEmail: string; outreachHistorySnapshot: OutreachSnapshot | null; }
+  interface ReplaceContactResponse { success: boolean; outreachHistorySnapshot: OutreachSnapshot | null; }
+
+  const parseSnapshot = (raw: OutreachSnapshot | string | null | undefined): OutreachSnapshot | null => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw) as OutreachSnapshot; } catch { return null; }
+  };
+
   const fixEmailMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<FixEmailResponse> => {
       const res = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/fix-email`, { correctedEmail: typoCorrected });
-      return res.json() as Promise<{ outreachHistorySnapshot?: string; odooUpdated?: boolean }>;
+      const json = await res.json();
+      return { ...json, outreachHistorySnapshot: parseSnapshot(json.outreachHistorySnapshot) };
     },
-    onSuccess: (result) => {
-      setResolutionDone({ snapshot: result.outreachHistorySnapshot || null });
+    onSuccess: (result: FixEmailResponse) => {
+      setResolutionDone({ snapshot: result.outreachHistorySnapshot });
       toast({ title: 'Email Fixed', description: `Updated to ${typoCorrected}${result.odooUpdated ? ' and synced to Odoo' : ''}` });
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
     },
@@ -158,14 +185,15 @@ export default function BounceInvestigation() {
   });
 
   const replaceContactMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<ReplaceContactResponse> => {
       const res = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/replace-contact`, {
         name: personName, email: personEmail, phone: personPhone, title: personTitle,
       });
-      return res.json() as Promise<{ outreachHistorySnapshot?: string }>;
+      const json = await res.json();
+      return { ...json, outreachHistorySnapshot: parseSnapshot(json.outreachHistorySnapshot) };
     },
-    onSuccess: (result) => {
-      setResolutionDone({ snapshot: result.outreachHistorySnapshot || null });
+    onSuccess: (result: ReplaceContactResponse) => {
+      setResolutionDone({ snapshot: result.outreachHistorySnapshot });
       toast({ title: 'Contact Added', description: `${personName} added to the company` });
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
     },
@@ -311,7 +339,7 @@ export default function BounceInvestigation() {
         </Card>
 
         {/* Previous outreach snapshot */}
-        {outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0 || outreachSnap.callCount > 0) && (
+        {outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0 || outreachSnap.callCount > 0 || outreachSnap.pressTestKitCount > 0 || outreachSnap.quoteCount > 0) && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -320,7 +348,7 @@ export default function BounceInvestigation() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {outreachSnap.emailCount > 0 && (
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="text-2xl font-bold text-slate-800">{outreachSnap.emailCount}</div>
@@ -346,6 +374,12 @@ export default function BounceInvestigation() {
                   <div className="bg-slate-50 rounded-lg p-3">
                     <div className="text-2xl font-bold text-slate-800">{outreachSnap.callCount}</div>
                     <div className="text-xs text-slate-500">calls logged</div>
+                  </div>
+                )}
+                {outreachSnap.quoteCount > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-slate-800">{outreachSnap.quoteCount}</div>
+                    <div className="text-xs text-slate-500">quotes sent</div>
                   </div>
                 )}
               </div>
