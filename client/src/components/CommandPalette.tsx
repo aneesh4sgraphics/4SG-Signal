@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SiShopify } from 'react-icons/si';
+import { TrendingUp } from 'lucide-react';
 import { useAppUsage } from '@/hooks/useAppUsage';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
@@ -12,6 +13,7 @@ import {
   QuickQuotesIcon,
   ClientsIcon,
   ReportsIcon,
+  SalesChartsIcon,
   CalendarIcon,
   PriceListIcon,
   SavedQuotesIcon,
@@ -58,14 +60,14 @@ interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { path: '/', icon: DashboardIcon, label: 'Spotlight', group: 'core', keywords: ['home', 'main', 'overview', 'spotlight', 'coaching', 'tasks', 'email intelligence', 'ai', 'insights'], iconBg: '#0C6E99', iconColor: '#FFFFFF' },
-  { path: '/dashboard', icon: ReportsIcon, label: 'Dashboard', group: 'core', keywords: ['dashboard', 'analytics', 'overview', 'stats', 'charts'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
+  { path: '/dashboard', icon: SalesChartsIcon, label: 'Dashboard', group: 'core', keywords: ['dashboard', 'analytics', 'overview', 'stats', 'charts'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
   { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', group: 'core', keywords: ['quote', 'estimate', 'pricing'], iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/odoo-contacts', icon: ClientsIcon, label: 'Clients', group: 'core', keywords: ['customers', 'contacts', 'database', 'odoo', 'partners'], iconBg: '#693FA5', iconColor: '#FFFFFF' },
   { path: '/leads', icon: SparkleIcon, label: 'Leads', group: 'core', keywords: ['leads', 'prospects', 'pipeline', 'sales', 'trust', 'new'], iconBg: '#10B981', iconColor: '#FFFFFF' },
   { path: '/opportunities', icon: OpportunityIcon, label: 'Opportunities', group: 'core', keywords: ['opportunities', 'scoring', 'prospects', 'samples', 'upsell', 'follow-up', 'machine', 'fit'], iconBg: '#F59E0B', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: CalendarIcon, label: 'Calendar', group: 'core', keywords: ['calendar', 'tasks', 'events', 'schedule', 'google', 'meetings'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/odoo-products', icon: PackageIcon, label: 'Products', group: 'tools', keywords: ['products', 'inventory', 'catalog', 'items', 'odoo', 'sku'], iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
-  { path: '/customer-margins', icon: ReportsIcon, label: 'Customer Margins', group: 'tools', keywords: ['margin', 'margins', 'profit', 'customer', 'average', 'search', 'profitability'], iconBg: '#7C3AED', iconColor: '#FFFFFF' },
+  { path: '/customer-margins', icon: TrendingUp as IconComponent, label: 'Customer Margins', group: 'tools', keywords: ['margin', 'margins', 'profit', 'customer', 'average', 'search', 'profitability'], iconBg: '#7C3AED', iconColor: '#FFFFFF' },
   { path: '/reports', icon: ReportsIcon, label: 'Reports', group: 'tools', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
   { path: '/price-list', icon: PriceListIcon, label: 'Price List', group: 'tools', keywords: ['prices', 'costs', 'rates'], iconBg: '#DFAB00', iconColor: '#37352F' },
   { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', group: 'tools', keywords: ['history', 'saved', 'previous'], iconBg: '#AD1972', iconColor: '#FFFFFF' },

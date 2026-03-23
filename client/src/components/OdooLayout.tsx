@@ -303,46 +303,49 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
 
         <nav className="flex-1 py-2 overflow-y-auto">
           <TooltipProvider delayDuration={100}>
-          <div className="px-3 space-y-1">
-            {sidebarExpanded && (
-              <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
-            )}
-            {coreItems.map((item) => {
+          {(() => {
+            const renderNavItem = (item: typeof coreItems[0]) => {
               const Icon = item.icon;
               const isActive = location === item.path;
-              
+              const bg = item.iconBg || '#2563eb';
+              const fg = item.iconColor || '#ffffff';
+
               const linkContent = (
-                <Link 
-                  key={item.path} 
+                <Link
+                  key={item.path}
                   href={item.path}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out group relative ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-700 font-medium shadow-sm border border-blue-100'
+                    isActive
+                      ? 'font-medium'
                       : 'text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]'
                   }`}
+                  style={isActive ? { backgroundColor: `${bg}18`, color: bg } : undefined}
                 >
                   {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-blue-600 rounded-r-full" />
+                    <span
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full"
+                      style={{ backgroundColor: bg }}
+                    />
                   )}
-                  <span 
-                    className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
-                      isActive ? 'bg-blue-100' : ''
-                    }`}
+                  <span
+                    className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150"
+                    style={isActive ? { backgroundColor: bg } : undefined}
                   >
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-blue-700' : 'text-[#37352F]'}`} />
+                    <Icon
+                      className="h-5 w-5"
+                      style={isActive ? { color: fg } : undefined}
+                    />
                   </span>
                   {sidebarExpanded && (
                     <span className="text-sm truncate">{item.label}</span>
                   )}
                 </Link>
               );
-              
+
               if (!sidebarExpanded) {
                 return (
                   <Tooltip key={item.path}>
-                    <TooltipTrigger asChild>
-                      {linkContent}
-                    </TooltipTrigger>
+                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
                     <TooltipContent side="right" className="font-medium">
                       <p>{item.label}</p>
                     </TooltipContent>
@@ -350,137 +353,64 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
                 );
               }
               return <div key={item.path}>{linkContent}</div>;
-            })}
-          </div>
+            };
 
-          <div className="px-3 space-y-1 mt-3">
-            <button
-              onClick={toggleTools}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg w-full transition-all duration-150 ease-out ${
-                isToolActive && !toolsExpanded
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F]'
-              }`}
-            >
-              {sidebarExpanded ? (
-                <>
-                  <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
-                  <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
-                  {isToolActive && !toolsExpanded && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
-                  )}
-                </>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0">
-                      <ChevronRightIcon className={`h-4 w-4 text-[#73726E] transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="font-medium">
-                    <p>Tools</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </button>
-            {(toolsExpanded || isToolActive) && toolItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
-              if (!toolsExpanded && !isActive) return null;
-              
-              const linkContent = (
-                <Link 
-                  key={item.path} 
-                  href={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out group relative ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-700 font-medium shadow-sm border border-blue-100'
-                      : 'text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]'
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-blue-600 rounded-r-full" />
-                  )}
-                  <span 
-                    className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
-                      isActive ? 'bg-blue-100' : ''
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${isActive ? 'text-blue-700' : 'text-[#37352F]'}`} />
-                  </span>
+            return (
+              <>
+                <div className="px-3 space-y-1">
                   {sidebarExpanded && (
-                    <span className="text-sm truncate">{item.label}</span>
+                    <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
                   )}
-                </Link>
-              );
-              
-              if (!sidebarExpanded) {
-                return (
-                  <Tooltip key={item.path}>
-                    <TooltipTrigger asChild>
-                      {linkContent}
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="font-medium">
-                      <p>{item.label}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-              return <div key={item.path}>{linkContent}</div>;
-            })}
-          </div>
+                  {coreItems.map(renderNavItem)}
+                </div>
 
-          {isAdmin && (
-            <div className="px-3 space-y-1 mt-6">
-              {sidebarExpanded && (
-                <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Admin</p>
-              )}
-              {adminItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location === item.path;
-                
-                const linkContent = (
-                  <Link 
-                    key={item.path} 
-                    href={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out group relative ${
-                      isActive 
-                        ? 'bg-blue-50 text-blue-700 font-medium shadow-sm border border-blue-100'
-                        : 'text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]'
+                <div className="px-3 space-y-1 mt-3">
+                  <button
+                    onClick={toggleTools}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg w-full transition-all duration-150 ease-out ${
+                      isToolActive && !toolsExpanded
+                        ? 'bg-blue-50 text-blue-700 font-medium'
+                        : 'text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F]'
                     }`}
                   >
-                    {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-blue-600 rounded-r-full" />
+                    {sidebarExpanded ? (
+                      <>
+                        <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
+                        <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
+                        {isToolActive && !toolsExpanded && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
+                        )}
+                      </>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0">
+                            <ChevronRightIcon className={`h-4 w-4 text-[#73726E] transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="font-medium">
+                          <p>Tools</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
-                    <span 
-                      className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
-                        isActive ? 'bg-blue-100' : ''
-                      }`}
-                    >
-                      <Icon className={`h-5 w-5 ${isActive ? 'text-blue-700' : 'text-[#37352F]'}`} />
-                    </span>
+                  </button>
+                  {(toolsExpanded || isToolActive) && toolItems.map((item) => {
+                    if (!toolsExpanded && location !== item.path) return null;
+                    return renderNavItem(item);
+                  })}
+                </div>
+
+                {isAdmin && (
+                  <div className="px-3 space-y-1 mt-6">
                     {sidebarExpanded && (
-                      <span className="text-sm truncate">{item.label}</span>
+                      <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Admin</p>
                     )}
-                  </Link>
-                );
-                
-                if (!sidebarExpanded) {
-                  return (
-                    <Tooltip key={item.path}>
-                      <TooltipTrigger asChild>
-                        {linkContent}
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="font-medium">
-                        <p>{item.label}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                }
-                return <div key={item.path}>{linkContent}</div>;
-              })}
-            </div>
-          )}
+                    {adminItems.map(renderNavItem)}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           </TooltipProvider>
         </nav>
 
