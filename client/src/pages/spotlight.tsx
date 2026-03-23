@@ -419,6 +419,20 @@ export default function Spotlight() {
   const [mergeEmailSelections, setMergeEmailSelections] = useState<{ primary: string; secondary: string }>({ primary: '', secondary: '' });
   const [bounceScanState, setBounceScanState] = useState<'idle' | 'scanning' | 'done'>('idle');
   const [bounceScanResult, setBounceScanResult] = useState<number | null>(null);
+
+  // Bounce resolution flow state
+  const [bounceActivePath, setBounceActivePath] = useState<'fix_typo' | 'person_left' | 'check_company' | null>(null);
+  const [bounceTypoResult, setBounceTypoResult] = useState<{ suggestion: string | null; confidence: number; reasoning: string } | null>(null);
+  const [bounceTypoLoading, setBounceTypoLoading] = useState(false);
+  const [bounceTypoCorrected, setBounceTypoCorrected] = useState('');
+  const [bounceCompanyResult, setBounceCompanyResult] = useState<{ verdict: string; explanation: string; websiteUrl?: string; linkedinSearchUrl: string; googleMapsUrl: string } | null>(null);
+  const [bounceCompanyLoading, setBounceCompanyLoading] = useState(false);
+  const [bouncePersonName, setBouncePersonName] = useState('');
+  const [bouncePersonEmail, setBouncePersonEmail] = useState('');
+  const [bouncePersonPhone, setBouncePersonPhone] = useState('');
+  const [bouncePersonTitle, setBouncePersonTitle] = useState('');
+  const [bounceResolutionDone, setBounceResolutionDone] = useState<{ snapshot: any } | null>(null);
+
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [profileEditMode, setProfileEditMode] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState(false);
@@ -4387,80 +4401,286 @@ export default function Spotlight() {
                 </div>
               )}
 
-              {/* Data Hygiene: Bounced Email - Compact single card with issue + buttons */}
-              {task.taskSubtype === 'hygiene_bounced_email' && (
-                <div className="mb-4">
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-amber-700 uppercase">Issue:</span>
-                          {(task as any).extraContext?.matchType === 'lead' && (
-                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Lead</span>
-                          )}
-                          {((task as any).extraContext?.matchType === 'contact') && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Contact</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-amber-800 mb-3">
-                          Email to <strong>{(task as any).extraContext?.bouncedEmail || task.customerEmail}</strong> bounced
-                          {(task as any).extraContext?.bounceDate && (
-                            <> on {new Date((task as any).extraContext.bounceDate).toLocaleDateString()}</>
-                          )}.
-                          {(task as any).extraContext?.bounceSubject && (
-                            <> Subject: "{(task as any).extraContext.bounceSubject}".</>
-                          )}
-                          {' '}The contact may have left the company or the business closed.
-                        </p>
-                        {/* Primary Action Buttons - DELETE and DNC */}
-                        <div className="flex gap-2 mb-2">
+              {/* Data Hygiene: Bounced Email - Smart Resolution Flow */}
+              {task.taskSubtype === 'hygiene_bounced_email' && (() => {
+                const bounceCtx = (task as any).extraContext || {};
+                const bounceId = bounceCtx.bounceId;
+                const bouncedEmail = bounceCtx.bouncedEmail || task.customerEmail;
+                const outreachSnap = bounceCtx.outreachHistorySnapshot;
+
+                const handleCheckTypo = async () => {
+                  setBounceActivePath('fix_typo');
+                  if (bounceTypoResult) return;
+                  setBounceTypoLoading(true);
+                  try {
+                    const data = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-typo`, {});
+                    setBounceTypoResult(data);
+                    if (data.suggestion) setBounceTypoCorrected(data.suggestion);
+                    else setBounceTypoCorrected(bouncedEmail);
+                  } catch { setBounceTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' }); }
+                  finally { setBounceTypoLoading(false); }
+                };
+
+                const handleCheckCompany = async () => {
+                  setBounceActivePath('check_company');
+                  if (bounceCompanyResult) return;
+                  setBounceCompanyLoading(true);
+                  try {
+                    const data = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-company`, {});
+                    setBounceCompanyResult(data);
+                  } catch { setBounceCompanyResult({ verdict: 'uncertain', explanation: 'Check failed — use links below.', linkedinSearchUrl: '', googleMapsUrl: '' }); }
+                  finally { setBounceCompanyLoading(false); }
+                };
+
+                const handleFixEmail = async () => {
+                  if (!bounceTypoCorrected.trim()) return;
+                  try {
+                    const data = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/fix-email`, { correctedEmail: bounceTypoCorrected });
+                    setBounceResolutionDone({ snapshot: data.outreachHistorySnapshot });
+                    toast({ title: 'Email Fixed', description: `Updated to ${bounceTypoCorrected}${data.odooUpdated ? ' and synced to Odoo' : ''}` });
+                    setTimeout(() => handleOutcome('keep'), 1500);
+                  } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+                };
+
+                const handleReplaceContact = async () => {
+                  if (!bouncePersonName.trim() || !bouncePersonEmail.trim()) {
+                    toast({ title: 'Required', description: 'Name and email are required', variant: 'destructive' }); return;
+                  }
+                  try {
+                    const data = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/replace-contact`, {
+                      name: bouncePersonName, email: bouncePersonEmail, phone: bouncePersonPhone, title: bouncePersonTitle
+                    });
+                    setBounceResolutionDone({ snapshot: data.outreachHistorySnapshot });
+                    toast({ title: 'Contact Added', description: `${bouncePersonName} added to the company` });
+                    setTimeout(() => handleOutcome('keep'), 1500);
+                  } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
+                };
+
+                const verdictColor = bounceCompanyResult?.verdict === 'open' ? 'text-green-700 bg-green-50 border-green-200' :
+                  bounceCompanyResult?.verdict === 'closed' ? 'text-red-700 bg-red-50 border-red-200' :
+                  'text-amber-700 bg-amber-50 border-amber-200';
+                const verdictLabel = bounceCompanyResult?.verdict === 'open' ? 'Still Open' : bounceCompanyResult?.verdict === 'closed' ? 'Appears Closed' : 'Uncertain';
+
+                return (
+                  <div className="mb-4">
+                    <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+                      {/* Header with PRIORITY badge */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        <span className="text-xs font-black text-white bg-red-600 px-2 py-0.5 rounded-full tracking-wide">PRIORITY</span>
+                        <span className="text-xs font-semibold text-red-700 uppercase">Bounced Email</span>
+                      </div>
+
+                      {/* Bounce info */}
+                      <p className="text-sm text-red-900 mb-1">
+                        <strong>{bouncedEmail}</strong> bounced
+                        {bounceCtx.bounceDate && <> on {new Date(bounceCtx.bounceDate).toLocaleDateString()}</>}.
+                      </p>
+                      {bounceCtx.bounceSubject && (
+                        <p className="text-xs text-red-700 mb-3">Subject: "{bounceCtx.bounceSubject}"</p>
+                      )}
+
+                      {/* Three resolution path buttons */}
+                      {!bounceResolutionDone && (
+                        <div className="grid grid-cols-3 gap-2 mb-3">
                           <button
-                            onClick={() => setShowDeleteConfirm(true)}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg"
+                            onClick={handleCheckTypo}
+                            className={`flex flex-col items-center gap-1 px-2 py-3 rounded-lg text-xs font-bold transition-all border-2 ${bounceActivePath === 'fix_typo' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'}`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                            DELETE
+                            <Pencil className="w-4 h-4" />
+                            Fix Email Typo
                           </button>
                           <button
-                            onClick={() => handleOutcome('mark_inactive')}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-slate-600 hover:bg-slate-700 text-white shadow-md hover:shadow-lg"
+                            onClick={() => setBounceActivePath('person_left')}
+                            className={`flex flex-col items-center gap-1 px-2 py-3 rounded-lg text-xs font-bold transition-all border-2 ${bounceActivePath === 'person_left' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-orange-700 border-orange-300 hover:bg-orange-50'}`}
                           >
-                            <UserX className="w-4 h-4" />
-                            DNC
+                            <UserPlus className="w-4 h-4" />
+                            Person Left
+                          </button>
+                          <button
+                            onClick={handleCheckCompany}
+                            className={`flex flex-col items-center gap-1 px-2 py-3 rounded-lg text-xs font-bold transition-all border-2 ${bounceActivePath === 'check_company' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'}`}
+                          >
+                            <Building2 className="w-4 h-4" />
+                            Check Company
                           </button>
                         </div>
-                        {/* Secondary Action Buttons - KEEP, LATER, RESEARCH */}
+                      )}
+
+                      {/* Fix Typo panel */}
+                      {bounceActivePath === 'fix_typo' && !bounceResolutionDone && (
+                        <div className="bg-white rounded-lg border border-blue-200 p-3 mb-3">
+                          <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> AI Typo Detection
+                          </p>
+                          {bounceTypoLoading && (
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <Loader2 className="w-3 h-3 animate-spin" /> Checking for typos...
+                            </div>
+                          )}
+                          {bounceTypoResult && !bounceTypoLoading && (
+                            <div className="space-y-2">
+                              {bounceTypoResult.suggestion ? (
+                                <div className="bg-blue-50 rounded p-2 text-xs">
+                                  <span className="font-semibold text-blue-800">Suggested correction: </span>
+                                  <span className="text-blue-900 font-mono">{bounceTypoResult.suggestion}</span>
+                                  <span className="ml-2 text-blue-600">({Math.round(bounceTypoResult.confidence * 100)}% confidence)</span>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-600 italic">No typo detected. {bounceTypoResult.reasoning}</p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="email"
+                                  value={bounceTypoCorrected}
+                                  onChange={(e) => setBounceTypoCorrected(e.target.value)}
+                                  placeholder="Corrected email"
+                                  className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                />
+                                <button
+                                  onClick={handleFixEmail}
+                                  disabled={!bounceTypoCorrected.trim() || bounceTypoCorrected === bouncedEmail}
+                                  className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded font-bold disabled:opacity-40 hover:bg-blue-700 whitespace-nowrap"
+                                >
+                                  Fix & Restart
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Person Left panel */}
+                      {bounceActivePath === 'person_left' && !bounceResolutionDone && (
+                        <div className="bg-white rounded-lg border border-orange-200 p-3 mb-3">
+                          <p className="text-xs font-semibold text-orange-700 mb-2">Add Replacement Contact</p>
+                          <div className="space-y-2">
+                            <input type="text" value={bouncePersonName} onChange={(e) => setBouncePersonName(e.target.value)} placeholder="Full name *" className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300" />
+                            <input type="email" value={bouncePersonEmail} onChange={(e) => setBouncePersonEmail(e.target.value)} placeholder="Email *" className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300" />
+                            <div className="flex gap-2">
+                              <input type="text" value={bouncePersonPhone} onChange={(e) => setBouncePersonPhone(e.target.value)} placeholder="Phone (optional)" className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300" />
+                              <input type="text" value={bouncePersonTitle} onChange={(e) => setBouncePersonTitle(e.target.value)} placeholder="Title (optional)" className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300" />
+                            </div>
+                            <button
+                              onClick={handleReplaceContact}
+                              disabled={!bouncePersonName.trim() || !bouncePersonEmail.trim()}
+                              className="w-full text-xs px-3 py-1.5 bg-orange-600 text-white rounded font-bold disabled:opacity-40 hover:bg-orange-700"
+                            >
+                              Add Contact & Resolve
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Check Company panel */}
+                      {bounceActivePath === 'check_company' && !bounceResolutionDone && (
+                        <div className="bg-white rounded-lg border border-purple-200 p-3 mb-3">
+                          <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+                            <Globe className="w-3 h-3" /> Company Viability Check
+                          </p>
+                          {bounceCompanyLoading && (
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <Loader2 className="w-3 h-3 animate-spin" /> Researching company status...
+                            </div>
+                          )}
+                          {bounceCompanyResult && !bounceCompanyLoading && (
+                            <div className="space-y-2">
+                              <div className={`rounded p-2 text-xs border ${verdictColor}`}>
+                                <span className="font-bold">{verdictLabel}: </span>{bounceCompanyResult.explanation}
+                              </div>
+                              <div className="flex gap-2 flex-wrap">
+                                {bounceCompanyResult.websiteUrl && (
+                                  <a href={bounceCompanyResult.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 text-blue-600 hover:underline">
+                                    <ExternalLink className="w-3 h-3" /> Website
+                                  </a>
+                                )}
+                                <a href={bounceCompanyResult.linkedinSearchUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 text-blue-600 hover:underline">
+                                  <Linkedin className="w-3 h-3" /> LinkedIn
+                                </a>
+                                <a href={bounceCompanyResult.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 text-blue-600 hover:underline">
+                                  <MapPin className="w-3 h-3" /> Maps
+                                </a>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => setShowDeleteConfirm(true)} className="flex-1 text-xs px-2 py-1.5 bg-red-600 text-white rounded font-bold hover:bg-red-700">Delete Record</button>
+                                <button onClick={() => handleOutcome('mark_inactive')} className="flex-1 text-xs px-2 py-1.5 bg-slate-700 text-white rounded font-bold hover:bg-slate-800">Mark DNC</button>
+                                <button onClick={() => handleOutcome('keep')} className="flex-1 text-xs px-2 py-1.5 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700">Keep</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Resolution done - show outreach history */}
+                      {bounceResolutionDone && bounceResolutionDone.snapshot && (
+                        <div className="bg-white rounded-lg border border-emerald-200 p-3 mb-3">
+                          <p className="text-xs font-semibold text-emerald-700 mb-2 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> What to restart with them
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {bounceResolutionDone.snapshot.emailCount > 0 && (
+                              <div className="bg-slate-50 rounded p-2">
+                                <span className="font-semibold">{bounceResolutionDone.snapshot.emailCount}</span> emails sent
+                                {bounceResolutionDone.snapshot.lastEmailSubject && <div className="text-slate-500 truncate">Last: {bounceResolutionDone.snapshot.lastEmailSubject}</div>}
+                              </div>
+                            )}
+                            {bounceResolutionDone.snapshot.swatchBookCount > 0 && (
+                              <div className="bg-slate-50 rounded p-2">
+                                <span className="font-semibold">{bounceResolutionDone.snapshot.swatchBookCount}</span> swatch books sent
+                              </div>
+                            )}
+                            {bounceResolutionDone.snapshot.pressTestKitCount > 0 && (
+                              <div className="bg-slate-50 rounded p-2">
+                                <span className="font-semibold">{bounceResolutionDone.snapshot.pressTestKitCount}</span> press test kits sent
+                              </div>
+                            )}
+                            {bounceResolutionDone.snapshot.callCount > 0 && (
+                              <div className="bg-slate-50 rounded p-2">
+                                <span className="font-semibold">{bounceResolutionDone.snapshot.callCount}</span> calls logged
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Outreach history (from snapshot) shown when no path selected */}
+                      {!bounceActivePath && !bounceResolutionDone && outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0) && (
+                        <div className="bg-red-100/50 rounded-lg p-2 mb-3">
+                          <p className="text-xs font-semibold text-red-800 mb-1">What we did before:</p>
+                          <div className="text-xs text-red-700 space-y-0.5">
+                            {outreachSnap.emailCount > 0 && <div>{outreachSnap.emailCount} emails sent{outreachSnap.lastEmailSubject ? ` — last: "${outreachSnap.lastEmailSubject}"` : ''}</div>}
+                            {outreachSnap.swatchBookCount > 0 && <div>{outreachSnap.swatchBookCount} swatch book(s) sent</div>}
+                            {outreachSnap.pressTestKitCount > 0 && <div>{outreachSnap.pressTestKitCount} press test kit(s) sent</div>}
+                            {outreachSnap.callCount > 0 && <div>{outreachSnap.callCount} call(s) logged</div>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fallback actions when no path active */}
+                      {!bounceActivePath && !bounceResolutionDone && (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleOutcome('keep')}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border border-emerald-300"
-                          >
-                            <Check className="w-4 h-4" />
-                            KEEP
-                          </button>
-                          <button
                             onClick={() => handleOutcome('skip')}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
                           >
-                            <Clock className="w-4 h-4" />
-                            LATER
+                            <Clock className="w-3 h-3" />
+                            Later
                           </button>
-                          {(task as any).extraContext?.bounceId && (
+                          {bounceId && (
                             <button
-                              onClick={() => setLocation(`/bounce-investigation/${(task as any).extraContext.bounceId}`)}
-                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-300"
+                              onClick={() => setLocation(`/bounce-investigation/${bounceId}`)}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-purple-600 border border-purple-300 hover:bg-purple-50"
                             >
-                              <Search className="w-4 h-4" />
-                              RESEARCH
+                              <Search className="w-3 h-3" />
+                              Full Research
                             </button>
                           )}
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
 
               {/* DRIP Stale Followup - Creative Options */}

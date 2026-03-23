@@ -10,29 +10,42 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { 
-  AlertTriangle, 
-  Mail, 
-  Calendar, 
-  User, 
-  Building2, 
-  ExternalLink, 
-  Linkedin, 
-  Globe, 
-  Bot, 
-  Trash2, 
-  UserX, 
+import {
+  AlertTriangle,
+  Mail,
+  Calendar,
+  User,
+  Building2,
+  ExternalLink,
+  Linkedin,
+  Globe,
+  Trash2,
+  UserX,
   CheckCircle,
   ArrowLeft,
-  RefreshCw,
   Phone,
   MapPin,
   Pencil,
   Save,
   X,
-  UserPlus
+  UserPlus,
+  Sparkles,
+  Loader2,
+  Check,
+  Clock,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface OutreachSnapshot {
+  emailCount: number;
+  lastEmailSubject: string | null;
+  swatchBookCount: number;
+  pressTestKitCount: number;
+  callCount: number;
+  quoteCount: number;
+  capturedAt: string;
+}
 
 interface BounceInvestigation {
   bounce: {
@@ -41,8 +54,10 @@ interface BounceInvestigation {
     bounceSubject: string | null;
     bounceDate: string;
     bounceReason: string | null;
+    bounceType: string | null;
     matchType: string | null;
     status: string;
+    outreachHistorySnapshot: OutreachSnapshot | null;
   };
   record: {
     type: 'customer' | 'contact' | 'lead';
@@ -63,15 +78,10 @@ interface BounceInvestigation {
     screenshotUrl: string;
     linkedinSearchUrl: string;
   } | null;
-  aiResearch: {
-    summary: string;
-    domainAnalysis: string;
-    bounceAnalysis: string;
-    recommendation: 'delete' | 'bad_fit' | 'keep' | 'investigate';
-    confidence: number;
-    reasons: string[];
-  } | null;
+  aiResearch: any | null;
 }
+
+type ActivePath = 'fix_typo' | 'person_left' | 'check_company' | null;
 
 export default function BounceInvestigation() {
   const { bounceId } = useParams<{ bounceId: string }>();
@@ -79,30 +89,84 @@ export default function BounceInvestigation() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  
-  // Add contact dialog state
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactEmail, setNewContactEmail] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactTitle, setNewContactTitle] = useState('');
-  
-  // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Three-path resolution state
+  const [activePath, setActivePath] = useState<ActivePath>(null);
+  const [typoResult, setTypoResult] = useState<{ suggestion: string | null; confidence: number; reasoning: string } | null>(null);
+  const [typoLoading, setTypoLoading] = useState(false);
+  const [typoCorrected, setTypoCorrected] = useState('');
+  const [companyResult, setCompanyResult] = useState<{ verdict: string; explanation: string; websiteUrl?: string; linkedinSearchUrl: string; googleMapsUrl: string } | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [personName, setPersonName] = useState('');
+  const [personEmail, setPersonEmail] = useState('');
+  const [personPhone, setPersonPhone] = useState('');
+  const [personTitle, setPersonTitle] = useState('');
+  const [resolutionDone, setResolutionDone] = useState<{ snapshot: OutreachSnapshot | null } | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery<BounceInvestigation>({
     queryKey: ['/api/bounce-investigation', bounceId],
     enabled: !!bounceId,
   });
 
-  const resolveMutation = useMutation({
-    mutationFn: async (resolution: 'bad_fit' | 'delete' | 'keep') => {
-      return apiRequest('POST', `/api/bounce-investigation/${bounceId}/resolve`, { resolution });
+  const handleCheckTypo = async () => {
+    setActivePath('fix_typo');
+    if (typoResult) return;
+    setTypoLoading(true);
+    try {
+      const result = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-typo`, {});
+      setTypoResult(result);
+      if (result.suggestion) setTypoCorrected(result.suggestion);
+      else setTypoCorrected(data?.bounce.bouncedEmail || '');
+    } catch {
+      setTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' });
+    } finally {
+      setTypoLoading(false);
+    }
+  };
+
+  const handleCheckCompany = async () => {
+    setActivePath('check_company');
+    if (companyResult) return;
+    setCompanyLoading(true);
+    try {
+      const result = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-company`, {});
+      setCompanyResult(result);
+    } catch {
+      setCompanyResult({ verdict: 'uncertain', explanation: 'Check failed — use links below.', linkedinSearchUrl: '', googleMapsUrl: '' });
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
+  const fixEmailMutation = useMutation({
+    mutationFn: () => apiRequest('POST', `/api/bounce-investigation/${bounceId}/fix-email`, { correctedEmail: typoCorrected }),
+    onSuccess: (result: any) => {
+      setResolutionDone({ snapshot: result.outreachHistorySnapshot || null });
+      toast({ title: 'Email Fixed', description: `Updated to ${typoCorrected}${result.odooUpdated ? ' and synced to Odoo' : ''}` });
+      queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
     },
+    onError: (err: Error) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+  });
+
+  const replaceContactMutation = useMutation({
+    mutationFn: () => apiRequest('POST', `/api/bounce-investigation/${bounceId}/replace-contact`, {
+      name: personName, email: personEmail, phone: personPhone, title: personTitle,
+    }),
+    onSuccess: (result: any) => {
+      setResolutionDone({ snapshot: result.outreachHistorySnapshot || null });
+      toast({ title: 'Contact Added', description: `${personName} added to the company` });
+      queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
+    },
+    onError: (err: Error) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: (resolution: 'bad_fit' | 'delete' | 'keep') =>
+      apiRequest('POST', `/api/bounce-investigation/${bounceId}/resolve`, { resolution }),
     onSuccess: (_, resolution) => {
       toast({
         title: resolution === 'delete' ? 'Record Deleted' : resolution === 'bad_fit' ? 'Marked as Bad Fit' : 'Kept Active',
@@ -111,123 +175,21 @@ export default function BounceInvestigation() {
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
       setLocation('/');
     },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
+    onError: (err: Error) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
   });
 
-  const regenerateAIMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/bounce-investigation/${bounceId}/regenerate-ai`);
-    },
-    onSuccess: () => {
-      refetch();
-      toast({
-        title: 'AI Analysis Regenerated',
-        description: 'Fresh insights have been generated.',
-      });
-    },
-  });
-
-  // Mutation to update contact details
-  const updateContactMutation = useMutation({
-    mutationFn: async ({ name, email }: { name: string; email: string }) => {
-      if (!data?.record) throw new Error('No record to update');
-      const recordId = data.record.id;
-      return apiRequest('PUT', `/api/customers/${recordId}`, { name, email });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Contact Updated',
-        description: 'Name and email have been saved.',
-      });
-      setIsEditing(false);
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Mutation to add new contact to company in Odoo
-  const addContactMutation = useMutation({
-    mutationFn: async ({ name, email, phone, jobFunction }: { name: string; email: string; phone: string; jobFunction: string }) => {
-      if (!data?.record) throw new Error('No record to add contact to');
-      const customerId = data.record.id;
-      return apiRequest('POST', `/api/odoo/customer/${customerId}/contacts`, { name, email, phone, function: jobFunction });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Contact Added',
-        description: 'New contact has been created in Odoo.',
-      });
-      setShowAddContact(false);
-      setNewContactName('');
-      setNewContactEmail('');
-      setNewContactPhone('');
-      setNewContactTitle('');
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Mutation to delete contact (also from Odoo)
   const deleteContactMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: () => {
       if (!data?.record) throw new Error('No record to delete');
-      const recordId = data.record.id;
-      return apiRequest('DELETE', `/api/customers/${recordId}?reason=bounced_email`);
+      return apiRequest('DELETE', `/api/customers/${data.record.id}?reason=bounced_email`);
     },
     onSuccess: () => {
-      toast({
-        title: 'Contact Deleted',
-        description: 'Contact has been removed from the system and Odoo.',
-      });
+      toast({ title: 'Contact Deleted', description: 'Contact has been removed from the system and Odoo.' });
       queryClient.invalidateQueries({ queryKey: ['/api/bounce-investigation'] });
       setLocation('/');
     },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
+    onError: (err: Error) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
   });
-
-  // Start editing with current values
-  const startEditing = () => {
-    if (data?.record) {
-      setEditName(data.record.name || '');
-      setEditEmail(data.record.email || '');
-      setIsEditing(true);
-    }
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setEditName('');
-    setEditEmail('');
-  };
-
-  const saveEdits = () => {
-    if (editName.trim()) {
-      updateContactMutation.mutate({ name: editName.trim(), email: editEmail.trim() });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -265,424 +227,422 @@ export default function BounceInvestigation() {
     );
   }
 
-  const { bounce, record, domain, aiResearch } = data;
+  const { bounce, record, domain } = data;
+  const outreachSnap = bounce.outreachHistorySnapshot;
 
-  const getRecommendationColor = (rec: string) => {
-    switch (rec) {
-      case 'delete': return 'bg-red-100 text-red-800 border-red-200';
-      case 'bad_fit': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'keep': return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+  const verdictColor = companyResult?.verdict === 'open' ? 'text-green-700 bg-green-50 border-green-200' :
+    companyResult?.verdict === 'closed' ? 'text-red-700 bg-red-50 border-red-200' :
+    'text-amber-700 bg-amber-50 border-amber-200';
+  const verdictLabel = companyResult?.verdict === 'open' ? 'Still Open' : companyResult?.verdict === 'closed' ? 'Appears Closed' : 'Uncertain';
 
   return (
     <OdooLayout>
-      <div className="p-6 space-y-6 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => setLocation('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to SPOTLIGHT
-            </Button>
-            <div>
+      <div className="p-6 space-y-6 max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setLocation('/')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to SPOTLIGHT
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900">Bounce Investigation</h1>
-              <p className="text-gray-500">Research this contact before making a decision</p>
+              <Badge className="bg-red-600 text-white text-xs font-black tracking-wide">PRIORITY</Badge>
             </div>
+            <p className="text-gray-500 text-sm">Choose a resolution path and act — or research in depth first</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="bg-white/80 backdrop-blur border-red-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-red-700">
-                <AlertTriangle className="h-5 w-5" />
-                Bounced Email
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <span className="font-medium break-all">{bounce.bouncedEmail}</span>
-              </div>
-              {bounce.bounceSubject && (
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Original Subject</p>
-                  <p className="text-sm">{bounce.bounceSubject}</p>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Calendar className="h-4 w-4" />
-                <span>Bounced {new Date(bounce.bounceDate).toLocaleDateString()}</span>
-              </div>
-              {bounce.bounceReason && (
-                <div className="bg-red-50 p-3 rounded-lg text-sm text-red-700">
-                  {bounce.bounceReason}
-                </div>
-              )}
-              <Badge variant="outline" className="capitalize">
-                {bounce.matchType || 'Unknown'} Record
-              </Badge>
-            </CardContent>
-          </Card>
-
-          {record && (
-            <Card className="bg-white/80 backdrop-blur">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    {record.type === 'lead' ? (
-                      <User className="h-5 w-5 text-purple-600" />
-                    ) : (
-                      <Building2 className="h-5 w-5 text-blue-600" />
-                    )}
-                    {record.type === 'lead' ? 'Lead' : 'Contact'} Details
-                  </CardTitle>
-                  {!isEditing && (
-                    <Button variant="ghost" size="sm" onClick={startEditing}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+        {/* Bounce summary card */}
+        <Card className="border-2 border-red-300 bg-red-50">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="font-semibold text-red-800">Bounced:</span>
+                  <span className="font-mono text-red-900 font-medium">{bounce.bouncedEmail}</span>
+                  <Badge variant="outline" className="capitalize text-xs">{bounce.matchType || 'unknown'}</Badge>
+                  {bounce.bounceType && bounce.bounceType !== 'unknown' && (
+                    <Badge variant="outline" className="text-xs capitalize">{bounce.bounceType.replace('_', ' ')}</Badge>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isEditing ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="editName">Name</Label>
-                      <Input 
-                        id="editName"
-                        value={editName} 
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Contact name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="editEmail">Email</Label>
-                      <Input 
-                        id="editEmail"
-                        type="email"
-                        value={editEmail} 
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        placeholder="Email address"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={saveEdits}
-                        disabled={updateContactMutation.isPending || !editName.trim()}
-                      >
-                        <Save className="h-4 w-4 mr-1" />
-                        Save
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={cancelEditing}
-                        disabled={updateContactMutation.isPending}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <p className="font-semibold text-lg">{record.name}</p>
-                      {record.title && <p className="text-sm text-gray-500">{record.title}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-gray-400" />
-                      <span>{record.email}</span>
-                    </div>
-                    {record.companyName && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Building2 className="h-4 w-4 text-gray-400" />
-                        <span>{record.companyName}</span>
-                      </div>
-                    )}
-                    {record.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span>{record.phone}</span>
-                      </div>
-                    )}
-                    {(record.city || record.state) && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="h-4 w-4 text-gray-400" />
-                        <span>{[record.city, record.state].filter(Boolean).join(', ')}</span>
-                      </div>
-                    )}
-                    {record.stage && (
-                      <Badge variant="outline" className="capitalize">{record.stage}</Badge>
-                    )}
-                    {record.source && (
-                      <p className="text-xs text-gray-500">Source: {record.source}</p>
-                    )}
-                    {record.lastContactAt && (
-                      <p className="text-xs text-gray-500">
-                        Last Contact: {new Date(record.lastContactAt).toLocaleDateString()}
-                      </p>
-                    )}
-                    
-                    <div className="pt-3 border-t space-y-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setShowAddContact(true)}
-                        className="w-full"
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Add New Contact to Company
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="w-full border-red-200 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete This Contact
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {domain && (
-            <Card className="bg-white/80 backdrop-blur">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-green-600" />
-                  Domain Research
-                </CardTitle>
-                <CardDescription>{domain.domain}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col gap-2">
-                  <a 
-                    href={`https://${domain.domain}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-600 hover:underline text-sm"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Visit Website
-                  </a>
-                  <a 
-                    href={domain.linkedinSearchUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-blue-600 hover:underline text-sm"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                    Search on LinkedIn
-                  </a>
+                <div className="flex items-center gap-4 text-sm text-red-700">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {new Date(bounce.bounceDate).toLocaleDateString()}
+                  </span>
+                  {bounce.bounceSubject && (
+                    <span className="flex items-center gap-1 truncate max-w-xs">
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                      "{bounce.bounceSubject}"
+                    </span>
+                  )}
                 </div>
-                {domain.screenshotUrl && (
-                  <div className="mt-4">
-                    <p className="text-xs text-gray-500 mb-2">Website Preview</p>
-                    <div className="border rounded-lg overflow-hidden bg-gray-100">
-                      <img 
-                        src={domain.screenshotUrl} 
-                        alt={`Screenshot of ${domain.domain}`}
-                        className="w-full h-auto"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                      <div className="hidden p-4 text-center text-gray-500 text-sm">
-                        Website preview unavailable
-                      </div>
-                    </div>
-                  </div>
+                {bounce.bounceReason && (
+                  <p className="text-xs text-red-600 mt-1">{bounce.bounceReason}</p>
                 )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {aiResearch && (
-          <Card className="bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-purple-600" />
-                  AI Research Notes
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge className={getRecommendationColor(aiResearch.recommendation)}>
-                    Recommendation: {aiResearch.recommendation.replace('_', ' ').toUpperCase()}
-                    <span className="ml-1 opacity-75">({Math.round(aiResearch.confidence * 100)}%)</span>
-                  </Badge>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => regenerateAIMutation.mutate()}
-                    disabled={regenerateAIMutation.isPending}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${regenerateAIMutation.isPending ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Previous outreach snapshot */}
+        {outreachSnap && (outreachSnap.emailCount > 0 || outreachSnap.swatchBookCount > 0 || outreachSnap.callCount > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-slate-500" />
+                Previous Outreach History
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-                <p className="text-gray-600">{aiResearch.summary}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white/60 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-700 mb-2">Domain Analysis</h4>
-                  <p className="text-sm text-gray-600">{aiResearch.domainAnalysis}</p>
-                </div>
-                <div className="bg-white/60 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-700 mb-2">Bounce Analysis</h4>
-                  <p className="text-sm text-gray-600">{aiResearch.bounceAnalysis}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">Key Findings</h4>
-                <ul className="space-y-2">
-                  {aiResearch.reasons.map((reason, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                      <span className="text-purple-600 mt-1">•</span>
-                      {reason}
-                    </li>
-                  ))}
-                </ul>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {outreachSnap.emailCount > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-slate-800">{outreachSnap.emailCount}</div>
+                    <div className="text-xs text-slate-500">emails sent</div>
+                    {outreachSnap.lastEmailSubject && (
+                      <div className="text-xs text-slate-400 truncate mt-1">Last: {outreachSnap.lastEmailSubject}</div>
+                    )}
+                  </div>
+                )}
+                {outreachSnap.swatchBookCount > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-slate-800">{outreachSnap.swatchBookCount}</div>
+                    <div className="text-xs text-slate-500">swatch books</div>
+                  </div>
+                )}
+                {outreachSnap.pressTestKitCount > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-slate-800">{outreachSnap.pressTestKitCount}</div>
+                    <div className="text-xs text-slate-500">press test kits</div>
+                  </div>
+                )}
+                {outreachSnap.callCount > 0 && (
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-slate-800">{outreachSnap.callCount}</div>
+                    <div className="text-xs text-slate-500">calls logged</div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
 
-        <Card className="bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle>Take Action</CardTitle>
-            <CardDescription>
-              Based on your research, what would you like to do with this {record?.type || 'record'}?
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <Button
-                variant="outline"
-                className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                onClick={() => resolveMutation.mutate('bad_fit')}
-                disabled={resolveMutation.isPending}
-              >
-                <UserX className="h-4 w-4 mr-2" />
-                Mark as Bad Fit
+        {/* Resolution flow - success state */}
+        {resolutionDone && (
+          <Card className="border-2 border-emerald-300 bg-emerald-50">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600" />
+                <span className="font-semibold text-emerald-800">Resolved! Ready to restart outreach.</span>
+              </div>
+              <Button onClick={() => setLocation('/')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                Return to SPOTLIGHT
               </Button>
-              <Button
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50"
-                onClick={() => resolveMutation.mutate('delete')}
-                disabled={resolveMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete This Record
-              </Button>
-              <Button
-                variant="outline"
-                className="border-green-300 text-green-700 hover:bg-green-50"
-                onClick={() => resolveMutation.mutate('keep')}
-                disabled={resolveMutation.isPending}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Keep Active
-              </Button>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Bad Fit will stop outreach but keep the record for reference. Delete will permanently remove the record.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Add New Contact Dialog */}
-      <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-blue-600" />
-              Add New Contact
-            </DialogTitle>
-            <DialogDescription>
-              Add a new contact to this company. They will be created in Odoo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="newContactName">Name *</Label>
-              <Input 
-                id="newContactName"
-                value={newContactName} 
-                onChange={(e) => setNewContactName(e.target.value)}
-                placeholder="Full name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newContactEmail">Email</Label>
-              <Input 
-                id="newContactEmail"
-                type="email"
-                value={newContactEmail} 
-                onChange={(e) => setNewContactEmail(e.target.value)}
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newContactPhone">Phone</Label>
-              <Input 
-                id="newContactPhone"
-                type="tel"
-                value={newContactPhone} 
-                onChange={(e) => setNewContactPhone(e.target.value)}
-                placeholder="Phone number"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newContactTitle">Job Title</Label>
-              <Input 
-                id="newContactTitle"
-                value={newContactTitle} 
-                onChange={(e) => setNewContactTitle(e.target.value)}
-                placeholder="e.g., Sales Manager"
-              />
+        {/* Three resolution paths */}
+        {!resolutionDone && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">Resolution Paths</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Path 1: Fix Typo */}
+              <Card className={`cursor-pointer transition-all border-2 ${activePath === 'fix_typo' ? 'border-blue-400 shadow-md' : 'border-slate-200 hover:border-blue-200'}`}>
+                <CardHeader className="pb-2">
+                  <CardTitle
+                    className="text-sm flex items-center gap-2 cursor-pointer"
+                    onClick={handleCheckTypo}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Pencil className="h-4 w-4 text-blue-600" />
+                    </div>
+                    Fix Email Typo
+                  </CardTitle>
+                </CardHeader>
+                {activePath === 'fix_typo' && (
+                  <CardContent>
+                    {typoLoading && (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Checking for typos...
+                      </div>
+                    )}
+                    {typoResult && !typoLoading && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                          <Sparkles className="h-3 w-3" /> AI Analysis
+                        </div>
+                        {typoResult.suggestion ? (
+                          <div className="bg-blue-50 rounded p-2 text-sm">
+                            <span className="font-semibold text-blue-800">Suggestion: </span>
+                            <span className="font-mono text-blue-900">{typoResult.suggestion}</span>
+                            <span className="text-blue-600 ml-1">({Math.round(typoResult.confidence * 100)}%)</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-600 italic">No typo detected. {typoResult.reasoning}</p>
+                        )}
+                        <div className="space-y-2">
+                          <Label className="text-xs">Corrected email</Label>
+                          <Input
+                            type="email"
+                            value={typoCorrected}
+                            onChange={(e) => setTypoCorrected(e.target.value)}
+                            placeholder="corrected@email.com"
+                            className="text-sm h-8"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                          onClick={() => fixEmailMutation.mutate()}
+                          disabled={fixEmailMutation.isPending || !typoCorrected.trim() || typoCorrected === bounce.bouncedEmail}
+                        >
+                          {fixEmailMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                          Fix & Restart Outreach
+                        </Button>
+                      </div>
+                    )}
+                    {!typoResult && !typoLoading && (
+                      <Button size="sm" variant="outline" onClick={handleCheckTypo} className="w-full">
+                        Run AI Check
+                      </Button>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+
+              {/* Path 2: Person Left */}
+              <Card className={`cursor-pointer transition-all border-2 ${activePath === 'person_left' ? 'border-orange-400 shadow-md' : 'border-slate-200 hover:border-orange-200'}`}>
+                <CardHeader className="pb-2">
+                  <CardTitle
+                    className="text-sm flex items-center gap-2 cursor-pointer"
+                    onClick={() => setActivePath('person_left')}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                      <UserPlus className="h-4 w-4 text-orange-600" />
+                    </div>
+                    Person Left Company
+                  </CardTitle>
+                </CardHeader>
+                {activePath === 'person_left' && (
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-600 mb-3">Add the replacement contact to this company.</p>
+                      <div className="space-y-1.5">
+                        <Input
+                          placeholder="Full name *"
+                          value={personName}
+                          onChange={(e) => setPersonName(e.target.value)}
+                          className="text-sm h-8"
+                        />
+                        <Input
+                          type="email"
+                          placeholder="Email *"
+                          value={personEmail}
+                          onChange={(e) => setPersonEmail(e.target.value)}
+                          className="text-sm h-8"
+                        />
+                        <Input
+                          type="tel"
+                          placeholder="Phone (optional)"
+                          value={personPhone}
+                          onChange={(e) => setPersonPhone(e.target.value)}
+                          className="text-sm h-8"
+                        />
+                        <Input
+                          placeholder="Job title (optional)"
+                          value={personTitle}
+                          onChange={(e) => setPersonTitle(e.target.value)}
+                          className="text-sm h-8"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="w-full bg-orange-600 hover:bg-orange-700"
+                        onClick={() => replaceContactMutation.mutate()}
+                        disabled={replaceContactMutation.isPending || !personName.trim() || !personEmail.trim()}
+                      >
+                        {replaceContactMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Add Contact & Resolve
+                      </Button>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+
+              {/* Path 3: Check Company */}
+              <Card className={`cursor-pointer transition-all border-2 ${activePath === 'check_company' ? 'border-purple-400 shadow-md' : 'border-slate-200 hover:border-purple-200'}`}>
+                <CardHeader className="pb-2">
+                  <CardTitle
+                    className="text-sm flex items-center gap-2 cursor-pointer"
+                    onClick={handleCheckCompany}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <Building2 className="h-4 w-4 text-purple-600" />
+                    </div>
+                    Check Company Status
+                  </CardTitle>
+                </CardHeader>
+                {activePath === 'check_company' && (
+                  <CardContent>
+                    {companyLoading && (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Researching company...
+                      </div>
+                    )}
+                    {companyResult && !companyLoading && (
+                      <div className="space-y-3">
+                        <div className={`rounded-lg p-3 text-sm border ${verdictColor}`}>
+                          <div className="font-bold mb-1">{verdictLabel}</div>
+                          <p className="text-xs">{companyResult.explanation}</p>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          {companyResult.websiteUrl && (
+                            <a href={companyResult.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                              <ExternalLink className="h-3 w-3" /> Visit Website
+                            </a>
+                          )}
+                          <a href={companyResult.linkedinSearchUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                            <Linkedin className="h-3 w-3" /> Search LinkedIn
+                          </a>
+                          <a href={companyResult.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                            <MapPin className="h-3 w-3" /> Google Maps
+                          </a>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-slate-500 mb-2">After reviewing, take action:</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-700 hover:bg-red-50 text-xs" onClick={() => setShowDeleteConfirm(true)}>
+                              <Trash2 className="h-3 w-3 mr-1" /> Delete
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => resolveMutation.mutate('bad_fit')}>
+                              <UserX className="h-3 w-3 mr-1" /> DNC
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs" onClick={() => resolveMutation.mutate('keep')}>
+                              <Check className="h-3 w-3 mr-1" /> Keep
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {!companyResult && !companyLoading && (
+                      <Button size="sm" variant="outline" onClick={handleCheckCompany} className="w-full">
+                        Run Company Check
+                      </Button>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
             </div>
           </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowAddContact(false)}
-              disabled={addContactMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => addContactMutation.mutate({
-                name: newContactName,
-                email: newContactEmail,
-                phone: newContactPhone,
-                jobFunction: newContactTitle,
-              })}
-              disabled={addContactMutation.isPending || !newContactName.trim()}
-            >
-              {addContactMutation.isPending ? 'Creating...' : 'Create Contact'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
 
-      {/* Delete Contact Confirmation Dialog */}
+        {/* Record details */}
+        {record && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  {record.type === 'lead' ? <User className="h-4 w-4 text-purple-600" /> : <Building2 className="h-4 w-4 text-blue-600" />}
+                  {record.type === 'lead' ? 'Lead' : 'Contact'} Details
+                </CardTitle>
+                {!isEditing && (
+                  <Button variant="ghost" size="sm" onClick={() => { setEditName(record.name); setEditEmail(record.email); setIsEditing(true); }}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Email</Label>
+                    <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => setIsEditing(false)}>
+                      <Save className="h-4 w-4 mr-1" /> Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
+                      <X className="h-4 w-4 mr-1" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="font-semibold">{record.name}</p>
+                  {record.title && <p className="text-sm text-slate-500">{record.title}</p>}
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Mail className="h-4 w-4 text-slate-400" /> {record.email}
+                  </div>
+                  {record.companyName && (
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Building2 className="h-4 w-4 text-slate-400" /> {record.companyName}
+                    </div>
+                  )}
+                  {record.phone && (
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Phone className="h-4 w-4 text-slate-400" /> {record.phone}
+                    </div>
+                  )}
+                  {(record.city || record.state) && (
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <MapPin className="h-4 w-4 text-slate-400" /> {[record.city, record.state].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  {record.lastContactAt && (
+                    <p className="text-xs text-slate-400">Last Contact: {new Date(record.lastContactAt).toLocaleDateString()}</p>
+                  )}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Contact
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Domain research card */}
+        {domain && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Globe className="h-4 w-4 text-green-600" />
+                Domain Research
+              </CardTitle>
+              <CardDescription>{domain.domain}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col gap-2">
+                <a href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                  <ExternalLink className="h-4 w-4" /> Visit Website
+                </a>
+                <a href={domain.linkedinSearchUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                  <Linkedin className="h-4 w-4" /> Search on LinkedIn
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -691,33 +651,22 @@ export default function BounceInvestigation() {
               Delete Contact
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this contact? This action will remove them from both the local system and Odoo. This cannot be undone.
+              This will permanently remove the record from the system and Odoo. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            {data?.record && (
-              <div className="bg-gray-50 p-4 rounded-lg">
+          {data?.record && (
+            <div className="py-2">
+              <div className="bg-gray-50 p-3 rounded-lg">
                 <p className="font-semibold">{data.record.name}</p>
                 <p className="text-sm text-gray-500">{data.record.email}</p>
-                {data.record.companyName && (
-                  <p className="text-sm text-gray-500">{data.record.companyName}</p>
-                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteConfirm(false)}
-              disabled={deleteContactMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleteContactMutation.isPending}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive"
-              onClick={() => deleteContactMutation.mutate()}
-              disabled={deleteContactMutation.isPending}
-            >
+            <Button variant="destructive" onClick={() => deleteContactMutation.mutate()} disabled={deleteContactMutation.isPending}>
               {deleteContactMutation.isPending ? 'Deleting...' : 'Delete Contact'}
             </Button>
           </DialogFooter>

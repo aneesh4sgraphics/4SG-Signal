@@ -26549,8 +26549,10 @@ Analyze this bounced email and provide insights in JSON format:
           bounceSubject: bounce.bounceSubject,
           bounceDate: bounce.bounceDate,
           bounceReason: bounce.bounceReason,
+          bounceType: bounce.bounceType,
           matchType: bounce.matchType,
           status: bounce.status,
+          outreachHistorySnapshot: bounce.outreachHistorySnapshot ? (() => { try { return JSON.parse(bounce.outreachHistorySnapshot); } catch { return null; } })() : null,
         },
         record,
         domain,
@@ -26666,6 +26668,274 @@ Analyze this bounced email and provide insights in JSON format:
     } catch (error) {
       console.error("[Bounce Investigation] Error resolving:", error);
       res.status(500).json({ error: "Failed to resolve bounce" });
+    }
+  });
+
+
+  // Bounce Investigation - AI typo detection
+  app.post('/api/bounce-investigation/:bounceId/check-typo', isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      if (isNaN(bounceId)) return res.status(400).json({ error: 'Invalid bounce ID' });
+
+      const [bounce] = await db.select().from(bouncedEmails).where(eq(bouncedEmails.id, bounceId)).limit(1);
+      if (!bounce) return res.status(404).json({ error: 'Bounce not found' });
+
+      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.json({ suggestion: null, confidence: 0, reasoning: 'AI not configured' });
+      }
+
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL });
+
+      const email = bounce.bouncedEmail;
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: `You are an email typo detection expert. Analyze this bounced email address and determine if it has a likely typo.
+
+Email: ${email}
+Bounce reason: ${bounce.bounceReason || 'not specified'}
+
+Common typo patterns to detect:
+- Misspelled domains: gmali.com->gmail.com, yhaoo.com->yahoo.com, hotmial.com->hotmail.com, outlok.com->outlook.com
+- Missing dots: gmailcom->gmail.com
+- Wrong TLD: .con->.com, .og->.org
+- Double letters: gmmail->gmail, yyahoo->yahoo
+- Missing letters: gmai.com->gmail.com
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "hasTypo": boolean,
+  "suggestion": "corrected@email.com or null if no typo",
+  "confidence": 0.0-1.0,
+  "reasoning": "brief explanation"
+}
+
+If no typo is detected, set hasTypo to false and suggestion to null.`
+        }],
+        max_tokens: 200,
+        temperature: 0.1,
+      });
+
+      const text = completion.choices[0]?.message?.content || '{}';
+      let parsed: any = {};
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        parsed = { hasTypo: false, suggestion: null, confidence: 0, reasoning: 'Parse error' };
+      }
+
+      return res.json({
+        suggestion: parsed.hasTypo ? parsed.suggestion : null,
+        confidence: parsed.confidence || 0,
+        reasoning: parsed.reasoning || 'No typo detected',
+      });
+    } catch (error: any) {
+      console.error('[Bounce] check-typo error:', error);
+      res.status(500).json({ error: 'Failed to check for typo' });
+    }
+  });
+
+  // Bounce Investigation - Company viability check
+  app.post('/api/bounce-investigation/:bounceId/check-company', isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      if (isNaN(bounceId)) return res.status(400).json({ error: 'Invalid bounce ID' });
+
+      const [bounce] = await db.select().from(bouncedEmails).where(eq(bouncedEmails.id, bounceId)).limit(1);
+      if (!bounce) return res.status(404).json({ error: 'Bounce not found' });
+
+      let companyName = '';
+      const emailDomain = bounce.bouncedEmail.split('@')[1] || '';
+      if (bounce.customerId) {
+        const [cust] = await db.select({ company: customers.company, name: customers.name }).from(customers).where(eq(customers.id, bounce.customerId)).limit(1);
+        companyName = cust?.company || cust?.name || emailDomain;
+      }
+      if (!companyName) companyName = emailDomain.split('.')[0];
+
+      const personalDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com'];
+      const websiteUrl = emailDomain && !personalDomains.includes(emailDomain.toLowerCase()) ? `https://${emailDomain}` : undefined;
+      const linkedinSearchUrl = `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(companyName)}`;
+      const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(companyName)}`;
+
+      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.json({ verdict: 'uncertain', explanation: 'AI not configured — check links manually.', websiteUrl, linkedinSearchUrl, googleMapsUrl });
+      }
+
+      try {
+        const OpenAI = (await import('openai')).default;
+        const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL });
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'user',
+            content: `Based on your training data, is the company "${companyName}" (domain: ${emailDomain}) still in business?
+
+Respond ONLY with valid JSON:
+{
+  "verdict": "open",
+  "explanation": "1-2 sentence explanation"
+}
+
+Use "open" if likely still operating, "closed" if clearly shut down, "uncertain" if unknown or insufficient info. Be conservative — default to "uncertain" when unsure.`
+          }],
+          max_tokens: 150,
+          temperature: 0.1,
+        });
+
+        const text = completion.choices[0]?.message?.content || '{}';
+        let parsed: any = {};
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          parsed = { verdict: 'uncertain', explanation: 'Could not determine company status.' };
+        }
+
+        return res.json({
+          verdict: ['open','closed','uncertain'].includes(parsed.verdict) ? parsed.verdict : 'uncertain',
+          explanation: parsed.explanation || 'Could not determine company status.',
+          websiteUrl,
+          linkedinSearchUrl,
+          googleMapsUrl,
+        });
+      } catch (aiError: any) {
+        return res.json({ verdict: 'uncertain', explanation: 'AI check failed — use the links below to research manually.', websiteUrl, linkedinSearchUrl, googleMapsUrl });
+      }
+    } catch (error: any) {
+      console.error('[Bounce] check-company error:', error);
+      res.status(500).json({ error: 'Failed to check company viability' });
+    }
+  });
+
+  // Bounce Investigation - Replace contact (person left the company)
+  app.post('/api/bounce-investigation/:bounceId/replace-contact', isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (isNaN(bounceId)) return res.status(400).json({ error: 'Invalid bounce ID' });
+
+      const { name, email, phone, title } = req.body;
+      if (!name?.trim() || !email?.trim()) {
+        return res.status(422).json({ error: 'Name and email are required' });
+      }
+
+      const [bounce] = await db.select().from(bouncedEmails).where(eq(bouncedEmails.id, bounceId)).limit(1);
+      if (!bounce) return res.status(404).json({ error: 'Bounce not found' });
+      if (!bounce.customerId) return res.status(400).json({ error: 'No customer linked to this bounce' });
+
+      const [customer] = await db.select().from(customers).where(eq(customers.id, bounce.customerId)).limit(1);
+      if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+      // Create the new contact in local DB (role field stores title/job function)
+      const [newContact] = await db.insert(customerContacts).values({
+        customerId: bounce.customerId,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone?.trim() || null,
+        role: title?.trim() || null,
+      }).returning();
+
+      // Push to Odoo if customer has an Odoo partner ID
+      let odooContactId: number | null = null;
+      if (customer.odooPartnerId) {
+        try {
+          const contactData: Record<string, any> = {
+            name: name.trim(),
+            is_company: false,
+            type: 'contact',
+            parent_id: customer.odooPartnerId,
+            email: email.trim(),
+            phone: phone?.trim() || false,
+            function: title?.trim() || false,
+          };
+          odooContactId = await odooClient.create('res.partner', contactData);
+          console.log('[Bounce] Created Odoo contact:', odooContactId);
+        } catch (odooErr: any) {
+          console.error('[Bounce] Odoo contact create error:', odooErr.message);
+        }
+      }
+
+      // Resolve the bounce
+      const outreachHistorySnapshot = bounce.outreachHistorySnapshot;
+      await db.update(bouncedEmails)
+        .set({ status: 'resolved', resolvedAt: new Date(), resolvedBy: userId, resolution: 'replaced_contact' })
+        .where(eq(bouncedEmails.id, bounceId));
+
+      res.json({
+        success: true,
+        contactId: newContact?.id,
+        odooContactId,
+        outreachHistorySnapshot: outreachHistorySnapshot ? JSON.parse(outreachHistorySnapshot) : null,
+      });
+    } catch (error: any) {
+      console.error('[Bounce] replace-contact error:', error);
+      res.status(500).json({ error: 'Failed to replace contact' });
+    }
+  });
+
+  // Bounce Investigation - Fix email with Odoo sync
+  // This extends the existing resolve endpoint with fix_email_odoo type
+  app.post('/api/bounce-investigation/:bounceId/fix-email', isAuthenticated, async (req: any, res) => {
+    try {
+      const bounceId = parseInt(req.params.bounceId);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (isNaN(bounceId)) return res.status(400).json({ error: 'Invalid bounce ID' });
+
+      const { correctedEmail } = req.body;
+      if (!correctedEmail?.trim()) return res.status(422).json({ error: 'correctedEmail is required' });
+
+      const [bounce] = await db.select().from(bouncedEmails).where(eq(bouncedEmails.id, bounceId)).limit(1);
+      if (!bounce) return res.status(404).json({ error: 'Bounce not found' });
+
+      const newEmail = correctedEmail.trim().toLowerCase();
+
+      // Update email in local DB for all linked records
+      if (bounce.customerId) {
+        await db.update(customers).set({ email: newEmail }).where(eq(customers.id, bounce.customerId));
+      }
+      if (bounce.contactId) {
+        await db.update(customerContacts).set({ email: newEmail }).where(eq(customerContacts.id, bounce.contactId));
+      }
+      if (bounce.leadId) {
+        await db.update(leads).set({ email: newEmail }).where(eq(leads.id, bounce.leadId));
+      }
+
+      // Sync to Odoo if customer has an Odoo partner ID
+      let odooUpdated = false;
+      if (bounce.customerId) {
+        const [customer] = await db.select({ odooPartnerId: customers.odooPartnerId }).from(customers).where(eq(customers.id, bounce.customerId)).limit(1);
+        if (customer?.odooPartnerId) {
+          try {
+            await odooClient.updatePartner(customer.odooPartnerId, { email: newEmail });
+            odooUpdated = true;
+          } catch (odooErr: any) {
+            console.error('[Bounce] Odoo email update error:', odooErr.message);
+          }
+        }
+      }
+
+      // Resolve the bounce
+      const outreachHistorySnapshot = bounce.outreachHistorySnapshot;
+      await db.update(bouncedEmails)
+        .set({ status: 'resolved', resolvedAt: new Date(), resolvedBy: userId, resolution: 'fix_email_odoo' })
+        .where(eq(bouncedEmails.id, bounceId));
+
+      res.json({
+        success: true,
+        odooUpdated,
+        correctedEmail: newEmail,
+        outreachHistorySnapshot: outreachHistorySnapshot ? JSON.parse(outreachHistorySnapshot) : null,
+      });
+    } catch (error: any) {
+      console.error('[Bounce] fix-email error:', error);
+      res.status(500).json({ error: 'Failed to fix email' });
     }
   });
 

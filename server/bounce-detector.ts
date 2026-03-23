@@ -1,12 +1,15 @@
 import { google, gmail_v1 } from 'googleapis';
 import { db } from './db';
-import { eq, and, or, sql, isNull, lt, ilike } from 'drizzle-orm';
+import { eq, and, or, sql, isNull, lt, ilike, desc } from 'drizzle-orm';
 import { 
   bouncedEmails, 
   customers, 
   customerContacts,
   leads,
   userGmailConnections,
+  emailSends,
+  labelPrints,
+  customerActivityEvents,
   InsertBouncedEmail 
 } from '@shared/schema';
 import { normalizeEmail } from '@shared/email-normalizer';
@@ -158,6 +161,92 @@ interface MatchResult {
 
 // BUG-01 FIX: Use ilike on the actual email column for case-insensitive matching.
 // emailNormalized may be null for older records, making eq() lookups miss real matches.
+function classifyBounceType(bounceReason?: string): string {
+  if (!bounceReason) return 'unknown';
+  const lower = bounceReason.toLowerCase();
+  if (/does not exist|no such user|user unknown|account.*(?:disabled|suspended|deleted)|mailbox not found/.test(lower)) {
+    return 'person_gone';
+  }
+  if (/(?:bad|invalid).*domain|no.*mx.*record|domain.*not.*found|host.*not.*found/.test(lower)) {
+    return 'domain_dead';
+  }
+  if (/typo|misspell/.test(lower)) {
+    return 'typo';
+  }
+  if (/rejected|refused/.test(lower)) {
+    return 'person_gone';
+  }
+  return 'unknown';
+}
+
+async function captureOutreachHistory(customerId: string | null | undefined, leadId: number | null | undefined): Promise<string | null> {
+  if (!customerId && !leadId) return null;
+  try {
+    let emailCount = 0;
+    let lastEmailSubject: string | null = null;
+    let swatchBookCount = 0;
+    let pressTestKitCount = 0;
+    let callCount = 0;
+    let quoteCount = 0;
+
+    if (customerId) {
+      const emailResults = await db
+        .select({ subject: emailSends.subject, sentAt: emailSends.sentAt })
+        .from(emailSends)
+        .where(eq(emailSends.customerId, customerId))
+        .orderBy(desc(emailSends.sentAt))
+        .limit(50);
+      emailCount = emailResults.length;
+      lastEmailSubject = emailResults[0]?.subject || null;
+
+      const swatchBooks = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(labelPrints)
+        .where(and(eq(labelPrints.customerId, customerId), eq(labelPrints.labelType, 'swatch_book')));
+      swatchBookCount = Number(swatchBooks[0]?.count || 0);
+
+      const pressKits = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(labelPrints)
+        .where(and(eq(labelPrints.customerId, customerId), eq(labelPrints.labelType, 'press_test_kit')));
+      pressTestKitCount = Number(pressKits[0]?.count || 0);
+
+      const activityEvents = await db
+        .select({ eventType: customerActivityEvents.eventType, count: sql<number>`count(*)` })
+        .from(customerActivityEvents)
+        .where(eq(customerActivityEvents.customerId, customerId))
+        .groupBy(customerActivityEvents.eventType);
+      for (const event of activityEvents) {
+        if (/call/i.test(event.eventType)) callCount += Number(event.count);
+        if (/quote/i.test(event.eventType)) quoteCount += Number(event.count);
+      }
+    } else if (leadId) {
+      const emailResults = await db
+        .select({ subject: emailSends.subject, sentAt: emailSends.sentAt })
+        .from(emailSends)
+        .where(eq(emailSends.leadId, leadId))
+        .orderBy(desc(emailSends.sentAt))
+        .limit(50);
+      emailCount = emailResults.length;
+      lastEmailSubject = emailResults[0]?.subject || null;
+    }
+
+    const snapshot = {
+      emailCount,
+      lastEmailSubject,
+      swatchBookCount,
+      pressTestKitCount,
+      callCount,
+      quoteCount,
+      capturedAt: new Date().toISOString(),
+    };
+    return JSON.stringify(snapshot);
+  } catch (err) {
+    console.error('[Bounce Detector] Error capturing outreach history:', err);
+    return null;
+  }
+}
+
 async function matchEmailToRecord(email: string): Promise<MatchResult> {
   const customerMatch = await db.select({ id: customers.id })
     .from(customers)
@@ -444,6 +533,9 @@ export async function scanForBouncedEmails(userId: string): Promise<number> {
             continue;
           }
           
+          const bounceType = classifyBounceType(bounce.bounceReason);
+          const outreachHistorySnapshot = await captureOutreachHistory(match.customerId, match.leadId);
+
           const insertData: InsertBouncedEmail = {
             bouncedEmail: bounce.bouncedEmail,
             bouncedEmailNormalized: normalizeEmail(bounce.bouncedEmail),
@@ -457,6 +549,8 @@ export async function scanForBouncedEmails(userId: string): Promise<number> {
             leadId: match.leadId || null,
             matchType: match.type,
             status: 'pending',
+            bounceType,
+            outreachHistorySnapshot,
           };
           
           await db.insert(bouncedEmails).values(insertData);

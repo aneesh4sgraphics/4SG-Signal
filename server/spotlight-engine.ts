@@ -2166,7 +2166,10 @@ class SpotlightEngine {
           customerId: bouncedEmails.customerId,
           bouncedEmail: bouncedEmails.bouncedEmail,
           bounceSubject: bouncedEmails.bounceSubject,
-          bounceDate: bouncedEmails.bounceDate
+          bounceDate: bouncedEmails.bounceDate,
+          bounceType: bouncedEmails.bounceType,
+          bounceReason: bouncedEmails.bounceReason,
+          outreachHistorySnapshot: bouncedEmails.outreachHistorySnapshot,
         })
         .from(bouncedEmails)
         .where(and(
@@ -2231,7 +2234,10 @@ class SpotlightEngine {
                 bounceId: bounced.id,
                 bouncedEmail: bounced.bouncedEmail,
                 bounceSubject: bounced.bounceSubject,
-                bounceDate: bounced.bounceDate?.toISOString()
+                bounceDate: bounced.bounceDate?.toISOString(),
+                bounceType: bounced.bounceType,
+                bounceReason: bounced.bounceReason,
+                outreachHistorySnapshot: bounced.outreachHistorySnapshot ? (() => { try { return JSON.parse(bounced.outreachHistorySnapshot!); } catch { return null; } })() : null,
               }
             };
           }
