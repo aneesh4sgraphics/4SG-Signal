@@ -647,13 +647,43 @@ export default function Spotlight() {
   const [optimisticCustomerType, setOptimisticCustomerType] = useState<string | null>(null);
   const [optimisticHotProspect, setOptimisticHotProspect] = useState<boolean | null>(null);
   
-  // Reset optimistic states when task changes
+  // Reset optimistic states and bounce-specific state when task changes
   const currentTaskId = currentTask?.task?.id;
   useEffect(() => {
     setOptimisticCustomerType(null);
     setOptimisticHotProspect(null);
+    // Reset all bounce investigation state per task to prevent state leak
+    setBounceActivePath(null);
+    setBounceTypoResult(null);
+    setBounceTypoLoading(false);
+    setBounceTypoCorrected('');
+    setBounceCompanyResult(null);
+    setBounceCompanyLoading(false);
+    setBouncePersonName('');
+    setBouncePersonEmail('');
+    setBouncePersonPhone('');
+    setBouncePersonTitle('');
+    setBounceResolutionDone(null);
   }, [currentTaskId]);
   
+  // Auto-trigger typo check when a bounce task card is displayed
+  const isBounceTask = currentTask?.task?.taskSubtype === 'hygiene_bounced_email';
+  const bounceTaskId = isBounceTask ? currentTask?.task?.extraContext?.bounceId : undefined;
+  useEffect(() => {
+    if (!isBounceTask || !bounceTaskId || bounceTypoResult || bounceTypoLoading) return;
+    setBounceTypoLoading(true);
+    apiRequest('POST', `/api/bounce-investigation/${bounceTaskId}/check-typo`, {})
+      .then(res => res.json())
+      .then((result: { suggestion: string | null; confidence: number; reasoning: string }) => {
+        setBounceTypoResult(result);
+        if (result.suggestion) setBounceTypoCorrected(result.suggestion);
+        else setBounceTypoCorrected(currentTask?.task?.extraContext?.bouncedEmail || '');
+      })
+      .catch(() => setBounceTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' }))
+      .finally(() => setBounceTypoLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bounceTaskId, isBounceTask]);
+
   // Coaching content based on task type
   const callScriptIdeas = [
     "Open with a question about their recent order or last conversation",
@@ -4461,7 +4491,8 @@ export default function Spotlight() {
                     const data = await res.json();
                     setBounceResolutionDone({ snapshot: data.outreachHistorySnapshot || null });
                     toast({ title: 'Email Fixed', description: `Updated to ${bounceTypoCorrected}${data.odooUpdated ? ' and synced to Odoo' : ''}` });
-                    setTimeout(() => handleOutcome('keep'), 1500);
+                    // Bounce is already resolved as fix_email_odoo; just advance to next task
+                    setTimeout(() => refetch(), 1500);
                   } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
                 };
 
@@ -4476,7 +4507,8 @@ export default function Spotlight() {
                     const data = await res.json();
                     setBounceResolutionDone({ snapshot: data.outreachHistorySnapshot || null });
                     toast({ title: 'Contact Added', description: `${bouncePersonName} added to the company` });
-                    setTimeout(() => handleOutcome('keep'), 1500);
+                    // Bounce is already resolved as replaced_contact; just advance to next task
+                    setTimeout(() => refetch(), 1500);
                   } catch (err: any) { toast({ title: 'Error', description: err.message, variant: 'destructive' }); }
                 };
 
