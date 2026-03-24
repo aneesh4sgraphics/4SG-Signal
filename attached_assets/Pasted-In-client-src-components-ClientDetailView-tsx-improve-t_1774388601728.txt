@@ -1,0 +1,47 @@
+In client/src/components/ClientDetailView.tsx, improve the header section styling only. Do NOT change any logic, mutations, or data fetching. Only change className and style values in the header area.
+
+CHANGE 1 — Header background and layout:
+Find the sticky header div (className includes 'sticky top-0 z-20'). 
+Change its className to:
+  sticky top-0 z-20 bg-white/98 backdrop-blur-sm border-b border-[#EBEBEB] -mx-4 px-4 py-4 mb-2
+
+CHANGE 2 — Action buttons styling:
+Find the div containing the action buttons (className="flex items-center gap-1"). Change gap-1 to gap-2.
+
+Replace each Button in that actions group with cleaner styling:
+
+For the Hot Prospect button, change its className to:
+  inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors
+  When hot: bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100
+  When not hot: bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]
+
+For the Do Not Contact button, change its className to:
+  inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors
+  When active: bg-red-50 border-red-200 text-red-700
+  When not active: bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200
+
+For the Open in Odoo button, change its className to:
+  inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors
+
+For the Journeys button, change its className to:
+  inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-transparent text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors
+
+For the Edit icon button, change its className to:
+  inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors
+
+For the Delete icon button, change its className to:
+  inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors
+
+CHANGE 3 — Contact details row:
+Find where email, phone, and city/location are displayed under the customer name.
+Make sure they display inline with a dot separator (·) between each item and muted text color text-[#8A8A8A] at text-sm size.
+
+CHANGE 4 — Stat bar buttons:
+Find the stat bar div (className includes 'bg-gray-50 rounded-lg').
+Change its className to:
+  flex items-center gap-1 bg-[#F4F3F0] rounded-xl p-1.5 overflow-x-auto mt-3
+
+For each stat button inside it, change hover states to:
+  hover:bg-white hover:shadow-sm
+
+No other changes to logic, data, or structure.

@@ -1,0 +1,42 @@
+In client/src/components/ClientDetailView.tsx, update the styling of the stat bar buttons only. Do NOT change any logic, onClick handlers, or data. Only change className values on the stat bar buttons.
+
+Find the stat bar section (the div with bg-gray-50 or bg-[#F4F3F0] containing the clickable stat buttons).
+
+Replace the className on each individual stat button as follows — match by the text label inside each button:
+
+Quotes button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#EEF2FF] border-[#C7D2FE] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#4338CA] mb-1"
+  Value span className: "text-base font-semibold text-[#3730A3]"
+
+Sales button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#F0FDF4] border-[#BBF7D0] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#16A34A] mb-1"
+  Value span className: "text-base font-semibold text-[#15803D]"
+
+Invoiced button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#ECFDF5] border-[#6EE7B7] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#059669] mb-1"
+  Value span className: "text-base font-semibold text-[#047857]"
+
+Due button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FFFBEB] border-[#FCD34D] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#D97706] mb-1"
+  Value span className: "text-base font-semibold text-[#B45309]"
+
+Emails button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#EFF6FF] border-[#BFDBFE] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#2563EB] mb-1"
+  Value span className: "text-base font-semibold text-[#1D4ED8]"
+
+Samples button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FDF4FF] border-[#E9D5FF] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#9333EA] mb-1"
+  Value span className: "text-base font-semibold text-[#7E22CE]"
+
+Swatch button:
+  className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FFF7ED] border-[#FED7AA] hover:brightness-95 transition-all"
+  Label span className: "flex items-center gap-1 text-xs font-medium text-[#EA580C] mb-1"
+  Value span className: "text-base font-semibold text-[#C2410C]"
+
+Do not change anything else.
