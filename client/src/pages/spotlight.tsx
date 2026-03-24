@@ -426,6 +426,8 @@ export default function Spotlight() {
     };
   } | null>(null);
   const [qualifyMissing, setQualifyMissing] = useState<string[]>([]);
+  const [qualifyEditField, setQualifyEditField] = useState<string | null>(null);
+  const [qualifyEditValues, setQualifyEditValues] = useState<{ street: string; city: string; state: string; zip: string; phone: string; pricingTier: string; email: string }>({ street: '', city: '', state: '', zip: '', phone: '', pricingTier: '', email: '' });
   const [showIdleModal, setShowIdleModal] = useState(false);
   const [showCallCoachingModal, setShowCallCoachingModal] = useState(false);
   const [callCoachingDismissedToday, setCallCoachingDismissedToday] = useState(false);
@@ -1212,6 +1214,34 @@ export default function Spotlight() {
     },
     onError: () => {
       toast({ title: "Error", description: "Could not qualify lead. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const updateLeadForQualifyMutation = useMutation({
+    mutationFn: async ({ leadId, updates }: { leadId: number; updates: Record<string, string> }) => {
+      const res = await apiRequest('PUT', `/api/leads/${leadId}`, updates);
+      return res.json();
+    },
+    onSuccess: (updated) => {
+      setQualifyEditField(null);
+      // Update the leadData in pendingQualification so checklist reflects new values
+      setPendingQualification(prev => prev ? {
+        ...prev,
+        leadData: {
+          ...prev.leadData,
+          street: updated.street ?? prev.leadData?.street ?? null,
+          city: updated.city ?? prev.leadData?.city ?? null,
+          state: updated.state ?? prev.leadData?.state ?? null,
+          zip: updated.zip ?? prev.leadData?.zip ?? null,
+          phone: updated.phone ?? prev.leadData?.phone ?? null,
+          email: updated.email ?? prev.leadData?.email ?? null,
+          pricingTier: updated.pricingTier ?? prev.leadData?.pricingTier ?? null,
+        },
+      } : null);
+      setQualifyMissing([]);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not save. Please try again.", variant: "destructive" });
     },
   });
 
@@ -2893,30 +2923,155 @@ export default function Spotlight() {
                     {items.map(item => {
                       const failedCheck = wasChecked && qualifyMissing.includes(item.key);
                       const passedCheck = wasChecked && !qualifyMissing.includes(item.key);
-                      // Before check: green if value present, orange if missing
                       const prePresent = !wasChecked && !item.missing;
                       const preMissing = !wasChecked && item.missing;
+                      const isEditing = qualifyEditField === item.key;
+                      const isActionable = preMissing || failedCheck;
 
                       return (
-                        <div key={item.key} className={`flex items-center gap-3 text-sm rounded-lg px-3 py-2.5 ${
-                          failedCheck ? 'bg-red-50 text-red-700 border border-red-200' :
-                          passedCheck || prePresent ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          'bg-orange-50 text-orange-700 border border-orange-200'
+                        <div key={item.key} className={`rounded-lg border text-sm overflow-hidden ${
+                          failedCheck ? 'bg-red-50 text-red-700 border-red-200' :
+                          passedCheck || prePresent ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          isEditing ? 'bg-amber-50 text-slate-800 border-amber-300' :
+                          'bg-orange-50 text-orange-700 border-orange-200'
                         }`}>
-                          <span className="text-base flex-shrink-0">
-                            {failedCheck ? '❌' : (passedCheck || prePresent) ? '✅' : '⚠️'}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{item.label}</span>
-                            {(prePresent || passedCheck) && item.value && (
-                              <span className="ml-2 text-xs opacity-75 truncate">{item.value}</span>
+                          <div
+                            className={`flex items-center gap-3 px-3 py-2.5 ${isActionable ? 'cursor-pointer hover:opacity-90 select-none' : ''}`}
+                            onClick={() => {
+                              if (!isActionable) return;
+                              if (isEditing) {
+                                setQualifyEditField(null);
+                              } else {
+                                setQualifyEditField(item.key);
+                                setQualifyEditValues(prev => ({
+                                  ...prev,
+                                  street: ld?.street || '',
+                                  city: ld?.city || '',
+                                  state: ld?.state || '',
+                                  zip: ld?.zip || '',
+                                  phone: ld?.phone || '',
+                                  pricingTier: ld?.pricingTier || '',
+                                  email: ld?.email || '',
+                                }));
+                              }
+                            }}
+                          >
+                            <span className="text-base flex-shrink-0">
+                              {failedCheck ? '❌' : (passedCheck || prePresent) ? '✅' : isEditing ? '✏️' : '⚠️'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium">{item.label}</span>
+                              {(prePresent || passedCheck) && item.value && (
+                                <span className="ml-2 text-xs opacity-75 truncate">{item.value}</span>
+                              )}
+                              {!isEditing && (preMissing || failedCheck) && (
+                                <span className="ml-2 text-xs opacity-80">{item.prompt}</span>
+                              )}
+                              {isEditing && (
+                                <span className="ml-2 text-xs text-amber-700 font-medium">Click to collapse</span>
+                              )}
+                            </div>
+                            {!isEditing && isActionable && (
+                              <span className="text-xs font-semibold flex-shrink-0 underline underline-offset-2">Add</span>
                             )}
-                            {(preMissing || failedCheck) && (
-                              <span className="ml-2 text-xs opacity-80">{item.prompt}</span>
+                            {isEditing && (
+                              <span className="text-xs flex-shrink-0 text-amber-600">▲</span>
                             )}
                           </div>
-                          {(preMissing || failedCheck) && (
-                            <span className="text-xs font-semibold flex-shrink-0">Missing</span>
+
+                          {/* Inline edit form */}
+                          {isEditing && (
+                            <div className="px-3 pb-3 pt-1 border-t border-amber-200 bg-white">
+                              {item.key === 'address' && (
+                                <div className="space-y-2">
+                                  <input
+                                    className="w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                    placeholder="Street address"
+                                    value={qualifyEditValues.street}
+                                    onChange={e => setQualifyEditValues(v => ({ ...v, street: e.target.value }))}
+                                  />
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    <input
+                                      className="col-span-1 text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      placeholder="City"
+                                      value={qualifyEditValues.city}
+                                      onChange={e => setQualifyEditValues(v => ({ ...v, city: e.target.value }))}
+                                    />
+                                    <input
+                                      className="text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      placeholder="State"
+                                      value={qualifyEditValues.state}
+                                      onChange={e => setQualifyEditValues(v => ({ ...v, state: e.target.value }))}
+                                    />
+                                    <input
+                                      className="text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      placeholder="ZIP"
+                                      value={qualifyEditValues.zip}
+                                      onChange={e => setQualifyEditValues(v => ({ ...v, zip: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              {item.key === 'phone' && (
+                                <input
+                                  className="w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  placeholder="Phone number"
+                                  value={qualifyEditValues.phone}
+                                  onChange={e => setQualifyEditValues(v => ({ ...v, phone: e.target.value }))}
+                                />
+                              )}
+                              {item.key === 'email' && (
+                                <input
+                                  type="email"
+                                  className="w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  placeholder="Email address"
+                                  value={qualifyEditValues.email}
+                                  onChange={e => setQualifyEditValues(v => ({ ...v, email: e.target.value }))}
+                                />
+                              )}
+                              {item.key === 'pricing_tier' && (
+                                <select
+                                  className="w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                                  value={qualifyEditValues.pricingTier}
+                                  onChange={e => setQualifyEditValues(v => ({ ...v, pricingTier: e.target.value }))}
+                                >
+                                  <option value="">Select a pricing tier</option>
+                                  {PRICING_TIERS.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              )}
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  className="flex-1 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded px-3 py-1.5 disabled:opacity-50"
+                                  disabled={updateLeadForQualifyMutation.isPending}
+                                  onClick={() => {
+                                    const updates: Record<string, string> = {};
+                                    if (item.key === 'address') {
+                                      updates.street = qualifyEditValues.street;
+                                      updates.city = qualifyEditValues.city;
+                                      updates.state = qualifyEditValues.state;
+                                      updates.zip = qualifyEditValues.zip;
+                                    } else if (item.key === 'phone') {
+                                      updates.phone = qualifyEditValues.phone;
+                                    } else if (item.key === 'email') {
+                                      updates.email = qualifyEditValues.email;
+                                    } else if (item.key === 'pricing_tier') {
+                                      updates.pricingTier = qualifyEditValues.pricingTier;
+                                    }
+                                    updateLeadForQualifyMutation.mutate({ leadId: pendingQualification!.leadId, updates });
+                                  }}
+                                >
+                                  {updateLeadForQualifyMutation.isPending ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded border border-slate-200"
+                                  onClick={() => setQualifyEditField(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       );
