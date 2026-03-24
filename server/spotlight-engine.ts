@@ -5575,7 +5575,7 @@ class SpotlightEngine {
           };
           
           // Any of these outcomes count as actually making contact
-          const contactMadeOutcomes = ['email_sent', 'called', 'connected', 'voicemail', 'followed_up', 'sent_content', 'sent_email', 'sent', 'send_mailer', 'send_swatchbook', 'send_press_test', 'sample_sent'];
+          const contactMadeOutcomes = ['email_sent', 'called', 'connected', 'voicemail', 'followed_up', 'sent_content', 'sent_email', 'sent', 'send_mailer', 'send_swatchbook', 'send_press_test', 'sample_sent', 'mailer_sent_one_page', 'mailer_sent_envelope'];
           const contactMade = contactMadeOutcomes.includes(outcomeId);
           if (contactMade) {
             leadUpdateData.totalTouchpoints = sql`COALESCE(${leads.totalTouchpoints}, 0) + 1`;
@@ -5620,6 +5620,14 @@ class SpotlightEngine {
             if (currentLead.stage === 'contacted') {
               leadUpdateData.stage = 'nurturing';
             }
+          } else if (outcomeId === 'mailer_sent_one_page') {
+            leadUpdateData.onePageMailerSentAt = now;
+            leadUpdateData.lastMailerSentAt = now;
+            leadUpdateData.lastMailerType = 'one_page';
+          } else if (outcomeId === 'mailer_sent_envelope') {
+            leadUpdateData.sampleEnvelopeSentAt = now;
+            leadUpdateData.lastMailerSentAt = now;
+            leadUpdateData.lastMailerType = 'envelope';
           }
           
           // Assign to this sales rep if unassigned
@@ -5639,6 +5647,39 @@ class SpotlightEngine {
           
           await db.update(leads).set(leadUpdateData).where(eq(leads.id, leadId));
           console.log(`[Spotlight] Lead ${leadId} updated after task completion: outcome=${outcomeId}`);
+
+          // Log mailer activities and update mailer-specific fields
+          if (outcomeId === 'mailer_sent_one_page' || outcomeId === 'mailer_sent_envelope') {
+            const [userRecord] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+              .from(users).where(eq(users.id, userId));
+            const userDisplayName = userRecord
+              ? (userRecord.firstName && userRecord.lastName ? `${userRecord.firstName} ${userRecord.lastName}` : userRecord.email)
+              : userId;
+
+            if (outcomeId === 'mailer_sent_one_page') {
+              const [tokenResult] = await db
+                .select({ maxOpenCount: sql<number>`MAX(${emailTrackingTokens.openCount})` })
+                .from(emailTrackingTokens)
+                .where(eq(emailTrackingTokens.leadId, leadId));
+              const emailOpenCount = tokenResult?.maxOpenCount ?? 0;
+              await db.update(leads).set({ mailerTriggerEmailOpenCount: emailOpenCount }).where(eq(leads.id, leadId));
+              await db.insert(leadActivities).values({
+                leadId,
+                activityType: 'mailer_one_page',
+                summary: 'One-page mailer sent via USPS',
+                performedBy: userId,
+                performedByName: userDisplayName,
+              });
+            } else {
+              await db.insert(leadActivities).values({
+                leadId,
+                activityType: 'mailer_envelope',
+                summary: 'Sample envelope with printed papers sent via USPS',
+                performedBy: userId,
+                performedByName: userDisplayName,
+              });
+            }
+          }
 
           // Prompt for qualification after any contact action, unless lead is already qualified/lost/converted
           if (contactMade && !markedDnc && !['converted', 'lost', 'qualified'].includes(currentLead.stage)) {
