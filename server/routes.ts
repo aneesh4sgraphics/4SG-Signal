@@ -26842,59 +26842,7 @@ Analyze this bounced email and provide insights in JSON format:
         return res.status(403).json({ error: 'Forbidden: not your bounce record' });
       }
 
-      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return res.json({ suggestion: null, confidence: 0, reasoning: 'AI not configured' });
-      }
-
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL });
-
-      const email = bounce.bouncedEmail;
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{
-          role: 'user',
-          content: `You are an email typo detection expert. Analyze this bounced email address and determine if it has a likely typo.
-
-Email: ${email}
-Bounce reason: ${bounce.bounceReason || 'not specified'}
-
-Common typo patterns to detect:
-- Misspelled domains: gmali.com->gmail.com, yhaoo.com->yahoo.com, hotmial.com->hotmail.com, outlok.com->outlook.com
-- Missing dots: gmailcom->gmail.com
-- Wrong TLD: .con->.com, .og->.org
-- Double letters: gmmail->gmail, yyahoo->yahoo
-- Missing letters: gmai.com->gmail.com
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "hasTypo": boolean,
-  "suggestion": "corrected@email.com or null if no typo",
-  "confidence": 0.0-1.0,
-  "reasoning": "brief explanation"
-}
-
-If no typo is detected, set hasTypo to false and suggestion to null.`
-        }],
-        max_tokens: 200,
-        temperature: 0.1,
-      });
-
-      const text = completion.choices[0]?.message?.content || '{}';
-      let parsed: any = {};
-      try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        parsed = { hasTypo: false, suggestion: null, confidence: 0, reasoning: 'Parse error' };
-      }
-
-      return res.json({
-        suggestion: parsed.hasTypo ? parsed.suggestion : null,
-        confidence: parsed.confidence || 0,
-        reasoning: parsed.reasoning || 'No typo detected',
-      });
+      return res.json({ suggestion: null, confidence: 0, reasoning: 'Enter the corrected email manually' });
     } catch (error: any) {
       console.error('[Bounce] check-typo error:', error);
       res.status(500).json({ error: 'Failed to check for typo' });
@@ -26928,65 +26876,7 @@ If no typo is detected, set hasTypo to false and suggestion to null.`
       const linkedinSearchUrl = `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(companyName)}`;
       const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(companyName)}`;
 
-      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return res.json({ verdict: 'uncertain', explanation: 'AI not configured — check links manually.', websiteUrl, linkedinSearchUrl, googleMapsUrl });
-      }
-
-      try {
-        const OpenAI = (await import('openai')).default;
-        const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL });
-
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{
-            role: 'user',
-            content: `You are a B2B company research assistant. A sales email to ${emailDomain} bounced. Research the company "${companyName}" based on your training data.
-
-Important: You do NOT have live web access. Base your answer only on what you know from training data.
-
-Return ONLY valid JSON:
-{
-  "verdict": "open" | "closed" | "uncertain",
-  "explanation": "2-3 sentences: what you know about this company, when you last saw data about them, and why you think they're open/closed/uncertain",
-  "evidence": ["specific fact 1", "specific fact 2"],
-  "confidence": 0.0-1.0,
-  "dataNote": "Brief note about training data cutoff limitations"
-}
-
-Rules:
-- "open": company was clearly operating recently in your training data
-- "closed": company went bankrupt, shut down, or was acquired and ceased operations
-- "uncertain": small/local business with little online presence, or you don't have reliable info
-- Always default to "uncertain" if you have any doubt
-- Keep explanation concise and factual — no speculation`
-          }],
-          max_tokens: 300,
-          temperature: 0.1,
-        });
-
-        const text = completion.choices[0]?.message?.content || '{}';
-        let parsed: any = {};
-        try {
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-        } catch {
-          parsed = { verdict: 'uncertain', explanation: 'Could not determine company status.' };
-        }
-
-        return res.json({
-          verdict: ['open','closed','uncertain'].includes(parsed.verdict) ? parsed.verdict : 'uncertain',
-          explanation: parsed.explanation || 'Could not determine company status.',
-          evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
-          confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-          dataNote: parsed.dataNote || 'Based on AI training data — verify with the links below.',
-          websiteUrl,
-          linkedinSearchUrl,
-          googleMapsUrl,
-        });
-      } catch (aiError: any) {
-        return res.json({ verdict: 'uncertain', explanation: 'AI check failed — use the links below to research manually.', websiteUrl, linkedinSearchUrl, googleMapsUrl });
-      }
+      return res.json({ verdict: 'uncertain', explanation: 'Use the research links below to assess the company.', websiteUrl, linkedinSearchUrl, googleMapsUrl });
     } catch (error: any) {
       console.error('[Bounce] check-company error:', error);
       res.status(500).json({ error: 'Failed to check company viability' });

@@ -29,11 +29,9 @@ import {
   Save,
   X,
   UserPlus,
-  Sparkles,
   Loader2,
   Check,
   Clock,
-  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -96,11 +94,7 @@ export default function BounceInvestigation() {
 
   // Three-path resolution state
   const [activePath, setActivePath] = useState<ActivePath>(null);
-  const [typoResult, setTypoResult] = useState<{ suggestion: string | null; confidence: number; reasoning: string } | null>(null);
-  const [typoLoading, setTypoLoading] = useState(false);
   const [typoCorrected, setTypoCorrected] = useState('');
-  const [companyResult, setCompanyResult] = useState<{ verdict: string; explanation: string; evidence?: string[]; confidence?: number; dataNote?: string; websiteUrl?: string; linkedinSearchUrl: string; googleMapsUrl: string } | null>(null);
-  const [companyLoading, setCompanyLoading] = useState(false);
   const [personName, setPersonName] = useState('');
   const [personEmail, setPersonEmail] = useState('');
   const [personPhone, setPersonPhone] = useState('');
@@ -112,54 +106,13 @@ export default function BounceInvestigation() {
     enabled: !!bounceId,
   });
 
-  // Auto-run typo check when page loads and data is ready
+  // Pre-fill the corrected email input when bounce data loads
   useEffect(() => {
-    if (data && !typoResult && !typoLoading && bounceId) {
-      setTypoLoading(true);
-      apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-typo`, {})
-        .then(res => res.json())
-        .then((result: { suggestion: string | null; confidence: number; reasoning: string }) => {
-          setTypoResult(result);
-          if (result.suggestion) setTypoCorrected(result.suggestion);
-          else setTypoCorrected(data.bounce.bouncedEmail || '');
-        })
-        .catch(() => setTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' }))
-        .finally(() => setTypoLoading(false));
+    if (data?.bounce.bouncedEmail && !typoCorrected) {
+      setTypoCorrected(data.bounce.bouncedEmail);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
-
-  const handleCheckTypo = async () => {
-    setActivePath('fix_typo');
-    if (typoResult) return;
-    setTypoLoading(true);
-    try {
-      const res = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-typo`, {});
-      const result = await res.json();
-      setTypoResult(result);
-      if (result.suggestion) setTypoCorrected(result.suggestion);
-      else setTypoCorrected(data?.bounce.bouncedEmail || '');
-    } catch {
-      setTypoResult({ suggestion: null, confidence: 0, reasoning: 'Check failed' });
-    } finally {
-      setTypoLoading(false);
-    }
-  };
-
-  const handleCheckCompany = async () => {
-    setActivePath('check_company');
-    if (companyResult) return;
-    setCompanyLoading(true);
-    try {
-      const res = await apiRequest('POST', `/api/bounce-investigation/${bounceId}/check-company`, {});
-      const result = await res.json();
-      setCompanyResult(result);
-    } catch {
-      setCompanyResult({ verdict: 'uncertain', explanation: 'Check failed — use links below.', linkedinSearchUrl: '', googleMapsUrl: '' });
-    } finally {
-      setCompanyLoading(false);
-    }
-  };
 
   interface FixEmailResponse { success: boolean; odooUpdated: boolean; correctedEmail: string; outreachHistorySnapshot: OutreachSnapshot | null; }
   interface ReplaceContactResponse { success: boolean; outreachHistorySnapshot: OutreachSnapshot | null; }
@@ -281,10 +234,12 @@ export default function BounceInvestigation() {
   const { bounce, record, domain } = data;
   const outreachSnap = bounce.outreachHistorySnapshot;
 
-  const verdictColor = companyResult?.verdict === 'open' ? 'text-green-700 bg-green-50 border-green-200' :
-    companyResult?.verdict === 'closed' ? 'text-red-700 bg-red-50 border-red-200' :
-    'text-amber-700 bg-amber-50 border-amber-200';
-  const verdictLabel = companyResult?.verdict === 'open' ? 'Still Open' : companyResult?.verdict === 'closed' ? 'Appears Closed' : 'Uncertain';
+  const emailDomain = bounce.bouncedEmail.split('@')[1] || '';
+  const personalDomains = ['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com'];
+  const companyName = record?.companyName || record?.name || emailDomain.split('.')[0] || '';
+  const websiteUrl = emailDomain && !personalDomains.includes(emailDomain.toLowerCase()) ? `https://${emailDomain}` : undefined;
+  const companyLinkedinUrl = domain?.linkedinSearchUrl || `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(companyName)}`;
+  const googleMapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(companyName)}`;
 
   return (
     <OdooLayout>
@@ -412,7 +367,7 @@ export default function BounceInvestigation() {
                 <CardHeader className="pb-2">
                   <CardTitle
                     className="text-sm flex items-center gap-2 cursor-pointer"
-                    onClick={handleCheckTypo}
+                    onClick={() => setActivePath('fix_typo')}
                   >
                     <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                       <Pencil className="h-4 w-4 text-blue-600" />
@@ -422,51 +377,29 @@ export default function BounceInvestigation() {
                 </CardHeader>
                 {activePath === 'fix_typo' && (
                   <CardContent>
-                    {typoLoading && (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Checking for typos...
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-500">Edit the address below to correct the typo, then save.</p>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Corrected email</Label>
+                        <Input
+                          type="email"
+                          value={typoCorrected}
+                          onChange={(e) => setTypoCorrected(e.target.value)}
+                          placeholder="corrected@email.com"
+                          className="text-sm h-8 font-mono"
+                          autoFocus
+                        />
                       </div>
-                    )}
-                    {typoResult && !typoLoading && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
-                          <Sparkles className="h-3 w-3" /> AI Analysis
-                        </div>
-                        {typoResult.suggestion ? (
-                          <div className="bg-blue-50 rounded p-2 text-sm">
-                            <span className="font-semibold text-blue-800">Suggestion: </span>
-                            <span className="font-mono text-blue-900">{typoResult.suggestion}</span>
-                            <span className="text-blue-600 ml-1">({Math.round(typoResult.confidence * 100)}%)</span>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-slate-600 italic">No typo detected. {typoResult.reasoning}</p>
-                        )}
-                        <div className="space-y-2">
-                          <Label className="text-xs">Corrected email</Label>
-                          <Input
-                            type="email"
-                            value={typoCorrected}
-                            onChange={(e) => setTypoCorrected(e.target.value)}
-                            placeholder="corrected@email.com"
-                            className="text-sm h-8"
-                          />
-                        </div>
-                        <Button
-                          size="sm"
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                          onClick={() => fixEmailMutation.mutate()}
-                          disabled={fixEmailMutation.isPending || !typoCorrected.trim() || typoCorrected === bounce.bouncedEmail}
-                        >
-                          {fixEmailMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                          Fix & Restart Outreach
-                        </Button>
-                      </div>
-                    )}
-                    {!typoResult && !typoLoading && (
-                      <Button size="sm" variant="outline" onClick={handleCheckTypo} className="w-full">
-                        Run AI Check
+                      <Button
+                        size="sm"
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        onClick={() => fixEmailMutation.mutate()}
+                        disabled={fixEmailMutation.isPending || !typoCorrected.trim() || typoCorrected === bounce.bouncedEmail}
+                      >
+                        {fixEmailMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Fix & Restart Outreach
                       </Button>
-                    )}
+                    </div>
                   </CardContent>
                 )}
               </Card>
@@ -535,7 +468,7 @@ export default function BounceInvestigation() {
                 <CardHeader className="pb-2">
                   <CardTitle
                     className="text-sm flex items-center gap-2 cursor-pointer"
-                    onClick={handleCheckCompany}
+                    onClick={() => setActivePath('check_company')}
                   >
                     <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                       <Building2 className="h-4 w-4 text-purple-600" />
@@ -545,66 +478,37 @@ export default function BounceInvestigation() {
                 </CardHeader>
                 {activePath === 'check_company' && (
                   <CardContent>
-                    {companyLoading && (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Researching company...
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-500">Research the company using these links, then take action.</p>
+                      <div className="flex flex-col gap-2">
+                        {websiteUrl && (
+                          <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                            <ExternalLink className="h-3 w-3" /> Visit Website
+                            <span className="text-slate-400">({emailDomain})</span>
+                          </a>
+                        )}
+                        <a href={companyLinkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                          <Linkedin className="h-3 w-3" /> Search LinkedIn
+                        </a>
+                        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
+                          <MapPin className="h-3 w-3" /> Google Maps
+                        </a>
                       </div>
-                    )}
-                    {companyResult && !companyLoading && (
-                      <div className="space-y-3">
-                        <div className={`rounded-lg p-3 text-sm border ${verdictColor}`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="font-bold">{verdictLabel}</div>
-                            {companyResult.confidence !== undefined && (
-                              <span className="text-xs opacity-70">{Math.round(companyResult.confidence * 100)}% confidence</span>
-                            )}
-                          </div>
-                          <p className="text-xs">{companyResult.explanation}</p>
-                          {companyResult.evidence && companyResult.evidence.length > 0 && (
-                            <ul className="mt-2 space-y-0.5">
-                              {companyResult.evidence.map((e, i) => (
-                                <li key={i} className="text-xs opacity-80 flex items-start gap-1"><span className="mt-0.5">•</span><span>{e}</span></li>
-                              ))}
-                            </ul>
-                          )}
-                          {companyResult.dataNote && (
-                            <p className="mt-2 text-xs italic opacity-60">{companyResult.dataNote}</p>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          {companyResult.websiteUrl && (
-                            <a href={companyResult.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
-                              <ExternalLink className="h-3 w-3" /> Visit Website
-                            </a>
-                          )}
-                          <a href={companyResult.linkedinSearchUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
-                            <Linkedin className="h-3 w-3" /> Search LinkedIn
-                          </a>
-                          <a href={companyResult.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-blue-600 hover:underline">
-                            <MapPin className="h-3 w-3" /> Google Maps
-                          </a>
-                        </div>
-                        <div className="pt-2 border-t">
-                          <p className="text-xs text-slate-500 mb-2">After reviewing, take action:</p>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-700 hover:bg-red-50 text-xs" onClick={() => setShowDeleteConfirm(true)}>
-                              <Trash2 className="h-3 w-3 mr-1" /> Delete
-                            </Button>
-                            <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => resolveMutation.mutate('bad_fit')}>
-                              <UserX className="h-3 w-3 mr-1" /> DNC
-                            </Button>
-                            <Button size="sm" variant="outline" className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs" onClick={() => resolveMutation.mutate('keep')}>
-                              <Check className="h-3 w-3 mr-1" /> Keep
-                            </Button>
-                          </div>
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-slate-500 mb-2">After reviewing, take action:</p>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-700 hover:bg-red-50 text-xs" onClick={() => setShowDeleteConfirm(true)}>
+                            <Trash2 className="h-3 w-3 mr-1" /> Delete
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => resolveMutation.mutate('bad_fit')}>
+                            <UserX className="h-3 w-3 mr-1" /> DNC
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs" onClick={() => resolveMutation.mutate('keep')}>
+                            <Check className="h-3 w-3 mr-1" /> Keep
+                          </Button>
                         </div>
                       </div>
-                    )}
-                    {!companyResult && !companyLoading && (
-                      <Button size="sm" variant="outline" onClick={handleCheckCompany} className="w-full">
-                        Run Company Check
-                      </Button>
-                    )}
+                    </div>
                   </CardContent>
                 )}
               </Card>
