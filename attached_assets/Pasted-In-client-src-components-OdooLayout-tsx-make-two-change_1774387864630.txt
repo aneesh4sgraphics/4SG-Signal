@@ -1,0 +1,42 @@
+In client/src/components/OdooLayout.tsx, make two changes. Do NOT rewrite the file.
+
+CHANGE 1 — Apply user-based filtering to sidebar nav items.
+
+At the top of the file, add this import after the existing imports:
+  import { filterAppsByUser } from '@/lib/nav-links';
+
+Then find these three lines near the top of the file (around line 47):
+  const coreItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'core');
+  const toolItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'tools');
+  const adminItems = NAV_ITEMS.filter(item => item.adminOnly);
+
+Replace them with:
+  const coreItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'core');
+  const toolItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'tools');
+  const adminItems = NAV_ITEMS.filter(item => item.adminOnly);
+
+These three lines stay the same — the filtering happens inside OdooLayoutContent instead.
+
+Inside the OdooLayoutContent function, find where coreItems and toolItems are used in the desktop nav render (the <nav> inside the <aside> element). Before that render, add:
+  const userEmail = (user as any)?.email;
+  const visibleCoreItems = filterAppsByUser(coreItems, userEmail);
+  const visibleToolItems = filterAppsByUser(toolItems, userEmail);
+
+Then replace every reference to coreItems.map(...) in the desktop sidebar with visibleCoreItems.map(...)
+And replace every reference to toolItems.map(...) in the desktop sidebar with visibleToolItems.map(...)
+
+Do the same inside the MobileSidebar component — add the same filterAppsByUser calls and use visibleCoreItems and visibleToolItems there too.
+
+CHANGE 2 — Move low-priority items from core to tools group.
+
+In client/src/components/CommandPalette.tsx, find the NAV_ITEMS array. Change the group value for these items from 'core' to 'tools':
+  - Opportunities (path: '/opportunities') — change group: 'core' to group: 'tools'
+  - Calendar (path: '/calendar') — change group: 'core' to group: 'tools'
+  - Dashboard (path: '/dashboard') — change group: 'core' to group: 'tools'
+
+After this change, the core group will have exactly 4 items:
+  Spotlight, QuickQuotes, Clients, Leads
+
+Everything else goes in Tools (collapsed by default).
+
+No other changes to either file.

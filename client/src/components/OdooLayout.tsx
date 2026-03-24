@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { resetAppData } from '@/lib/cache';
 import { queryClient } from '@/lib/queryClient';
+import { filterAppsByUser } from '@/lib/nav-links';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,6 +131,9 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const isToolActive = toolItems.some(item => location === item.path);
 
   const isAdmin = (user as any)?.role === 'admin';
+  const userEmail = (user as any)?.email;
+  const visibleCoreItems = filterAppsByUser(coreItems, userEmail);
+  const visibleToolItems = filterAppsByUser(toolItems, userEmail);
   
   const getUserInitials = (email: string | undefined): string => {
     if (!email) return 'U';
@@ -175,7 +179,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
           
           <nav className="flex-1 px-4 py-2 overflow-y-auto">
             <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
-            {coreItems.map((item) => {
+            {visibleCoreItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
               return (
@@ -211,7 +215,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
               )}
             </button>
-            {toolsExpanded && toolItems.map((item) => {
+            {toolsExpanded && visibleToolItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
               return (
@@ -361,7 +365,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
                   {sidebarExpanded && (
                     <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
                   )}
-                  {coreItems.map(renderNavItem)}
+                  {visibleCoreItems.map(renderNavItem)}
                 </div>
 
                 <div className="px-3 space-y-1 mt-3">
@@ -394,7 +398,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
                       </Tooltip>
                     )}
                   </button>
-                  {(toolsExpanded || isToolActive) && toolItems.map((item) => {
+                  {(toolsExpanded || isToolActive) && visibleToolItems.map((item) => {
                     if (!toolsExpanded && location !== item.path) return null;
                     return renderNavItem(item);
                   })}
