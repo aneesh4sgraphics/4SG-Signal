@@ -362,6 +362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (err) {
     console.error("Migration error (leads.odoo_partner_id):", err);
   }
+
+  // Boot-time migration: add last_sent_sync_at to user_gmail_connections for sent mail activity sync
+  try {
+    await db.execute(sql`ALTER TABLE user_gmail_connections ADD COLUMN IF NOT EXISTS last_sent_sync_at timestamp`);
+  } catch (err) {
+    console.error("Migration error (user_gmail_connections.last_sent_sync_at):", err);
+  }
   
   // Initialize default follow-up configurations on startup
   try {

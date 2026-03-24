@@ -831,21 +831,30 @@ export default function LeadDetail() {
                   {activities.map((activity) => {
                     const activityInfo = getActivityInfo(activity.activityType);
                     const ActivityIcon = activityInfo.icon;
+                    const isGmailExternal = activity.performedBy === 'gmail_external';
                     return (
-                      <div key={activity.id} className="flex gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${activityInfo.color}`}>
+                      <div key={activity.id} className={`flex gap-4 ${isGmailExternal ? 'p-3 rounded-lg bg-blue-50/40 border border-blue-100' : ''}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isGmailExternal ? 'bg-blue-100 text-blue-600' : activityInfo.color}`}>
                           <ActivityIcon className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="font-medium text-slate-800">{activityInfo.label}</span>
+                            {isGmailExternal && (
+                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 bg-blue-50">
+                                Gmail
+                              </Badge>
+                            )}
                             <span className="text-xs text-slate-400">{formatDateTime(activity.createdAt)}</span>
                           </div>
                           <p className="text-slate-700">{activity.summary}</p>
-                          {activity.details && (
+                          {activity.details && !isGmailExternal && (
                             <p className="text-sm text-slate-500 mt-1">{activity.details}</p>
                           )}
-                          {activity.performedByName && (
+                          {isGmailExternal && (
+                            <p className="text-xs text-blue-600 mt-1">Sent from personal Gmail account</p>
+                          )}
+                          {activity.performedByName && !isGmailExternal && (
                             <p className="text-xs text-slate-400 mt-1">by {activity.performedByName}</p>
                           )}
                         </div>

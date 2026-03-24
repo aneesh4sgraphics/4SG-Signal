@@ -2623,6 +2623,7 @@ export const userGmailConnections = pgTable("user_gmail_connections", {
   scope: text("scope"),
   isActive: boolean("is_active").default(true),
   lastSyncAt: timestamp("last_sync_at"),
+  lastSentSyncAt: timestamp("last_sent_sync_at"),
   lastError: text("last_error"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

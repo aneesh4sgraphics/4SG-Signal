@@ -672,6 +672,17 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     },
   });
 
+  // Fetch Gmail external sent activities for this customer
+  const { data: gmailSentActivities = [] } = useQuery<any[]>({
+    queryKey: ['/api/customer-activity/events', customer.id, 'gmail_external'],
+    queryFn: async () => {
+      const res = await fetch(`/api/customer-activity/events?customerId=${customer.id}`);
+      if (!res.ok) return [];
+      const all = await res.json();
+      return all.filter((e: any) => e.sourceType === 'gmail_external' && e.eventType === 'email_sent');
+    },
+  });
+
   // Fetch drip campaigns for assignment
   const { data: dripCampaigns = [] } = useQuery<DripCampaign[]>({
     queryKey: ['/api/drip-campaigns'],
@@ -2344,7 +2355,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
           >
             <Mail className="h-4 w-4" />
             <span className="hidden sm:inline">Emails</span>
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{emailSends.length}</Badge>
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{emailSends.length + gmailSentActivities.length}</Badge>
           </TabsTrigger>
           <TabsTrigger 
             value="samples" 
@@ -2609,7 +2620,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               </div>
             </CardHeader>
             <CardContent className="p-6 pt-2">
-              {emailSends.length > 0 ? (
+              {(emailSends.length > 0 || gmailSentActivities.length > 0) ? (
                 <div className="space-y-3">
                   {emailSends.map((email) => (
                     <div key={email.id} className="border rounded-lg p-4 bg-white hover:shadow-sm transition-shadow" data-testid={`email-send-${email.id}`}>
@@ -2640,6 +2651,32 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                       {email.sentBy && (
                         <p className="text-xs text-gray-400 mt-2">Sent by: {email.sentBy}</p>
                       )}
+                    </div>
+                  ))}
+                  {gmailSentActivities.map((activity: any) => (
+                    <div key={`gmail-${activity.id}`} className="border border-blue-100 rounded-lg p-4 bg-blue-50/40 hover:shadow-sm transition-shadow">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-blue-500" />
+                            <span className="font-medium text-sm">{activity.title?.replace(/^Email: /, '') || 'Email sent via Gmail'}</span>
+                            <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 bg-blue-50">
+                              Gmail
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {activity.description}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400">
+                            {(activity.eventDate || activity.createdAt) ? new Date(activity.eventDate || activity.createdAt).toLocaleDateString('en-US', { 
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            }) : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">Sent from personal Gmail account</p>
                     </div>
                   ))}
                 </div>

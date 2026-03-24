@@ -6,6 +6,7 @@ import { getImapMessages, getImapMessage, hasAnyImapCredentials } from "./imap-c
 import { getUserGmailConnection, getUserGmailMessages, getUserGmailMessage } from "./user-gmail-oauth";
 import { syncGmailMessages } from "./gmail-sync-worker";
 import { processUnanalyzedMessages, createFollowUpTasksFromEvents } from "./email-event-extractor";
+import { syncUserSentMailActivities } from "./gmail-sent-activity-sync";
 import OpenAI from "openai";
 import { logApiCost } from "./cost-tracker";
 import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
@@ -1255,6 +1256,16 @@ export async function syncAllConnectedUsers(): Promise<{ synced: number; failed:
           console.log(`[Gmail Sync] User ${connection.userId}: Skipping AI analysis (disabled in admin settings)`);
         }
         
+        // Sync sent mail and log as email_sent activities on customers/leads
+        try {
+          const sentStats = await syncUserSentMailActivities(connection.userId);
+          if (sentStats.activitiesCreated > 0) {
+            console.log(`[Gmail Sync] User ${connection.userId}: ${sentStats.activitiesCreated} sent-mail activities logged`);
+          }
+        } catch (sentErr: any) {
+          console.warn(`[Gmail Sync] Sent mail activity sync failed for user ${connection.userId}:`, sentErr.message);
+        }
+
         recordSuccess(connection.userId);
         synced++;
       } catch (error: any) {
