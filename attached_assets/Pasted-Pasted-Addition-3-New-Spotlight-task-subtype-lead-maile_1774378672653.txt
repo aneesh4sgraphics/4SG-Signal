@@ -1,0 +1,55 @@
+Pasted-Addition-3-New-Spotlight-task-subtype-lead-mailer-sugge_1774378604146.txt
+Addition 3 — New Spotlight task subtype: lead_mailer_suggestion
+In server/spotlight-engine.ts, add a new private method alongside findLeadFollowUpTask. This fires when a lead has opened an email but has not received a physical mailer yet:
+tsprivate async findLeadMailerSuggestionTask(
+  userId: string,
+  skippedLeadIds: number[]
+): Promise<SpotlightTask | null> {
+  const repId = await this.getOdooRepId(userId);
+
+  // Find leads where email was opened but no mailer has been sent yet
+  const conditions: any[] = [
+    notInArray(leads.stage, ['converted', 'lost']),
+    isNotNull(leads.firstEmailSentAt),
+    isNull(leads.onePageMailerSentAt),   // no mailer sent yet
+    isNotNull(leads.street),             // must have a physical address
+    or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+  ];
+
+  if (skippedLeadIds.length > 0) {
+    conditions.push(notInArray(leads.id, skippedLeadIds));
+  }
+
+  // Join with emailTrackingTokens to check open count >= 1
+  const result = await db
+    .select({ lead: leads, openCount: sql<number>`MAX(${emailTrackingTokens.openCount})` })
+    .from(leads)
+    .innerJoin(
+      emailTrackingTokens,
+      and(
+        eq(emailTrackingTokens.leadId, leads.id),
+        gte(emailTrackingTokens.openCount, 1)
+      )
+    )
+    .where(and(...conditions))
+    .groupBy(leads.id)
+    .orderBy(desc(sql`MAX(${emailTrackingTokens.openCount})`), asc(leads.firstEmailSentAt))
+    .limit(1);
+
+  if (result.length > 0) {
+    const { lead, openCount } = result[0];
+    const task = await this.buildLeadTask(lead, 'outreach', 'lead_mailer_suggestion', 75);
+    task.whyNow = openCount >= 2
+      ? `Opened your email ${openCount} times — they're interested. A one-page mailer will stand out.`
+      : `Opened your email — now is the moment to send a physical one-page mailer before they go cold.`;
+    task.payload = { ...task.payload, emailOpenCount: openCount, suggestedMailerType: 'one_page' };
+    return task;
+  }
+  return null;
+}
+Then add lead_mailer_suggestion to your task outcomes in the outcomes map:
+tslead_mailer_suggestion: [
+  { id: 'mailer_sent_one_page', label: 'One-page mailer queued', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
+  { id: 'mailer_sent_envelope', label: 'Sample envelope queued', icon: 'package', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
+  { id: 'skip_no_address', label: 'No address on file', icon: 'x' },
+],

@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends, emailSalesEvents, opportunityScores, shopifyOrders, spotlightSnoozes, spotlightTeamClaims } from "@shared/schema";
+import { customers, followUpTasks, users, customerActivityEvents, spotlightEvents, customerContacts, spotlightSessionState, spotlightCustomerClaims, spotlightMicroCards, spotlightCoachTips, TASK_ENERGY_COSTS, customerSyncQueue, sentQuotes, territorySkipFlags, gmailMessages, leads, bouncedEmails, dripCampaignStepStatus, dripCampaignAssignments, dripCampaignSteps, dripCampaigns, emailSends, emailSalesEvents, opportunityScores, shopifyOrders, spotlightSnoozes, spotlightTeamClaims, emailTrackingTokens } from "@shared/schema";
 import { scanForBouncedEmails } from "./bounce-detector";
 import { odooClient, isOdooConfigured } from "./odoo";
 
@@ -370,6 +370,11 @@ const TASK_OUTCOMES: Record<string, TaskOutcome[]> = {
     { id: 'converting', label: 'Ready to Convert!', icon: 'star', nextAction: { type: 'mark_complete' } },
     { id: 'skip', label: 'Skip for Now', icon: 'clock', nextAction: { type: 'no_action' } },
     { id: 'bad_fit', label: 'Not a Fit / Remove', icon: 'ban', nextAction: { type: 'mark_dnc' } },
+  ],
+  lead_mailer_suggestion: [
+    { id: 'mailer_sent_one_page', label: 'One-page mailer queued', icon: 'mail', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
+    { id: 'mailer_sent_envelope', label: 'Sample envelope queued', icon: 'package', nextAction: { type: 'schedule_follow_up', daysUntil: 7, taskType: 'follow_up' } },
+    { id: 'skip_no_address', label: 'No address on file', icon: 'x' },
   ],
   // DRIP email tasks - reply detected (HIGH PRIORITY)
   drip_reply_urgent: [
@@ -3407,6 +3412,11 @@ class SpotlightEngine {
     if (leadFollowUpTask) {
       return leadFollowUpTask;
     }
+
+    const leadMailerTask = await this.findLeadMailerSuggestionTask(userId, skippedLeadIds);
+    if (leadMailerTask) {
+      return leadMailerTask;
+    }
     
     // PRIORITY 2.5: Emails sent yesterday containing Pricing or samples that need follow-up
     try {
@@ -4990,6 +5000,56 @@ class SpotlightEngine {
       return null;
     } catch (error) {
       console.error('[Spotlight] Error finding lead follow-up task:', error);
+      return null;
+    }
+  }
+
+  private async findLeadMailerSuggestionTask(
+    userId: string,
+    skippedLeadIds: number[]
+  ): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
+
+    const conditions: any[] = [
+      notInArray(leads.stage, ['converted', 'lost']),
+      isNotNull(leads.firstEmailSentAt),
+      isNull(leads.onePageMailerSentAt),
+      isNotNull(leads.street),
+      or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+    ];
+
+    if (skippedLeadIds.length > 0) {
+      conditions.push(notInArray(leads.id, skippedLeadIds));
+    }
+
+    try {
+      const result = await db
+        .select({ lead: leads, openCount: sql<number>`MAX(${emailTrackingTokens.openCount})` })
+        .from(leads)
+        .innerJoin(
+          emailTrackingTokens,
+          and(
+            eq(emailTrackingTokens.leadId, leads.id),
+            gte(emailTrackingTokens.openCount, 1)
+          )
+        )
+        .where(and(...conditions))
+        .groupBy(leads.id)
+        .orderBy(desc(sql`MAX(${emailTrackingTokens.openCount})`), asc(leads.firstEmailSentAt))
+        .limit(1);
+
+      if (result.length > 0) {
+        const { lead, openCount } = result[0];
+        const task = await this.buildLeadTask(lead, 'outreach', 'lead_mailer_suggestion', 75);
+        task.whyNow = openCount >= 2
+          ? `Opened your email ${openCount} times — they're interested. A one-page mailer will stand out.`
+          : `Opened your email — now is the moment to send a physical one-page mailer before they go cold.`;
+        task.payload = { ...task.payload, emailOpenCount: openCount, suggestedMailerType: 'one_page' };
+        return task;
+      }
+      return null;
+    } catch (error) {
+      console.error('[Spotlight] Error finding lead mailer suggestion task:', error);
       return null;
     }
   }
