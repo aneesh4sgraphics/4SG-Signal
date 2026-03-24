@@ -1823,11 +1823,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let odooSalesReps: Array<{ id: string; name: string; email: string }> = [];
       try {
         const users = await odooClient.getUsers();
-        odooSalesReps = users.map(u => ({
-          id: String(u.id),
-          name: u.name,
-          email: u.email || ''
-        }));
+        // Keep only users with a valid real email — filters out system/bot accounts
+        // Also exclude common non-person logins (admin, public, __system__)
+        const excludedLogins = new Set(['admin', 'public', '__system__', 'default']);
+        odooSalesReps = users
+          .filter(u => {
+            const email = (u.email || '').trim();
+            const login = (u.login || '').trim().toLowerCase();
+            return email.includes('@') && !excludedLogins.has(login);
+          })
+          .map(u => ({
+            id: String(u.id),
+            name: u.name,
+            email: u.email || ''
+          }));
+        console.log(`[Sales Reps] Loaded ${odooSalesReps.length} sales reps from Odoo`);
       } catch (odooError) {
         console.log("[Sales Reps] Odoo unavailable, falling back to local users");
       }
@@ -1852,8 +1862,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Warm the cache immediately at startup
-  refreshSalesRepsCache().catch(() => {});
+  // Warm the cache immediately at startup; if Odoo is unavailable, retry once after 20s
+  let _startupCacheFromLocal = false;
+  refreshSalesRepsCache().then(() => {
+    // If we fell back to local users (no Odoo), schedule a retry
+    const hasOdooUsers = salesRepsCache?.data.some(r => /^\d+$/.test(r.id)); // Odoo IDs are numeric
+    if (!hasOdooUsers) {
+      _startupCacheFromLocal = true;
+      setTimeout(() => {
+        console.log('[Sales Reps] Startup retry — attempting Odoo connection again...');
+        salesRepsCache = null; // Force fresh fetch
+        refreshSalesRepsCache().catch(() => {});
+      }, 20000);
+    }
+  }).catch(() => {});
 
   app.get("/api/sales-reps", isAuthenticated, async (req: any, res) => {
     try {

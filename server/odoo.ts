@@ -594,9 +594,13 @@ class OdooClient {
   }
 
   async getUsers(): Promise<Array<{ id: number; name: string; email: string; login: string }>> {
-    // Filter to only internal users (not portal/public users)
-    // share=false means internal user, share=true means portal/external user
-    return this.searchRead('res.users', [['active', '=', true], ['share', '=', false]], [
+    // Filter to only internal users with a real email (share=false → internal, email!=false → real person)
+    // System/bot accounts in Odoo typically have no email set (Odoo stores null as false)
+    return this.searchRead('res.users', [
+      ['active', '=', true],
+      ['share', '=', false],
+      ['email', '!=', false],
+    ], [
       'id', 'name', 'email', 'login',
     ], { limit: 200 });
   }
