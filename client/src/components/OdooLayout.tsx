@@ -93,7 +93,7 @@ function SettingsMenu() {
 }
 
 function OdooLayoutContent({ children }: OdooLayoutProps) {
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded] = useState(true);
   const [toolsExpanded, setToolsExpanded] = useState(() => {
     try { return localStorage.getItem('4s-tools-expanded') === 'true'; } catch { return false; }
   });
@@ -276,7 +276,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
       {isMobile && <MobileSidebar />}
 
       <aside 
-        className={`hidden lg:flex ${sidebarExpanded ? 'w-64' : 'w-[72px]'} h-screen transition-all duration-200 ease-out flex-col fixed left-0 top-0 z-40 bg-white border-r border-[#EAEAEA]`}
+        className="hidden lg:flex w-64 h-screen flex-col fixed left-0 top-0 z-40 bg-white border-r border-[#EAEAEA]"
       >
         <div className="h-14 flex items-center justify-between px-4 border-b border-[#EAEAEA]">
           {sidebarExpanded ? (
@@ -297,13 +297,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
           )}
         </div>
 
-        <button 
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full flex items-center justify-center bg-white border border-[#EAEAEA] hover:bg-[#F7F7F5] transition-all duration-150 ease-out z-50 shadow-sm"
-          data-testid="button-toggle-sidebar"
-        >
-          {sidebarExpanded ? <ChevronLeftIcon className="h-3 w-3 text-[#73726E]" /> : <ChevronRightIcon className="h-3 w-3 text-[#73726E]" />}
-        </button>
 
         <nav className="flex-1 py-2 overflow-y-auto">
           <TooltipProvider delayDuration={100}>
@@ -466,7 +459,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
         </div>
       </aside>
 
-      <main className={`flex-1 ${isMobile ? 'ml-0 pt-20' : sidebarExpanded ? 'lg:ml-64' : 'lg:ml-[72px]'} transition-all duration-300 relative z-10`}>
+      <main className={`flex-1 ${isMobile ? 'ml-0 pt-20' : 'lg:ml-64'} transition-all duration-300 relative z-10`}>
         <div className="min-h-screen p-6">
           <div className="max-w-[1400px] mx-auto">
             {children}
