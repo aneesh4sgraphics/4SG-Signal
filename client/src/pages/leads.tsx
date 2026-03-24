@@ -157,6 +157,15 @@ const PRIORITIES = [
   { value: 'urgent', label: 'Urgent', color: 'bg-red-100 text-red-600' },
 ];
 
+function getLeadHealth(lead: { pricingTier: string | null; street: string | null; city: string | null; phone: string | null; mobile: string | null; email: string | null }): { missing: string[]; isRed: boolean } {
+  const missing: string[] = [];
+  if (!lead.pricingTier) missing.push('No tier');
+  if (!lead.street && !lead.city) missing.push('No address');
+  if (!lead.phone && !lead.mobile) missing.push('No phone');
+  if (!lead.email) missing.push('No email');
+  return { missing, isRed: missing.length >= 2 };
+}
+
 export default function LeadsPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -167,6 +176,7 @@ export default function LeadsPage() {
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [filterIncomplete, setFilterIncomplete] = useState(false);
   const [hasEmail, setHasEmail] = useState<boolean | null>(null);
   const [hasWebsite, setHasWebsite] = useState<boolean | null>(null);
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
@@ -470,7 +480,7 @@ export default function LeadsPage() {
     }
     if (sortOrder === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
     return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-  });
+  }).filter(lead => filterIncomplete ? getLeadHealth(lead).missing.length > 0 : true);
 
   const totalPages = Math.ceil(leads.length / leadsPerPage);
   const paginatedLeads = leads.slice((currentPage - 1) * leadsPerPage, currentPage * leadsPerPage);
@@ -682,6 +692,12 @@ export default function LeadsPage() {
               ))}
             </SelectContent>
           </Select>
+          <button
+            onClick={() => setFilterIncomplete(f => !f)}
+            className={`text-sm px-3 py-1.5 rounded-md border font-medium transition-colors ${filterIncomplete ? 'bg-red-50 border-red-300 text-red-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            {filterIncomplete ? 'Showing incomplete' : 'Incomplete only'}
+          </button>
           <Select
             value={hasEmail === null ? 'all' : hasEmail ? 'yes' : 'no'}
             onValueChange={(v) => setHasEmail(v === 'all' ? null : v === 'yes')}
@@ -1017,6 +1033,13 @@ export default function LeadsPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <Badge className={stageInfo.color}>{stageInfo.label}</Badge>
+                        {(() => { const h = getLeadHealth(lead); return h.missing.length > 0 ? (
+                          <div className="flex flex-col gap-0.5 mt-1">
+                            {h.missing.map(m => (
+                              <span key={m} className={`text-xs px-1.5 py-0.5 rounded font-medium ${h.isRed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{m}</span>
+                            ))}
+                          </div>
+                        ) : null; })()}
                         {lead.priority && (
                           <Badge variant="outline" className={priorityInfo.color}>
                             {priorityInfo.label}

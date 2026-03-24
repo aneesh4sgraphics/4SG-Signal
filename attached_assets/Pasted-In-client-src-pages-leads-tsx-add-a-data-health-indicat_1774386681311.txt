@@ -1,0 +1,43 @@
+In client/src/pages/leads.tsx, add a data health indicator. Do NOT rewrite the file — minimal additions only.
+
+CHANGE 1 — Add a helper function:
+Find the line that starts with "const leads.tsx" component function definition (the main export default function or the first const that returns JSX). Add this helper function immediately before it:
+
+function getLeadHealth(lead: { pricingTier: string | null; street: string | null; city: string | null; phone: string | null; mobile: string | null; email: string | null }): { missing: string[]; isRed: boolean } {
+  const missing: string[] = [];
+  if (!lead.pricingTier) missing.push('No tier');
+  if (!lead.street && !lead.city) missing.push('No address');
+  if (!lead.phone && !lead.mobile) missing.push('No phone');
+  if (!lead.email) missing.push('No email');
+  return { missing, isRed: missing.length >= 2 };
+}
+
+CHANGE 2 — Add health pills to the card view:
+Find this exact line in the card view render (around line 1019):
+  <Badge className={stageInfo.color}>{stageInfo.label}</Badge>
+
+Immediately after that Badge, add:
+  {(() => { const h = getLeadHealth(lead); return h.missing.length > 0 ? (
+    <div className="flex flex-col gap-0.5 mt-1">
+      {h.missing.map(m => (
+        <span key={m} className={`text-xs px-1.5 py-0.5 rounded font-medium ${h.isRed ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{m}</span>
+      ))}
+    </div>
+  ) : null; })()}
+
+CHANGE 3 — Add an "Incomplete only" filter:
+Find the existing stageFilter state variable (around line 167). Add one new state variable immediately after it:
+  const [filterIncomplete, setFilterIncomplete] = useState(false);
+
+Find where the filteredLeads array is computed (the const that filters leads by stageFilter, stateFilter, sourceFilter). Add one more filter condition at the end of that chain:
+  .filter(lead => filterIncomplete ? getLeadHealth(lead).missing.length > 0 : true)
+
+Find the search bar area (around line 644 where the Search input is rendered). Add this button immediately after the existing filter selects:
+  <button
+    onClick={() => setFilterIncomplete(f => !f)}
+    className={`text-sm px-3 py-1.5 rounded-md border font-medium transition-colors ${filterIncomplete ? 'bg-red-50 border-red-300 text-red-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+  >
+    {filterIncomplete ? 'Showing incomplete' : 'Incomplete only'}
+  </button>
+
+Do not change anything else in this file.
