@@ -1479,7 +1479,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => toggleHotProspectMutation.mutate()}
-                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${customer.isHotProspect ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]'}`}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${customer.isHotProspect ? 'bg-[#FFF7ED] border-[#FED7AA] text-[#C2410C] hover:brightness-95' : 'border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]'}`}
                     data-testid="btn-hot-prospect"
                     disabled={toggleHotProspectMutation.isPending}
                   >
@@ -1497,7 +1497,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => toggleDoNotContactMutation.mutate()}
-                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${(customer as any).doNotContact ? 'bg-red-50 border-red-200 text-red-700' : 'bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200'}`}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${(customer as any).doNotContact ? 'bg-[#FEF2F2] border-[#FECACA] text-[#DC2626]' : 'border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#FEF2F2] hover:text-red-600 hover:border-red-200'}`}
                     data-testid="btn-do-not-contact"
                     disabled={toggleDoNotContactMutation.isPending}
                   >
@@ -1517,7 +1517,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#F0FDFA] border-[#99F6E4] text-[#0F766E] hover:brightness-95 transition-colors"
                       data-testid="btn-open-odoo"
                       onClick={() => {
                         const odooPartnerId = (customer as any).odooPartnerId;
@@ -1536,19 +1536,19 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
             )}
             <button
               onClick={() => setIsJourneyPanelOpen(true)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-transparent text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-white text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors"
               data-testid="btn-journey-panel"
             >
               <Route className="h-3 w-3" />
               <span className="hidden sm:inline">Journeys</span>
             </button>
             {onEdit && (
-              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors" onClick={() => onEdit(customer)} data-testid="btn-edit-client">
+              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors" onClick={() => onEdit(customer)} data-testid="btn-edit-client">
                 <Pencil className="h-3 w-3" />
               </button>
             )}
             {onDelete && (
-              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" onClick={() => onDelete(customer.id)} data-testid="btn-delete-client">
+              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#FEF2F2] hover:text-red-600 hover:border-red-200 transition-colors" onClick={() => onDelete(customer.id)} data-testid="btn-delete-client">
                 <Trash2 className="h-3 w-3" />
               </button>
             )}
@@ -1673,7 +1673,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       })()}
 
       {/* Odoo-Style Stat Bar */}
-      <div className="flex items-center gap-1 bg-[#F4F3F0] rounded-xl p-1.5 overflow-x-auto mt-3">
+      <div className="flex items-center gap-1.5 bg-[#F4F3F0] rounded-xl p-1.5 overflow-x-auto mt-3">
         {/* Quotes */}
         <button
           onClick={() => setActiveTab('quotes-prices')}
