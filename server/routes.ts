@@ -27065,24 +27065,39 @@ Rules:
       }).returning();
 
       // Push to Odoo if customer has an Odoo partner ID
-      let odooContactId: number | null = null;
-      if (customer.odooPartnerId) {
-        try {
-          const contactData: Record<string, any> = {
-            name: name.trim(),
-            is_company: false,
-            type: 'contact',
-            parent_id: customer.odooPartnerId,
-            email: email.trim(),
-            phone: phone?.trim() || false,
-            function: title?.trim() || false,
-          };
-          odooContactId = await odooClient.create('res.partner', contactData);
-          console.log('[Bounce] Created Odoo contact:', odooContactId);
-        } catch (odooErr: any) {
-          console.error('[Bounce] Odoo contact create error:', odooErr.message);
+        // Search for an existing partner by email under the same parent — update if found, create only if not
+        let odooContactId: number | null = null;
+        if (customer.odooPartnerId) {
+          try {
+            const existingPartners = await odooClient.searchRead(
+              'res.partner',
+              [['email', '=', email.trim()], ['parent_id', '=', customer.odooPartnerId]],
+              ['id', 'name', 'email'],
+              { limit: 1 }
+            );
+            const odooFields: Record<string, any> = {
+              name: name.trim(),
+              is_company: false,
+              type: 'contact',
+              parent_id: customer.odooPartnerId,
+              email: email.trim(),
+              phone: phone?.trim() || false,
+              function: title?.trim() || false,
+            };
+            if (existingPartners.length > 0) {
+              // Partner already exists — update in place instead of creating a duplicate
+              odooContactId = existingPartners[0].id;
+              await odooClient.write('res.partner', [odooContactId!], odooFields);
+              console.log('[Bounce] Updated existing Odoo contact (already present):', odooContactId);
+            } else {
+              // No match found — safe to create
+              odooContactId = await odooClient.create('res.partner', odooFields);
+              console.log('[Bounce] Created new Odoo contact:', odooContactId);
+            }
+          } catch (odooErr: any) {
+            console.error('[Bounce] Odoo contact sync error:', odooErr.message);
+          }
         }
-      }
 
       // Resolve the bounce
       const outreachHistorySnapshot = bounce.outreachHistorySnapshot;
