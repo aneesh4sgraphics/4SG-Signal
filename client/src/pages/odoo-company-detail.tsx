@@ -1071,7 +1071,7 @@ export default function OdooCompanyDetail() {
                       'client.email': company.email || '',
                     },
                   })}
-                  className="border-green-200 text-green-600 hover:bg-green-50"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-white text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors"
                   title="Send email"
                 >
                   <Mail className="w-4 h-4 mr-2" />
@@ -1105,8 +1105,8 @@ export default function OdooCompanyDetail() {
                     }
                   }}
                   className={labelQueue.isInQueue(String(companyId)) 
-                    ? "bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200" 
-                    : "border-blue-200 text-blue-600 hover:bg-blue-50"}
+                    ? "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#DCFCE7] border-[#BBF7D0] text-[#15803D] hover:brightness-95 transition-colors" 
+                    : "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#DBEAFE] border-[#BFDBFE] text-[#1D4ED8] hover:brightness-95 transition-colors"}
                   title={labelQueue.isInQueue(String(companyId)) ? "Remove from queue" : "Add to Queue"}
                 >
                   <Printer className="w-4 h-4 mr-2" />
@@ -1119,7 +1119,7 @@ export default function OdooCompanyDetail() {
                   variant="outline" 
                   size="sm" 
                   onClick={() => setIsDeleteConfirmOpen(true)}
-                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#FEF2F2] hover:text-red-600 hover:border-red-200 transition-colors"
                   title="Delete customer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -1127,15 +1127,15 @@ export default function OdooCompanyDetail() {
               )}
               
               {/* Customer Type Toggle */}
-              <div className="flex items-center gap-1 border rounded-lg p-1 bg-slate-50">
+              <div className="flex items-center gap-0.5 border border-[#EBEBEB] rounded-lg p-0.5 bg-[#F4F3F0]">
                 <Button
                   variant={company.customerType === 'printer' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => updateCustomerTypeMutation.mutate('printer')}
                   disabled={updateCustomerTypeMutation.isPending}
                   className={company.customerType === 'printer' 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                    : 'text-slate-600 hover:bg-slate-100'}
+                    ? 'h-7 px-3 text-xs font-medium rounded-md bg-[#1A1A1A] text-white' 
+                    : 'h-7 px-3 text-xs font-medium rounded-md text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]'}
                   title="Mark as Printing Company"
                 >
                   <Printer className="w-4 h-4 mr-1" />
@@ -1147,8 +1147,8 @@ export default function OdooCompanyDetail() {
                   onClick={() => updateCustomerTypeMutation.mutate('reseller')}
                   disabled={updateCustomerTypeMutation.isPending}
                   className={company.customerType === 'reseller' 
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white' 
-                    : 'text-slate-600 hover:bg-slate-100'}
+                    ? 'h-7 px-3 text-xs font-medium rounded-md bg-[#1A1A1A] text-white' 
+                    : 'h-7 px-3 text-xs font-medium rounded-md text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]'}
                   title="Mark as Reseller/Distributor"
                 >
                   <Truck className="w-4 h-4 mr-1" />

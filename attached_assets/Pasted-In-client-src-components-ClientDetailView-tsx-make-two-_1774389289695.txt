@@ -1,0 +1,35 @@
+In client/src/components/ClientDetailView.tsx, make two visual changes only. Do NOT change any logic or onClick handlers.
+
+CHANGE 1 — Colored stat bar boxes:
+Find the stat bar section (div containing the clickable stat buttons for Quotes, Sales, Invoiced, Due, Emails, Samples, Swatch).
+
+Change the wrapper div className to:
+  "flex items-center gap-1.5 bg-[#F4F3F0] rounded-xl p-1.5 overflow-x-auto mt-3"
+
+Replace each button's className (match by label text):
+
+Quotes:   "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#E8EDFF] border-[#C7D2FE] hover:brightness-95 transition-all"
+Sales:    "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#DCFCE7] border-[#BBF7D0] hover:brightness-95 transition-all"
+Invoiced: "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#D1FAE5] border-[#6EE7B7] hover:brightness-95 transition-all"
+Due:      "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FEF9C3] border-[#FDE047] hover:brightness-95 transition-all"
+Emails:   "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#DBEAFE] border-[#BFDBFE] hover:brightness-95 transition-all"
+Samples:  "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#F3E8FF] border-[#E9D5FF] hover:brightness-95 transition-all"
+Swatch:   "flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FFE4CC] border-[#FED7AA] hover:brightness-95 transition-all"
+
+For all label spans inside these buttons: className="flex items-center gap-1 text-xs font-medium text-[#4A4A4A] mb-1"
+For all value spans inside these buttons: className="text-base font-semibold text-[#1A1A1A]"
+
+CHANGE 2 — Action buttons in header:
+Find the flex div containing the Hot Prospect, Do Not Contact, Open in Odoo, Journeys, Edit, and Delete buttons.
+Change its gap from gap-1 to gap-2.
+
+Hot Prospect (active):   "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#FFF7ED] border-[#FED7AA] text-[#C2410C] hover:brightness-95 transition-colors"
+Hot Prospect (inactive): "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors"
+Do Not Contact (active): "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#FEF2F2] border-[#FECACA] text-[#DC2626] transition-colors"
+Do Not Contact (inactive): "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#FEF2F2] hover:text-red-600 hover:border-red-200 transition-colors"
+Open in Odoo:  "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-[#F0FDFA] border-[#99F6E4] text-[#0F766E] hover:brightness-95 transition-colors"
+Journeys:      "inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-white text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors"
+Edit icon:     "inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors"
+Delete icon:   "inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-white text-[#8A8A8A] hover:bg-[#FEF2F2] hover:text-red-600 hover:border-red-200 transition-colors"
+
+No other changes.
