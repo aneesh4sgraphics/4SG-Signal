@@ -1,0 +1,30 @@
+In client/src/components/DripCampaignBuilder.tsx, add leads support to the assign flow. Do NOT rewrite the file — targeted additions only.
+
+CHANGE 1 — Add leads to the assign tab:
+Find the assign view section (viewMode === 'assign'). Currently it only shows customers to assign. Add a second toggle/tab within the assign view: "Customers" and "Leads".
+
+Add a leads query near the existing customers query:
+  const { data: leads = [] } = useQuery<any[]>({
+    queryKey: ['/api/leads'],
+    enabled: viewMode === 'assign',
+  });
+
+Add state for the toggle:
+  const [assignTarget, setAssignTarget] = useState<'customers' | 'leads'>('leads');
+
+Add a simple toggle above the search box in the assign view:
+  <div className="flex gap-1 p-1 bg-[#F4F3F0] rounded-lg mb-3">
+    <button onClick={() => setAssignTarget('leads')} className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${assignTarget === 'leads' ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#8A8A8A]'}`}>Leads</button>
+    <button onClick={() => setAssignTarget('customers')} className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${assignTarget === 'customers' ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#8A8A8A]'}`}>Customers</button>
+  </div>
+
+When assignTarget === 'leads', show the leads list instead of customers. Each lead row shows lead.name and lead.company. Selection works the same way as customers using a selectedLeads Set state.
+
+CHANGE 2 — Pass leadIds to the assignment mutation:
+Find the mutation that calls POST /api/drip-campaigns/:campaignId/assignments.
+When assignTarget === 'leads', pass { leadIds: Array.from(selectedLeads) } instead of { customerIds }.
+
+CHANGE 3 — Add lead count to campaign list:
+In the campaign list view, where assignment counts are shown, add a small badge showing lead enrollments if any. The existing /api/drip-campaigns/assignment-counts endpoint can be used — just display the count as "X leads" alongside "X customers" if both exist.
+
+Do not change anything else.

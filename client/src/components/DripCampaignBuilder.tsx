@@ -67,6 +67,9 @@ export default function DripCampaignBuilder() {
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
+  const [assignTarget, setAssignTarget] = useState<'customers' | 'leads'>('leads');
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [leadSearch, setLeadSearch] = useState("");
   const editorRef = useRef<Editor | null>(null);
   
   const [campaignForm, setCampaignForm] = useState({
@@ -89,13 +92,18 @@ export default function DripCampaignBuilder() {
     queryKey: ["/api/drip-campaigns"],
   });
 
-  const { data: assignmentCounts = [] } = useQuery<{ campaignId: number; count: number }[]>({
+  const { data: assignmentCounts = [] } = useQuery<{ campaignId: number; count: number; leadCount?: number }[]>({
     queryKey: ["/api/drip-campaigns/assignment-counts"],
   });
 
   const getAssignmentCount = (campaignId: number) => {
     const found = assignmentCounts.find(a => a.campaignId === campaignId);
     return found?.count || 0;
+  };
+
+  const getLeadCount = (campaignId: number) => {
+    const found = assignmentCounts.find(a => a.campaignId === campaignId);
+    return found?.leadCount || 0;
   };
 
   const { data: campaignDetails } = useQuery<CampaignWithSteps>({
@@ -105,6 +113,11 @@ export default function DripCampaignBuilder() {
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const { data: leads = [] } = useQuery<any[]>({
+    queryKey: ['/api/leads'],
+    enabled: viewMode === 'assign',
   });
 
   const createCampaignMutation = useMutation({
@@ -195,17 +208,21 @@ export default function DripCampaignBuilder() {
   });
 
   const assignCustomersMutation = useMutation({
-    mutationFn: async ({ campaignId, customerIds }: { campaignId: number; customerIds: string[] }) => {
+    mutationFn: async ({ campaignId, customerIds, leadIds }: { campaignId: number; customerIds?: string[]; leadIds?: string[] }) => {
+      if (leadIds) {
+        return await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { leadIds });
+      }
       return await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { customerIds });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns/assignment-counts"] });
       setSelectedCustomerIds([]);
-      toast({ title: `${data.created} customer(s) enrolled in campaign` });
+      setSelectedLeadIds([]);
+      toast({ title: `${data.created} record(s) enrolled in campaign` });
     },
     onError: () => {
-      toast({ title: "Failed to assign customers", variant: "destructive" });
+      toast({ title: "Failed to assign to campaign", variant: "destructive" });
     },
   });
 
@@ -317,6 +334,22 @@ export default function DripCampaignBuilder() {
     );
   };
 
+  const filteredLeads = leads.filter((l: any) => {
+    const searchLower = leadSearch.toLowerCase();
+    return (
+      l.name?.toLowerCase().includes(searchLower) ||
+      l.company?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const toggleLeadSelection = (leadId: string) => {
+    setSelectedLeadIds(prev =>
+      prev.includes(leadId)
+        ? prev.filter(id => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
   const steps = campaignDetails?.steps || [];
 
   if (viewMode === "list") {
@@ -368,8 +401,13 @@ export default function DripCampaignBuilder() {
                           <h4 className="font-medium">{campaign.name}</h4>
                           <Badge variant="secondary" className="text-xs" data-testid={`campaign-count-${campaign.id}`}>
                             <Users className="h-3 w-3 mr-1" />
-                            {getAssignmentCount(campaign.id)}
+                            {getAssignmentCount(campaign.id)} customers
                           </Badge>
+                          {getLeadCount(campaign.id) > 0 && (
+                            <Badge variant="outline" className="text-xs text-purple-700 border-purple-200">
+                              {getLeadCount(campaign.id)} leads
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500">{campaign.description || "No description"}</p>
                       </div>
@@ -459,62 +497,125 @@ export default function DripCampaignBuilder() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-purple-600" />
-              Assign Customers to "{selectedCampaign.name}"
+              Assign to "{selectedCampaign.name}"
             </CardTitle>
             <CardDescription>
-              Select customers to enroll in this drip campaign
+              Select leads or customers to enroll in this drip campaign
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Leads / Customers toggle */}
+            <div className="flex gap-1 p-1 bg-[#F4F3F0] rounded-lg">
+              <button
+                onClick={() => setAssignTarget('leads')}
+                className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${assignTarget === 'leads' ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#8A8A8A]'}`}
+              >
+                Leads
+              </button>
+              <button
+                onClick={() => setAssignTarget('customers')}
+                className={`flex-1 text-sm py-1.5 rounded-md font-medium transition-colors ${assignTarget === 'customers' ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#8A8A8A]'}`}
+              >
+                Customers
+              </button>
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  placeholder="Search by name, email, or company..."
-                  className="pl-10"
-                  data-testid="input-customer-search"
-                />
+                {assignTarget === 'leads' ? (
+                  <Input
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    placeholder="Search by name or company..."
+                    className="pl-10"
+                    data-testid="input-lead-search"
+                  />
+                ) : (
+                  <Input
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="Search by name, email, or company..."
+                    className="pl-10"
+                    data-testid="input-customer-search"
+                  />
+                )}
               </div>
-              <Button 
-                onClick={() => assignCustomersMutation.mutate({ campaignId: selectedCampaign.id, customerIds: selectedCustomerIds })}
-                disabled={selectedCustomerIds.length === 0 || assignCustomersMutation.isPending}
+              <Button
+                onClick={() => {
+                  if (assignTarget === 'leads') {
+                    assignCustomersMutation.mutate({ campaignId: selectedCampaign.id, leadIds: selectedLeadIds });
+                  } else {
+                    assignCustomersMutation.mutate({ campaignId: selectedCampaign.id, customerIds: selectedCustomerIds });
+                  }
+                }}
+                disabled={(assignTarget === 'leads' ? selectedLeadIds.length === 0 : selectedCustomerIds.length === 0) || assignCustomersMutation.isPending}
                 data-testid="btn-assign-customers"
               >
                 <Check className="h-4 w-4 mr-2" />
-                Assign {selectedCustomerIds.length > 0 && `(${selectedCustomerIds.length})`}
+                Assign {assignTarget === 'leads'
+                  ? (selectedLeadIds.length > 0 && `(${selectedLeadIds.length})`)
+                  : (selectedCustomerIds.length > 0 && `(${selectedCustomerIds.length})`)}
               </Button>
             </div>
 
-            <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-              {filteredCustomers.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">No customers found</div>
-              ) : (
-                filteredCustomers.slice(0, 50).map(customer => (
-                  <div 
-                    key={customer.id}
-                    onClick={() => toggleCustomerSelection(customer.id)}
-                    className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 flex items-center gap-3 ${
-                      selectedCustomerIds.includes(customer.id) ? 'bg-purple-50' : ''
-                    }`}
-                    data-testid={`customer-row-${customer.id}`}
-                  >
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                      selectedCustomerIds.includes(customer.id) ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
-                    }`}>
-                      {selectedCustomerIds.includes(customer.id) && <Check className="h-3 w-3 text-white" />}
+            {assignTarget === 'leads' ? (
+              <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                {filteredLeads.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No leads found</div>
+                ) : (
+                  filteredLeads.slice(0, 50).map((lead: any) => (
+                    <div
+                      key={lead.id}
+                      onClick={() => toggleLeadSelection(String(lead.id))}
+                      className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 flex items-center gap-3 ${
+                        selectedLeadIds.includes(String(lead.id)) ? 'bg-purple-50' : ''
+                      }`}
+                      data-testid={`lead-row-${lead.id}`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        selectedLeadIds.includes(String(lead.id)) ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                      }`}>
+                        {selectedLeadIds.includes(String(lead.id)) && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{lead.name || 'Unknown Lead'}</p>
+                        <p className="text-sm text-gray-500 truncate">{lead.company || 'No company'}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
-                      </p>
-                      <p className="text-sm text-gray-500 truncate">{customer.email || 'No email'}</p>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+                {filteredCustomers.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No customers found</div>
+                ) : (
+                  filteredCustomers.slice(0, 50).map(customer => (
+                    <div
+                      key={customer.id}
+                      onClick={() => toggleCustomerSelection(customer.id)}
+                      className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 flex items-center gap-3 ${
+                        selectedCustomerIds.includes(customer.id) ? 'bg-purple-50' : ''
+                      }`}
+                      data-testid={`customer-row-${customer.id}`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        selectedCustomerIds.includes(customer.id) ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                      }`}>
+                        {selectedCustomerIds.includes(customer.id) && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          {customer.company || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">{customer.email || 'No email'}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
