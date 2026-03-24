@@ -2136,8 +2136,8 @@ class SpotlightEngine {
   // Find bounced email tasks specifically
   private async findBouncedEmailTask(userId: string, excludeIds: string[]): Promise<SpotlightTask | null> {
     try {
-      // Only show bounced emails for customers that still exist in the system
-      // If no customer is linked, the contact was deleted - auto-resolve these as "contact_deleted"
+      // Only auto-resolve bounces that have NO linked record at all (no customer, no lead, no contact).
+      // Lead and contact bounces have customerId=null but DO have leadId/contactId — do NOT resolve those.
       await db
         .update(bouncedEmails)
         .set({ 
@@ -2147,7 +2147,9 @@ class SpotlightEngine {
         })
         .where(and(
           eq(bouncedEmails.status, 'pending'),
-          isNull(bouncedEmails.customerId)
+          isNull(bouncedEmails.customerId),
+          isNull(bouncedEmails.leadId),
+          isNull(bouncedEmails.contactId)
         ));
       
       // Get user's Odoo user ID for territory matching (some customers have Odoo IDs, others have internal IDs)
@@ -2164,6 +2166,8 @@ class SpotlightEngine {
         .select({
           id: bouncedEmails.id,
           customerId: bouncedEmails.customerId,
+          leadId: bouncedEmails.leadId,
+          matchType: bouncedEmails.matchType,
           bouncedEmail: bouncedEmails.bouncedEmail,
           bounceSubject: bouncedEmails.bounceSubject,
           bounceDate: bouncedEmails.bounceDate,
@@ -2243,6 +2247,90 @@ class SpotlightEngine {
           }
         }
       }
+
+      // Also check for lead-linked bounces (leads have customerId=null but leadId set)
+      const leadExcludeIds = excludeIds
+        .filter(id => id.startsWith('lead-'))
+        .map(id => parseInt(id.replace('lead-', ''), 10))
+        .filter(id => !isNaN(id));
+
+      const leadBouncedResults = await db
+        .select({
+          id: bouncedEmails.id,
+          leadId: bouncedEmails.leadId,
+          bouncedEmail: bouncedEmails.bouncedEmail,
+          bounceSubject: bouncedEmails.bounceSubject,
+          bounceDate: bouncedEmails.bounceDate,
+          bounceType: bouncedEmails.bounceType,
+          bounceReason: bouncedEmails.bounceReason,
+          outreachHistorySnapshot: bouncedEmails.outreachHistorySnapshot,
+        })
+        .from(bouncedEmails)
+        .where(and(
+          eq(bouncedEmails.status, 'pending'),
+          isNull(bouncedEmails.customerId),
+          isNotNull(bouncedEmails.leadId),
+          leadExcludeIds.length > 0 ? notInArray(bouncedEmails.leadId!, leadExcludeIds) : sql`1=1`,
+        ))
+        .orderBy(desc(bouncedEmails.bounceDate))
+        .limit(1);
+
+      if (leadBouncedResults.length > 0) {
+        const bounced = leadBouncedResults[0];
+        if (bounced.leadId) {
+          const [lead] = await db.select().from(leads).where(eq(leads.id, bounced.leadId)).limit(1);
+          if (lead) {
+            const nameParts = lead.name?.split(' ') || [];
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            return {
+              id: `data_hygiene::lead::${lead.id}::hygiene_bounced_email`,
+              customerId: `lead-${lead.id}`,
+              bucket: 'data_hygiene',
+              taskSubtype: 'hygiene_bounced_email',
+              priority: 95,
+              isLeadTask: true,
+              leadId: lead.id,
+              lead,
+              whyNow: `Bounced email detected: ${bounced.bouncedEmail}`,
+              outcomes: [
+                { id: 'updated_email', label: 'Updated Email Address', icon: 'mail' },
+                { id: 'mark_dnc', label: 'Mark Do Not Contact', icon: 'ban' },
+                { id: 'delete_record', label: 'Delete Record', icon: 'trash' },
+                { id: 'skip', label: 'Investigate Later', icon: 'clock' },
+              ],
+              customer: {
+                id: `lead-${lead.id}`,
+                company: lead.company || '',
+                firstName,
+                lastName,
+                email: lead.email || '',
+                phone: lead.phone || '',
+                address1: lead.street || '',
+                address2: lead.street2 || '',
+                city: lead.city || '',
+                province: lead.state || '',
+                zip: lead.zip || '',
+                country: lead.country || '',
+                website: lead.website || '',
+                salesRepId: lead.salesRepId || null,
+                salesRepName: null,
+                pricingTier: null,
+              },
+              extraContext: {
+                bounceId: bounced.id,
+                bouncedEmail: bounced.bouncedEmail,
+                bounceSubject: bounced.bounceSubject,
+                bounceDate: bounced.bounceDate?.toISOString(),
+                bounceType: bounced.bounceType,
+                bounceReason: bounced.bounceReason,
+                outreachHistorySnapshot: bounced.outreachHistorySnapshot ? (() => { try { return JSON.parse(bounced.outreachHistorySnapshot!); } catch { return null; } })() : null,
+              }
+            };
+          }
+        }
+      }
+
       return null;
     } catch (error) {
       console.error('[Spotlight] Error finding bounced email task:', error);
