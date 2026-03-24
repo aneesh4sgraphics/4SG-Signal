@@ -1132,11 +1132,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
   return (
     <div className="space-y-4 font-odoo" data-testid="client-detail-view">
       {/* Sticky Header with Client Name & Contacts - Odoo Style */}
-      <div className={`sticky top-0 z-20 backdrop-blur-sm border-b -mx-4 px-4 py-3 mb-2 shadow-sm ${
-        customer.isHotProspect 
-          ? 'bg-orange-100/95 border-orange-300' 
-          : 'bg-white/95 border-[#E6E1EB]'
-      }`}>
+      <div className="sticky top-0 z-20 bg-white/98 backdrop-blur-sm border-b border-[#EBEBEB] -mx-4 px-4 py-4 mb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
             {fromSpotlight ? (
@@ -1376,10 +1372,22 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                         </span>
                       )}
                       {customer.phone && (
-                        <a href={`tel:${customer.phone}`} className="text-green-600 hover:underline flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {customer.phone}
-                        </a>
+                        <>
+                          <span className="text-[#EBEBEB]">·</span>
+                          <a href={`tel:${customer.phone}`} className="text-[#8A8A8A] hover:text-[#1A1A1A] hover:underline flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {customer.phone}
+                          </a>
+                        </>
+                      )}
+                      {customer.city && (
+                        <>
+                          <span className="text-[#EBEBEB]">·</span>
+                          <span className="text-[#8A8A8A] flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {customer.city}
+                          </span>
+                        </>
                       )}
                     </div>
                   );
@@ -1465,21 +1473,19 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant={customer.isHotProspect ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleHotProspectMutation.mutate()} 
-                    className={`gap-1 h-8 ${customer.isHotProspect ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+                  <button
+                    onClick={() => toggleHotProspectMutation.mutate()}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${customer.isHotProspect ? 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100' : 'bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A]'}`}
                     data-testid="btn-hot-prospect"
                     disabled={toggleHotProspectMutation.isPending}
                   >
                     <Flame className={`h-3.5 w-3.5 ${customer.isHotProspect ? 'fill-current' : ''}`} />
                     <span className="hidden sm:inline">{customer.isHotProspect ? 'Hot Lead' : 'Mark Hot'}</span>
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {customer.isHotProspect ? 'Remove hot prospect status' : 'Mark as hot prospect for priority follow-up'}
@@ -1489,21 +1495,19 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant={(customer as any).doNotContact ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={() => toggleDoNotContactMutation.mutate()} 
-                    className={`gap-1 h-8 ${(customer as any).doNotContact ? '' : 'text-gray-500 hover:text-red-600 hover:border-red-300'}`}
+                  <button
+                    onClick={() => toggleDoNotContactMutation.mutate()}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border transition-colors ${(customer as any).doNotContact ? 'bg-red-50 border-red-200 text-red-700' : 'bg-transparent border-[#EBEBEB] text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200'}`}
                     data-testid="btn-do-not-contact"
                     disabled={toggleDoNotContactMutation.isPending}
                   >
                     <Ban className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">{(customer as any).doNotContact ? 'DNC Active' : 'Bad Fit'}</span>
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {(customer as any).doNotContact 
-                    ? 'Remove Do Not Contact status and include in Spotlight' 
+                  {(customer as any).doNotContact
+                    ? 'Remove Do Not Contact status and include in Spotlight'
                     : 'Mark as Bad Fit / Do Not Contact - excludes from Spotlight forever'}
                 </TooltipContent>
               </Tooltip>
@@ -1512,10 +1516,8 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-[#00A09D]/10 text-[#00A09D] hover:bg-[#00A09D]/20 gap-1 h-8 px-3 border-[#00A09D]/30"
+                    <button
+                      className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100 transition-colors"
                       data-testid="btn-open-odoo"
                       onClick={() => {
                         const odooPartnerId = (customer as any).odooPartnerId;
@@ -1524,7 +1526,7 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       <span>Open in Odoo</span>
-                    </Button>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent>
                     Open this contact in Odoo (Partner #{(customer as any).odooPartnerId})
@@ -1532,25 +1534,23 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                 </Tooltip>
               </TooltipProvider>
             )}
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsJourneyPanelOpen(true)} 
-              className="gap-1 h-8 border-[#875A7B]/30 text-[#875A7B] hover:bg-[#875A7B]/10"
+            <button
+              onClick={() => setIsJourneyPanelOpen(true)}
+              className="inline-flex items-center gap-1.5 h-8 px-3 text-sm font-medium rounded-lg border border-[#EBEBEB] bg-transparent text-[#1A1A1A] hover:bg-[#F4F3F0] transition-colors"
               data-testid="btn-journey-panel"
             >
               <Route className="h-3 w-3" />
               <span className="hidden sm:inline">Journeys</span>
-            </Button>
+            </button>
             {onEdit && (
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onEdit(customer)} data-testid="btn-edit-client">
+              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-[#F4F3F0] hover:text-[#1A1A1A] transition-colors" onClick={() => onEdit(customer)} data-testid="btn-edit-client">
                 <Pencil className="h-3 w-3" />
-              </Button>
+              </button>
             )}
             {onDelete && (
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onDelete(customer.id)} data-testid="btn-delete-client">
+              <button className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[#EBEBEB] bg-transparent text-[#8A8A8A] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" onClick={() => onDelete(customer.id)} data-testid="btn-delete-client">
                 <Trash2 className="h-3 w-3" />
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -1673,93 +1673,93 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
       })()}
 
       {/* Odoo-Style Stat Bar */}
-      <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-2 overflow-x-auto">
+      <div className="flex items-center gap-1 bg-[#F4F3F0] rounded-xl p-1.5 overflow-x-auto mt-3">
         {/* Quotes */}
-        <button 
+        <button
           onClick={() => setActiveTab('quotes-prices')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#EEF2FF] border-[#C7D2FE] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-gray-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#4338CA] mb-1">
             <FileText className="h-4 w-4" />
-            <span className="text-xs font-medium">Quotes</span>
-          </div>
-          <span className="text-sm font-bold text-gray-900">{sentQuotes.length + (odooStats?.quotesCount || 0)}</span>
+            Quotes
+          </span>
+          <span className="text-base font-semibold text-[#3730A3]">{sentQuotes.length + (odooStats?.quotesCount || 0)}</span>
         </button>
-        
+
         {/* Sales (Odoo) */}
-        <button 
+        <button
           onClick={() => setActiveTab('orders')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#F0FDF4] border-[#BBF7D0] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-gray-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#16A34A] mb-1">
             <ShoppingCart className="h-4 w-4" />
-            <span className="text-xs font-medium">Sales</span>
-          </div>
-          <span className="text-sm font-bold text-gray-900">{odooStats?.salesCount || customer.totalOrders || 0}</span>
+            Sales
+          </span>
+          <span className="text-base font-semibold text-[#15803D]">{odooStats?.salesCount || customer.totalOrders || 0}</span>
         </button>
-        
+
         {/* Invoiced (Odoo) */}
-        <button 
+        <button
           onClick={() => setActiveTab('orders')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#ECFDF5] border-[#6EE7B7] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-green-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#059669] mb-1">
             <Receipt className="h-4 w-4" />
-            <span className="text-xs font-medium">Invoiced</span>
-          </div>
-          <span className="text-sm font-bold text-green-700">
+            Invoiced
+          </span>
+          <span className="text-base font-semibold text-[#047857]">
             ${((odooStats?.invoiced || 0) / 1000).toFixed(1)}k
           </span>
         </button>
-        
+
         {/* Due (Odoo) */}
-        <button 
+        <button
           onClick={() => setActiveTab('orders')}
-          className={`flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200 ${(odooStats?.due || 0) > 0 ? 'bg-amber-50' : ''}`}
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FFFBEB] border-[#FCD34D] hover:brightness-95 transition-all"
         >
-          <div className={`flex items-center gap-1.5 ${(odooStats?.due || 0) > 0 ? 'text-amber-600' : 'text-gray-600'}`}>
+          <span className="flex items-center gap-1 text-xs font-medium text-[#D97706] mb-1">
             <Clock className="h-4 w-4" />
-            <span className="text-xs font-medium">Due</span>
-          </div>
-          <span className={`text-sm font-bold ${(odooStats?.due || 0) > 0 ? 'text-amber-700' : 'text-gray-900'}`}>
+            Due
+          </span>
+          <span className="text-base font-semibold text-[#B45309]">
             ${((odooStats?.due || 0) / 1000).toFixed(1)}k
           </span>
         </button>
-        
+
         {/* Emails */}
-        <button 
+        <button
           onClick={() => setActiveTab('emails')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#EFF6FF] border-[#BFDBFE] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-gray-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#2563EB] mb-1">
             <Mail className="h-4 w-4" />
-            <span className="text-xs font-medium">Emails</span>
-          </div>
-          <span className="text-sm font-bold text-gray-900">{emailSends.length}</span>
+            Emails
+          </span>
+          <span className="text-base font-semibold text-[#1D4ED8]">{emailSends.length}</span>
         </button>
-        
+
         {/* Samples */}
-        <button 
+        <button
           onClick={() => setActiveTab('samples')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FDF4FF] border-[#E9D5FF] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-gray-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#9333EA] mb-1">
             <FlaskConical className="h-4 w-4" />
-            <span className="text-xs font-medium">Samples</span>
-          </div>
-          <span className="text-sm font-bold text-gray-900">{sampleRequests.length}</span>
+            Samples
+          </span>
+          <span className="text-base font-semibold text-[#7E22CE]">{sampleRequests.length}</span>
         </button>
-        
+
         {/* Swatch */}
-        <button 
+        <button
           onClick={() => setActiveTab('swatch-book')}
-          className="flex flex-col items-center px-3 py-2 rounded hover:bg-gray-100 transition-colors min-w-[80px] border border-transparent hover:border-gray-200"
+          className="flex flex-col items-center px-4 py-2.5 rounded-xl border cursor-pointer min-w-[78px] bg-[#FFF7ED] border-[#FED7AA] hover:brightness-95 transition-all"
         >
-          <div className="flex items-center gap-1.5 text-gray-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-[#EA580C] mb-1">
             <Palette className="h-4 w-4" />
-            <span className="text-xs font-medium">Swatch</span>
-          </div>
-          <span className="text-sm font-bold text-gray-900">{swatchShipments.length}</span>
+            Swatch
+          </span>
+          <span className="text-base font-semibold text-[#C2410C]">{swatchShipments.length}</span>
         </button>
         
         {/* Press Profiles */}
