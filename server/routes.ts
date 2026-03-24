@@ -27025,6 +27025,19 @@ Rules:
           jobTitle: title?.trim() || lead.jobTitle,
           updatedAt: new Date(),
         }).where(eq(leads.id, bounce.leadId));
+        // Sync updated contact info back to Odoo if the lead has a linked partner
+        if (lead.odooPartnerId) {
+          try {
+            const odooFields: Record<string, any> = { name: name.trim(), email: email.trim() };
+            if (phone?.trim()) odooFields.phone = phone.trim();
+            if (title?.trim()) odooFields.function = title.trim();
+            await odooClient.write('res.partner', [lead.odooPartnerId], odooFields);
+            console.log('[Bounce] Updated Odoo lead partner:', lead.odooPartnerId);
+          } catch (odooErr: any) {
+            console.error('[Bounce] Odoo lead partner update error:', (odooErr as any).message);
+          }
+        }
+
         const outreachHistorySnapshotLead = bounce.outreachHistorySnapshot;
         await db.update(bouncedEmails)
           .set({ status: 'resolved', resolvedAt: new Date(), resolvedBy: userId, resolution: 'replaced_contact' })
