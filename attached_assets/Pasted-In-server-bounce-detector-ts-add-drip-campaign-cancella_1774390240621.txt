@@ -1,0 +1,61 @@
+In server/bounce-detector.ts, add drip campaign cancellation when a bounce is detected for a lead or customer.
+
+1. Add these imports at the top of the file if not already present:
+  import { dripCampaignAssignments, dripCampaignStepStatus, leadActivities } from '@shared/schema';
+
+2. Find the section where a bounce is matched to a lead or customer record (around the matchEmailToRecord call and the loop that processes each bounce). After the bounce is logged to the bouncedEmails table, add this logic:
+
+  // Cancel any active drip assignments for this lead/customer
+  try {
+    const conditions: any[] = [eq(dripCampaignAssignments.status, 'active')];
+    
+    if (match.type === 'lead' && match.leadId) {
+      conditions.push(eq(dripCampaignAssignments.leadId, match.leadId));
+    } else if (match.type === 'customer' && match.customerId) {
+      conditions.push(eq(dripCampaignAssignments.customerId, match.customerId));
+    } else {
+      // No match, skip
+      continue; // or skip this block
+    }
+
+    const activeAssignments = await db
+      .select({ id: dripCampaignAssignments.id, leadId: dripCampaignAssignments.leadId })
+      .from(dripCampaignAssignments)
+      .where(and(...conditions));
+
+    for (const assignment of activeAssignments) {
+      // Cancel remaining scheduled steps
+      await db
+        .update(dripCampaignStepStatus)
+        .set({ status: 'skipped' })
+        .where(
+          and(
+            eq(dripCampaignStepStatus.assignmentId, assignment.id),
+            eq(dripCampaignStepStatus.status, 'scheduled')
+          )
+        );
+
+      // Cancel the assignment
+      await db
+        .update(dripCampaignAssignments)
+        .set({ status: 'cancelled', cancelledAt: new Date() })
+        .where(eq(dripCampaignAssignments.id, assignment.id));
+
+      // Log activity on lead if applicable
+      if (assignment.leadId) {
+        await db.insert(leadActivities).values({
+          leadId: assignment.leadId,
+          activityType: 'note',
+          summary: 'Drip campaign stopped — email bounced',
+          details: 'Email address bounced. All remaining drip steps have been cancelled automatically.',
+        });
+      }
+
+      console.log(`[Bounce Detector] Drip assignment #${assignment.id} cancelled due to email bounce`);
+    }
+  } catch (err) {
+    console.error('[Bounce Detector] Failed to cancel drip on bounce:', err);
+  }
+
+Make sure to import and, eq from 'drizzle-orm' if not already imported in this file.
+Do not change any other bounce detection logic.

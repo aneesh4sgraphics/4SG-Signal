@@ -10,6 +10,9 @@ import {
   emailSends,
   labelPrints,
   customerActivityEvents,
+  dripCampaignAssignments,
+  dripCampaignStepStatus,
+  leadActivities,
   InsertBouncedEmail 
 } from '@shared/schema';
 import { normalizeEmail } from '@shared/email-normalizer';
@@ -557,6 +560,56 @@ export async function scanForBouncedEmails(userId: string): Promise<number> {
           bouncesDetected++;
           
           console.log(`[Bounce Detector] Detected bounce for ${bounce.bouncedEmail} (${match.type})`);
+
+          // Cancel any active drip campaign assignments for this lead/customer
+          try {
+            const conditions: any[] = [eq(dripCampaignAssignments.status, 'active')];
+
+            if (match.type === 'lead' && match.leadId) {
+              conditions.push(eq(dripCampaignAssignments.leadId, match.leadId));
+            } else if (match.type === 'customer' && match.customerId) {
+              conditions.push(eq(dripCampaignAssignments.customerId, match.customerId));
+            } else {
+              conditions.length = 0; // no valid match to cancel
+            }
+
+            if (conditions.length > 0) {
+              const activeAssignments = await db
+                .select({ id: dripCampaignAssignments.id, leadId: dripCampaignAssignments.leadId })
+                .from(dripCampaignAssignments)
+                .where(and(...conditions));
+
+              for (const assignment of activeAssignments) {
+                await db
+                  .update(dripCampaignStepStatus)
+                  .set({ status: 'skipped' })
+                  .where(
+                    and(
+                      eq(dripCampaignStepStatus.assignmentId, assignment.id),
+                      eq(dripCampaignStepStatus.status, 'scheduled')
+                    )
+                  );
+
+                await db
+                  .update(dripCampaignAssignments)
+                  .set({ status: 'cancelled', cancelledAt: new Date() })
+                  .where(eq(dripCampaignAssignments.id, assignment.id));
+
+                if (assignment.leadId) {
+                  await db.insert(leadActivities).values({
+                    leadId: assignment.leadId,
+                    activityType: 'note',
+                    summary: 'Drip campaign stopped — email bounced',
+                    details: 'Email address bounced. All remaining drip steps have been cancelled automatically.',
+                  });
+                }
+
+                console.log(`[Bounce Detector] Drip assignment #${assignment.id} cancelled due to email bounce`);
+              }
+            }
+          } catch (err) {
+            console.error('[Bounce Detector] Failed to cancel drip on bounce:', err);
+          }
         }
       } catch (msgError) {
         console.error(`[Bounce Detector] Failed to process message ${msgInfo.id}:`, msgError);
