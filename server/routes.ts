@@ -5055,6 +5055,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk-pull pricing tier from Odoo pricelist for customers with no local pricingTier
+  // Reads property_product_pricelist from Odoo and seeds the local pricing_tier column.
+  app.post('/api/admin/pull-pricing-from-odoo', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Pull] Starting bulk pricelist pull from Odoo...");
+      const candidates = await db.select({
+        id: customers.id,
+        company: customers.company,
+        odooPartnerId: customers.odooPartnerId,
+      })
+        .from(customers)
+        .where(and(
+          isNotNull(customers.odooPartnerId),
+          sql`(${customers.pricingTier} IS NULL OR ${customers.pricingTier} = '')`
+        ));
+
+      console.log(`[Odoo Pull] Found ${candidates.length} customers with null pricingTier and Odoo partner ID`);
+      if (candidates.length === 0) {
+        return res.json({ updated: 0, skipped: 0, errors: 0, message: "No customers need pricing tier update" });
+      }
+
+      const partnerIds = candidates.map(c => c.odooPartnerId as number);
+      const partners = await odooClient.searchRead('res.partner', [['id', 'in', partnerIds]], ['id', 'property_product_pricelist'], { limit: partnerIds.length + 10 });
+
+      const pricelistByPartnerId = new Map<number, string>();
+      for (const p of partners) {
+        if (p.property_product_pricelist && p.property_product_pricelist !== false) {
+          const name = (p.property_product_pricelist as [number, string])[1];
+          if (name) pricelistByPartnerId.set(p.id, name);
+        }
+      }
+
+      const results = { updated: 0, skipped: 0, errors: 0 };
+      for (const customer of candidates) {
+        const pricelist = pricelistByPartnerId.get(customer.odooPartnerId as number);
+        if (!pricelist) { results.skipped++; continue; }
+        try {
+          await db.update(customers).set({ pricingTier: pricelist }).where(eq(customers.id, customer.id));
+          console.log(`[Odoo Pull] ${customer.company || customer.id}: set pricingTier = ${pricelist}`);
+          results.updated++;
+        } catch (err: any) {
+          console.error(`[Odoo Pull] Error updating ${customer.id}:`, err.message);
+          results.errors++;
+        }
+      }
+
+      console.log(`[Odoo Pull] Done: ${results.updated} updated, ${results.skipped} skipped (no Odoo pricelist), ${results.errors} errors`);
+      res.json({ ...results, message: `Updated ${results.updated} customers from Odoo pricelist` });
+    } catch (error: any) {
+      console.error("[Odoo Pull] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to pull pricing from Odoo" });
+    }
+  });
+
   // Auto-assign sales reps based on location rules
   app.post('/api/admin/auto-assign-sales-reps', isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
@@ -18950,13 +19004,11 @@ Return only the JSON object. No markdown, no code blocks.`
         return res.status(404).json({ error: "Partner not found in Odoo" });
       }
       
-      // Extract category/tag from Odoo for pricingTier field
+      // Seed pricingTier from Odoo property_product_pricelist when local value is not set.
+      // The local pricingTier is authoritative once set — only use Odoo as a seed for null values.
       let pricingTier: string | null = customer.pricingTier;
-      if (partner.category_id && Array.isArray(partner.category_id) && partner.category_id.length > 0) {
-        const firstCategory = partner.category_id[0];
-        if (Array.isArray(firstCategory) && firstCategory.length >= 2) {
-          pricingTier = firstCategory[1];
-        }
+      if (!pricingTier && partner.property_product_pricelist && partner.property_product_pricelist !== false) {
+        pricingTier = (partner.property_product_pricelist as [number, string])[1] || null;
       }
       
       // Update customer with fresh Odoo data
@@ -19195,15 +19247,10 @@ Return only the JSON object. No markdown, no code blocks.`
             contactType = 'other';
           }
           
-          // Extract category/tag from Odoo for pricingTier field
-          // category_id can be: [[1, "Retail"], [2, "Wholesale"]] or [1, 2]
+          // Seed pricingTier from Odoo property_product_pricelist (e.g. "SHOPIFY2", "RETAIL")
           let pricingTier: string | null = null;
-          if (partner.category_id && Array.isArray(partner.category_id) && partner.category_id.length > 0) {
-            const firstCategory = partner.category_id[0];
-            if (Array.isArray(firstCategory) && firstCategory.length >= 2) {
-              // Tuple format: [[1, "Retail"]]
-              pricingTier = firstCategory[1];
-            }
+          if (partner.property_product_pricelist && partner.property_product_pricelist !== false) {
+            pricingTier = (partner.property_product_pricelist as [number, string])[1] || null;
           }
           
           // Create customer record - map Odoo address fields exactly

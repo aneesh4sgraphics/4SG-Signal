@@ -120,6 +120,24 @@ This applies to: `ClientDetailView.tsx`, `spotlight.tsx`, `lead-detail.tsx`, `qu
 
 **If a rep's name is appearing in raw/lowercase form** (e.g. `patricio`, `santiago`), the fix is to update their display name in Odoo to include their full first + last name.
 
+## Odoo Pricelist → Local pricingTier Sync
+
+**Problem:** The `property_product_pricelist` field from Odoo (e.g. "SHOPIFY2", "RETAIL") was NOT being mapped to the local `customers.pricing_tier` column during Odoo import or resync. The old code incorrectly tried to use `category_id` (which returns plain integer IDs, not tuples) as the source. This caused Spotlight to generate false-positive `hygiene_pricing_tier` tasks for customers already configured in Odoo.
+
+**Fix (routes.ts):**
+1. **Resync endpoint** (`POST /api/odoo/customer/:id/resync`): When `customer.pricingTier` is null, seed it from `partner.property_product_pricelist[1]` (the pricelist name string). Local value is authoritative once set — Odoo only seeds null values.
+2. **Import endpoint** (`POST /api/odoo/import-partners`): Seed `pricingTier` from `partner.property_product_pricelist[1]` for newly imported customers.
+3. **Bulk admin endpoint** (`POST /api/admin/pull-pricing-from-odoo`): Batch-fetches `property_product_pricelist` for all customers with `pricing_tier IS NULL AND odoo_partner_id IS NOT NULL`, updates local records. Exposed as "Sync Pricing Tiers from Odoo" card in Admin → Data Management.
+
+**Spotlight hygiene false positive fix**: After running the bulk pull, customers with Odoo pricelists will have their local `pricingTier` populated and will no longer appear in the `hygiene_pricing_tier` Spotlight queue.
+
+## Gmail Sent Mail Auto-Activity Sync (Task #3)
+
+Automatically logs sent emails from Gmail as activity events on the corresponding customer/lead records.
+- `server/gmail-sent-activity-sync.ts`: Core sync logic — scans the Gmail "Sent" folder, matches sent emails to customer/lead records by normalized email, creates `email_sent` activity events.
+- Integrated into `server/gmail-intelligence.ts` and the periodic Gmail sync scheduler.
+- Boot-time migration adds `last_sent_sync_at` column to `user_gmail_connections` table to track per-user sync progress.
+
 ## External Dependencies
 
 - **Odoo V19 ERP:** Used for customer data, product catalogs, pricelists, and orders.

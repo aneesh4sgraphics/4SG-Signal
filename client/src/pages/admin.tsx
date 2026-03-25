@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check, Trophy, Flame, Phone, Mail, FileText, Sparkles } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check, Trophy, Flame, Phone, Mail, FileText, Sparkles, RefreshCw, Database } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -162,6 +162,47 @@ function TierSelect({ user, onTierChange, isPending }: TierSelectProps) {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function OdooPullPricingCard() {
+  const { toast } = useToast();
+  const [result, setResult] = React.useState<{ updated: number; skipped: number; errors: number; message: string } | null>(null);
+  const mutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/pull-pricing-from-odoo').then(r => r.json()),
+    onSuccess: (data) => {
+      setResult(data);
+      toast({ title: data.message || `Updated ${data.updated} customers` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to pull pricing from Odoo", description: err.message, variant: "destructive" });
+    },
+  });
+  return (
+    <Card className="glass-card border-0 shadow-lg">
+      <CardHeader className="border-b">
+        <CardTitle className="flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary" />
+          Sync Pricing Tiers from Odoo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Seeds the local pricing tier for customers that have no pricing tier set locally but have an Odoo pricelist assigned (e.g. SHOPIFY2, RETAIL). Only affects customers with a blank/missing pricing tier.
+        </p>
+        {result && (
+          <Alert>
+            <AlertDescription className="text-sm">
+              Updated: <strong>{result.updated}</strong> &nbsp;·&nbsp; Skipped (no Odoo pricelist): <strong>{result.skipped}</strong> &nbsp;·&nbsp; Errors: <strong>{result.errors}</strong>
+            </AlertDescription>
+          </Alert>
+        )}
+        <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="w-full">
+          <RefreshCw className={`h-4 w-4 mr-2 ${mutation.isPending ? 'animate-spin' : ''}`} />
+          {mutation.isPending ? 'Pulling from Odoo...' : 'Pull Pricing from Odoo'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -646,7 +687,10 @@ export default function Admin() {
         </Card>
 
         {/* Data Management Section */}
-        <div className="max-w-md mx-auto">
+        <div className="max-w-md mx-auto space-y-6">
+          {/* Odoo Sync Actions */}
+          <OdooPullPricingCard />
+
           {/* Data Export */}
           <Card className="glass-card border-0 shadow-lg">
             <CardHeader className="border-b">
