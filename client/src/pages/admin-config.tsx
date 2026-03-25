@@ -4065,7 +4065,7 @@ function UsersTab() {
 
   const approveMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/admin/users/${userId}/approve`, { method: 'POST' });
+      return apiRequest('POST', `/api/admin/users/${userId}/approve`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
@@ -4078,23 +4078,20 @@ function UsersTab() {
 
   const rejectMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/admin/users/${userId}/reject`, { method: 'POST' });
+      return apiRequest('POST', `/api/admin/users/${userId}/reject`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      toast({ title: "User rejected", description: "User access has been rejected" });
+      toast({ title: "User rejected/revoked", description: "User access has been revoked" });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to reject user", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to revoke user access", variant: "destructive" });
     }
   });
 
   const roleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return apiRequest(`/api/admin/users/${userId}/role`, { 
-        method: 'PATCH',
-        body: JSON.stringify({ role })
-      });
+      return apiRequest('PATCH', `/api/admin/users/${userId}/role`, { role });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
@@ -4213,6 +4210,7 @@ function UsersTab() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>

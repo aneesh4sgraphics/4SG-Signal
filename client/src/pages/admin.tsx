@@ -681,6 +681,30 @@ export default function Admin() {
                               </Button>
                             </div>
                           )}
+                          {user.status === 'approved' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => rejectUserMutation.mutate(user.id)}
+                              disabled={rejectUserMutation.isPending}
+                            >
+                              <UserX className="h-4 w-4 mr-1" />
+                              Revoke
+                            </Button>
+                          )}
+                          {user.status === 'rejected' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => approveUserMutation.mutate(user.id)}
+                              disabled={approveUserMutation.isPending}
+                            >
+                              <UserCheck className="h-4 w-4 mr-1" />
+                              Re-approve
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
