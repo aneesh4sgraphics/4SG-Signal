@@ -11003,23 +11003,50 @@ Return only the JSON object. No markdown, no code blocks.`
         }
       }
       
-      // Update lead's firstEmailSentAt if this email is to a lead (non-blocking)
+      // Log lead activity and update trust timestamps if this email is to a lead
       let matchedLeadId: number | undefined;
       try {
-        const normalizedRecipient = to.toLowerCase().trim();
-        const leadByEmail = await db.select().from(leads)
-          .where(sql`LOWER(${leads.email}) = ${normalizedRecipient} AND ${leads.firstEmailSentAt} IS NULL`)
-          .limit(1);
-        
-        if (leadByEmail.length > 0) {
-          matchedLeadId = leadByEmail[0].id;
-          await db.update(leads)
-            .set({ firstEmailSentAt: new Date() })
-            .where(eq(leads.id, leadByEmail[0].id));
-          console.log(`[Lead Trust] Marked firstEmailSentAt for lead ${leadByEmail[0].id}`);
+        // Prefer direct lead ID from customerId (lead-{id}) — avoids email mismatch when recipient differs
+        if (resolvedCustomerId?.startsWith('lead-') || customerId?.startsWith('lead-')) {
+          const rawId = (resolvedCustomerId || customerId).replace('lead-', '');
+          const parsedLeadId = parseInt(rawId);
+          if (!isNaN(parsedLeadId)) {
+            matchedLeadId = parsedLeadId;
+            const now = new Date();
+            // Update firstEmailSentAt only if not already set
+            const existing = await db.select({ firstEmailSentAt: leads.firstEmailSentAt }).from(leads).where(eq(leads.id, parsedLeadId)).limit(1);
+            if (existing.length > 0 && !existing[0].firstEmailSentAt) {
+              await db.update(leads).set({ firstEmailSentAt: now }).where(eq(leads.id, parsedLeadId));
+              console.log(`[Lead Trust] Marked firstEmailSentAt for lead ${parsedLeadId}`);
+            }
+            // Log to leadActivities so it appears in the lead's Activity tab
+            await db.insert(leadActivities).values({
+              leadId: parsedLeadId,
+              activityType: 'email_sent',
+              summary: `Email sent: ${subject}`,
+              details: `To: ${to}`,
+              performedBy: req.user?.email || req.user?.claims?.email || 'unknown',
+              performedByName: req.user?.email || req.user?.claims?.email || 'unknown',
+              createdAt: now,
+            });
+            // Bump touchpoints and lastContactAt
+            await db.update(leads).set({ totalTouchpoints: sql`${leads.totalTouchpoints} + 1`, lastContactAt: now, updatedAt: now }).where(eq(leads.id, parsedLeadId));
+            console.log(`[Lead Activity] Logged email activity for lead ${parsedLeadId}`);
+          }
+        } else {
+          // Fallback: try to match by email if no lead ID available
+          const normalizedRecipient = to.toLowerCase().trim();
+          const leadByEmail = await db.select().from(leads)
+            .where(sql`LOWER(${leads.email}) = ${normalizedRecipient} AND ${leads.firstEmailSentAt} IS NULL`)
+            .limit(1);
+          if (leadByEmail.length > 0) {
+            matchedLeadId = leadByEmail[0].id;
+            await db.update(leads).set({ firstEmailSentAt: new Date() }).where(eq(leads.id, leadByEmail[0].id));
+            console.log(`[Lead Trust] Marked firstEmailSentAt for lead ${leadByEmail[0].id} via email match`);
+          }
         }
       } catch (leadError: any) {
-        console.error("Error updating lead firstEmailSentAt (non-critical):", leadError.message);
+        console.error("Error updating lead activity (non-critical):", leadError.message);
       }
       
       // Credit SPOTLIGHT progress for direct email sends (non-blocking)
