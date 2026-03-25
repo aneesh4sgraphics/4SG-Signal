@@ -28306,9 +28306,13 @@ Analyze this bounced email and provide insights in JSON format:
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
         .from(leads)
         .where(
-          or(
-            isNotNull(leads.firstEmailReplyAt),
-            eq(leads.salesKanbanStage, 'replied')
+          and(
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleSentAt),
+            or(
+              isNotNull(leads.firstEmailReplyAt),
+              eq(leads.salesKanbanStage, 'replied')
+            )
           )
         )
         .orderBy(desc(leads.firstEmailReplyAt))
@@ -28331,13 +28335,17 @@ Analyze this bounced email and provide insights in JSON format:
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
         .from(leads)
         .where(
-          or(
-            and(
-              isNotNull(leads.firstEmailSentAt),
-              isNull(leads.firstEmailReplyAt),
-              lt(leads.lastContactAt, tenDaysAgo)
-            ),
-            eq(leads.salesKanbanStage, 'no_response')
+          and(
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleSentAt),
+            or(
+              and(
+                isNotNull(leads.firstEmailSentAt),
+                isNull(leads.firstEmailReplyAt),
+                lt(leads.lastContactAt, tenDaysAgo)
+              ),
+              eq(leads.salesKanbanStage, 'no_response')
+            )
           )
         )
         .orderBy(asc(leads.lastContactAt))
