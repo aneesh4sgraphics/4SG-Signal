@@ -4861,6 +4861,12 @@ class SpotlightEngine {
         isNull(leads.firstEmailSentAt),
         // Assigned to this user or unassigned
         or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+        // Exclude leads with a pending bounce — no point emailing a bounced address
+        sql`NOT EXISTS (
+          SELECT 1 FROM bounced_emails be
+          WHERE be.lead_id = ${leads.id}
+          AND be.status = 'pending'
+        )`,
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4914,6 +4920,8 @@ class SpotlightEngine {
         isNull(leads.firstEmailReplyAt),
         lt(leads.firstEmailSentAt, threeDaysAgo),
         or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+        // Exclude leads with a pending bounce — the bounce task handles them instead
+        sql`NOT EXISTS (SELECT 1 FROM bounced_emails be WHERE be.lead_id = ${leads.id} AND be.status = 'pending')`,
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4936,6 +4944,7 @@ class SpotlightEngine {
         eq(leads.stage, 'qualified'),
         or(isNull(leads.lastContactAt), lt(leads.lastContactAt, threeDaysAgo)),
         or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+        sql`NOT EXISTS (SELECT 1 FROM bounced_emails be WHERE be.lead_id = ${leads.id} AND be.status = 'pending')`,
       ];
       
       if (skippedLeadIds.length > 0) {
@@ -4958,6 +4967,7 @@ class SpotlightEngine {
         eq(leads.stage, 'nurturing'),
         or(isNull(leads.lastContactAt), lt(leads.lastContactAt, fourteenDaysAgo)),
         or(isNull(leads.salesRepId), eq(leads.salesRepId, repId)),
+        sql`NOT EXISTS (SELECT 1 FROM bounced_emails be WHERE be.lead_id = ${leads.id} AND be.status = 'pending')`,
       ];
       
       if (skippedLeadIds.length > 0) {
