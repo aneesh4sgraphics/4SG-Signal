@@ -688,18 +688,18 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
     queryKey: ['/api/drip-campaigns'],
   });
 
-  // Fetch all approved users for sales rep assignment
+  // Fetch sales reps from the unified /api/sales-reps endpoint (deduped, Odoo-sourced)
   interface TeamUser {
     id: string;
+    name: string;
     email: string;
-    firstName: string | null;
-    lastName: string | null;
-    role: string;
-    displayName: string;
   }
-  const { data: teamUsers = [], isLoading: teamUsersLoading } = useQuery<TeamUser[]>({
-    queryKey: ['/api/users'],
+  const { data: rawTeamUsers = [], isLoading: teamUsersLoading } = useQuery<TeamUser[]>({
+    queryKey: ['/api/sales-reps'],
+    staleTime: 5 * 60 * 1000,
   });
+  // Normalise: give each entry a displayName alias so the rest of the component works unchanged
+  const teamUsers = rawTeamUsers.map(u => ({ ...u, displayName: u.name }));
 
   // Mutation to update sales rep assignment
   const updateSalesRepMutation = useMutation({
