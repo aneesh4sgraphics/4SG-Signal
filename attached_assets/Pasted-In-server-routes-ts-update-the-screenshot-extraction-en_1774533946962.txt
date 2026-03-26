@@ -1,0 +1,83 @@
+In server/routes.ts, update the screenshot extraction endpoint at /api/screenshot/extract (around line 7161).
+
+CHANGE 1 — Add Anthropic SDK import at the top of the file with the other imports:
+  import Anthropic from '@anthropic-ai/sdk';
+
+CHANGE 2 — Replace the entire OpenAI extraction logic inside the try block (from where it checks for the API key to where it calls openaiClient.chat.completions.create) with this Anthropic-based version:
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+
+  const base64Image = req.file.buffer.toString('base64');
+  const mimeType = req.file.mimetype as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+
+  const extractionPrompt = `Extract contact information from this screenshot. Return ONLY a valid JSON object with these exact fields (use null for any field not found):
+{
+  "name": "Full name of the person",
+  "company": "Company or organization name",
+  "jobTitle": "Job title or professional role",
+  "email": "Primary email address only — no extra text",
+  "phone": "Phone number including country code if visible (e.g. +1 708-203-5717)",
+  "street": "Street address line 1",
+  "street2": "Apartment, suite, or floor (line 2 only if present)",
+  "city": "City name",
+  "state": "Full state or province name (e.g. Illinois not IL)",
+  "zip": "Postal or ZIP code",
+  "country": "Full country name (e.g. United States, Canada, Mexico)",
+  "notes": "Any other relevant professional context such as machine types, products, specialties"
+}
+Return only the JSON object. No markdown, no code blocks, no explanation.`;
+
+  let rawText = '{}';
+
+  if (anthropicKey) {
+    // Use Claude claude-sonnet-4-20250514 — better at structured extraction
+    const anthropic = new Anthropic({ apiKey: anthropicKey });
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'image',
+          source: { type: 'base64', media_type: mimeType, data: base64Image }
+        }, {
+          type: 'text',
+          text: extractionPrompt
+        }]
+      }]
+    });
+    rawText = (response.content[0] as any)?.text || '{}';
+  } else if (openaiKey) {
+    // Fallback to OpenAI GPT-4o
+    const openaiClient = new OpenAI({
+      apiKey: openaiKey,
+      ...((!process.env.OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) 
+        ? { baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL } 
+        : {}),
+    });
+    const completion = await openaiClient.chat.completions.create({
+      model: 'gpt-4o',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'image_url',
+          image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: 'high' }
+        }, {
+          type: 'text',
+          text: extractionPrompt
+        }]
+      }]
+    });
+    rawText = completion.choices[0]?.message?.content || '{}';
+  } else {
+    return res.status(503).json({ error: 'AI extraction is not configured. Add an ANTHROPIC_API_KEY or OPENAI_API_KEY secret.' });
+  }
+
+CHANGE 3 — Make sure the @anthropic-ai/sdk package is installed. Add to package.json dependencies:
+  "@anthropic-ai/sdk": "^0.39.0"
+
+Then run: npm install
+
+Do not change anything else in the routes file.

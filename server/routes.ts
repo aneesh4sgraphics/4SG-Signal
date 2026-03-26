@@ -7,6 +7,7 @@ import archiver from "archiver";
 import puppeteer from 'puppeteer';
 import PDFDocument from 'pdfkit';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { storage } from "./storage";
 import chatRouter from "./chat";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -7164,64 +7165,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'No image file provided' });
       }
 
-      // Prefer a user-supplied key (no proxy); fall back to the integration key + its base URL
-      const directKey = process.env.OPENAI_API_KEY;
-      const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-      const openaiApiKey = directKey || integrationKey;
-      if (!openaiApiKey) {
-        return res.status(503).json({ error: 'AI extraction is not configured. Add an OPENAI_API_KEY secret with available credits.' });
-      }
-
-      // Use the proxy base URL only for the integration key; direct key talks straight to OpenAI
-      const openaiClient = new OpenAI({
-        apiKey: openaiApiKey,
-        ...((!directKey && integrationBase) ? { baseURL: integrationBase } : {}),
-      });
+      const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+      const openaiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
 
       const base64Image = req.file.buffer.toString('base64');
-      const mimeType = req.file.mimetype;
+      const mimeType = req.file.mimetype as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
 
-      const completion = await openaiClient.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
-                  detail: 'high',
-                }
-              },
-              {
-                type: 'text',
-                text: `Extract contact information from this screenshot. Return ONLY a valid JSON object with these exact fields (use null for any field not found):
+      const extractionPrompt = `Extract contact information from this screenshot. Return ONLY a valid JSON object with these exact fields (use null for any field not found):
 {
   "name": "Full name of the person",
   "company": "Company or organization name",
   "jobTitle": "Job title or professional role",
-  "email": "Primary email address",
+  "email": "Primary email address only — no extra text",
   "phone": "Phone number including country code if visible (e.g. +1 708-203-5717)",
   "street": "Street address line 1",
   "street2": "Apartment, suite, or floor (line 2 only if present)",
   "city": "City name",
-  "state": "Full state or province name (e.g. Illinois not IL, Ontario not ON)",
+  "state": "Full state or province name (e.g. Illinois not IL)",
   "zip": "Postal or ZIP code",
-  "country": "Full country name in Odoo format (e.g. United States, Canada, Mexico, United Kingdom)",
-  "notes": "Any other relevant professional context visible in the screenshot"
+  "country": "Full country name (e.g. United States, Canada, Mexico)",
+  "notes": "Any other relevant professional context such as machine types, products, specialties"
 }
-Return only the JSON object. No markdown, no code blocks.`
-              }
-            ]
-          }
-        ],
-        max_tokens: 500,
-      });
+Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
-      const rawText = completion.choices[0]?.message?.content || '{}';
+      let rawText = '{}';
+
+      if (anthropicKey) {
+        // Use Claude claude-sonnet-4-20250514 — better at structured extraction
+        const anthropic = new Anthropic({ apiKey: anthropicKey });
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: [{
+              type: 'image',
+              source: { type: 'base64', media_type: mimeType, data: base64Image }
+            }, {
+              type: 'text',
+              text: extractionPrompt
+            }]
+          }]
+        });
+        rawText = (response.content[0] as any)?.text || '{}';
+      } else if (openaiKey) {
+        // Fallback to OpenAI GPT-4o
+        const openaiClient = new OpenAI({
+          apiKey: openaiKey,
+          ...((!process.env.OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL)
+            ? { baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL }
+            : {}),
+        });
+        const completion = await openaiClient.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: [{
+              type: 'image_url',
+              image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: 'high' }
+            }, {
+              type: 'text',
+              text: extractionPrompt
+            }]
+          }]
+        });
+        rawText = completion.choices[0]?.message?.content || '{}';
+      } else {
+        return res.status(503).json({ error: 'AI extraction is not configured. Add an ANTHROPIC_API_KEY or OPENAI_API_KEY secret.' });
+      }
       const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
       let extracted: Record<string, string | null> = {};
