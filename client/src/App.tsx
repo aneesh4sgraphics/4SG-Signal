@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MicroFeedbackProvider } from "@/components/MicroFeedbackProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, Component, ErrorInfo, ReactNode } from "react";
 import { ShopifyAppBridgeProvider } from "@/components/ShopifyAppBridgeProvider";
 import { ServiceWorkerUpdater } from "@/components/ServiceWorkerUpdater";
 import { AuthWatcher } from "@/components/AuthWatcher";
@@ -88,7 +88,56 @@ const PendingPage = () => (
   </div>
 );
 
+class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[PageErrorBoundary] Render error caught:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-[#FDFBF7]">
+          <div className="text-center p-8 max-w-md">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-500 text-xl">!</span>
+            </div>
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">Something went wrong</h2>
+            <p className="text-slate-500 mb-6 text-sm">
+              This page ran into an error. This has been logged. Try reloading or going back.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => window.history.back()}
+                className="px-4 py-2 text-sm border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+                className="px-4 py-2 text-sm bg-slate-800 text-white rounded-md hover:bg-slate-700 transition-colors"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const AppRoutes = () => (
+  <PageErrorBoundary>
   <Suspense fallback={<PageLoader />}>
     <Switch>
       <Route path="/" component={Spotlight} />
@@ -139,6 +188,7 @@ const AppRoutes = () => (
       <Route><Redirect to="/" /></Route>
     </Switch>
   </Suspense>
+  </PageErrorBoundary>
 );
 
 function Router() {
