@@ -16292,13 +16292,13 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         try {
           const companyPayload: any = { name: localCompany.name, is_company: true, type: 'contact' };
           if (localCompany.domain) companyPayload.website = `https://${localCompany.domain}`;
-          if ((localCompany as any).mainPhone) companyPayload.phone = (localCompany as any).mainPhone;
-          if ((localCompany as any).generalEmail) companyPayload.email = (localCompany as any).generalEmail;
-          if ((localCompany as any).city) companyPayload.city = (localCompany as any).city;
-          if ((localCompany as any).addressLine1) companyPayload.street = (localCompany as any).addressLine1;
-          if ((localCompany as any).country) {
+          if (localCompany.mainPhone) companyPayload.phone = localCompany.mainPhone;
+          if (localCompany.generalEmail) companyPayload.email = localCompany.generalEmail;
+          if (localCompany.city) companyPayload.city = localCompany.city;
+          if (localCompany.addressLine1) companyPayload.street = localCompany.addressLine1;
+          if (localCompany.country) {
             const countries = await odooClient.getCountries();
-            const match = countries.find(c => c.name.toLowerCase() === (localCompany as any).country.toLowerCase() || c.code.toLowerCase() === (localCompany as any).country.toLowerCase());
+            const match = countries.find(c => c.name.toLowerCase() === localCompany.country!.toLowerCase() || c.code.toLowerCase() === localCompany.country!.toLowerCase());
             if (match) companyPayload.country_id = match.id;
           }
           const newOdooCompanyId = await odooClient.createPartner(companyPayload);
@@ -16343,14 +16343,20 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     if (lead.mobile) payload.comment = `Mobile: ${lead.mobile}`;
 
     // Append WhatsApp to comment if present
-    if ((lead as any).whatsapp) {
+    if (lead.whatsapp) {
       payload.comment = payload.comment
-        ? payload.comment + `\nWhatsApp: ${(lead as any).whatsapp}`
-        : `WhatsApp: ${(lead as any).whatsapp}`;
+        ? payload.comment + `\nWhatsApp: ${lead.whatsapp}`
+        : `WhatsApp: ${lead.whatsapp}`;
+    }
+    // Append LinkedIn profile to comment if present
+    if (lead.linkedinProfile) {
+      payload.comment = payload.comment
+        ? payload.comment + `\nLinkedIn: ${lead.linkedinProfile}`
+        : `LinkedIn: ${lead.linkedinProfile}`;
     }
     // Use LinkedIn as website fallback if no website set
-    if (!(lead as any).website && (lead as any).linkedinProfile) {
-      payload.website = (lead as any).linkedinProfile;
+    if (!lead.website && lead.linkedinProfile) {
+      payload.website = lead.linkedinProfile;
     }
     // Push internal notes to Odoo comment if no other comment set
     if (!payload.comment && lead.internalNotes) {

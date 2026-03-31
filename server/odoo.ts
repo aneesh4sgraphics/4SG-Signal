@@ -1840,8 +1840,12 @@ export function deriveRegionTag(countryName: string | null, countryCode: string 
   if (c === 'us' || n.includes('united states')) return 'Miami-USA';
   if (c === 'hn' || n.includes('honduras')) return 'Honduras';
   if (c === 'tt' || n.includes('trinidad')) return 'Trinidad';
-  if (['jm','bb','bs','gy','sr','lc','vc','gd','dm','ag','kn','bz'].includes(c)) return 'Caribbean';
-  if (['mx','gt','sv','ni','cr','pa','co','ve','ec','pe','bo','cl','ar','uy','py','br','do','cu','ht','pr'].includes(c)) return 'LatAm';
+  const caribbeanCodes = ['jm','bb','bs','gy','sr','lc','vc','gd','dm','ag','kn','bz'];
+  const caribbeanNames = ['jamaica','barbados','bahamas','guyana','suriname','saint lucia','saint vincent','grenada','dominica','antigua','saint kitts','belize'];
+  if (caribbeanCodes.includes(c) || caribbeanNames.some(name => n.includes(name))) return 'Caribbean';
+  const latamCodes = ['mx','gt','sv','ni','cr','pa','co','ve','ec','pe','bo','cl','ar','uy','py','br','do','cu','ht','pr'];
+  const latamNames = ['mexico','guatemala','el salvador','nicaragua','costa rica','panama','colombia','venezuela','ecuador','peru','bolivia','chile','argentina','uruguay','paraguay','brazil','brasil','dominican republic','cuba','haiti','puerto rico'];
+  if (latamCodes.includes(c) || latamNames.some(name => n.includes(name))) return 'LatAm';
   return 'Other';
 }
 
