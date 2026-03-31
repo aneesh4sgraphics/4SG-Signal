@@ -19032,8 +19032,21 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       
       console.log(`[Odoo Import] Starting partner import from Odoo (mode: ${useFullReset ? 'full_reset' : useSyncWithDeletions ? 'sync_with_deletions' : 'add_new'})...`);
       
-      // Step 1: If full reset, delete all existing customers
+      // Step 1: If full reset, preserve pricing tiers before deleting, then delete all customers
+      // Pricing tiers set in Signal are AUTHORITATIVE — never let Odoo overwrite them
+      const preservedTierByOdooId = new Map<number, string | null>(); // odooPartnerId → pricingTier
+      const preservedTierByEmail = new Map<string, string | null>();  // email_normalized → pricingTier
       if (useFullReset) {
+        const allWithTier = await db.select({
+          odooPartnerId: customers.odooPartnerId,
+          emailNormalized: customers.emailNormalized,
+          pricingTier: customers.pricingTier,
+        }).from(customers).where(isNotNull(customers.pricingTier));
+        for (const c of allWithTier) {
+          if (c.odooPartnerId) preservedTierByOdooId.set(c.odooPartnerId, c.pricingTier);
+          if (c.emailNormalized) preservedTierByEmail.set(c.emailNormalized, c.pricingTier);
+        }
+        console.log(`[Odoo Import] FULL RESET: Preserved ${preservedTierByOdooId.size} pricing tiers before delete`);
         console.log("[Odoo Import] FULL RESET: Deleting all existing customers...");
         await db.delete(customers);
         console.log("[Odoo Import] All existing customers deleted");
@@ -19042,17 +19055,25 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       // Step 2: Get existing Odoo partner IDs to check for duplicates (for incremental mode)
       const existingOdooIds = new Set<number>();
       const existingOdooCustomers = new Map<number, string>(); // odooPartnerId -> customerId
+      // Email-based dedup map: catches customers that exist locally but have no odooPartnerId yet
+      const existingEmailMap = new Map<string, { id: string; pricingTier: string | null }>();
       if (!useFullReset) {
-        const existing = await db.select({ id: customers.id, odooPartnerId: customers.odooPartnerId })
-          .from(customers)
-          .where(sql`${customers.odooPartnerId} IS NOT NULL`);
+        const existing = await db.select({
+          id: customers.id,
+          odooPartnerId: customers.odooPartnerId,
+          emailNormalized: customers.emailNormalized,
+          pricingTier: customers.pricingTier,
+        }).from(customers);
         existing.forEach(c => {
           if (c.odooPartnerId) {
             existingOdooIds.add(c.odooPartnerId);
             existingOdooCustomers.set(c.odooPartnerId, c.id);
           }
+          if (c.emailNormalized) {
+            existingEmailMap.set(c.emailNormalized, { id: c.id, pricingTier: c.pricingTier });
+          }
         });
-        console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers`);
+        console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers, ${existingEmailMap.size} total by email`);
       }
       
       // Step 3: Get Vendor category ID to filter out vendors
@@ -19143,10 +19164,27 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           // Track this as an active partner in Odoo (for deletion sync)
           activeOdooPartnerIds.add(partner.id);
           
-          // In incremental mode, skip partners that already exist
+          // In incremental mode, skip partners that already exist by Odoo ID
           if (!useFullReset && existingOdooIds.has(partner.id)) {
             results.alreadyExists++;
             continue;
+          }
+
+          // Email-based dedup: if customer already exists locally (no odooPartnerId yet),
+          // just link the odooPartnerId — never create a duplicate, never touch pricingTier
+          if (!useFullReset && partner.email) {
+            const emailNorm = partner.email.toLowerCase().trim();
+            const existingByEmail = existingEmailMap.get(emailNorm);
+            if (existingByEmail && !existingOdooIds.has(partner.id)) {
+              await db.update(customers)
+                .set({ odooPartnerId: partner.id, lastOdooSyncAt: new Date() })
+                .where(eq(customers.id, existingByEmail.id));
+              existingOdooIds.add(partner.id);
+              existingOdooCustomers.set(partner.id, existingByEmail.id);
+              results.alreadyExists++;
+              console.log(`[Odoo Import] Linked Odoo partner ${partner.id} to existing customer ${existingByEmail.id} by email (pricingTier preserved)`);
+              continue;
+            }
           }
           
           // Parse the partner name for first/last name (for individuals)
@@ -19197,9 +19235,19 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           }
           
           // Seed pricingTier from Odoo property_product_pricelist (e.g. "SHOPIFY2", "RETAIL")
+          // Signal-assigned tiers are AUTHORITATIVE: restore any previously set tier after full reset
           let pricingTier: string | null = null;
           if (partner.property_product_pricelist && partner.property_product_pricelist !== false) {
             pricingTier = (partner.property_product_pricelist as [number, string])[1] || null;
+          }
+          // In full reset mode, restore the previously set pricingTier (Signal is authoritative)
+          if (useFullReset) {
+            const emailNorm = partner.email ? partner.email.toLowerCase().trim() : null;
+            const restoredTier = preservedTierByOdooId.get(partner.id)
+              ?? (emailNorm ? preservedTierByEmail.get(emailNorm) : undefined);
+            if (restoredTier !== undefined) {
+              pricingTier = restoredTier; // Restore Signal's value, ignore Odoo's
+            }
           }
           
           // Create customer record - map Odoo address fields exactly
