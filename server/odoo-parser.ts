@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import { nanoid } from 'nanoid';
 import { deriveRegionTag } from './odoo';
 
-const FREIGHT_KEYWORDS = ['freight', 'shipping', 'ocean', 'ship'];
+const FREIGHT_KEYWORDS = ['freight', 'shipping', 'ship'];
 
 export function isFreightContact(name: string): boolean {
   if (!name) return false;
