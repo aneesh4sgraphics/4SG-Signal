@@ -2194,12 +2194,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // 5. Missing required info (pricing tier or sales rep) - score 40
-        if (!reasonCode && (!customer.pricingTier || !customer.salesRepId)) {
+        const hasSalesRep = customer.salesRepId || customer.salesRepName;
+        if (!reasonCode && (!customer.pricingTier || !hasSalesRep)) {
           score += 40;
           reasonCode = 'missing_required';
           const missing = [];
           if (!customer.pricingTier) missing.push('pricing tier');
-          if (!customer.salesRepId) missing.push('sales rep');
+          if (!hasSalesRep) missing.push('sales rep');
           reasonText = `Missing ${missing.join(' and ')}`;
           recommendedAction = 'Update customer profile';
           priority = 'medium';

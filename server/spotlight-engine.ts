@@ -1071,7 +1071,7 @@ class SpotlightEngine {
         for (const { field, whyNow } of hygieneTypes) {
           if (hygieneCount >= quota) break;
           
-          const condition = field === 'salesRepId' ? isNull(customers.salesRepId)
+          const condition = field === 'salesRepId' ? and(isNull(customers.salesRepId), isNull(customers.salesRepName))
             : field === 'pricingTier' ? isNull(customers.pricingTier)
             : field === 'phone' ? isNull(customers.phone)
             : isNull(customers.email);
