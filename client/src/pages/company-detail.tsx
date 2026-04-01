@@ -9,7 +9,7 @@ import {
   ArrowLeft, Building2, Phone, MapPin, Mail, TrendingUp,
   FileText, Activity, Users, StickyNote, CheckSquare,
   FolderOpen, DollarSign, PhoneCall, Package, Clock,
-  ArrowUpRight, ArrowDownLeft,
+  ArrowUpRight, ArrowDownLeft, Send, List, Tag,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
@@ -379,6 +379,173 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
   );
 }
 
+interface CompanyFilesData {
+  emailSends: Array<{
+    id: number; subject: string; recipientEmail: string; recipientName?: string | null;
+    sentBy?: string | null; sentAt: string | null; status: string | null;
+    contactFirstName?: string | null; contactLastName?: string | null;
+  }>;
+  quoteEvents: Array<{
+    id: number; quoteNumber?: string | null; eventType: string;
+    totalAmount?: string | null; itemCount?: number | null;
+    createdAt: string | null;
+    contactFirstName?: string | null; contactLastName?: string | null;
+  }>;
+  priceListEvents: Array<{
+    id: number; eventType: string; priceTier?: string | null;
+    productTypes?: string[] | null; userEmail?: string | null;
+    createdAt: string | null;
+    contactFirstName?: string | null; contactLastName?: string | null;
+  }>;
+}
+
+function FilesTab({ companyId, companyName }: { companyId: number | null; companyName: string }) {
+  const url = companyId
+    ? `/api/companies/${companyId}/files`
+    : `/api/companies/by-name/files?name=${encodeURIComponent(companyName)}`;
+
+  const { data, isLoading } = useQuery<CompanyFilesData>({
+    queryKey: companyId ? ['/api/companies', companyId, 'files'] : ['/api/companies/by-name/files', companyName],
+    queryFn: async () => {
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+  });
+
+  if (isLoading) return <div className="py-8 text-center"><div className="h-5 w-5 border-2 border-gray-200 border-t-blue-400 rounded-full animate-spin mx-auto" /></div>;
+
+  const sends = data?.emailSends ?? [];
+  const quotes = data?.quoteEvents ?? [];
+  const priceLists = data?.priceListEvents ?? [];
+  const total = sends.length + quotes.length + priceLists.length;
+
+  if (total === 0) return <EmptyState icon={FolderOpen} title="No files yet" message="Email sends, QuickQuotes, and Price Lists sent to this company will appear here" />;
+
+  const QUOTE_TYPE_COLORS: Record<string, string> = {
+    sent: 'bg-blue-100 text-blue-700',
+    viewed: 'bg-amber-100 text-amber-700',
+    accepted: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+    expired: 'bg-gray-100 text-gray-600',
+  };
+
+  const PRICE_EVENT_COLORS: Record<string, string> = {
+    email: 'bg-indigo-100 text-indigo-700',
+    download: 'bg-purple-100 text-purple-700',
+    view: 'bg-teal-100 text-teal-700',
+  };
+
+  return (
+    <div className="space-y-6">
+      {sends.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Send className="h-3.5 w-3.5" /> CRM Emails Sent ({sends.length})
+          </h3>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {sends.map(s => {
+              const contact = [s.contactFirstName, s.contactLastName].filter(Boolean).join(' ') || s.recipientName || s.recipientEmail;
+              return (
+                <div key={s.id} className="flex items-start gap-3 p-3 rounded-lg border bg-white hover:bg-gray-50">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Send className="h-3.5 w-3.5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.subject || '(no subject)'}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 flex-wrap">
+                      <span className="truncate">To: {contact}</span>
+                      {s.sentBy && <><span className="text-gray-300">·</span><span>by {s.sentBy}</span></>}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0 flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3" />
+                    {s.sentAt ? fmtRelative(s.sentAt) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {quotes.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> QuickQuotes ({quotes.length})
+          </h3>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {quotes.map(q => {
+              const contact = [q.contactFirstName, q.contactLastName].filter(Boolean).join(' ') || '—';
+              const colorClass = QUOTE_TYPE_COLORS[q.eventType] || 'bg-gray-100 text-gray-600';
+              return (
+                <div key={q.id} className="flex items-start gap-3 p-3 rounded-lg border bg-white hover:bg-gray-50">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                    <FileText className="h-3.5 w-3.5 text-green-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {q.quoteNumber && <span className="text-sm font-semibold text-gray-900 font-mono">{q.quoteNumber}</span>}
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 ${colorClass}`}>{q.eventType}</Badge>
+                      {q.totalAmount && <span className="text-sm font-medium text-gray-700">${parseFloat(q.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{contact}{q.itemCount ? ` · ${q.itemCount} items` : ''}</p>
+                  </div>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0 flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3" />
+                    {q.createdAt ? fmtRelative(q.createdAt) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {priceLists.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <List className="h-3.5 w-3.5" /> Price Lists Sent ({priceLists.length})
+          </h3>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {priceLists.map(p => {
+              const contact = [p.contactFirstName, p.contactLastName].filter(Boolean).join(' ') || p.userEmail || '—';
+              const colorClass = PRICE_EVENT_COLORS[p.eventType] || 'bg-gray-100 text-gray-600';
+              return (
+                <div key={p.id} className="flex items-start gap-3 p-3 rounded-lg border bg-white hover:bg-gray-50">
+                  <div className="flex-shrink-0 h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                    <List className="h-3.5 w-3.5 text-orange-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 ${colorClass}`}>{p.eventType}</Badge>
+                      {p.priceTier && (
+                        <span className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                          <Tag className="h-3 w-3 text-gray-400" />{p.priceTier}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                      <span>{contact}</span>
+                      {p.productTypes && p.productTypes.length > 0 && (
+                        <><span className="text-gray-300">·</span><span className="truncate">{p.productTypes.join(', ')}</span></>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-gray-400 flex-shrink-0 flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3" />
+                    {p.createdAt ? fmtRelative(p.createdAt) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductPricesTab({ companyId }: { companyId: number | null }) {
   const [expandedInvoices, setExpandedInvoices] = useState<Record<string, boolean>>({});
 
@@ -684,7 +851,7 @@ export default function CompanyDetail() {
               </TabsContent>
 
               <TabsContent value="files">
-                <EmptyState icon={FolderOpen} title="No files yet" message="Files for this company will appear here" />
+                <FilesTab companyId={resolvedCompanyId} companyName={displayName} />
               </TabsContent>
 
               <TabsContent value="product-prices">

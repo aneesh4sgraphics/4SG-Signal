@@ -16894,6 +16894,70 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Company Files: email sends, QuickQuotes, Price Lists for orphan companies
+  app.get("/api/companies/by-name/files", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const orphanCustomers = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, email: customers.email })
+        .from(customers)
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`));
+
+      if (!orphanCustomers.length) return res.json({ emailSends: [], quoteEvents: [], priceListEvents: [] });
+
+      const ids = orphanCustomers.map(c => c.id);
+      const customerMap = new Map(orphanCustomers.map(c => [c.id, c]));
+
+      const [sends, quotes, priceLists] = await Promise.all([
+        db.select().from(emailSends).where(and(inArray(emailSends.customerId, ids), eq(emailSends.status, 'sent'))).orderBy(desc(emailSends.sentAt)).limit(50),
+        db.select().from(quoteEvents).where(inArray(quoteEvents.customerId, ids)).orderBy(desc(quoteEvents.createdAt)).limit(50),
+        db.select().from(priceListEvents).where(inArray(priceListEvents.customerId, ids)).orderBy(desc(priceListEvents.createdAt)).limit(50),
+      ]);
+
+      res.json({
+        emailSends: sends.map(s => ({ ...s, contactFirstName: customerMap.get(s.customerId!)?.firstName, contactLastName: customerMap.get(s.customerId!)?.lastName })),
+        quoteEvents: quotes.map(q => ({ ...q, contactFirstName: customerMap.get(q.customerId)?.firstName, contactLastName: customerMap.get(q.customerId)?.lastName })),
+        priceListEvents: priceLists.map(p => ({ ...p, contactFirstName: customerMap.get(p.customerId!)?.firstName, contactLastName: customerMap.get(p.customerId!)?.lastName })),
+      });
+    } catch (error) {
+      console.error("Error fetching company files:", error);
+      res.status(500).json({ error: "Failed to fetch company files" });
+    }
+  });
+
+  // Company Files: email sends, QuickQuotes, Price Lists for official companies
+  app.get("/api/companies/:id/files", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const companyCustomers = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, email: customers.email })
+        .from(customers)
+        .where(eq(customers.companyId, companyId));
+
+      if (!companyCustomers.length) return res.json({ emailSends: [], quoteEvents: [], priceListEvents: [] });
+
+      const ids = companyCustomers.map(c => c.id);
+      const customerMap = new Map(companyCustomers.map(c => [c.id, c]));
+
+      const [sends, quotes, priceLists] = await Promise.all([
+        db.select().from(emailSends).where(and(inArray(emailSends.customerId, ids), eq(emailSends.status, 'sent'))).orderBy(desc(emailSends.sentAt)).limit(50),
+        db.select().from(quoteEvents).where(inArray(quoteEvents.customerId, ids)).orderBy(desc(quoteEvents.createdAt)).limit(50),
+        db.select().from(priceListEvents).where(inArray(priceListEvents.customerId, ids)).orderBy(desc(priceListEvents.createdAt)).limit(50),
+      ]);
+
+      res.json({
+        emailSends: sends.map(s => ({ ...s, contactFirstName: customerMap.get(s.customerId!)?.firstName, contactLastName: customerMap.get(s.customerId!)?.lastName })),
+        quoteEvents: quotes.map(q => ({ ...q, contactFirstName: customerMap.get(q.customerId)?.firstName, contactLastName: customerMap.get(q.customerId)?.lastName })),
+        priceListEvents: priceLists.map(p => ({ ...p, contactFirstName: customerMap.get(p.customerId!)?.firstName, contactLastName: customerMap.get(p.customerId!)?.lastName })),
+      });
+    } catch (error) {
+      console.error("Error fetching company files:", error);
+      res.status(500).json({ error: "Failed to fetch company files" });
+    }
+  });
+
   // Delete a lead
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
