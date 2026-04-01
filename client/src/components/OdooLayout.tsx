@@ -1,33 +1,52 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import logoPath from '@assets/4s_logo_Clean_120x_1764801255491.png';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { User } from '@shared/schema';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppUsage, AppUsageProvider } from '@/hooks/useAppUsage';
 import { CommandPalette, useCommandPalette, NAV_ITEMS } from './CommandPalette';
-import { AppSwitcherDrawer } from './AppSwitcherDrawer';
 import {
-  SettingsIcon,
-  LogoutIcon,
-  MenuIcon,
-  GridIcon,
-  RefreshIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CommandIcon,
-} from '@/components/HandDrawnIcons';
+  Search,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+  Menu,
+  Home,
+  LayoutDashboard,
+  FileText,
+  Mail,
+  BarChart3,
+  Users,
+  Zap,
+  Database,
+  Target,
+  Sparkles,
+  Package,
+  Truck,
+  Tag,
+  Calculator,
+  TrendingUp,
+  Calendar,
+  AlertTriangle,
+  BookOpen,
+  ListChecks,
+  MapPin,
+  ShoppingBag,
+  Activity,
+  Layers,
+  RefreshCw,
+  Settings2,
+  DollarSign,
+  Clock,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { resetAppData } from '@/lib/cache';
-import { queryClient } from '@/lib/queryClient';
-import { filterAppsByUser } from '@/lib/nav-links';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,64 +59,314 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { resetAppData } from '@/lib/cache';
+import { queryClient } from '@/lib/queryClient';
+import { filterAppsByUser } from '@/lib/nav-links';
 
 interface OdooLayoutProps {
   children: React.ReactNode;
 }
 
-const coreItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'core');
-const toolItems = NAV_ITEMS.filter(item => !item.adminOnly && item.group === 'tools');
-const adminItems = NAV_ITEMS.filter(item => item.adminOnly);
+interface NavItemDef {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  iconColor: string;
+  adminOnly?: boolean;
+}
 
-function SettingsMenu() {
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  
-  const handleReset = () => {
-    resetAppData({ whitelistKeys: ['theme', '4s-app-usage-data'] });
-  };
-  
+const TOP_ITEMS: NavItemDef[] = [
+  { path: '/', label: 'Home', icon: Home, iconColor: '#6366f1' },
+  { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
+  { path: '/email-app', label: 'Emails', icon: Mail, iconColor: '#10b981' },
+  { path: '/reports', label: 'Reports', icon: BarChart3, iconColor: '#3b82f6' },
+];
+
+const AUTOMATION_ITEMS: NavItemDef[] = [
+  { path: '/crm-journey', label: 'CRM Journey', icon: Target, iconColor: '#8b5cf6' },
+  { path: '/calendar', label: 'Calendar', icon: Calendar, iconColor: '#ef4444' },
+];
+
+const RECORD_ITEMS: NavItemDef[] = [
+  { path: '/odoo-contacts', label: 'Clients', icon: Users, iconColor: '#6366f1' },
+  { path: '/leads', label: 'Leads', icon: Sparkles, iconColor: '#10b981' },
+  { path: '/opportunities', label: 'Opportunities', icon: Target, iconColor: '#f59e0b' },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, iconColor: '#3b82f6' },
+  { path: '/admin', label: 'Users', icon: Users, iconColor: '#ef4444', adminOnly: true },
+];
+
+const TOOL_ITEMS: NavItemDef[] = [
+  { path: '/quick-quotes', label: 'QuickQuotes', icon: DollarSign, iconColor: '#d97706' },
+  { path: '/saved-quotes', label: 'Saved Quotes', icon: BookOpen, iconColor: '#be185d' },
+  { path: '/price-list', label: 'Price List', icon: FileText, iconColor: '#ca8a04' },
+  { path: '/area-pricer', label: 'SqM Calculator', icon: Calculator, iconColor: '#64748b' },
+  { path: '/competitor-pricing', label: 'Market Prices', icon: TrendingUp, iconColor: '#0c6e99' },
+  { path: '/customer-margins', label: 'Customer Margins', icon: BarChart3, iconColor: '#7c3aed' },
+  { path: '/shipping-calculator', label: 'Shipping', icon: Truck, iconColor: '#d97706' },
+  { path: '/shipping-labels', label: 'Shipping Labels', icon: Package, iconColor: '#6366f1' },
+  { path: '/product-labels', label: 'Product Labels', icon: Tag, iconColor: '#0e7b6c' },
+  { path: '/objections', label: 'Objections', icon: AlertTriangle, iconColor: '#d97706' },
+];
+
+const ADMIN_ITEMS: NavItemDef[] = [
+  { path: '/spotlight-overview', label: 'Spotlight Overview', icon: Clock, iconColor: '#4f46e5', adminOnly: true },
+  { path: '/activity-logs', label: 'Activity', icon: Activity, iconColor: '#d97706', adminOnly: true },
+  { path: '/product-pricing-management', label: 'Products DB', icon: Database, iconColor: '#0284c7', adminOnly: true },
+  { path: '/pdf-settings', label: 'PDF Settings', icon: FileText, iconColor: '#64473a', adminOnly: true },
+  { path: '/product-mapping', label: 'Product Mapping', icon: Layers, iconColor: '#d97706', adminOnly: true },
+  { path: '/integrations', label: 'Integrations', icon: Settings2, iconColor: '#0c6e99', adminOnly: true },
+  { path: '/odoo-settings', label: 'Odoo', icon: RefreshCw, iconColor: '#693fa5', adminOnly: true },
+  { path: '/shopify-settings', label: 'Shopify', icon: ShoppingBag, iconColor: '#0e7b6c', adminOnly: true },
+];
+
+function getUserInitials(email: string | undefined): string {
+  if (!email) return 'U';
+  const e = email.toLowerCase();
+  if (e.includes('aneesh')) return 'AP';
+  if (e.includes('patricio')) return 'PD';
+  if (e.includes('santiago')) return 'SC';
+  if (e.includes('oscar')) return 'OA';
+  if (e.includes('warehouse') || e.includes('rey')) return 'RC';
+  if (e.includes('gustavo')) return 'GR';
+  return email.slice(0, 2).toUpperCase();
+}
+
+function NavItem({ item, isActive, onClick }: { item: NavItemDef; isActive: boolean; onClick?: () => void }) {
+  const Icon = item.icon;
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <SettingsIcon className="h-4 w-4 text-gray-500" />
+    <Link
+      href={item.path}
+      onClick={onClick}
+      className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors duration-100 group ${
+        isActive
+          ? 'bg-[#F0F0F0] text-gray-900 font-medium'
+          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+      }`}
+    >
+      <span
+        className="w-5 h-5 flex items-center justify-center rounded flex-shrink-0"
+      >
+        <Icon
+          className="h-4 w-4"
+          style={{ color: isActive ? item.iconColor : '#9ca3af' }}
+        />
+      </span>
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+function CollapsibleSection({
+  label,
+  items,
+  isAdmin,
+  location,
+  storageKey,
+  onNavClick,
+}: {
+  label: string;
+  items: NavItemDef[];
+  isAdmin: boolean;
+  location: string;
+  storageKey: string;
+  onNavClick?: () => void;
+}) {
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(storageKey) !== 'false'; } catch { return true; }
+  });
+
+  const visibleItems = items.filter(i => !i.adminOnly || isAdmin);
+  if (visibleItems.length === 0) return null;
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(storageKey, String(next)); } catch {}
+  };
+
+  return (
+    <div className="mt-1">
+      <button
+        onClick={toggle}
+        className="flex items-center gap-1.5 w-full px-2 py-1 text-xs font-medium text-gray-400 uppercase tracking-wider hover:text-gray-500 transition-colors"
+      >
+        {open
+          ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
+          : <ChevronRight className="h-3 w-3 flex-shrink-0" />
+        }
+        {label}
+      </button>
+      {open && (
+        <div className="mt-0.5 space-y-0.5">
+          {visibleItems.map(item => (
+            <NavItem
+              key={item.path}
+              item={item}
+              isActive={location === item.path}
+              onClick={onNavClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarContent({
+  location,
+  isAdmin,
+  user,
+  userInitials,
+  onLogout,
+  isLoggingOut,
+  onNavClick,
+  onOpenCommand,
+}: {
+  location: string;
+  isAdmin: boolean;
+  user: any;
+  userInitials: string;
+  onLogout: () => void;
+  isLoggingOut: boolean;
+  onNavClick?: () => void;
+  onOpenCommand: () => void;
+}) {
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const userEmail = user?.email as string | undefined;
+  const visibleTopItems = filterAppsByUser(TOP_ITEMS, userEmail);
+
+  return (
+    <div className="h-full flex flex-col bg-white select-none">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <img src={logoPath} alt="4S Graphics" className="w-6 h-6 object-contain flex-shrink-0" />
+          <span className="text-sm font-semibold text-gray-800 truncate">4S Graphics, inc</span>
+          <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+        </div>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={onOpenCommand}
+            className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            title="Search"
+          >
+            <Search className="h-3.5 w-3.5 text-gray-400" />
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={() => setShowResetDialog(true)} className="cursor-pointer">
-            <RefreshIcon className="h-4 w-4 mr-2" />
-            Reset App Data
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+                <Settings className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => setShowResetDialog(true)} className="cursor-pointer text-sm">
+                <RefreshCw className="h-3.5 w-3.5 mr-2 text-gray-500" />
+                Reset App Data
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onLogout} disabled={isLoggingOut} className="cursor-pointer text-sm text-red-600 focus:text-red-600">
+                <LogOut className="h-3.5 w-3.5 mr-2" />
+                {isLoggingOut ? 'Logging out...' : 'Log out'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+        {/* Top-level items */}
+        {visibleTopItems.map(item => (
+          <NavItem
+            key={item.path}
+            item={item}
+            isActive={location === item.path}
+            onClick={onNavClick}
+          />
+        ))}
+
+        {/* Automations section */}
+        <CollapsibleSection
+          label="Automations"
+          items={AUTOMATION_ITEMS}
+          isAdmin={isAdmin}
+          location={location}
+          storageKey="4s-nav-automations"
+          onNavClick={onNavClick}
+        />
+
+        {/* Records section */}
+        <CollapsibleSection
+          label="Records"
+          items={RECORD_ITEMS}
+          isAdmin={isAdmin}
+          location={location}
+          storageKey="4s-nav-records"
+          onNavClick={onNavClick}
+        />
+
+        {/* Tools / Lists section */}
+        <CollapsibleSection
+          label="Lists"
+          items={TOOL_ITEMS}
+          isAdmin={isAdmin}
+          location={location}
+          storageKey="4s-nav-lists"
+          onNavClick={onNavClick}
+        />
+
+        {/* Admin section */}
+        {isAdmin && (
+          <CollapsibleSection
+            label="Admin"
+            items={ADMIN_ITEMS}
+            isAdmin={isAdmin}
+            location={location}
+            storageKey="4s-nav-admin"
+            onNavClick={onNavClick}
+          />
+        )}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-2 py-2 border-t border-gray-100">
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors cursor-default">
+          <Avatar className="h-5 w-5 flex-shrink-0">
+            <AvatarFallback className="bg-gray-800 text-white text-[9px] font-semibold">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-gray-700 truncate leading-none">
+              {user?.firstName || user?.email?.split('@')[0] || 'User'}
+            </p>
+            <p className="text-[10px] text-gray-400 truncate mt-0.5">
+              {user?.email}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <AlertDialogContent className="glass-card">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-bold">Reset App Data</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-500">
+            <AlertDialogTitle>Reset App Data</AlertDialogTitle>
+            <AlertDialogDescription>
               This clears local filters and cache. Server data is not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="glass-btn">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset} className="glass-btn-primary">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetAppData({ whitelistKeys: ['theme', '4s-app-usage-data'] })}>
               Reset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }
 
 function OdooLayoutContent({ children }: OdooLayoutProps) {
-  const [sidebarExpanded] = useState(true);
-  const [toolsExpanded, setToolsExpanded] = useState(() => {
-    try { return localStorage.getItem('4s-tools-expanded') === 'true'; } catch { return false; }
-  });
-  const [appSwitcherOpen, setAppSwitcherOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
@@ -106,361 +375,62 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (location) {
-      trackUsage(location);
-    }
+    if (location) trackUsage(location);
   }, [location, trackUsage]);
 
-  
   const logout = () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
-    
     queryClient.clear();
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = '/api/logout';
   };
 
-  const toggleTools = () => {
-    const next = !toolsExpanded;
-    setToolsExpanded(next);
-    try { localStorage.setItem('4s-tools-expanded', String(next)); } catch {}
-  };
-
-  const isToolActive = toolItems.some(item => location === item.path);
-
   const isAdmin = (user as any)?.role === 'admin';
   const userEmail = (user as any)?.email;
-  const visibleCoreItems = filterAppsByUser(coreItems, userEmail);
-  const visibleToolItems = filterAppsByUser(toolItems, userEmail);
-  
-  const getUserInitials = (email: string | undefined): string => {
-    if (!email) return 'U';
-    const emailLower = email.toLowerCase();
-    if (emailLower.includes('aneesh')) return 'AP';
-    if (emailLower.includes('patricio')) return 'PD';
-    if (emailLower.includes('santiago')) return 'SC';
-    if (emailLower.includes('oscar')) return 'OA';
-    if (emailLower.includes('warehouse') || emailLower.includes('rey')) return 'RC';
-    if (emailLower.includes('gustavo')) return 'GR';
-    return email.slice(0, 2).toUpperCase();
+  const userInitials = getUserInitials(userEmail);
+
+  const sidebarProps = {
+    location,
+    isAdmin,
+    user: user as any,
+    userInitials,
+    onLogout: logout,
+    isLoggingOut,
+    onOpenCommand: () => setCommandOpen(true),
   };
-  const userInitials = getUserInitials((user as any)?.email);
-
-  const MobileSidebar = () => (
-    <Sheet>
-      <SheetTrigger asChild>
-        <button 
-          className="lg:hidden fixed left-4 top-4 z-50 p-2.5 rounded-lg bg-white border border-[#EAEAEA] shadow-sm hover:bg-[#F7F7F5] transition-all duration-150 ease-out"
-          data-testid="button-mobile-menu"
-        >
-          <MenuIcon className="h-5 w-5 text-[#37352F]" />
-        </button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-[300px] p-0">
-        <div className="h-full flex flex-col bg-white">
-          <div className="h-16 flex items-center gap-3 px-4 border-b">
-            <img src={logoPath} alt="4S Graphics" className="w-9 h-9 object-contain" />
-            <div>
-              <h1 className="font-bold text-gray-900">4S Graphics</h1>
-              <p className="text-xs text-gray-400">Portal</p>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => setAppSwitcherOpen(true)}
-            className="m-4 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-[#F7F7F5] hover:bg-[#EAEAEA] transition-all duration-150 ease-out"
-            data-testid="button-mobile-app-switcher"
-          >
-            <GridIcon className="h-5 w-5 text-[#73726E]" />
-            <span className="font-medium text-[#37352F]">All Apps</span>
-          </button>
-          
-          <nav className="flex-1 px-4 py-2 overflow-y-auto">
-            <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
-            {visibleCoreItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out mb-1 relative ${
-                    isActive 
-                      ? 'bg-[#F7F7F5] text-[#37352F] font-medium' 
-                      : 'text-[#73726E] hover:bg-[#F7F7F5]'
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#37352F] rounded-r-full" />
-                  )}
-                  <span 
-                    className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
-                  >
-                    <Icon className="h-5 w-5 text-[#37352F]" />
-                  </span>
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              );
-            })}
-
-            <button
-              onClick={toggleTools}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F] transition-all duration-150 ease-out mt-2 mb-1"
-            >
-              <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
-              <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
-              {isToolActive && !toolsExpanded && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
-              )}
-            </button>
-            {toolsExpanded && visibleToolItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out mb-1 relative ${
-                    isActive 
-                      ? 'bg-[#F7F7F5] text-[#37352F] font-medium' 
-                      : 'text-[#73726E] hover:bg-[#F7F7F5]'
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#37352F] rounded-r-full" />
-                  )}
-                  <span 
-                    className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0"
-                  >
-                    <Icon className="h-5 w-5 text-[#37352F]" />
-                  </span>
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          
-          <div className="p-4 border-t">
-            <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 mb-3">
-              <Avatar className="h-9 w-9 bg-gray-900">
-                <AvatarFallback className="bg-gray-900 text-white text-xs font-semibold">{userInitials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
-                </p>
-                <p className="text-xs text-gray-400 truncate">{(user as any)?.email}</p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={logout}
-              disabled={isLoggingOut}
-              className="w-full justify-start gap-2 text-gray-600 hover:text-red-600 hover:bg-red-50"
-              data-testid="button-logout-mobile"
-            >
-              <LogoutIcon className="h-4 w-4" />
-              <span>{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
-            </Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
 
   return (
-    <div className="min-h-screen flex bg-[#F7F7F7]">
+    <div className="min-h-screen flex bg-[#F8F8F8]">
+      {/* Mobile sidebar */}
+      {isMobile && (
+        <Sheet>
+          <SheetTrigger asChild>
+            <button
+              className="lg:hidden fixed left-3 top-3 z-50 p-2 rounded-lg bg-white border border-gray-200 shadow-sm"
+              data-testid="button-mobile-menu"
+            >
+              <Menu className="h-4 w-4 text-gray-600" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[260px] p-0">
+            <SidebarContent
+              {...sidebarProps}
+              onNavClick={() => {}}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
-      {isMobile && <MobileSidebar />}
-
-      <aside 
-        className="hidden lg:flex w-64 h-screen flex-col fixed left-0 top-0 z-40 bg-white border-r border-[#EAEAEA]"
-      >
-        <div className="h-14 flex items-center justify-between px-4 border-b border-[#EAEAEA]">
-          {sidebarExpanded ? (
-            <>
-              <div className="flex items-center gap-2">
-                <img src={logoPath} alt="4S Graphics Logo" className="w-9 h-9 object-contain flex-shrink-0" />
-                <div>
-                  <h1 className="font-bold text-gray-900 text-base leading-tight">4S Graphics</h1>
-                  <p className="text-[10px] text-gray-400 leading-tight">Portal</p>
-                </div>
-              </div>
-              <SettingsMenu />
-            </>
-          ) : (
-            <div className="w-full flex justify-center">
-              <img src={logoPath} alt="4S Graphics Logo" className="w-9 h-9 object-contain" />
-            </div>
-          )}
-        </div>
-
-
-        <nav className="flex-1 py-2 overflow-y-auto">
-          <TooltipProvider delayDuration={100}>
-          {(() => {
-            const renderNavItem = (item: typeof coreItems[0]) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
-              const bg = item.iconBg || '#2563eb';
-              const fg = item.iconColor || '#ffffff';
-
-              const linkContent = (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 ease-out group relative ${
-                    isActive
-                      ? 'font-medium'
-                      : 'text-[#73726E] hover:bg-[#F7F7F5] hover:text-[#37352F]'
-                  }`}
-                  style={isActive ? { backgroundColor: `${bg}18`, color: bg } : undefined}
-                >
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full"
-                      style={{ backgroundColor: bg }}
-                    />
-                  )}
-                  <span
-                    className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-150"
-                    style={{ backgroundColor: isActive ? bg : `${bg}22` }}
-                  >
-                    <Icon
-                      className="h-5 w-5 transition-colors duration-150"
-                      style={{ color: isActive ? fg : bg }}
-                    />
-                  </span>
-                  {sidebarExpanded && (
-                    <span className="text-sm truncate">{item.label}</span>
-                  )}
-                </Link>
-              );
-
-              if (!sidebarExpanded) {
-                return (
-                  <Tooltip key={item.path}>
-                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                    <TooltipContent side="right" className="font-medium">
-                      <p>{item.label}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-              return <div key={item.path}>{linkContent}</div>;
-            };
-
-            return (
-              <>
-                <div className="px-3 space-y-1">
-                  {sidebarExpanded && (
-                    <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Menu</p>
-                  )}
-                  {visibleCoreItems.map(renderNavItem)}
-                </div>
-
-                <div className="px-3 space-y-1 mt-3">
-                  <button
-                    onClick={toggleTools}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg w-full transition-all duration-150 ease-out ${
-                      isToolActive && !toolsExpanded
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-[#9B9A97] hover:bg-[#F7F7F5] hover:text-[#37352F]'
-                    }`}
-                  >
-                    {sidebarExpanded ? (
-                      <>
-                        <ChevronRightIcon className={`h-3 w-3 transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
-                        <span className="text-[11px] font-medium uppercase tracking-wide">Tools</span>
-                        {isToolActive && !toolsExpanded && (
-                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600" />
-                        )}
-                      </>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0">
-                            <ChevronRightIcon className={`h-4 w-4 text-[#73726E] transition-transform duration-200 ${toolsExpanded ? 'rotate-90' : ''}`} />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="font-medium">
-                          <p>Tools</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </button>
-                  {(toolsExpanded || isToolActive) && visibleToolItems.map((item) => {
-                    if (!toolsExpanded && location !== item.path) return null;
-                    return renderNavItem(item);
-                  })}
-                </div>
-
-                {isAdmin && (
-                  <div className="px-3 space-y-1 mt-6">
-                    {sidebarExpanded && (
-                      <p className="text-[11px] font-medium text-[#9B9A97] uppercase tracking-wide px-3 mb-2">Admin</p>
-                    )}
-                    {adminItems.map(renderNavItem)}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-          </TooltipProvider>
-        </nav>
-
-        <div className="p-3 border-t border-gray-100">
-          {sidebarExpanded ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50">
-                <Avatar className="h-9 w-9 bg-gray-900">
-                  <AvatarFallback className="bg-gray-900 text-white text-xs font-semibold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {(user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">{(user as any)?.email}</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={logout}
-                disabled={isLoggingOut}
-                className="w-full justify-start gap-2 text-gray-600 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
-                data-testid="button-logout"
-              >
-                <LogoutIcon className="h-4 w-4" />
-                <span>{isLoggingOut ? 'Logging out...' : 'Log out'}</span>
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <Avatar className="h-9 w-9 bg-gray-900">
-                <AvatarFallback className="bg-gray-900 text-white text-xs font-semibold">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <button
-                onClick={logout}
-                disabled={isLoggingOut}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                data-testid="button-logout"
-                title={isLoggingOut ? 'Logging out...' : 'Log out'}
-              >
-                <LogoutIcon className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-56 h-screen flex-col fixed left-0 top-0 z-40 bg-white border-r border-gray-100">
+        <SidebarContent {...sidebarProps} />
       </aside>
 
-      <main className={`flex-1 ${isMobile ? 'ml-0 pt-20' : 'lg:ml-64'} transition-all duration-300 relative z-10`}>
-        <div className="min-h-screen p-6">
+      {/* Main content */}
+      <main className={`flex-1 ${isMobile ? 'ml-0 pt-16' : 'lg:ml-56'} min-h-screen`}>
+        <div className="p-6">
           <div className="max-w-[1400px] mx-auto">
             {children}
           </div>
@@ -468,11 +438,6 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
       </main>
 
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
-      <AppSwitcherDrawer 
-        open={appSwitcherOpen} 
-        onClose={() => setAppSwitcherOpen(false)}
-        onOpenCommandPalette={() => setCommandOpen(true)}
-      />
     </div>
   );
 }

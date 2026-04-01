@@ -8,40 +8,40 @@
 /* Pure grayscale, Inter typography (Notion's actual font), minimal surfaces */
 
 :root {
-  --background: #F9F8F6;
-  --foreground: #1A1A1A;
+  --background: #F8F8F8;
+  --foreground: #111111;
   --card: #FFFFFF;
-  --card-foreground: #1A1A1A;
+  --card-foreground: #111111;
   --popover: #FFFFFF;
-  --popover-foreground: #1A1A1A;
-  --muted: #F4F3F0;
-  --muted-foreground: #8A8A8A;
-  --border: #EBEBEB;
-  --input: #EBEBEB;
-  --divider: #F0EFED;
-  --primary: #1A1A1A;
+  --popover-foreground: #111111;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --divider: #F3F4F6;
+  --primary: #111111;
   --primary-foreground: #FFFFFF;
-  --secondary: #F4F3F0;
-  --secondary-foreground: #1A1A1A;
-  --accent: #F0EEFF;
-  --accent-foreground: #5E4ECD;
-  --destructive: #E5484D;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111111;
+  --accent: #EFF6FF;
+  --accent-foreground: #1D4ED8;
+  --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --ring: rgba(94, 78, 205, 0.25);
-  --radius: 10px;
-  --sidebar-background: #FEFEFE;
-  --sidebar-foreground: #1A1A1A;
-  --sidebar-primary: #1A1A1A;
+  --ring: rgba(99, 102, 241, 0.25);
+  --radius: 8px;
+  --sidebar-background: #FFFFFF;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #111111;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F4F3F0;
-  --sidebar-accent-foreground: #1A1A1A;
-  --sidebar-border: #EBEBEB;
-  --sidebar-ring: rgba(94, 78, 205, 0.25);
-  --chart-1: #5E4ECD;
-  --chart-2: #7C6EE0;
-  --chart-3: #A99EEE;
-  --chart-4: #D4CFFA;
-  --chart-5: #EBEBEB;
+  --sidebar-accent: #F3F4F6;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #F3F4F6;
+  --sidebar-ring: rgba(99, 102, 241, 0.25);
+  --chart-1: #6366F1;
+  --chart-2: #818CF8;
+  --chart-3: #A5B4FC;
+  --chart-4: #C7D2FE;
+  --chart-5: #E0E7FF;
 }
 
 .dark {
