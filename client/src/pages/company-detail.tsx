@@ -166,8 +166,9 @@ function EmptyState({ icon: Icon, title, message }: { icon: LucideIcon; title: s
 }
 
 function OverviewTab({ overview }: { overview: CompanyOverview }) {
-  const isShopifyOnly = !overview.company?.odooCompanyPartnerId || overview.company?.id == null;
+  const hasOdooLink = !!overview.company?.odooCompanyPartnerId;
   const kpis = overview.odooKpis;
+  const noOdooSubtext = 'Not linked to Odoo';
 
   return (
     <div className="space-y-4">
@@ -180,25 +181,25 @@ function OverviewTab({ overview }: { overview: CompanyOverview }) {
         />
         <KpiTile
           label="Avg. Margin %"
-          value={isShopifyOnly ? '—' : (kpis.avgMargin != null ? `${kpis.avgMargin.toFixed(1)}%` : '—')}
+          value={hasOdooLink ? (kpis.avgMargin != null ? `${kpis.avgMargin.toFixed(1)}%` : '—') : '—'}
           icon={TrendingUp}
           color="bg-blue-50 border-blue-200"
           textColor="text-blue-700"
-          subtext={isShopifyOnly ? 'Shopify only — no Odoo data' : undefined}
+          subtext={!hasOdooLink ? noOdooSubtext : undefined}
         />
         <KpiTile
           label="No. of Invoices"
-          value={isShopifyOnly ? '—' : (kpis.invoiceCount ?? '—')}
+          value={hasOdooLink ? (kpis.invoiceCount ?? '—') : '—'}
           icon={FileText}
-          subtext={isShopifyOnly ? 'Shopify only — no Odoo data' : undefined}
+          subtext={!hasOdooLink ? noOdooSubtext : undefined}
         />
         <KpiTile
           label="Current Outstanding"
-          value={isShopifyOnly ? '—' : (kpis.outstanding != null ? fmt$(kpis.outstanding) : '—')}
+          value={hasOdooLink ? (kpis.outstanding != null ? fmt$(kpis.outstanding) : '—') : '—'}
           icon={DollarSign}
           color="bg-red-50 border-red-200"
           textColor="text-red-700"
-          subtext={isShopifyOnly ? 'Shopify only — no Odoo data' : undefined}
+          subtext={!hasOdooLink ? noOdooSubtext : undefined}
         />
       </div>
 
@@ -750,7 +751,8 @@ export default function CompanyDetail() {
 
   const contacts = contactsData?.contacts ?? [];
   const displayName = overview?.company?.name || companyName || 'Company';
-  const isShopifyOnly = !overview?.company?.odooCompanyPartnerId || overview?.company?.id == null;
+  const isOrphan = overview?.company?.id == null;
+  const hasOdooLink = !!overview?.company?.odooCompanyPartnerId;
   const resolvedCompanyId = overview?.company?.id ?? companyId;
 
   if (overviewLoading) {
@@ -793,10 +795,15 @@ export default function CompanyDetail() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold text-gray-900 truncate">{displayName}</h1>
-            {isShopifyOnly && (
+            {isOrphan && (
               <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-[10px]">
                 <SiShopify className="h-3 w-3" />
                 Shopify Only
+              </Badge>
+            )}
+            {!isOrphan && !hasOdooLink && (
+              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50">
+                No Odoo Link
               </Badge>
             )}
           </div>
