@@ -16158,93 +16158,163 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
-  // Aggregate all company names from all sources (Odoo companies table + customer company fields + Shopify mappings)
+  // Backward-compat alias kept so existing frontend query key still resolves
   app.get("/api/companies/all-names", isAuthenticated, async (req: any, res) => {
+    res.redirect(307, `/api/companies/directory?${new URLSearchParams(req.query as any).toString()}`);
+  });
+
+  // Company directory: aggregated cards with financial metrics from linked contacts
+  app.get("/api/companies/directory", isAuthenticated, async (req: any, res) => {
     try {
       const search = ((req.query.search as string) || '').trim().toLowerCase();
 
-      // 1. Companies table (Odoo-synced official companies)
-      const officialCompanies = await db.select({
+      // ── 1. Official companies (companies table) with aggregated stats ──────
+      const officialRaw = await db.select({
         id: companies.id,
         name: companies.name,
         city: companies.city,
         stateProvince: companies.stateProvince,
         domain: companies.domain,
+        mainPhone: companies.mainPhone,
+        generalEmail: companies.generalEmail,
         odooCompanyPartnerId: companies.odooCompanyPartnerId,
+        addressLine1: companies.addressLine1,
+        country: companies.country,
+        status: companies.status,
+        assignedTo: companies.assignedTo,
       }).from(companies).orderBy(companies.name);
 
-      // 2. Distinct company names from customers table
-      const customerCompanyRows = await db
-        .selectDistinct({ company: customers.company })
+      // Aggregate customer stats grouped by companyId
+      const custStats = await db
+        .select({
+          companyId: customers.companyId,
+          contactCount: sql<number>`COUNT(*)`,
+          lifetimeSales: sql<string>`COALESCE(SUM(${customers.totalSpent}::decimal), 0)`,
+          totalOrders: sql<number>`COALESCE(SUM(${customers.totalOrders}), 0)`,
+          primarySalesRep: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.salesRepName})`,
+          primaryPricingTier: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.pricingTier})`,
+        })
         .from(customers)
-        .where(and(
-          sql`${customers.company} IS NOT NULL`,
-          sql`TRIM(${customers.company}) != ''`
-        ));
+        .where(sql`${customers.companyId} IS NOT NULL`)
+        .groupBy(customers.companyId);
 
-      // 3. Distinct Shopify company names
-      const shopifyRows = await db
-        .selectDistinct({ shopifyCompanyName: shopifyCustomerMappings.shopifyCompanyName })
-        .from(shopifyCustomerMappings)
-        .where(and(
-          sql`${shopifyCustomerMappings.shopifyCompanyName} IS NOT NULL`,
-          sql`TRIM(${shopifyCustomerMappings.shopifyCompanyName}) != ''`,
-          eq(shopifyCustomerMappings.isActive, true)
-        ));
+      const custStatMap = new Map(custStats.map(r => [r.companyId, r]));
 
-      // Build a set of official company names (lowercased) for dedup
-      const officialNameSet = new Set(officialCompanies.map(c => c.name.toLowerCase()));
-
-      // Build result list: official companies first
-      const result: {
+      type CompanyCard = {
         id: number | null;
         name: string;
-        source: 'odoo' | 'shopify' | 'contact';
+        source: 'odoo' | 'contact';
         city: string | null;
         stateProvince: string | null;
         domain: string | null;
-      }[] = officialCompanies.map(c => ({
-        id: c.id,
-        name: c.name,
-        source: 'odoo' as const,
-        city: c.city ?? null,
-        stateProvince: c.stateProvince ?? null,
-        domain: c.domain ?? null,
-      }));
+        mainPhone: string | null;
+        generalEmail: string | null;
+        addressLine1: string | null;
+        country: string | null;
+        contactCount: number;
+        lifetimeSales: number;
+        totalOrders: number;
+        primarySalesRep: string | null;
+        primaryPricingTier: string | null;
+      };
 
-      // Add customer company names not already in result
-      const seenNames = new Set(officialNameSet);
-      for (const row of customerCompanyRows) {
+      const result: CompanyCard[] = officialRaw.map(c => {
+        const stats = custStatMap.get(c.id) ?? null;
+        return {
+          id: c.id,
+          name: c.name,
+          source: 'odoo' as const,
+          city: c.city ?? null,
+          stateProvince: c.stateProvince ?? null,
+          domain: c.domain ?? null,
+          mainPhone: c.mainPhone ?? null,
+          generalEmail: c.generalEmail ?? null,
+          addressLine1: c.addressLine1 ?? null,
+          country: c.country ?? null,
+          contactCount: Number(stats?.contactCount ?? 0),
+          lifetimeSales: parseFloat(stats?.lifetimeSales ?? '0'),
+          totalOrders: Number(stats?.totalOrders ?? 0),
+          primarySalesRep: stats?.primarySalesRep ?? null,
+          primaryPricingTier: stats?.primaryPricingTier ?? null,
+        };
+      });
+
+      // ── 2. Orphan company names from customers (no linked companies record) ─
+      const orphanStats = await db
+        .select({
+          company: customers.company,
+          contactCount: sql<number>`COUNT(*)`,
+          lifetimeSales: sql<string>`COALESCE(SUM(${customers.totalSpent}::decimal), 0)`,
+          totalOrders: sql<number>`COALESCE(SUM(${customers.totalOrders}), 0)`,
+          primarySalesRep: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.salesRepName})`,
+          primaryPricingTier: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.pricingTier})`,
+          city: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.city})`,
+          province: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.province})`,
+        })
+        .from(customers)
+        .where(and(
+          sql`${customers.companyId} IS NULL`,
+          sql`${customers.company} IS NOT NULL`,
+          sql`TRIM(${customers.company}) != ''`
+        ))
+        .groupBy(customers.company);
+
+      const officialNamesLower = new Set(officialRaw.map(c => c.name.toLowerCase()));
+
+      for (const row of orphanStats) {
         if (!row.company) continue;
-        const key = row.company.toLowerCase();
-        if (!seenNames.has(key)) {
-          seenNames.add(key);
-          result.push({ id: null, name: row.company, source: 'contact', city: null, stateProvince: null, domain: null });
-        }
+        if (officialNamesLower.has(row.company.toLowerCase())) continue;
+        result.push({
+          id: null,
+          name: row.company,
+          source: 'contact',
+          city: row.city ?? null,
+          stateProvince: row.province ?? null,
+          domain: null,
+          mainPhone: null,
+          generalEmail: null,
+          addressLine1: null,
+          country: null,
+          contactCount: Number(row.contactCount),
+          lifetimeSales: parseFloat(row.lifetimeSales ?? '0'),
+          totalOrders: Number(row.totalOrders),
+          primarySalesRep: row.primarySalesRep ?? null,
+          primaryPricingTier: row.primaryPricingTier ?? null,
+        });
       }
 
-      // Add Shopify company names not already in result
-      for (const row of shopifyRows) {
-        if (!row.shopifyCompanyName) continue;
-        const key = row.shopifyCompanyName.toLowerCase();
-        if (!seenNames.has(key)) {
-          seenNames.add(key);
-          result.push({ id: null, name: row.shopifyCompanyName, source: 'shopify', city: null, stateProvince: null, domain: null });
-        }
-      }
-
-      // Filter by search if provided
+      // Filter + sort
       const filtered = search
         ? result.filter(r => r.name.toLowerCase().includes(search))
         : result;
-
-      // Sort alphabetically
       filtered.sort((a, b) => a.name.localeCompare(b.name));
 
       res.json(filtered);
     } catch (error) {
-      console.error("Error fetching all company names:", error);
-      res.status(500).json({ error: "Failed to fetch company names" });
+      console.error("Error fetching company directory:", error);
+      res.status(500).json({ error: "Failed to fetch company directory" });
+    }
+  });
+
+  // Contacts for a company identified only by name (orphan companies)
+  app.get("/api/companies/by-name/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const contacts = await db
+        .select()
+        .from(customers)
+        .where(and(
+          sql`LOWER(${customers.company}) = LOWER(${name})`,
+          sql`${customers.companyId} IS NULL`
+        ))
+        .orderBy(customers.lastName, customers.firstName);
+
+      res.json({ contacts });
+    } catch (error) {
+      console.error("Error fetching contacts by company name:", error);
+      res.status(500).json({ error: "Failed to fetch contacts" });
     }
   });
 

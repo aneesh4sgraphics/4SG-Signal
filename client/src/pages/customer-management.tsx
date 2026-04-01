@@ -1,53 +1,395 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Building2, X, MapPin, Globe } from 'lucide-react';
-import { SiShopify } from 'react-icons/si';
+import {
+  Search, Building2, X, MapPin, Globe, Phone, Mail,
+  Users, TrendingUp, ShoppingCart, DollarSign, ChevronRight,
+  User, BarChart3,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useDebounce } from '@/hooks/useDebounce';
 
-interface CompanyEntry {
+interface CompanyCard {
   id: number | null;
   name: string;
-  source: 'odoo' | 'shopify' | 'contact';
+  source: 'odoo' | 'contact';
   city: string | null;
   stateProvince: string | null;
   domain: string | null;
+  mainPhone: string | null;
+  generalEmail: string | null;
+  addressLine1: string | null;
+  country: string | null;
+  contactCount: number;
+  lifetimeSales: number;
+  totalOrders: number;
+  primarySalesRep: string | null;
+  primaryPricingTier: string | null;
 }
 
-function SourceBadge({ source }: { source: CompanyEntry['source'] }) {
-  if (source === 'odoo') {
-    return (
-      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-purple-200 text-purple-700 bg-purple-50 font-normal">
-        Odoo
-      </Badge>
-    );
-  }
-  if (source === 'shopify') {
-    return (
-      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-200 text-green-700 bg-green-50 font-normal flex items-center gap-1">
-        <SiShopify className="h-2.5 w-2.5" />
-        Shopify
-      </Badge>
-    );
-  }
+interface Customer {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  cell: string | null;
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  role: string | null;
+  pricingTier: string | null;
+  totalSpent: string | null;
+  totalOrders: number | null;
+  salesRepName: string | null;
+  note: string | null;
+  isCompany: boolean;
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+}
+
+function fmt$(n: number) {
+  if (n === 0) return '$0';
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
+  return `$${n.toLocaleString()}`;
+}
+
+const TIER_COLORS: Record<string, string> = {
+  diamond: 'bg-blue-100 text-blue-700 border-blue-200',
+  gold: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  silver: 'bg-gray-100 text-gray-600 border-gray-200',
+  bronze: 'bg-orange-100 text-orange-600 border-orange-200',
+  standard: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+function TierBadge({ tier }: { tier: string | null }) {
+  if (!tier) return null;
+  const cls = TIER_COLORS[tier.toLowerCase()] ?? 'bg-gray-100 text-gray-600 border-gray-200';
   return (
-    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-gray-200 text-gray-500 bg-gray-50 font-normal">
-      Contact
-    </Badge>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${cls} capitalize`}>
+      {tier}
+    </span>
   );
 }
 
+// ─── Contacts panel inside the Sheet ──────────────────────────────────────────
+function CompanyContacts({ company }: { company: CompanyCard }) {
+  const queryKey = company.id
+    ? ['/api/companies', company.id, 'contacts']
+    : ['/api/companies/by-name/contacts', company.name];
+
+  const { data, isLoading } = useQuery<{ contacts: Customer[] }>({
+    queryKey,
+    queryFn: async () => {
+      const url = company.id
+        ? `/api/companies/${company.id}/contacts`
+        : `/api/companies/by-name/contacts?name=${encodeURIComponent(company.name)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load contacts');
+      return res.json();
+    },
+  });
+
+  const contacts = data?.contacts ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="py-8 text-center text-gray-400">
+        <div className="h-5 w-5 border-2 border-gray-200 border-t-blue-400 rounded-full animate-spin mx-auto mb-2" />
+        <p className="text-sm">Loading contacts…</p>
+      </div>
+    );
+  }
+
+  if (contacts.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 italic py-4 text-center">No contacts linked to this company</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {contacts.map(c => {
+        const name = c.isCompany
+          ? c.company || c.firstName || 'Unknown'
+          : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+        const spent = parseFloat(c.totalSpent || '0');
+        const location = [c.city, c.province].filter(Boolean).join(', ');
+        return (
+          <div key={c.id} className="rounded-lg border border-gray-100 p-3 bg-gray-50 hover:bg-white transition-colors">
+            <div className="flex items-start gap-3">
+              {/* Avatar */}
+              <div className="flex-shrink-0 h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
+                {initials(name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+                  {c.role && <span className="text-[11px] text-gray-400">{c.role}</span>}
+                  <TierBadge tier={c.pricingTier} />
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {c.email && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <Mail className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                      <a href={`mailto:${c.email}`} className="hover:text-indigo-600 truncate">{c.email}</a>
+                    </p>
+                  )}
+                  {(c.phone || c.cell) && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                      {c.phone || c.cell}
+                    </p>
+                  )}
+                  {location && (
+                    <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      {location}
+                    </p>
+                  )}
+                </div>
+                {(spent > 0 || (c.totalOrders ?? 0) > 0) && (
+                  <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-gray-100">
+                    {spent > 0 && (
+                      <span className="text-[11px] text-gray-500">
+                        <span className="font-medium text-gray-700">{fmt$(spent)}</span> spent
+                      </span>
+                    )}
+                    {(c.totalOrders ?? 0) > 0 && (
+                      <span className="text-[11px] text-gray-500">
+                        <span className="font-medium text-gray-700">{c.totalOrders}</span> orders
+                      </span>
+                    )}
+                    {c.salesRepName && (
+                      <span className="text-[11px] text-gray-400">via {c.salesRepName}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Company detail Sheet ──────────────────────────────────────────────────────
+function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClose: () => void }) {
+  const open = !!company;
+  if (!company) return null;
+
+  const avgOrderValue = company.totalOrders > 0
+    ? company.lifetimeSales / company.totalOrders
+    : 0;
+
+  const address = [company.addressLine1, company.city, company.stateProvince, company.country]
+    .filter(Boolean).join(', ');
+
+  return (
+    <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0" side="right">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-5">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-lg font-bold flex-shrink-0">
+                {initials(company.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-gray-900 leading-tight truncate">{company.name}</p>
+                {company.domain && (
+                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                    <Globe className="h-3 w-3" />{company.domain}
+                  </p>
+                )}
+              </div>
+            </SheetTitle>
+          </SheetHeader>
+        </div>
+
+        <div className="px-6 py-5 space-y-6">
+          {/* Contact info */}
+          {(address || company.mainPhone || company.generalEmail) && (
+            <div className="space-y-1.5">
+              {address && (
+                <div className="flex items-start gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span>{address}</span>
+                </div>
+              )}
+              {company.mainPhone && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <a href={`tel:${company.mainPhone}`} className="hover:text-indigo-600">{company.mainPhone}</a>
+                </div>
+              )}
+              {company.generalEmail && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <a href={`mailto:${company.generalEmail}`} className="hover:text-indigo-600 truncate">{company.generalEmail}</a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Financial metrics */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Company Financials</h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <DollarSign className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-[11px] text-gray-400 font-medium">Lifetime Sales</span>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{fmt$(company.lifetimeSales)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ShoppingCart className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="text-[11px] text-gray-400 font-medium">Total Orders</span>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{company.totalOrders.toLocaleString()}</p>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+                  <span className="text-[11px] text-gray-400 font-medium">Avg. Order Value</span>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{fmt$(avgOrderValue)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Users className="h-3.5 w-3.5 text-orange-500" />
+                  <span className="text-[11px] text-gray-400 font-medium">Contacts</span>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{company.contactCount}</p>
+              </div>
+            </div>
+            {/* Sales rep + pricing tier */}
+            {(company.primarySalesRep || company.primaryPricingTier) && (
+              <div className="flex items-center gap-3 mt-2.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
+                {company.primarySalesRep && (
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="text-xs text-indigo-700 font-medium">{company.primarySalesRep}</span>
+                  </div>
+                )}
+                {company.primarySalesRep && company.primaryPricingTier && (
+                  <span className="text-indigo-200">·</span>
+                )}
+                {company.primaryPricingTier && (
+                  <div className="flex items-center gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5 text-indigo-400" />
+                    <TierBadge tier={company.primaryPricingTier} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Contacts */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Contacts ({company.contactCount})
+            </h3>
+            <CompanyContacts company={company} />
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Business card ─────────────────────────────────────────────────────────────
+function CompanyCard({ company, onClick }: { company: CompanyCard; onClick: () => void }) {
+  const location = [company.city, company.stateProvince].filter(Boolean).join(', ');
+  const hasFinancials = company.lifetimeSales > 0 || company.totalOrders > 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-4 group"
+    >
+      {/* Card header */}
+      <div className="flex items-start gap-3 mb-3">
+        <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-bold group-hover:bg-indigo-200 transition-colors">
+          {initials(company.name)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{company.name}</p>
+          {location ? (
+            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
+              <MapPin className="h-3 w-3 flex-shrink-0" />{location}
+            </p>
+          ) : company.domain ? (
+            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
+              <Globe className="h-3 w-3 flex-shrink-0" />{company.domain}
+            </p>
+          ) : null}
+        </div>
+        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-400 flex-shrink-0 mt-0.5 transition-colors" />
+      </div>
+
+      {/* Financial stats row */}
+      {hasFinancials ? (
+        <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+          <div className="rounded-lg bg-gray-50 px-2 py-1.5 text-center">
+            <p className="text-[10px] text-gray-400">Sales</p>
+            <p className="text-xs font-bold text-gray-800">{fmt$(company.lifetimeSales)}</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 px-2 py-1.5 text-center">
+            <p className="text-[10px] text-gray-400">Orders</p>
+            <p className="text-xs font-bold text-gray-800">{company.totalOrders}</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 px-2 py-1.5 text-center">
+            <p className="text-[10px] text-gray-400">Contacts</p>
+            <p className="text-xs font-bold text-gray-800">{company.contactCount}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <Users className="h-3 w-3" />{company.contactCount} contact{company.contactCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
+      {/* Footer row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          {company.primarySalesRep && (
+            <span className="text-[10px] text-gray-400 truncate max-w-[100px]">{company.primarySalesRep}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {company.primaryPricingTier && <TierBadge tier={company.primaryPricingTier} />}
+          {company.source === 'odoo' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100">Odoo</span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
 export default function CustomerManagement() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 250);
+  const [selected, setSelected] = useState<CompanyCard | null>(null);
 
-  const { data: companies = [], isLoading } = useQuery<CompanyEntry[]>({
-    queryKey: ['/api/companies/all-names', debouncedSearch],
+  const { data: companies = [], isLoading } = useQuery<CompanyCard[]>({
+    queryKey: ['/api/companies/directory', debouncedSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
-      const res = await fetch(`/api/companies/all-names?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/companies/directory?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       return Array.isArray(data) ? data : [];
@@ -55,36 +397,29 @@ export default function CustomerManagement() {
     staleTime: 60000,
   });
 
-  const odooCount = companies.filter(c => c.source === 'odoo').length;
-  const shopifyCount = companies.filter(c => c.source === 'shopify').length;
-  const contactCount = companies.filter(c => c.source === 'contact').length;
-
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-gray-900">Companies</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          All company names from Odoo, Shopify, and contact records — deduplicated.
-        </p>
-        {!isLoading && companies.length > 0 && (
-          <div className="flex items-center gap-3 mt-2.5">
-            <span className="text-xs text-gray-400">{companies.length} total</span>
-            {odooCount > 0 && <span className="text-xs text-purple-600">{odooCount} Odoo</span>}
-            {shopifyCount > 0 && <span className="text-xs text-green-600">{shopifyCount} Shopify</span>}
-            {contactCount > 0 && <span className="text-xs text-gray-500">{contactCount} from contacts</span>}
-          </div>
-        )}
+    <div>
+      {/* Page header */}
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Companies</h1>
+          {!isLoading && (
+            <p className="text-sm text-gray-400 mt-0.5">
+              {companies.length} {companies.length === 1 ? 'company' : 'companies'}
+              {debouncedSearch && ` matching "${debouncedSearch}"`}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Search */}
-      <div className="relative mb-4">
+      <div className="relative mb-5 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
         <Input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search company names…"
-          className="pl-9 h-10 bg-white"
+          placeholder="Search companies…"
+          className="pl-9 h-9 bg-white"
         />
         {search && (
           <button
@@ -96,64 +431,39 @@ export default function CustomerManagement() {
         )}
       </div>
 
-      {/* States */}
+      {/* Loading */}
       {isLoading && (
-        <div className="text-center py-16 text-gray-400">
-          <div className="h-6 w-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
+        <div className="text-center py-20 text-gray-400">
+          <div className="h-7 w-7 border-2 border-gray-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm">Loading companies…</p>
         </div>
       )}
 
+      {/* Empty */}
       {!isLoading && companies.length === 0 && (
-        <div className="text-center py-16 text-gray-400">
-          <Building2 className="h-8 w-8 mx-auto mb-3 opacity-30" />
+        <div className="text-center py-20 text-gray-400">
+          <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">
             {debouncedSearch ? `No companies match "${debouncedSearch}"` : 'No companies found'}
           </p>
         </div>
       )}
 
-      {/* Company list */}
+      {/* Cards grid */}
       {!isLoading && companies.length > 0 && (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-50">
-          {companies.map((c, i) => {
-            const location = [c.city, c.stateProvince].filter(Boolean).join(', ');
-            return (
-              <div
-                key={`${c.source}-${c.id ?? c.name}-${i}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-              >
-                {/* Icon */}
-                <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Building2 className="h-4 w-4 text-gray-400" />
-                </div>
-
-                {/* Name + meta */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{c.name}</p>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    {location && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {location}
-                      </span>
-                    )}
-                    {c.domain && (
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Globe className="h-3 w-3" />
-                        {c.domain}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Source badge */}
-                <SourceBadge source={c.source} />
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {companies.map((c, i) => (
+            <CompanyCard
+              key={`${c.source}-${c.id ?? c.name}-${i}`}
+              company={c}
+              onClick={() => setSelected(c)}
+            />
+          ))}
         </div>
       )}
+
+      {/* Detail sheet */}
+      <CompanySheet company={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
