@@ -16458,7 +16458,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const name = ((req.query.name as string) || '').trim();
       if (!name) return res.status(400).json({ error: "name is required" });
 
-      const contacts = await db
+      const localContacts = await db
         .select()
         .from(customers)
         .where(and(
@@ -16467,7 +16467,49 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         ))
         .orderBy(customers.lastName, customers.firstName);
 
-      res.json({ contacts });
+      // Also pull contacts from Odoo by searching the company name
+      let odooContacts: any[] = [];
+      try {
+        const odooCompanies = await odooClient.searchRead('res.partner',
+          [['name', 'ilike', name], ['is_company', '=', true]],
+          ['id', 'name'], { limit: 5 }
+        );
+        if (odooCompanies && odooCompanies.length > 0) {
+          const bestMatch = odooCompanies.find((c: any) =>
+            c.name.toLowerCase() === name.toLowerCase()
+          ) || odooCompanies[0];
+          const rawOdooContacts = await odooClient.getCompanyContacts(bestMatch.id);
+          const localEmails = new Set(localContacts.map(c => (c.email || '').toLowerCase()).filter(Boolean));
+          odooContacts = rawOdooContacts
+            .filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()))
+            .map((oc: any) => {
+              const parts = (oc.name || '').trim().split(/\s+/);
+              const firstName = parts.slice(0, -1).join(' ') || parts[0] || null;
+              const lastName = parts.length > 1 ? parts[parts.length - 1] : null;
+              return {
+                id: `odoo_${oc.id}`,
+                firstName,
+                lastName,
+                email: oc.email || null,
+                phone: oc.phone || null,
+                cell: null,
+                company: name,
+                address1: null,
+                city: null,
+                province: null,
+                country: null,
+                jobTitle: oc.function || null,
+                isCompany: false,
+                source: 'odoo',
+                odooPartnerId: oc.id,
+              };
+            });
+        }
+      } catch (odooErr: any) {
+        console.warn('[Company Contacts] Odoo fetch skipped:', odooErr.message);
+      }
+
+      res.json({ contacts: [...localContacts, ...odooContacts] });
     } catch (error) {
       console.error("Error fetching contacts by company name:", error);
       res.status(500).json({ error: "Failed to fetch contacts" });
@@ -16483,13 +16525,48 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
       if (!company) return res.status(404).json({ error: "Company not found" });
 
-      const contacts = await db
+      const localContacts = await db
         .select()
         .from(customers)
         .where(eq(customers.companyId, companyId))
         .orderBy(customers.lastName, customers.firstName);
 
-      res.json({ company, contacts });
+      // Also pull from Odoo if the company has an Odoo partner ID
+      let odooContacts: any[] = [];
+      if (company.odooCompanyPartnerId) {
+        try {
+          const rawOdooContacts = await odooClient.getCompanyContacts(company.odooCompanyPartnerId);
+          const localEmails = new Set(localContacts.map(c => (c.email || '').toLowerCase()).filter(Boolean));
+          odooContacts = rawOdooContacts
+            .filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()))
+            .map((oc: any) => {
+              const parts = (oc.name || '').trim().split(/\s+/);
+              const firstName = parts.slice(0, -1).join(' ') || parts[0] || null;
+              const lastName = parts.length > 1 ? parts[parts.length - 1] : null;
+              return {
+                id: `odoo_${oc.id}`,
+                firstName,
+                lastName,
+                email: oc.email || null,
+                phone: oc.phone || null,
+                cell: null,
+                company: company.name,
+                address1: null,
+                city: null,
+                province: null,
+                country: null,
+                jobTitle: oc.function || null,
+                isCompany: false,
+                source: 'odoo',
+                odooPartnerId: oc.id,
+              };
+            });
+        } catch (odooErr: any) {
+          console.warn('[Company Contacts] Odoo fetch skipped:', odooErr.message);
+        }
+      }
+
+      res.json({ company, contacts: [...localContacts, ...odooContacts] });
     } catch (error) {
       console.error("Error fetching company contacts:", error);
       res.status(500).json({ error: "Failed to fetch company contacts" });

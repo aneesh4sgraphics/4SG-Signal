@@ -88,6 +88,8 @@ interface Contact {
   country: string | null;
   jobTitle: string | null;
   isCompany: boolean;
+  source?: string;
+  odooPartnerId?: number;
 }
 
 interface InvoiceLineItem {
@@ -335,47 +337,77 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
   const contacts = data?.contacts ?? [];
   if (contacts.length === 0) return <EmptyState icon={Users} title="No contacts" message="No contacts linked to this company" />;
 
-  return (
-    <div className="space-y-2 max-h-[600px] overflow-y-auto">
-      {contacts.map((c) => {
-        const name = c.isCompany
-          ? c.company || c.firstName || 'Unknown'
-          : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
-        const address = [c.address1, c.city, c.province, c.country].filter(Boolean).join(', ');
-        return (
-          <div key={c.id} className="p-3 rounded-lg border bg-white hover:bg-gray-50">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
-                {initials(name)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900">{name}</p>
-                {c.jobTitle && <p className="text-xs text-gray-500">{c.jobTitle}</p>}
-                <div className="mt-1.5 space-y-0.5">
-                  {c.email && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                      <Mail className="h-3 w-3 text-gray-400" />
-                      <a href={`mailto:${c.email}`} className="hover:text-indigo-600 truncate">{c.email}</a>
-                    </p>
-                  )}
-                  {(c.phone || c.cell) && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                      <Phone className="h-3 w-3 text-gray-400" />
-                      {c.phone || c.cell}
-                    </p>
-                  )}
-                  {address && (
-                    <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <MapPin className="h-3 w-3" />
-                      {address}
-                    </p>
-                  )}
-                </div>
-              </div>
+  const localContacts = contacts.filter(c => c.source !== 'odoo');
+  const odooContacts = contacts.filter(c => c.source === 'odoo');
+
+  const ContactCard = ({ c }: { c: Contact }) => {
+    const name = c.isCompany
+      ? c.company || c.firstName || 'Unknown'
+      : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+    const address = [c.address1, c.city, c.province, c.country].filter(Boolean).join(', ');
+    const isOdoo = c.source === 'odoo';
+    return (
+      <div className="p-3 rounded-lg border bg-white hover:bg-gray-50">
+        <div className="flex items-start gap-3">
+          <div className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold ${isOdoo ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
+            {initials(name)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900">{name}</p>
+              {isOdoo && (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-purple-200 text-purple-600 bg-purple-50">Odoo</Badge>
+              )}
+            </div>
+            {c.jobTitle && <p className="text-xs text-gray-500">{c.jobTitle}</p>}
+            <div className="mt-1.5 space-y-0.5">
+              {c.email && (
+                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                  <Mail className="h-3 w-3 text-gray-400" />
+                  <a href={`mailto:${c.email}`} className="hover:text-indigo-600 truncate">{c.email}</a>
+                </p>
+              )}
+              {(c.phone || c.cell) && (
+                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                  <Phone className="h-3 w-3 text-gray-400" />
+                  {c.phone || c.cell}
+                </p>
+              )}
+              {address && (
+                <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3" />
+                  {address}
+                </p>
+              )}
             </div>
           </div>
-        );
-      })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4 max-h-[650px] overflow-y-auto">
+      {localContacts.length > 0 && (
+        <div>
+          {odooContacts.length > 0 && (
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">In CRM ({localContacts.length})</h3>
+          )}
+          <div className="space-y-2">
+            {localContacts.map(c => <ContactCard key={c.id} c={c} />)}
+          </div>
+        </div>
+      )}
+      {odooContacts.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            From Odoo ({odooContacts.length})
+          </h3>
+          <div className="space-y-2">
+            {odooContacts.map(c => <ContactCard key={c.id} c={c} />)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
