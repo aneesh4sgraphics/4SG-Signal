@@ -168,7 +168,7 @@ function EmptyState({ icon: Icon, title, message }: { icon: LucideIcon; title: s
   );
 }
 
-function OverviewTab({ overview }: { overview: CompanyOverview }) {
+function OverviewTab({ overview, avgMargin }: { overview: CompanyOverview; avgMargin: number | null }) {
   const hasOdooLink = !!overview.company?.odooCompanyPartnerId;
   const kpis = overview.odooKpis;
   const noOdooSubtext = 'Not linked to Odoo';
@@ -192,7 +192,7 @@ function OverviewTab({ overview }: { overview: CompanyOverview }) {
         />
         <KpiTile
           label="Avg. Margin %"
-          value={hasOdooLink ? (kpis.avgMargin != null ? `${kpis.avgMargin.toFixed(1)}%` : '—') : '—'}
+          value={hasOdooLink ? (avgMargin != null ? `${avgMargin.toFixed(1)}%` : '—') : '—'}
           icon={TrendingUp}
           color="bg-blue-50 border-blue-200"
           textColor="text-blue-700"
@@ -761,6 +761,17 @@ export default function CompanyDetail() {
     enabled: isById || !!companyName,
   });
 
+  const { data: odooMetrics } = useQuery<{ odooAvailable: boolean; averageMargin: number | null }>({
+    queryKey: isById ? ['/api/companies', companyId, 'odoo-metrics'] : null,
+    queryFn: async () => {
+      const res = await fetch(`/api/companies/${companyId}/odoo-metrics`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: isById,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const contactsUrl = isById
     ? `/api/companies/${companyId}/contacts`
     : `/api/companies/by-name/contacts?name=${encodeURIComponent(companyName || '')}`;
@@ -856,7 +867,7 @@ export default function CompanyDetail() {
 
             <div className="mt-4">
               <TabsContent value="overview">
-                {overview && <OverviewTab overview={overview} />}
+                {overview && <OverviewTab overview={overview} avgMargin={odooMetrics?.averageMargin ?? null} />}
               </TabsContent>
 
               <TabsContent value="activity">
