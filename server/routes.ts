@@ -16217,6 +16217,112 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     res.redirect(307, `/api/companies/directory?${new URLSearchParams(req.query as any).toString()}`);
   });
 
+  // ── Odoo company sync ─────────────────────────────────────────────────────────
+  // Pull is_company=true customer partners from Odoo into the companies table.
+  // Then link orphan customers (company_id IS NULL) to their Odoo company by name.
+  app.post("/api/odoo/sync-companies", requireAdmin, async (req: any, res) => {
+    try {
+      await odooClient.authenticate();
+
+      const limit = 200;
+      let offset = 0;
+      let created = 0;
+      let updated = 0;
+      let linked = 0;
+
+      const allOdooCompanies: any[] = [];
+
+      while (true) {
+        const batch = await odooClient.searchRead(
+          'res.partner',
+          [['is_company', '=', true], ['customer_rank', '>', 0]],
+          ['id', 'name', 'street', 'city', 'state_id', 'country_id', 'phone', 'email', 'website', 'zip'],
+          { limit, offset }
+        );
+        if (!batch || batch.length === 0) break;
+        allOdooCompanies.push(...batch);
+        if (batch.length < limit) break;
+        offset += limit;
+      }
+
+      for (const partner of allOdooCompanies) {
+        if (!partner.name) continue;
+
+        const city = partner.city || null;
+        const stateProvince = partner.state_id ? partner.state_id[1] : null;
+        const country = partner.country_id ? partner.country_id[1] : null;
+
+        // Check if already exists by odooCompanyPartnerId or name
+        const existing = await db.select({ id: companies.id })
+          .from(companies)
+          .where(
+            sql`${companies.odooCompanyPartnerId} = ${partner.id} OR LOWER(${companies.name}) = LOWER(${partner.name})`
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update
+          await db.update(companies)
+            .set({
+              name: partner.name,
+              odooCompanyPartnerId: partner.id,
+              city,
+              stateProvince,
+              country,
+              mainPhone: partner.phone || null,
+              generalEmail: partner.email || null,
+              addressLine1: partner.street || null,
+            })
+            .where(eq(companies.id, existing[0].id));
+          updated++;
+
+          // Link orphan customers by exact name OR stripped name (without "- HQ" etc.)
+          const strippedPartnerName = partner.name.replace(/\s*[-–]\s*(HQ|Branch|Office|[A-Z]{2,4}|\d+)\s*$/i, '').trim();
+          const linkResult = await db.execute(
+            sql`UPDATE customers SET company_id = ${existing[0].id}
+                WHERE company_id IS NULL
+                AND (LOWER(company) = LOWER(${partner.name}) OR LOWER(company) = LOWER(${strippedPartnerName}))`
+          );
+          linked += (linkResult as any).rowCount || 0;
+        } else {
+          // Create
+          const inserted = await db.insert(companies).values({
+            name: partner.name,
+            odooCompanyPartnerId: partner.id,
+            city,
+            stateProvince,
+            country,
+            mainPhone: partner.phone || null,
+            generalEmail: partner.email || null,
+            addressLine1: partner.street || null,
+            status: 'active',
+          }).returning({ id: companies.id });
+          created++;
+
+          if (inserted[0]?.id) {
+            const strippedN = partner.name.replace(/\s*[-–]\s*(HQ|Branch|Office|[A-Z]{2,4}|\d+)\s*$/i, '').trim();
+            const linkResult = await db.execute(
+              sql`UPDATE customers SET company_id = ${inserted[0].id}
+                  WHERE company_id IS NULL
+                  AND (LOWER(company) = LOWER(${partner.name}) OR LOWER(company) = LOWER(${strippedN}))`
+            );
+            linked += (linkResult as any).rowCount || 0;
+          }
+        }
+      }
+
+      res.json({
+        message: `Synced ${allOdooCompanies.length} Odoo companies`,
+        created,
+        updated,
+        linkedCustomers: linked,
+      });
+    } catch (error: any) {
+      console.error("Odoo sync-companies error:", error);
+      res.status(500).json({ error: error.message || "Failed to sync companies from Odoo" });
+    }
+  });
+
   // Company directory: aggregated cards with financial metrics from linked contacts
   // ── helpers for connection strength ─────────────────────────────────────────
   function latestOf(...vals: (Date | string | null | undefined)[]): Date | null {
@@ -16410,9 +16516,111 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
       const officialNamesLower = new Set(officialRaw.map(c => c.name.toLowerCase()));
 
-      for (const row of orphanStats) {
+      // ── Fuzzy helpers ───────────────────────────────────────────────────────
+      function normCompanyName(n: string): string {
+        return n.toLowerCase().replace(/[^a-z0-9]/g, '');
+      }
+      function lev(a: string, b: string): number {
+        const m = a.length, n = b.length;
+        if (m === 0) return n; if (n === 0) return m;
+        const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+          Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+        for (let i = 1; i <= m; i++)
+          for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+        return dp[m][n];
+      }
+      // Strip common branch/location suffixes like "- HQ", "- NY", "- Branch"
+      function stripSuffix(n: string): string {
+        return n.replace(/\s*[-–]\s*(HQ|HQ\s*\d*|Branch|Office|Corp\b|Inc\b|LLC\b|Ltd\b|[A-Z]{2,4}|\d+)\s*$/i, '').trim();
+      }
+      function nameSimilar(a: string, b: string): boolean {
+        if (a === b) return true;
+        const na = normCompanyName(a), nb = normCompanyName(b);
+        if (na === nb) return true;
+        const shorter = na.length <= nb.length ? na : nb;
+        const longer  = na.length <= nb.length ? nb : na;
+        if (shorter.length >= 6 && longer.startsWith(shorter)) return true;
+        const maxLen = Math.max(na.length, nb.length, 1);
+        if ((1 - lev(na, nb) / maxLen) >= 0.82) return true;
+        // Also compare with suffixes stripped (handles "Lindenmeyr Munroe - HQ" vs "Lindenmyer Munroe")
+        const sa = normCompanyName(stripSuffix(a)), sb = normCompanyName(stripSuffix(b));
+        if (sa !== na || sb !== nb) {
+          if (sa === sb) return true;
+          const sMax = Math.max(sa.length, sb.length, 1);
+          if ((1 - lev(sa, sb) / sMax) >= 0.82) return true;
+        }
+        return false;
+      }
+
+      // Build prefix-bucketed index of official names for O(1) candidate lookup
+      const officialNamesArr = officialRaw.map(c => c.name);
+      const officialPrefixBucket = new Map<string, string[]>(); // first-4-chars → names
+      for (const n of officialNamesArr) {
+        const key = normCompanyName(stripSuffix(n)).slice(0, 4);
+        if (!officialPrefixBucket.has(key)) officialPrefixBucket.set(key, []);
+        officialPrefixBucket.get(key)!.push(n);
+        // Also index first 4 chars of raw normalized (without suffix strip)
+        const key2 = normCompanyName(n).slice(0, 4);
+        if (key2 !== key) {
+          if (!officialPrefixBucket.has(key2)) officialPrefixBucket.set(key2, []);
+          officialPrefixBucket.get(key2)!.push(n);
+        }
+      }
+      function matchesAnyOfficial(name: string): boolean {
+        const key = normCompanyName(name).slice(0, 4);
+        const key2 = normCompanyName(stripSuffix(name)).slice(0, 4);
+        const candidates = new Set([...(officialPrefixBucket.get(key) ?? []), ...(officialPrefixBucket.get(key2) ?? [])]);
+        for (const c of candidates) if (nameSimilar(c, name)) return true;
+        return false;
+      }
+
+      // ── Deduplicate orphan groups before adding to result ──────────────────
+      // Sort descending by contactCount so the canonical name = largest group
+      const sortedOrphans = [...orphanStats].sort((a, b) => Number(b.contactCount) - Number(a.contactCount));
+      const canonicalMap = new Map<string, { company: string; contactCount: number; lifetimeSales: string; totalOrders: number; primarySalesRep: string; primaryPricingTier: string; city: string; province: string; }>();
+      // Pre-compute normalized prefix for canonical keys
+      const canonicalPrefixBucket = new Map<string, string[]>(); // first-4-chars → canonical keys
+
+      for (const row of sortedOrphans) {
         if (!row.company) continue;
-        if (officialNamesLower.has(row.company.toLowerCase())) continue;
+        // Skip if matches an official company (exact or fuzzy) — using prefix bucketing for speed
+        if (matchesAnyOfficial(row.company)) continue;
+        // Check if already clustered under a canonical name (prefix-bucket for speed)
+        const orphanKey = normCompanyName(row.company!).slice(0, 4);
+        const orphanKey2 = normCompanyName(stripSuffix(row.company!)).slice(0, 4);
+        const candidates = new Set([...(canonicalPrefixBucket.get(orphanKey) ?? []), ...(canonicalPrefixBucket.get(orphanKey2) ?? [])]);
+        let foundCanonical: string | null = null;
+        for (const c of candidates) {
+          if (nameSimilar(c, row.company!)) { foundCanonical = c; break; }
+        }
+        if (foundCanonical) {
+          const existing = canonicalMap.get(foundCanonical)!;
+          existing.contactCount += Number(row.contactCount);
+          existing.lifetimeSales = String(parseFloat(existing.lifetimeSales) + parseFloat(row.lifetimeSales ?? '0'));
+          existing.totalOrders += Number(row.totalOrders);
+        } else {
+          canonicalMap.set(row.company!, {
+            company: row.company!,
+            contactCount: Number(row.contactCount),
+            lifetimeSales: row.lifetimeSales ?? '0',
+            totalOrders: Number(row.totalOrders),
+            primarySalesRep: row.primarySalesRep ?? '',
+            primaryPricingTier: row.primaryPricingTier ?? '',
+            city: row.city ?? '',
+            province: row.province ?? '',
+          });
+          // Index canonical in prefix bucket
+          const ck1 = normCompanyName(row.company!).slice(0, 4);
+          const ck2 = normCompanyName(stripSuffix(row.company!)).slice(0, 4);
+          for (const ck of new Set([ck1, ck2])) {
+            if (!canonicalPrefixBucket.has(ck)) canonicalPrefixBucket.set(ck, []);
+            canonicalPrefixBucket.get(ck)!.push(row.company!);
+          }
+        }
+      }
+
+      for (const [, row] of canonicalMap) {
         const nameLower = row.company.toLowerCase();
         const lastDate = latestOf(
           actByNameMap.get(nameLower),
@@ -16422,18 +16630,18 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           id: null,
           name: row.company,
           source: 'contact',
-          city: row.city ?? null,
-          stateProvince: row.province ?? null,
+          city: row.city || null,
+          stateProvince: row.province || null,
           domain: null,
           mainPhone: null,
           generalEmail: null,
           addressLine1: null,
           country: null,
-          contactCount: Number(row.contactCount),
-          lifetimeSales: parseFloat(row.lifetimeSales ?? '0'),
-          totalOrders: Number(row.totalOrders),
-          primarySalesRep: row.primarySalesRep ?? null,
-          primaryPricingTier: row.primaryPricingTier ?? null,
+          contactCount: row.contactCount,
+          lifetimeSales: parseFloat(row.lifetimeSales),
+          totalOrders: row.totalOrders,
+          primarySalesRep: row.primarySalesRep || null,
+          primaryPricingTier: row.primaryPricingTier || null,
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
         });

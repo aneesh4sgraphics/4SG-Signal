@@ -1,15 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Search, Building2, X, MapPin, Globe, Phone, Mail,
   Users, TrendingUp, ShoppingCart, DollarSign, ChevronRight,
-  User, BarChart3, Filter, Clock, ArrowUpDown,
+  User, BarChart3, Filter, Clock, ArrowUpDown, RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -436,10 +439,24 @@ const DEFAULT_FILTERS: Filters = {
 
 export default function CustomerManagement() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 250);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  const syncMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/odoo/sync-companies').then(r => r.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Odoo sync complete',
+        description: `Created ${data.created}, updated ${data.updated}, linked ${data.linkedCustomers} contacts.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/directory'] });
+    },
+    onError: () => toast({ title: 'Sync failed', description: 'Could not sync companies from Odoo.', variant: 'destructive' }),
+  });
 
   const { data: allCompanies = [], isLoading } = useQuery<CompanyCard[]>({
     queryKey: ['/api/companies/directory', debouncedSearch],
@@ -535,6 +552,18 @@ export default function CustomerManagement() {
             </p>
           )}
         </div>
+        {user?.role === 'admin' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="gap-1.5 text-xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            {syncMutation.isPending ? 'Syncing…' : 'Sync from Odoo'}
+          </Button>
+        )}
       </div>
 
       {/* Search + filter toolbar */}
