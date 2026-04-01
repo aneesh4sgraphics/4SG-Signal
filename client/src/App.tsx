@@ -32,6 +32,7 @@ const ActivityLogsPage = lazy(() => import("@/pages/activity-logs"));
 const PdfCategoryAdmin = lazy(() => import("@/pages/pdf-category-admin"));
 const ShippingLabels = lazy(() => import("@/pages/shipping-labels"));
 const ProductLabels = lazy(() => import("@/pages/product-labels"));
+const CustomerLabels = lazy(() => import("@/pages/customer-labels"));
 const CRMJourneyDashboard = lazy(() => import("@/pages/crm-journey"));
 const EmailApp = lazy(() => import("@/pages/email-app"));
 const ObjectionsPage = lazy(() => import("@/pages/objections"));
@@ -159,6 +160,7 @@ const AppRoutes = () => (
       <Route path="/pdf-settings" component={PdfCategoryAdmin} />
       <Route path="/shipping-labels" component={ShippingLabels} />
       <Route path="/product-labels" component={ProductLabels} />
+      <Route path="/customer-labels" component={CustomerLabels} />
       <Route path="/crm-journey" component={CRMJourneyDashboard} />
       <Route path="/email-app" component={EmailApp} />
       <Route path="/email-insights" component={Spotlight} />

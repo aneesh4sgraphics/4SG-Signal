@@ -91,8 +91,13 @@ const MAIN_ITEMS: NavItemDef[] = [
   { path: '/saved-quotes', label: 'Saved Quotes', icon: BookOpen, iconColor: '#be185d' },
   { path: '/competitor-pricing', label: 'Market Prices', icon: TrendingUp, iconColor: '#0c6e99' },
   { path: '/shipping-calculator', label: 'Shipping', icon: Truck, iconColor: '#d97706' },
+];
+
+// ── Labels section (collapsible) ──────────────────────────────────────────────
+const LABEL_ITEMS: NavItemDef[] = [
   { path: '/shipping-labels', label: 'Shipping Labels', icon: Package, iconColor: '#6366f1' },
   { path: '/product-labels', label: 'Product Labels', icon: Tag, iconColor: '#0e7b6c' },
+  { path: '/customer-labels', label: 'Customer Labels', icon: Contact, iconColor: '#d97706' },
 ];
 
 // ── Automations section (collapsible) ─────────────────────────────────────────
@@ -299,6 +304,16 @@ function SidebarContent({
             />
           ))}
         </div>
+
+        {/* Labels collapsible */}
+        <CollapsibleSection
+          label="Labels"
+          items={LABEL_ITEMS}
+          isAdmin={isAdmin}
+          location={location}
+          storageKey="4s-nav-labels"
+          onNavClick={onNavClick}
+        />
 
         {/* Automations collapsible */}
         <CollapsibleSection
