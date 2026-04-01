@@ -806,21 +806,21 @@ export default function OdooContacts() {
               <span className="hover:text-gray-900 cursor-pointer">Home</span>
             </Link>
             <ChevronRight className="w-3 h-3" />
-            <span className="text-gray-900 font-medium">Companies</span>
+            <span className="text-gray-900 font-medium">Contacts</span>
           </div>
           
           {/* Title Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-violet-200">
-                {debouncedSearch ? <Search className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                {debouncedSearch ? <Search className="w-5 h-5" /> : <Users className="w-5 h-5" />}
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-                  {debouncedSearch ? 'Search Results' : 'Companies'}
+                  {debouncedSearch ? 'Search Results' : 'Contacts'}
                 </h1>
                 <p className="text-sm text-gray-500">
-                  {totalContacts.toLocaleString()} {debouncedSearch ? 'contacts & companies' : 'companies'}
+                  {totalContacts.toLocaleString()} {debouncedSearch ? 'contacts found' : 'contacts'}
                   {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
                 </p>
               </div>
@@ -876,7 +876,7 @@ export default function OdooContacts() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search contacts & companies..."
+                placeholder="Search contacts…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-gray-50 border-gray-200 focus:bg-white focus:ring-2 focus:ring-violet-100 focus:border-violet-300 transition-all"
