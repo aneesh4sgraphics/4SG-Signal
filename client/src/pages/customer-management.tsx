@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -316,12 +317,10 @@ function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClo
             <div className="flex items-center justify-between mt-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
               <div className="flex items-center gap-2">
                 <StrengthBadge strength={company.connectionStrength} />
-                {company.lastInteractionDate && (
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {fmtRelative(company.lastInteractionDate)}
-                  </span>
-                )}
+                <span className="text-xs text-gray-400 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {company.lastInteractionDate ? fmtRelative(company.lastInteractionDate) : 'No activity'}
+                </span>
               </div>
               {company.primaryPricingTier && <TierBadge tier={company.primaryPricingTier} />}
             </div>
@@ -405,12 +404,10 @@ function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: 
       <div className="flex items-center justify-between mt-1">
         <StrengthBadge strength={company.connectionStrength} />
         <div className="flex items-center gap-1.5">
-          {company.lastInteractionDate && (
-            <span className="text-[10px] text-gray-400 flex items-center gap-1">
-              <Clock className="h-2.5 w-2.5" />
-              {fmtRelative(company.lastInteractionDate)}
-            </span>
-          )}
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <Clock className="h-2.5 w-2.5" />
+            {company.lastInteractionDate ? fmtRelative(company.lastInteractionDate) : 'No activity'}
+          </span>
           {company.primaryPricingTier && <TierBadge tier={company.primaryPricingTier} />}
         </div>
       </div>
@@ -429,9 +426,9 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 export default function CustomerManagement() {
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 250);
-  const [selected, setSelected] = useState<CompanyCard | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
@@ -688,14 +685,17 @@ export default function CustomerManagement() {
             <CompanyCardItem
               key={`${c.source}-${c.id ?? c.name}-${i}`}
               company={c}
-              onClick={() => setSelected(c)}
+              onClick={() => {
+                if (c.id !== null) {
+                  navigate(`/companies/${c.id}`);
+                } else {
+                  navigate(`/companies/name/${encodeURIComponent(c.name)}`);
+                }
+              }}
             />
           ))}
         </div>
       )}
-
-      {/* Detail sheet */}
-      <CompanySheet company={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

@@ -49,6 +49,7 @@ const TaskInbox = lazy(() => import("@/pages/task-inbox"));
 const HotLeads = lazy(() => import("@/pages/hot-leads"));
 const OdooContacts = lazy(() => import("@/pages/odoo-contacts"));
 const OdooCompanyDetail = lazy(() => import("@/pages/odoo-company-detail"));
+const CompanyDetail = lazy(() => import("@/pages/company-detail"));
 const OdooProducts = lazy(() => import("@/pages/odoo-products"));
 const OdooProductDetail = lazy(() => import("@/pages/odoo-product-detail"));
 const LeadsPage = lazy(() => import("@/pages/leads"));
@@ -150,6 +151,8 @@ const AppRoutes = () => (
       <Route path="/competitor-pricing" component={CompetitorPricing} />
       <Route path="/saved-quotes" component={SavedQuotes} />
       <Route path="/customer-management" component={CustomerManagement} />
+      <Route path="/companies/name/:name" component={CompanyDetail} />
+      <Route path="/companies/:id" component={CompanyDetail} />
       <Route path="/customer-table" component={CustomerTable} />
       <Route path="/product-pricing-management" component={ProductPricingManagement} />
       <Route path="/activity-logs" component={ActivityLogsPage} />

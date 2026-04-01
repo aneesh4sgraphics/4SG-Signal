@@ -714,6 +714,70 @@ class OdooClient {
     ], { limit: 100, order: 'invoice_date desc' });
   }
 
+  async getInvoiceLinesForPartner(partnerId: number): Promise<Array<{
+    invoiceId: number;
+    invoiceName: string;
+    invoiceDate: string | null;
+    invoiceState: string;
+    productId: number | null;
+    productName: string;
+    sku: string | null;
+    lineName: string;
+    priceUnit: number;
+    quantity: number;
+    priceSubtotal: number;
+  }>> {
+    try {
+      // Step 1: get the 5 most recent posted invoices for this partner
+      const invoices = await this.searchRead('account.move', [
+        ['partner_id', '=', partnerId],
+        ['move_type', '=', 'out_invoice'],
+        ['state', '=', 'posted'],
+      ], ['id', 'name', 'invoice_date', 'state'], { limit: 5, order: 'invoice_date desc' });
+
+      if (!invoices || invoices.length === 0) return [];
+
+      const invoiceIds = invoices.map((inv: any) => inv.id);
+      const invoiceMap = new Map(invoices.map((inv: any) => [inv.id, { name: inv.name, date: inv.invoice_date, state: inv.state }]));
+
+      // Step 2: fetch all product lines for those invoices
+      const lines = await this.searchRead('account.move.line', [
+        ['move_id', 'in', invoiceIds],
+        ['display_type', '=', 'product'],
+        ['exclude_from_invoice_tab', '=', false],
+      ], [
+        'move_id', 'product_id', 'name', 'price_unit', 'quantity', 'price_subtotal',
+      ], { limit: 200, order: 'move_id desc, id asc' });
+
+      return (lines || []).map((line: any) => {
+        const inv = invoiceMap.get(Array.isArray(line.move_id) ? line.move_id[0] : line.move_id);
+        const productId = Array.isArray(line.product_id) ? line.product_id[0] : null;
+        const productDisplay: string = Array.isArray(line.product_id) ? (line.product_id[1] || '') : '';
+        // Odoo product display is often "[SKU] Product Name" — extract SKU
+        const skuMatch = productDisplay.match(/^\[([^\]]+)\]/);
+        const sku = skuMatch ? skuMatch[1] : null;
+        const productName = skuMatch ? productDisplay.replace(/^\[[^\]]+\]\s*/, '') : productDisplay;
+
+        return {
+          invoiceId: Array.isArray(line.move_id) ? line.move_id[0] : (line.move_id || 0),
+          invoiceName: inv?.name || '',
+          invoiceDate: inv?.date || null,
+          invoiceState: inv?.state || '',
+          productId,
+          productName,
+          sku,
+          lineName: line.name || '',
+          priceUnit: parseFloat(line.price_unit) || 0,
+          quantity: parseFloat(line.quantity) || 0,
+          priceSubtotal: parseFloat(line.price_subtotal) || 0,
+        };
+      });
+    } catch (error: any) {
+      console.error(`[Odoo] Error fetching invoice lines for partner ${partnerId}:`, error.message);
+      return [];
+    }
+  }
+
   async getProductInventory(itemCode: string): Promise<{ qtyAvailable: number; qtyReserved: number; qtyVirtual: number; productId: number | null }> {
     try {
       // First find the product by default_code (SKU)

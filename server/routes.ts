@@ -16467,6 +16467,248 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // ── Company Detail Page endpoints ──────────────────────────────────────────
+  // Helper: compute connection strength for detail page
+  function companyConnectionStrength(lastDate: Date | null): 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold' {
+    if (!lastDate) return 'cold';
+    const days = Math.floor((Date.now() - lastDate.getTime()) / 86400000);
+    if (days <= 30) return 'very_strong';
+    if (days <= 90) return 'strong';
+    if (days <= 180) return 'moderate';
+    if (days <= 365) return 'weak';
+    return 'cold';
+  }
+
+  // Overview for orphan (Shopify-only) company — no DB id
+  app.get("/api/companies/by-name/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const contacts = await db.select().from(customers)
+        .where(and(
+          sql`LOWER(${customers.company}) = LOWER(${name})`,
+          sql`${customers.companyId} IS NULL`
+        ))
+        .orderBy(customers.lastName, customers.firstName);
+
+      res.json({
+        company: { id: null, name, isOrphan: true, odooCompanyPartnerId: null },
+        contacts,
+        connectionStrength: 'cold',
+        lastInteractionDate: null,
+      });
+    } catch (error) {
+      console.error("Error fetching orphan company overview:", error);
+      res.status(500).json({ error: "Failed to fetch company overview" });
+    }
+  });
+
+  // Overview for official company by DB id
+  app.get("/api/companies/:id/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const contacts = await db.select().from(customers)
+        .where(eq(customers.companyId, companyId))
+        .orderBy(customers.lastName, customers.firstName);
+
+      // Compute connection strength from activity events + gmail
+      const [activityMax] = await db.select({ maxDate: sql<string>`MAX(${customerActivityEvents.eventDate})` })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(eq(customers.companyId, companyId));
+
+      const [gmailMax] = await db.select({ maxDate: sql<string>`MAX(${gmailMessages.sentAt})` })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(eq(customers.companyId, companyId));
+
+      const latestDate = (() => {
+        const vals = [activityMax?.maxDate, gmailMax?.maxDate, company.lastActivityDate].filter(Boolean)
+          .map(v => new Date(v as string)).filter(d => !isNaN(d.getTime()));
+        return vals.length ? new Date(Math.max(...vals.map(d => d.getTime()))) : null;
+      })();
+
+      res.json({
+        company: { ...company, isOrphan: false },
+        contacts,
+        connectionStrength: companyConnectionStrength(latestDate),
+        lastInteractionDate: latestDate?.toISOString() ?? null,
+      });
+    } catch (error) {
+      console.error("Error fetching company overview:", error);
+      res.status(500).json({ error: "Failed to fetch company overview" });
+    }
+  });
+
+  // Odoo metrics (slow — fetched separately so page loads fast)
+  app.get("/api/companies/by-name/odoo-metrics", isAuthenticated, async (_req, res) => {
+    res.json({ odooAvailable: false, averageMargin: null, totalOutstanding: null, invoiceCount: null, lifetimeSales: null });
+  });
+
+  app.get("/api/companies/:id/odoo-metrics", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const [company] = await db.select({ odooCompanyPartnerId: companies.odooCompanyPartnerId })
+        .from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (!company?.odooCompanyPartnerId) {
+        return res.json({ odooAvailable: false, averageMargin: null, totalOutstanding: null, invoiceCount: null, lifetimeSales: null });
+      }
+
+      const pid = company.odooCompanyPartnerId;
+      const [metrics, invoices] = await Promise.all([
+        odooClient.getPartnerBusinessMetrics(pid).catch(() => null),
+        odooClient.getInvoicesByPartner(pid).catch(() => [] as any[]),
+      ]);
+
+      res.json({
+        odooAvailable: true,
+        averageMargin: metrics?.averageMargin ?? null,
+        totalOutstanding: metrics?.totalOutstanding ?? null,
+        lifetimeSales: metrics?.lifetimeSales ?? null,
+        invoiceCount: Array.isArray(invoices) ? invoices.length : null,
+      });
+    } catch (error) {
+      console.error("Error fetching Odoo metrics:", error);
+      res.status(500).json({ error: "Failed to fetch Odoo metrics" });
+    }
+  });
+
+  // Activity events by company name (orphan)
+  app.get("/api/companies/by-name/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const orphanCustomers = await db.select({ id: customers.id })
+        .from(customers)
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`));
+
+      if (!orphanCustomers.length) return res.json({ events: [] });
+
+      const ids = orphanCustomers.map(c => c.id);
+      const events = await db.select().from(customerActivityEvents)
+        .where(inArray(customerActivityEvents.customerId, ids))
+        .orderBy(desc(customerActivityEvents.eventDate))
+        .limit(100);
+
+      res.json({ events });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Activity events for official company
+  app.get("/api/companies/:id/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const companyContacts = await db.select({ id: customers.id })
+        .from(customers).where(eq(customers.companyId, companyId));
+
+      if (!companyContacts.length) return res.json({ events: [] });
+
+      const ids = companyContacts.map(c => c.id);
+      const events = await db.select().from(customerActivityEvents)
+        .where(inArray(customerActivityEvents.customerId, ids))
+        .orderBy(desc(customerActivityEvents.eventDate))
+        .limit(100);
+
+      res.json({ events });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Emails for orphan company
+  app.get("/api/companies/by-name/emails", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const orphanCustomers = await db.select({ id: customers.id })
+        .from(customers)
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`));
+
+      if (!orphanCustomers.length) return res.json({ emails: [] });
+
+      const ids = orphanCustomers.map(c => c.id);
+      const emails = await db.select().from(gmailMessages)
+        .where(inArray(gmailMessages.customerId, ids))
+        .orderBy(desc(gmailMessages.sentAt))
+        .limit(10);
+
+      res.json({ emails });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch emails" });
+    }
+  });
+
+  // Emails for official company
+  app.get("/api/companies/:id/emails", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const companyContacts = await db.select({ id: customers.id })
+        .from(customers).where(eq(customers.companyId, companyId));
+
+      if (!companyContacts.length) return res.json({ emails: [] });
+
+      const ids = companyContacts.map(c => c.id);
+      const emails = await db.select().from(gmailMessages)
+        .where(inArray(gmailMessages.customerId, ids))
+        .orderBy(desc(gmailMessages.sentAt))
+        .limit(10);
+
+      res.json({ emails });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch emails" });
+    }
+  });
+
+  // Invoice lines for orphan company
+  app.get("/api/companies/by-name/invoice-lines", isAuthenticated, async (_req, res) => {
+    res.json({ lines: [], invoices: [] });
+  });
+
+  // Invoice lines for official company (from Odoo)
+  app.get("/api/companies/:id/invoice-lines", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = parseInt(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
+
+      const [company] = await db.select({ odooCompanyPartnerId: companies.odooCompanyPartnerId })
+        .from(companies).where(eq(companies.id, companyId)).limit(1);
+
+      if (!company?.odooCompanyPartnerId) {
+        return res.json({ lines: [], invoices: [] });
+      }
+
+      const lines = await odooClient.getInvoiceLinesForPartner(company.odooCompanyPartnerId);
+      // Build unique invoice list from lines
+      const invoiceMap = new Map<number, { id: number; name: string; date: string | null; state: string }>();
+      for (const line of lines) {
+        if (!invoiceMap.has(line.invoiceId)) {
+          invoiceMap.set(line.invoiceId, { id: line.invoiceId, name: line.invoiceName, date: line.invoiceDate, state: line.invoiceState });
+        }
+      }
+
+      res.json({ lines, invoices: Array.from(invoiceMap.values()) });
+    } catch (error) {
+      console.error("Error fetching invoice lines:", error);
+      res.status(500).json({ error: "Failed to fetch invoice lines" });
+    }
+  });
+
   // Delete a lead
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
