@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Search, Building2, X, MapPin, Globe, Phone, Mail,
   Users, TrendingUp, ShoppingCart, DollarSign, ChevronRight,
-  User, BarChart3, Filter, Flame,
+  User, BarChart3, Filter, Clock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PRICING_TIERS } from '@shared/schema';
+
+type ConnectionStrength = 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
 
 interface CompanyCard {
   id: number | null;
@@ -32,6 +34,41 @@ interface CompanyCard {
   totalOrders: number;
   primarySalesRep: string | null;
   primaryPricingTier: string | null;
+  lastInteractionDate: string | null;
+  connectionStrength: ConnectionStrength;
+}
+
+// ─── Connection strength helpers ───────────────────────────────────────────────
+const STRENGTH_CONFIG: Record<ConnectionStrength, { label: string; dot: string; text: string }> = {
+  very_strong: { label: 'Very Strong', dot: 'bg-green-500',  text: 'text-green-700' },
+  strong:      { label: 'Strong',      dot: 'bg-blue-500',   text: 'text-blue-700'  },
+  moderate:    { label: 'Moderate',    dot: 'bg-amber-400',  text: 'text-amber-700' },
+  weak:        { label: 'Weak',        dot: 'bg-orange-400', text: 'text-orange-700' },
+  cold:        { label: 'Cold',        dot: 'bg-red-500',    text: 'text-red-600'   },
+};
+
+function StrengthBadge({ strength }: { strength: ConnectionStrength }) {
+  const c = STRENGTH_CONFIG[strength];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${c.text}`}>
+      <span className={`h-2 w-2 rounded-full flex-shrink-0 ${c.dot}`} />
+      {c.label}
+    </span>
+  );
+}
+
+function fmtRelative(iso: string | null): string {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? 'just now' : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 interface Customer {
@@ -276,21 +313,25 @@ function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClo
                 <p className="text-xl font-bold text-gray-900">{company.contactCount}</p>
               </div>
             </div>
+            <div className="flex items-center justify-between mt-2.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+              <div className="flex items-center gap-2">
+                <StrengthBadge strength={company.connectionStrength} />
+                {company.lastInteractionDate && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {fmtRelative(company.lastInteractionDate)}
+                  </span>
+                )}
+              </div>
+              {company.primaryPricingTier && <TierBadge tier={company.primaryPricingTier} />}
+            </div>
+
             {(company.primarySalesRep || company.primaryPricingTier) && (
-              <div className="flex items-center gap-3 mt-2.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
+              <div className="flex items-center gap-3 mt-2 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-100">
                 {company.primarySalesRep && (
                   <div className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-indigo-400" />
                     <span className="text-xs text-indigo-700 font-medium">{company.primarySalesRep}</span>
-                  </div>
-                )}
-                {company.primarySalesRep && company.primaryPricingTier && (
-                  <span className="text-indigo-200">·</span>
-                )}
-                {company.primaryPricingTier && (
-                  <div className="flex items-center gap-1.5">
-                    <BarChart3 className="h-3.5 w-3.5 text-indigo-400" />
-                    <TierBadge tier={company.primaryPricingTier} />
                   </div>
                 )}
               </div>
@@ -361,17 +402,16 @@ function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: 
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mt-1">
+        <StrengthBadge strength={company.connectionStrength} />
         <div className="flex items-center gap-1.5">
-          {company.primarySalesRep && (
-            <span className="text-[10px] text-gray-400 truncate max-w-[100px]">{company.primarySalesRep}</span>
+          {company.lastInteractionDate && (
+            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+              <Clock className="h-2.5 w-2.5" />
+              {fmtRelative(company.lastInteractionDate)}
+            </span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5">
           {company.primaryPricingTier && <TierBadge tier={company.primaryPricingTier} />}
-          {company.source === 'odoo' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100">Odoo</span>
-          )}
         </div>
       </div>
     </button>

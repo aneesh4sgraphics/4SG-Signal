@@ -16189,6 +16189,25 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
   });
 
   // Company directory: aggregated cards with financial metrics from linked contacts
+  // ── helpers for connection strength ─────────────────────────────────────────
+  function latestOf(...vals: (Date | string | null | undefined)[]): Date | null {
+    const parsed = vals
+      .filter(Boolean)
+      .map(v => v instanceof Date ? v : new Date(v as string))
+      .filter(d => !isNaN(d.getTime()));
+    if (!parsed.length) return null;
+    return new Date(Math.max(...parsed.map(d => d.getTime())));
+  }
+  function calcConnectionStrength(d: Date | null): 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold' {
+    if (!d) return 'cold';
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days <= 30) return 'very_strong';
+    if (days <= 90) return 'strong';
+    if (days <= 180) return 'moderate';
+    if (days <= 365) return 'weak';
+    return 'cold';
+  }
+
   app.get("/api/companies/directory", isAuthenticated, async (req: any, res) => {
     try {
       const search = ((req.query.search as string) || '').trim().toLowerCase();
@@ -16225,6 +16244,73 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
       const custStatMap = new Map(custStats.map(r => [r.companyId, r]));
 
+      // ── Last interaction: activity events by companyId ──────────────────────
+      const activityByCompId = await db
+        .select({
+          companyId: customers.companyId,
+          lastDate: sql<string>`MAX(${customerActivityEvents.eventDate})`,
+        })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(sql`${customers.companyId} IS NOT NULL`)
+        .groupBy(customers.companyId);
+
+      // ── Last interaction: gmail messages by companyId ───────────────────────
+      const emailByCompId = await db
+        .select({
+          companyId: customers.companyId,
+          lastDate: sql<string>`MAX(${gmailMessages.sentAt})`,
+        })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(and(
+          sql`${customers.companyId} IS NOT NULL`,
+          sql`${gmailMessages.sentAt} IS NOT NULL`
+        ))
+        .groupBy(customers.companyId);
+
+      // ── Last interaction: activity events by company name (orphans) ─────────
+      const activityByName = await db
+        .select({
+          company: sql<string>`LOWER(${customers.company})`,
+          lastDate: sql<string>`MAX(${customerActivityEvents.eventDate})`,
+        })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(and(
+          sql`${customers.companyId} IS NULL`,
+          sql`${customers.company} IS NOT NULL`
+        ))
+        .groupBy(sql`LOWER(${customers.company})`);
+
+      // ── Last interaction: gmail messages by company name (orphans) ──────────
+      const emailByName = await db
+        .select({
+          company: sql<string>`LOWER(${customers.company})`,
+          lastDate: sql<string>`MAX(${gmailMessages.sentAt})`,
+        })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(and(
+          sql`${customers.companyId} IS NULL`,
+          sql`${customers.company} IS NOT NULL`,
+          sql`${gmailMessages.sentAt} IS NOT NULL`
+        ))
+        .groupBy(sql`LOWER(${customers.company})`);
+
+      const actByIdMap = new Map<number, Date>(
+        activityByCompId.filter(r => r.companyId && r.lastDate).map(r => [r.companyId as number, new Date(r.lastDate)])
+      );
+      const emlByIdMap = new Map<number, Date>(
+        emailByCompId.filter(r => r.companyId && r.lastDate).map(r => [r.companyId as number, new Date(r.lastDate)])
+      );
+      const actByNameMap = new Map<string, Date>(
+        activityByName.filter(r => r.company && r.lastDate).map(r => [r.company, new Date(r.lastDate)])
+      );
+      const emlByNameMap = new Map<string, Date>(
+        emailByName.filter(r => r.company && r.lastDate).map(r => [r.company, new Date(r.lastDate)])
+      );
+
       type CompanyCard = {
         id: number | null;
         name: string;
@@ -16241,10 +16327,17 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         totalOrders: number;
         primarySalesRep: string | null;
         primaryPricingTier: string | null;
+        lastInteractionDate: string | null;
+        connectionStrength: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
       };
 
       const result: CompanyCard[] = officialRaw.map(c => {
         const stats = custStatMap.get(c.id) ?? null;
+        const lastDate = latestOf(
+          actByIdMap.get(c.id as number),
+          emlByIdMap.get(c.id as number),
+          c.lastActivityDate ?? undefined,
+        );
         return {
           id: c.id,
           name: c.name,
@@ -16261,6 +16354,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           totalOrders: Number(stats?.totalOrders ?? 0),
           primarySalesRep: stats?.primarySalesRep ?? null,
           primaryPricingTier: stats?.primaryPricingTier ?? null,
+          lastInteractionDate: lastDate?.toISOString() ?? null,
+          connectionStrength: calcConnectionStrength(lastDate),
         };
       });
 
@@ -16289,6 +16384,11 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       for (const row of orphanStats) {
         if (!row.company) continue;
         if (officialNamesLower.has(row.company.toLowerCase())) continue;
+        const nameLower = row.company.toLowerCase();
+        const lastDate = latestOf(
+          actByNameMap.get(nameLower),
+          emlByNameMap.get(nameLower),
+        );
         result.push({
           id: null,
           name: row.company,
@@ -16305,6 +16405,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           totalOrders: Number(row.totalOrders),
           primarySalesRep: row.primarySalesRep ?? null,
           primaryPricingTier: row.primaryPricingTier ?? null,
+          lastInteractionDate: lastDate?.toISOString() ?? null,
+          connectionStrength: calcConnectionStrength(lastDate),
         });
       }
 
