@@ -9,7 +9,7 @@ import {
   ArrowLeft, Building2, Phone, MapPin, Mail, TrendingUp,
   FileText, Activity, Users, StickyNote, CheckSquare,
   FolderOpen, DollarSign, PhoneCall, Package, Clock,
-  ArrowUpRight, ArrowDownLeft, Send, List, Tag,
+  ArrowUpRight, ArrowDownLeft, Send, List, Tag, Eye, EyeOff,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 
@@ -172,6 +172,9 @@ function OverviewTab({ overview, avgMargin }: { overview: CompanyOverview; avgMa
   const hasOdooLink = !!overview.company?.odooCompanyPartnerId;
   const kpis = overview.odooKpis;
   const noOdooSubtext = 'Not linked to Odoo';
+  const [financialsVisible, setFinancialsVisible] = useState(false);
+
+  const masked = '••••';
 
   return (
     <div className="space-y-4">
@@ -182,21 +185,30 @@ function OverviewTab({ overview, avgMargin }: { overview: CompanyOverview; avgMa
           icon={Activity}
           subtext={overview.lastInteractionDate ? `Last: ${fmtRelative(overview.lastInteractionDate)}` : undefined}
         />
-        <KpiTile
-          label="Lifetime Sales"
-          value={hasOdooLink ? (kpis.lifetimeSales != null ? fmt$(kpis.lifetimeSales) : '—') : '—'}
-          icon={DollarSign}
-          color="bg-green-50 border-green-200"
-          textColor="text-green-700"
-          subtext={!hasOdooLink ? noOdooSubtext : (kpis.lifetimeSales != null ? 'Net of credit memos' : undefined)}
-        />
+        <div className="relative">
+          <KpiTile
+            label="Lifetime Sales"
+            value={financialsVisible ? (hasOdooLink ? (kpis.lifetimeSales != null ? fmt$(kpis.lifetimeSales) : '—') : '—') : masked}
+            icon={DollarSign}
+            color="bg-green-50 border-green-200"
+            textColor={financialsVisible ? "text-green-700" : "text-green-300"}
+            subtext={financialsVisible ? (!hasOdooLink ? noOdooSubtext : (kpis.lifetimeSales != null ? 'Net of credit memos' : undefined)) : undefined}
+          />
+          <button
+            onClick={() => setFinancialsVisible(v => !v)}
+            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+            title={financialsVisible ? 'Hide financials' : 'Show financials'}
+          >
+            {financialsVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        </div>
         <KpiTile
           label="Avg. Margin %"
-          value={hasOdooLink ? (avgMargin != null ? `${avgMargin.toFixed(1)}%` : '—') : '—'}
+          value={financialsVisible ? (hasOdooLink ? (avgMargin != null ? `${avgMargin.toFixed(1)}%` : '—') : '—') : masked}
           icon={TrendingUp}
           color="bg-blue-50 border-blue-200"
-          textColor="text-blue-700"
-          subtext={!hasOdooLink ? noOdooSubtext : undefined}
+          textColor={financialsVisible ? "text-blue-700" : "text-blue-300"}
+          subtext={financialsVisible ? (!hasOdooLink ? noOdooSubtext : undefined) : undefined}
         />
         <KpiTile
           label="No. of Invoices"
