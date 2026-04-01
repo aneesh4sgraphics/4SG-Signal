@@ -10,7 +10,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -351,6 +350,8 @@ function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClo
     </Sheet>
   );
 }
+
+
 
 // ─── Business card ─────────────────────────────────────────────────────────────
 function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: () => void }) {

@@ -16479,6 +16479,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     return 'cold';
   }
 
+  // ─── Company detail: by-name routes (must be before :id routes) ──────────────
   // Overview for orphan (Shopify-only) company — no DB id
   app.get("/api/companies/by-name/overview", isAuthenticated, async (req: any, res) => {
     try {
@@ -16492,11 +16493,33 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         ))
         .orderBy(customers.lastName, customers.firstName);
 
+      const contactCount = contacts.length;
+      const lifetimeSales = contacts.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0);
+      const totalOrders = contacts.reduce((sum, c) => sum + (c.totalOrders || 0), 0);
+
+      const lastActRow = await db
+        .select({ lastDate: sql<string>`MAX(${customerActivityEvents.eventDate})` })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`));
+      const lastEmailRow = await db
+        .select({ lastDate: sql<string>`MAX(${gmailMessages.sentAt})` })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`, sql`${gmailMessages.sentAt} IS NOT NULL`));
+
+      const lastInteraction = latestOf(lastActRow[0]?.lastDate, lastEmailRow[0]?.lastDate);
+      const connectionStrength = calcConnectionStrength(lastInteraction);
+
       res.json({
-        company: { id: null, name, isOrphan: true, odooCompanyPartnerId: null },
+        company: { id: null, name, isOrphan: true, odooCompanyPartnerId: null, source: 'contact' },
         contacts,
-        connectionStrength: 'cold',
-        lastInteractionDate: null,
+        contactCount,
+        lifetimeSales,
+        totalOrders,
+        connectionStrength,
+        lastInteractionDate: lastInteraction?.toISOString() ?? null,
+        odooKpis: { avgMargin: null, invoiceCount: null, outstanding: null },
       });
     } catch (error) {
       console.error("Error fetching orphan company overview:", error);
@@ -16504,6 +16527,76 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  app.get("/api/companies/by-name/activity", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const events = await db
+        .select({
+          id: customerActivityEvents.id,
+          customerId: customerActivityEvents.customerId,
+          eventType: customerActivityEvents.eventType,
+          title: customerActivityEvents.title,
+          description: customerActivityEvents.description,
+          eventDate: customerActivityEvents.eventDate,
+          createdByName: customerActivityEvents.createdByName,
+          amount: customerActivityEvents.amount,
+          contactFirstName: customers.firstName,
+          contactLastName: customers.lastName,
+          contactEmail: customers.email,
+        })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`))
+        .orderBy(sql`${customerActivityEvents.eventDate} DESC`);
+
+      res.json({ events });
+    } catch (error) {
+      console.error("Error fetching company activity by name:", error);
+      res.status(500).json({ error: "Failed to fetch company activity" });
+    }
+  });
+
+  app.get("/api/companies/by-name/emails", isAuthenticated, async (req: any, res) => {
+    try {
+      const name = ((req.query.name as string) || '').trim();
+      if (!name) return res.status(400).json({ error: "name is required" });
+
+      const emails = await db
+        .select({
+          id: gmailMessages.id,
+          direction: gmailMessages.direction,
+          fromEmail: gmailMessages.fromEmail,
+          fromName: gmailMessages.fromName,
+          toEmail: gmailMessages.toEmail,
+          toName: gmailMessages.toName,
+          subject: gmailMessages.subject,
+          snippet: gmailMessages.snippet,
+          sentAt: gmailMessages.sentAt,
+          customerId: gmailMessages.customerId,
+          contactFirstName: customers.firstName,
+          contactLastName: customers.lastName,
+        })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(and(sql`LOWER(${customers.company}) = LOWER(${name})`, sql`${customers.companyId} IS NULL`))
+        .orderBy(sql`${gmailMessages.sentAt} DESC`)
+        .limit(10);
+
+      res.json({ emails });
+    } catch (error) {
+      console.error("Error fetching company emails by name:", error);
+      res.status(500).json({ error: "Failed to fetch company emails" });
+    }
+  });
+
+  // Invoice lines for orphan company
+  app.get("/api/companies/by-name/invoice-lines", isAuthenticated, async (_req, res) => {
+    res.json({ lines: [], invoices: [], invoiceLines: [] });
+  });
+
+  // ─── Company detail: :id routes ─────────────────────────────────────────────
   // Overview for official company by DB id
   app.get("/api/companies/:id/overview", isAuthenticated, async (req: any, res) => {
     try {
@@ -16517,28 +16610,48 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         .where(eq(customers.companyId, companyId))
         .orderBy(customers.lastName, customers.firstName);
 
-      // Compute connection strength from activity events + gmail
-      const [activityMax] = await db.select({ maxDate: sql<string>`MAX(${customerActivityEvents.eventDate})` })
+      const contactCount = contacts.length;
+      const lifetimeSales = contacts.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0);
+      const totalOrders = contacts.reduce((sum, c) => sum + (c.totalOrders || 0), 0);
+
+      const lastActRow = await db
+        .select({ lastDate: sql<string>`MAX(${customerActivityEvents.eventDate})` })
         .from(customerActivityEvents)
         .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
         .where(eq(customers.companyId, companyId));
-
-      const [gmailMax] = await db.select({ maxDate: sql<string>`MAX(${gmailMessages.sentAt})` })
+      const lastEmailRow = await db
+        .select({ lastDate: sql<string>`MAX(${gmailMessages.sentAt})` })
         .from(gmailMessages)
         .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
-        .where(eq(customers.companyId, companyId));
+        .where(and(eq(customers.companyId, companyId), sql`${gmailMessages.sentAt} IS NOT NULL`));
 
-      const latestDate = (() => {
-        const vals = [activityMax?.maxDate, gmailMax?.maxDate, company.lastActivityDate].filter(Boolean)
-          .map(v => new Date(v as string)).filter(d => !isNaN(d.getTime()));
-        return vals.length ? new Date(Math.max(...vals.map(d => d.getTime()))) : null;
-      })();
+      const lastInteraction = latestOf(lastActRow[0]?.lastDate, lastEmailRow[0]?.lastDate, company.lastActivityDate ?? undefined);
+      const connectionStrength = calcConnectionStrength(lastInteraction);
+
+      let odooKpis: { avgMargin: number | null; invoiceCount: number | null; outstanding: number | null } = {
+        avgMargin: null, invoiceCount: null, outstanding: null,
+      };
+
+      if (company.odooCompanyPartnerId) {
+        try {
+          const invoices = await odooClient.getInvoicesByPartner(company.odooCompanyPartnerId);
+          const posted = invoices.filter((inv: any) => inv.state === 'posted');
+          odooKpis.invoiceCount = posted.length;
+          odooKpis.outstanding = posted.reduce((sum: number, inv: any) => sum + (inv.amount_residual || 0), 0);
+        } catch (e: any) {
+          console.error(`[Company Detail] Odoo KPI fetch error for partner ${company.odooCompanyPartnerId}:`, e.message);
+        }
+      }
 
       res.json({
         company: { ...company, isOrphan: false },
         contacts,
-        connectionStrength: companyConnectionStrength(latestDate),
-        lastInteractionDate: latestDate?.toISOString() ?? null,
+        contactCount,
+        lifetimeSales,
+        totalOrders,
+        connectionStrength,
+        lastInteractionDate: lastInteraction?.toISOString() ?? null,
+        odooKpis,
       });
     } catch (error) {
       console.error("Error fetching company overview:", error);
@@ -16596,8 +16709,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const ids = orphanCustomers.map(c => c.id);
       const events = await db.select().from(customerActivityEvents)
         .where(inArray(customerActivityEvents.customerId, ids))
-        .orderBy(desc(customerActivityEvents.eventDate))
-        .limit(100);
+        .orderBy(desc(customerActivityEvents.eventDate));
 
       res.json({ events });
     } catch (error) {
@@ -16611,20 +16723,29 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const companyId = parseInt(req.params.id);
       if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
 
-      const companyContacts = await db.select({ id: customers.id })
-        .from(customers).where(eq(customers.companyId, companyId));
-
-      if (!companyContacts.length) return res.json({ events: [] });
-
-      const ids = companyContacts.map(c => c.id);
-      const events = await db.select().from(customerActivityEvents)
-        .where(inArray(customerActivityEvents.customerId, ids))
-        .orderBy(desc(customerActivityEvents.eventDate))
-        .limit(100);
+      const events = await db
+        .select({
+          id: customerActivityEvents.id,
+          customerId: customerActivityEvents.customerId,
+          eventType: customerActivityEvents.eventType,
+          title: customerActivityEvents.title,
+          description: customerActivityEvents.description,
+          eventDate: customerActivityEvents.eventDate,
+          createdByName: customerActivityEvents.createdByName,
+          amount: customerActivityEvents.amount,
+          contactFirstName: customers.firstName,
+          contactLastName: customers.lastName,
+          contactEmail: customers.email,
+        })
+        .from(customerActivityEvents)
+        .innerJoin(customers, eq(customerActivityEvents.customerId, customers.id))
+        .where(eq(customers.companyId, companyId))
+        .orderBy(sql`${customerActivityEvents.eventDate} DESC`);
 
       res.json({ events });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch activity" });
+      console.error("Error fetching company activity:", error);
+      res.status(500).json({ error: "Failed to fetch company activity" });
     }
   });
 
@@ -16658,20 +16779,31 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const companyId = parseInt(req.params.id);
       if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
 
-      const companyContacts = await db.select({ id: customers.id })
-        .from(customers).where(eq(customers.companyId, companyId));
-
-      if (!companyContacts.length) return res.json({ emails: [] });
-
-      const ids = companyContacts.map(c => c.id);
-      const emails = await db.select().from(gmailMessages)
-        .where(inArray(gmailMessages.customerId, ids))
-        .orderBy(desc(gmailMessages.sentAt))
+      const emails = await db
+        .select({
+          id: gmailMessages.id,
+          direction: gmailMessages.direction,
+          fromEmail: gmailMessages.fromEmail,
+          fromName: gmailMessages.fromName,
+          toEmail: gmailMessages.toEmail,
+          toName: gmailMessages.toName,
+          subject: gmailMessages.subject,
+          snippet: gmailMessages.snippet,
+          sentAt: gmailMessages.sentAt,
+          customerId: gmailMessages.customerId,
+          contactFirstName: customers.firstName,
+          contactLastName: customers.lastName,
+        })
+        .from(gmailMessages)
+        .innerJoin(customers, eq(gmailMessages.customerId, customers.id))
+        .where(eq(customers.companyId, companyId))
+        .orderBy(sql`${gmailMessages.sentAt} DESC`)
         .limit(10);
 
       res.json({ emails });
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch emails" });
+      console.error("Error fetching company emails:", error);
+      res.status(500).json({ error: "Failed to fetch company emails" });
     }
   });
 
@@ -16680,31 +16812,55 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     res.json({ lines: [], invoices: [] });
   });
 
-  // Invoice lines for official company (from Odoo)
+  // Company detail: invoice lines from Odoo (Product Prices tab)
   app.get("/api/companies/:id/invoice-lines", isAuthenticated, async (req: any, res) => {
     try {
       const companyId = parseInt(req.params.id);
       if (isNaN(companyId)) return res.status(400).json({ error: "Invalid company ID" });
 
-      const [company] = await db.select({ odooCompanyPartnerId: companies.odooCompanyPartnerId })
-        .from(companies).where(eq(companies.id, companyId)).limit(1);
+      const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+      if (!company.odooCompanyPartnerId) return res.json({ invoices: [], message: "No Odoo partner linked" });
 
-      if (!company?.odooCompanyPartnerId) {
-        return res.json({ lines: [], invoices: [] });
-      }
+      const invoiceLines = await odooClient.searchRead('account.move.line', [
+        ['partner_id', 'child_of', company.odooCompanyPartnerId],
+        ['parent_state', '=', 'posted'],
+        ['move_type', '=', 'out_invoice'],
+        ['display_type', '=', 'product'],
+      ], [
+        'id', 'move_id', 'move_name', 'product_id', 'name', 'quantity', 'price_unit', 'price_subtotal', 'date', 'partner_id',
+      ], { limit: 200, order: 'create_date desc' });
 
-      const lines = await odooClient.getInvoiceLinesForPartner(company.odooCompanyPartnerId);
-      // Build unique invoice list from lines
-      const invoiceMap = new Map<number, { id: number; name: string; date: string | null; state: string }>();
-      for (const line of lines) {
-        if (!invoiceMap.has(line.invoiceId)) {
-          invoiceMap.set(line.invoiceId, { id: line.invoiceId, name: line.invoiceName, date: line.invoiceDate, state: line.invoiceState });
+      const invoiceMap: Record<string, { invoiceNumber: string; invoiceDate: string | null; partnerName: string; lines: { id: number; sku: string; description: string; pricePerUnit: number; quantity: number; total: number }[]; invoiceTotal: number }> = {};
+
+      for (const line of invoiceLines) {
+        const invNum = line.move_name || (line.move_id ? line.move_id[1] : '');
+        if (!invoiceMap[invNum]) {
+          invoiceMap[invNum] = {
+            invoiceNumber: invNum,
+            invoiceDate: line.date || null,
+            partnerName: line.partner_id ? line.partner_id[1] : '',
+            lines: [],
+            invoiceTotal: 0,
+          };
         }
+        const lineTotal = line.price_subtotal || 0;
+        invoiceMap[invNum].lines.push({
+          id: line.id,
+          sku: line.product_id ? line.product_id[1]?.split(']')[0]?.replace('[', '').trim() || '' : '',
+          description: line.name || (line.product_id ? line.product_id[1] : ''),
+          pricePerUnit: line.price_unit || 0,
+          quantity: line.quantity || 0,
+          total: lineTotal,
+        });
+        invoiceMap[invNum].invoiceTotal += lineTotal;
       }
 
-      res.json({ lines, invoices: Array.from(invoiceMap.values()) });
+      const invoices = Object.values(invoiceMap);
+
+      res.json({ invoices });
     } catch (error) {
-      console.error("Error fetching invoice lines:", error);
+      console.error("Error fetching company invoice lines:", error);
       res.status(500).json({ error: "Failed to fetch invoice lines" });
     }
   });
