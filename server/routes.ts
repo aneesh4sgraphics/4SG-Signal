@@ -5750,6 +5750,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isHotProspect?: boolean;
           isCompany?: boolean;
           doNotContact?: boolean;
+          city?: string;
+          customerType?: string;
+          hasAddress?: boolean;
+          connectionStrength?: string;
         } = {};
         
         if (req.query.salesRepId) filters.salesRepId = req.query.salesRepId as string;
@@ -5764,6 +5768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (req.query.isCompany === 'false') filters.isCompany = false;
         if (req.query.doNotContact === 'true') filters.doNotContact = true;
         if (req.query.doNotContact === 'false') filters.doNotContact = false;
+        if (req.query.city) filters.city = req.query.city as string;
+        if (req.query.customerType) filters.customerType = req.query.customerType as string;
+        if (req.query.hasAddress === 'true') filters.hasAddress = true;
+        if (req.query.connectionStrength) filters.connectionStrength = req.query.connectionStrength as string;
         
         const hasFilters = Object.keys(filters).length > 0;
         
@@ -15879,9 +15887,49 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  app.get("/api/label-cities", isAuthenticated, async (req: any, res) => {
+    try {
+      const { state } = req.query;
+      if (!state) return res.json([]);
+      const variants = stateFilterVariants(state as string);
+      const [customerCities, leadCities] = await Promise.all([
+        db.selectDistinct({ val: customers.city }).from(customers)
+          .where(and(
+            sql`${customers.city} is not null and trim(${customers.city}) <> ''`,
+            or(...variants.map(v => ilike(customers.province, v)))!
+          ))
+          .orderBy(customers.city),
+        db.selectDistinct({ val: leads.city }).from(leads)
+          .where(and(
+            sql`${leads.city} is not null and trim(${leads.city}) <> ''`,
+            or(...variants.map(v => ilike(leads.state, v)))!
+          ))
+          .orderBy(leads.city),
+      ]);
+      const seen = new Set<string>();
+      const combined: string[] = [];
+      for (const raw of [
+        ...customerCities.map(r => r.val as string),
+        ...leadCities.map(r => r.val as string),
+      ]) {
+        const normalized = (raw || '').trim();
+        const key = normalized.toLowerCase();
+        if (normalized && !seen.has(key)) {
+          seen.add(key);
+          combined.push(normalized);
+        }
+      }
+      combined.sort();
+      res.json(combined);
+    } catch (error) {
+      console.error("Error fetching label cities:", error);
+      res.status(500).json({ error: "Failed to fetch cities" });
+    }
+  });
+
   app.get("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      const { stage, salesRepId, search, state: stateFilter, limit = 100, offset = 0 } = req.query;
+      const { stage, salesRepId, search, state: stateFilter, city: cityFilter, limit = 100, offset = 0 } = req.query;
       
       let query = db.select().from(leads);
       const conditions: any[] = [];
@@ -15901,6 +15949,9 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         } else {
           conditions.push(or(...variants.map(v => ilike(leads.state, v)))!);
         }
+      }
+      if (cityFilter) {
+        conditions.push(ilike(leads.city, cityFilter as string));
       }
       if (search) {
         const searchTerm = `%${search}%`;

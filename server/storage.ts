@@ -259,6 +259,10 @@ export interface IStorage {
       isHotProspect?: boolean;
       isCompany?: boolean;
       doNotContact?: boolean;
+      city?: string;
+      customerType?: string;
+      hasAddress?: boolean;
+      connectionStrength?: string;
     }
   ): Promise<{ data: Partial<Customer>[]; total: number; page: number; limit: number; totalPages: number }>;
   getAllCustomers(): Promise<Customer[]>; // Alias for getCustomers for clarity
@@ -1064,8 +1068,10 @@ export class DatabaseStorage implements IStorage {
     lastName: customers.lastName,
     email: customers.email,
     company: customers.company,
+    address1: customers.address1,
     city: customers.city,
     province: customers.province,
+    zip: customers.zip,
     country: customers.country,
     phone: customers.phone,
     totalSpent: customers.totalSpent,
@@ -1077,6 +1083,8 @@ export class DatabaseStorage implements IStorage {
     isCompany: customers.isCompany,
     contactType: customers.contactType,
     doNotContact: customers.doNotContact,
+    customerType: customers.customerType,
+    lastOutboundEmailAt: customers.lastOutboundEmailAt,
     sources: customers.sources,
     odooPartnerId: customers.odooPartnerId,
     parentCustomerId: customers.parentCustomerId,
@@ -1095,6 +1103,10 @@ export class DatabaseStorage implements IStorage {
       isHotProspect?: boolean;
       isCompany?: boolean;
       doNotContact?: boolean;
+      city?: string;
+      customerType?: string;
+      hasAddress?: boolean;
+      connectionStrength?: string;
     }
   ): Promise<{ data: Partial<Customer>[]; total: number; page: number; limit: number; totalPages: number }> {
     const offset = (page - 1) * limit;
@@ -1142,7 +1154,37 @@ export class DatabaseStorage implements IStorage {
     if (filters?.doNotContact !== undefined) {
       conditions.push(eq(customers.doNotContact, filters.doNotContact));
     }
-    
+    if (filters?.city) {
+      conditions.push(ilike(customers.city, filters.city));
+    }
+    if (filters?.customerType) {
+      conditions.push(eq(customers.customerType, filters.customerType));
+    }
+    if (filters?.hasAddress === true) {
+      conditions.push(sql`${customers.address1} IS NOT NULL AND ${customers.address1} <> ''`);
+    }
+    if (filters?.connectionStrength) {
+      const now = new Date();
+      const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000);
+      switch (filters.connectionStrength) {
+        case 'very_strong':
+          conditions.push(sql`${customers.lastOutboundEmailAt} >= ${daysAgo(30)}`);
+          break;
+        case 'strong':
+          conditions.push(sql`${customers.lastOutboundEmailAt} >= ${daysAgo(90)} AND ${customers.lastOutboundEmailAt} < ${daysAgo(30)}`);
+          break;
+        case 'moderate':
+          conditions.push(sql`${customers.lastOutboundEmailAt} >= ${daysAgo(180)} AND ${customers.lastOutboundEmailAt} < ${daysAgo(90)}`);
+          break;
+        case 'weak':
+          conditions.push(sql`${customers.lastOutboundEmailAt} >= ${daysAgo(365)} AND ${customers.lastOutboundEmailAt} < ${daysAgo(180)}`);
+          break;
+        case 'cold':
+          conditions.push(sql`(${customers.lastOutboundEmailAt} IS NULL OR ${customers.lastOutboundEmailAt} < ${daysAgo(365)})`);
+          break;
+      }
+    }
+
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
     // Count query
