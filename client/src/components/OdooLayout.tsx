@@ -104,6 +104,7 @@ const LABEL_ITEMS: NavItemDef[] = [
 // ── Automations section (collapsible) ─────────────────────────────────────────
 const AUTOMATION_ITEMS: NavItemDef[] = [
   { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
+  { path: '/sequences', label: 'Sequences', icon: Zap, iconColor: '#6366f1' },
   { path: '/crm-journey', label: 'CRM Journey', icon: Target, iconColor: '#8b5cf6' },
   { path: '/calendar', label: 'Calendar', icon: Calendar, iconColor: '#ef4444' },
 ];

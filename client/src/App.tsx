@@ -34,6 +34,7 @@ const ShippingLabels = lazy(() => import("@/pages/shipping-labels"));
 const ProductLabels = lazy(() => import("@/pages/product-labels"));
 const CustomerLabels = lazy(() => import("@/pages/customer-labels"));
 const CRMJourneyDashboard = lazy(() => import("@/pages/crm-journey"));
+const SequencesPage = lazy(() => import("@/pages/sequences"));
 const EmailApp = lazy(() => import("@/pages/email-app"));
 const ObjectionsPage = lazy(() => import("@/pages/objections"));
 const ShopifySettingsPage = lazy(() => import("@/pages/shopify-settings"));
@@ -165,6 +166,7 @@ const AppRoutes = () => (
       <Route path="/shipping-labels" component={ShippingLabels} />
       <Route path="/product-labels" component={ProductLabels} />
       <Route path="/customer-labels" component={CustomerLabels} />
+      <Route path="/sequences" component={SequencesPage} />
       <Route path="/crm-journey" component={CRMJourneyDashboard} />
       <Route path="/email-app" component={EmailApp} />
       <Route path="/email-insights" component={Spotlight} />

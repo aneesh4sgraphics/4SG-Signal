@@ -14570,6 +14570,96 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Get enriched assignments for a campaign (with contact names + step progress)
+  app.get("/api/drip-campaigns/:campaignId/assignments/enriched", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+
+      // Fetch assignments joined with customer data
+      const rows = await db.select({
+        id: dripCampaignAssignments.id,
+        campaignId: dripCampaignAssignments.campaignId,
+        customerId: dripCampaignAssignments.customerId,
+        leadId: dripCampaignAssignments.leadId,
+        status: dripCampaignAssignments.status,
+        startedAt: dripCampaignAssignments.startedAt,
+        completedAt: dripCampaignAssignments.completedAt,
+        pausedAt: dripCampaignAssignments.pausedAt,
+        cancelledAt: dripCampaignAssignments.cancelledAt,
+        assignedBy: dripCampaignAssignments.assignedBy,
+        customerCompany: customers.company,
+        customerEmail: customers.email,
+        customerFirstName: customers.firstName,
+        customerLastName: customers.lastName,
+      })
+        .from(dripCampaignAssignments)
+        .leftJoin(customers, eq(dripCampaignAssignments.customerId, customers.id))
+        .where(eq(dripCampaignAssignments.campaignId, campaignId))
+        .orderBy(desc(dripCampaignAssignments.startedAt));
+
+      // Resolve lead names
+      const leadIds = rows.filter(r => r.leadId).map(r => r.leadId!);
+      let leadMap: Record<number, { name: string; company: string | null; email: string | null }> = {};
+      if (leadIds.length > 0) {
+        const leadRows = await db.select({ id: leads.id, name: leads.name, company: leads.company, email: leads.email })
+          .from(leads)
+          .where(inArray(leads.id, leadIds));
+        leadMap = Object.fromEntries(leadRows.map(l => [l.id, l]));
+      }
+
+      // Get step status counts per assignment
+      const assignmentIds = rows.map(r => r.id);
+      let stepCountMap: Record<number, { sent: number; total: number }> = {};
+      if (assignmentIds.length > 0) {
+        const stepStatuses = await db.select({
+          assignmentId: dripCampaignStepStatus.assignmentId,
+          status: dripCampaignStepStatus.status,
+          count: sql<number>`count(*)::int`,
+        })
+          .from(dripCampaignStepStatus)
+          .where(inArray(dripCampaignStepStatus.assignmentId, assignmentIds))
+          .groupBy(dripCampaignStepStatus.assignmentId, dripCampaignStepStatus.status);
+
+        for (const row of stepStatuses) {
+          if (!stepCountMap[row.assignmentId]) stepCountMap[row.assignmentId] = { sent: 0, total: 0 };
+          stepCountMap[row.assignmentId].total += Number(row.count);
+          if (row.status === 'sent') stepCountMap[row.assignmentId].sent += Number(row.count);
+        }
+      }
+
+      const enriched = rows.map(r => {
+        const lead = r.leadId ? leadMap[r.leadId] : null;
+        const stepProgress = stepCountMap[r.id] ?? { sent: 0, total: 0 };
+        const name = lead
+          ? (lead.name || lead.company || lead.email || 'Unknown Lead')
+          : (r.customerCompany || [r.customerFirstName, r.customerLastName].filter(Boolean).join(' ') || r.customerEmail || 'Unknown');
+        return {
+          id: r.id,
+          campaignId: r.campaignId,
+          customerId: r.customerId,
+          leadId: r.leadId,
+          status: r.status,
+          startedAt: r.startedAt,
+          completedAt: r.completedAt,
+          pausedAt: r.pausedAt,
+          cancelledAt: r.cancelledAt,
+          assignedBy: r.assignedBy,
+          name,
+          email: lead?.email ?? r.customerEmail,
+          company: lead?.company ?? r.customerCompany,
+          type: r.leadId ? 'lead' : 'customer',
+          stepsSent: stepProgress.sent,
+          stepsTotal: stepProgress.total,
+        };
+      });
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching enriched assignments:", error);
+      res.status(500).json({ error: "Failed to fetch enriched assignments" });
+    }
+  });
+
   // Get all drip campaign assignments for a specific lead
   app.get("/api/leads/:id/drip-assignments", isAuthenticated, async (req: any, res) => {
     try {
