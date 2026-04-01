@@ -16158,6 +16158,96 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Aggregate all company names from all sources (Odoo companies table + customer company fields + Shopify mappings)
+  app.get("/api/companies/all-names", isAuthenticated, async (req: any, res) => {
+    try {
+      const search = ((req.query.search as string) || '').trim().toLowerCase();
+
+      // 1. Companies table (Odoo-synced official companies)
+      const officialCompanies = await db.select({
+        id: companies.id,
+        name: companies.name,
+        city: companies.city,
+        stateProvince: companies.stateProvince,
+        domain: companies.domain,
+        odooCompanyPartnerId: companies.odooCompanyPartnerId,
+      }).from(companies).orderBy(companies.name);
+
+      // 2. Distinct company names from customers table
+      const customerCompanyRows = await db
+        .selectDistinct({ company: customers.company })
+        .from(customers)
+        .where(and(
+          sql`${customers.company} IS NOT NULL`,
+          sql`TRIM(${customers.company}) != ''`
+        ));
+
+      // 3. Distinct Shopify company names
+      const shopifyRows = await db
+        .selectDistinct({ shopifyCompanyName: shopifyCustomerMappings.shopifyCompanyName })
+        .from(shopifyCustomerMappings)
+        .where(and(
+          sql`${shopifyCustomerMappings.shopifyCompanyName} IS NOT NULL`,
+          sql`TRIM(${shopifyCustomerMappings.shopifyCompanyName}) != ''`,
+          eq(shopifyCustomerMappings.isActive, true)
+        ));
+
+      // Build a set of official company names (lowercased) for dedup
+      const officialNameSet = new Set(officialCompanies.map(c => c.name.toLowerCase()));
+
+      // Build result list: official companies first
+      const result: {
+        id: number | null;
+        name: string;
+        source: 'odoo' | 'shopify' | 'contact';
+        city: string | null;
+        stateProvince: string | null;
+        domain: string | null;
+      }[] = officialCompanies.map(c => ({
+        id: c.id,
+        name: c.name,
+        source: 'odoo' as const,
+        city: c.city ?? null,
+        stateProvince: c.stateProvince ?? null,
+        domain: c.domain ?? null,
+      }));
+
+      // Add customer company names not already in result
+      const seenNames = new Set(officialNameSet);
+      for (const row of customerCompanyRows) {
+        if (!row.company) continue;
+        const key = row.company.toLowerCase();
+        if (!seenNames.has(key)) {
+          seenNames.add(key);
+          result.push({ id: null, name: row.company, source: 'contact', city: null, stateProvince: null, domain: null });
+        }
+      }
+
+      // Add Shopify company names not already in result
+      for (const row of shopifyRows) {
+        if (!row.shopifyCompanyName) continue;
+        const key = row.shopifyCompanyName.toLowerCase();
+        if (!seenNames.has(key)) {
+          seenNames.add(key);
+          result.push({ id: null, name: row.shopifyCompanyName, source: 'shopify', city: null, stateProvince: null, domain: null });
+        }
+      }
+
+      // Filter by search if provided
+      const filtered = search
+        ? result.filter(r => r.name.toLowerCase().includes(search))
+        : result;
+
+      // Sort alphabetically
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error fetching all company names:", error);
+      res.status(500).json({ error: "Failed to fetch company names" });
+    }
+  });
+
   // Get contacts for a specific company
   app.get("/api/companies/:id/contacts", isAuthenticated, async (req: any, res) => {
     try {
