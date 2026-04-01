@@ -12202,6 +12202,35 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
   // ========================================
 
   // Customer Contacts
+  // Get a single contact by ID (for Contact Detail page)
+  app.get("/api/crm/customer-contacts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contact = await storage.getCustomerContact(parseInt(req.params.id));
+      if (!contact) return res.status(404).json({ error: "Contact not found" });
+      // Also pull their company info
+      const [company] = await db
+        .select({ id: customers.id, company: customers.company, city: customers.city, province: customers.province })
+        .from(customers)
+        .where(eq(customers.id, contact.customerId))
+        .limit(1);
+      // Pull emails linked to this contact's email
+      let emails: { id: number; direction: string; fromEmail: string | null; fromName: string | null; toEmail: string | null; subject: string | null; snippet: string | null; sentAt: string | null }[] = [];
+      if (contact.emailNormalized || contact.email) {
+        const normalizedEmail = (contact.emailNormalized || contact.email || "").toLowerCase().replace(/\s/g, "");
+        emails = await db
+          .select({ id: gmailMessages.id, direction: gmailMessages.direction, fromEmail: gmailMessages.fromEmail, fromName: gmailMessages.fromName, toEmail: gmailMessages.toEmail, subject: gmailMessages.subject, snippet: gmailMessages.snippet, sentAt: gmailMessages.sentAt })
+          .from(gmailMessages)
+          .where(or(eq(gmailMessages.fromEmailNormalized, normalizedEmail), eq(gmailMessages.toEmailNormalized, normalizedEmail)))
+          .orderBy(desc(gmailMessages.sentAt))
+          .limit(50);
+      }
+      res.json({ contact, company: company || null, emails });
+    } catch (error) {
+      console.error("Error fetching customer contact:", error);
+      res.status(500).json({ error: "Failed to fetch contact" });
+    }
+  });
+
   app.get("/api/crm/customer-contacts", isAuthenticated, async (req, res) => {
     try {
       const customerId = req.query.customerId as string | undefined;

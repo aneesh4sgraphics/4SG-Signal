@@ -54,6 +54,7 @@ const OdooProducts = lazy(() => import("@/pages/odoo-products"));
 const OdooProductDetail = lazy(() => import("@/pages/odoo-product-detail"));
 const LeadsPage = lazy(() => import("@/pages/leads"));
 const LeadDetail = lazy(() => import("@/pages/lead-detail"));
+const ContactDetail = lazy(() => import("@/pages/contact-detail"));
 const BounceInvestigation = lazy(() => import("@/pages/bounce-investigation"));
 const OpportunitiesPage = lazy(() => import("@/pages/opportunities"));
 const CustomerMarginsPage = lazy(() => import("@/pages/customer-margins"));
@@ -182,6 +183,7 @@ const AppRoutes = () => (
       <Route path="/hot-leads" component={HotLeads} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/leads/:id" component={LeadDetail} />
+      <Route path="/contacts/:id" component={ContactDetail} />
       <Route path="/opportunities" component={OpportunitiesPage} />
       <Route path="/customer-margins" component={CustomerMarginsPage} />
       <Route path="/bounce-investigation/:bounceId" component={BounceInvestigation} />
