@@ -114,6 +114,8 @@ const ADMIN_ITEMS: NavItemDef[] = [
   { path: '/product-pricing-management', label: 'Products Pricing', icon: Database, iconColor: '#0284c7', adminOnly: true },
   { path: '/product-mapping', label: 'Product Mapping', icon: Layers, iconColor: '#d97706', adminOnly: true },
   { path: '/pdf-settings', label: 'PDF Settings', icon: FileText, iconColor: '#64473a', adminOnly: true },
+  { path: '/odoo-settings', label: 'Odoo', icon: RefreshCw, iconColor: '#693fa5', adminOnly: true },
+  { path: '/shopify-settings', label: 'Shopify', icon: ShoppingBag, iconColor: '#0e7b6c', adminOnly: true },
 ];
 
 function getUserInitials(email: string | undefined): string {
