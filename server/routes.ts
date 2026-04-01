@@ -11442,6 +11442,56 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Admin: resync all active users from a given date (defaults to 2026-01-01)
+  // Uses per-user OAuth tokens (gmail-intelligence) — not shared integration token
+  app.post("/api/admin/gmail/resync-all", isAuthenticated, async (req: any, res) => {
+    try {
+      const { syncGmailMessages: syncIntelligence } = await import("./gmail-intelligence");
+      const { processUnanalyzedMessages, createFollowUpTasksFromEvents } = await import("./email-event-extractor");
+
+      const afterParam = (req.body?.afterDate as string) || '2026-01-01';
+      const afterDate = new Date(afterParam + 'T00:00:00Z');
+      const maxMessages = Number(req.body?.maxMessages) || 500;
+
+      const connRows = await db.execute(
+        sql`SELECT user_id, gmail_address FROM user_gmail_connections WHERE is_active = true`
+      );
+      const userRows = (connRows as any).rows as Array<{ user_id: string; gmail_address: string }>;
+      console.log(`[Resync-All] Starting resync for ${userRows.length} users from ${afterParam} (max ${maxMessages} msgs each)`);
+
+      // Respond immediately — run in background
+      res.json({ 
+        message: `Resync started for ${userRows.length} users from ${afterParam} (max ${maxMessages} messages each). Check server logs.`,
+        users: userRows.map(r => r.user_id),
+        afterDate: afterParam,
+        maxMessages,
+      });
+
+      // Background: sync each user with per-user OAuth + date filter
+      (async () => {
+        for (const row of userRows) {
+          const { user_id: userId, gmail_address: userEmail } = row;
+          try {
+            console.log(`[Resync-All] → Syncing ${userEmail} (${userId}) from ${afterParam}...`);
+            const syncResult = await syncIntelligence(userId, userEmail || '', maxMessages, afterDate);
+            console.log(`[Resync-All] ${userEmail}: stored=${(syncResult as any)?.stored ?? '?'} matched=${(syncResult as any)?.matched ?? '?'}`);
+            const eventsExtracted = await processUnanalyzedMessages(userId, 500);
+            if (eventsExtracted > 0) console.log(`[Resync-All] ${userEmail}: ${eventsExtracted} events extracted`);
+            const tasksCreated = await createFollowUpTasksFromEvents(userId, 200);
+            if (tasksCreated > 0) console.log(`[Resync-All] ${userEmail}: ${tasksCreated} follow-up tasks created`);
+          } catch (err: any) {
+            console.error(`[Resync-All] User ${userId} failed:`, err.message);
+          }
+        }
+        console.log(`[Resync-All] Complete for all ${userRows.length} users.`);
+      })();
+
+    } catch (error: any) {
+      console.error("[Resync-All] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to start resync" });
+    }
+  });
+
   // Trigger full Gmail sync (30 days, with pagination)
   app.post("/api/email-intelligence/sync", isAuthenticated, async (req: any, res) => {
     try {

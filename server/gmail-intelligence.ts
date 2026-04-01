@@ -4,7 +4,7 @@ import { eq, and, desc, sql, inArray, lt, isNull, or, ne } from "drizzle-orm";
 import { getMessages, getMessage } from "./gmail-client";
 import { getImapMessages, getImapMessage, hasAnyImapCredentials } from "./imap-client";
 import { getUserGmailConnection, getUserGmailMessages, getUserGmailMessage } from "./user-gmail-oauth";
-import { syncGmailMessages } from "./gmail-sync-worker";
+import { syncGmailMessages as syncGmailMessagesWorker } from "./gmail-sync-worker";
 import { processUnanalyzedMessages, createFollowUpTasksFromEvents } from "./email-event-extractor";
 import { syncUserSentMailActivities } from "./gmail-sent-activity-sync";
 import OpenAI from "openai";
@@ -125,8 +125,8 @@ export async function createOrUpdateSyncState(userId: string, updates: Partial<t
   }
 }
 
-export async function syncGmailMessages(userId: string, userEmail: string, maxMessages: number = 50) {
-  console.log(`[Gmail Intelligence] Starting sync for user ${userId}`);
+export async function syncGmailMessages(userId: string, userEmail: string, maxMessages: number = 50, afterDate?: Date) {
+  console.log(`[Gmail Intelligence] Starting sync for user ${userId}${afterDate ? ` (after ${afterDate.toISOString().slice(0,10)})` : ''}`);
   
   await createOrUpdateSyncState(userId, { syncStatus: 'syncing' });
 
@@ -140,8 +140,8 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     if (userGmailConn && userGmailConn.isActive) {
       useMethod = 'per-user-oauth';
       console.log(`[Gmail Intelligence] Using per-user OAuth for: ${userGmailConn.gmailAddress}`);
-      inboxMessages = await getUserGmailMessages(userId, 'INBOX', maxMessages);
-      sentMessages = await getUserGmailMessages(userId, 'SENT', maxMessages);
+      inboxMessages = await getUserGmailMessages(userId, 'INBOX', maxMessages, afterDate);
+      sentMessages = await getUserGmailMessages(userId, 'SENT', maxMessages, afterDate);
       
       // Update last sync time on user's connection
       await db.update(userGmailConnections)
@@ -1308,13 +1308,13 @@ async function syncUserGmailMessagesDelta(userId: string, maxMessages: number): 
   if (lastHistoryId && hasRecentSync) {
     // Delta sync - only fetch new messages since last sync
     console.log(`[Gmail Sync] Delta sync for user ${userId} from historyId ${lastHistoryId}`);
-    const result = await syncGmailMessages(userId);
+    const result = await syncGmailMessagesWorker(userId);
     return { newMessages: result.messagesStored, syncType: 'delta' };
   }
   
   // Full sync (first time or stale sync state)
   console.log(`[Gmail Sync] Full sync for user ${userId} (no recent historyId)`);
-  const result = await syncGmailMessages(userId);
+  const result = await syncGmailMessagesWorker(userId);
   return { newMessages: result.messagesStored, syncType: 'full' };
 }
 

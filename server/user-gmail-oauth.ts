@@ -171,14 +171,22 @@ function extractBodyFromParts(parts: any[], preferPlainText: boolean = true): st
   return plainText || htmlText;
 }
 
-export async function getUserGmailMessages(userId: string, labelId: string = 'INBOX', maxResults: number = 50) {
+export async function getUserGmailMessages(userId: string, labelId: string = 'INBOX', maxResults: number = 50, afterDate?: Date) {
   const gmail = await getGmailClientForUser(userId);
-  
-  const response = await gmail.users.messages.list({
+
+  const params: any = {
     userId: 'me',
     labelIds: [labelId],
     maxResults,
-  });
+  };
+  if (afterDate) {
+    const y = afterDate.getUTCFullYear();
+    const m = String(afterDate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(afterDate.getUTCDate()).padStart(2, '0');
+    params.q = `after:${y}/${m}/${d}`;
+  }
+  
+  const response = await gmail.users.messages.list(params);
   
   if (!response.data.messages) {
     return [];

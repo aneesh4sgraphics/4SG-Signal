@@ -383,7 +383,7 @@ async function checkDripReply(threadId: string | null, userId: string): Promise<
   console.log(`[Drip Reply] Assignment #${assignmentId} cancelled — reply detected in thread ${threadId}`);
 }
 
-export async function syncGmailMessages(userId: string): Promise<SyncStats> {
+export async function syncGmailMessages(userId: string, afterDateOverride?: Date): Promise<SyncStats> {
   const stats: SyncStats = {
     threadsFound: 0,
     messagesProcessed: 0,
@@ -394,9 +394,12 @@ export async function syncGmailMessages(userId: string): Promise<SyncStats> {
     errors: [],
   };
   
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - SYNC_DAYS);
-  const afterDate = thirtyDaysAgo.toISOString().split('T')[0].replace(/-/g, '/');
+  const cutoff = afterDateOverride ?? (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - SYNC_DAYS);
+    return d;
+  })();
+  const afterDate = cutoff.toISOString().split('T')[0].replace(/-/g, '/');
   
   const inboxQuery = `in:inbox after:${afterDate}`;
   const sentQuery = `in:sent after:${afterDate}`;
