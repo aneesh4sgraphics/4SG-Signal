@@ -225,7 +225,7 @@ async function processScheduledEmails() {
           // Lead fields
           leadEmail: leads.email,
           leadFirstName: sql<string>`SPLIT_PART(${leads.name}, ' ', 1)`,
-          leadLastName: sql<string>`SUBSTRING(${leads.name} FROM POSITION(' ' IN ${leads.name}) + 1)`,
+          leadLastName: sql<string>`CASE WHEN POSITION(' ' IN ${leads.name}) > 0 THEN SUBSTRING(${leads.name} FROM POSITION(' ' IN ${leads.name}) + 1) ELSE '' END`,
           leadCompany: leads.company,
         })
         .from(dripCampaignStepStatus)
@@ -482,9 +482,13 @@ function replaceVariables(text: string, email: ScheduledEmail): string {
   
   let result = text;
   for (const [key, value] of Object.entries(replacements)) {
-    const regex = new RegExp(`\\{\\{\\s*${key.replace(/\./g, '\\.')}\\s*\\}\\}`, 'gi');
+    const regex = new RegExp(`\\{\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\}\\}`, 'gi');
     result = result.replace(regex, value);
   }
-  
+
+  // Strip any remaining {{...}} placeholders that didn't match a known variable
+  // so they never appear literally in a sent email
+  result = result.replace(/\{\{[^}]*\}\}/g, '');
+
   return result;
 }
