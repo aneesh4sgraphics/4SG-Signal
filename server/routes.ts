@@ -28930,6 +28930,7 @@ Analyze this bounced email and provide insights in JSON format:
         .filter(id => !isNaN(id));
 
       let emailSubjectMap = new Map<number, string>();
+      let senderEmailMap = new Map<number, string>();
       if (emailEventSourceIds.length > 0) {
         const eventRows = await db
           .select({ id: emailSalesEvents.id, gmailMessageId: emailSalesEvents.gmailMessageId })
@@ -28938,14 +28939,15 @@ Analyze this bounced email and provide insights in JSON format:
         const gmailMsgIds = eventRows.filter(e => e.gmailMessageId).map(e => e.gmailMessageId!);
         if (gmailMsgIds.length > 0) {
           const msgRows = await db
-            .select({ id: gmailMessages.id, subject: gmailMessages.subject })
+            .select({ id: gmailMessages.id, subject: gmailMessages.subject, fromEmail: gmailMessages.fromEmail })
             .from(gmailMessages)
             .where(inArray(gmailMessages.id, gmailMsgIds));
-          const msgSubjectMap = new Map(msgRows.map(m => [m.id, m.subject || '']));
+          const msgMap = new Map(msgRows.map(m => [m.id, m]));
           for (const ev of eventRows) {
             if (ev.gmailMessageId) {
-              const subj = msgSubjectMap.get(ev.gmailMessageId);
-              if (subj) emailSubjectMap.set(ev.id, subj);
+              const msg = msgMap.get(ev.gmailMessageId);
+              if (msg?.subject) emailSubjectMap.set(ev.id, msg.subject);
+              if (msg?.fromEmail) senderEmailMap.set(ev.id, msg.fromEmail);
             }
           }
         }
@@ -28973,8 +28975,10 @@ Analyze this bounced email and provide insights in JSON format:
 
         const dueDate = new Date(task.dueDate);
         const isOverdue = dueDate < today;
-        const emailSubject = (task.sourceType === 'email_event' && task.sourceId) ? emailSubjectMap.get(parseInt(task.sourceId, 10)) || null : null;
-        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
+        const sourceEventId = (task.sourceType === 'email_event' && task.sourceId) ? parseInt(task.sourceId, 10) : NaN;
+        const emailSubject = !isNaN(sourceEventId) ? emailSubjectMap.get(sourceEventId) || null : null;
+        const senderEmail = !isNaN(sourceEventId) ? senderEmailMap.get(sourceEventId) || null : null;
+        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, senderEmail, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
       });
 
       if ((filter === 'overdue' || filter === 'pending' || filter === 'all') && !typeFilter && !priorityFilter) {
