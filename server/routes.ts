@@ -13168,10 +13168,14 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
   });
 
   // Update a journey instance
-  app.put("/api/crm/journey-instances/:id", isAuthenticated, async (req, res) => {
+  const updateJourneyInstanceHandler = async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertCustomerJourneyInstanceSchema.partial().parse(req.body);
+      // Coerce ISO date strings to Date objects for timestamp fields before Zod validation
+      const body = { ...req.body };
+      if (typeof body.completedAt === 'string') body.completedAt = new Date(body.completedAt);
+      if (typeof body.startedAt === 'string') body.startedAt = new Date(body.startedAt);
+      const validatedData = insertCustomerJourneyInstanceSchema.partial().parse(body);
       const instance = await storage.updateJourneyInstance(id, validatedData);
       
       if (!instance) {
@@ -13199,7 +13203,10 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       console.error("Error updating journey instance:", error);
       res.status(500).json({ error: "Failed to update journey instance" });
     }
-  });
+  };
+
+  app.put("/api/crm/journey-instances/:id", isAuthenticated, updateJourneyInstanceHandler);
+  app.patch("/api/crm/journey-instances/:id", isAuthenticated, updateJourneyInstanceHandler);
 
   // Delete a journey instance
   app.delete("/api/crm/journey-instances/:id", isAuthenticated, async (req, res) => {
