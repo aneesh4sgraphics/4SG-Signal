@@ -104,7 +104,7 @@ const LABEL_ITEMS: NavItemDef[] = [
 // ── Automations section (collapsible) ─────────────────────────────────────────
 const AUTOMATION_ITEMS: NavItemDef[] = [
   { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
-  { path: '/sequences', label: 'Sequences', icon: Zap, iconColor: '#6366f1' },
+  { path: '/sequences', label: 'Email Sequences', icon: Zap, iconColor: '#6366f1' },
   { path: '/crm-journey', label: 'CRM Journey', icon: Target, iconColor: '#8b5cf6' },
   { path: '/calendar', label: 'Calendar', icon: Calendar, iconColor: '#ef4444' },
 ];
@@ -112,7 +112,6 @@ const AUTOMATION_ITEMS: NavItemDef[] = [
 // ── Admin section (collapsible, admin only) ───────────────────────────────────
 const ADMIN_ITEMS: NavItemDef[] = [
   { path: '/integrations', label: 'Integrations', icon: Settings2, iconColor: '#0c6e99', adminOnly: true },
-  { path: '/email-app', label: 'Email Studio', icon: Mail, iconColor: '#ad1972', adminOnly: true },
   { path: '/reports', label: 'Reports', icon: BarChart3, iconColor: '#3b82f6', adminOnly: true },
   { path: '/admin', label: 'Users', icon: Users, iconColor: '#ef4444', adminOnly: true },
   { path: '/customer-margins', label: 'Customer Margins', icon: BarChart3, iconColor: '#7c3aed', adminOnly: true },

@@ -94,7 +94,7 @@ export const primaryApps: NavLink[] = [
   { path: '/shipping-calculator', icon: Truck, label: 'Shipping', description: 'Calculate shipping', iconBg: '#64473A', iconColor: '#FFFFFF' },
   { path: '/shipping-labels', icon: Package, label: 'Shipping Labels', description: 'Print labels', iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/product-labels', icon: Tag, label: 'Product Labels', description: 'Barcode labels', iconBg: '#DFAB00', iconColor: '#37352F' },
-  { path: '/email-app', icon: Mail, label: 'Email Studio', description: 'Email campaigns', iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
+  { path: '/sequences', icon: Mail, label: 'Email Sequences', description: 'Email sequences & templates', iconBg: '#6366f1', iconColor: '#FFFFFF' },
   { path: '/crm-journey', icon: Target, label: 'CRM Journey', description: 'Customer stages', iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: Calendar, label: 'Calendar', description: 'Schedule', iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/objections', icon: AlertTriangle, label: 'Objections', description: 'Handle objections', iconBg: '#64473A', iconColor: '#FFFFFF' },

@@ -84,6 +84,12 @@ import {
   Eye,
   Send,
   FlaskConical,
+  FileText,
+  PenTool,
+  Save,
+  Loader2,
+  Copy,
+  Edit2,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -489,6 +495,266 @@ function StepCard({
   );
 }
 
+// ─── Templates Tab ────────────────────────────────────────────────────────────
+const TEMPLATE_CATEGORIES = [
+  { value: 'general', label: 'General' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'follow_up', label: 'Follow Up' },
+  { value: 'product_info', label: 'Product Info' },
+  { value: 'account_payments', label: 'Account/Payments' },
+  { value: 'other', label: 'Other' },
+];
+
+function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
+  const { toast } = useToast();
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingTpl, setEditingTpl] = useState<any | null>(null);
+  const [toDelete, setToDelete] = useState<any | null>(null);
+  const [previewTpl, setPreviewTpl] = useState<any | null>(null);
+  const [tplSearch, setTplSearch] = useState('');
+  const [form, setForm] = useState({
+    name: '', description: '', subject: '', body: '', category: 'general',
+  });
+
+  const resetForm = () => setForm({ name: '', description: '', subject: '', body: '', category: 'general' });
+
+  const { data: templates = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/email/templates'],
+  });
+
+  const createTpl = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/email/templates', { ...form, variables: [], usageType: 'client_email' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/templates'] });
+      setShowEditor(false); resetForm();
+      toast({ title: 'Template created' });
+    },
+    onError: () => toast({ title: 'Failed to create template', variant: 'destructive' }),
+  });
+
+  const updateTpl = useMutation({
+    mutationFn: () => apiRequest('PATCH', `/api/email/templates/${editingTpl?.id}`, { ...form, variables: [] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/templates'] });
+      setShowEditor(false); setEditingTpl(null); resetForm();
+      toast({ title: 'Template updated' });
+    },
+    onError: () => toast({ title: 'Failed to update template', variant: 'destructive' }),
+  });
+
+  const deleteTpl = useMutation({
+    mutationFn: () => apiRequest('DELETE', `/api/email/templates/${toDelete?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/templates'] });
+      setToDelete(null);
+      toast({ title: 'Template deleted' });
+    },
+    onError: () => toast({ title: 'Failed to delete template', variant: 'destructive' }),
+  });
+
+  const openEdit = (tpl: any) => {
+    setEditingTpl(tpl);
+    setForm({ name: tpl.name, description: tpl.description || '', subject: tpl.subject, body: tpl.body, category: tpl.category || 'general' });
+    setShowEditor(true);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: 'Copied to clipboard' });
+  };
+
+  const filtered = templates.filter(t =>
+    !tplSearch || t.name?.toLowerCase().includes(tplSearch.toLowerCase()) || t.subject?.toLowerCase().includes(tplSearch.toLowerCase())
+  );
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Email Templates</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Reusable templates for quick sending from lead and contact pages</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
+            <Input value={tplSearch} onChange={e => setTplSearch(e.target.value)} placeholder="Search templates…" className="pl-8 h-8 text-sm w-48" />
+          </div>
+          {isAdmin && (
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5" onClick={() => { setEditingTpl(null); resetForm(); setShowEditor(true); }}>
+              <Plus className="h-3.5 w-3.5" />
+              New Template
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Grid */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-40 gap-3 text-center">
+          <FileText className="h-8 w-8 text-gray-300" />
+          <p className="text-sm text-gray-500">{tplSearch ? 'No templates match your search' : 'No templates yet'}</p>
+          {isAdmin && !tplSearch && (
+            <Button size="sm" onClick={() => { resetForm(); setShowEditor(true); }}>
+              <Plus className="h-4 w-4 mr-1.5" />Create first template
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map(tpl => (
+            <div key={tpl.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 transition-colors group">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 text-sm truncate">{tpl.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{TEMPLATE_CATEGORIES.find(c => c.value === tpl.category)?.label || 'General'}</p>
+                </div>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <button onClick={() => setPreviewTpl(tpl)} className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50" title="Preview">
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => copyToClipboard(tpl.body)} className="p-1.5 rounded-md text-gray-400 hover:text-green-600 hover:bg-green-50" title="Copy body">
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  {isAdmin && (
+                    <>
+                      <button onClick={() => openEdit(tpl)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Edit">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setToDelete(tpl)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50" title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {tpl.description && <p className="text-xs text-gray-500 mb-2 line-clamp-1">{tpl.description}</p>}
+              <div className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-600 truncate">
+                <span className="text-gray-400 mr-1">Subject:</span>{tpl.subject}
+              </div>
+              <div className="mt-2">
+                <Badge variant={tpl.isActive ? 'default' : 'secondary'} className="text-[10px] h-4 px-1.5">
+                  {tpl.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={showEditor} onOpenChange={v => { if (!v) { setShowEditor(false); setEditingTpl(null); resetForm(); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingTpl ? 'Edit Template' : 'New Email Template'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">Template name *</p>
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Product Introduction" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">Category</p>
+                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Description (optional)</p>
+              <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="What is this template for?" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Subject line *</p>
+              <Input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="e.g. Check out our new {{product.name}}" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Body *</p>
+              <Textarea
+                value={form.body}
+                onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                placeholder="Write your email body here. Use {{client.name}}, {{client.company}}, etc. for variables."
+                className="min-h-[180px] text-sm font-mono"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Variables: {'{{client.name}}'}, {'{{client.company}}'}, {'{{client.email}}'}, {'{{user.name}}'}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setShowEditor(false); setEditingTpl(null); resetForm(); }}>Cancel</Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              disabled={!form.name || !form.subject || !form.body || createTpl.isPending || updateTpl.isPending}
+              onClick={() => editingTpl ? updateTpl.mutate() : createTpl.mutate()}
+            >
+              {(createTpl.isPending || updateTpl.isPending) ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {editingTpl ? 'Save Changes' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewTpl} onOpenChange={v => { if (!v) setPreviewTpl(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-indigo-500" />
+              {previewTpl?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {previewTpl && (
+            <div className="space-y-3">
+              <div className="bg-gray-50 rounded-lg px-4 py-2.5 text-sm">
+                <span className="text-gray-400 text-xs font-medium">Subject: </span>
+                <span className="text-gray-800 font-medium">{previewTpl.subject}</span>
+              </div>
+              <div className="border border-gray-200 rounded-lg px-4 py-4 text-sm text-gray-700 whitespace-pre-wrap min-h-[120px] bg-white"
+                dangerouslySetInnerHTML={{ __html: previewTpl.body?.replace(/\n/g, '<br/>') || '' }}
+              />
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => copyToClipboard(previewTpl.body)} className="gap-1.5">
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy body
+                </Button>
+                {isAdmin && (
+                  <Button size="sm" onClick={() => { openEdit(previewTpl); setPreviewTpl(null); }} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <Edit2 className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!toDelete} onOpenChange={v => { if (!v) setToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{toDelete?.name}" will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteTpl.mutate()}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 // ─── Test Email Dialog ────────────────────────────────────────────────────────
 function TestEmailDialog({
   open,
@@ -840,6 +1106,7 @@ export default function SequencesPage() {
   const { toast } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'editor' | 'recipients' | 'settings'>('editor');
+  const [mainView, setMainView] = useState<'sequences' | 'templates'>('sequences');
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showEnroll, setShowEnroll] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -965,22 +1232,49 @@ export default function SequencesPage() {
       <div className="flex flex-col h-full bg-gray-50">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-white border-b">
-          <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-indigo-500" />
-            <h1 className="text-lg font-semibold text-gray-900">Sequences</h1>
-            <span className="text-sm text-gray-400 ml-2">{campaigns.length} sequences</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-indigo-500" />
+              <h1 className="text-lg font-semibold text-gray-900">Email Sequences</h1>
+            </div>
+            {/* View toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={() => setMainView('sequences')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${mainView === 'sequences' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Sequences
+                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${mainView === 'sequences' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-200 text-gray-400'}`}>{campaigns.length}</span>
+              </button>
+              <button
+                onClick={() => setMainView('templates')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${mainView === 'templates' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Templates
+              </button>
+            </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setShowNewDialog(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            New Sequence
-          </Button>
+          {mainView === 'sequences' && (
+            <Button
+              size="sm"
+              onClick={() => setShowNewDialog(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              New Sequence
+            </Button>
+          )}
         </div>
 
+        {/* Templates View */}
+        {mainView === 'templates' && (
+          <div className="flex-1 overflow-auto">
+            <TemplatesTab isAdmin={true} />
+          </div>
+        )}
+
         {/* Table */}
+        {mainView === 'sequences' && (
         <div className="flex-1 overflow-auto px-6 py-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-40 text-gray-400">Loading…</div>
@@ -1035,6 +1329,7 @@ export default function SequencesPage() {
             </div>
           )}
         </div>
+        )}
 
         <NewSequenceDialog
           open={showNewDialog}
@@ -1610,6 +1905,7 @@ export default function SequencesPage() {
             </div>
           </div>
         )}
+
       </div>
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}

@@ -78,7 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/product-labels', icon: ProductLabelsIcon, label: 'Product Labels', group: 'tools', keywords: ['tags', 'stickers', 'product'], iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
   { path: '/crm-journey', icon: CrmJourneyIcon, label: 'CRM Journey', group: 'tools', keywords: ['pipeline', 'sales', 'customers', 'conversion', 'samples', 'swatches'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/objections', icon: ObjectionsIcon, label: 'Objections', group: 'tools', keywords: ['objections', 'issues', 'blockers', 'concerns', 'problems'], iconBg: '#DFAB00', iconColor: '#37352F' },
-  { path: '/email-app', icon: EmailIcon, label: 'Email Studio', keywords: ['email', 'templates', 'mail', 'compose', 'send'], adminOnly: true, iconBg: '#AD1972', iconColor: '#FFFFFF' },
+  { path: '/sequences', icon: EmailIcon, label: 'Email Sequences', keywords: ['email', 'sequences', 'templates', 'mail', 'drip', 'campaigns', 'send'], adminOnly: true, iconBg: '#6366F1', iconColor: '#FFFFFF' },
   { path: '/integrations', icon: IntegrationsIcon, label: 'Integrations', keywords: ['gmail', 'calendar', 'odoo', 'connect', 'settings', 'google'], adminOnly: true, iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/product-mapping', icon: ProductMappingIcon, label: 'Product Mapping', keywords: ['map', 'category', 'type', 'size', 'sqm', 'fix', 'unmapped'], adminOnly: true, iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/shopify-settings', icon: SiShopify, label: 'Shopify', keywords: ['shopify', 'orders', 'ecommerce', 'integration'], adminOnly: true, iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
