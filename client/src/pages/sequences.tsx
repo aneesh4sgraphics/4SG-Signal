@@ -64,6 +64,7 @@ import {
   Zap,
   User,
   Building2,
+  Braces,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -157,6 +158,17 @@ function statusBadge(status: string) {
   }
 }
 
+// ─── Available template variables ─────────────────────────────────────────────
+const TEMPLATE_VARIABLES = [
+  { label: 'First Name',     token: '{{First Name}}',     group: 'Contact' },
+  { label: 'Last Name',      token: '{{Last Name}}',      group: 'Contact' },
+  { label: 'Full Name',      token: '{{Full Name}}',      group: 'Contact' },
+  { label: 'Email',          token: '{{Email}}',          group: 'Contact' },
+  { label: 'Company',        token: '{{Company}}',        group: 'Contact' },
+  { label: 'Sales Rep Name', token: '{{Sales Rep Name}}', group: 'Sender' },
+  { label: 'Unsubscribe Link', token: '{{Unsubscribe Link}}', group: 'Sender' },
+];
+
 // ─── Step Card ────────────────────────────────────────────────────────────────
 function StepCard({
   step,
@@ -169,11 +181,44 @@ function StepCard({
   onUpdate: (id: number, data: Partial<DripStep>) => void;
   onDelete: (id: number) => void;
 }) {
-  const [subject, setSubject] = useState(step.subject);
-  const [body, setBody] = useState(step.body);
+  const [subject, setSubject] = useState(step.subject || '');
+  const [body, setBody] = useState(step.body || '');
+  const [showVars, setShowVars] = useState(false);
+  const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
 
-  useEffect(() => { setSubject(step.subject); }, [step.subject]);
-  useEffect(() => { setBody(step.body); }, [step.body]);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { setSubject(step.subject || ''); }, [step.subject]);
+  useEffect(() => { setBody(step.body || ''); }, [step.body]);
+
+  function insertVariable(token: string) {
+    if (activeField === 'subject' && subjectRef.current) {
+      const el = subjectRef.current;
+      const start = el.selectionStart ?? subject.length;
+      const end = el.selectionEnd ?? subject.length;
+      const newVal = subject.slice(0, start) + token + subject.slice(end);
+      setSubject(newVal);
+      // Restore cursor after token
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + token.length, start + token.length);
+      });
+      onUpdate(step.id, { subject: newVal });
+    } else if (bodyRef.current) {
+      const el = bodyRef.current;
+      const start = el.selectionStart ?? body.length;
+      const end = el.selectionEnd ?? body.length;
+      const newVal = body.slice(0, start) + token + body.slice(end);
+      setBody(newVal);
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + token.length, start + token.length);
+      });
+      onUpdate(step.id, { body: newVal });
+    }
+    setShowVars(false);
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
@@ -183,51 +228,90 @@ function StepCard({
           <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center">
             <Mail className="h-3 w-3 text-indigo-600" />
           </div>
-          <span className="text-sm font-medium text-gray-700">
-            Step {index + 1}
-          </span>
+          <span className="text-sm font-medium text-gray-700">Step {index + 1}</span>
           <span className="text-sm text-gray-400">Automated email</span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-              <MoreVertical className="h-4 w-4 text-gray-400" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-500"
-              onClick={() => onDelete(step.id)}
+        <div className="flex items-center gap-1">
+          {/* Variables button */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 gap-1"
+              onClick={() => setShowVars(v => !v)}
             >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Remove step
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <Braces className="h-3.5 w-3.5" />
+              Variables
+            </Button>
+            {showVars && (
+              <div className="absolute right-0 top-8 z-50 w-56 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                <p className="px-3 py-1.5 text-[10px] font-semibold tracking-wider text-gray-400 uppercase border-b border-gray-100">
+                  Insert variable — active field: {activeField}
+                </p>
+                {['Contact', 'Sender'].map(group => (
+                  <div key={group}>
+                    <p className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{group}</p>
+                    {TEMPLATE_VARIABLES.filter(v => v.group === group).map(v => (
+                      <button
+                        key={v.token}
+                        className="w-full text-left flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                        onMouseDown={e => { e.preventDefault(); insertVariable(v.token); }}
+                      >
+                        <span>{v.label}</span>
+                        <code className="text-[10px] text-gray-400 font-mono">{v.token}</code>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <MoreVertical className="h-4 w-4 text-gray-400" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-500" onClick={() => onDelete(step.id)}>
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Remove step
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Subject */}
       <div className="flex items-center px-4 py-2.5 border-b border-gray-100">
         <span className="text-xs font-medium text-gray-400 w-14 shrink-0">Subject</span>
         <input
+          ref={subjectRef}
           type="text"
           className="flex-1 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-300"
           placeholder="Enter email subject…"
           value={subject}
           onChange={e => setSubject(e.target.value)}
-          onBlur={() => { if (subject !== step.subject) onUpdate(step.id, { subject }); }}
+          onFocus={() => { setActiveField('subject'); setShowVars(false); }}
+          onBlur={() => {
+            if (subject !== (step.subject || '')) onUpdate(step.id, { subject });
+          }}
         />
       </div>
 
       {/* Body */}
       <div className="px-4 py-3">
         <textarea
+          ref={bodyRef}
           className="w-full text-sm text-gray-700 bg-transparent outline-none resize-none placeholder:text-gray-300 min-h-[80px]"
           placeholder="Start typing, or pick a template (use ↑↓ to navigate)"
           value={body}
           onChange={e => setBody(e.target.value)}
-          onBlur={() => { if (body !== step.body) onUpdate(step.id, { body }); }}
+          onFocus={() => { setActiveField('body'); setShowVars(false); }}
+          onBlur={() => {
+            if (body !== (step.body || '')) onUpdate(step.id, { body });
+          }}
           rows={4}
         />
         <div className="mt-2 pt-2 border-t border-gray-100">
@@ -243,6 +327,11 @@ function StepCard({
           </div>
         </div>
       </div>
+
+      {/* Click-outside overlay to close vars panel */}
+      {showVars && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowVars(false)} />
+      )}
     </div>
   );
 }
