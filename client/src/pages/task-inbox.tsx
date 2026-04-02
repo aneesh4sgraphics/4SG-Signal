@@ -40,8 +40,29 @@ import {
   ChevronRight,
   SlidersHorizontal,
   Flame,
+  Copy,
+  Truck,
 } from "lucide-react";
 import { format, isToday, isPast, isThisWeek } from "date-fns";
+
+function extractTrackingNumbers(text: string | undefined | null): string[] {
+  if (!text) return [];
+  const found = new Set<string>();
+  // Match explicit "Tracking:" prefix (most common in CRM descriptions)
+  const explicitRe = /\bTracking[:\s#No.]*([A-Z0-9]{8,30})\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = explicitRe.exec(text)) !== null) found.add(m[1].toUpperCase());
+  // UPS: 1Z + 16 alphanumeric chars
+  const upsRe = /\b(1Z[A-Z0-9]{16})\b/g;
+  while ((m = upsRe.exec(text)) !== null) found.add(m[1].toUpperCase());
+  // FedEx: 12 or 15 or 20 digit numbers
+  const fedexRe = /\b(\d{12}|\d{15}|\d{20}|\d{22})\b/g;
+  while ((m = fedexRe.exec(text)) !== null) found.add(m[1]);
+  // USPS: 9400 / 9205 / 9361 / 9274 prefix + 16+ digits
+  const uspsRe = /\b(9[24][0-9]{18,})\b/g;
+  while ((m = uspsRe.exec(text)) !== null) found.add(m[1]);
+  return [...found];
+}
 
 interface UnifiedTask {
   id: number | string;
@@ -669,6 +690,32 @@ export default function TaskInboxPage() {
             <DialogDescription>{selectedTask?.description || "No description provided"}</DialogDescription>
           </DialogHeader>
 
+          {/* Tracking number chips — extracted from description */}
+          {(() => {
+            const numbers = extractTrackingNumbers(selectedTask?.description);
+            if (!numbers.length) return null;
+            return (
+              <div className="flex flex-col gap-1.5 -mt-1">
+                {numbers.map((num) => (
+                  <div key={num} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <Truck className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span className="text-sm font-mono font-semibold text-amber-800 flex-1 select-all">{num}</span>
+                    <button
+                      className="flex-shrink-0 p-1 rounded hover:bg-amber-100 transition-colors text-amber-600"
+                      title="Copy tracking number"
+                      onClick={() => {
+                        navigator.clipboard.writeText(num);
+                        toast({ title: "Tracking number copied", description: num });
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           {selectedTask && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1121,6 +1168,12 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
                           task.recordType === "lead" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
                         }`}>
                           {task.recordType === "lead" ? "Lead" : "Contact"}
+                        </span>
+                      )}
+                      {extractTrackingNumbers(task.description).length > 0 && (
+                        <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+                          <Truck className="h-2.5 w-2.5" />
+                          Tracking
                         </span>
                       )}
                     </div>
