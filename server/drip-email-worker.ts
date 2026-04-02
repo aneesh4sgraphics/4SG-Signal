@@ -415,10 +415,18 @@ async function sendScheduledEmail(email: ScheduledEmail) {
     let processedBody = replaceVariables(email.body, email);
 
     // Append sender signature if the campaign has it enabled
-    if (email.campaignSettings.includeSenderSignature && email.campaignCreatedBy) {
-      const userSig = await storage.getEmailSignature(email.campaignCreatedBy);
-      if (userSig?.signatureHtml) {
-        processedBody = processedBody + '<br><br>--<br>' + userSig.signatureHtml;
+    if (email.campaignSettings.includeSenderSignature) {
+      // Use the actual sender email (from shared Gmail connector) as primary lookup key,
+      // fall back to campaign creator email so the right person's signature appears
+      const { getSenderEmailFromConnection } = await import('./gmail-client');
+      const senderEmail = getSenderEmailFromConnection() || email.campaignCreatedBy;
+      if (senderEmail) {
+        const userSig = await storage.getEmailSignature(senderEmail);
+        if (userSig?.signatureHtml) {
+          processedBody = processedBody + '<br><br>--<br>' + userSig.signatureHtml;
+        } else {
+          console.log(`[Drip Signature] No signature found for sender: ${senderEmail}`);
+        }
       }
     }
 

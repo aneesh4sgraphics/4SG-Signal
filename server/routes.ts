@@ -14641,16 +14641,19 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       let finalBody      = applyVars(step.body || '');
 
       // 4. Send to the logged-in user's email
-      const authUserId = req.user?.userId || req.user?.id;
+      const authUserId = (req.user as any)?.claims?.sub || req.user?.userId || req.user?.id;
       const dbUser = await storage.getUser(authUserId);
       const toEmail = dbUser?.email;
       if (!toEmail) return res.status(400).json({ error: 'Could not determine your email address' });
 
       // 5. Append sender signature if the campaign has it enabled
-      if (campaignSettings.includeSenderSignature) {
-        const userSig = await storage.getEmailSignature(authUserId);
+      // Signatures are keyed by email address, not user ID
+      if (campaignSettings.includeSenderSignature && toEmail) {
+        const userSig = await storage.getEmailSignature(toEmail);
         if (userSig?.signatureHtml) {
           finalBody = finalBody + '<br><br>--<br>' + userSig.signatureHtml;
+        } else {
+          console.log(`[Test Send Signature] No signature found for ${toEmail}`);
         }
       }
 

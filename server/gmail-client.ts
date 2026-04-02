@@ -59,7 +59,7 @@ export async function checkGmailConnection(): Promise<boolean> {
 }
 
 // Get sender email from connection settings (avoids needing gmail.readonly scope)
-function getSenderEmailFromConnection(): string {
+export function getSenderEmailFromConnection(): string {
   // Try to get email from connection settings
   const email = connectionSettings?.settings?.email || 
                 connectionSettings?.settings?.oauth?.email ||
