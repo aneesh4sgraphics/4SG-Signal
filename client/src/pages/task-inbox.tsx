@@ -84,8 +84,8 @@ interface UnifiedTask {
   recordType?: "customer" | "lead" | null;
   recordId?: string | number | null;
   recordName?: string;
-  source: "calendar" | "spotlight";
-  category: "today" | "overdue";
+  source: "calendar" | "spotlight" | "email_not_replied";
+  category: "today" | "overdue" | "email";
   title: string;
   description?: string;
   taskType?: string;
@@ -444,6 +444,32 @@ export default function TaskInboxPage() {
     }
   };
 
+  const handleEmailNotRepliedClick = (email: EmailNotReplied) => {
+    const synthetic: UnifiedTask = {
+      id: email.id,
+      title: email.subject || "(no subject)",
+      description: `Email sent to ${email.contactName}${email.sentAt ? ` on ${format(new Date(email.sentAt), "MMM d, yyyy")}` : ""}. No reply received for ${email.daysSinceSent} day${email.daysSinceSent !== 1 ? "s" : ""}.`,
+      taskType: "email_not_replied",
+      status: "pending",
+      source: "email_not_replied",
+      category: "email",
+      customerName: email.contactName,
+      recordName: email.contactName,
+      recordType: (email.recordType as "customer" | "lead" | null) ?? null,
+      recordId: email.recordId ?? null,
+      customerId: email.customerId ?? null,
+      leadId: email.leadId ?? null,
+      contactEmail: email.recipientEmail ?? null,
+      senderEmail: email.recipientEmail ?? null,
+      emailSubject: email.subject ?? null,
+      contactDisplayName: email.recipientName || email.contactName || null,
+      assignedToName: email.sentBy ?? undefined,
+      priority: email.daysSinceSent >= 14 ? "high" : email.daysSinceSent >= 7 ? "normal" : "low",
+    };
+    setSelectedTask(synthetic);
+    setShowTaskDetail(true);
+  };
+
   const handleSubmitCreateTask = () => {
     const { title, taskType, dueDate, leadId, customerId } = createForm;
     if (!title.trim() || !taskType || !dueDate) {
@@ -649,6 +675,7 @@ export default function TaskInboxPage() {
                   items={emailsNotReplied}
                   onCreateTask={(id) => createEmailTaskMutation.mutate(id)}
                   isPending={createEmailTaskMutation.isPending}
+                  onEmailClick={handleEmailNotRepliedClick}
                 />
               ) : activeTab === "seq" ? (
                 <SeqFollowUpList items={seqFollowUps} />
@@ -859,6 +886,18 @@ export default function TaskInboxPage() {
                     </a>
                   );
                 })()}
+                {selectedTask.source === "email_not_replied" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-green-700 border-green-200 hover:bg-green-50"
+                    onClick={() => { createEmailTaskMutation.mutate(selectedTask.id); setShowTaskDetail(false); }}
+                    disabled={createEmailTaskMutation.isPending}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Follow-up Task
+                  </Button>
+                )}
                 {selectedTask.source === "calendar" && typeof selectedTask.id === "number" && (
                   <>
                     <Button
@@ -1219,10 +1258,11 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
   );
 }
 
-function EmailsNotRepliedList({ items, onCreateTask, isPending }: {
+function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick }: {
   items: EmailNotReplied[] | undefined;
   onCreateTask: (id: number | string) => void;
   isPending: boolean;
+  onEmailClick: (email: EmailNotReplied) => void;
 }) {
   if (!items || items.length === 0) {
     return <EmptyState icon={MailOpen} title="No unreplied emails" description="All pricing and sample emails have received replies." />;
@@ -1231,7 +1271,7 @@ function EmailsNotRepliedList({ items, onCreateTask, isPending }: {
     <div className="py-2">
       <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
         {items.map((email) => (
-          <div key={email.id} className="flex items-center gap-3 px-3 py-3 hover:bg-orange-50/40 transition-colors group">
+          <div key={email.id} onClick={() => onEmailClick(email)} className="flex items-center gap-3 px-3 py-3 hover:bg-orange-50/40 transition-colors group cursor-pointer">
             <div className="flex-shrink-0 p-1 rounded bg-orange-50">
               <Mail className="h-3.5 w-3.5 text-orange-500" />
             </div>
@@ -1245,7 +1285,7 @@ function EmailsNotRepliedList({ items, onCreateTask, isPending }: {
                 <span className="text-xs text-gray-400">{format(new Date(email.sentAt), "MMM d")}</span>
               </div>
             </div>
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <div className="flex-shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               {(email.subject || email.recipientEmail) && (!email.sentBy || email.sentBy.toLowerCase() === currentUserEmail) && (
                 <a
                   href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(
