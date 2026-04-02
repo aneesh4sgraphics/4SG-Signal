@@ -11,6 +11,7 @@ import {
   gmailMessages,
   followUpTasks,
   customerActivityEvents,
+  users,
 } from "@shared/schema";
 import { eq, and, lte, sql, isNotNull, inArray, lt, isNull, ilike } from "drizzle-orm";
 import { storage } from "./storage";
@@ -37,6 +38,7 @@ interface ScheduledEmail {
   campaignName: string;
   campaignSettings: Record<string, any>;
   campaignCreatedBy: string | null;
+  senderName: string;
   recipientEmail: string | null;
   recipientFirstName: string | null;
   recipientLastName: string | null;
@@ -364,6 +366,18 @@ async function processScheduledEmails() {
         const data = emailData[0];
         const isLead = data.leadId !== null;
         
+        // Look up sender name from users table (keyed by email = campaignCreatedBy)
+        let senderName = '4S Graphics Team';
+        if (data.campaignCreatedBy) {
+          const [senderUser] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+            .from(users)
+            .where(eq(users.email, data.campaignCreatedBy))
+            .limit(1);
+          if (senderUser) {
+            senderName = [senderUser.firstName, senderUser.lastName].filter(Boolean).join(' ') || senderName;
+          }
+        }
+
         const scheduledEmail: ScheduledEmail = {
           statusId: data.statusId,
           stepId: data.stepId,
@@ -376,6 +390,7 @@ async function processScheduledEmails() {
           campaignName: data.campaignName,
           campaignSettings: (data.campaignSettings || {}) as Record<string, any>,
           campaignCreatedBy: data.campaignCreatedBy ?? null,
+          senderName,
           recipientEmail: isLead ? data.leadEmail : data.customerEmail,
           recipientFirstName: isLead ? data.leadFirstName : data.customerFirstName,
           recipientLastName: isLead ? data.leadLastName : data.customerLastName,
@@ -593,7 +608,7 @@ function replaceVariables(text: string, email: ScheduledEmail): string {
     'Full Name':       recipientName,
     'Email':           email.recipientEmail || '',
     'Company':         email.recipientCompany || '',
-    'Sales Rep Name':  '4S Graphics Team',
+    'Sales Rep Name':  email.senderName,
     'Unsubscribe Link': '#unsubscribe',
     // ── Legacy dot/underscore keys ───────────────────────────────────────────
     'client.first_name': email.recipientFirstName || '',
@@ -613,9 +628,9 @@ function replaceVariables(text: string, email: ScheduledEmail): string {
     'customer.name': recipientName,
     'customer_name': recipientName,
     'company_name': email.recipientCompany || '',
-    'sender.name': '4S Graphics',
+    'sender.name': email.senderName,
     'sender.company': '4S Graphics',
-    'sender_name': '4S Graphics',
+    'sender_name': email.senderName,
     'sender_company': '4S Graphics',
     'current_date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     'current_year': new Date().getFullYear().toString(),

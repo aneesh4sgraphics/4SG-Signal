@@ -14615,18 +14615,25 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         recipientEmail = cust.email || '';
       }
 
-      // 3. Variable substitution (mirror replaceVariables logic)
+      // 3. Fetch logged-in user so we can use their name in variable substitution
+      const authUserId = (req.user as any)?.claims?.sub || req.user?.userId || req.user?.id;
+      const dbUser = await storage.getUser(authUserId);
+      const senderName = [dbUser?.firstName, dbUser?.lastName].filter(Boolean).join(' ') || '4S Graphics Team';
+
+      // Variable substitution (mirror replaceVariables logic)
       const recipientName = `${firstName} ${lastName}`.trim() || company || 'Valued Customer';
       const replacements: Record<string, string> = {
         'First Name': firstName, 'Last Name': lastName, 'Full Name': recipientName,
         'Email': recipientEmail, 'Company': company,
-        'Sales Rep Name': '4S Graphics Team', 'Unsubscribe Link': '#unsubscribe',
+        'Sales Rep Name': senderName, 'Unsubscribe Link': '#unsubscribe',
         'client.first_name': firstName, 'client.last_name': lastName,
         'client.company': company, 'client.email': recipientEmail, 'client.name': recipientName,
         'customer.first_name': firstName, 'customer.last_name': lastName,
         'customer.company': company, 'customer.email': recipientEmail, 'customer.name': recipientName,
         'company_name': company, 'current_date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
         'current_year': new Date().getFullYear().toString(),
+        'sender.name': senderName, 'sender_name': senderName,
+        'user.name': senderName, 'user_name': senderName,
       };
       const applyVars = (text: string) => {
         let out = text || '';
@@ -14641,8 +14648,6 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       let finalBody      = applyVars(step.body || '');
 
       // 4. Send to the logged-in user's email
-      const authUserId = (req.user as any)?.claims?.sub || req.user?.userId || req.user?.id;
-      const dbUser = await storage.getUser(authUserId);
       const toEmail = dbUser?.email;
       if (!toEmail) return res.status(400).json({ error: 'Could not determine your email address' });
 
