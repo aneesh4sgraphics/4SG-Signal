@@ -11137,7 +11137,11 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       // Verify nonce matches session to prevent OAuth CSRF / account-linking abuse
       const sessionNonce = req.session?.gmailOAuthNonce;
       const userId = req.session?.gmailOAuthUserId;
-      if (!sessionNonce || sessionNonce !== nonce || !userId) {
+      if (!sessionNonce || !userId) {
+        console.error("[Gmail OAuth] Session lost during OAuth redirect — session cookie dropped");
+        return res.redirect("/integrations?gmail_error=session_lost");
+      }
+      if (sessionNonce !== nonce) {
         console.error("[Gmail OAuth] State nonce mismatch — possible CSRF attempt");
         return res.redirect("/integrations?gmail_error=invalid_state");
       }

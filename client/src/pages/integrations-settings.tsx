@@ -27,7 +27,7 @@ export default function IntegrationsSettings() {
   const [gmailConnecting, setGmailConnecting] = useState(false);
   const [gmailDisconnecting, setGmailDisconnecting] = useState(false);
 
-  const { data: status, refetch, isFetching } = useQuery<ConnectionStatus>({
+  const { data: status, refetch, isFetching, isLoading } = useQuery<ConnectionStatus>({
     queryKey: ['/api/integrations/status'],
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
@@ -39,6 +39,10 @@ export default function IntegrationsSettings() {
     const params = new URLSearchParams(window.location.search);
     const gmailConnected = params.get('gmail_connected');
     const gmailError = params.get('gmail_error');
+
+    // Nothing to process — bail early to avoid unnecessary query invalidation
+    if (!gmailConnected && !gmailError) return;
+
     const email = params.get('email');
 
     if (gmailConnected === 'true') {
@@ -53,6 +57,7 @@ export default function IntegrationsSettings() {
         missing_params: 'OAuth response was incomplete. Please try again.',
         invalid_state: 'Security check failed. Please try again.',
         access_denied: 'You declined the Gmail permission request.',
+        session_lost: 'Session was lost during Google login. Please try connecting again — this sometimes happens on first attempt.',
       };
       toast({
         title: 'Gmail connection failed',
@@ -61,7 +66,7 @@ export default function IntegrationsSettings() {
       });
       window.history.replaceState({}, '', '/integrations');
     }
-  }, []);
+  }, [qc]);
 
   const { data: userPrefs } = useQuery<{ spotlightDigestEnabled: boolean }>({
     queryKey: ['/api/users/me/spotlight-digest'],
@@ -120,6 +125,14 @@ export default function IntegrationsSettings() {
   const gmailConnected = status?.gmail.connected ?? false;
   const calendarConnected = status?.calendar.connected ?? false;
   const odooConnected = status?.odoo.connected ?? false;
+
+  if (isLoading && !status) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700" />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">

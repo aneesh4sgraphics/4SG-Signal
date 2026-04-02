@@ -145,15 +145,8 @@ export const getQueryFn: <T>(options: {
         if (res.status === 401) {
           // Mark auth as globally failed to stop retry loops
           globalAuthFailed = true;
-          
-          // Instead of auto-logging out (which destroys the session and creates loops),
-          // invalidate the auth query so useAuth can detect the session state.
-          // If the session is truly gone, useAuth returns null → Router shows login page.
-          // If it was a transient error, the re-check will succeed and everything resumes.
-          setTimeout(() => {
-            // Re-check auth state — don't redirect to /api/logout which destroys the session
-            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-          }, 200);
+          // Don't immediately invalidate — let the staleTime expire naturally.
+          // Aggressive invalidation here causes render flicker loops.
         }
 
         const message = res.status === 401
