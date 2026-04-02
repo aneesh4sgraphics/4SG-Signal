@@ -35,6 +35,8 @@ interface ScheduledEmail {
   subject: string;
   body: string;
   campaignName: string;
+  campaignSettings: Record<string, any>;
+  campaignCreatedBy: string | null;
   recipientEmail: string | null;
   recipientFirstName: string | null;
   recipientLastName: string | null;
@@ -335,6 +337,8 @@ async function processScheduledEmails() {
           customerId: dripCampaignAssignments.customerId,
           leadId: dripCampaignAssignments.leadId,
           campaignName: dripCampaigns.name,
+          campaignSettings: dripCampaigns.settings,
+          campaignCreatedBy: dripCampaigns.createdBy,
           // Customer fields
           customerEmail: customers.email,
           customerFirstName: customers.firstName,
@@ -370,6 +374,8 @@ async function processScheduledEmails() {
           subject: data.subject,
           body: data.body,
           campaignName: data.campaignName,
+          campaignSettings: (data.campaignSettings || {}) as Record<string, any>,
+          campaignCreatedBy: data.campaignCreatedBy ?? null,
           recipientEmail: isLead ? data.leadEmail : data.customerEmail,
           recipientFirstName: isLead ? data.leadFirstName : data.customerFirstName,
           recipientLastName: isLead ? data.leadLastName : data.customerLastName,
@@ -407,7 +413,15 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 
     const processedSubject = replaceVariables(email.subject, email);
     let processedBody = replaceVariables(email.body, email);
-    
+
+    // Append sender signature if the campaign has it enabled
+    if (email.campaignSettings.includeSenderSignature && email.campaignCreatedBy) {
+      const userSig = await storage.getEmailSignature(email.campaignCreatedBy);
+      if (userSig?.signatureHtml) {
+        processedBody = processedBody + '<br><br>--<br>' + userSig.signatureHtml;
+      }
+    }
+
     // Generate tracking token for drip emails
     const trackingToken = crypto.randomBytes(24).toString('hex');
     

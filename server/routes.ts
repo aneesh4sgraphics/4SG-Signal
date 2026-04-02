@@ -14575,9 +14575,13 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         recipientId: string;
       };
 
-      // 1. Get the drip step
+      // 1. Get the drip step + campaign settings
       const [step] = await db.select().from(dripCampaignSteps).where(eq(dripCampaignSteps.id, stepId));
       if (!step) return res.status(404).json({ error: 'Step not found' });
+
+      const campaignId = parseInt(req.params.campaignId);
+      const [campaign] = await db.select().from(dripCampaigns).where(eq(dripCampaigns.id, campaignId));
+      const campaignSettings = (campaign?.settings || {}) as any;
 
       // 2. Gather recipient info
       let firstName = '', lastName = '', company = '', recipientEmail = '';
@@ -14621,13 +14625,21 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       };
 
       const finalSubject = `[TEST] ${applyVars(step.subject || '')}`;
-      const finalBody    = applyVars(step.body || '');
+      let finalBody      = applyVars(step.body || '');
 
       // 4. Send to the logged-in user's email
       const authUserId = req.user?.userId || req.user?.id;
       const dbUser = await storage.getUser(authUserId);
       const toEmail = dbUser?.email;
       if (!toEmail) return res.status(400).json({ error: 'Could not determine your email address' });
+
+      // 5. Append sender signature if the campaign has it enabled
+      if (campaignSettings.includeSenderSignature) {
+        const userSig = await storage.getEmailSignature(authUserId);
+        if (userSig?.signatureHtml) {
+          finalBody = finalBody + '<br><br>--<br>' + userSig.signatureHtml;
+        }
+      }
 
       const { sendEmailAsUser, getUserGmailConnection } = await import("./user-gmail-oauth");
       const { sendEmail } = await import("./gmail-client");
