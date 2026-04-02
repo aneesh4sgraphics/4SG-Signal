@@ -762,30 +762,27 @@ export default function TaskInboxPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   {(() => {
-                    const name = selectedTask.recordName || selectedTask.customerName;
-                    const isUnknown = !name || name === 'Unknown';
-                    // Prefer the actual sender's email from the event; fall back to CRM record email
                     const displayEmail = selectedTask.senderEmail || selectedTask.contactEmail;
-                    // "Email matches" = CRM record has a matched email (contactEmail set) and name is known
-                    const emailMatched = !isUnknown && !!selectedTask.contactEmail;
-                    const label = selectedTask.recordType === "lead" ? "Lead" : selectedTask.recordType === "customer" ? "Contact" : "Contact";
+                    const displayName = selectedTask.contactDisplayName;
+                    const isKnown = !!displayName && displayName !== 'Unknown';
+                    const label = selectedTask.recordType === "lead" ? "Lead" : "Contact";
 
-                    if (emailMatched) {
-                      // Email matches a CRM record — show Lead / Contact label + record name
-                      return (
-                        <>
-                          <p className="text-muted-foreground text-xs mb-1">{label}</p>
-                          <p className="font-medium">{name}</p>
-                        </>
-                      );
-                    } else if (displayEmail) {
-                      // Email doesn't match (or unknown name) — show the actual email + add buttons
-                      return (
-                        <>
-                          <p className="text-muted-foreground text-xs mb-1">Unknown sender</p>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium text-gray-700 break-all">{displayEmail}</span>
-                            <div className="flex items-center gap-1 flex-wrap">
+                    return (
+                      <>
+                        <p className="text-muted-foreground text-xs mb-1">{displayEmail ? label : "Contact"}</p>
+                        <div className="flex flex-col gap-0.5">
+                          {isKnown && (
+                            <p className="font-medium text-gray-900">{displayName}</p>
+                          )}
+                          {displayEmail ? (
+                            <span className={`text-sm break-all ${isKnown ? "text-gray-500" : "font-medium text-gray-900"}`}>
+                              {displayEmail}
+                            </span>
+                          ) : (
+                            <p className="font-medium text-gray-900">{selectedTask.recordName || selectedTask.customerName || "Unknown"}</p>
+                          )}
+                          {displayEmail && !isKnown && (
+                            <div className="mt-1">
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -797,18 +794,10 @@ export default function TaskInboxPage() {
                                 Add as Lead
                               </Button>
                             </div>
-                          </div>
-                        </>
-                      );
-                    } else {
-                      // No email at all — fall back to showing the record name
-                      return (
-                        <>
-                          <p className="text-muted-foreground text-xs mb-1">{label}</p>
-                          <p className="font-medium">{isUnknown ? 'Unknown' : name}</p>
-                        </>
-                      );
-                    }
+                          )}
+                        </div>
+                      </>
+                    );
                   })()}
                 </div>
                 <div>
