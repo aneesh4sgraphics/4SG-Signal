@@ -79,11 +79,11 @@ interface NavItemDef {
 const TOP_ITEMS: NavItemDef[] = [
   { path: '/dashboard', label: 'Home', icon: Home, iconColor: '#6366f1' },
   { path: '/', label: 'Spotlight', icon: Sparkles, iconColor: '#f59e0b' },
+  { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
 ];
 
 // ── Main flat list (no section header) ───────────────────────────────────────
 const MAIN_ITEMS: NavItemDef[] = [
-  { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
   { path: '/leads', label: 'Leads', icon: Zap, iconColor: '#10b981' },
   { path: '/odoo-contacts', label: 'Contacts', icon: Contact, iconColor: '#6366f1' },
   { path: '/customer-management', label: 'Companies', icon: Building2, iconColor: '#8b5cf6' },
