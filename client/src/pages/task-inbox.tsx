@@ -704,6 +704,7 @@ export default function TaskInboxPage() {
                   onEmailClick={handleEmailNotRepliedClick}
                   onDismiss={(id) => dismissEmailMutation.mutate(id)}
                   isDismissing={dismissEmailMutation.isPending}
+                  currentUserEmail={currentUserEmail}
                 />
               ) : activeTab === "seq" ? (
                 <SeqFollowUpList items={seqFollowUps} />
@@ -1279,13 +1280,14 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
   );
 }
 
-function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick, onDismiss, isDismissing }: {
+function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick, onDismiss, isDismissing, currentUserEmail }: {
   items: EmailNotReplied[] | undefined;
   onCreateTask: (id: number | string) => void;
   isPending: boolean;
   onEmailClick: (email: EmailNotReplied) => void;
   onDismiss: (id: number | string) => void;
   isDismissing: boolean;
+  currentUserEmail: string;
 }) {
   if (!items || items.length === 0) {
     return <EmptyState icon={MailOpen} title="No unreplied emails" description="All pricing and sample emails have received replies." />;
@@ -1305,7 +1307,7 @@ function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick, on
                 <span className="text-gray-300">·</span>
                 <span className="text-xs text-orange-500 font-medium">{email.daysSinceSent}d no reply</span>
                 <span className="text-gray-300">·</span>
-                <span className="text-xs text-gray-400">{format(new Date(email.sentAt), "MMM d")}</span>
+                <span className="text-xs text-gray-400">{email.sentAt ? format(new Date(email.sentAt), "MMM d") : ""}</span>
               </div>
             </div>
             <div className="flex-shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
