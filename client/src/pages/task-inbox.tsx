@@ -140,6 +140,7 @@ interface EmailNotReplied {
   recipientEmail?: string | null;
   recipientName?: string | null;
   contactName: string;
+  contactDisplayName?: string | null;
   customerId?: string | null;
   leadId?: number | null;
   recordType?: string | null;
@@ -462,7 +463,7 @@ export default function TaskInboxPage() {
       contactEmail: email.recipientEmail ?? null,
       senderEmail: email.recipientEmail ?? null,
       emailSubject: email.subject ?? null,
-      contactDisplayName: email.recipientName || email.contactName || null,
+      contactDisplayName: email.contactDisplayName || email.recipientName || email.contactName || null,
       assignedToName: email.sentBy ?? undefined,
       priority: email.daysSinceSent >= 14 ? "high" : email.daysSinceSent >= 7 ? "normal" : "low",
     };

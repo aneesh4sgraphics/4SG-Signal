@@ -29170,15 +29170,18 @@ Analyze this bounced email and provide insights in JSON format:
 
         if (row.leadId) {
           const [lead] = await db
-            .select({ name: leads.name, firstEmailReplyAt: leads.firstEmailReplyAt })
+            .select({ name: leads.name, company: leads.company, email: leads.email, firstEmailReplyAt: leads.firstEmailReplyAt })
             .from(leads)
             .where(eq(leads.id, row.leadId));
           // Skip if lead has a reply recorded AFTER the sentAt — they've responded
           if (lead?.firstEmailReplyAt && new Date(lead.firstEmailReplyAt) > sentAt) return null;
-          return { ...row, contactName: lead?.name || row.recipientName || row.recipientEmail, recordType: 'lead' as const, recordId: row.leadId, daysSinceSent };
+          const leadContactName = lead?.name || row.recipientName || row.recipientEmail;
+          const leadDisplayName = lead?.name && lead?.company ? `${lead.name} (${lead.company})` : lead?.name || null;
+          const leadEmail = row.recipientEmail || lead?.email || null;
+          return { ...row, recipientEmail: leadEmail, contactName: leadContactName, contactDisplayName: leadDisplayName, recordType: 'lead' as const, recordId: row.leadId, daysSinceSent };
         } else if (row.customerId) {
           const [customer] = await db
-            .select({ company: customers.company, firstName: customers.firstName, lastName: customers.lastName })
+            .select({ company: customers.company, firstName: customers.firstName, lastName: customers.lastName, email: customers.email })
             .from(customers)
             .where(eq(customers.id, row.customerId));
           // For customers: check if a reply-type activity exists after sentAt
@@ -29193,7 +29196,10 @@ Analyze this bounced email and provide insights in JSON format:
             .limit(1);
           if (replyActivity) return null;
           const contactName = customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || row.recipientName || row.recipientEmail;
-          return { ...row, contactName, recordType: 'customer' as const, recordId: row.customerId, daysSinceSent };
+          const personName = `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim();
+          const contactDisplayName = personName && customer?.company ? `${personName} (${customer.company})` : personName || customer?.company || null;
+          const resolvedRecipientEmail = row.recipientEmail || customer?.email || null;
+          return { ...row, recipientEmail: resolvedRecipientEmail, contactName, contactDisplayName, recordType: 'customer' as const, recordId: row.customerId, daysSinceSent };
         }
         return { ...row, contactName: row.recipientName || row.recipientEmail, recordType: null, recordId: null, daysSinceSent };
       }))).filter((r): r is NonNullable<typeof r> => r !== null);
@@ -29220,23 +29226,25 @@ Analyze this bounced email and provide insights in JSON format:
       const gmailEntries = (await Promise.all(gmailLeadActivities.map(async (activity) => {
         if (coveredLeadIds.has(activity.leadId)) return null; // deduplicate
         const [lead] = await db
-          .select({ name: leads.name, firstEmailReplyAt: leads.firstEmailReplyAt })
+          .select({ name: leads.name, company: leads.company, email: leads.email, firstEmailReplyAt: leads.firstEmailReplyAt })
           .from(leads)
           .where(eq(leads.id, activity.leadId));
         const sentAt = activity.createdAt ? new Date(activity.createdAt) : new Date(0);
         // Skip if lead has replied after this email was sent
         if (lead?.firstEmailReplyAt && new Date(lead.firstEmailReplyAt) > sentAt) return null;
         const daysSinceSent = Math.floor((Date.now() - sentAt.getTime()) / (1000 * 60 * 60 * 24));
+        const leadDisplayName = lead?.name && lead?.company ? `${lead.name} (${lead.company})` : lead?.name || null;
         return {
           id: `la_${activity.id}`,
           subject: activity.summary,
           sentAt: activity.createdAt,
-          recipientEmail: null,
-          recipientName: null,
+          recipientEmail: lead?.email || null,
+          recipientName: lead?.name || null,
           customerId: null,
           leadId: activity.leadId,
           replyReceivedAt: null,
           contactName: lead?.name || 'Unknown',
+          contactDisplayName: leadDisplayName,
           recordType: 'lead' as const,
           recordId: activity.leadId,
           daysSinceSent,
@@ -29266,7 +29274,7 @@ Analyze this bounced email and provide insights in JSON format:
       const gmailCustomerEntries = (await Promise.all(gmailCustomerActivities.map(async (activity) => {
         if (coveredCustomerIds.has(activity.customerId)) return null;
         const [customer] = await db
-          .select({ company: customers.company, firstName: customers.firstName, lastName: customers.lastName })
+          .select({ company: customers.company, firstName: customers.firstName, lastName: customers.lastName, email: customers.email })
           .from(customers)
           .where(eq(customers.id, activity.customerId));
         const sentAt = activity.eventDate ? new Date(activity.eventDate) : new Date(0);
@@ -29282,17 +29290,20 @@ Analyze this bounced email and provide insights in JSON format:
           .limit(1);
         if (replyActivity) return null;
         const contactName = customer?.company || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Unknown';
+        const cPersonName = `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim();
+        const contactDisplayName = cPersonName && customer?.company ? `${cPersonName} (${customer.company})` : cPersonName || customer?.company || null;
         const daysSinceSent = Math.floor((Date.now() - sentAt.getTime()) / (1000 * 60 * 60 * 24));
         return {
           id: `ca_${activity.id}`,
           subject: activity.title,
           sentAt: activity.eventDate,
-          recipientEmail: null,
+          recipientEmail: customer?.email || null,
           recipientName: null,
           customerId: activity.customerId,
           leadId: null,
           replyReceivedAt: null,
           contactName,
+          contactDisplayName,
           recordType: 'customer' as const,
           recordId: activity.customerId,
           daysSinceSent,
