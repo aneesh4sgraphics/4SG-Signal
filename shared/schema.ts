@@ -2588,8 +2588,8 @@ export const dripCampaignSteps = pgTable("drip_campaign_steps", {
   campaignId: integer("campaign_id").notNull().references(() => dripCampaigns.id, { onDelete: "cascade" }),
   stepOrder: integer("step_order").notNull().default(1),
   name: varchar("name", { length: 255 }).notNull(),
-  subject: varchar("subject", { length: 500 }).notNull(),
-  body: text("body").notNull(), // HTML content from rich text editor
+  subject: varchar("subject", { length: 500 }).default(''),
+  body: text("body").default(''), // HTML content from rich text editor
   delayAmount: integer("delay_amount").notNull().default(0), // 0 = send immediately
   delayUnit: varchar("delay_unit", { length: 20 }).default("days"), // minutes, hours, days, weeks
   templateId: integer("template_id").references(() => emailTemplates.id, { onDelete: "set null" }), // Optional base template

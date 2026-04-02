@@ -14465,8 +14465,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const campaignId = parseInt(req.params.campaignId);
       const { name, subject, body, delayAmount, delayUnit, stepOrder, templateId, attachments, variables, isActive } = req.body;
       
-      if (!name || !subject || !body) {
-        return res.status(400).json({ error: "Name, subject, and body are required" });
+      if (!name) {
+        return res.status(400).json({ error: "Step name is required" });
       }
       
       // Get current max step order
@@ -14476,8 +14476,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const step = await storage.createDripCampaignStep({
         campaignId,
         name,
-        subject,
-        body,
+        subject: subject || '',
+        body: body || '',
         delayAmount: delayAmount || 0,
         delayUnit: delayUnit || 'days',
         stepOrder: stepOrder || maxOrder + 1,
