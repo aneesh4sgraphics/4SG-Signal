@@ -7169,7 +7169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const backend = anthropicKey ? `Anthropic (${process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ? 'integration' : 'user-key'})`
         : openaiKey ? `OpenAI (${process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? 'integration' : 'user-key'})`
         : 'none';
-      console.log(`[Screenshot Extract] Using AI backend: ${backend}`);
 
       const base64Image = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
