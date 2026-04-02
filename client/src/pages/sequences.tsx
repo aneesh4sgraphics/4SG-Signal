@@ -21,6 +21,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -859,10 +864,35 @@ export default function SequencesPage() {
                     {idx > 0 && (
                       <div className="flex flex-col items-center py-2">
                         <div className="w-px h-4 bg-gray-300" />
-                        <div className="flex items-center gap-1.5 my-1 px-3 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-500 shadow-sm">
-                          <Clock className="h-3 w-3" />
-                          Wait {delayLabel(step.delayAmount, step.delayUnit)}
-                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center gap-1.5 my-1 px-3 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-500 shadow-sm hover:border-indigo-400 hover:text-indigo-600 transition-colors cursor-pointer">
+                              <Clock className="h-3 w-3" />
+                              Wait {delayLabel(step.delayAmount, step.delayUnit)}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="center">
+                            <p className="text-xs font-semibold text-gray-500 mb-2">Wait how many days?</p>
+                            <div className="flex gap-1.5">
+                              {[1, 2, 3, 4, 5, 6].map(d => (
+                                <button
+                                  key={d}
+                                  onClick={() => updateStep.mutate({ stepId: step.id, data: { delayAmount: d, delayUnit: 'days' } })}
+                                  className={`w-8 h-8 rounded-md text-sm font-medium transition-colors ${
+                                    step.delayAmount === d
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-indigo-100 hover:text-indigo-700'
+                                  }`}
+                                >
+                                  {d}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2 text-center">
+                              {step.delayAmount === 1 ? '1 day' : `${step.delayAmount} days`} selected
+                            </p>
+                          </PopoverContent>
+                        </Popover>
                         <div className="w-px h-4 bg-gray-300" />
                       </div>
                     )}
