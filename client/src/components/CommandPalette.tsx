@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SiShopify } from 'react-icons/si';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, User, Building2, UserCheck } from 'lucide-react';
 import { useAppUsage } from '@/hooks/useAppUsage';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
@@ -90,6 +90,12 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/pdf-settings', icon: PdfIcon, label: 'PDF Settings', keywords: ['pdf', 'export', 'documents'], adminOnly: true, iconBg: '#64473A', iconColor: '#FFFFFF' },
 ];
 
+interface SearchResults {
+  leads: { id: number; name: string; email: string | null; company: string | null; stage: string }[];
+  customers: { id: string; company: string | null; email: string | null; firstName: string | null; lastName: string | null }[];
+  contacts: { id: number; name: string; email: string | null; role: string | null; customerId: string }[];
+}
+
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -99,9 +105,52 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { trackUsage, getRecentApps } = useAppUsage();
-  
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isAdmin = (user as any)?.role === 'admin';
   const recentPaths = getRecentApps(5);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setSearchResults(null);
+      setSearching(false);
+    }
+  }, [open]);
+
+  // Debounced live search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (query.length < 2) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } catch {
+        // silently ignore
+      } finally {
+        setSearching(false);
+      }
+    }, 200);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
 
   const handleSelect = useCallback((path: string) => {
     trackUsage(path);
@@ -126,14 +175,98 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const filteredItems = filterAppsByUser(adminFilteredItems, user?.email);
   const recentItems = filteredItems.filter(item => recentPaths.includes(item.path));
 
+  const hasDataResults = searchResults && (
+    searchResults.leads.length > 0 ||
+    searchResults.customers.length > 0 ||
+    searchResults.contacts.length > 0
+  );
+
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <Command className="rounded-lg border-0 shadow-2xl">
-        <CommandInput placeholder="Search apps, commands..." className="h-12" data-testid="command-input" />
-        <CommandList className="max-h-[400px]">
-          <CommandEmpty>No results found.</CommandEmpty>
-          
-          {recentItems.length > 0 && (
+      <Command className="rounded-lg border-0 shadow-2xl" shouldFilter={!searching && query.length >= 2 ? false : undefined}>
+        <CommandInput
+          placeholder="Search pages, leads, companies, contacts..."
+          className="h-12"
+          data-testid="command-input"
+          value={query}
+          onValueChange={setQuery}
+        />
+        <CommandList className="max-h-[480px]">
+          <CommandEmpty>{searching ? 'Searching…' : 'No results found.'}</CommandEmpty>
+
+          {/* Live data results — shown when user has typed 2+ chars */}
+          {hasDataResults && (
+            <>
+              {searchResults!.leads.length > 0 && (
+                <CommandGroup heading="Leads">
+                  {searchResults!.leads.map(lead => (
+                    <CommandItem
+                      key={`lead-${lead.id}`}
+                      onSelect={() => handleSelect(`/leads/${lead.id}`)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                      value={`lead-${lead.id}-${lead.name}`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <User className="h-3.5 w-3.5 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{lead.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{lead.company || lead.email || '—'}</p>
+                      </div>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full capitalize flex-shrink-0">{lead.stage}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {searchResults!.customers.length > 0 && (
+                <CommandGroup heading="Companies">
+                  {searchResults!.customers.map(c => (
+                    <CommandItem
+                      key={`customer-${c.id}`}
+                      onSelect={() => handleSelect(`/odoo-contacts/${c.id}`)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                      value={`customer-${c.id}-${c.company}`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-3.5 w-3.5 text-purple-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{c.company || `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || 'Unnamed'}</p>
+                        <p className="text-xs text-gray-400 truncate">{c.email || '—'}</p>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {searchResults!.contacts.length > 0 && (
+                <CommandGroup heading="Contacts">
+                  {searchResults!.contacts.map(ct => (
+                    <CommandItem
+                      key={`contact-${ct.id}`}
+                      onSelect={() => handleSelect(`/contacts/${ct.id}`)}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer"
+                      value={`contact-${ct.id}-${ct.name}`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <UserCheck className="h-3.5 w-3.5 text-blue-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{ct.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{ct.role ? `${ct.role} · ` : ''}{ct.email || '—'}</p>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Recent — hidden when typing a data search */}
+          {recentItems.length > 0 && query.length < 2 && (
             <CommandGroup heading="Recent">
               {recentItems.map((item) => {
                 const Icon = item.icon;

@@ -30753,6 +30753,74 @@ Analyze this bounced email and provide insights in JSON format:
     console.log('[Workers] Gmail sync disabled via ENABLE_WORKERS=false or ENABLE_GMAIL_SYNC=false');
   }
 
+  // ── Global search: leads + customers + contacts ─────────────────────────────
+  app.get('/api/search', isAuthenticated, async (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      if (q.length < 2) return res.json({ leads: [], customers: [], contacts: [] });
+
+      const pattern = `%${q}%`;
+
+      const [matchedLeads, matchedCustomers, matchedContacts] = await Promise.all([
+        db.select({
+          id: leads.id,
+          name: leads.name,
+          email: leads.email,
+          company: leads.company,
+          stage: leads.stage,
+        })
+          .from(leads)
+          .where(
+            or(
+              ilike(leads.name, pattern),
+              ilike(leads.email, pattern),
+              ilike(leads.company, pattern)
+            )
+          )
+          .limit(6),
+
+        db.select({
+          id: customers.id,
+          company: customers.company,
+          email: customers.email,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+        })
+          .from(customers)
+          .where(
+            or(
+              ilike(customers.company, pattern),
+              ilike(customers.email, pattern),
+              ilike(customers.firstName, pattern),
+              ilike(customers.lastName, pattern)
+            )
+          )
+          .limit(6),
+
+        db.select({
+          id: customerContacts.id,
+          name: customerContacts.name,
+          email: customerContacts.email,
+          role: customerContacts.role,
+          customerId: customerContacts.customerId,
+        })
+          .from(customerContacts)
+          .where(
+            or(
+              ilike(customerContacts.name, pattern),
+              ilike(customerContacts.email, pattern)
+            )
+          )
+          .limit(6),
+      ]);
+
+      res.json({ leads: matchedLeads, customers: matchedCustomers, contacts: matchedContacts });
+    } catch (err: any) {
+      console.error('[Global Search] Error:', err.message);
+      res.status(500).json({ error: 'Search failed' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
