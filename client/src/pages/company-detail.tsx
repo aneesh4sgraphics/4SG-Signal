@@ -689,6 +689,7 @@ function ProductPricesTab({ companyId }: { companyId: number | null }) {
 }
 
 function RightSidebar({ overview, contacts }: { overview: CompanyOverview; contacts: Contact[] }) {
+  const [, setLocation] = useLocation();
   const company = overview.company;
   const address = company ? [company.addressLine1, company.city, company.stateProvince, company.country].filter(Boolean).join(', ') : null;
 
@@ -734,11 +735,15 @@ function RightSidebar({ overview, contacts }: { overview: CompanyOverview; conta
                 ? c.company || c.firstName || 'Unknown'
                 : [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Unknown';
               return (
-                <div key={c.id} className="flex items-center gap-2 py-1">
+                <div
+                  key={c.id}
+                  className="flex items-center gap-2 py-1 cursor-pointer hover:bg-indigo-50 rounded-md px-1 -mx-1 group"
+                  onClick={() => setLocation(`/contacts/${c.id}`)}
+                >
                   <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[10px] font-semibold flex-shrink-0">
                     {initials(name)}
                   </div>
-                  <span className="text-sm text-gray-700 truncate">{name}</span>
+                  <span className="text-sm text-gray-700 truncate group-hover:text-indigo-600 group-hover:underline">{name}</span>
                 </div>
               );
             })
