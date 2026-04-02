@@ -1193,20 +1193,24 @@ export default function SequencesPage() {
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-semibold text-gray-800">Exit criteria</p>
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <Plus className="h-4 w-4" />
-                  </button>
                 </div>
 
-                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
-                  <CheckCircle2 className="h-4 w-4 text-gray-400" />
-                  <div className="flex items-center justify-between flex-1">
-                    <span className="text-sm text-gray-700">Reply received</span>
+                <div className="flex flex-col gap-1 px-3 py-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className={`h-4 w-4 ${localSettings.exitOnReply ? 'text-green-500' : 'text-gray-300'}`} />
+                      <span className="text-sm text-gray-700">Reply received</span>
+                    </div>
                     <Switch
                       checked={!!localSettings.exitOnReply}
                       onCheckedChange={v => saveSettings({ exitOnReply: v })}
                     />
                   </div>
+                  <p className="text-xs text-gray-400 mt-0.5 pl-6">
+                    {localSettings.exitOnReply
+                      ? 'When a recipient replies, the sequence stops automatically — no further steps will send.'
+                      : 'Enable to stop the sequence when the recipient replies.'}
+                  </p>
                 </div>
               </div>
             </div>

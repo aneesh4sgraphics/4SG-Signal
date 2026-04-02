@@ -7,9 +7,10 @@ import {
   customers,
   leads,
   emailSends,
-  emailTrackingTokens
+  emailTrackingTokens,
+  gmailMessages,
 } from "@shared/schema";
-import { eq, and, lte, sql, isNotNull } from "drizzle-orm";
+import { eq, and, lte, sql, isNotNull, inArray } from "drizzle-orm";
 import { sendEmail } from "./gmail-client";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
 import crypto from "crypto";
@@ -72,6 +73,95 @@ export async function stopDripEmailWorker() {
   console.log("[Drip Worker] Stopped drip email worker");
 }
 
+// ─── Reply-exit check ─────────────────────────────────────────────────────────
+// For campaigns with exitOnReply: true, if any inbound Gmail message appears on
+// the same thread as a sent drip email, mark that assignment as 'completed'.
+async function checkReplyExits() {
+  try {
+    // 1. Find all active assignments for campaigns with exitOnReply enabled
+    const activeRows = await db
+      .select({
+        assignmentId: dripCampaignAssignments.id,
+        campaignSettings: dripCampaigns.settings,
+      })
+      .from(dripCampaignAssignments)
+      .innerJoin(dripCampaigns, eq(dripCampaignAssignments.campaignId, dripCampaigns.id))
+      .where(eq(dripCampaignAssignments.status, 'active'));
+
+    const exitOnReplyIds = activeRows
+      .filter(r => {
+        const settings = r.campaignSettings as any;
+        return settings?.exitOnReply === true;
+      })
+      .map(r => r.assignmentId);
+
+    if (exitOnReplyIds.length === 0) return;
+
+    // 2. Get all thread IDs for sent steps in those assignments
+    const sentStatuses = await db
+      .select({
+        assignmentId: dripCampaignStepStatus.assignmentId,
+        threadId: dripCampaignStepStatus.gmailThreadId,
+      })
+      .from(dripCampaignStepStatus)
+      .where(
+        and(
+          inArray(dripCampaignStepStatus.assignmentId, exitOnReplyIds),
+          eq(dripCampaignStepStatus.status, 'sent'),
+          isNotNull(dripCampaignStepStatus.gmailThreadId),
+        )
+      );
+
+    if (sentStatuses.length === 0) return;
+
+    // Build map: threadId → assignmentId
+    const threadToAssignment: Record<string, number> = {};
+    for (const row of sentStatuses) {
+      if (row.threadId) threadToAssignment[row.threadId] = row.assignmentId;
+    }
+
+    const allThreadIds = Object.keys(threadToAssignment);
+    if (allThreadIds.length === 0) return;
+
+    // 3. Check gmailMessages for inbound replies on those threads
+    const inboundReplies = await db
+      .select({ threadId: gmailMessages.threadId })
+      .from(gmailMessages)
+      .where(
+        and(
+          eq(gmailMessages.direction, 'inbound'),
+          inArray(gmailMessages.threadId as any, allThreadIds),
+        )
+      );
+
+    if (inboundReplies.length === 0) return;
+
+    // 4. Mark each assignment that received a reply as 'completed'
+    const repliedAssignmentIds = [
+      ...new Set(
+        inboundReplies
+          .map(r => r.threadId ? threadToAssignment[r.threadId] : null)
+          .filter(Boolean) as number[]
+      ),
+    ];
+
+    for (const assignmentId of repliedAssignmentIds) {
+      await db
+        .update(dripCampaignAssignments)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(
+          and(
+            eq(dripCampaignAssignments.id, assignmentId),
+            eq(dripCampaignAssignments.status, 'active'), // only if still active
+          )
+        );
+      console.log(`[Drip Worker] Reply detected — completed assignment ${assignmentId} (exit criteria met)`);
+    }
+  } catch (err: any) {
+    console.error('[Drip Worker] Error in reply-exit check:', err.message);
+  }
+}
+
 async function processScheduledEmails() {
   if (isProcessing) {
     return;
@@ -80,6 +170,9 @@ async function processScheduledEmails() {
   isProcessing = true;
   
   try {
+    // Run reply-exit check first so cancelled assignments don't get emailed this cycle
+    await checkReplyExits();
+
     const now = new Date();
     
     const lockedStatuses = await db.execute(sql`
@@ -353,6 +446,15 @@ function replaceVariables(text: string, email: ScheduledEmail): string {
   const recipientName = `${email.recipientFirstName || ''} ${email.recipientLastName || ''}`.trim() || email.recipientCompany || 'Valued Customer';
   
   const replacements: Record<string, string> = {
+    // ── Human-readable (inserted via Variables button) ──────────────────────
+    'First Name':      email.recipientFirstName || '',
+    'Last Name':       email.recipientLastName || '',
+    'Full Name':       recipientName,
+    'Email':           email.recipientEmail || '',
+    'Company':         email.recipientCompany || '',
+    'Sales Rep Name':  '4S Graphics Team',
+    'Unsubscribe Link': '#unsubscribe',
+    // ── Legacy dot/underscore keys ───────────────────────────────────────────
     'client.first_name': email.recipientFirstName || '',
     'client.last_name': email.recipientLastName || '',
     'client.company': email.recipientCompany || '',
