@@ -1,0 +1,96 @@
+Fix Gmail OAuth flickering in integrations-settings.tsx, client/src/hooks/useAuth.ts, and client/src/lib/queryClient.ts. Do NOT touch any other files.
+
+--- FIX 1: client/src/hooks/useAuth.ts ---
+
+Change refetchOnMount from true to false:
+  refetchOnMount: false,
+
+This prevents useAuth from firing a fresh network request every time the page 
+navigates back after an OAuth redirect, which causes the loading flicker.
+
+--- FIX 2: client/src/lib/queryClient.ts ---
+
+In the getQueryFn function, find the block that handles res.status === 401:
+
+  if (res.status === 401) {
+    globalAuthFailed = true;
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    }, 200);
+  }
+
+Replace the setTimeout invalidateQueries call with nothing — just set the flag 
+and let useAuth's own staleTime handle re-checking naturally. The invalidateQueries 
+inside setTimeout is what causes the flicker loop: it marks auth as stale, triggers 
+a refetch, which causes isLoading to momentarily go true, which flashes the spinner.
+
+New version:
+  if (res.status === 401) {
+    globalAuthFailed = true;
+    // Don't immediately invalidate — let the staleTime expire naturally.
+    // Aggressive invalidation here causes render flicker loops.
+  }
+
+--- FIX 3: client/src/pages/integrations-settings.tsx ---
+
+In the useEffect that handles OAuth return params (the one that reads 
+window.location.search), add a short guard to prevent double-firing:
+
+Change the useEffect dependency array from [] to [qc] and add an early return 
+if the URL has already been cleaned (no gmail_connected or gmail_error params):
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gmailConnected = params.get('gmail_connected');
+    const gmailError = params.get('gmail_error');
+    
+    // Nothing to process — bail early to avoid unnecessary query invalidation
+    if (!gmailConnected && !gmailError) return;
+    
+    // ... rest of existing logic unchanged ...
+  }, [qc]);
+
+Also in the same file, add a loading guard so the page doesn't render its 
+content while the status query is in its initial loading state. After the 
+existing isLoading check, add:
+
+  if (isLoading && !status) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-700" />
+      </div>
+    );
+  }
+
+This replaces the flash of unstyled/wrong-state content with a clean spinner 
+while the connection status is first loading.
+
+--- FIX 4: server/routes.ts ---
+
+In the GET /api/gmail-oauth/callback handler, improve the nonce-missing error 
+to distinguish between "session lost during OAuth" vs "genuine CSRF attempt":
+
+Find:
+  if (!sessionNonce || sessionNonce !== nonce || !userId) {
+    console.error("[Gmail OAuth] State nonce mismatch — possible CSRF attempt");
+    return res.redirect("/integrations?gmail_error=invalid_state");
+  }
+
+Replace with:
+  if (!sessionNonce || !userId) {
+    console.error("[Gmail OAuth] Session lost during OAuth redirect — session cookie dropped");
+    return res.redirect("/integrations?gmail_error=session_lost");
+  }
+  if (sessionNonce !== nonce) {
+    console.error("[Gmail OAuth] State nonce mismatch — possible CSRF attempt");
+    return res.redirect("/integrations?gmail_error=invalid_state");
+  }
+
+Then in client/src/pages/integrations-settings.tsx, add 'session_lost' to the 
+error messages map:
+  session_lost: 'Session was lost during Google login. Please try connecting again — this sometimes happens on first attempt.',
+
+This gives a clear, actionable error instead of the confusing "Security check failed" 
+message when the real issue is just a dropped cookie.
+
+After all changes, verify the build compiles with no TypeScript errors.

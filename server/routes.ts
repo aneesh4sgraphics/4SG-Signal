@@ -28920,6 +28920,33 @@ Analyze this bounced email and provide insights in JSON format:
         }
       }
 
+      const emailEventSourceIds = rawTasks
+        .filter(t => t.sourceType === 'email_event' && t.sourceId)
+        .map(t => parseInt(t.sourceId!, 10))
+        .filter(id => !isNaN(id));
+
+      let emailSubjectMap = new Map<number, string>();
+      if (emailEventSourceIds.length > 0) {
+        const eventRows = await db
+          .select({ id: emailSalesEvents.id, gmailMessageId: emailSalesEvents.gmailMessageId })
+          .from(emailSalesEvents)
+          .where(inArray(emailSalesEvents.id, emailEventSourceIds));
+        const gmailMsgIds = eventRows.filter(e => e.gmailMessageId).map(e => e.gmailMessageId!);
+        if (gmailMsgIds.length > 0) {
+          const msgRows = await db
+            .select({ id: gmailMessages.id, subject: gmailMessages.subject })
+            .from(gmailMessages)
+            .where(inArray(gmailMessages.id, gmailMsgIds));
+          const msgSubjectMap = new Map(msgRows.map(m => [m.id, m.subject || '']));
+          for (const ev of eventRows) {
+            if (ev.gmailMessageId) {
+              const subj = msgSubjectMap.get(ev.gmailMessageId);
+              if (subj) emailSubjectMap.set(ev.id, subj);
+            }
+          }
+        }
+      }
+
       const tasks: any[] = rawTasks.map(task => {
         let recordName = 'Unknown';
         let recordType: 'customer' | 'lead' | null = null;
@@ -28942,7 +28969,8 @@ Analyze this bounced email and provide insights in JSON format:
 
         const dueDate = new Date(task.dueDate);
         const isOverdue = dueDate < today;
-        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
+        const emailSubject = (task.sourceType === 'email_event' && task.sourceId) ? emailSubjectMap.get(parseInt(task.sourceId, 10)) || null : null;
+        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
       });
 
       if ((filter === 'overdue' || filter === 'pending' || filter === 'all') && !typeFilter && !priorityFilter) {
