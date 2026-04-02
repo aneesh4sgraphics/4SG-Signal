@@ -29485,6 +29485,32 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // Mark an email-not-replied item as "done" (dismiss it from the list)
+  app.post("/api/tasks/emails-not-replied/:emailSendId/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const rawId = req.params.emailSendId as string;
+      const now = new Date();
+
+      if (rawId.startsWith('la_') || rawId.startsWith('ca_')) {
+        // Gmail-activity entries have no emailSends row — acknowledged on the client side only
+        return res.json({ ok: true });
+      }
+
+      const emailSendId = parseInt(rawId, 10);
+      if (isNaN(emailSendId)) return res.status(400).json({ error: "Invalid ID" });
+
+      await db
+        .update(emailSends)
+        .set({ replyReceivedAt: now })
+        .where(eq(emailSends.id, emailSendId));
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("[Tasks] Error dismissing email:", error);
+      res.status(500).json({ error: "Failed to dismiss" });
+    }
+  });
+
   // Press Test Sent section
   // Returns customers/leads who received Press Test Sheets, sourced from:
   //   1. Local labelPrints table (labelType = 'press_test_kit')

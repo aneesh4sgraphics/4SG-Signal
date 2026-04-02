@@ -399,6 +399,31 @@ export default function TaskInboxPage() {
     onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
+  const dismissEmailMutation = useMutation({
+    mutationFn: async (emailSendId: number | string) => {
+      const res = await apiRequest("POST", `/api/tasks/emails-not-replied/${emailSendId}/dismiss`, {});
+      if (!res.ok) throw new Error("Failed to dismiss");
+      return res.json();
+    },
+    onMutate: async (emailSendId) => {
+      // Optimistically remove the item from the list immediately
+      await queryClient.cancelQueries({ queryKey: ["/api/tasks/emails-not-replied"] });
+      const prev = queryClient.getQueryData<EmailNotReplied[]>(["/api/tasks/emails-not-replied"]);
+      queryClient.setQueryData<EmailNotReplied[]>(
+        ["/api/tasks/emails-not-replied"],
+        (old) => old?.filter((e) => String(e.id) !== String(emailSendId)) ?? [],
+      );
+      return { prev };
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["/api/tasks/emails-not-replied"], ctx.prev);
+      toast({ title: "Failed to dismiss", variant: "destructive" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+    },
+  });
+
   const getTaskTypeIcon = (taskType: string | undefined) => {
     if (!taskType) return Clock;
     if (taskType.includes("quote")) return FileText;
@@ -677,6 +702,8 @@ export default function TaskInboxPage() {
                   onCreateTask={(id) => createEmailTaskMutation.mutate(id)}
                   isPending={createEmailTaskMutation.isPending}
                   onEmailClick={handleEmailNotRepliedClick}
+                  onDismiss={(id) => dismissEmailMutation.mutate(id)}
+                  isDismissing={dismissEmailMutation.isPending}
                 />
               ) : activeTab === "seq" ? (
                 <SeqFollowUpList items={seqFollowUps} />
@@ -1252,11 +1279,13 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
   );
 }
 
-function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick }: {
+function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick, onDismiss, isDismissing }: {
   items: EmailNotReplied[] | undefined;
   onCreateTask: (id: number | string) => void;
   isPending: boolean;
   onEmailClick: (email: EmailNotReplied) => void;
+  onDismiss: (id: number | string) => void;
+  isDismissing: boolean;
 }) {
   if (!items || items.length === 0) {
     return <EmptyState icon={MailOpen} title="No unreplied emails" description="All pricing and sample emails have received replies." />;
@@ -1280,6 +1309,17 @@ function EmailsNotRepliedList({ items, onCreateTask, isPending, onEmailClick }: 
               </div>
             </div>
             <div className="flex-shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 text-green-600 border-green-200 hover:bg-green-50"
+                title="Mark as done"
+                onClick={() => onDismiss(email.id)}
+                disabled={isDismissing}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Done
+              </Button>
               {(email.subject || email.recipientEmail) && (!email.sentBy || email.sentBy.toLowerCase() === currentUserEmail) && (
                 <a
                   href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(
