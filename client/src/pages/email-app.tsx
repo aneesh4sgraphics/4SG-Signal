@@ -132,7 +132,7 @@ export default function EmailApp() {
       ? `\n  <div style="font-weight: bold; margin-bottom: 4px; color: #22963e;">C: ${cellPhone}</div>`
       : '';
     return `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.5;">
-  <img src="https://www.4sgraphics.com/wp-content/uploads/2019/02/4S-FINAL-LOGO-2.jpg" alt="4S Graphics" style="width: 100px; height: auto; margin-bottom: 6px; display: block;" />
+  <img src="${window.location.origin}/4s-logo.png" alt="4S Graphics" style="width: 100px; height: auto; margin-bottom: 6px; display: block;" />
   <div style="font-weight: bold; margin-bottom: 10px; color: #333;">Synthetic &amp; Specialty Substrates Suppliers</div>
   <div style="margin-bottom: 6px; color: #333;">-</div>
   <div style="font-weight: bold; margin-bottom: 4px; color: #333;">${name || 'Your Name'}</div>${cellLine}

@@ -492,7 +492,7 @@ function StepCard({
 }
 
 // ─── Signature Tab ────────────────────────────────────────────────────────────
-const FOUR_S_LOGO_URL = 'https://www.4sgraphics.com/wp-content/uploads/2019/02/4S-FINAL-LOGO-2.jpg';
+const FOUR_S_LOGO_URL = `${window.location.origin}/4s-logo.png`;
 
 function buildFourSSignatureHtml(name: string, cellPhone: string): string {
   const cellLine = cellPhone
