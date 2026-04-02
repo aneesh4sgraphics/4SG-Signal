@@ -887,7 +887,6 @@ export default function QuoteCalculator() {
         if (attempt > 0) {
           // Wait before retry
           await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log(`PDF download retry attempt ${attempt}...`);
         }
         
         const response = await fetch('/api/generate-pdf-quote', {
@@ -1679,7 +1678,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           setSelectedCategory(filters.category);
         } else if (filters.category) {
           // Category no longer exists, reset all dependent filters
-          console.log(`[Filter Validation] Category '${filters.category}' no longer exists, resetting filters`);
           setSelectedCategory("");
           setSelectedType("");
           setSelectedSize("");
@@ -1696,7 +1694,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             setSelectedType(filters.type);
           } else {
             // Type no longer exists for this category, reset
-            console.log(`[Filter Validation] Type '${filters.type}' invalid for category, resetting`);
             setSelectedType("");
             setSelectedSize("");
           }
@@ -1715,7 +1712,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             setSelectedSize(filters.size);
           } else {
             // Size no longer exists, reset
-            console.log(`[Filter Validation] Size '${filters.size}' invalid, resetting`);
             setSelectedSize("");
           }
         }
