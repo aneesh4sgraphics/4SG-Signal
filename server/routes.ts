@@ -29068,6 +29068,21 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // Mark / unmark a task as critical
+  app.patch("/api/tasks/:id/critical", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid task ID" });
+      const { critical } = req.body as { critical: boolean };
+      const newPriority = critical ? 'critical' : 'high';
+      await db.update(followUpTasks).set({ priority: newPriority, updatedAt: new Date() }).where(eq(followUpTasks.id, id));
+      res.json({ success: true, priority: newPriority });
+    } catch (error) {
+      console.error("[Tasks] Error marking task critical:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
   // Complete a task
   app.post("/api/tasks/:id/complete", isAuthenticated, async (req: any, res) => {
     try {

@@ -39,6 +39,7 @@ import {
   CheckCheck,
   ChevronRight,
   SlidersHorizontal,
+  Flame,
 } from "lucide-react";
 import { format, isToday, isPast, isThisWeek } from "date-fns";
 
@@ -299,6 +300,18 @@ export default function TaskInboxPage() {
     },
   });
 
+  const markCriticalMutation = useMutation({
+    mutationFn: async ({ taskId, critical }: { taskId: number; critical: boolean }) =>
+      apiRequest("PATCH", `/api/tasks/${taskId}/critical`, { critical }),
+    onSuccess: (_data, { critical }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
+      toast({ title: critical ? "Task marked as critical — pinned to top" : "Task unmarked as critical" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update task", variant: "destructive" });
+    },
+  });
+
   const addToLeadsMutation = useMutation({
     mutationFn: async ({ email, name }: { email: string; name: string }) => {
       const res = await apiRequest("POST", "/api/leads", {
@@ -362,6 +375,7 @@ export default function TaskInboxPage() {
 
   const getPriorityDot = (priority: string | undefined) => {
     switch (priority) {
+      case "critical": return "bg-red-600 animate-pulse";
       case "urgent": return "bg-red-500";
       case "high": return "bg-orange-400";
       case "normal": return "bg-blue-400";
@@ -797,6 +811,18 @@ export default function TaskInboxPage() {
                     </Button>
                     <Button
                       size="sm"
+                      variant={selectedTask.priority === "critical" ? "default" : "outline"}
+                      onClick={() => markCriticalMutation.mutate({ taskId: selectedTask.id as number, critical: selectedTask.priority !== "critical" })}
+                      disabled={markCriticalMutation.isPending}
+                      className={selectedTask.priority === "critical"
+                        ? "gap-2 bg-red-600 hover:bg-red-700 text-white border-red-600"
+                        : "gap-2 text-red-600 border-red-200 hover:bg-red-50"}
+                    >
+                      <Flame className="h-4 w-4" />
+                      {selectedTask.priority === "critical" ? "Unmark Critical" : "Mark Critical"}
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => cancelTaskMutation.mutate(selectedTask.id as number)}
                       disabled={cancelTaskMutation.isPending}
@@ -987,13 +1013,18 @@ interface TaskRowsProps {
 function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTypeIcon, getPriorityDot, getDueDateStyle }: TaskRowsProps) {
   const groups: { label: string; tasks: UnifiedTask[] }[] = [];
 
-  const overdue = tasks.filter(t => t.category === "overdue" && t.source !== "spotlight");
-  const today = tasks.filter(t => t.dueDate && isToday(new Date(t.dueDate)) && t.source !== "spotlight");
-  const thisWeek = tasks.filter(t => t.dueDate && !isToday(new Date(t.dueDate)) && isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
-  const upcoming = tasks.filter(t => t.dueDate && !isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
-  const spotlight = tasks.filter(t => t.source === "spotlight");
-  const noDue = tasks.filter(t => !t.dueDate && t.source !== "spotlight");
+  // Critical tasks are always pinned at the very top, regardless of due date
+  const critical = tasks.filter(t => t.priority === "critical" && t.source !== "spotlight");
+  const nonCritical = tasks.filter(t => t.priority !== "critical");
 
+  const overdue = nonCritical.filter(t => t.category === "overdue" && t.source !== "spotlight");
+  const today = nonCritical.filter(t => t.dueDate && isToday(new Date(t.dueDate)) && t.source !== "spotlight");
+  const thisWeek = nonCritical.filter(t => t.dueDate && !isToday(new Date(t.dueDate)) && isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
+  const upcoming = nonCritical.filter(t => t.dueDate && !isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
+  const spotlight = nonCritical.filter(t => t.source === "spotlight");
+  const noDue = nonCritical.filter(t => !t.dueDate && t.source !== "spotlight");
+
+  if (critical.length) groups.push({ label: "Critical", tasks: critical });
   if (overdue.length) groups.push({ label: "Overdue", tasks: overdue });
   if (today.length) groups.push({ label: "Due Today", tasks: today });
   if (thisWeek.length) groups.push({ label: "This Week", tasks: thisWeek });
@@ -1010,13 +1041,17 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
       {groups.map((group) => (
         <div key={group.label} className="mb-4">
           <div className="flex items-center gap-2 py-2 mb-1">
-            <span className={`text-xs font-semibold uppercase tracking-wider ${
+            <span className={`text-xs font-semibold uppercase tracking-wider flex items-center gap-1 ${
+              group.label === "Critical" ? "text-red-600" :
               group.label === "Overdue" ? "text-red-500" :
               group.label === "Due Today" ? "text-amber-600" :
               group.label === "This Week" ? "text-orange-500" :
               group.label === "Spotlight" ? "text-purple-600" :
               "text-gray-400"
-            }`}>{group.label}</span>
+            }`}>
+              {group.label === "Critical" && <Flame className="h-3 w-3" />}
+              {group.label}
+            </span>
             <span className="text-xs text-gray-300">·</span>
             <span className="text-xs text-gray-400">{group.tasks.length}</span>
           </div>
@@ -1067,6 +1102,11 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
                       }`}>
                         {task.title}
                       </span>
+                      {task.priority === "critical" && (
+                        <span className="flex-shrink-0 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                          <Flame className="h-2.5 w-2.5" />CRITICAL
+                        </span>
+                      )}
                       {isSpotlight && (
                         <span className="flex-shrink-0 text-[10px] font-bold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">SPOTLIGHT</span>
                       )}
@@ -1080,7 +1120,7 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
                         <span className={`text-[10px] px-1 py-0.5 rounded ${
                           task.recordType === "lead" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
                         }`}>
-                          {task.recordType === "lead" ? "Lead" : "Customer"}
+                          {task.recordType === "lead" ? "Lead" : "Contact"}
                         </span>
                       )}
                     </div>
