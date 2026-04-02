@@ -398,12 +398,15 @@ function NewSequenceDialog({
           <DialogTitle>New Sequence</DialogTitle>
         </DialogHeader>
         <Input
-          placeholder="Sequence name…"
+          placeholder="e.g. CliQ Aqueous Products – New Customer Intro"
           value={name}
           onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && create.mutate()}
           autoFocus
         />
+        <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+          Use the format <span className="font-medium text-gray-500">[Product / Campaign] – [Audience or Stage]</span> so you can instantly tell who this sequence targets and why. A clear name makes it easy to enroll the right people and track results.
+        </p>
         <DialogFooter className="mt-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={() => create.mutate()} disabled={create.isPending}>
