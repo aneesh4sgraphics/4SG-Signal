@@ -11101,7 +11101,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     try {
       const { getAuthUrl } = await import("./user-gmail-oauth");
       const userId = req.user?.claims?.sub || req.user?.id;
-      const nonce = require('crypto').randomUUID();
+      const { randomUUID } = await import('node:crypto');
+      const nonce = randomUUID();
       req.session.gmailOAuthNonce = nonce;
       req.session.gmailOAuthUserId = userId;
       const authUrl = getAuthUrl(nonce);
