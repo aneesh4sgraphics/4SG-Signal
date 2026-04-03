@@ -28805,6 +28805,47 @@ Analyze this bounced email and provide insights in JSON format:
 
       const pressTestSent = (Number(pressTestPrintsCount.count) || 0) + (Number(pressTestLeadsCount.count) || 0);
 
+      const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const sixDaysAgo = new Date(today); sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+      const thirteenDaysAgo = new Date(today); thirteenDaysAgo.setDate(thirteenDaysAgo.getDate() - 13);
+
+      const [warmResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+        .where(and(lt(followUpTasks.dueDate, today), gte(followUpTasks.dueDate, twoDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+      const [hotResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+        .where(and(lt(followUpTasks.dueDate, twoDaysAgo), gte(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+      const [criticalResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+        .where(and(lt(followUpTasks.dueDate, sixDaysAgo), gte(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+      const [escalatedResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+        .where(and(lt(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+      let repHeat: Array<{ name: string; critical: number; escalated: number }> = [];
+      if (isAneesh) {
+        const repHeatRows = await db
+          .select({
+            name: followUpTasks.assignedToName,
+            count: sql<number>`count(*)`,
+            minDue: sql<Date>`min(${followUpTasks.dueDate})`,
+          })
+          .from(followUpTasks)
+          .where(and(lt(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending')))
+          .groupBy(followUpTasks.assignedToName);
+
+        repHeat = repHeatRows
+          .filter(r => r.name)
+          .map(r => {
+            const minDue = new Date(r.minDue);
+            const daysOld = Math.floor((today.getTime() - minDue.getTime()) / (1000 * 60 * 60 * 24));
+            return {
+              name: r.name!,
+              critical: daysOld <= 13 ? Number(r.count) : 0,
+              escalated: daysOld > 13 ? Number(r.count) : 0,
+            };
+          });
+      }
+
       res.json({
         today: Number(todayResult.count) || 0,
         overdue: (Number(overdueResult.count) || 0) + spotlightSkipped,
@@ -28817,6 +28858,13 @@ Analyze this bounced email and provide insights in JSON format:
         spotlightCompleted: session.totalCompleted || 0,
         spotlightTarget: session.totalTarget || 30,
         pending: (Number(todayResult.count) || 0) + (Number(overdueResult.count) || 0) + spotlightSkipped,
+        heatBreakdown: {
+          warm: Number(warmResult.count) || 0,
+          hot: Number(hotResult.count) || 0,
+          critical: Number(criticalResult.count) || 0,
+          escalated: Number(escalatedResult.count) || 0,
+        },
+        repHeat,
       });
     } catch (error) {
       console.error("[Tasks] Error getting summary:", error);
@@ -29012,7 +29060,9 @@ Analyze this bounced email and provide insights in JSON format:
         const sourceEventId = (task.sourceType === 'email_event' && task.sourceId) ? parseInt(task.sourceId, 10) : NaN;
         const emailSubject = !isNaN(sourceEventId) ? emailSubjectMap.get(sourceEventId) || null : null;
         const senderEmail = !isNaN(sourceEventId) ? senderEmailMap.get(sourceEventId) || null : null;
-        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, senderEmail, contactDisplayName, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
+        const daysOverdue = isOverdue ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        const urgencyTier = daysOverdue === 0 ? 0 : daysOverdue <= 2 ? 1 : daysOverdue <= 6 ? 2 : daysOverdue <= 13 ? 3 : 4;
+        return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, senderEmail, contactDisplayName, source: 'calendar', category: isOverdue ? 'overdue' : 'today', daysOverdue, urgencyTier };
       });
 
       if ((filter === 'overdue' || filter === 'pending' || filter === 'all') && !typeFilter && !priorityFilter) {

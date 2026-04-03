@@ -113,6 +113,8 @@ interface TaskSummary {
   spotlightSkipped: number;
   spotlightRemaining: number;
   spotlightCompleted: number;
+  heatBreakdown?: { warm: number; hot: number; critical: number; escalated: number };
+  repHeat?: Array<{ name: string; critical: number; escalated: number }>;
   spotlightTarget: number;
 }
 
@@ -193,6 +195,23 @@ interface CreateTaskForm {
   leadId: string;
   customerId: string;
 }
+
+const getUrgencyTier = (task: UnifiedTask): number => {
+  const daysOverdue = (task as any).daysOverdue ?? 0;
+  if (daysOverdue <= 0) return 0;
+  if (daysOverdue <= 2) return 1;
+  if (daysOverdue <= 6) return 2;
+  if (daysOverdue <= 13) return 3;
+  return 4;
+};
+
+const URGENCY = [
+  { border: 'border-l-gray-400',   bg: '',              dot: 'bg-gray-400',   pill: 'bg-gray-100 text-gray-600',     label: (d: number) => d === 0 ? 'Today' : 'Due soon' },
+  { border: 'border-l-amber-500',  bg: 'bg-amber-50/40',  dot: 'bg-amber-500',  pill: 'bg-amber-100 text-amber-800',   label: (d: number) => `${d}d overdue` },
+  { border: 'border-l-orange-500', bg: 'bg-orange-50/40', dot: 'bg-orange-500', pill: 'bg-orange-100 text-orange-800', label: (d: number) => `${d}d overdue` },
+  { border: 'border-l-red-500',    bg: 'bg-red-50/40',    dot: 'bg-red-500',    pill: 'bg-red-100 text-red-700',       label: (d: number) => `${d}d overdue` },
+  { border: 'border-l-red-800',    bg: 'bg-red-100/60',   dot: 'bg-red-800',    pill: 'bg-red-200 text-red-900',       label: (d: number) => `${d}d overdue` },
+] as const;
 
 export default function TaskInboxPage() {
   const [, setLocation] = useLocation();
@@ -434,25 +453,6 @@ export default function TaskInboxPage() {
     return Clock;
   };
 
-  const getPriorityDot = (priority: string | undefined) => {
-    switch (priority) {
-      case "critical": return "bg-red-600 animate-pulse";
-      case "urgent": return "bg-red-500";
-      case "high": return "bg-orange-400";
-      case "normal": return "bg-blue-400";
-      case "low": return "bg-gray-300";
-      default: return "bg-gray-300";
-    }
-  };
-
-  const getDueDateStyle = (task: UnifiedTask) => {
-    if (!task.dueDate) return { text: "", className: "text-gray-400" };
-    const d = new Date(task.dueDate);
-    if (isPast(d) && !isToday(d)) return { text: format(d, "MMM d"), className: "text-red-500 font-medium" };
-    if (isToday(d)) return { text: "Today", className: "text-amber-600 font-medium" };
-    if (isThisWeek(d)) return { text: format(d, "EEE"), className: "text-orange-500" };
-    return { text: format(d, "MMM d"), className: "text-gray-500" };
-  };
 
   const getRecordLink = (task: UnifiedTask) => {
     if (task.recordType === "lead" && task.recordId) return `/leads/${task.recordId}`;
@@ -596,6 +596,35 @@ export default function TaskInboxPage() {
                 ))}
               </div>
             ))}
+            {(summary?.overdue ?? 0) > 0 && summary?.heatBreakdown && (
+              <div className="mx-2 mt-2 p-3 bg-white rounded-lg border border-gray-100">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Task heat</p>
+                {summary.heatBreakdown.escalated > 0 && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="flex items-center gap-1.5 text-xs text-red-900"><span className="w-2 h-2 rounded-full bg-red-800 inline-block"/>Escalated</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-200 text-red-900">{summary.heatBreakdown.escalated}</span>
+                  </div>
+                )}
+                {summary.heatBreakdown.critical > 0 && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="flex items-center gap-1.5 text-xs text-red-700"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Critical</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{summary.heatBreakdown.critical}</span>
+                  </div>
+                )}
+                {summary.heatBreakdown.hot > 0 && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="flex items-center gap-1.5 text-xs text-orange-700"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block"/>Hot</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{summary.heatBreakdown.hot}</span>
+                  </div>
+                )}
+                {summary.heatBreakdown.warm > 0 && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="flex items-center gap-1.5 text-xs text-amber-700"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"/>Warm</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{summary.heatBreakdown.warm}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -717,8 +746,6 @@ export default function TaskInboxPage() {
                   onComplete={(id) => completeTaskMutation.mutate(id)}
                   isCompletePending={completeTaskMutation.isPending}
                   getTaskTypeIcon={getTaskTypeIcon}
-                  getPriorityDot={getPriorityDot}
-                  getDueDateStyle={getDueDateStyle}
                 />
               ) : (
                 <EmptyState icon={CheckCircle2} title="All caught up!" description="No tasks in this category." />
@@ -1128,11 +1155,9 @@ interface TaskRowsProps {
   onComplete: (id: number) => void;
   isCompletePending: boolean;
   getTaskTypeIcon: (type: string | undefined) => ComponentType<{ className?: string }>;
-  getPriorityDot: (priority: string | undefined) => string;
-  getDueDateStyle: (task: UnifiedTask) => { text: string; className: string };
 }
 
-function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTypeIcon, getPriorityDot, getDueDateStyle }: TaskRowsProps) {
+function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTypeIcon }: TaskRowsProps) {
   const groups: { label: string; tasks: UnifiedTask[] }[] = [];
 
   // Critical tasks are always pinned at the very top, regardless of due date
@@ -1179,95 +1204,75 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
           </div>
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
             {group.tasks.map((task) => {
-              const TaskIcon = getTaskTypeIcon(task.taskType);
+              const tier = getUrgencyTier(task);
+              const u = URGENCY[tier];
+              const daysOverdue = (task as any).daysOverdue ?? 0;
               const isSpotlight = task.source === "spotlight";
-              const isOverdue = group.label === "Overdue";
-              const dueDateStyle = getDueDateStyle(task);
 
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors group"
+                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors group border-l-2 ${u.border} ${u.bg} hover:brightness-95`}
                   onClick={() => onTaskClick(task)}
                 >
-                  {/* Checkbox / Complete button */}
+                  {/* Checkbox */}
                   <button
                     className="flex-shrink-0 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isSpotlight && typeof task.id === "number") {
-                        onComplete(task.id);
-                      } else if (!isSpotlight) {
-                        onTaskClick(task);
-                      }
+                      if (!isSpotlight && typeof task.id === 'number') onComplete(task.id);
+                      else if (!isSpotlight) onTaskClick(task);
                     }}
                     disabled={isCompletePending}
                     title="Mark complete"
                   >
-                    <Circle className={`h-4 w-4 ${isOverdue ? "text-red-300" : isSpotlight ? "text-purple-300" : "text-gray-300"} group-hover:text-gray-400`} />
+                    <Circle className={`h-4 w-4 ${u.dot.replace('bg-', 'text-')} group-hover:text-gray-400`} />
                   </button>
 
                   {/* Type Icon */}
-                  <div className={`flex-shrink-0 p-1 rounded ${
-                    isSpotlight ? "bg-purple-100" : isOverdue ? "bg-red-50" : "bg-gray-100"
-                  }`}>
-                    <TaskIcon className={`h-3.5 w-3.5 ${
-                      isSpotlight ? "text-purple-600" : isOverdue ? "text-red-500" : "text-gray-500"
-                    }`} />
+                  <div className={`flex-shrink-0 p-1 rounded ${tier >= 3 ? 'bg-red-100' : isSpotlight ? 'bg-purple-100' : 'bg-gray-100'}`}>
+                    {(() => { const TaskIcon = getTaskTypeIcon(task.taskType); return <TaskIcon className={`h-3.5 w-3.5 ${tier >= 3 ? 'text-red-600' : isSpotlight ? 'text-purple-600' : 'text-gray-500'}`} />; })()}
                   </div>
 
                   {/* Title + Contact */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium truncate ${
-                        isOverdue ? "text-red-700" : "text-gray-800"
-                      }`}>
+                      <span className={`text-sm font-medium truncate ${tier >= 3 ? 'text-red-800' : 'text-gray-800'}`}>
                         {formatTaskTitle(task.title, task)}
                       </span>
-                      {task.priority === "critical" && (
+                      {task.priority === 'critical' && (
                         <span className="flex-shrink-0 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                           <Flame className="h-2.5 w-2.5" />CRITICAL
                         </span>
                       )}
-                      {isSpotlight && (
-                        <span className="flex-shrink-0 text-[10px] font-bold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">SPOTLIGHT</span>
-                      )}
-                      {task.isAutoGenerated && (
-                        <span className="flex-shrink-0 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Auto</span>
-                      )}
+                      {isSpotlight && <span className="flex-shrink-0 text-[10px] font-bold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">SPOTLIGHT</span>}
+                      {task.isAutoGenerated && <span className="flex-shrink-0 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Auto</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-500 truncate">{task.recordName || task.customerName}</span>
                       {task.recordType && (
-                        <span className={`text-[10px] px-1 py-0.5 rounded ${
-                          task.recordType === "lead" ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
-                        }`}>
-                          {task.recordType === "lead" ? "Lead" : "Contact"}
+                        <span className={`text-[10px] px-1 py-0.5 rounded ${task.recordType === 'lead' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {task.recordType === 'lead' ? 'Lead' : 'Customer'}
                         </span>
                       )}
                       {extractTrackingNumbers(task.description).length > 0 && (
                         <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
-                          <Truck className="h-2.5 w-2.5" />
-                          Tracking
+                          <Truck className="h-2.5 w-2.5" />Tracking
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Right side: due date + priority dot + assignee */}
-                  <div className="flex-shrink-0 flex items-center gap-3">
-                    {task.assignedToName && (
-                      <span className="text-xs text-gray-400 hidden sm:block truncate max-w-20">{task.assignedToName}</span>
+                  {/* Right side */}
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                    {task.assignedToName && <span className="text-xs text-gray-400 hidden sm:block truncate max-w-20">{task.assignedToName}</span>}
+                    {daysOverdue > 0 && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.pill}`}>
+                        {u.label(daysOverdue)}
+                      </span>
                     )}
-                    {dueDateStyle.text && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-gray-300" />
-                        <span className={`text-xs ${dueDateStyle.className}`}>{dueDateStyle.text}</span>
-                      </div>
-                    )}
-                    {task.priority && (
-                      <div className={`h-2 w-2 rounded-full flex-shrink-0 ${getPriorityDot(task.priority)}`} title={task.priority} />
-                    )}
+                    {tier === 3 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 flex-shrink-0">MANAGER VIEW</span>}
+                    {tier === 4 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-800 text-white flex-shrink-0">AT RISK</span>}
                     <ChevronRight className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>

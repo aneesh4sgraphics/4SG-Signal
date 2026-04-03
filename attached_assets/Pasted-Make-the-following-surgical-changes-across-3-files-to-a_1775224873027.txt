@@ -1,0 +1,259 @@
+Make the following surgical changes across 3 files to add HubSpot-style urgency heat to the task inbox. Do NOT touch any other files.
+
+========================================
+FILE 1: server/routes.ts — TWO changes
+========================================
+
+--- CHANGE 1A: Add daysOverdue to each task in GET /api/tasks/list ---
+
+Find line ~29015, this exact return statement inside the tasks.map():
+  return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, senderEmail, contactDisplayName, source: 'calendar', category: isOverdue ? 'overdue' : 'today' };
+
+Replace with (add daysOverdue and urgencyTier fields):
+  const daysOverdue = isOverdue ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const urgencyTier = daysOverdue === 0 ? 0 : daysOverdue <= 2 ? 1 : daysOverdue <= 6 ? 2 : daysOverdue <= 13 ? 3 : 4;
+  return { ...task, recordName, recordType, recordId, customerName: recordName, contactEmail, emailSubject, senderEmail, contactDisplayName, source: 'calendar', category: isOverdue ? 'overdue' : 'today', daysOverdue, urgencyTier };
+
+
+--- CHANGE 1B: Add heat breakdown to GET /api/tasks/summary ---
+
+Find line ~28808, the res.json({ block inside /api/tasks/summary.
+Just before that res.json, add these 5 queries using the same visibilityCond already defined above it:
+
+  const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  const sixDaysAgo = new Date(today); sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+  const thirteenDaysAgo = new Date(today); thirteenDaysAgo.setDate(thirteenDaysAgo.getDate() - 13);
+
+  const [warmResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+    .where(and(lt(followUpTasks.dueDate, today), gte(followUpTasks.dueDate, twoDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+  const [hotResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+    .where(and(lt(followUpTasks.dueDate, twoDaysAgo), gte(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+  const [criticalResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+    .where(and(lt(followUpTasks.dueDate, sixDaysAgo), gte(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+  const [escalatedResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
+    .where(and(lt(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+
+Then add these fields inside the existing res.json({ ... }) response object:
+  heatBreakdown: {
+    warm: Number(warmResult.count) || 0,
+    hot: Number(hotResult.count) || 0,
+    critical: Number(criticalResult.count) || 0,
+    escalated: Number(escalatedResult.count) || 0,
+  },
+
+Also add a per-rep heat breakdown for Aneesh only. After the heatBreakdown queries, add:
+
+  let repHeat: Array<{ name: string; critical: number; escalated: number }> = [];
+  if (isAneesh) {
+    const repHeatRows = await db
+      .select({
+        name: followUpTasks.assignedToName,
+        count: sql<number>`count(*)`,
+        minDue: sql<Date>`min(${followUpTasks.dueDate})`,
+      })
+      .from(followUpTasks)
+      .where(and(lt(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending')))
+      .groupBy(followUpTasks.assignedToName);
+
+    repHeat = repHeatRows
+      .filter(r => r.name)
+      .map(r => {
+        const minDue = new Date(r.minDue);
+        const daysOld = Math.floor((today.getTime() - minDue.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          name: r.name!,
+          critical: daysOld <= 13 ? Number(r.count) : 0,
+          escalated: daysOld > 13 ? Number(r.count) : 0,
+        };
+      });
+  }
+
+Add repHeat to the res.json:
+  repHeat,
+
+
+========================================
+FILE 2: client/src/pages/task-inbox.tsx — THREE changes
+========================================
+
+--- CHANGE 2A: Replace getDueDateStyle and getPriorityDot with getUrgencyTier ---
+
+Find the existing getDueDateStyle function (around line 371) and getPriorityDot function (around line 361). Replace BOTH functions entirely with this single function:
+
+  const getUrgencyTier = (task: UnifiedTask): number => {
+    const daysOverdue = (task as any).daysOverdue ?? 0;
+    if (daysOverdue <= 0) return 0;
+    if (daysOverdue <= 2) return 1;
+    if (daysOverdue <= 6) return 2;
+    if (daysOverdue <= 13) return 3;
+    return 4;
+  };
+
+  const URGENCY = [
+    { border: 'border-l-gray-400',  bg: '',                    dot: 'bg-gray-400',   pill: 'bg-gray-100 text-gray-600',        label: (d: number) => d === 0 ? 'Today' : `Due soon` },
+    { border: 'border-l-amber-500', bg: 'bg-amber-50/40',      dot: 'bg-amber-500',  pill: 'bg-amber-100 text-amber-800',      label: (d: number) => `${d}d overdue` },
+    { border: 'border-l-orange-500',bg: 'bg-orange-50/40',     dot: 'bg-orange-500', pill: 'bg-orange-100 text-orange-800',    label: (d: number) => `${d}d overdue` },
+    { border: 'border-l-red-500',   bg: 'bg-red-50/40',        dot: 'bg-red-500',    pill: 'bg-red-100 text-red-700',          label: (d: number) => `${d}d overdue` },
+    { border: 'border-l-red-800',   bg: 'bg-red-100/60',       dot: 'bg-red-800',    pill: 'bg-red-200 text-red-900',          label: (d: number) => `${d}d overdue` },
+  ] as const;
+
+
+--- CHANGE 2B: Update the task row JSX to use urgency heat ---
+
+Find the task row div (around line 997-1072) — the one with className="flex items-center gap-3 px-3 py-2.5 ...".
+
+Replace the entire task row div with this updated version that uses urgency heat:
+
+  return (() => {
+    const tier = getUrgencyTier(task);
+    const u = URGENCY[tier];
+    const daysOverdue = (task as any).daysOverdue ?? 0;
+    const isSpotlight = task.source === 'spotlight';
+
+    return (
+      <div
+        key={task.id}
+        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors group border-l-2 ${u.border} ${u.bg} hover:brightness-95`}
+        onClick={() => onTaskClick(task)}
+      >
+        {/* Checkbox */}
+        <button
+          className="flex-shrink-0 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isSpotlight && typeof task.id === 'number') onComplete(task.id);
+            else if (!isSpotlight) onTaskClick(task);
+          }}
+          disabled={isCompletePending}
+          title="Mark complete"
+        >
+          <Circle className={`h-4 w-4 ${u.dot.replace('bg-','text-')} group-hover:text-gray-400`} />
+        </button>
+
+        {/* Type Icon */}
+        <div className={`flex-shrink-0 p-1 rounded ${tier >= 3 ? 'bg-red-100' : isSpotlight ? 'bg-purple-100' : 'bg-gray-100'}`}>
+          {(() => { const TaskIcon = getTaskTypeIcon(task.taskType); return <TaskIcon className={`h-3.5 w-3.5 ${tier >= 3 ? 'text-red-600' : isSpotlight ? 'text-purple-600' : 'text-gray-500'}`} />; })()}
+        </div>
+
+        {/* Title + Contact */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium truncate ${tier >= 3 ? 'text-red-800' : 'text-gray-800'}`}>
+              {task.title}
+            </span>
+            {isSpotlight && <span className="flex-shrink-0 text-[10px] font-bold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">SPOTLIGHT</span>}
+            {task.isAutoGenerated && <span className="flex-shrink-0 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Auto</span>}
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-gray-500 truncate">{task.recordName || task.customerName}</span>
+            {task.recordType && (
+              <span className={`text-[10px] px-1 py-0.5 rounded ${task.recordType === 'lead' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
+                {task.recordType === 'lead' ? 'Lead' : 'Customer'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right side */}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {task.assignedToName && <span className="text-xs text-gray-400 hidden sm:block truncate max-w-20">{task.assignedToName}</span>}
+          {daysOverdue > 0 && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.pill}`}>
+              {u.label(daysOverdue)}
+            </span>
+          )}
+          {tier === 3 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 flex-shrink-0">MANAGER VIEW</span>}
+          {tier === 4 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-800 text-white flex-shrink-0">AT RISK</span>}
+          <ChevronRight className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+    );
+  })();
+
+
+--- CHANGE 2C: Add heat breakdown widget to sidebar ---
+
+The type for summary data needs heatBreakdown. Find the interface or type for summary (search for `overdue: number` near the top of the file). Add these fields to it:
+  heatBreakdown?: { warm: number; hot: number; critical: number; escalated: number };
+  repHeat?: Array<{ name: string; critical: number; escalated: number }>;
+
+Then find the left sidebar div (around line 468, the w-56 border-r div). Inside it, after the existing navItems.map() section, add this heat summary widget — but ONLY when there are overdue tasks:
+
+  {(summary?.overdue ?? 0) > 0 && summary?.heatBreakdown && (
+    <div className="mx-2 mt-2 p-3 bg-white rounded-lg border border-gray-100">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Task heat</p>
+      {summary.heatBreakdown.escalated > 0 && (
+        <div className="flex justify-between items-center py-1">
+          <span className="flex items-center gap-1.5 text-xs text-red-900"><span className="w-2 h-2 rounded-full bg-red-800 inline-block"/>Escalated</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-200 text-red-900">{summary.heatBreakdown.escalated}</span>
+        </div>
+      )}
+      {summary.heatBreakdown.critical > 0 && (
+        <div className="flex justify-between items-center py-1">
+          <span className="flex items-center gap-1.5 text-xs text-red-700"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Critical</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">{summary.heatBreakdown.critical}</span>
+        </div>
+      )}
+      {summary.heatBreakdown.hot > 0 && (
+        <div className="flex justify-between items-center py-1">
+          <span className="flex items-center gap-1.5 text-xs text-orange-700"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block"/>Hot</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{summary.heatBreakdown.hot}</span>
+        </div>
+      )}
+      {summary.heatBreakdown.warm > 0 && (
+        <div className="flex justify-between items-center py-1">
+          <span className="flex items-center gap-1.5 text-xs text-amber-700"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block"/>Warm</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{summary.heatBreakdown.warm}</span>
+        </div>
+      )}
+    </div>
+  )}
+
+
+========================================
+FILE 3: client/src/pages/dashboard-odoo.tsx — ONE change
+========================================
+
+--- CHANGE 3A: Add critical task heat to each rep card in the leaderboard ---
+
+Find where the leaderboard data type is defined (around line 146). The useQuery for leaderboardData — add repHeat to the type it expects if needed, or just use (leaderboardData as any).repHeat.
+
+Inside the leaderboard rep card map (around line 376), find the Stats Grid div with "Today", "This Week" etc. After the existing stats rows, add:
+
+  {(() => {
+    const heat = ((leaderboardData as any)?.repHeat ?? []).find((r: any) =>
+      r.name?.toLowerCase().includes(repUser.display_name?.toLowerCase()?.split(' ')[0] ?? '')
+    );
+    if (!heat || (heat.critical === 0 && heat.escalated === 0)) return null;
+    return (
+      <div className="flex justify-between items-center text-xs border-t pt-1 mt-1">
+        <span className="text-gray-600">Overdue heat</span>
+        <span className={`font-bold ${heat.escalated > 0 ? 'text-red-800' : 'text-red-600'}`}>
+          {heat.escalated > 0 ? `${heat.escalated} AT RISK` : `${heat.critical} critical`}
+        </span>
+      </div>
+    );
+  })()}
+
+Note: repHeat comes from /api/tasks/summary not /api/admin/leaderboard. You need to also fetch summary data in dashboard-odoo.tsx. Add this query near the other useQuery calls:
+
+  const { data: taskSummary } = useQuery<any>({
+    queryKey: ['/api/tasks/summary'],
+    staleTime: 2 * 60 * 1000,
+  });
+
+Then use taskSummary?.repHeat instead of (leaderboardData as any)?.repHeat in the code above.
+
+========================================
+AFTER ALL CHANGES
+========================================
+
+Run a TypeScript check to confirm no type errors. The key things to verify:
+1. getDueDateStyle and getPriorityDot are fully removed — no remaining references
+2. daysOverdue and urgencyTier appear on task objects returned from /api/tasks/list
+3. heatBreakdown appears in /api/tasks/summary response
+4. The task row renders with border-l-2 + tier-based color classes
+5. No console errors about missing props

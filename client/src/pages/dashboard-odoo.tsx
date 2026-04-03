@@ -418,6 +418,20 @@ export default function Dashboard() {
                             </span>
                           </div>
                         )}
+                        {(() => {
+                          const heat = ((leaderboardData as any)?.repHeat ?? []).find((r: any) =>
+                            r.name?.toLowerCase().includes(repUser.display_name?.toLowerCase()?.split(' ')[0] ?? '')
+                          );
+                          if (!heat || (heat.critical === 0 && heat.escalated === 0)) return null;
+                          return (
+                            <div className="flex justify-between items-center text-xs border-t pt-1 mt-1">
+                              <span className="text-gray-600">Overdue heat</span>
+                              <span className={`font-bold ${heat.escalated > 0 ? 'text-red-800' : 'text-red-600'}`}>
+                                {heat.escalated > 0 ? `${heat.escalated} AT RISK` : `${heat.critical} critical`}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Bucket Breakdown */}
