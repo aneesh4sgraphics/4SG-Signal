@@ -158,6 +158,17 @@ function KpiTile({ label, value, icon: Icon, color = 'bg-white', textColor = 'te
   );
 }
 
+const CONTACT_STRENGTH: Record<string, { label: string; dot: string; text: string }> = {
+  primary:   { label: "Key Contact", dot: "bg-green-500",  text: "text-green-700"  },
+  has_email: { label: "Good",        dot: "bg-blue-500",   text: "text-blue-700"   },
+  basic:     { label: "Basic",       dot: "bg-amber-400",  text: "text-amber-700"  },
+};
+function contactStrength(c: { email: string | null; isPrimary?: boolean | null }) {
+  if (c.isPrimary) return CONTACT_STRENGTH.primary;
+  if (c.email)     return CONTACT_STRENGTH.has_email;
+  return CONTACT_STRENGTH.basic;
+}
+
 function EmptyState({ icon: Icon, title, message }: { icon: LucideIcon; title: string; message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-400">
@@ -325,6 +336,7 @@ function EmailsTab({ companyId, companyName }: { companyId: number | null; compa
 }
 
 function TeamTab({ companyId, companyName }: { companyId: number | null; companyName: string }) {
+  const [, setLocation] = useLocation();
   const url = companyId
     ? `/api/companies/${companyId}/contacts`
     : `/api/companies/by-name/contacts?name=${encodeURIComponent(companyName)}`;
@@ -352,18 +364,26 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
       : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
     const address = [c.address1, c.city, c.province, c.country].filter(Boolean).join(', ');
     const isOdoo = c.source === 'odoo';
+    const str = contactStrength(c);
     return (
-      <div className="p-3 rounded-lg border bg-white hover:bg-gray-50">
+      <div
+        className="p-3 rounded-lg border bg-white hover:bg-gray-50 cursor-pointer"
+        onClick={() => !isOdoo && setLocation(`/contacts/${c.id}`)}
+      >
         <div className="flex items-start gap-3">
           <div className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold ${isOdoo ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
             {initials(name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">{name}</p>
               {isOdoo && (
                 <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-purple-200 text-purple-600 bg-purple-50">Odoo</Badge>
               )}
+              <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${str.text}`}>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${str.dot}`} />
+                {str.label}
+              </span>
             </div>
             {c.jobTitle && <p className="text-xs text-gray-500">{c.jobTitle}</p>}
             <div className="mt-1.5 space-y-0.5">
@@ -734,14 +754,18 @@ function RightSidebar({ overview, contacts }: { overview: CompanyOverview; conta
               const name = c.isCompany
                 ? c.company || c.firstName || 'Unknown'
                 : [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Unknown';
+              const str = contactStrength(c);
               return (
                 <div
                   key={c.id}
                   className="flex items-center gap-2 py-1 cursor-pointer hover:bg-indigo-50 rounded-md px-1 -mx-1 group"
                   onClick={() => setLocation(`/contacts/${c.id}`)}
                 >
-                  <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[10px] font-semibold flex-shrink-0">
-                    {initials(name)}
+                  <div className="relative flex-shrink-0">
+                    <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[10px] font-semibold">
+                      {initials(name)}
+                    </div>
+                    <span className={`absolute -bottom-0.5 -right-0.5 inline-block w-2 h-2 rounded-full border border-white ${str.dot}`} />
                   </div>
                   <span className="text-sm text-gray-700 truncate group-hover:text-indigo-600 group-hover:underline">{name}</span>
                 </div>

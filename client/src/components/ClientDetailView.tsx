@@ -2008,9 +2008,15 @@ export default function ClientDetailView({ customer, companyContacts = [], onBac
                         <User className="h-4 w-4 text-blue-600" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium">{contact.name}</p>
                           {contact.role && <Badge variant="secondary" className="text-[10px] py-0">{contact.role}</Badge>}
+                          {contact.isPrimary
+                            ? <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />Key Contact</span>
+                            : contact.email
+                              ? <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700"><span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />Good</span>
+                              : <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />Basic</span>
+                          }
                         </div>
                         {contact.email && (
                           <button 
