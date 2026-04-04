@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink, ChevronsUpDown, Info, HelpCircle } from "lucide-react";
+import { Trash2, Plus, Download, Mail, Calculator, Building, Phone, MapPin, User, FileText, Film, Palette, Layers, Paintbrush, Image, Printer, Frame, Monitor, Zap, ArrowUpDown, Check, AlertTriangle, Tag, ShoppingCart, Database, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, History, DollarSign, Truck, Send, Loader2, RefreshCw, Package, ExternalLink, ChevronsUpDown, Info, HelpCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -174,6 +174,7 @@ export default function QuoteCalculator() {
   const [sentPricesOpen, setSentPricesOpen] = useState<boolean>(false);
   const [isCreatingOdooOrder, setIsCreatingOdooOrder] = useState(false);
   const [isCreatingShopifyDraft, setIsCreatingShopifyDraft] = useState(false);
+  const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [emailSelectDialogOpen, setEmailSelectDialogOpen] = useState(false);
   const [emailSelectAction, setEmailSelectAction] = useState<'set_primary' | 'fix_missing' | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string>('');
@@ -1317,6 +1318,77 @@ export default function QuoteCalculator() {
       handleCreateShopifyDraft(selectedCustomer.email);
     } finally {
       setIsValidatingSkus(false);
+    }
+  };
+
+  const handleSaveQuote = async () => {
+    if (!selectedCustomer || quoteItems.length === 0) {
+      toast({
+        title: "Cannot save quote",
+        description: "Please select a client and add at least one product.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSavingQuote(true);
+    try {
+      // Generate a quote number
+      let quoteNumber: string;
+      try {
+        const qnRes = await fetch('/api/generate-quote-number', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ prefix: 'QQ' }),
+        });
+        if (qnRes.ok) {
+          const qnData = await qnRes.json();
+          quoteNumber = qnData.quoteNumber;
+        } else {
+          quoteNumber = `QQ-${Date.now()}`;
+        }
+      } catch {
+        quoteNumber = `QQ-${Date.now()}`;
+      }
+
+      const customerName = `${selectedCustomer.firstName} ${selectedCustomer.lastName}`.trim() || selectedCustomer.company || 'Unknown';
+      const customerEmail = selectedCustomer.email || '';
+
+      const quoteItemsForSave = quoteItems.map(item => ({
+        itemCode: item.itemCode,
+        productType: item.productType,
+        size: item.size,
+        quantity: Math.max(item.minOrderQty || 0, item.quantity),
+        pricePerSheet: item.pricePerSheet,
+        total: Math.max(item.minOrderQty || 0, item.quantity) * item.pricePerSheet,
+      }));
+
+      await apiRequest('POST', '/api/sent-quotes', {
+        quoteNumber,
+        customerName,
+        customerEmail,
+        quoteItems: JSON.stringify(quoteItemsForSave),
+        totalAmount: totalAmount.toFixed(2),
+        sentVia: 'saved',
+        customerId: selectedCustomer.id,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['/api/sent-quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/quotes/pipeline'] });
+
+      toast({
+        title: "Quote Saved!",
+        description: `${quoteNumber} for ${customerName} — $${totalAmount.toFixed(2)} saved to Quotes pipeline.`,
+      });
+    } catch (error) {
+      console.error('Save quote error:', error);
+      toast({
+        title: "Failed to save quote",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingQuote(false);
     }
   };
 
@@ -3171,17 +3243,17 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     {isCreatingOdooOrder ? 'Creating...' : 'Sales Order'}
                   </button>
                   <button
-                    onClick={handleShopifyDraftClick}
-                    disabled={!selectedCustomer || isCreatingShopifyDraft || isValidatingSkus || quoteItems.length === 0}
+                    onClick={handleSaveQuote}
+                    disabled={!selectedCustomer || isSavingQuote || quoteItems.length === 0}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    data-testid="btn-create-shopify-draft"
+                    data-testid="btn-save-quote"
                   >
-                    {(isCreatingShopifyDraft || isValidatingSkus) ? (
+                    {isSavingQuote ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <ShoppingCart className="h-4 w-4" />
+                      <Save className="h-4 w-4" />
                     )}
-                    {isValidatingSkus ? 'Validating...' : isCreatingShopifyDraft ? 'Creating...' : 'Shopify Draft'}
+                    {isSavingQuote ? 'Saving...' : 'Save Quote'}
                   </button>
                 </div>
                 
