@@ -625,7 +625,7 @@ export default function LeadsPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-4 md:grid-cols-7 gap-3 mb-6">
           {STAGES.map(stage => (
             <Card 
               key={stage.value}
@@ -648,16 +648,17 @@ export default function LeadsPage() {
         </div>
 
         {/* Filters Row */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-2 mb-6">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Search leads by name, company, or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 bg-white/80 border-slate-200"
+              className="pl-10 bg-white/80 border-slate-200 w-full"
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2">
           <Select value={stageFilter} onValueChange={setStageFilter}>
             <SelectTrigger className="w-40 bg-white/80">
               <SelectValue placeholder="All Stages" />
@@ -849,6 +850,7 @@ export default function LeadsPage() {
               <BarChart3 className="w-4 h-4" />
             </Button>
           </div>
+            </div>
         </div>
 
         {/* Multi-select bar */}
