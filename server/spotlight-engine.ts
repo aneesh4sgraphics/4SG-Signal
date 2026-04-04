@@ -4488,6 +4488,7 @@ class SpotlightEngine {
   }
 
   private async findEnablementTask(userId: string, skippedIds: string[]): Promise<SpotlightTask | null> {
+    const repId = await this.getOdooRepId(userId);
     let conditions = [
       eq(customers.doNotContact, false),
       isNotNull(customers.email),
