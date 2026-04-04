@@ -1817,34 +1817,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let odooSalesReps: Array<{ id: string; name: string; email: string }> = [];
       try {
         const users = await odooClient.getUsers();
-        // Keep only users with a valid real email — filters out system/bot accounts
-        // Also exclude common non-person logins (admin, public, __system__)
-        // Logins that are never real sales reps
-        const excludedLogins = new Set([
-          'admin', 'public', '__system__', 'default',
-          'test', 'ashv', 'info', 'noreply', 'no-reply',
-          'support', 'sales', 'billing', 'demo',
-        ]);
+        // Only return the 3 known 4S Graphics sales reps by their Odoo IDs.
+        // This prevents external contacts, test users, and other Odoo internal
+        // users from appearing in the sales rep dropdown across the app.
+        const KNOWN_REP_IDS = new Set(['26', '27', '28']);
+        const CANONICAL_NAMES: Record<string, string> = {
+          '26': 'Aneesh Prabhu',
+          '27': 'Patricio Delgado',
+          '28': 'Santiago Castellanos',
+        };
         odooSalesReps = users
-          .filter(u => {
-            const email = (u.email || '').trim();
-            const login = (u.login || '').trim().toLowerCase();
-            const name  = (u.name  || '').trim();
-            // Must have a real email address
-            if (!email.includes('@')) return false;
-            // Must not be a system / bot / test account
-            if (excludedLogins.has(login)) return false;
-            // Must have a real display name
-            if (!name || name.length < 2) return false;
-            // Company-alias pattern: "4SGraphics-Info", "My-Company" – hyphen with no spaces
-            if (name.includes('-') && !name.includes(' ')) return false;
-            // Raw-login echo: name is very short (≤4 chars) and all-lowercase
-            if (name.length <= 4 && name === name.toLowerCase()) return false;
-            return true;
-          })
+          .filter(u => KNOWN_REP_IDS.has(String(u.id)))
           .map(u => ({
             id: String(u.id),
-            name: u.name,
+            name: CANONICAL_NAMES[String(u.id)] || u.name,
             email: u.email || ''
           }));
         console.log(`[Sales Reps] Loaded ${odooSalesReps.length} sales reps from Odoo`);
@@ -1856,17 +1842,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       const allUsers = await storage.getAllUsers();
-      const localExcluded = new Set(['admin', 'public', '__system__', 'default', 'test', 'ashv', 'info', 'noreply', 'support', 'sales', 'billing', 'demo']);
+      // Restrict local fallback to only the 3 known reps by email
+      const KNOWN_REP_EMAILS = new Set([
+        'aneesh@4sgraphics.com',
+        'patricio@4sgraphics.com',
+        'santiago@4sgraphics.com'
+      ]);
       const salesReps = allUsers
-        .filter(u => {
-          if (u.status !== 'approved') return false;
-          const emailPrefix = (u.email || '').split('@')[0].toLowerCase();
-          if (localExcluded.has(emailPrefix)) return false;
-          const name = `${u.firstName || ''} ${u.lastName || ''}`.trim();
-          // Skip users without a real first+last name and a recognizable email prefix
-          if (!name && emailPrefix.length <= 4) return false;
-          return true;
-        })
+        .filter(u => KNOWN_REP_EMAILS.has(u.email?.toLowerCase() || ''))
         .map(u => ({
           id: u.id,
           name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],

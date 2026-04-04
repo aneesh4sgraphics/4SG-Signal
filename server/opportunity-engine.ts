@@ -1086,10 +1086,10 @@ export class OpportunityEngine {
     };
 
     const byRep = repRevenueRows
-      .filter(r => r.repId)
+      .filter(r => r.repId && CANONICAL_REP_NAMES[r.repId])
       .map(r => ({
         repId: r.repId!,
-        repName: CANONICAL_REP_NAMES[r.repId!] || r.repId!,
+        repName: CANONICAL_REP_NAMES[r.repId!],
         count: Number(r.cnt),
         revenue: Math.round(Number(r.totalRev)),
       }))
