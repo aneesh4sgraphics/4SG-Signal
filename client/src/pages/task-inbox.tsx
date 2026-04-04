@@ -115,6 +115,7 @@ interface TaskSummary {
   spotlightCompleted: number;
   heatBreakdown?: { warm: number; hot: number; critical: number; escalated: number };
   repHeat?: Array<{ name: string; critical: number; escalated: number }>;
+  repTaskCounts?: Array<{ email: string; name: string; pending: number; overdue: number }>;
   spotlightTarget: number;
 }
 
@@ -242,7 +243,8 @@ export default function TaskInboxPage() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
+  const [activeRep, setActiveRep] = useState<string>('all'); // email or 'all'
   const currentUserEmail = currentUser?.email?.toLowerCase() || '';
 
   const updateUrl = (tab: string, s: string, type?: string, assignee?: string, priority?: string) => {
@@ -268,12 +270,13 @@ export default function TaskInboxPage() {
   });
 
   const { data: tasks, isLoading: tasksLoading } = useQuery<UnifiedTask[]>({
-    queryKey: ["/api/tasks/list", activeTab, sort, typeFilter, assigneeFilter, priorityFilter],
+    queryKey: ["/api/tasks/list", activeTab, sort, typeFilter, assigneeFilter, priorityFilter, activeRep],
     queryFn: async () => {
       const p = new URLSearchParams({ filter: activeTab, sort });
       if (typeFilter && typeFilter !== "all") p.set("type", typeFilter);
       if (assigneeFilter && assigneeFilter !== "all") p.set("assignee", assigneeFilter);
       if (priorityFilter && priorityFilter !== "all") p.set("priority", priorityFilter);
+      if (isAdmin && activeRep && activeRep !== 'all') p.set("repName", activeRep);
       const res = await fetch(`/api/tasks/list?${p.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch tasks");
       return res.json();
@@ -596,6 +599,61 @@ export default function TaskInboxPage() {
                 ))}
               </div>
             ))}
+            {/* Per-rep task counts — admin only */}
+            {isAdmin && summary?.repTaskCounts && summary.repTaskCounts.length > 0 && (
+              <div className="mx-2 mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 bg-gray-50 border-b border-gray-100">
+                  By rep
+                </p>
+                {/* All reps option */}
+                <button
+                  onClick={() => setActiveRep('all')}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors border-b border-gray-50 ${
+                    activeRep === 'all'
+                      ? 'bg-gray-900 text-white'
+                      : 'hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <span className="font-medium">All reps</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    activeRep === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {summary.repTaskCounts.reduce((s, r) => s + r.pending, 0)}
+                  </span>
+                </button>
+                {/* Individual rep rows */}
+                {summary.repTaskCounts.map((rep) => (
+                  <button
+                    key={rep.email}
+                    onClick={() => setActiveRep(rep.email)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors border-b border-gray-50 last:border-0 ${
+                      activeRep === rep.email
+                        ? 'bg-gray-900 text-white'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <span className="font-medium">{rep.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      {rep.overdue > 0 && (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                          activeRep === rep.email
+                            ? 'bg-red-400 text-white'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {rep.overdue} late
+                        </span>
+                      )}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                        activeRep === rep.email ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {rep.pending}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {(summary?.overdue ?? 0) > 0 && summary?.heatBreakdown && (
               <div className="mx-2 mt-2 p-3 bg-white rounded-lg border border-gray-100">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Task heat</p>

@@ -28973,6 +28973,45 @@ Analyze this bounced email and provide insights in JSON format:
           });
       }
 
+      // Per-rep task counts for admin sidebar — only computed for Aneesh
+      let repTaskCounts: Array<{ email: string; name: string; pending: number; overdue: number }> = [];
+      if (isAneesh) {
+        const REP_EMAILS = [
+          { email: 'aneesh@4sgraphics.com',    name: 'Aneesh' },
+          { email: 'patricio@4sgraphics.com',  name: 'Patricio' },
+          { email: 'santiago@4sgraphics.com',  name: 'Santiago' },
+        ];
+        repTaskCounts = await Promise.all(
+          REP_EMAILS.map(async (rep) => {
+            const [pendingRow] = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(followUpTasks)
+              .where(and(
+                eq(followUpTasks.status, 'pending'),
+                sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
+                  SELECT id FROM users WHERE email = ${rep.email}
+                ))`
+              ));
+            const [overdueRow] = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(followUpTasks)
+              .where(and(
+                eq(followUpTasks.status, 'pending'),
+                lt(followUpTasks.dueDate, today),
+                sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
+                  SELECT id FROM users WHERE email = ${rep.email}
+                ))`
+              ));
+            return {
+              email: rep.email,
+              name: rep.name,
+              pending: Number(pendingRow.count) || 0,
+              overdue: Number(overdueRow.count) || 0,
+            };
+          })
+        );
+      }
+
       res.json({
         today: Number(todayResult.count) || 0,
         overdue: (Number(overdueResult.count) || 0) + spotlightSkipped,
@@ -28992,6 +29031,7 @@ Analyze this bounced email and provide insights in JSON format:
           escalated: Number(escalatedResult.count) || 0,
         },
         repHeat,
+        repTaskCounts,
       });
     } catch (error) {
       console.error("[Tasks] Error getting summary:", error);
@@ -29014,6 +29054,7 @@ Analyze this bounced email and provide insights in JSON format:
       const sort = (req.query.sort as string) || 'due_asc';
       const typeFilter = req.query.type as string;
       const assigneeFilter = req.query.assignee as string;
+      const repNameFilter = req.query.repName as string; // e.g. "patricio@4sgraphics.com"
       const priorityFilter = req.query.priority as string;
 
       const today = new Date();
@@ -29025,10 +29066,12 @@ Analyze this bounced email and provide insights in JSON format:
 
       const baseConditions: any[] = [eq(followUpTasks.status, 'pending')];
 
+      const rawEmail = req.user?.email || '';
       // Visibility: Aneesh sees all; others see only their own tasks
       if (!isAneesh) {
-        const rawEmail = req.user?.email || '';
-        baseConditions.push(eq(followUpTasks.assignedTo, rawEmail));
+        baseConditions.push(
+          sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+        );
       }
 
       if (filter === 'today') {
@@ -29046,7 +29089,13 @@ Analyze this bounced email and provide insights in JSON format:
         baseConditions.push(ilike(followUpTasks.taskType, `%${typeFilter}%`));
       }
       if (assigneeFilter === 'me') {
-        baseConditions.push(eq(followUpTasks.assignedTo, userId));
+        // Match by both possible formats (email or userId)
+        baseConditions.push(
+          sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+        );
+      } else if (repNameFilter && repNameFilter !== 'all' && isAneesh) {
+        // Admin filtering by specific rep email
+        baseConditions.push(eq(followUpTasks.assignedTo, repNameFilter));
       }
       if (priorityFilter && priorityFilter !== 'all') {
         baseConditions.push(eq(followUpTasks.priority, priorityFilter));

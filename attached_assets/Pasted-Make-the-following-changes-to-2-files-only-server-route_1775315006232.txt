@@ -1,0 +1,210 @@
+Make the following changes to 2 files only: server/routes.ts and 
+client/src/pages/task-inbox.tsx. Do NOT touch any other file.
+
+The goal: Aneesh sees tasks for all reps with a per-rep breakdown in the 
+sidebar. Patricio and Santiago see only their own tasks with no rep switcher.
+
+========================================
+FILE 1: server/routes.ts — TWO changes
+========================================
+
+--- CHANGE 1A: Fix tasks/list to support rep filter by name ---
+
+In GET /api/tasks/list, find line ~14 where assigneeFilter is declared:
+  const assigneeFilter = req.query.assignee as string;
+
+After it, add:
+  const repNameFilter = req.query.repName as string; // e.g. "patricio@4sgraphics.com"
+
+Then find the existing assigneeFilter application (line ~46):
+  if (assigneeFilter === 'me') {
+    baseConditions.push(eq(followUpTasks.assignedTo, userId));
+  }
+
+Replace with:
+  if (assigneeFilter === 'me') {
+    // Match by both possible formats (email or userId)
+    baseConditions.push(
+      sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+    );
+  } else if (repNameFilter && repNameFilter !== 'all' && isAneesh) {
+    // Admin filtering by specific rep email
+    baseConditions.push(eq(followUpTasks.assignedTo, repNameFilter));
+  }
+
+Note: rawEmail is declared inside the `if (!isAneesh)` block currently.
+Move it ABOVE the if block so it's always available:
+
+Find:
+  // Visibility: Aneesh sees all; others see only their own tasks
+  if (!isAneesh) {
+    const rawEmail = req.user?.email || '';
+    baseConditions.push(eq(followUpTasks.assignedTo, rawEmail));
+  }
+
+Replace with:
+  const rawEmail = req.user?.email || '';
+  // Visibility: Aneesh sees all; others see only their own tasks
+  if (!isAneesh) {
+    baseConditions.push(
+      sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+    );
+  }
+
+
+--- CHANGE 1B: Add per-rep task counts to tasks/summary ---
+
+In GET /api/tasks/summary, find the final res.json block. 
+Just BEFORE it, add this query (only runs for Aneesh):
+
+  // Per-rep task counts for admin sidebar — only computed for Aneesh
+  let repTaskCounts: Array<{ email: string; name: string; pending: number; overdue: number }> = [];
+  if (isAneesh) {
+    const REP_EMAILS = [
+      { email: 'aneesh@4sgraphics.com',    name: 'Aneesh' },
+      { email: 'patricio@4sgraphics.com',  name: 'Patricio' },
+      { email: 'santiago@4sgraphics.com',  name: 'Santiago' },
+    ];
+    repTaskCounts = await Promise.all(
+      REP_EMAILS.map(async (rep) => {
+        const [pendingRow] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(followUpTasks)
+          .where(and(
+            eq(followUpTasks.status, 'pending'),
+            sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
+              SELECT id FROM users WHERE email = ${rep.email}
+            ))`
+          ));
+        const [overdueRow] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(followUpTasks)
+          .where(and(
+            eq(followUpTasks.status, 'pending'),
+            lt(followUpTasks.dueDate, today),
+            sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
+              SELECT id FROM users WHERE email = ${rep.email}
+            ))`
+          ));
+        return {
+          email: rep.email,
+          name: rep.name,
+          pending: Number(pendingRow.count) || 0,
+          overdue: Number(overdueRow.count) || 0,
+        };
+      })
+    );
+  }
+
+Then add repTaskCounts to the res.json response:
+  repTaskCounts,
+
+
+========================================
+FILE 2: client/src/pages/task-inbox.tsx — THREE changes
+========================================
+
+--- CHANGE 2A: Add isAdmin and per-rep state ---
+
+Find line ~245:
+  const { user: currentUser } = useAuth();
+
+Replace with:
+  const { user: currentUser, isAdmin } = useAuth();
+  const [activeRep, setActiveRep] = useState<string>('all'); // email or 'all'
+
+Also add repTaskCounts to the summary type. Find the type/interface that 
+includes heatBreakdown (search for `heatBreakdown?:`). Add after repHeat:
+  repTaskCounts?: Array<{ email: string; name: string; pending: number; overdue: number }>;
+
+
+--- CHANGE 2B: Wire activeRep into the query ---
+
+Find the useQuery for tasks list:
+  queryKey: ["/api/tasks/list", activeTab, sort, typeFilter, assigneeFilter, priorityFilter],
+
+Replace with:
+  queryKey: ["/api/tasks/list", activeTab, sort, typeFilter, assigneeFilter, priorityFilter, activeRep],
+
+Find where params are built for the tasks/list fetch:
+  if (priorityFilter && priorityFilter !== "all") p.set("priority", priorityFilter);
+
+Add after it:
+  if (isAdmin && activeRep && activeRep !== 'all') p.set("repName", activeRep);
+
+
+--- CHANGE 2C: Add per-rep sidebar section for Aneesh ---
+
+Find the left sidebar div and the heatBreakdown widget that's already there.
+It looks like:
+  {(summary?.overdue ?? 0) > 0 && summary?.heatBreakdown && (
+    <div className="mx-2 mt-2 p-3 bg-white rounded-lg border border-gray-100">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Task heat</p>
+      ...
+    </div>
+  )}
+
+Add this NEW block BEFORE the heatBreakdown widget (i.e. insert it just 
+before the opening {(summary?.overdue ?? 0) > 0 ...) line):
+
+  {/* Per-rep task counts — admin only */}
+  {isAdmin && summary?.repTaskCounts && summary.repTaskCounts.length > 0 && (
+    <div className="mx-2 mt-3 rounded-lg border border-gray-100 overflow-hidden">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 bg-gray-50 border-b border-gray-100">
+        By rep
+      </p>
+      {/* All reps option */}
+      <button
+        onClick={() => setActiveRep('all')}
+        className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors border-b border-gray-50 ${
+          activeRep === 'all'
+            ? 'bg-gray-900 text-white'
+            : 'hover:bg-gray-50 text-gray-700'
+        }`}
+      >
+        <span className="font-medium">All reps</span>
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+          activeRep === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+        }`}>
+          {summary.repTaskCounts.reduce((s, r) => s + r.pending, 0)}
+        </span>
+      </button>
+      {/* Individual rep rows */}
+      {summary.repTaskCounts.map((rep) => (
+        <button
+          key={rep.email}
+          onClick={() => setActiveRep(rep.email)}
+          className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors border-b border-gray-50 last:border-0 ${
+            activeRep === rep.email
+              ? 'bg-gray-900 text-white'
+              : 'hover:bg-gray-50 text-gray-700'
+          }`}
+        >
+          <span className="font-medium">{rep.name}</span>
+          <div className="flex items-center gap-1.5">
+            {rep.overdue > 0 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                activeRep === rep.email
+                  ? 'bg-red-400 text-white'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {rep.overdue} late
+              </span>
+            )}
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              activeRep === rep.email ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+            }`}>
+              {rep.pending}
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  )}
+
+After all changes: run npx tsc --noEmit and confirm zero errors.
+The key behaviours to verify:
+1. Aneesh sees a "By rep" section in the sidebar with Aneesh / Patricio / Santiago rows
+2. Clicking a rep row filters the task list to only that rep's tasks
+3. Patricio and Santiago see no "By rep" section and see only their own tasks
+4. The existing heat breakdown and nav items are unchanged
