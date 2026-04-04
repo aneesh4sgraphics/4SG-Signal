@@ -1,0 +1,168 @@
+Make the following changes to 2 files only. Do NOT touch any other file.
+
+========================================
+FILE 1: server/routes.ts — ONE change
+========================================
+
+--- Change 1: Add assignedRepId migration ---
+
+Find the boot-time migration block (around line 396) that reads:
+  // Boot-time migration: add expectedRevenue, nextBestAction, opportunityAgeDays to opportunity_scores
+  try {
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS expected_revenue decimal(12,2)`);
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS next_best_action text`);
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS opportunity_age_days integer`);
+  } catch (err) {
+    console.error("Migration error (opportunity_scores new columns):", err);
+  }
+
+Add this block immediately AFTER it:
+  // Boot-time migration: add assigned_rep_id to opportunity_scores
+  try {
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS assigned_rep_id varchar`);
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS assigned_rep_name varchar(255)`);
+  } catch (err) {
+    console.error("Migration error (opportunity_scores assigned_rep):", err);
+  }
+
+
+========================================
+FILE 2: server/opportunity-engine.ts — THREE changes
+========================================
+
+--- Change 2: Add assignedRepId to ScoredOpportunity interface ---
+
+Find:
+  export interface ScoredOpportunity {
+    id: number;
+    customerId: string | null;
+    leadId: number | null;
+    score: number;
+    opportunityType: OpportunityType;
+    signals: OpportunitySignal[];
+    isActive: boolean;
+    entityName: string;
+    entityCompany: string | null;
+    entityEmail: string | null;
+    entityPhone: string | null;
+    entityProvince: string | null;
+    entityCity: string | null;
+    createdAt: Date | null;
+    expectedRevenue?: number | null;
+    nextBestAction?: string | null;
+    opportunityAgeDays?: number | null;
+  }
+
+Replace with:
+  export interface ScoredOpportunity {
+    id: number;
+    customerId: string | null;
+    leadId: number | null;
+    score: number;
+    opportunityType: OpportunityType;
+    signals: OpportunitySignal[];
+    isActive: boolean;
+    entityName: string;
+    entityCompany: string | null;
+    entityEmail: string | null;
+    entityPhone: string | null;
+    entityProvince: string | null;
+    entityCity: string | null;
+    createdAt: Date | null;
+    expectedRevenue?: number | null;
+    nextBestAction?: string | null;
+    opportunityAgeDays?: number | null;
+    assignedRepId?: string | null;
+    assignedRepName?: string | null;
+  }
+
+
+--- Change 3: Select assignedRepId in getTopOpportunities ---
+
+Inside getTopOpportunities, find the db.select() block for customer results.
+It currently selects these fields (among others):
+    expectedRevenue: opportunityScores.expectedRevenue,
+    nextBestAction: opportunityScores.nextBestAction,
+    opportunityAgeDays: opportunityScores.opportunityAgeDays,
+
+Add after those 3 lines:
+    assignedRepId: (opportunityScores as any).assignedRepId,
+    assignedRepName: (opportunityScores as any).assignedRepName,
+
+Do the same in the leadResults db.select() block — add after the opportunityAgeDays line:
+    assignedRepId: (opportunityScores as any).assignedRepId,
+    assignedRepName: (opportunityScores as any).assignedRepName,
+
+Then in both combined.push() calls (for customer results and lead results), add:
+    assignedRepId: (r as any).assignedRepId ?? null,
+    assignedRepName: (r as any).assignedRepName ?? null,
+
+
+--- Change 4: Add per-rep pipeline totals to getOpportunitySummary ---
+
+Find the getOpportunitySummary method signature and return type:
+  async getOpportunitySummary(options: { minScore?: number; salesRepId?: string } = {}): Promise<{
+    totalActive: number;
+    byType: Record<string, number>;
+    avgScore: number;
+    topScorers: number;
+  }>
+
+Replace with:
+  async getOpportunitySummary(options: { minScore?: number; salesRepId?: string } = {}): Promise<{
+    totalActive: number;
+    byType: Record<string, number>;
+    avgScore: number;
+    topScorers: number;
+    totalPipelineRevenue: number;
+    byRep: Array<{ repId: string; repName: string; count: number; revenue: number }>;
+  }>
+
+Then inside getOpportunitySummary, find the final return statement:
+    return {
+      totalActive,
+      byType,
+      avgScore: totalActive > 0 ? Math.round(totalScoreSum / totalActive) : 0,
+      topScorers: Number(topScorers?.cnt || 0),
+    };
+
+Replace with:
+    // Compute per-rep pipeline breakdown (customer-linked only, grouped by customer.salesRepId)
+    const repRevenueRows = await db
+      .select({
+        repId: customers.salesRepId,
+        repName: customers.salesRepName,
+        cnt: count(),
+        totalRev: sql<number>`COALESCE(SUM(CAST(${opportunityScores.expectedRevenue} AS numeric)), 0)`,
+      })
+      .from(opportunityScores)
+      .leftJoin(customers, eq(opportunityScores.customerId, customers.id))
+      .where(and(
+        eq(opportunityScores.isActive, true),
+        gte(opportunityScores.score, minScore),
+        isNotNull(customers.salesRepId),
+      ))
+      .groupBy(customers.salesRepId, customers.salesRepName);
+
+    const byRep = repRevenueRows
+      .filter(r => r.repId)
+      .map(r => ({
+        repId: r.repId!,
+        repName: r.repName || r.repId!,
+        count: Number(r.cnt),
+        revenue: Math.round(Number(r.totalRev)),
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totalPipelineRevenue = byRep.reduce((sum, r) => sum + r.revenue, 0);
+
+    return {
+      totalActive,
+      byType,
+      avgScore: totalActive > 0 ? Math.round(totalScoreSum / totalActive) : 0,
+      topScorers: Number(topScorers?.cnt || 0),
+      totalPipelineRevenue,
+      byRep,
+    };
+
+After all changes run: npx tsc --noEmit and confirm zero errors.
