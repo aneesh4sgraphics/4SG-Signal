@@ -1,0 +1,122 @@
+Fix the sales rep duplication and filtering bugs. Touch only these files:
+server/routes.ts, server/opportunity-engine.ts
+
+Do NOT touch shared/schema.ts, the frontend, or any other file.
+
+The root cause: customers.salesRepId stores Odoo res.users IDs as strings 
+("26", "27", "28"). But the opportunities filter passes req.user?.id which 
+is a Replit auth UUID — they never match. Also, byRep groups by both 
+salesRepId AND salesRepName, so the same rep appears multiple times when 
+salesRepName differs across records.
+
+========================================
+FILE 1: server/routes.ts — TWO changes
+========================================
+
+--- Change 1: Fix opportunity filter to use odooUserId ---
+
+Find in the GET /api/opportunities handler (around line ~30782):
+  const isAdmin = req.user?.role === 'admin';
+  const opportunities = await opportunityEngine.getTopOpportunities({
+    salesRepId: isAdmin ? undefined : req.user?.id,
+
+Replace with:
+  const isAdmin = req.user?.role === 'admin';
+  // salesRepId in DB is the Odoo res.users ID (e.g. "26"), not the Replit user UUID.
+  // Look up the current user's odooUserId from the users table for correct matching.
+  let repOdooId: string | undefined = undefined;
+  if (!isAdmin) {
+    const [currentUser] = await db.select({ odooUserId: users.odooUserId })
+      .from(users)
+      .where(eq(users.id, req.user.id))
+      .limit(1);
+    repOdooId = currentUser?.odooUserId?.toString() || undefined;
+  }
+  const opportunities = await opportunityEngine.getTopOpportunities({
+    salesRepId: repOdooId,
+
+Make sure `users` is imported — check the import at the top of routes.ts. 
+It should already be imported from @shared/schema. If not, add it.
+
+Also apply the same fix to the GET /api/opportunities/summary handler 
+(a few lines below). Find:
+  const isAdmin = req.user?.role === 'admin';
+  const summary = await opportunityEngine.getOpportunitySummary({
+    minScore: 20,
+    salesRepId: isAdmin ? undefined : req.user?.id,
+
+Replace with:
+  const isAdmin = req.user?.role === 'admin';
+  let repOdooIdForSummary: string | undefined = undefined;
+  if (!isAdmin) {
+    const [currentUser] = await db.select({ odooUserId: users.odooUserId })
+      .from(users)
+      .where(eq(users.id, req.user.id))
+      .limit(1);
+    repOdooIdForSummary = currentUser?.odooUserId?.toString() || undefined;
+  }
+  const summary = await opportunityEngine.getOpportunitySummary({
+    minScore: 20,
+    salesRepId: repOdooIdForSummary,
+
+========================================
+FILE 2: server/opportunity-engine.ts — ONE change
+========================================
+
+--- Change 2: Fix byRep grouping to deduplicate by salesRepId only ---
+
+Find the getOpportunitySummary method. Find the repRevenueRows query:
+  const repRevenueRows = await db
+    .select({
+      repId: customers.salesRepId,
+      repName: customers.salesRepName,
+      cnt: count(),
+      totalRev: sql<number>`COALESCE(SUM(CAST(${opportunityScores.expectedRevenue} AS numeric)), 0)`,
+    })
+    .from(opportunityScores)
+    .leftJoin(customers, eq(opportunityScores.customerId, customers.id))
+    .where(and(
+      eq(opportunityScores.isActive, true),
+      gte(opportunityScores.score, minScore),
+      isNotNull(customers.salesRepId),
+    ))
+    .groupBy(customers.salesRepId, customers.salesRepName);
+
+Replace with a version that groups by salesRepId ONLY, and resolves the 
+canonical name from the SALES_REPS constant to avoid name variants:
+
+  // Group by salesRepId only (not salesRepName) to avoid duplicates when 
+  // salesRepName differs across records for the same rep.
+  const repRevenueRows = await db
+    .select({
+      repId: customers.salesRepId,
+      cnt: count(),
+      totalRev: sql<number>`COALESCE(SUM(CAST(${opportunityScores.expectedRevenue} AS numeric)), 0)`,
+    })
+    .from(opportunityScores)
+    .leftJoin(customers, eq(opportunityScores.customerId, customers.id))
+    .where(and(
+      eq(opportunityScores.isActive, true),
+      gte(opportunityScores.score, minScore),
+      isNotNull(customers.salesRepId),
+    ))
+    .groupBy(customers.salesRepId);
+
+  // Canonical rep name lookup — matches Odoo res.users IDs to display names
+  const CANONICAL_REP_NAMES: Record<string, string> = {
+    '26': 'Aneesh',
+    '27': 'Patricio',
+    '28': 'Santiago',
+  };
+
+  const byRep = repRevenueRows
+    .filter(r => r.repId)
+    .map(r => ({
+      repId: r.repId!,
+      repName: CANONICAL_REP_NAMES[r.repId!] || r.repId!,
+      count: Number(r.cnt),
+      revenue: Math.round(Number(r.totalRev)),
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+After changes: run npx tsc --noEmit and confirm zero TypeScript errors.

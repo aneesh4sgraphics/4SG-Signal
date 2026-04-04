@@ -30785,8 +30785,18 @@ Analyze this bounced email and provide insights in JSON format:
       const { opportunityEngine } = await import("./opportunity-engine");
       const { type, limit, minScore } = req.query;
       const isAdmin = req.user?.role === 'admin';
+      // salesRepId in DB is the Odoo res.users ID (e.g. "26"), not the Replit user UUID.
+      // Look up the current user's odooUserId from the users table for correct matching.
+      let repOdooId: string | undefined = undefined;
+      if (!isAdmin) {
+        const [currentUser] = await db.select({ odooUserId: users.odooUserId })
+          .from(users)
+          .where(eq(users.id, req.user.id))
+          .limit(1);
+        repOdooId = currentUser?.odooUserId?.toString() || undefined;
+      }
       const opportunities = await opportunityEngine.getTopOpportunities({
-        salesRepId: isAdmin ? undefined : req.user?.id,
+        salesRepId: repOdooId,
         opportunityType: type as any,
         limit: limit ? parseInt(limit as string) : 100,
         minScore: minScore ? parseInt(minScore as string) : 20,
@@ -30802,9 +30812,17 @@ Analyze this bounced email and provide insights in JSON format:
     try {
       const { opportunityEngine } = await import("./opportunity-engine");
       const isAdmin = req.user?.role === 'admin';
+      let repOdooIdForSummary: string | undefined = undefined;
+      if (!isAdmin) {
+        const [currentUser] = await db.select({ odooUserId: users.odooUserId })
+          .from(users)
+          .where(eq(users.id, req.user.id))
+          .limit(1);
+        repOdooIdForSummary = currentUser?.odooUserId?.toString() || undefined;
+      }
       const summary = await opportunityEngine.getOpportunitySummary({
         minScore: 20,
-        salesRepId: isAdmin ? undefined : req.user?.id,
+        salesRepId: repOdooIdForSummary,
       });
       res.json(summary);
     } catch (error) {

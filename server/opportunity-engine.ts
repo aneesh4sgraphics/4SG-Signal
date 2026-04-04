@@ -1061,10 +1061,11 @@ export class OpportunityEngine {
       ));
 
     // Compute per-rep pipeline breakdown (customer-linked only, grouped by customer.salesRepId)
+    // Group by salesRepId only (not salesRepName) to avoid duplicates when
+    // salesRepName differs across records for the same rep.
     const repRevenueRows = await db
       .select({
         repId: customers.salesRepId,
-        repName: customers.salesRepName,
         cnt: count(),
         totalRev: sql<number>`COALESCE(SUM(CAST(${opportunityScores.expectedRevenue} AS numeric)), 0)`,
       })
@@ -1075,13 +1076,20 @@ export class OpportunityEngine {
         gte(opportunityScores.score, minScore),
         isNotNull(customers.salesRepId),
       ))
-      .groupBy(customers.salesRepId, customers.salesRepName);
+      .groupBy(customers.salesRepId);
+
+    // Canonical rep name lookup — matches Odoo res.users IDs to display names
+    const CANONICAL_REP_NAMES: Record<string, string> = {
+      '26': 'Aneesh',
+      '27': 'Patricio',
+      '28': 'Santiago',
+    };
 
     const byRep = repRevenueRows
       .filter(r => r.repId)
       .map(r => ({
         repId: r.repId!,
-        repName: r.repName || r.repId!,
+        repName: CANONICAL_REP_NAMES[r.repId!] || r.repId!,
         count: Number(r.cnt),
         revenue: Math.round(Number(r.totalRev)),
       }))
