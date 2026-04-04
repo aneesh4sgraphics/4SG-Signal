@@ -5642,6 +5642,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Domain contacts lookup — used by Spotlight bounced email to show same-domain contacts
+  app.get("/api/contacts/by-domain", isAuthenticated, async (req: any, res) => {
+    try {
+      const domain = (req.query.domain as string || '').trim().toLowerCase();
+      const excludeCustomerId = (req.query.excludeCustomerId as string || '').trim();
+      const excludeLeadId = req.query.excludeLeadId ? parseInt(req.query.excludeLeadId as string) : null;
+      if (!domain || domain.length < 3) return res.json({ contacts: [] });
+
+      const emailPattern = `%@${domain}`;
+
+      const [customerRows, leadRows] = await Promise.all([
+        db.select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          company: customers.company,
+          email: customers.email,
+          phone: customers.phone,
+          salesRepName: customers.salesRepName,
+        })
+        .from(customers)
+        .where(and(
+          ilike(customers.email, emailPattern),
+          excludeCustomerId ? ne(customers.id, excludeCustomerId) : sql`1=1`,
+          eq(customers.doNotContact, false),
+        ))
+        .limit(8),
+
+        db.select({
+          id: leads.id,
+          name: leads.name,
+          company: leads.company,
+          email: leads.email,
+          phone: leads.phone,
+          salesRepName: leads.salesRepName,
+        })
+        .from(leads)
+        .where(and(
+          ilike(leads.email, emailPattern),
+          excludeLeadId ? ne(leads.id, excludeLeadId) : sql`1=1`,
+        ))
+        .limit(8),
+      ]);
+
+      const contacts = [
+        ...customerRows.map(c => ({
+          type: 'customer' as const,
+          id: c.id,
+          name: [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown',
+          company: c.company,
+          email: c.email,
+          phone: c.phone,
+          salesRepName: c.salesRepName,
+          href: `/odoo-contacts/${c.id}`,
+        })),
+        ...leadRows.map(l => ({
+          type: 'lead' as const,
+          id: String(l.id),
+          name: l.name || l.company || 'Unknown',
+          company: l.company,
+          email: l.email,
+          phone: l.phone,
+          salesRepName: l.salesRepName,
+          href: `/leads/${l.id}`,
+        })),
+      ];
+
+      res.json({ contacts, domain });
+    } catch (err: any) {
+      console.error('[by-domain] Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Customer management routes
   // Live customer count endpoint with data quality stats
   app.get("/api/customers/count", isAuthenticated, async (req: any, res) => {

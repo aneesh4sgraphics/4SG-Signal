@@ -940,7 +940,26 @@ export default function Spotlight() {
   const customerId = currentTask?.task?.customer?.id;
   const isLeadTask = currentTask?.task?.isLeadTask || customerId?.startsWith('lead-');
   const leadId = currentTask?.task?.leadId || (isLeadTask && customerId ? parseInt(customerId.replace('lead-', '')) : null);
-  
+
+  // Domain contacts query — used by bounced email section
+  const isBounceTaskNow = currentTask?.task?.taskSubtype === 'hygiene_bounced_email';
+  const bounceEmailRaw = currentTask?.task?.extraContext?.bouncedEmail || currentTask?.task?.customerEmail || '';
+  const bounceDomain = bounceEmailRaw.includes('@') ? bounceEmailRaw.split('@')[1].toLowerCase().trim() : '';
+  const { data: domainContactsData } = useQuery<{ contacts: any[]; domain: string }>({
+    queryKey: ['/api/contacts/by-domain', bounceDomain, customerId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ domain: bounceDomain });
+      if (customerId && !isLeadTask) params.set('excludeCustomerId', customerId);
+      if (isLeadTask && leadId) params.set('excludeLeadId', String(leadId));
+      const res = await fetch(`/api/contacts/by-domain?${params}`, { credentials: 'include' });
+      if (!res.ok) return { contacts: [], domain: bounceDomain };
+      return res.json();
+    },
+    enabled: isBounceTaskNow && bounceDomain.length > 3,
+    staleTime: 2 * 60 * 1000,
+  });
+  const domainContacts = domainContactsData?.contacts || [];
+
   const { data: customerMachines = [] } = useQuery<{ id: number; machineFamily: string; confirmed: boolean }[]>({
     queryKey: ['/api/crm/machine-profiles', customerId],
     queryFn: async () => {
@@ -4872,6 +4891,44 @@ export default function Spotlight() {
                             <Building2 className="w-4 h-4" />
                             Check Company
                           </button>
+                        </div>
+                      )}
+
+                      {/* Same-domain contacts */}
+                      {domainContacts.length > 0 && !bounceResolutionDone && (
+                        <div className="bg-white border border-red-100 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-slate-500" />
+                            Other contacts at <span className="font-mono text-red-700">@{bounceDomain}</span>
+                            <span className="ml-auto text-[10px] font-normal text-slate-400">{domainContacts.length} found</span>
+                          </p>
+                          <div className="space-y-1.5">
+                            {domainContacts.map((c: any) => (
+                              <Link key={`${c.type}-${c.id}`} href={c.href}>
+                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer group transition-colors">
+                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.type === 'customer' ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-medium text-slate-800 truncate">{c.name}</span>
+                                      {c.company && c.company !== c.name && (
+                                        <span className="text-[10px] text-slate-400 truncate">· {c.company}</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 truncate">{c.email}</div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    {c.salesRepName && (
+                                      <span className="text-[10px] text-slate-400">{c.salesRepName}</span>
+                                    )}
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${c.type === 'customer' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                      {c.type === 'customer' ? 'Customer' : 'Lead'}
+                                    </span>
+                                    <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-slate-500" />
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
                         </div>
                       )}
 
