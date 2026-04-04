@@ -310,13 +310,18 @@ function QuoteCard({ quote }: { quote: any }) {
           )}
         </div>
       </div>
-      {quote.customerEmail && (
-        <div className="mt-1.5 pt-1.5 border-t border-gray-100">
+      <div className="mt-1.5 pt-1.5 border-t border-gray-100 flex items-center justify-between gap-1">
+        {quote.customerEmail ? (
           <a href={`mailto:${quote.customerEmail}`} className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5">
             <Mail className="w-2.5 h-2.5" /> Follow up
           </a>
-        </div>
-      )}
+        ) : <span />}
+        {quote.ownerEmail && (
+          <span className="text-[9px] text-gray-400 truncate max-w-[80px]" title={quote.ownerEmail}>
+            {quote.ownerEmail.split('@')[0]}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

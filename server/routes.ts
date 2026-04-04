@@ -8862,6 +8862,18 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
 
+      const userEmail = req.user?.claims?.email || req.user?.email || null;
+      const isAdmin = req.user?.role === 'admin';
+
+      // Build where conditions — admins see all, reps see their own
+      const conditions = [
+        eq(sentQuotes.outcome, 'pending'),
+        gte(sentQuotes.createdAt, cutoff),
+      ];
+      if (!isAdmin && userEmail) {
+        conditions.push(eq(sentQuotes.ownerEmail, userEmail));
+      }
+
       const quotes = await db
         .select({
           id: sentQuotes.id,
@@ -8876,12 +8888,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           priority: sentQuotes.priority,
         })
         .from(sentQuotes)
-        .where(
-          and(
-            eq(sentQuotes.outcome, 'pending'),
-            gte(sentQuotes.createdAt, cutoff)
-          )
-        )
+        .where(and(...conditions))
         .orderBy(desc(sentQuotes.createdAt))
         .limit(200);
 
@@ -9688,8 +9695,15 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Stamp the authenticated user as owner
+      const ownerEmail = req.user?.claims?.email || req.user?.email || null;
+
       // Default sentVia to "Not Known" if missing or empty
       const finalSentVia = sentVia && sentVia.trim() ? sentVia.trim() : "Not Known";
+
+      // Follow-up due 10 days from now
+      const followUpDueAt = new Date();
+      followUpDueAt.setDate(followUpDueAt.getDate() + 10);
 
       // Check if quote already exists
       const existingQuotes = await storage.getSentQuotes();
@@ -9713,7 +9727,9 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           quoteItems: JSON.stringify(quoteItems),
           totalAmount: totalAmount.toString(),
           sentVia: finalSentVia,
-          status: 'sent'
+          status: 'sent',
+          ownerEmail,
+          followUpDueAt,
         });
       }
 
