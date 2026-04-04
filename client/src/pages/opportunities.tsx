@@ -584,7 +584,7 @@ export default function OpportunitiesPage() {
 
         {/* Summary stat cards */}
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
               <div className="text-2xl font-bold text-amber-600">{summary.totalActive}</div>
               <div className="text-xs text-gray-500">Active opportunities</div>
@@ -629,37 +629,77 @@ export default function OpportunitiesPage() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">
+          </div>
+        )}
+
+        {/* Pipeline breakdown panel */}
+        {summary && totalPipelineValue > 0 && (
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-gray-800">
+                  {isAdmin ? 'Pipeline by rep' : 'My pipeline'}
+                </span>
+                <span className="text-xs text-gray-400">· est. annual revenue</span>
+              </div>
+              <span className="text-sm font-bold text-purple-700">
                 {totalPipelineValue >= 1000
-                  ? `$${(totalPipelineValue / 1000).toFixed(0)}K`
-                  : totalPipelineValue > 0
-                  ? `$${totalPipelineValue.toLocaleString()}`
-                  : '—'}
-              </div>
-              <div className="text-xs text-gray-500">
-                {isAdmin ? 'Total pipeline (all reps)' : 'Your pipeline value'}
-              </div>
-              {isAdmin && summary?.byRep && summary.byRep.length > 0 && (
-                <div className="mt-2 space-y-1 text-left border-t border-gray-100 pt-2">
-                  {summary.byRep.map((rep: any) => (
-                    <div key={rep.repId} className="flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500 truncate max-w-[100px]">
+                  ? `$${(totalPipelineValue / 1000).toFixed(0)}K total`
+                  : `$${totalPipelineValue.toLocaleString()} total`}
+              </span>
+            </div>
+
+            {/* Rep tabs — admin only */}
+            {isAdmin && summary?.byRep && summary.byRep.length > 0 ? (
+              <div className="flex divide-x divide-gray-100">
+                {summary.byRep.map((rep: any, idx: number) => {
+                  const pct = totalPipelineValue > 0
+                    ? Math.round((rep.revenue / totalPipelineValue) * 100)
+                    : 0;
+                  const colors = [
+                    { bar: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50' },
+                    { bar: 'bg-blue-500',   text: 'text-blue-700',   light: 'bg-blue-50'   },
+                    { bar: 'bg-teal-500',   text: 'text-teal-700',   light: 'bg-teal-50'   },
+                  ];
+                  const c = colors[idx % colors.length];
+                  return (
+                    <div key={rep.repId} className={`flex-1 px-5 py-4 ${c.light}`}>
+                      <div className={`text-xs font-semibold ${c.text} mb-1`}>
                         {rep.repName?.split(' ')[0] || 'Rep'}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-gray-400">{rep.count} opps</span>
-                        <span className="text-[10px] font-semibold text-purple-700">
-                          {rep.revenue >= 1000
-                            ? `$${(rep.revenue / 1000).toFixed(0)}K`
-                            : rep.revenue > 0 ? `$${rep.revenue}` : '—'}
-                        </span>
+                      </div>
+                      <div className={`text-xl font-bold ${c.text} mb-0.5`}>
+                        {rep.revenue >= 1000
+                          ? `$${(rep.revenue / 1000).toFixed(0)}K`
+                          : rep.revenue > 0 ? `$${rep.revenue}` : '—'}
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[11px] text-gray-500">{rep.count} opps</span>
+                        {pct > 0 && (
+                          <span className={`text-[11px] font-medium ${c.text}`}>{pct}%</span>
+                        )}
+                      </div>
+                      <div className="h-1.5 bg-white rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${c.bar}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-4">
+                <div className="text-xl font-bold text-purple-700 mb-0.5">
+                  {totalPipelineValue >= 1000
+                    ? `$${(totalPipelineValue / 1000).toFixed(0)}K`
+                    : `$${totalPipelineValue.toLocaleString()}`}
                 </div>
-              )}
-            </div>
+                <div className="text-xs text-gray-500">estimated annual revenue in your pipeline</div>
+              </div>
+            )}
           </div>
         )}
 
