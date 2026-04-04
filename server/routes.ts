@@ -402,6 +402,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Migration error (opportunity_scores new columns):", err);
   }
 
+  // Boot-time migration: add assigned_rep_id to opportunity_scores
+  try {
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS assigned_rep_id varchar`);
+    await db.execute(sql`ALTER TABLE opportunity_scores ADD COLUMN IF NOT EXISTS assigned_rep_name varchar(255)`);
+  } catch (err) {
+    console.error("Migration error (opportunity_scores assigned_rep):", err);
+  }
+
   // Initialize default follow-up configurations on startup
   try {
     await storage.initDefaultFollowUpConfig();

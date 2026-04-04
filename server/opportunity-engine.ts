@@ -58,6 +58,8 @@ export interface ScoredOpportunity {
   expectedRevenue?: number | null;
   nextBestAction?: string | null;
   opportunityAgeDays?: number | null;
+  assignedRepId?: string | null;
+  assignedRepName?: string | null;
 }
 
 export class OpportunityEngine {
@@ -819,6 +821,8 @@ export class OpportunityEngine {
         expectedRevenue: opportunityScores.expectedRevenue,
         nextBestAction: opportunityScores.nextBestAction,
         opportunityAgeDays: opportunityScores.opportunityAgeDays,
+        assignedRepId: (opportunityScores as any).assignedRepId,
+        assignedRepName: (opportunityScores as any).assignedRepName,
       })
       .from(opportunityScores)
       .leftJoin(customers, eq(opportunityScores.customerId, customers.id))
@@ -853,6 +857,8 @@ export class OpportunityEngine {
         leadState: leads.state,
         leadCity: leads.city,
         leadSalesRepId: leads.salesRepId,
+        assignedRepId: (opportunityScores as any).assignedRepId,
+        assignedRepName: (opportunityScores as any).assignedRepName,
       })
       .from(opportunityScores)
       .leftJoin(leads, eq(opportunityScores.leadId, leads.id))
@@ -883,6 +889,8 @@ export class OpportunityEngine {
         expectedRevenue: r.expectedRevenue ? parseFloat(r.expectedRevenue) : null,
         nextBestAction: (r as any).nextBestAction ?? null,
         opportunityAgeDays: (r as any).opportunityAgeDays ?? null,
+        assignedRepId: (r as any).assignedRepId ?? null,
+        assignedRepName: (r as any).assignedRepName ?? null,
       });
     }
 
@@ -907,6 +915,8 @@ export class OpportunityEngine {
         expectedRevenue: (r as any).expectedRevenue ? parseFloat((r as any).expectedRevenue) : null,
         nextBestAction: (r as any).nextBestAction ?? null,
         opportunityAgeDays: (r as any).opportunityAgeDays ?? null,
+        assignedRepId: (r as any).assignedRepId ?? null,
+        assignedRepName: (r as any).assignedRepName ?? null,
       });
     }
 
@@ -985,6 +995,8 @@ export class OpportunityEngine {
     byType: Record<string, number>;
     avgScore: number;
     topScorers: number;
+    totalPipelineRevenue: number;
+    byRep: Array<{ repId: string; repName: string; count: number; revenue: number }>;
   }> {
     const { minScore = 20, salesRepId } = options;
 
@@ -1048,11 +1060,42 @@ export class OpportunityEngine {
         gte(opportunityScores.score, 60),
       ));
 
+    // Compute per-rep pipeline breakdown (customer-linked only, grouped by customer.salesRepId)
+    const repRevenueRows = await db
+      .select({
+        repId: customers.salesRepId,
+        repName: customers.salesRepName,
+        cnt: count(),
+        totalRev: sql<number>`COALESCE(SUM(CAST(${opportunityScores.expectedRevenue} AS numeric)), 0)`,
+      })
+      .from(opportunityScores)
+      .leftJoin(customers, eq(opportunityScores.customerId, customers.id))
+      .where(and(
+        eq(opportunityScores.isActive, true),
+        gte(opportunityScores.score, minScore),
+        isNotNull(customers.salesRepId),
+      ))
+      .groupBy(customers.salesRepId, customers.salesRepName);
+
+    const byRep = repRevenueRows
+      .filter(r => r.repId)
+      .map(r => ({
+        repId: r.repId!,
+        repName: r.repName || r.repId!,
+        count: Number(r.cnt),
+        revenue: Math.round(Number(r.totalRev)),
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totalPipelineRevenue = byRep.reduce((sum, r) => sum + r.revenue, 0);
+
     return {
       totalActive,
       byType,
       avgScore: totalActive > 0 ? Math.round(totalScoreSum / totalActive) : 0,
       topScorers: Number(topScorers?.cnt || 0),
+      totalPipelineRevenue,
+      byRep,
     };
   }
 

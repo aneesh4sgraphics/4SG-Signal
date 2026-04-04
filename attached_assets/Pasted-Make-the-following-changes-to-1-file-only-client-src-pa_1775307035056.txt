@@ -1,0 +1,88 @@
+Make the following changes to 1 file only: client/src/pages/opportunities.tsx
+Do NOT touch any other file.
+
+========================================
+client/src/pages/opportunities.tsx — THREE changes
+========================================
+
+--- Change 1: Add useAuth import and hook ---
+
+At the top of the file, find:
+  import { useState } from "react";
+
+Replace with:
+  import { useState } from "react";
+  import { useAuth } from "@/hooks/useAuth";
+
+Then inside the OpportunitiesPage component function, right after:
+  const { toast } = useToast();
+
+Add:
+  const { user, isAdmin } = useAuth();
+
+
+--- Change 2: Add per-rep pipeline breakdown to the summary stat cards ---
+
+Find the summary stat cards section. It currently has 4 cards:
+  Active opportunities / High score / Avg score / Est. annual pipeline
+
+Replace the 4th card (Est. annual pipeline) with this updated version that
+shows per-rep breakdown for Aneesh and a "Your pipeline" label for reps:
+
+  <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+    <div className="text-2xl font-bold text-purple-600">
+      {totalPipelineValue >= 1000
+        ? `$${(totalPipelineValue / 1000).toFixed(0)}K`
+        : totalPipelineValue > 0
+        ? `$${totalPipelineValue.toLocaleString()}`
+        : '—'}
+    </div>
+    <div className="text-xs text-gray-500">
+      {isAdmin ? 'Total pipeline (all reps)' : 'Your pipeline value'}
+    </div>
+    {/* Per-rep breakdown — admin only */}
+    {isAdmin && summary?.byRep && summary.byRep.length > 0 && (
+      <div className="mt-2 space-y-1 text-left border-t border-gray-100 pt-2">
+        {summary.byRep.map((rep: any) => (
+          <div key={rep.repId} className="flex items-center justify-between">
+            <span className="text-[10px] text-gray-500 truncate max-w-[100px]">
+              {rep.repName?.split(' ')[0] || 'Rep'}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-400">{rep.count} opps</span>
+              <span className="text-[10px] font-semibold text-purple-700">
+                {rep.revenue >= 1000
+                  ? `$${(rep.revenue / 1000).toFixed(0)}K`
+                  : rep.revenue > 0 ? `$${rep.revenue}` : '—'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+
+--- Change 3: Show "My Opportunities" label for non-admin reps ---
+
+Find the page header description text. It currently reads:
+  <p className="text-sm text-gray-500 mt-0.5">
+    Scored and ranked by fit — {allOpps.length} active
+    {totalPipelineValue > 0 && (
+      ...
+    )}
+  </p>
+
+Replace with:
+  <p className="text-sm text-gray-500 mt-0.5">
+    {isAdmin ? 'All reps' : 'My opportunities'} — {allOpps.length} active
+    {totalPipelineValue > 0 && (
+      <span className="ml-2 font-semibold text-green-700">
+        · ${totalPipelineValue >= 1000
+          ? `${(totalPipelineValue / 1000).toFixed(0)}K`
+          : totalPipelineValue.toLocaleString()} est. annual pipeline
+      </span>
+    )}
+  </p>
+
+After all changes run: npx tsc --noEmit and confirm zero errors.
