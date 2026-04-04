@@ -8855,6 +8855,43 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
 
 
+  // Pipeline view: recent pending quotes for the Opportunities Kanban
+  app.get("/api/quotes/pipeline", isAuthenticated, async (req: any, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 90;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+
+      const quotes = await db
+        .select({
+          id: sentQuotes.id,
+          quoteNumber: sentQuotes.quoteNumber,
+          customerName: sentQuotes.customerName,
+          customerEmail: sentQuotes.customerEmail,
+          totalAmount: sentQuotes.totalAmount,
+          source: sentQuotes.source,
+          createdAt: sentQuotes.createdAt,
+          ownerEmail: sentQuotes.ownerEmail,
+          customerId: sentQuotes.customerId,
+          priority: sentQuotes.priority,
+        })
+        .from(sentQuotes)
+        .where(
+          and(
+            eq(sentQuotes.outcome, 'pending'),
+            gte(sentQuotes.createdAt, cutoff)
+          )
+        )
+        .orderBy(desc(sentQuotes.createdAt))
+        .limit(200);
+
+      res.json(quotes);
+    } catch (error) {
+      console.error('[Quotes Pipeline]', error);
+      res.status(500).json({ error: 'Failed to fetch pipeline quotes' });
+    }
+  });
+
   // Get all sent quotes
   app.get("/api/sent-quotes", isAuthenticated, async (req, res) => {
     try {

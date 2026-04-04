@@ -273,9 +273,57 @@ function OpportunityCard({ opp }: { opp: any }) {
   );
 }
 
+// ─── Quote card (for Quote Sent column) ───────────────────────────────────
+
+function QuoteCard({ quote }: { quote: any }) {
+  const daysSince = Math.floor((Date.now() - new Date(quote.createdAt).getTime()) / 86400000);
+  const amount = parseFloat(quote.totalAmount || '0');
+  const detailLink = quote.customerId ? `/odoo-contacts/${quote.customerId}` : null;
+  const sourceLabel = quote.source === 'shopify_draft' ? 'Shopify' : quote.source === 'shopify_abandoned_cart' ? 'Abandoned Cart' : 'QuickQuote';
+
+  return (
+    <div className="bg-white rounded-lg border border-blue-200 p-3 mb-2 hover:shadow-sm transition-shadow" style={{ borderLeftWidth: 3, borderLeftColor: '#185FA5' }}>
+      <div className="flex items-start justify-between gap-1 mb-1">
+        <span className="text-xs font-semibold text-gray-900 truncate leading-tight">{quote.customerName}</span>
+        {quote.priority === 'high' && (
+          <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold flex-shrink-0">HOT</span>
+        )}
+      </div>
+      {quote.customerEmail && (
+        <div className="text-[10px] text-gray-400 truncate mb-1.5">{quote.customerEmail}</div>
+      )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          {amount > 0 && (
+            <span className="text-[11px] font-bold text-blue-700">
+              ${amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toFixed(2)}
+            </span>
+          )}
+          <span className="text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-500 font-medium">{sourceLabel}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+            <Clock className="w-2.5 h-2.5" />{daysSince}d ago
+          </span>
+          {detailLink && (
+            <Link href={detailLink}><ChevronRight className="w-3 h-3 text-gray-300 hover:text-gray-600" /></Link>
+          )}
+        </div>
+      </div>
+      {quote.customerEmail && (
+        <div className="mt-1.5 pt-1.5 border-t border-gray-100">
+          <a href={`mailto:${quote.customerEmail}`} className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5">
+            <Mail className="w-2.5 h-2.5" /> Follow up
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Pipeline board ────────────────────────────────────────────────────────
 
-function PipelineBoard({ opps }: { opps: any[] }) {
+function PipelineBoard({ opps, quotes }: { opps: any[]; quotes: any[] }) {
   const oppsByStage = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage.id] = opps.filter(opp => {
       const cfg = OPPORTUNITY_TYPE_CONFIG[opp.opportunityType];
@@ -284,9 +332,13 @@ function PipelineBoard({ opps }: { opps: any[] }) {
     return acc;
   }, {} as Record<string, any[]>);
 
+  // Quote totals for the quote_sent column
+  const quotesTotal = quotes.reduce((sum, q) => sum + parseFloat(q.totalAmount || '0'), 0);
+
   const totalByStage = PIPELINE_STAGES.reduce((acc, stage) => {
     const stageOpps = oppsByStage[stage.id] || [];
     acc[stage.id] = stageOpps.reduce((sum: number, o: any) => sum + (o.expectedRevenue || 0), 0);
+    if (stage.id === 'quote_sent') acc[stage.id] += quotesTotal;
     return acc;
   }, {} as Record<string, number>);
 
@@ -312,8 +364,10 @@ function PipelineBoard({ opps }: { opps: any[] }) {
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {PIPELINE_STAGES.map(stage => {
           const stageOpps = oppsByStage[stage.id] || [];
+          const stageQuotes = stage.id === 'quote_sent' ? quotes : [];
           const stageTotal = totalByStage[stage.id] || 0;
-          const count = stageOpps.length;
+          const count = stageOpps.length + stageQuotes.length;
+          const isEmpty = count === 0;
 
           return (
             <div key={stage.id} className="flex flex-col min-h-40">
@@ -334,9 +388,11 @@ function PipelineBoard({ opps }: { opps: any[] }) {
                 </div>
                 {stageTotal > 0 && (
                   <div className="text-[10px] font-semibold" style={{ color: stage.color }}>
-                    {stageTotal >= 1000
-                      ? `$${(stageTotal / 1000).toFixed(0)}K est.`
-                      : `$${stageTotal} est.`}
+                    {stage.id === 'quote_sent'
+                      ? `$${stageTotal >= 1000 ? `${(stageTotal / 1000).toFixed(0)}K` : stageTotal.toFixed(0)} quoted`
+                      : stageTotal >= 1000
+                        ? `$${(stageTotal / 1000).toFixed(0)}K est.`
+                        : `$${stageTotal} est.`}
                   </div>
                 )}
                 {stageTotal === 0 && (
@@ -350,16 +406,19 @@ function PipelineBoard({ opps }: { opps: any[] }) {
                 className="flex-1 rounded-b-lg p-2 overflow-y-auto"
                 style={{ background: `${stage.bg}80`, border: `1px solid ${stage.border}`, borderTop: 'none', minHeight: 120 }}
               >
-                {stageOpps.length === 0 ? (
+                {isEmpty ? (
                   <div className="flex items-center justify-center h-16">
                     <span className="text-[10px]" style={{ color: stage.color, opacity: 0.5 }}>
                       No opportunities
                     </span>
                   </div>
                 ) : (
-                  stageOpps
-                    .sort((a: any, b: any) => b.score - a.score)
-                    .map((opp: any) => <PipelineCard key={opp.id} opp={opp} />)
+                  <>
+                    {stageQuotes.map((q: any) => <QuoteCard key={`q-${q.id}`} quote={q} />)}
+                    {stageOpps
+                      .sort((a: any, b: any) => b.score - a.score)
+                      .map((opp: any) => <PipelineCard key={opp.id} opp={opp} />)}
+                  </>
                 )}
               </div>
             </div>
@@ -390,6 +449,16 @@ export default function OpportunitiesPage() {
 
   const { data: summary } = useQuery<any>({
     queryKey: ['/api/opportunities/summary'],
+  });
+
+  const { data: pipelineQuotes = [] } = useQuery<any[]>({
+    queryKey: ['/api/quotes/pipeline'],
+    queryFn: async () => {
+      const res = await fetch('/api/quotes/pipeline', { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
   });
 
   const recalculateMutation = useMutation({
@@ -597,7 +666,7 @@ export default function OpportunitiesPage() {
 
         {/* ── PIPELINE VIEW ── */}
         {!isLoading && !oppsError && allOpps.length > 0 && view === 'pipeline' && (
-          <PipelineBoard opps={allOpps} />
+          <PipelineBoard opps={allOpps} quotes={pipelineQuotes} />
         )}
 
         {/* ── LIST VIEW ── */}
