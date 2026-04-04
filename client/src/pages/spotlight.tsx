@@ -3663,13 +3663,14 @@ export default function Spotlight() {
                         </button>
                       </Link>
                     ) : (
-                      <button 
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-all"
-                        title="View customer profile"
-                        onClick={() => setShowProfilePanel(true)}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
+                      <Link href={`/odoo-contacts/${customer.id}`}>
+                        <button 
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-all"
+                          title="Open customer detail page"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </Link>
                     )}
                     {/* Source Badges - shows where this contact/lead comes from */}
                     <div className="flex items-center gap-1.5 ml-1">
