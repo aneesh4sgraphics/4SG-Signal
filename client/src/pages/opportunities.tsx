@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -440,6 +441,7 @@ export default function OpportunitiesPage() {
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline');
   const [activeType, setActiveType] = useState('all');
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
 
   const { data: allOpps = [], isLoading, isError: oppsError } = useQuery<any[]>({
     queryKey: ['/api/opportunities', 'all'],
@@ -518,7 +520,7 @@ export default function OpportunitiesPage() {
               Opportunities
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              Scored and ranked by fit — {allOpps.length} active
+              {isAdmin ? 'All reps' : 'My opportunities'} — {allOpps.length} active
               {totalPipelineValue > 0 && (
                 <span className="ml-2 font-semibold text-green-700">
                   · ${totalPipelineValue >= 1000
@@ -635,7 +637,28 @@ export default function OpportunitiesPage() {
                   ? `$${totalPipelineValue.toLocaleString()}`
                   : '—'}
               </div>
-              <div className="text-xs text-gray-500">Est. annual pipeline</div>
+              <div className="text-xs text-gray-500">
+                {isAdmin ? 'Total pipeline (all reps)' : 'Your pipeline value'}
+              </div>
+              {isAdmin && summary?.byRep && summary.byRep.length > 0 && (
+                <div className="mt-2 space-y-1 text-left border-t border-gray-100 pt-2">
+                  {summary.byRep.map((rep: any) => (
+                    <div key={rep.repId} className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-500 truncate max-w-[100px]">
+                        {rep.repName?.split(' ')[0] || 'Rep'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-400">{rep.count} opps</span>
+                        <span className="text-[10px] font-semibold text-purple-700">
+                          {rep.revenue >= 1000
+                            ? `$${(rep.revenue / 1000).toFixed(0)}K`
+                            : rep.revenue > 0 ? `$${rep.revenue}` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
