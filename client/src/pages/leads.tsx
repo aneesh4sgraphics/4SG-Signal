@@ -1683,12 +1683,29 @@ export default function LeadsPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-slate-800 truncate">{lead.name}</span>
+                              <a
+                                href={lead.sourceCustomerId ? `/odoo-contacts/${lead.sourceCustomerId}` : `/leads/${lead.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-medium text-slate-800 hover:text-blue-600 hover:underline truncate transition-colors"
+                              >
+                                {lead.name}
+                              </a>
                               <Badge className={stageInfo.color} variant="outline">{stageInfo.label}</Badge>
                             </div>
                             <div className="text-sm text-slate-500">
-                              {lead.company && <span>{lead.company} • </span>}
-                              {lead.email || lead.phone || 'No contact info'}
+                              {lead.company && (
+                                <a
+                                  href={lead.sourceCustomerId ? `/odoo-contacts/${lead.sourceCustomerId}` : `/leads/${lead.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-blue-500 hover:underline transition-colors"
+                                >
+                                  {lead.company}
+                                </a>
+                              )}
+                              {lead.company && (lead.email || lead.phone) && <span> • </span>}
+                              {lead.email || lead.phone || (!lead.company && 'No contact info')}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-4">
