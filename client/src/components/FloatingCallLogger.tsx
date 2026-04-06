@@ -45,7 +45,8 @@ interface CustomerSearchResult {
 }
 
 interface CustomersPaginatedResponse {
-  customers: CustomerSearchResult[];
+  customers?: CustomerSearchResult[];
+  data?: CustomerSearchResult[];
   total?: number;
   page?: number;
 }
@@ -70,7 +71,7 @@ function toLeadResults(data: LeadSearchResult[] | null | undefined): ContactResu
 
 function toCustomerResults(data: CustomersPaginatedResponse | CustomerSearchResult[] | null | undefined): ContactResult[] {
   if (!data) return [];
-  const arr: CustomerSearchResult[] = Array.isArray(data) ? data : (data.customers ?? []);
+  const arr: CustomerSearchResult[] = Array.isArray(data) ? data : (data.customers ?? data.data ?? []);
   return arr.slice(0, 5).map((c) => ({
     id: c.id,
     type: "customer" as const,
