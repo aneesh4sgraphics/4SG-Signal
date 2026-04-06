@@ -281,6 +281,24 @@ export default function OdooCompanyDetail() {
     enabled: !!internalCustomerId, staleTime: 30000,
   });
 
+  const companyEmailForQuery = (company as any)?.email;
+  const { data: gmailEmailsData = [], isLoading: gmailEmailsLoading } = useQuery<Array<{
+    id: string; direction: string; fromEmail: string | null; fromName: string | null;
+    toEmail: string | null; subject: string | null; snippet: string | null; sentAt: string | null;
+  }>>({
+    queryKey: ["/api/customer-activity/emails", internalCustomerId, companyEmailForQuery],
+    queryFn: async () => {
+      const params = companyEmailForQuery
+        ? `contactEmail=${encodeURIComponent(companyEmailForQuery)}&limit=50`
+        : `customerId=${internalCustomerId}&limit=50`;
+      const r = await fetch(`/api/customer-activity/emails?${params}`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!internalCustomerId || !!companyEmailForQuery,
+    staleTime: 30000,
+  });
+
   const { data: machineProfiles = [], refetch: refetchMachines } = useQuery<Array<{ id: number; machineFamily: string; confirmed: boolean; otherDetails?: string }>>({
     queryKey: ["/api/crm/machine-profiles", companyId],
     queryFn: async () => { const r = await fetch(`/api/crm/machine-profiles/${companyId}`, { credentials: "include" }); if (!r.ok) return []; return r.json(); },
@@ -553,7 +571,7 @@ export default function OdooCompanyDetail() {
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "activity", label: "Activity", count: nonNoteEvents.length || undefined },
-    { key: "emails", label: "Emails", count: emailEvents.length || undefined },
+    { key: "emails", label: "Emails", count: gmailEmailsData.length || undefined },
     { key: "notes", label: "Notes", count: noteEvents.length || undefined },
     ...(company.isCompany ? [{ key: "contacts" as TabKey, label: "Contacts", count: contactsData?.contacts?.length || undefined }] : []),
     { key: "business", label: "Business" },
@@ -830,29 +848,43 @@ export default function OdooCompanyDetail() {
         {activeTab === "emails" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Emails {emailEvents.length > 0 && <span className="normal-case font-normal text-gray-400">({emailEvents.length})</span>}</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                Emails {gmailEmailsData.length > 0 && <span className="normal-case font-normal text-gray-400">({gmailEmailsData.length})</span>}
+              </h2>
               {company.email && (
                 <Button size="sm" variant="outline" onClick={() => emailComposer.open({ to: company.email || "", customerId: company.id, customerName: displayName, usageType: "client_email", variables: { "client.name": displayName, "client.company": company.company || "", "client.email": company.email || "", "client.firstName": company.firstName || "", "client.lastName": company.lastName || "" } })}>
                   <Plus className="w-4 h-4 mr-1" /> Compose
                 </Button>
               )}
             </div>
-            {emailEvents.length === 0 ? (
-              <EmptyState icon={Mail} title="No emails yet" sub={company.email ? "Sent emails will appear here" : "No email address on record"} />
+            {gmailEmailsLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+              </div>
+            ) : gmailEmailsData.length === 0 ? (
+              <EmptyState icon={Mail} title="No emails yet" sub={company.email ? "Gmail messages involving this company will appear here" : "No email address on record"} />
             ) : (
               <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
-                {emailEvents.map(event => (
-                  <div key={event.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
-                    <ArrowUpRight className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-gray-800 truncate">{event.title}</span>
-                        <span className="text-xs text-gray-400 shrink-0">{relativeTime(event.createdAt)}</span>
+                {gmailEmailsData.map(email => {
+                  const isInbound = email.direction === "inbound";
+                  const senderLabel = isInbound ? (email.fromName || email.fromEmail || "Customer") : (email.fromName || "You");
+                  const timeLabel = email.sentAt ? relativeTime(email.sentAt) : "";
+                  return (
+                    <div key={email.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
+                      <div className={`mt-0.5 shrink-0 ${isInbound ? "text-blue-500" : "text-gray-400"}`}>
+                        {isInbound ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                       </div>
-                      {event.description && <p className="text-xs text-gray-400 truncate mt-0.5">{event.description}</p>}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-gray-500 shrink-0">{senderLabel}</span>
+                          <span className="text-xs text-gray-400 shrink-0">{timeLabel}</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-800 truncate mt-0.5">{email.subject || "(no subject)"}</p>
+                        {email.snippet && <p className="text-xs text-gray-400 truncate mt-0.5">{email.snippet}</p>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
