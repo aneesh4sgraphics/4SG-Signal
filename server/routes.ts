@@ -410,6 +410,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Migration error (opportunity_scores assigned_rep):", err);
   }
 
+  // Boot-time backfill: derive salesRepId from salesRepName where salesRepId is NULL
+  // salesRepId stores Odoo res.users IDs: 26=Aneesh, 27=Patricio, 28=Santiago
+  try {
+    const backfillResult = await db.execute(sql`
+      UPDATE customers
+      SET sales_rep_id = CASE
+        WHEN sales_rep_name ILIKE '%Patricio%' THEN '27'
+        WHEN sales_rep_name ILIKE '%Santiago%' THEN '28'
+        WHEN sales_rep_name ILIKE '%Aneesh%'   THEN '26'
+      END
+      WHERE sales_rep_id IS NULL
+        AND sales_rep_name IS NOT NULL
+        AND sales_rep_name != ''
+        AND (
+          sales_rep_name ILIKE '%Patricio%'
+          OR sales_rep_name ILIKE '%Santiago%'
+          OR sales_rep_name ILIKE '%Aneesh%'
+        )
+    `);
+    const count = (backfillResult as any).rowCount || 0;
+    if (count > 0) console.log(`[Boot] Backfilled salesRepId for ${count} customers with salesRepName but no salesRepId`);
+
+    const leadBackfill = await db.execute(sql`
+      UPDATE leads
+      SET sales_rep_id = CASE
+        WHEN sales_rep_name ILIKE '%Patricio%' THEN '27'
+        WHEN sales_rep_name ILIKE '%Santiago%' THEN '28'
+        WHEN sales_rep_name ILIKE '%Aneesh%'   THEN '26'
+      END
+      WHERE sales_rep_id IS NULL
+        AND sales_rep_name IS NOT NULL
+        AND sales_rep_name != ''
+        AND (
+          sales_rep_name ILIKE '%Patricio%'
+          OR sales_rep_name ILIKE '%Santiago%'
+          OR sales_rep_name ILIKE '%Aneesh%'
+        )
+    `);
+    const leadCount = (leadBackfill as any).rowCount || 0;
+    if (leadCount > 0) console.log(`[Boot] Backfilled salesRepId for ${leadCount} leads with salesRepName but no salesRepId`);
+  } catch (err) {
+    console.error("Migration error (salesRepId backfill):", err);
+  }
+
   // Initialize default follow-up configurations on startup
   try {
     await storage.initDefaultFollowUpConfig();
@@ -4839,6 +4883,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (company.salesRepName && !child.salesRepName) {
               updates.salesRepName = company.salesRepName;
             }
+            if (company.salesRepId && !child.salesRepId) {
+              updates.salesRepId = company.salesRepId;
+            }
             if (Object.keys(updates).length > 0) {
               await db.update(customers).set(updates).where(eq(customers.id, child.id));
               results.companyToContact++;
@@ -4880,6 +4927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             if (!company.salesRepName && child.salesRepName) {
               updates.salesRepName = child.salesRepName;
+            }
+            if (!company.salesRepId && child.salesRepId) {
+              updates.salesRepId = child.salesRepId;
             }
             if (Object.keys(updates).length > 0) {
               await db.update(customers).set(updates).where(eq(customers.id, company.id));
@@ -20826,18 +20876,15 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           }
           
           // Extract sales rep info from Odoo user_id field (format: [id, "Name"] or false)
-          // We need to map Odoo user ID to app user ID for SPOTLIGHT task assignment
+          // Store Odoo user ID directly — spotlight filters compare against Odoo IDs
           let salesRepId: string | null = null;
           let salesRepName: string | null = null;
           if (partner.user_id && Array.isArray(partner.user_id) && partner.user_id.length >= 2) {
             const odooUserId = partner.user_id[0];
             salesRepName = partner.user_id[1] || null;
-            // Look up the app user that corresponds to this Odoo user
-            const [appUser] = await db.select({ id: users.id })
-              .from(users)
-              .where(eq(users.odooUserId, odooUserId))
-              .limit(1);
-            salesRepId = appUser?.id || null;
+            // Only accept canonical rep IDs (26=Aneesh, 27=Patricio, 28=Santiago)
+            const CANONICAL_REP_IDS = [26, 27, 28];
+            salesRepId = CANONICAL_REP_IDS.includes(Number(odooUserId)) ? String(odooUserId) : null;
           }
           
           // Extract parent relationship (format: [id, "Parent Name"] or false)
