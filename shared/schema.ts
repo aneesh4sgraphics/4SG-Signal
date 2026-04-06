@@ -3645,6 +3645,8 @@ export const opportunityScores = pgTable("opportunity_scores", {
   expectedRevenue: decimal("expected_revenue", { precision: 12, scale: 2 }),
   nextBestAction: text("next_best_action"),
   opportunityAgeDays: integer("opportunity_age_days"),
+  assignedRepId: varchar("assigned_rep_id"),
+  assignedRepName: varchar("assigned_rep_name", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
