@@ -29402,13 +29402,21 @@ Analyze this bounced email and provide insights in JSON format:
       const { notes } = req.body;
       const [taskRow] = await db.select({ assignedTo: followUpTasks.assignedTo }).from(followUpTasks).where(eq(followUpTasks.id, id)).limit(1);
       if (!taskRow) return res.status(404).json({ error: "Task not found" });
-      const isAdmin = req.user?.role === 'admin';
-      const isAssignee = taskRow.assignedTo && taskRow.assignedTo === String(req.user?.id);
+      // Use canonical auth pattern — ID lives in claims.sub OR user.id; email in claims.email OR user.email
+      const userId = (req.user as any)?.claims?.sub || req.user?.id;
+      const userEmail = ((req.user as any)?.claims?.email || req.user?.email || '').toLowerCase();
+      const userRole = (req.user as any)?.claims?.role || req.user?.role;
+      const ANEESH_EMAIL = 'aneesh@4sgraphics.com';
+      const isAdmin = userRole === 'admin' || userEmail === ANEESH_EMAIL;
+      const isAssignee = taskRow.assignedTo && (
+        taskRow.assignedTo === userEmail ||
+        taskRow.assignedTo === String(userId)
+      );
       const isUnassigned = !taskRow.assignedTo;
       if (!isAdmin && !isAssignee && !isUnassigned) {
         return res.status(403).json({ error: "Not authorized to complete this task" });
       }
-      const task = await storage.completeFollowUpTask(id, req.user?.id, notes);
+      const task = await storage.completeFollowUpTask(id, userId, notes);
       if (!task) return res.status(404).json({ error: "Task not found" });
       res.json(task);
     } catch (error) {
