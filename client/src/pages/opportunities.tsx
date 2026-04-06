@@ -8,10 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Target, TrendingUp, Package, Volume2, Sparkles, RefreshCw,
   Phone, Mail, ExternalLink, Building2, MapPin, Star,
   Loader2, AlertCircle, HelpCircle, DollarSign, LayoutGrid,
-  Kanban, Zap, Clock, ChevronRight,
+  Kanban, Zap, Clock, ChevronRight, ArrowDownLeft, ArrowUpRight,
+  ShoppingCart, FileText, X,
 } from "lucide-react";
 import {
   Tooltip,
@@ -96,9 +103,310 @@ function formatRevenue(val: number | null | undefined): string {
   return `$${val}/yr`;
 }
 
+// ─── Opportunity detail sheet ───────────────────────────────────────────────
+
+function OppDetailSheet({ opp, onClose }: { opp: any | null; onClose: () => void }) {
+  const config = opp ? (OPPORTUNITY_TYPE_CONFIG[opp.opportunityType] || OPPORTUNITY_TYPE_CONFIG.new_fit) : null;
+  const Icon = config?.icon;
+
+  const { data: emails = [], isLoading: emailsLoading } = useQuery<any[]>({
+    queryKey: ['/api/customer-activity/emails', opp?.entityEmail],
+    queryFn: async () => {
+      if (!opp?.entityEmail) return [];
+      const res = await fetch(`/api/customer-activity/emails?contactEmail=${encodeURIComponent(opp.entityEmail)}&limit=6`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!opp?.entityEmail,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: quotes = [], isLoading: quotesLoading } = useQuery<any[]>({
+    queryKey: ['/api/crm/customer-sent-quotes', opp?.entityEmail, opp?.entityCompany],
+    queryFn: async () => {
+      if (!opp?.entityEmail && !opp?.entityCompany) return [];
+      const params = new URLSearchParams();
+      if (opp?.entityEmail) params.set('email', opp.entityEmail);
+      if (opp?.entityCompany) params.set('company', opp.entityCompany);
+      const res = await fetch(`/api/crm/customer-sent-quotes?${params}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!(opp?.entityEmail || opp?.entityCompany),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useQuery<any[]>({
+    queryKey: ['/api/odoo/customer', opp?.customerId, 'orders'],
+    queryFn: async () => {
+      if (!opp?.customerId) return [];
+      const res = await fetch(`/api/odoo/customer/${opp.customerId}/orders`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!opp?.customerId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const detailLink = opp?.customerId
+    ? `/odoo-contacts/${opp.customerId}`
+    : opp?.leadId ? `/leads/${opp.leadId}` : null;
+
+  return (
+    <Sheet open={!!opp} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden">
+        {opp && config && (
+          <>
+            {/* Header */}
+            <SheetHeader className={`px-5 pt-5 pb-4 border-b ${config.bgColor}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className={`p-2 rounded-lg ${config.bgColor} flex-shrink-0 mt-0.5`}>
+                    <Icon className={`w-4 h-4 ${config.color}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <SheetTitle className="text-base font-bold text-gray-900 leading-tight truncate">
+                      {opp.entityCompany || opp.entityName || 'Unknown'}
+                    </SheetTitle>
+                    {opp.entityCompany && opp.entityName && (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{opp.entityName}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <Badge variant="outline" className={`text-[10px] ${config.color} border-current px-1.5 py-0`}>
+                        {config.label}
+                      </Badge>
+                      <ScoreBadge score={opp.score} />
+                      {opp.opportunityAgeDays > 0 && (
+                        <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />{opp.opportunityAgeDays}d
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact info row */}
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                {opp.entityEmail && (
+                  <a href={`mailto:${opp.entityEmail}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    <Mail className="w-3 h-3" />{opp.entityEmail}
+                  </a>
+                )}
+                {opp.entityPhone && (
+                  <a href={`tel:${opp.entityPhone}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    <Phone className="w-3 h-3" />{opp.entityPhone}
+                  </a>
+                )}
+                {opp.entityCity && (
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />{opp.entityCity}{opp.entityProvince ? `, ${opp.entityProvince}` : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Next best action */}
+              {opp.nextBestAction && (
+                <div className="mt-2 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-xs text-amber-800 font-medium leading-tight">{opp.nextBestAction}</span>
+                </div>
+              )}
+
+              {/* Expected revenue */}
+              {opp.expectedRevenue > 0 && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-green-600" />
+                  <span className="text-sm font-bold text-green-700">
+                    {formatRevenue(opp.expectedRevenue)} estimated annual value
+                  </span>
+                </div>
+              )}
+            </SheetHeader>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+
+              {/* ── Emails ── */}
+              <div className="px-5 py-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Mail className="w-3.5 h-3.5 text-gray-500" />
+                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Recent Emails</span>
+                  {emails.length > 0 && (
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{emails.length}</span>
+                  )}
+                </div>
+                {emailsLoading ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 py-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />Loading emails...
+                  </div>
+                ) : emails.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2 italic">No emails found{!opp.entityEmail ? ' — no email on record' : ''}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {emails.slice(0, 6).map((email: any, i: number) => {
+                      const isInbound = email.direction === 'inbound';
+                      const date = email.sentAt ? new Date(email.sentAt) : null;
+                      return (
+                        <div key={email.id || i} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          <div className={`mt-0.5 flex-shrink-0 rounded-full p-1 ${isInbound ? 'bg-blue-100' : 'bg-gray-200'}`}>
+                            {isInbound
+                              ? <ArrowDownLeft className="w-2.5 h-2.5 text-blue-600" />
+                              : <ArrowUpRight className="w-2.5 h-2.5 text-gray-500" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[11px] font-semibold text-gray-800 truncate">
+                                {email.subject || '(no subject)'}
+                              </span>
+                              {date && (
+                                <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                  {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                            {email.snippet && (
+                              <p className="text-[10px] text-gray-500 truncate mt-0.5">{email.snippet}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Quotes ── */}
+              <div className="px-5 py-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <FileText className="w-3.5 h-3.5 text-gray-500" />
+                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">QuickQuote History</span>
+                  {quotes.length > 0 && (
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{quotes.length}</span>
+                  )}
+                </div>
+                {quotesLoading ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 py-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />Loading quotes...
+                  </div>
+                ) : quotes.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2 italic">No quotes found</p>
+                ) : (
+                  <div className="space-y-2">
+                    {quotes.slice(0, 6).map((q: any, i: number) => {
+                      const amount = parseFloat(q.totalAmount || '0');
+                      const date = q.createdAt ? new Date(q.createdAt) : null;
+                      const outcomeColor = q.outcome === 'won' ? 'text-green-600 bg-green-50'
+                        : q.outcome === 'lost' ? 'text-red-500 bg-red-50'
+                        : 'text-amber-600 bg-amber-50';
+                      return (
+                        <div key={q.id || i} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-gray-800">#{q.quoteNumber}</span>
+                              {q.source !== 'quickquote' && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
+                                  {q.source === 'shopify_draft' ? 'Shopify' : q.source === 'shopify_abandoned_cart' ? 'Cart' : q.source}
+                                </span>
+                              )}
+                            </div>
+                            {date && (
+                              <span className="text-[10px] text-gray-400">
+                                {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="text-[11px] font-bold text-blue-700">
+                              ${amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toFixed(2)}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold capitalize ${outcomeColor}`}>
+                              {q.outcome || 'pending'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Sales Orders ── */}
+              {opp.customerId && (
+                <div className="px-5 py-4">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <ShoppingCart className="w-3.5 h-3.5 text-gray-500" />
+                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Sales Orders</span>
+                    {orders.length > 0 && (
+                      <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">{orders.length}</span>
+                    )}
+                  </div>
+                  {ordersLoading ? (
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400 py-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />Loading orders...
+                    </div>
+                  ) : orders.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2 italic">No orders found in Odoo</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {orders.slice(0, 5).map((order: any, i: number) => {
+                        const amount = order.amount_total || order.amountTotal || 0;
+                        const date = order.date_order || order.dateOrder;
+                        const parsedDate = date ? new Date(date) : null;
+                        const stateColor = order.state === 'sale' ? 'bg-green-100 text-green-700'
+                          : order.state === 'cancel' ? 'bg-red-100 text-red-600'
+                          : order.state === 'done' ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600';
+                        return (
+                          <div key={order.id || i} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors gap-2">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[11px] font-semibold text-gray-800">{order.name}</span>
+                              {parsedDate && (
+                                <div className="text-[10px] text-gray-400">
+                                  {parsedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {amount > 0 && (
+                                <span className="text-[11px] font-bold text-gray-800">
+                                  ${amount >= 1000 ? `${(amount / 1000).toFixed(1)}K` : amount.toFixed(2)}
+                                </span>
+                              )}
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold capitalize ${stateColor}`}>
+                                {order.state === 'sale' ? 'confirmed' : order.state || 'draft'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer: view full profile */}
+            {detailLink && (
+              <div className="px-5 py-3 border-t bg-white flex-shrink-0">
+                <Link href={detailLink}>
+                  <Button variant="outline" size="sm" className="w-full text-xs">
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    View Full Profile
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ─── Pipeline card (compact, for Kanban column) ────────────────────────────
 
-function PipelineCard({ opp }: { opp: any }) {
+function PipelineCard({ opp, onSelect }: { opp: any; onSelect: (opp: any) => void }) {
   const config = OPPORTUNITY_TYPE_CONFIG[opp.opportunityType] || OPPORTUNITY_TYPE_CONFIG.new_fit;
   const Icon = config.icon;
   const detailLink = opp.customerId
@@ -107,8 +415,9 @@ function PipelineCard({ opp }: { opp: any }) {
 
   return (
     <div
-      className={`bg-white rounded-lg border ${config.bgColor} p-3 mb-2 hover:shadow-sm transition-shadow`}
+      className={`bg-white rounded-lg border ${config.bgColor} p-3 mb-2 hover:shadow-md transition-shadow cursor-pointer`}
       style={{ borderLeftWidth: 3 }}
+      onClick={() => onSelect(opp)}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-1 mb-1.5">
@@ -179,7 +488,7 @@ function PipelineCard({ opp }: { opp: any }) {
 
 // ─── Full list card (existing style, kept exactly) ─────────────────────────
 
-function OpportunityCard({ opp }: { opp: any }) {
+function OpportunityCard({ opp, onSelect }: { opp: any; onSelect: (opp: any) => void }) {
   const config = OPPORTUNITY_TYPE_CONFIG[opp.opportunityType] || OPPORTUNITY_TYPE_CONFIG.new_fit;
   const Icon = config.icon;
   const detailLink = opp.customerId
@@ -187,7 +496,10 @@ function OpportunityCard({ opp }: { opp: any }) {
     : opp.leadId ? `/leads/${opp.leadId}` : null;
 
   return (
-    <Card className={`border ${config.bgColor} hover:shadow-md transition-shadow`}>
+    <Card
+      className={`border ${config.bgColor} hover:shadow-md transition-shadow cursor-pointer`}
+      onClick={() => onSelect(opp)}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -276,14 +588,31 @@ function OpportunityCard({ opp }: { opp: any }) {
 
 // ─── Quote card (for Quote Sent column) ───────────────────────────────────
 
-function QuoteCard({ quote }: { quote: any }) {
+function QuoteCard({ quote, onSelect }: { quote: any; onSelect: (opp: any) => void }) {
   const daysSince = Math.floor((Date.now() - new Date(quote.createdAt).getTime()) / 86400000);
   const amount = parseFloat(quote.totalAmount || '0');
   const detailLink = quote.customerId ? `/odoo-contacts/${quote.customerId}` : null;
   const sourceLabel = quote.source === 'shopify_draft' ? 'Shopify' : quote.source === 'shopify_abandoned_cart' ? 'Abandoned Cart' : 'QuickQuote';
 
+  const quoteAsOpp = {
+    entityName: quote.customerName,
+    entityCompany: quote.customerName,
+    entityEmail: quote.customerEmail,
+    customerId: quote.customerId,
+    opportunityType: 'quote_pending',
+    score: null,
+    nextBestAction: null,
+    expectedRevenue: parseFloat(quote.totalAmount || '0') || 0,
+    opportunityAgeDays: daysSince,
+    _isQuote: true,
+  };
+
   return (
-    <div className="bg-white rounded-lg border border-blue-200 p-3 mb-2 hover:shadow-sm transition-shadow" style={{ borderLeftWidth: 3, borderLeftColor: '#185FA5' }}>
+    <div
+      className="bg-white rounded-lg border border-blue-200 p-3 mb-2 hover:shadow-md transition-shadow cursor-pointer"
+      style={{ borderLeftWidth: 3, borderLeftColor: '#185FA5' }}
+      onClick={() => onSelect(quoteAsOpp)}
+    >
       <div className="flex items-start justify-between gap-1 mb-1">
         <span className="text-xs font-semibold text-gray-900 truncate leading-tight">{quote.customerName}</span>
         {quote.priority === 'high' && (
@@ -329,7 +658,7 @@ function QuoteCard({ quote }: { quote: any }) {
 
 // ─── Pipeline board ────────────────────────────────────────────────────────
 
-function PipelineBoard({ opps, quotes }: { opps: any[]; quotes: any[] }) {
+function PipelineBoard({ opps, quotes, onSelect }: { opps: any[]; quotes: any[]; onSelect: (opp: any) => void }) {
   const oppsByStage = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage.id] = opps.filter(opp => {
       const cfg = OPPORTUNITY_TYPE_CONFIG[opp.opportunityType];
@@ -420,10 +749,10 @@ function PipelineBoard({ opps, quotes }: { opps: any[]; quotes: any[] }) {
                   </div>
                 ) : (
                   <>
-                    {stageQuotes.map((q: any) => <QuoteCard key={`q-${q.id}`} quote={q} />)}
+                    {stageQuotes.map((q: any) => <QuoteCard key={`q-${q.id}`} quote={q} onSelect={onSelect} />)}
                     {stageOpps
                       .sort((a: any, b: any) => b.score - a.score)
-                      .map((opp: any) => <PipelineCard key={opp.id} opp={opp} />)}
+                      .map((opp: any) => <PipelineCard key={opp.id} opp={opp} onSelect={onSelect} />)}
                   </>
                 )}
               </div>
@@ -440,6 +769,7 @@ function PipelineBoard({ opps, quotes }: { opps: any[]; quotes: any[] }) {
 export default function OpportunitiesPage() {
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline');
   const [activeType, setActiveType] = useState('all');
+  const [selectedOpp, setSelectedOpp] = useState<any | null>(null);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -734,7 +1064,7 @@ export default function OpportunitiesPage() {
 
         {/* ── PIPELINE VIEW ── */}
         {!isLoading && !oppsError && allOpps.length > 0 && view === 'pipeline' && (
-          <PipelineBoard opps={allOpps} quotes={pipelineQuotes} />
+          <PipelineBoard opps={allOpps} quotes={pipelineQuotes} onSelect={setSelectedOpp} />
         )}
 
         {/* ── LIST VIEW ── */}
@@ -777,13 +1107,16 @@ export default function OpportunitiesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredOpps.map((opp: any) => (
-                <OpportunityCard key={opp.id} opp={opp} />
+                <OpportunityCard key={opp.id} opp={opp} onSelect={setSelectedOpp} />
               ))}
             </div>
           </div>
         )}
 
       </div>
+
+      {/* Detail sheet — opens on card click */}
+      <OppDetailSheet opp={selectedOpp} onClose={() => setSelectedOpp(null)} />
     </div>
   );
 }
