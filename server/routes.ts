@@ -29141,8 +29141,12 @@ Analyze this bounced email and provide insights in JSON format:
           sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
         );
       } else if (repNameFilter && repNameFilter !== 'all' && isAneesh) {
-        // Admin filtering by specific rep email
-        baseConditions.push(eq(followUpTasks.assignedTo, repNameFilter));
+        // Admin filtering by specific rep — match by email OR by UUID (same logic as summary counts)
+        baseConditions.push(
+          sql`(${followUpTasks.assignedTo} = ${repNameFilter} OR ${followUpTasks.assignedTo} IN (
+            SELECT id FROM users WHERE email = ${repNameFilter}
+          ))`
+        );
       }
       if (priorityFilter && priorityFilter !== 'all') {
         baseConditions.push(eq(followUpTasks.priority, priorityFilter));
