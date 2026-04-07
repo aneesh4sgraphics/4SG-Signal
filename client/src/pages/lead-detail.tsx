@@ -302,6 +302,19 @@ export default function LeadDetail() {
     onError: () => toast({ title: "Error", description: "Failed to update stage", variant: "destructive" }),
   });
 
+  const updateSalesRepMutation = useMutation({
+    mutationFn: async ({ salesRepId, salesRepName }: { salesRepId: string | null; salesRepName: string | null }) => {
+      const res = await apiRequest("PUT", `/api/leads/${leadId}`, { salesRepId, salesRepName });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Sales rep assigned" });
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/leads", leadId] });
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to assign sales rep", variant: "destructive" }),
+  });
+
   const addNoteMutation = useMutation({
     mutationFn: async (noteText: string) => {
       const res = await apiRequest("POST", `/api/leads/${leadId}/activities`, {
@@ -671,16 +684,39 @@ export default function LeadDetail() {
                 </HighlightTile>
 
                 <HighlightTile label="Sales rep / Tier" icon={User}>
-                  {lead.salesRepName ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                      {lead.salesRepName}
-                    </span>
-                  ) : <span className="text-gray-400 text-sm">Unassigned</span>}
-                  {lead.pricingTier && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 ml-1">
-                      {lead.pricingTier}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {lead.salesRepName ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                        {lead.salesRepName}
+                      </span>
+                    ) : <span className="text-gray-400 text-sm">Unassigned</span>}
+                    {lead.pricingTier && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">
+                        {lead.pricingTier}
+                      </span>
+                    )}
+                  </div>
+                  <Select
+                    value={lead.salesRepId || "__none__"}
+                    onValueChange={(v) => {
+                      const rep = salesReps.find(r => r.id === v);
+                      updateSalesRepMutation.mutate({
+                        salesRepId: v === "__none__" ? null : v,
+                        salesRepName: v === "__none__" ? null : (rep?.name ?? null),
+                      });
+                    }}
+                    disabled={updateSalesRepMutation.isPending}
+                  >
+                    <SelectTrigger className="h-7 text-xs mt-1.5 border-gray-200 bg-gray-50">
+                      <SelectValue placeholder="Assign rep…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Unassigned</SelectItem>
+                      {salesReps.map(rep => (
+                        <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </HighlightTile>
               </div>
             </div>
