@@ -172,6 +172,7 @@ export default function OdooContacts() {
       hasPricingTier: saved?.hasPricingTier ?? (null as boolean | null),
       isHotProspect: saved?.isHotProspect ?? (null as boolean | null),
       state: saved?.state ?? (null as string | null),
+      tag: saved?.tag ?? (null as string | null),
     };
   });
   const [showFilters, setShowFilters] = useState<boolean>(() => ss?.showFilters ?? false);
@@ -492,6 +493,11 @@ export default function OdooContacts() {
     }
   };
 
+  // Derive unique tags from loaded contacts
+  const uniqueContactTags = Array.from(new Set(
+    contacts.flatMap(c => c.tags ? c.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [])
+  )).sort();
+
   // Filter contacts (mostly done server-side now, but keep tag filter client-side)
   const filteredContacts = contacts
     .filter(c => {
@@ -512,6 +518,7 @@ export default function OdooContacts() {
       if (filters.hasPricingTier === true && !c.pricingTier) return false;
       if (filters.hasPricingTier === false && c.pricingTier) return false;
       if (filters.state && c.province !== filters.state) return false;
+      if (filters.tag && !c.tags?.split(',').map((t: string) => t.trim()).includes(filters.tag)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -780,6 +787,7 @@ export default function OdooContacts() {
     filters.hasPricingTier !== null ? 1 : 0,
     filters.isHotProspect !== null ? 1 : 0,
     filters.state !== null ? 1 : 0,
+    filters.tag !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
@@ -793,6 +801,7 @@ export default function OdooContacts() {
       hasPricingTier: null,
       isHotProspect: null,
       state: null,
+      tag: null,
     });
   };
 
@@ -1145,6 +1154,24 @@ export default function OdooContacts() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {/* Tag Filter */}
+                  {uniqueContactTags.length > 0 && (
+                    <Select
+                      value={filters.tag || 'all'}
+                      onValueChange={(v) => setFilters(f => ({ ...f, tag: v === 'all' ? null : v }))}
+                    >
+                      <SelectTrigger className="w-[180px] bg-white">
+                        <SelectValue placeholder="All Tags" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Tags</SelectItem>
+                        {uniqueContactTags.map(t => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
 
                   {/* Hot Prospects */}
                   <Button

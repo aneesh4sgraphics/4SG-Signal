@@ -16944,6 +16944,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         country: companies.country,
         status: companies.status,
         assignedTo: companies.assignedTo,
+        companyTags: companies.companyTags,
       }).from(companies).orderBy(companies.name);
 
       // Aggregate customer stats grouped by companyId
@@ -17012,6 +17013,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         primaryPricingTier: string | null;
         lastInteractionDate: string | null;
         connectionStrength: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
+        companyTags: string | null;
       };
 
       const result: CompanyCard[] = officialRaw.map(c => {
@@ -17039,6 +17041,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           primaryPricingTier: stats?.primaryPricingTier ?? null,
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
+          companyTags: c.companyTags ?? null,
         };
       });
 
@@ -17124,6 +17127,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           primaryPricingTier: row.primaryPricingTier ?? null,
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
+          companyTags: null,
         });
       }
 

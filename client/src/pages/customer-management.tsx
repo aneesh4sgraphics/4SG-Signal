@@ -39,6 +39,7 @@ interface CompanyCard {
   primaryPricingTier: string | null;
   lastInteractionDate: string | null;
   connectionStrength: ConnectionStrength;
+  companyTags: string | null;
 }
 
 // ─── Connection strength helpers ───────────────────────────────────────────────
@@ -103,6 +104,7 @@ interface Filters {
   pricingTier: string | null;
   salesRep: string | null;
   hasContacts: boolean | null;
+  tag: string | null;
   sort: SortOption;
 }
 
@@ -434,6 +436,7 @@ const DEFAULT_FILTERS: Filters = {
   pricingTier: null,
   salesRep: null,
   hasContacts: null,
+  tag: null,
   sort: 'name',
 };
 
@@ -481,6 +484,13 @@ export default function CustomerManagement() {
     [allCompanies]
   );
 
+  const uniqueCompanyTags = useMemo(() =>
+    Array.from(new Set(
+      allCompanies.flatMap(c => c.companyTags ? c.companyTags.split(',').map(t => t.trim()).filter(Boolean) : [])
+    )).sort(),
+    [allCompanies]
+  );
+
   // Apply client-side filters
   const companies = useMemo(() => {
     const filtered = allCompanies.filter(c => {
@@ -492,6 +502,7 @@ export default function CustomerManagement() {
       if (filters.salesRep && c.primarySalesRep !== filters.salesRep) return false;
       if (filters.hasContacts === true && c.contactCount === 0) return false;
       if (filters.hasContacts === false && c.contactCount > 0) return false;
+      if (filters.tag && !c.companyTags?.split(',').map(t => t.trim()).includes(filters.tag)) return false;
       return true;
     });
 
@@ -535,6 +546,7 @@ export default function CustomerManagement() {
     filters.pricingTier !== null ? 1 : 0,
     filters.salesRep !== null ? 1 : 0,
     filters.hasContacts !== null ? 1 : 0,
+    filters.tag !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => setFilters(DEFAULT_FILTERS);
@@ -725,6 +737,24 @@ export default function CustomerManagement() {
                     <SelectItem value="no">No Contacts</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {/* Tag Filter */}
+                {uniqueCompanyTags.length > 0 && (
+                  <Select
+                    value={filters.tag || 'all'}
+                    onValueChange={v => setFilters(f => ({ ...f, tag: v === 'all' ? null : v }))}
+                  >
+                    <SelectTrigger className="w-[175px] h-9 bg-white text-sm">
+                      <SelectValue placeholder="All Tags" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {uniqueCompanyTags.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {/* Clear */}
                 {activeFiltersCount > 0 && (

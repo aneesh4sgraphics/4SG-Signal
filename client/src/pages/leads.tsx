@@ -175,6 +175,7 @@ export default function LeadsPage() {
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
   const [filterIncomplete, setFilterIncomplete] = useState(false);
   const [hasEmail, setHasEmail] = useState<boolean | null>(null);
   const [hasWebsite, setHasWebsite] = useState<boolean | null>(null);
@@ -434,6 +435,9 @@ export default function LeadsPage() {
   const allLeads = leadsData?.leads || [];
   const uniqueStates = Array.from(new Set(allLeads.map(l => l.state).filter(Boolean) as string[])).sort();
   const uniqueSources = Array.from(new Set(allLeads.map(l => l.sourceType).filter(Boolean) as string[])).sort();
+  const uniqueTags = Array.from(new Set(
+    allLeads.flatMap(l => l.tags ? l.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [])
+  )).sort();
 
   const SOURCE_LABELS: Record<string, string> = {
     odoo: 'Odoo',
@@ -445,6 +449,7 @@ export default function LeadsPage() {
   const leads = allLeads.filter(l => {
     if (stateFilter !== 'all' && l.state !== stateFilter) return false;
     if (sourceFilter !== 'all' && l.sourceType !== sourceFilter) return false;
+    if (tagFilter !== 'all' && !l.tags?.split(',').map((t: string) => t.trim()).includes(tagFilter)) return false;
     if (hasEmail === true && !l.email) return false;
     if (hasEmail === false && l.email) return false;
     if (hasWebsite === true && !l.website) return false;
@@ -486,12 +491,13 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, stageFilter, stateFilter, sourceFilter, hasEmail, hasWebsite, hasPhone, hasAddress, sortField, sortOrder]);
+  }, [search, stageFilter, stateFilter, sourceFilter, tagFilter, hasEmail, hasWebsite, hasPhone, hasAddress, sortField, sortOrder]);
 
   const activeLeadFilters = [
     stageFilter !== 'all' ? 1 : 0,
     stateFilter !== 'all' ? 1 : 0,
     sourceFilter !== 'all' ? 1 : 0,
+    tagFilter !== 'all' ? 1 : 0,
     hasEmail !== null ? 1 : 0,
     hasWebsite !== null ? 1 : 0,
     hasPhone !== null ? 1 : 0,
@@ -502,6 +508,7 @@ export default function LeadsPage() {
     setStageFilter('all');
     setStateFilter('all');
     setSourceFilter('all');
+    setTagFilter('all');
     setHasEmail(null);
     setHasWebsite(null);
     setHasPhone(null);
@@ -692,6 +699,19 @@ export default function LeadsPage() {
               ))}
             </SelectContent>
           </Select>
+          {uniqueTags.length > 0 && (
+            <Select value={tagFilter} onValueChange={setTagFilter}>
+              <SelectTrigger className="w-44 bg-white/80">
+                <SelectValue placeholder="All Tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {uniqueTags.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <button
             onClick={() => setFilterIncomplete(f => !f)}
             className={`text-sm px-3 py-1.5 rounded-md border font-medium transition-colors ${filterIncomplete ? 'bg-red-50 border-red-300 text-red-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
