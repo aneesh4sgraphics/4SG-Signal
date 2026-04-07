@@ -431,10 +431,8 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 
     // Append sender signature if the campaign has it enabled
     if (email.campaignSettings.includeSenderSignature) {
-      // Use the actual sender email (from shared Gmail connector) as primary lookup key,
-      // fall back to campaign creator email so the right person's signature appears
-      const { getSenderEmailFromConnection } = await import('./gmail-client');
-      const senderEmail = getSenderEmailFromConnection() || email.campaignCreatedBy;
+      // Use campaign creator's email for signature lookup
+      const senderEmail = email.campaignCreatedBy;
       if (senderEmail) {
         const userSig = await storage.getEmailSignature(senderEmail);
         if (userSig?.signatureHtml) {
@@ -478,12 +476,38 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       processedBody = processedBody + trackingPixel;
     }
 
-    const result = await sendEmail(
-      email.recipientEmail,
-      processedSubject,
-      processedBody,
-      processedBody
-    );
+    // Try to send via the campaign creator's personal Gmail first (so email appears in their Sent folder)
+    let result: any;
+    let usedPersonalGmail = false;
+    if (email.campaignCreatedBy) {
+      try {
+        const { getUserGmailConnection, sendEmailAsUser } = await import('./user-gmail-oauth');
+        // Look up the creator's internal user ID by email
+        const [creatorUser] = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, email.campaignCreatedBy))
+          .limit(1);
+        if (creatorUser) {
+          const conn = await getUserGmailConnection(creatorUser.id);
+          if (conn?.isActive && conn.scope?.includes('gmail.send')) {
+            console.log(`[Drip Worker] Sending via personal Gmail for: ${email.campaignCreatedBy}`);
+            result = await sendEmailAsUser(creatorUser.id, email.recipientEmail!, processedSubject, processedBody, processedBody, email.senderName);
+            usedPersonalGmail = true;
+          }
+        }
+      } catch (gmailErr) {
+        console.warn('[Drip Worker] Personal Gmail failed, falling back to shared connector:', gmailErr);
+      }
+    }
+    if (!usedPersonalGmail) {
+      console.log(`[Drip Worker] Sending via shared Gmail connector (no personal Gmail for: ${email.campaignCreatedBy})`);
+      result = await sendEmail(
+        email.recipientEmail!,
+        processedSubject,
+        processedBody,
+        processedBody
+      );
+    }
 
     const messageId = result?.id;
     const threadId = result?.threadId;
