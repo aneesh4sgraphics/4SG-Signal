@@ -656,6 +656,18 @@ function replaceVariables(text: string, email: ScheduledEmail): string {
     'sender.company': '4S Graphics',
     'sender_name': email.senderName,
     'sender_company': '4S Graphics',
+    // ── client.salesRep variants (used in campaign templates) ────────────────
+    'client.salesRep': email.senderName,
+    'client.sales_rep': email.senderName,
+    'client.rep': email.senderName,
+    'salesRep': email.senderName,
+    'sales_rep': email.senderName,
+    'rep_name': email.senderName,
+    'repName': email.senderName,
+    // ── camelCase client variants ────────────────────────────────────────────
+    'client.firstName': email.recipientFirstName || '',
+    'client.lastName': email.recipientLastName || '',
+    'client.fullName': recipientName,
     'current_date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     'current_year': new Date().getFullYear().toString(),
   };
