@@ -4502,65 +4502,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Improvement 5 (Manager view): Spotlight Overview ─────────────────────
-
-  // GET /api/spotlight/overview — admin view of all claims + recent snooze outcomes
-  app.get("/api/spotlight/overview", isAuthenticated, requireAdmin, async (req: any, res) => {
-    try {
-      const now = new Date();
-
-      // Active claims
-      const activeClaims = await db
-        .select({
-          customerId: spotlightTeamClaims.customerId,
-          userId: spotlightTeamClaims.userId,
-          claimedAt: spotlightTeamClaims.claimedAt,
-          expiresAt: spotlightTeamClaims.expiresAt,
-          renewalCount: spotlightTeamClaims.renewalCount,
-          userFirstName: users.firstName,
-          userLastName: users.lastName,
-          customerCompany: customers.company,
-          customerEmail: customers.email,
-        })
-        .from(spotlightTeamClaims)
-        .leftJoin(users, eq(spotlightTeamClaims.userId, users.id))
-        .leftJoin(customers, eq(spotlightTeamClaims.customerId, customers.id))
-        .where(
-          and(
-            isNull(spotlightTeamClaims.releasedAt),
-            gt(spotlightTeamClaims.expiresAt, now)
-          )
-        );
-
-      // Recent snooze outcomes (last 7 days)
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const recentSnoozes = await db
-        .select({
-          id: spotlightSnoozes.id,
-          customerId: spotlightSnoozes.customerId,
-          userId: spotlightSnoozes.userId,
-          snoozeUntil: spotlightSnoozes.snoozeUntil,
-          outcomeTag: spotlightSnoozes.outcomeTag,
-          note: spotlightSnoozes.note,
-          createdAt: spotlightSnoozes.createdAt,
-          userFirstName: users.firstName,
-          userLastName: users.lastName,
-          customerCompany: customers.company,
-          customerEmail: customers.email,
-        })
-        .from(spotlightSnoozes)
-        .leftJoin(users, eq(spotlightSnoozes.userId, users.id))
-        .leftJoin(customers, eq(spotlightSnoozes.customerId, customers.id))
-        .where(gte(spotlightSnoozes.createdAt, sevenDaysAgo))
-        .orderBy(desc(spotlightSnoozes.createdAt))
-        .limit(100);
-
-      res.json({ activeClaims, recentSnoozes });
-    } catch (error) {
-      console.error("Spotlight overview error:", error);
-      res.status(500).json({ error: "Failed to fetch overview" });
-    }
-  });
 
   // GET /api/spotlight/score/:customerId — on-demand score for a single customer
   app.get("/api/spotlight/score/:customerId", isAuthenticated, async (req: any, res) => {
