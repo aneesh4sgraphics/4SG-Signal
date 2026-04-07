@@ -526,6 +526,7 @@ export default function LeadsPage() {
       { sent: !!lead.sampleSentAt, label: 'Samples' },
       { sent: !!lead.priceListSentAt, label: 'Price List' },
       { sent: !!lead.catalogSentAt, label: 'Catalog' },
+      { sent: (lead.mailerSentCount ?? 0) > 0, label: 'Mailer' },
     ];
     const sentCount = items.filter(i => i.sent).length;
     return { items, sentCount, total: items.length };
