@@ -98,7 +98,6 @@ export const primaryApps: NavLink[] = [
   { path: '/crm-journey', icon: Target, label: 'CRM Journey', description: 'Customer stages', iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: Calendar, label: 'Calendar', description: 'Schedule', iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/objections', icon: AlertTriangle, label: 'Objections', description: 'Handle objections', iconBg: '#64473A', iconColor: '#FFFFFF' },
-  { path: '/customer-margins', icon: BarChart3, label: 'Customer Margins', description: 'Profit margins', iconBg: '#7C3AED', iconColor: '#FFFFFF' },
 ];
 
 export const adminApps: NavLink[] = [

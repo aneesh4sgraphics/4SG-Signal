@@ -57,7 +57,6 @@ const LeadDetail = lazy(() => import("@/pages/lead-detail"));
 const ContactDetail = lazy(() => import("@/pages/contact-detail"));
 const BounceInvestigation = lazy(() => import("@/pages/bounce-investigation"));
 const OpportunitiesPage = lazy(() => import("@/pages/opportunities"));
-const CustomerMarginsPage = lazy(() => import("@/pages/customer-margins"));
 const SpotlightOverview = lazy(() => import("@/pages/SpotlightOverview"));
 
 const PageLoader = () => (
@@ -188,7 +187,6 @@ const AppRoutes = () => (
       <Route path="/leads/:id" component={LeadDetail} />
       <Route path="/contacts/:id" component={ContactDetail} />
       <Route path="/opportunities" component={OpportunitiesPage} />
-      <Route path="/customer-margins" component={CustomerMarginsPage} />
       <Route path="/bounce-investigation/:bounceId" component={BounceInvestigation} />
       <Route path="/odoo-contacts" component={OdooContacts} />
       <Route path="/odoo-contacts/:id" component={OdooCompanyDetail} />

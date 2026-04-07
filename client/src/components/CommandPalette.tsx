@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SiShopify } from 'react-icons/si';
-import { TrendingUp, User, Building2, UserCheck } from 'lucide-react';
+import { User, Building2, UserCheck } from 'lucide-react';
 import { useAppUsage } from '@/hooks/useAppUsage';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
@@ -67,7 +67,6 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/opportunities', icon: OpportunityIcon, label: 'Opportunities', group: 'tools', keywords: ['opportunities', 'scoring', 'prospects', 'samples', 'upsell', 'follow-up', 'machine', 'fit'], iconBg: '#F59E0B', iconColor: '#FFFFFF' },
   { path: '/calendar', icon: CalendarIcon, label: 'Calendar', group: 'tools', keywords: ['calendar', 'tasks', 'events', 'schedule', 'google', 'meetings'], iconBg: '#E03D3E', iconColor: '#FFFFFF' },
   { path: '/odoo-products', icon: PackageIcon, label: 'Products', group: 'tools', keywords: ['products', 'inventory', 'catalog', 'items', 'odoo', 'sku'], iconBg: '#0E7B6C', iconColor: '#FFFFFF' },
-  { path: '/customer-margins', icon: TrendingUp as IconComponent, label: 'Customer Margins', group: 'tools', keywords: ['margin', 'margins', 'profit', 'customer', 'average', 'search', 'profitability'], iconBg: '#7C3AED', iconColor: '#FFFFFF' },
   { path: '/reports', icon: ReportsIcon, label: 'Reports', group: 'tools', keywords: ['analytics', 'reports', 'dashboard', 'sales', 'metrics', 'insights'], iconBg: '#2D7D6A', iconColor: '#FFFFFF' },
   { path: '/price-list', icon: PriceListIcon, label: 'Price List', group: 'tools', keywords: ['prices', 'costs', 'rates'], iconBg: '#DFAB00', iconColor: '#37352F' },
   { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', group: 'tools', keywords: ['history', 'saved', 'previous'], iconBg: '#AD1972', iconColor: '#FFFFFF' },
