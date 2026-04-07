@@ -16297,9 +16297,28 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Return distinct tag values from leads (must be before /api/leads/:id)
+  app.get("/api/leads/tags", isAuthenticated, async (_req: any, res) => {
+    try {
+      const rows = await db
+        .select({ tags: leads.tags })
+        .from(leads)
+        .where(sql`${leads.tags} IS NOT NULL AND TRIM(${leads.tags}) != ''`);
+      const tagSet = new Set<string>();
+      for (const row of rows) {
+        if (row.tags) {
+          row.tags.split(',').forEach(t => { const v = t.trim(); if (v) tagSet.add(v); });
+        }
+      }
+      res.json(Array.from(tagSet).sort());
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch lead tags' });
+    }
+  });
+
   app.get("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      const { stage, salesRepId, search, state: stateFilter, city: cityFilter, limit = 100, offset = 0 } = req.query;
+      const { stage, salesRepId, search, state: stateFilter, city: cityFilter, limit = 100, offset = 0, tag, createdAfterDays } = req.query;
       
       let query = db.select().from(leads);
       const conditions: any[] = [];
@@ -16332,6 +16351,15 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
             ilike(leads.email, searchTerm)
           )
         );
+      }
+      if (tag) {
+        conditions.push(ilike(leads.tags, `%${tag}%` as string));
+      }
+      if (createdAfterDays) {
+        const days = parseInt(createdAfterDays as string);
+        if (!isNaN(days) && days > 0) {
+          conditions.push(sql`${leads.createdAt} >= NOW() - INTERVAL '${sql.raw(String(days))} days'`);
+        }
       }
       
       const result = await db.select().from(leads)

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Search, Printer, Plus, Check, Building2, Zap, MapPin, X, ChevronDown, ChevronUp,
-  SlidersHorizontal, Flame, Home, Users, Layers, Star,
+  SlidersHorizontal, Flame, Home, Users, Layers, Star, Tag, Clock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -107,6 +107,8 @@ export default function CustomerLabels() {
   const [selectedPricingTier, setSelectedPricingTier] = useState('');
   const [selectedCustomerType, setSelectedCustomerType] = useState('');
   const [selectedStrength, setSelectedStrength] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
+  const [selectedRecentDays, setSelectedRecentDays] = useState('');
   const [hotProspectsOnly, setHotProspectsOnly] = useState(false);
   const [hasAddressOnly, setHasAddressOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -120,12 +122,15 @@ export default function CustomerLabels() {
   const hasPricingFilter = !!selectedPricingTier;
   const hasTypeFilter = !!selectedCustomerType;
   const hasStrengthFilter = !!selectedStrength;
+  const hasTagFilter = !!selectedTag;
+  const hasRecentFilter = !!selectedRecentDays;
   const hasHotFilter = hotProspectsOnly;
   const hasAddrFilter = hasAddressOnly;
 
   const activeFilterCount = [
     hasStateFilter, hasCityFilter, hasSalesRepFilter, hasPricingFilter,
     hasTypeFilter, hasStrengthFilter, hasHotFilter, hasAddrFilter,
+    hasTagFilter, hasRecentFilter,
   ].filter(Boolean).length;
 
   const hasSearch = debouncedSearch.trim().length >= 2;
@@ -153,6 +158,11 @@ export default function CustomerLabels() {
   });
   const salesReps = salesRepsData ?? [];
 
+  const { data: availableTags = [] } = useQuery<string[]>({
+    queryKey: ['/api/leads/tags'],
+    staleTime: 300000,
+  });
+
   const { data: customersData, isLoading: customersLoading } = useQuery<{ customers: Customer[] }>({
     queryKey: ['/api/customers', 'label-search', debouncedSearch, selectedState, selectedCity,
       selectedSalesRep, selectedPricingTier, selectedCustomerType, selectedStrength,
@@ -177,13 +187,15 @@ export default function CustomerLabels() {
   });
 
   const { data: leadsData, isLoading: leadsLoading } = useQuery<{ leads: Lead[]; total: number }>({
-    queryKey: ['/api/leads', 'label-search', debouncedSearch, selectedState, selectedCity, selectedSalesRep],
+    queryKey: ['/api/leads', 'label-search', debouncedSearch, selectedState, selectedCity, selectedSalesRep, selectedTag, selectedRecentDays],
     queryFn: async () => {
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: '200' });
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (hasStateFilter) params.set('state', selectedState);
       if (hasCityFilter) params.set('city', selectedCity);
       if (hasSalesRepFilter) params.set('salesRepId', selectedSalesRep);
+      if (hasTagFilter) params.set('tag', selectedTag);
+      if (hasRecentFilter) params.set('createdAfterDays', selectedRecentDays);
       const res = await fetch(`/api/leads?${params}`, { credentials: 'include' });
       return res.json();
     },
@@ -203,6 +215,8 @@ export default function CustomerLabels() {
     setSelectedPricingTier('');
     setSelectedCustomerType('');
     setSelectedStrength('');
+    setSelectedTag('');
+    setSelectedRecentDays('');
     setHotProspectsOnly(false);
     setHasAddressOnly(false);
   };
@@ -427,7 +441,50 @@ export default function CustomerLabels() {
               </div>
             </div>
 
-            {/* Row 4: Toggle chips */}
+            {/* Row 4: Tags + Recently Added */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                  <Tag className="h-3 w-3" /> Lead Tag
+                </label>
+                <Select
+                  value={selectedTag || 'all'}
+                  onValueChange={v => setSelectedTag(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9 text-sm bg-white">
+                    <SelectValue placeholder="Any Tag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Tag</SelectItem>
+                    {availableTags.map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Recently Added
+                </label>
+                <Select
+                  value={selectedRecentDays || 'all'}
+                  onValueChange={v => setSelectedRecentDays(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9 text-sm bg-white">
+                    <SelectValue placeholder="Any Time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Time</SelectItem>
+                    <SelectItem value="7">Last 7 days</SelectItem>
+                    <SelectItem value="30">Last 30 days</SelectItem>
+                    <SelectItem value="90">Last 90 days</SelectItem>
+                    <SelectItem value="180">Last 6 months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Row 5: Toggle chips */}
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={() => setHotProspectsOnly(v => !v)}
@@ -476,6 +533,8 @@ export default function CustomerLabels() {
           {hasPricingFilter && <FilterChip label={selectedPricingTier} onRemove={() => setSelectedPricingTier('')} />}
           {hasTypeFilter && <FilterChip label={selectedCustomerType} onRemove={() => setSelectedCustomerType('')} />}
           {hasStrengthFilter && <FilterChip label={STRENGTH_LABELS[selectedStrength]?.label ?? selectedStrength} onRemove={() => setSelectedStrength('')} />}
+          {hasTagFilter && <FilterChip label={`Tag: ${selectedTag}`} onRemove={() => setSelectedTag('')} />}
+          {hasRecentFilter && <FilterChip label={`Added: last ${selectedRecentDays}d`} onRemove={() => setSelectedRecentDays('')} />}
           {hotProspectsOnly && <FilterChip label="Hot Prospects" onRemove={() => setHotProspectsOnly(false)} />}
           {hasAddressOnly && <FilterChip label="Has Address" onRemove={() => setHasAddressOnly(false)} />}
           <button onClick={clearAllFilters} className="text-xs text-red-400 hover:text-red-600 ml-1">Clear all</button>
@@ -487,7 +546,7 @@ export default function CustomerLabels() {
         <div className="text-center py-16 text-gray-400">
           <SlidersHorizontal className="h-8 w-8 mx-auto mb-3 opacity-40" />
           <p className="text-sm">Type at least 2 characters to search,</p>
-          <p className="text-sm">or open Filters to browse by location, tier, rep, or strength</p>
+          <p className="text-sm">or open Filters to browse by location, tier, rep, tag, or recently added</p>
         </div>
       )}
 
