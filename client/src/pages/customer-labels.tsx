@@ -166,9 +166,9 @@ export default function CustomerLabels() {
   const { data: customersData, isLoading: customersLoading } = useQuery<{ customers: Customer[] }>({
     queryKey: ['/api/customers', 'label-search', debouncedSearch, selectedState, selectedCity,
       selectedSalesRep, selectedPricingTier, selectedCustomerType, selectedStrength,
-      hotProspectsOnly, hasAddressOnly],
+      hotProspectsOnly, hasAddressOnly, selectedRecentDays],
     queryFn: async () => {
-      const params = new URLSearchParams({ pageSize: '100', page: '1' });
+      const params = new URLSearchParams({ pageSize: '200', page: '1' });
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (hasStateFilter) params.set('province', selectedState);
       if (hasCityFilter) params.set('city', selectedCity);
@@ -178,6 +178,7 @@ export default function CustomerLabels() {
       if (hasStrengthFilter) params.set('connectionStrength', selectedStrength);
       if (hotProspectsOnly) params.set('isHotProspect', 'true');
       if (hasAddressOnly) params.set('hasAddress', 'true');
+      if (hasRecentFilter) params.set('createdAfterDays', selectedRecentDays);
       const res = await fetch(`/api/customers?${params}`, { credentials: 'include' });
       const data = await res.json();
       return { customers: data.data ?? [] };
@@ -187,7 +188,7 @@ export default function CustomerLabels() {
   });
 
   const { data: leadsData, isLoading: leadsLoading } = useQuery<{ leads: Lead[]; total: number }>({
-    queryKey: ['/api/leads', 'label-search', debouncedSearch, selectedState, selectedCity, selectedSalesRep, selectedTag, selectedRecentDays],
+    queryKey: ['/api/leads', 'label-search', debouncedSearch, selectedState, selectedCity, selectedSalesRep, selectedTag],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '200' });
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
@@ -195,7 +196,6 @@ export default function CustomerLabels() {
       if (hasCityFilter) params.set('city', selectedCity);
       if (hasSalesRepFilter) params.set('salesRepId', selectedSalesRep);
       if (hasTagFilter) params.set('tag', selectedTag);
-      if (hasRecentFilter) params.set('createdAfterDays', selectedRecentDays);
       const res = await fetch(`/api/leads?${params}`, { credentials: 'include' });
       return res.json();
     },

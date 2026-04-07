@@ -5782,6 +5782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerType?: string;
           hasAddress?: boolean;
           connectionStrength?: string;
+          createdAfterDays?: number;
         } = {};
         
         if (req.query.salesRepId) filters.salesRepId = req.query.salesRepId as string;
@@ -5800,6 +5801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (req.query.customerType) filters.customerType = req.query.customerType as string;
         if (req.query.hasAddress === 'true') filters.hasAddress = true;
         if (req.query.connectionStrength) filters.connectionStrength = req.query.connectionStrength as string;
+        if (req.query.createdAfterDays) filters.createdAfterDays = parseInt(req.query.createdAfterDays as string);
         
         const hasFilters = Object.keys(filters).length > 0;
         
