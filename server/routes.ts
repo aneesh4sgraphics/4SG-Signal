@@ -2576,6 +2576,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             performedBy: userId,
             performedByName: userName,
           });
+          // If this is a mailer label, increment mailerSentCount and update lastMailerSentAt
+          if (labelType === 'mailer') {
+            await db.update(leads)
+              .set({
+                mailerSentCount: sql`COALESCE(${leads.mailerSentCount}, 0) + 1`,
+                lastMailerSentAt: new Date(),
+                lastMailerType: labelTypeDisplay,
+              })
+              .where(eq(leads.id, leadId));
+          }
         } catch (actErr) {
           console.error("[Label Print] Failed to log lead activity:", actErr);
         }
@@ -2994,6 +3004,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               performedBy: userId,
               performedByName: userName,
             });
+            if (labelType === 'mailer') {
+              await db.update(leads)
+                .set({
+                  mailerSentCount: sql`COALESCE(${leads.mailerSentCount}, 0) + 1`,
+                  lastMailerSentAt: new Date(),
+                  lastMailerType: labelTypeDisplay,
+                })
+                .where(eq(leads.id, addr.leadId));
+            }
           } else if (addr.customerId) {
             const eventType = ['swatch_book', 'press_test_kit'].includes(labelType) ? 'sample_shipped' : 'product_info_shared';
             const metadata: Record<string, any> = {};

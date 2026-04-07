@@ -469,6 +469,7 @@ export const leads = pgTable("leads", {
   pressTestKitSentAt: timestamp("press_test_kit_sent_at"),
   lastMailerSentAt: timestamp("last_mailer_sent_at"),
   lastMailerType: varchar("last_mailer_type", { length: 50 }),
+  mailerSentCount: integer("mailer_sent_count").default(0),
   mailerTriggerEmailOpenCount: integer("mailer_trigger_email_open_count").default(0),
   firstContactAt: timestamp("first_contact_at"),
   lastContactAt: timestamp("last_contact_at"),

@@ -777,6 +777,28 @@ export default function LeadDetail() {
                     )}
                   </div>
                 ))}
+                {/* Mailer Sent — count-based coloring */}
+                {(() => {
+                  const count = lead.mailerSentCount || 0;
+                  return (
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <Truck className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-700">Mailer Sent</span>
+                      </div>
+                      {count === 0 ? (
+                        <span className="text-xs text-gray-400">Not yet</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-green-600">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700">
+                            {count} sent
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* Emails Sent — count-based coloring */}
                 {(() => {
                   const count = allEmails.length;
