@@ -281,6 +281,10 @@ export default function OdooContacts() {
   }, [searchQuery, debouncedSetSearch]);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, sortField, sortOrder]);
+
+  useEffect(() => {
     if (searchQuery && !searchActiveFilterSnapshot) {
       setSearchActiveFilterSnapshot({ ...filters });
       setFilters({
