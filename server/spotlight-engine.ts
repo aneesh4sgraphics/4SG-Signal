@@ -991,6 +991,7 @@ class SpotlightEngine {
           .where(and(
             isNotNull(customers.phone),
             eq(customers.doNotContact, false),
+            eq(customers.isCompany, false),
             or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
           ))
           .orderBy(asc(customers.updatedAt))
@@ -1043,6 +1044,7 @@ class SpotlightEngine {
             isNotNull(customers.email),
             isNotNull(customers.pricingTier),
             eq(customers.doNotContact, false),
+            eq(customers.isCompany, false),
             or(isNull(customers.salesRepId), eq(customers.salesRepId, repId)),
             or(isNull(customers.updatedAt), lt(customers.updatedAt, thirtyDaysAgo))
           ))
@@ -1145,6 +1147,7 @@ class SpotlightEngine {
           .where(and(
             isNotNull(customers.pricingTier),
             eq(customers.doNotContact, false),
+            eq(customers.isCompany, false),
             or(isNull(customers.salesRepId), eq(customers.salesRepId, repId))
           ))
           .orderBy(asc(customers.updatedAt))
@@ -2392,6 +2395,7 @@ class SpotlightEngine {
     // PRIORITY 2: Check for customer call tasks
     let conditions = [
       eq(customers.doNotContact, false),
+      eq(customers.isCompany, false),
       isNotNull(customers.phone),
       or(
         isNull(customers.salesRepId),
@@ -4491,6 +4495,7 @@ class SpotlightEngine {
     const repId = await this.getOdooRepId(userId);
     let conditions = [
       eq(customers.doNotContact, false),
+      eq(customers.isCompany, false),
       isNotNull(customers.email),
       isNotNull(customers.address1),
       or(
@@ -4547,6 +4552,7 @@ class SpotlightEngine {
     // Get ANY customer that can receive a light task (very relaxed criteria)
     let conditions = [
       eq(customers.doNotContact, false),
+      eq(customers.isCompany, false),
       sql`LOWER(COALESCE(${customers.email}, '')) NOT LIKE '%4sgraphics%'`,
     ];
     
