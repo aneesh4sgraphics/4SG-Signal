@@ -272,7 +272,7 @@ export default function LeadDetail() {
       setNewActivity({ activityType: "note", summary: "", details: "" });
       queryClientInstance.invalidateQueries({ queryKey: ["/api/leads", leadId] });
     },
-    onError: () => toast({ title: "Error", description: "Failed to add activity", variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message || "Failed to add activity", variant: "destructive" }),
   });
 
   const updateLeadMutation = useMutation({
@@ -283,10 +283,11 @@ export default function LeadDetail() {
     onSuccess: () => {
       toast({ title: "Lead updated" });
       setIsEditOpen(false);
+      setEditForm({});
       queryClientInstance.invalidateQueries({ queryKey: ["/api/leads", leadId] });
       queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
     },
-    onError: () => toast({ title: "Error", description: "Failed to update lead", variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message || "Failed to update lead", variant: "destructive" }),
   });
 
   const updateStageMutation = useMutation({
@@ -320,7 +321,6 @@ export default function LeadDetail() {
       const res = await apiRequest("POST", `/api/leads/${leadId}/activities`, {
         activityType: "note", summary: noteText, details: "",
       });
-      if (!res.ok) throw new Error("Failed to add note");
       return res.json();
     },
     onSuccess: () => {

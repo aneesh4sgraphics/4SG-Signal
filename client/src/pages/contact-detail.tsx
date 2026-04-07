@@ -177,15 +177,18 @@ export default function ContactDetail() {
     onSuccess: () => {
       toast({ title: "Contact updated" });
       setIsEditOpen(false);
+      setEditForm({});
       queryClientInstance.invalidateQueries({ queryKey: ["/api/crm/customer-contacts", contactId] });
     },
-    onError: () => toast({ title: "Error", description: "Failed to update contact", variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message || "Failed to update contact", variant: "destructive" }),
   });
 
   const addNoteMutation = useMutation({
     mutationFn: async (note: string) => {
-      const current = data?.contact.notes || "";
-      const combined = current ? `${current}\n\n${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}: ${note}` : `${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}: ${note}`;
+      const fresh = queryClientInstance.getQueryData<ContactDetailData>(["/api/crm/customer-contacts", contactId]);
+      const current = fresh?.contact.notes || "";
+      const dateLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const combined = current ? `${current}\n\n${dateLabel}: ${note}` : `${dateLabel}: ${note}`;
       const res = await apiRequest("PUT", `/api/crm/customer-contacts/${contactId}`, { notes: combined });
       return res.json();
     },
@@ -194,7 +197,7 @@ export default function ContactDetail() {
       setNewNoteText(""); setIsNoteOpen(false);
       queryClientInstance.invalidateQueries({ queryKey: ["/api/crm/customer-contacts", contactId] });
     },
-    onError: () => toast({ title: "Error", description: "Failed to add note", variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message || "Failed to add note", variant: "destructive" }),
   });
 
   // ── Loading ──────────────────────────────────────────────────────────────────
