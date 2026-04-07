@@ -94,12 +94,23 @@ function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
 }
 
-function HighlightTile({ label, icon: Icon, children }: { label: string; icon: any; children: React.ReactNode }) {
+function HighlightTile({ label, icon: Icon, children, onEdit }: { label: string; icon: any; children: React.ReactNode; onEdit?: () => void }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-      <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1 flex items-center gap-1">
-        <Icon className="h-3 w-3" /> {label}
-      </p>
+    <div className="group bg-white border border-gray-200 rounded-lg px-4 py-3 relative">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs text-gray-400 uppercase tracking-wide font-medium flex items-center gap-1">
+          <Icon className="h-3 w-3" /> {label}
+        </p>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </div>
       <div className="text-sm font-medium text-gray-800">{children}</div>
     </div>
   );
@@ -210,6 +221,14 @@ export default function OdooCompanyDetail() {
   const [editForm, setEditForm] = useState({
     company: "", email: "", phone: "", address1: "", address2: "",
     city: "", province: "", zip: "", country: "", website: "", note: "",
+  });
+  type CardKey = "email" | "phone" | "website" | "salesRep" | "customerType" | "location";
+  const [editingCard, setEditingCard] = useState<CardKey | null>(null);
+  const [cardValues, setCardValues] = useState({
+    email: "", email2: "", phone: "", cell: "",
+    website: "", salesRepName: "", salesRepId: "",
+    customerType: "", address1: "", address2: "",
+    city: "", province: "", zip: "", country: "",
   });
   const { toast } = useToast();
   const { user } = useAuth();
@@ -411,6 +430,44 @@ export default function OdooCompanyDetail() {
     },
     onError: (e: any) => toast({ title: "Error", description: e.message || "Failed", variant: "destructive" }),
   });
+
+  const quickEditMutation = useMutation({
+    mutationFn: async (data: Record<string, string | null>) => {
+      const r = await apiRequest("PUT", `/api/customers/${companyId}`, data);
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Updated" });
+      setEditingCard(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", companyId] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to save", variant: "destructive" }),
+  });
+
+  const openCardEdit = (card: CardKey) => {
+    if (!company) return;
+    setCardValues({
+      email: company.email || "", email2: company.email2 || "",
+      phone: company.phone || "", cell: company.cell || "",
+      website: company.website || "",
+      salesRepName: company.salesRepName || "", salesRepId: "",
+      customerType: company.customerType || "",
+      address1: company.address1 || "", address2: company.address2 || "",
+      city: company.city || "", province: company.province || "",
+      zip: company.zip || "", country: company.country || "",
+    });
+    setEditingCard(card);
+  };
+
+  const saveCardEdit = () => {
+    if (!editingCard) return;
+    if (editingCard === "email") quickEditMutation.mutate({ email: cardValues.email, email2: cardValues.email2 || null });
+    else if (editingCard === "phone") quickEditMutation.mutate({ phone: cardValues.phone, cell: cardValues.cell || null });
+    else if (editingCard === "website") quickEditMutation.mutate({ website: cardValues.website });
+    else if (editingCard === "salesRep") quickEditMutation.mutate({ salesRepName: cardValues.salesRepName || null, salesRepId: cardValues.salesRepId || null });
+    else if (editingCard === "customerType") quickEditMutation.mutate({ customerType: cardValues.customerType || null });
+    else if (editingCard === "location") quickEditMutation.mutate({ address1: cardValues.address1, address2: cardValues.address2 || null, city: cardValues.city, province: cardValues.province, zip: cardValues.zip, country: cardValues.country });
+  };
 
   const pushSyncMutation = useMutation({
     mutationFn: async () => { const r = await apiRequest("POST", `/api/odoo/customer/${companyId}/push-sync`); return r.json(); },
@@ -690,39 +747,127 @@ export default function OdooCompanyDetail() {
             <div>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Highlights</h2>
               <div className="grid grid-cols-2 gap-3">
-                {company.email && (
-                  <HighlightTile label="Email" icon={Mail}>
-                    <button onClick={() => emailComposer.open({ to: company.email || "", customerId: company.id, customerName: displayName, usageType: "client_email", variables: { "client.name": displayName, "client.company": company.company || "", "client.email": company.email || "", "client.firstName": company.firstName || "", "client.lastName": company.lastName || "" } })} className="text-violet-600 hover:text-green-600 transition-colors truncate block">
-                      {company.email}
-                      {isShopifyEmail(company.email) && <SiShopify className="inline ml-1 w-3.5 h-3.5 text-green-600" />}
-                    </button>
-                    {company.email2 && <p className="text-xs text-gray-400 mt-0.5 truncate">{company.email2} (secondary)</p>}
-                  </HighlightTile>
-                )}
-                {(company.phone || company.cell) && (
-                  <HighlightTile label="Phone" icon={Phone}>
-                    {company.phone && <a href={`tel:${company.phone}`} className="text-violet-600 hover:underline block">{company.phone}</a>}
-                    {company.cell && <a href={`tel:${company.cell}`} className="text-xs text-gray-500 hover:text-violet-600 block mt-0.5">{company.cell} (mobile)</a>}
-                  </HighlightTile>
-                )}
-                {address && (
-                  <HighlightTile label="Location" icon={MapPin}>
-                    <span className="text-gray-700 text-xs">{address}</span>
-                  </HighlightTile>
-                )}
-                {company.website && (
-                  <HighlightTile label="Website" icon={Globe}>
+                <HighlightTile label="Email" icon={Mail} onEdit={() => openCardEdit("email")}>
+                  {company.email ? (
+                    <>
+                      <button onClick={() => emailComposer.open({ to: company.email || "", customerId: company.id, customerName: displayName, usageType: "client_email", variables: { "client.name": displayName, "client.company": company.company || "", "client.email": company.email || "", "client.firstName": company.firstName || "", "client.lastName": company.lastName || "" } })} className="text-violet-600 hover:text-green-600 transition-colors truncate block">
+                        {company.email}
+                        {isShopifyEmail(company.email) && <SiShopify className="inline ml-1 w-3.5 h-3.5 text-green-600" />}
+                      </button>
+                      {company.email2 && <p className="text-xs text-gray-400 mt-0.5 truncate">{company.email2} (secondary)</p>}
+                    </>
+                  ) : <span className="text-gray-400">—</span>}
+                </HighlightTile>
+                <HighlightTile label="Phone" icon={Phone} onEdit={() => openCardEdit("phone")}>
+                  {(company.phone || company.cell) ? (
+                    <>
+                      {company.phone && <a href={`tel:${company.phone}`} className="text-violet-600 hover:underline block">{company.phone}</a>}
+                      {company.cell && <a href={`tel:${company.cell}`} className="text-xs text-gray-500 hover:text-violet-600 block mt-0.5">{company.cell} (mobile)</a>}
+                    </>
+                  ) : <span className="text-gray-400">—</span>}
+                </HighlightTile>
+                <HighlightTile label="Location" icon={MapPin} onEdit={() => openCardEdit("location")}>
+                  {address ? <span className="text-gray-700 text-xs">{address}</span> : <span className="text-gray-400">—</span>}
+                </HighlightTile>
+                <HighlightTile label="Website" icon={Globe} onEdit={() => openCardEdit("website")}>
+                  {company.website ? (
                     <a href={company.website.startsWith("http") ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline truncate block">{company.website}</a>
-                  </HighlightTile>
-                )}
-                <HighlightTile label="Sales Rep" icon={User}>
+                  ) : <span className="text-gray-400">—</span>}
+                </HighlightTile>
+                <HighlightTile label="Sales Rep" icon={User} onEdit={() => openCardEdit("salesRep")}>
                   {metricsLoading ? <Skeleton className="h-4 w-24" /> : <span>{metrics?.salesPerson || company.salesRepName || "—"}</span>}
                 </HighlightTile>
-                <HighlightTile label="Customer Type" icon={Printer}>
+                <HighlightTile label="Customer Type" icon={Printer} onEdit={() => openCardEdit("customerType")}>
                   <span className="capitalize">{company.customerType || "—"}</span>
                 </HighlightTile>
               </div>
             </div>
+
+            {/* Quick-edit card Dialog */}
+            <Dialog open={editingCard !== null} onOpenChange={(o) => { if (!o) setEditingCard(null); }}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingCard === "email" && "Edit Email"}
+                    {editingCard === "phone" && "Edit Phone"}
+                    {editingCard === "website" && "Edit Website"}
+                    {editingCard === "salesRep" && "Assign Sales Rep"}
+                    {editingCard === "customerType" && "Set Customer Type"}
+                    {editingCard === "location" && "Edit Location"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 pt-1">
+                  {editingCard === "email" && (
+                    <>
+                      <div className="space-y-1"><Label>Primary Email</Label><Input type="email" value={cardValues.email} onChange={e => setCardValues(v => ({ ...v, email: e.target.value }))} placeholder="email@example.com" /></div>
+                      <div className="space-y-1"><Label>Secondary Email</Label><Input type="email" value={cardValues.email2} onChange={e => setCardValues(v => ({ ...v, email2: e.target.value }))} placeholder="Optional" /></div>
+                    </>
+                  )}
+                  {editingCard === "phone" && (
+                    <>
+                      <div className="space-y-1"><Label>Phone</Label><Input value={cardValues.phone} onChange={e => setCardValues(v => ({ ...v, phone: e.target.value }))} placeholder="+1 555-000-0000" /></div>
+                      <div className="space-y-1"><Label>Mobile / Cell</Label><Input value={cardValues.cell} onChange={e => setCardValues(v => ({ ...v, cell: e.target.value }))} placeholder="Optional" /></div>
+                    </>
+                  )}
+                  {editingCard === "website" && (
+                    <div className="space-y-1"><Label>Website URL</Label><Input value={cardValues.website} onChange={e => setCardValues(v => ({ ...v, website: e.target.value }))} placeholder="https://example.com" /></div>
+                  )}
+                  {editingCard === "salesRep" && (
+                    <div className="space-y-1">
+                      <Label>Sales Rep</Label>
+                      <Select value={cardValues.salesRepId || cardValues.salesRepName || "__none__"} onValueChange={val => {
+                        if (val === "__none__") { setCardValues(v => ({ ...v, salesRepId: "", salesRepName: "" })); }
+                        else {
+                          const rep = salesPeopleOptions.find(r => r.id === val);
+                          setCardValues(v => ({ ...v, salesRepId: val, salesRepName: rep?.name || val }));
+                        }
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Select rep…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Unassigned</SelectItem>
+                          {salesPeopleOptions.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {editingCard === "customerType" && (
+                    <div className="space-y-1">
+                      <Label>Customer Type</Label>
+                      <Select value={cardValues.customerType || "__none__"} onValueChange={val => setCardValues(v => ({ ...v, customerType: val === "__none__" ? "" : val }))}>
+                        <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Not set —</SelectItem>
+                          <SelectItem value="printer">Printer</SelectItem>
+                          <SelectItem value="reseller">Reseller</SelectItem>
+                          <SelectItem value="enduser">End User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {editingCard === "location" && (
+                    <>
+                      <div className="space-y-1"><Label>Address</Label><Input value={cardValues.address1} onChange={e => setCardValues(v => ({ ...v, address1: e.target.value }))} placeholder="Street address" /></div>
+                      <div className="space-y-1"><Label>Address 2</Label><Input value={cardValues.address2} onChange={e => setCardValues(v => ({ ...v, address2: e.target.value }))} placeholder="Suite, unit…" /></div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1"><Label>City</Label><Input value={cardValues.city} onChange={e => setCardValues(v => ({ ...v, city: e.target.value }))} /></div>
+                        <div className="space-y-1"><Label>State / Province</Label><Input value={cardValues.province} onChange={e => setCardValues(v => ({ ...v, province: e.target.value }))} /></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1"><Label>ZIP / Postal</Label><Input value={cardValues.zip} onChange={e => setCardValues(v => ({ ...v, zip: e.target.value }))} /></div>
+                        <div className="space-y-1"><Label>Country</Label><Input value={cardValues.country} onChange={e => setCardValues(v => ({ ...v, country: e.target.value }))} /></div>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <DialogFooter className="pt-2">
+                  <Button type="button" variant="outline" onClick={() => setEditingCard(null)}>Cancel</Button>
+                  <Button type="button" onClick={saveCardEdit} disabled={quickEditMutation.isPending}>
+                    {quickEditMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* KPI tiles */}
             <div>
