@@ -20851,6 +20851,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const customersWithParent = await db.select().from(customers).where(sql`${customers.odooParentId} IS NOT NULL`);
       let parentLinksResolved = 0;
       
+      let pricingCascadeCount = 0;
       for (const customer of customersWithParent) {
         if (customer.odooParentId) {
           // Find the parent customer by their Odoo partner ID
@@ -20859,14 +20860,30 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
             .limit(1);
           
           if (parentCustomer.length > 0) {
+            const parent = parentCustomer[0];
+            // Link parent
             await db.update(customers)
-              .set({ parentCustomerId: parentCustomer[0].id })
+              .set({ parentCustomerId: parent.id })
               .where(eq(customers.id, customer.id));
             parentLinksResolved++;
+
+            // Cascade pricing tier + sales rep from parent when child doesn't have them
+            const cascadeUpdates: Record<string, any> = {};
+            if (!customer.pricingTier && parent.pricingTier) {
+              cascadeUpdates.pricingTier = parent.pricingTier;
+            }
+            if (!customer.salesRepName && parent.salesRepName) {
+              cascadeUpdates.salesRepName = parent.salesRepName;
+              if (parent.salesRepId) cascadeUpdates.salesRepId = parent.salesRepId;
+            }
+            if (Object.keys(cascadeUpdates).length > 0) {
+              await db.update(customers).set(cascadeUpdates).where(eq(customers.id, customer.id));
+              pricingCascadeCount++;
+            }
           }
         }
       }
-      console.log(`[Odoo Import] Resolved ${parentLinksResolved} parent relationships`);
+      console.log(`[Odoo Import] Resolved ${parentLinksResolved} parent relationships, cascaded pricing/rep to ${pricingCascadeCount} contacts`);
       
       // Step 6: Delete customers that no longer exist in Odoo (always runs when we have linked customers)
       if (existingOdooCustomers.size > 0) {
