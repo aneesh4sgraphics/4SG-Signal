@@ -527,6 +527,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Failed to auto-generate tasks:", err);
   }
   
+  // ============================================================
+  // CRITICAL: Setup authentication middleware BEFORE all HTTP routes
+  // Session + Passport middleware must be registered first so that
+  // req.session and req.user are populated for every route handler.
+  // ============================================================
+  await setupAuth(app);
+  console.log("[Boot] Auth middleware registered BEFORE all HTTP routes");
+
   // Test database connection
   app.get("/api/test-db", isAuthenticated, async (req: any, res) => {
     try {
@@ -721,14 +729,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch CRM statistics", details: errorMessage });
     }
   });
-
-  // ============================================================
-  // CRITICAL: Setup authentication middleware BEFORE protected routes
-  // All routes above this point are PUBLIC (no auth required)
-  // All routes below this point use isAuthenticated/requireAdmin
-  // ============================================================
-  await setupAuth(app);
-  console.log("[Boot] Auth middleware registered at route position ~585, BEFORE protected routes");
 
   // Sales Analytics - daily sales trendline data
   app.get("/api/analytics/sales-trend", isAuthenticated, async (req: any, res) => {
