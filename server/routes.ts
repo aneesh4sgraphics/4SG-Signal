@@ -30850,68 +30850,75 @@ Analyze this bounced email and provide insights in JSON format:
 
   app.post("/api/admin/backfill-kanban-stages", isAuthenticated, async (req: any, res) => {
     try {
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
-      // 1. Leads with samples/mailers sent this week → samples_requested
-      await db.update(leads)
+      // 1. Leads with press test kit sent → samples_requested (regardless of when)
+      const r1 = await db.update(leads)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
           and(
-            isNull(leads.salesKanbanStage),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
             or(
-              and(isNotNull(leads.pressTestKitSentAt), gte(leads.pressTestKitSentAt, oneWeekAgo)),
-              and(isNotNull(leads.sampleEnvelopeSentAt), gte(leads.sampleEnvelopeSentAt, oneWeekAgo)),
-              and(isNotNull(leads.sampleSentAt), gte(leads.sampleSentAt, oneWeekAgo)),
-              and(isNotNull(leads.onePageMailerSentAt), gte(leads.onePageMailerSentAt, oneWeekAgo)),
+              isNotNull(leads.pressTestKitSentAt),
+              isNotNull(leads.sampleEnvelopeSentAt),
+              isNotNull(leads.sampleSentAt),
+              isNotNull(leads.onePageMailerSentAt),
             )
           )
         );
 
-      // 2. Leads that replied this week → replied
-      await db.update(leads)
+      // 2. Leads that replied → replied (takes priority, overrides samples)
+      const r2 = await db.update(leads)
         .set({ salesKanbanStage: 'replied' })
         .where(
           and(
-            isNull(leads.salesKanbanStage),
             isNotNull(leads.firstEmailReplyAt),
-            gte(leads.firstEmailReplyAt, oneWeekAgo)
+            or(
+              isNull(leads.salesKanbanStage),
+              eq(leads.salesKanbanStage, ''),
+              eq(leads.salesKanbanStage, 'samples_requested'),
+            )
           )
         );
 
-      // 3. Leads emailed but no response in 10+ days → no_response
-      await db.update(leads)
+      // 3. Leads emailed 10+ days ago with no reply → no_response
+      const r3 = await db.update(leads)
         .set({ salesKanbanStage: 'no_response' })
         .where(
           and(
-            isNull(leads.salesKanbanStage),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
             isNotNull(leads.firstEmailSentAt),
             isNull(leads.firstEmailReplyAt),
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleEnvelopeSentAt),
             lt(leads.lastContactAt, tenDaysAgo)
           )
         );
 
-      // 4. Customers with swatchbook or press test sent this week → samples_requested
-      await db.update(customers)
+      // 4. Customers with swatchbook or press test sent → samples_requested
+      const r4 = await db.update(customers)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
           and(
-            isNull(customers.salesKanbanStage),
+            or(isNull(customers.salesKanbanStage), eq(customers.salesKanbanStage, '')),
             or(
-              and(isNotNull(customers.pressTestSentAt), gte(customers.pressTestSentAt, oneWeekAgo)),
-              and(isNotNull(customers.swatchbookSentAt), gte(customers.swatchbookSentAt, oneWeekAgo)),
+              isNotNull(customers.pressTestSentAt),
+              isNotNull(customers.swatchbookSentAt),
             )
           )
         );
 
-      // Count what was updated
+      // Count results after backfill
       const [leadCounts] = await db.select({
         samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
         replied: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'replied' THEN 1 END)::int`,
         noResponse: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'no_response' THEN 1 END)::int`,
       }).from(leads);
+
+      const [custCounts] = await db.select({
+        samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+      }).from(customers);
 
       res.json({
         success: true,
@@ -30920,7 +30927,10 @@ Analyze this bounced email and provide insights in JSON format:
           replied: leadCounts.replied,
           no_response: leadCounts.noResponse,
         },
-        message: 'Kanban stages backfilled from historical activity'
+        customers: {
+          samples_requested: custCounts.samples,
+        },
+        message: 'Kanban stages backfilled from all historical activity'
       });
     } catch (error: any) {
       console.error('[Backfill] Error:', error);
