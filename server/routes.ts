@@ -30853,55 +30853,33 @@ Analyze this bounced email and provide insights in JSON format:
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
-      // Step 1: Find lead IDs that have mailer/sample activities logged
-      const mailerActivityLeads = await db
+      // Step 1: Leads with sample_sent, mailer_one_page, mailer_envelope, mailer_press_kit activities
+      const sampleActivityLeads = await db
         .selectDistinct({ leadId: leadActivities.leadId })
         .from(leadActivities)
         .where(
           inArray(leadActivities.activityType, [
-            'mailer_one_page', 'mailer_envelope', 'mailer_press_kit', 'sample_sent'
+            'sample_sent', 'mailer_one_page', 'mailer_envelope', 'mailer_press_kit'
           ])
         );
 
-      const mailerLeadIds = mailerActivityLeads
+      const sampleLeadIds = sampleActivityLeads
         .map(r => r.leadId)
         .filter((id): id is number => id !== null);
 
-      // Step 2: Find lead IDs that have email_reply activities logged
-      const replyActivityLeads = await db
-        .selectDistinct({ leadId: leadActivities.leadId })
-        .from(leadActivities)
-        .where(eq(leadActivities.activityType, 'email_reply'));
-
-      const replyLeadIds = replyActivityLeads
-        .map(r => r.leadId)
-        .filter((id): id is number => id !== null);
-
-      // Step 3: Find lead IDs that have email_sent activities logged (for no_response)
-      const emailedLeads = await db
-        .selectDistinct({ leadId: leadActivities.leadId })
-        .from(leadActivities)
-        .where(eq(leadActivities.activityType, 'email_sent'));
-
-      const emailedLeadIds = emailedLeads
-        .map(r => r.leadId)
-        .filter((id): id is number => id !== null);
-
-      // Step 4: Set samples_requested for leads with mailer/sample activities
-      let samplesUpdated = 0;
-      if (mailerLeadIds.length > 0) {
-        const result = await db.update(leads)
+      // Step 2: Set samples_requested from activities
+      if (sampleLeadIds.length > 0) {
+        await db.update(leads)
           .set({ salesKanbanStage: 'samples_requested' })
           .where(
             and(
-              inArray(leads.id, mailerLeadIds),
+              inArray(leads.id, sampleLeadIds),
               or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''))
             )
           );
-        samplesUpdated = (result as any).rowCount || 0;
       }
 
-      // Also catch leads with timestamp fields set (from newer activity)
+      // Step 3: Also catch leads with mailer timestamp fields set
       await db.update(leads)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
@@ -30916,25 +30894,7 @@ Analyze this bounced email and provide insights in JSON format:
           )
         );
 
-      // Step 5: Set replied for leads with reply activities (overrides samples)
-      let repliedUpdated = 0;
-      if (replyLeadIds.length > 0) {
-        const result = await db.update(leads)
-          .set({ salesKanbanStage: 'replied' })
-          .where(
-            and(
-              inArray(leads.id, replyLeadIds),
-              or(
-                isNull(leads.salesKanbanStage),
-                eq(leads.salesKanbanStage, ''),
-                eq(leads.salesKanbanStage, 'samples_requested'),
-              )
-            )
-          );
-        repliedUpdated = (result as any).rowCount || 0;
-      }
-
-      // Also catch leads with firstEmailReplyAt set
+      // Step 4: Leads with firstEmailReplyAt set → replied (overrides samples_requested)
       await db.update(leads)
         .set({ salesKanbanStage: 'replied' })
         .where(
@@ -30948,25 +30908,45 @@ Analyze this bounced email and provide insights in JSON format:
           )
         );
 
-      // Step 6: Set no_response for emailed leads with no reply and no samples
-      let noResponseUpdated = 0;
+      // Step 5: Leads emailed (have email_sent activity OR firstEmailSentAt set)
+      // with lastContactAt older than 10 days and no reply → no_response
+      const emailedActivityLeads = await db
+        .selectDistinct({ leadId: leadActivities.leadId })
+        .from(leadActivities)
+        .where(eq(leadActivities.activityType, 'email_sent'));
+
+      const emailedLeadIds = emailedActivityLeads
+        .map(r => r.leadId)
+        .filter((id): id is number => id !== null);
+
       if (emailedLeadIds.length > 0) {
-        const result = await db.update(leads)
+        await db.update(leads)
           .set({ salesKanbanStage: 'no_response' })
           .where(
             and(
               inArray(leads.id, emailedLeadIds),
               or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
               isNull(leads.firstEmailReplyAt),
-              isNull(leads.pressTestKitSentAt),
-              isNull(leads.sampleEnvelopeSentAt),
               lt(leads.lastContactAt, tenDaysAgo)
             )
           );
-        noResponseUpdated = (result as any).rowCount || 0;
       }
 
-      // Step 7: Customers with swatchbook or press test → samples_requested
+      // Also catch leads with firstEmailSentAt set directly
+      await db.update(leads)
+        .set({ salesKanbanStage: 'no_response' })
+        .where(
+          and(
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+            isNotNull(leads.firstEmailSentAt),
+            isNull(leads.firstEmailReplyAt),
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleEnvelopeSentAt),
+            lt(leads.lastContactAt, tenDaysAgo)
+          )
+        );
+
+      // Step 6: Customers with swatchbook or press test → samples_requested
       await db.update(customers)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
@@ -31000,12 +30980,11 @@ Analyze this bounced email and provide insights in JSON format:
         customers: {
           samples_requested: custCounts.samples,
         },
-        activityScan: {
-          mailerActivitiesFound: mailerLeadIds.length,
-          replyActivitiesFound: replyLeadIds.length,
-          emailedLeadsFound: emailedLeadIds.length,
+        debug: {
+          sampleActivityLeadsFound: sampleLeadIds.length,
+          emailedActivityLeadsFound: emailedLeadIds.length,
         },
-        message: 'Kanban stages backfilled from lead activity history'
+        message: 'Kanban stages backfilled from historical activity'
       });
     } catch (error: any) {
       console.error('[Backfill] Error:', error);

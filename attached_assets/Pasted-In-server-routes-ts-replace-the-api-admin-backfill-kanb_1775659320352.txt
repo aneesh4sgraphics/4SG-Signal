@@ -1,0 +1,147 @@
+In server/routes.ts, replace the /api/admin/backfill-kanban-stages endpoint with this corrected version:
+
+app.post("/api/admin/backfill-kanban-stages", isAuthenticated, async (req: any, res) => {
+  try {
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+    // Step 1: Leads with sample_sent, mailer_one_page, mailer_envelope, mailer_press_kit activities
+    const sampleActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(
+        inArray(leadActivities.activityType, [
+          'sample_sent', 'mailer_one_page', 'mailer_envelope', 'mailer_press_kit'
+        ])
+      );
+
+    const sampleLeadIds = sampleActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    // Step 2: Set samples_requested from activities
+    if (sampleLeadIds.length > 0) {
+      await db.update(leads)
+        .set({ salesKanbanStage: 'samples_requested' })
+        .where(
+          and(
+            inArray(leads.id, sampleLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''))
+          )
+        );
+    }
+
+    // Step 3: Also catch leads with mailer timestamp fields set
+    await db.update(leads)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+          or(
+            isNotNull(leads.pressTestKitSentAt),
+            isNotNull(leads.sampleEnvelopeSentAt),
+            isNotNull(leads.sampleSentAt),
+            isNotNull(leads.onePageMailerSentAt),
+          )
+        )
+      );
+
+    // Step 4: Leads with firstEmailReplyAt set → replied (overrides samples_requested)
+    await db.update(leads)
+      .set({ salesKanbanStage: 'replied' })
+      .where(
+        and(
+          isNotNull(leads.firstEmailReplyAt),
+          or(
+            isNull(leads.salesKanbanStage),
+            eq(leads.salesKanbanStage, ''),
+            eq(leads.salesKanbanStage, 'samples_requested'),
+          )
+        )
+      );
+
+    // Step 5: Leads emailed (have email_sent activity OR firstEmailSentAt set)
+    // with lastContactAt older than 10 days and no reply → no_response
+    const emailedActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(eq(leadActivities.activityType, 'email_sent'));
+
+    const emailedLeadIds = emailedActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    if (emailedLeadIds.length > 0) {
+      await db.update(leads)
+        .set({ salesKanbanStage: 'no_response' })
+        .where(
+          and(
+            inArray(leads.id, emailedLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+            isNull(leads.firstEmailReplyAt),
+            lt(leads.lastContactAt, tenDaysAgo)
+          )
+        );
+    }
+
+    // Also catch leads with firstEmailSentAt set directly
+    await db.update(leads)
+      .set({ salesKanbanStage: 'no_response' })
+      .where(
+        and(
+          or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+          isNotNull(leads.firstEmailSentAt),
+          isNull(leads.firstEmailReplyAt),
+          isNull(leads.pressTestKitSentAt),
+          isNull(leads.sampleEnvelopeSentAt),
+          lt(leads.lastContactAt, tenDaysAgo)
+        )
+      );
+
+    // Step 6: Customers with swatchbook or press test → samples_requested
+    await db.update(customers)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(isNull(customers.salesKanbanStage), eq(customers.salesKanbanStage, '')),
+          or(
+            isNotNull(customers.pressTestSentAt),
+            isNotNull(customers.swatchbookSentAt),
+          )
+        )
+      );
+
+    // Count final results
+    const [leadCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+      replied: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'replied' THEN 1 END)::int`,
+      noResponse: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'no_response' THEN 1 END)::int`,
+    }).from(leads);
+
+    const [custCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+    }).from(customers);
+
+    res.json({
+      success: true,
+      leads: {
+        samples_requested: leadCounts.samples,
+        replied: leadCounts.replied,
+        no_response: leadCounts.noResponse,
+      },
+      customers: {
+        samples_requested: custCounts.samples,
+      },
+      debug: {
+        sampleActivityLeadsFound: sampleLeadIds.length,
+        emailedActivityLeadsFound: emailedLeadIds.length,
+      },
+      message: 'Kanban stages backfilled from historical activity'
+    });
+  } catch (error: any) {
+    console.error('[Backfill] Error:', error);
+    res.status(500).json({ error: 'Backfill failed: ' + error.message });
+  }
+});
+
+Do not change anything else.
