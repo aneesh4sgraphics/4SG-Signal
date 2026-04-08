@@ -169,7 +169,11 @@ const AppRoutes = () => (
         <Redirect to="/sequences" />
       </Route>
       <Route path="/email-insights" component={Spotlight} />
-      <Route path="/email-sync-debug" component={EmailSyncDebug} />
+      <Route path="/email-sync-debug" component={() => {
+        const { user } = useAuth();
+        if (user?.email !== 'aneesh@4sgraphics.com') return <Redirect to="/" />;
+        return <EmailSyncDebug />;
+      }} />
       <Route path="/objections" component={ObjectionsPage} />
       <Route path="/shopify-settings" component={ShopifySettingsPage} />
       <Route path="/odoo-settings" component={OdooSettingsPage} />
