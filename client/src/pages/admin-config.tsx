@@ -575,6 +575,8 @@ export default function AdminConfig() {
   const [testCustomerOpen, setTestCustomerOpen] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [backfillResult, setBackfillResult] = useState<any>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugResult, setDebugResult] = useState<any>(null);
 
   const { data: machineTypes = [], isLoading: machineTypesLoading } = useQuery<AdminMachineType[]>({
     queryKey: ["/api/admin/config/machine-types"],
@@ -741,27 +743,64 @@ export default function AdminConfig() {
                   Leads replied: {backfillResult.leads?.replied ?? 0} &nbsp;·&nbsp;
                   Samples sent: {backfillResult.leads?.samples_requested ?? 0} &nbsp;·&nbsp;
                   No response: {backfillResult.leads?.no_response ?? 0}
+                  {backfillResult.dbSnapshot && (
+                    <div style={{ marginTop: '8px', color: '#6B7280' }}>
+                      <strong>Pre-update snapshot:</strong> {backfillResult.dbSnapshot.activityStats?.totalActivities ?? 0} total activities &nbsp;·&nbsp;
+                      {backfillResult.dbSnapshot.activityStats?.sampleCount ?? 0} sample activities &nbsp;·&nbsp;
+                      {backfillResult.dbSnapshot.leadFieldStats?.withFirstEmailReply ?? 0} leads with reply &nbsp;·&nbsp;
+                      {backfillResult.dbSnapshot.leadFieldStats?.alreadyHasStage ?? 0} leads already staged
+                    </div>
+                  )}
                 </div>
               )}
-              <button
-                onClick={async () => {
-                  setBackfillLoading(true);
-                  setBackfillResult(null);
-                  try {
-                    const res = await fetch('/api/admin/backfill-kanban-stages', { method: 'POST', credentials: 'include' });
-                    const data = await res.json();
-                    setBackfillResult(data);
-                  } catch (e) {
-                    alert('Backfill failed');
-                  } finally {
-                    setBackfillLoading(false);
-                  }
-                }}
-                disabled={backfillLoading}
-                style={{ background: '#5E4ECD', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: backfillLoading ? 'wait' : 'pointer', opacity: backfillLoading ? 0.7 : 1 }}
-              >
-                {backfillLoading ? 'Running backfill...' : 'Run Kanban Backfill'}
-              </button>
+              {debugResult && (
+                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '12px', marginBottom: '12px', fontSize: '13px' }}>
+                  <strong>Activity types in DB:</strong> {debugResult.distinctActivityTypes?.join(', ') || 'none'}<br />
+                  <strong>Top counts:</strong> {debugResult.countsByType?.slice(0, 5).map((r: any) => `${r.activityType}=${r.count}`).join(', ')}<br />
+                  <strong>Leads with firstEmailSent:</strong> {debugResult.leadsWithFirstEmailSent} &nbsp;·&nbsp;
+                  <strong>with lastContact:</strong> {debugResult.leadsWithLastContact}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={async () => {
+                    setBackfillLoading(true);
+                    setBackfillResult(null);
+                    try {
+                      const res = await fetch('/api/admin/backfill-kanban-stages', { method: 'POST', credentials: 'include' });
+                      const data = await res.json();
+                      setBackfillResult(data);
+                    } catch (e) {
+                      alert('Backfill failed');
+                    } finally {
+                      setBackfillLoading(false);
+                    }
+                  }}
+                  disabled={backfillLoading}
+                  style={{ background: '#5E4ECD', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: backfillLoading ? 'wait' : 'pointer', opacity: backfillLoading ? 0.7 : 1 }}
+                >
+                  {backfillLoading ? 'Running backfill...' : 'Run Kanban Backfill'}
+                </button>
+                <button
+                  onClick={async () => {
+                    setDebugLoading(true);
+                    setDebugResult(null);
+                    try {
+                      const res = await fetch('/api/admin/debug-activities', { method: 'POST', credentials: 'include' });
+                      const data = await res.json();
+                      setDebugResult(data);
+                    } catch (e) {
+                      alert('Debug fetch failed');
+                    } finally {
+                      setDebugLoading(false);
+                    }
+                  }}
+                  disabled={debugLoading}
+                  style={{ background: '#fff', color: '#5E4ECD', border: '1px solid #5E4ECD', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: debugLoading ? 'wait' : 'pointer', opacity: debugLoading ? 0.7 : 1 }}
+                >
+                  {debugLoading ? 'Loading...' : 'Debug Activities'}
+                </button>
+              </div>
             </div>
           </TabsContent>
 

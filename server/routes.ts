@@ -30853,6 +30853,24 @@ Analyze this bounced email and provide insights in JSON format:
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
+      // Pre-update snapshot for diagnostics
+      const [activityStats] = await db.select({
+        totalActivities: sql<number>`COUNT(*)::int`,
+        sampleCount: sql<number>`COUNT(CASE WHEN activity_type IN ('sample_sent','mailer_one_page','mailer_envelope','mailer_press_kit') THEN 1 END)::int`,
+        emailSentCount: sql<number>`COUNT(CASE WHEN activity_type = 'email_sent' THEN 1 END)::int`,
+        emailRepliedCount: sql<number>`COUNT(CASE WHEN activity_type IN ('email_replied','email_reply','note') THEN 1 END)::int`,
+      }).from(leadActivities);
+
+      const [leadFieldStats] = await db.select({
+        totalLeads: sql<number>`COUNT(*)::int`,
+        withFirstEmailSent: sql<number>`COUNT(CASE WHEN first_email_sent_at IS NOT NULL THEN 1 END)::int`,
+        withFirstEmailReply: sql<number>`COUNT(CASE WHEN first_email_reply_at IS NOT NULL THEN 1 END)::int`,
+        withLastContact: sql<number>`COUNT(CASE WHEN last_contact_at IS NOT NULL THEN 1 END)::int`,
+        withPressTestKit: sql<number>`COUNT(CASE WHEN press_test_kit_sent_at IS NOT NULL THEN 1 END)::int`,
+        withSampleEnvelope: sql<number>`COUNT(CASE WHEN sample_envelope_sent_at IS NOT NULL THEN 1 END)::int`,
+        alreadyHasStage: sql<number>`COUNT(CASE WHEN sales_kanban_stage IS NOT NULL AND sales_kanban_stage != '' THEN 1 END)::int`,
+      }).from(leads);
+
       // PRIORITY 1: Mark replied — overrides everything
       // From firstEmailReplyAt field
       await db.update(leads)
@@ -30968,7 +30986,11 @@ Analyze this bounced email and provide insights in JSON format:
           sampleActivitiesFound: sampleLeadIds.length,
           emailedActivitiesFound: emailedLeadIds.length,
         },
-        message: 'Backfill complete'
+        message: 'Backfill complete',
+        dbSnapshot: {
+          activityStats,
+          leadFieldStats,
+        },
       });
     } catch (error: any) {
       console.error('[Backfill] Error:', error);
@@ -30976,7 +30998,7 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
-  app.get("/api/admin/debug-activities", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/debug-activities", isAuthenticated, async (req: any, res) => {
     try {
       const activityTypes = await db
         .selectDistinct({ activityType: leadActivities.activityType })
