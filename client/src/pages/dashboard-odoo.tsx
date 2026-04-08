@@ -247,12 +247,16 @@ export default function Dashboard() {
   });
 
   const updateKanbanStage = useMutation({
-    mutationFn: async ({ leadId, stage }: { leadId: number; stage: string }) =>
-      apiRequest('PATCH', `/api/leads/${leadId}/kanban-stage`, { stage }),
+    mutationFn: async ({ leadId, stage, type }: { leadId: number; stage: string; type?: string }) => {
+      if (type === 'customer') {
+        return apiRequest('PATCH', `/api/customers/${leadId}/kanban-stage`, { stage });
+      }
+      return apiRequest('PATCH', `/api/leads/${leadId}/kanban-stage`, { stage });
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }),
   });
 
-  const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number } | null>(null);
+  const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number; type?: string } | null>(null);
 
   useEffect(() => {
     if (!moveMenu) return;
@@ -399,7 +403,7 @@ export default function Dashboard() {
                           <div
                             key={item.id}
                             style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '3px' }}
-                            onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY }); }}
+                            onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type }); }}
                           >
                             <span style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.company || item.name}</span>
                             {item.signal && (
@@ -431,7 +435,7 @@ export default function Dashboard() {
                 ].map(opt => (
                   <button
                     key={opt.stage || 'remove'}
-                    onClick={() => { updateKanbanStage.mutate({ leadId: moveMenu.leadId, stage: opt.stage as string }); setMoveMenu(null); }}
+                    onClick={() => { updateKanbanStage.mutate({ leadId: moveMenu.leadId, stage: opt.stage as string, type: moveMenu.type }); setMoveMenu(null); }}
                     style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '7px 8px', borderRadius: '7px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '13px', color: '#1A1A1A', textAlign: 'left' }}
                     onMouseEnter={e => (e.currentTarget.style.background = opt.bg)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}

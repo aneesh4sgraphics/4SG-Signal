@@ -1,0 +1,40 @@
+In server/routes.ts, add a customer kanban stage endpoint right after the existing /api/leads/:id/kanban-stage PATCH route:
+
+app.patch("/api/customers/:id/kanban-stage", isAuthenticated, async (req: any, res) => {
+  try {
+    const customerId = req.params.id;
+    const { stage } = req.body;
+    await db.update(customers).set({ salesKanbanStage: stage }).where(eq(customers.id, customerId));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update customer kanban stage" });
+  }
+});
+
+Then in client/src/pages/dashboard-odoo.tsx, update the updateKanbanStage mutation to handle both leads and customers:
+
+Find the existing updateKanbanStage mutation and replace it with:
+
+  const updateKanbanStage = useMutation({
+    mutationFn: async ({ leadId, stage, type }: { leadId: number; stage: string; type?: string }) => {
+      if (type === 'customer') {
+        return apiRequest('PATCH', `/api/customers/${leadId}/kanban-stage`, { stage });
+      }
+      return apiRequest('PATCH', `/api/leads/${leadId}/kanban-stage`, { stage });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }),
+  });
+
+Then in the move menu onClick handler, pass the item type:
+Find: updateKanbanStage.mutate({ leadId: moveMenu.leadId, stage: opt.stage as string });
+Replace with: updateKanbanStage.mutate({ leadId: moveMenu.leadId, stage: opt.stage as string, type: moveMenu.type });
+
+Also update the moveMenu state type to include type:
+Find: const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number } | null>(null);
+Replace with: const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number; type?: string } | null>(null);
+
+And update the setMoveMenu call in the card onClick to pass item.type:
+Find: setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY })
+Replace with: setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type })
+
+Do not change anything else.

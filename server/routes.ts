@@ -31098,6 +31098,17 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  app.patch("/api/customers/:id/kanban-stage", isAuthenticated, async (req: any, res) => {
+    try {
+      const customerId = req.params.id;
+      const { stage } = req.body;
+      await db.update(customers).set({ salesKanbanStage: stage }).where(eq(customers.id, customerId));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update customer kanban stage" });
+    }
+  });
+
 
   // ========================================
   // Sketchboard API Routes
