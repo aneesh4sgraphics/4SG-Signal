@@ -141,7 +141,7 @@ const AppRoutes = () => (
   <PageErrorBoundary>
   <Suspense fallback={<PageLoader />}>
     <Switch>
-      <Route path="/" component={Spotlight} />
+      <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/quick-quotes" component={QuoteCalculator} />
       <Route path="/quote-calculator" component={QuoteCalculator} />
@@ -178,7 +178,7 @@ const AppRoutes = () => (
       <Route path="/sales-analytics" component={SalesAnalyticsPage} />
       <Route path="/reports" component={ReportsPage} />
       <Route path="/admin/costs" component={CostDashboard} />
-      <Route path="/spotlight"><Redirect to="/" /></Route>
+      <Route path="/spotlight" component={Spotlight} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/tasks" component={TaskInbox} />
       <Route path="/hot-leads" component={HotLeads} />

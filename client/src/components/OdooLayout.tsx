@@ -77,7 +77,7 @@ interface NavItemDef {
 // ── Top pinned items (always visible, no section header) ──────────────────────
 const TOP_ITEMS: NavItemDef[] = [
   { path: '/dashboard', label: 'Home', icon: Home, iconColor: '#6366f1' },
-  { path: '/', label: 'Spotlight', icon: Sparkles, iconColor: '#f59e0b' },
+  { path: '/spotlight', label: 'Spotlight', icon: Sparkles, iconColor: '#f59e0b' },
   { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
 ];
 
