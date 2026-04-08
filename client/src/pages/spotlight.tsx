@@ -778,6 +778,12 @@ export default function Spotlight() {
       progress: number;
       goalMet: boolean;
     };
+    mailers: {
+      count: number;
+      goal: number;
+      progress: number;
+      goalMet: boolean;
+    };
     quotesFollowedUp: {
       count: number;
       goal: number;
@@ -2518,6 +2524,23 @@ export default function Spotlight() {
                   </span>
                 </div>
                 
+                {/* Mailers Sent Today */}
+                <div className="flex items-center gap-2" title="Mailer labels printed today">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: `${todayProgress?.mailers?.progress || 0}%`, 
+                        backgroundColor: todayProgress?.mailers?.goalMet ? '#22C55E' : '#8B5CF6' 
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-24">Mailers</span>
+                  <span className={`text-xs font-medium w-10 text-right ${todayProgress?.mailers?.goalMet ? 'text-green-600' : 'text-violet-600'}`}>
+                    {todayProgress?.mailers?.count || 0}/{todayProgress?.mailers?.goal || 5}
+                  </span>
+                </div>
+
                 {/* Calls Made */}
                 <div className="flex items-center gap-2" title="All calls made today">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">

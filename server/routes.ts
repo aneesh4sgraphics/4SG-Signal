@@ -4108,7 +4108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Run all queries in parallel: label prints + one aggregated spotlight_events + session + follow-ups
-      const [labelStats, eventsAgg, sessionResult, onTimeFollowUps] = await Promise.all([
+      const [labelStats, mailerStats, eventsAgg, sessionResult, onTimeFollowUps] = await Promise.all([
         // 1. SWATCHBOOKS: label prints (swatch_book / press_test_kit)
         db.select({ labelType: labelPrints.labelType, count: sql<number>`COUNT(*)::int` })
           .from(labelPrints)
@@ -4118,6 +4118,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             or(eq(labelPrints.labelType, 'swatch_book'), eq(labelPrints.labelType, 'press_test_kit'))
           ))
           .groupBy(labelPrints.labelType),
+
+        // 1b. MAILERS: label prints of type 'mailer' today
+        db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(labelPrints)
+          .where(and(
+            eq(labelPrints.printedByUserId, userId),
+            gte(labelPrints.createdAt, today),
+            eq(labelPrints.labelType, 'mailer')
+          )),
 
         // 2-5. Single aggregated query replaces 5 individual spotlight_events queries
         db.select({
@@ -4152,6 +4161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const swatchBookCount    = labelStats.find(s => s.labelType === 'swatch_book')?.count || 0;
       const pressTestKitCount  = labelStats.find(s => s.labelType === 'press_test_kit')?.count || 0;
+      const mailerCount        = mailerStats[0]?.count || 0;
       const sampleFollowUpCount = eventsAgg[0]?.sampleFollowups || 0;
       const totalSwatchbooks   = swatchBookCount + pressTestKitCount + sampleFollowUpCount;
       const swatchbookGoal     = 3;
@@ -4208,6 +4218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           goal: hygieneGoal,
           progress: Math.min(100, (hygieneCount / hygieneGoal) * 100),
           goalMet: hygieneCount >= hygieneGoal,
+        },
+        mailers: {
+          count: mailerCount,
+          goal: 5,
+          progress: Math.min(100, (mailerCount / 5) * 100),
+          goalMet: mailerCount >= 5,
         },
         quotesFollowedUp: {
           count: quotesFollowedUp,
