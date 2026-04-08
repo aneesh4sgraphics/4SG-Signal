@@ -30943,6 +30943,12 @@ Analyze this bounced email and provide insights in JSON format:
         .orderBy(desc(leads.firstEmailReplyAt))
         .limit(20);
 
+      const repliedCustomers = await db
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .from(customers)
+        .where(eq(customers.salesKanbanStage, 'replied'))
+        .limit(20);
+
       const samplesLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
         .from(leads)
@@ -30954,6 +30960,12 @@ Analyze this bounced email and provide insights in JSON format:
           )
         )
         .orderBy(desc(leads.pressTestKitSentAt))
+        .limit(20);
+
+      const samplesCustomers = await db
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .from(customers)
+        .where(eq(customers.salesKanbanStage, 'samples_requested'))
         .limit(20);
 
       const noResponseLeads = await db
@@ -30976,17 +30988,29 @@ Analyze this bounced email and provide insights in JSON format:
         .orderBy(asc(leads.lastContactAt))
         .limit(20);
 
+      const noResponseCustomers = await db
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .from(customers)
+        .where(eq(customers.salesKanbanStage, 'no_response'))
+        .limit(20);
+
       const issueLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
         .from(leads)
         .where(eq(leads.salesKanbanStage, 'issue'))
         .limit(20);
 
+      const issueCustomers = await db
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .from(customers)
+        .where(eq(customers.salesKanbanStage, 'issue'))
+        .limit(20);
+
       res.json({
-        replied: repliedLeads,
-        samplesRequested: samplesLeads,
-        noResponse: noResponseLeads,
-        issues: issueLeads,
+        replied: [...repliedLeads, ...repliedCustomers],
+        samplesRequested: [...samplesLeads, ...samplesCustomers],
+        noResponse: [...noResponseLeads, ...noResponseCustomers],
+        issues: [...issueLeads, ...issueCustomers],
       });
     } catch (error) {
       console.error("Error fetching kanban data:", error);
