@@ -5651,10 +5651,12 @@ class SpotlightEngine {
             leadUpdateData.onePageMailerSentAt = now;
             leadUpdateData.lastMailerSentAt = now;
             leadUpdateData.lastMailerType = 'one_page';
+            leadUpdateData.salesKanbanStage = 'samples_requested';
           } else if (outcomeId === 'mailer_sent_envelope') {
             leadUpdateData.sampleEnvelopeSentAt = now;
             leadUpdateData.lastMailerSentAt = now;
             leadUpdateData.lastMailerType = 'envelope';
+            leadUpdateData.salesKanbanStage = 'samples_requested';
           }
           
           // Assign to this sales rep if unassigned
