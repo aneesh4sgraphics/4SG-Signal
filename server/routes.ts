@@ -30850,6 +30850,10 @@ Analyze this bounced email and provide insights in JSON format:
 
   app.post("/api/admin/backfill-kanban-stages", isAuthenticated, async (req: any, res) => {
     try {
+      // Clear all existing kanban stages first — reset to clean state
+      await db.update(leads).set({ salesKanbanStage: null });
+      await db.update(customers).set({ salesKanbanStage: null });
+
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
