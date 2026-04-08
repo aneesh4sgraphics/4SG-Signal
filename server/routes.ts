@@ -13514,42 +13514,111 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       // Query by email if provided (most accurate for contact-level)
       if (contactEmail) {
         const normalizedEmail = (contactEmail as string).toLowerCase().replace(/\s/g, '');
-        emails = await db.select({
-          id: gmailMessages.id,
-          direction: gmailMessages.direction,
-          fromEmail: gmailMessages.fromEmail,
-          fromName: gmailMessages.fromName,
-          toEmail: gmailMessages.toEmail,
-          subject: gmailMessages.subject,
-          snippet: gmailMessages.snippet,
-          sentAt: gmailMessages.sentAt,
-        })
-        .from(gmailMessages)
-        .where(
-          or(
-            eq(gmailMessages.fromEmailNormalized, normalizedEmail),
-            eq(gmailMessages.toEmailNormalized, normalizedEmail)
+        const [gmailRows, sendRows] = await Promise.all([
+          db.select({
+            id: gmailMessages.id,
+            direction: gmailMessages.direction,
+            fromEmail: gmailMessages.fromEmail,
+            fromName: gmailMessages.fromName,
+            toEmail: gmailMessages.toEmail,
+            subject: gmailMessages.subject,
+            snippet: gmailMessages.snippet,
+            sentAt: gmailMessages.sentAt,
+          })
+          .from(gmailMessages)
+          .where(
+            or(
+              eq(gmailMessages.fromEmailNormalized, normalizedEmail),
+              eq(gmailMessages.toEmailNormalized, normalizedEmail)
+            )
           )
-        )
-        .orderBy(desc(gmailMessages.sentAt))
-        .limit(limitNum);
+          .orderBy(desc(gmailMessages.sentAt))
+          .limit(limitNum),
+          db.select({
+            id: emailSends.id,
+            recipientEmail: emailSends.recipientEmail,
+            subject: emailSends.subject,
+            sentAt: emailSends.sentAt,
+            sentBy: emailSends.sentBy,
+          })
+          .from(emailSends)
+          .where(and(sql`LOWER(TRIM(${emailSends.recipientEmail})) = ${normalizedEmail}`, eq(emailSends.status, 'sent')))
+          .orderBy(desc(emailSends.sentAt))
+          .limit(limitNum),
+        ]);
+        const sendMapped = sendRows.map((r: any) => ({
+          id: 1000000 + r.id,
+          direction: 'outbound',
+          fromEmail: null,
+          fromName: '4S Graphics',
+          toEmail: r.recipientEmail,
+          subject: r.subject,
+          snippet: r.sentBy === 'drip-worker' ? 'Drip campaign email' : 'Sent email',
+          sentAt: r.sentAt?.toISOString() ?? null,
+          isDrip: r.sentBy === 'drip-worker',
+        }));
+        const gmailSubjectSet = new Set(gmailRows.map((r: any) => (r.subject || '').toLowerCase().trim()));
+        const dedupedSends = sendMapped.filter((r: any) => !gmailSubjectSet.has((r.subject || '').toLowerCase().trim()));
+        emails = [...gmailRows, ...dedupedSends].sort((a: any, b: any) => {
+          const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
+          const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+          return tb - ta;
+        });
       }
       // Query by customer ID 
       else if (customerId) {
-        emails = await db.select({
-          id: gmailMessages.id,
-          direction: gmailMessages.direction,
-          fromEmail: gmailMessages.fromEmail,
-          fromName: gmailMessages.fromName,
-          toEmail: gmailMessages.toEmail,
-          subject: gmailMessages.subject,
-          snippet: gmailMessages.snippet,
-          sentAt: gmailMessages.sentAt,
-        })
-        .from(gmailMessages)
-        .where(eq(gmailMessages.customerId, customerId as string))
-        .orderBy(desc(gmailMessages.sentAt))
-        .limit(limitNum);
+        // Look up customer email to also search email_sends
+        const [custRow] = await db.select({ email: customers.email, emailNormalized: customers.emailNormalized })
+          .from(customers).where(eq(customers.id, customerId as string)).limit(1);
+        const custEmailNorm = custRow?.emailNormalized || (custRow?.email ? custRow.email.toLowerCase().trim() : null);
+
+        const [gmailRows, sendRows] = await Promise.all([
+          db.select({
+            id: gmailMessages.id,
+            direction: gmailMessages.direction,
+            fromEmail: gmailMessages.fromEmail,
+            fromName: gmailMessages.fromName,
+            toEmail: gmailMessages.toEmail,
+            subject: gmailMessages.subject,
+            snippet: gmailMessages.snippet,
+            sentAt: gmailMessages.sentAt,
+          })
+          .from(gmailMessages)
+          .where(eq(gmailMessages.customerId, customerId as string))
+          .orderBy(desc(gmailMessages.sentAt))
+          .limit(limitNum),
+          custEmailNorm
+            ? db.select({
+                id: emailSends.id,
+                recipientEmail: emailSends.recipientEmail,
+                subject: emailSends.subject,
+                sentAt: emailSends.sentAt,
+                sentBy: emailSends.sentBy,
+              })
+              .from(emailSends)
+              .where(and(sql`LOWER(TRIM(${emailSends.recipientEmail})) = ${custEmailNorm}`, eq(emailSends.status, 'sent')))
+              .orderBy(desc(emailSends.sentAt))
+              .limit(limitNum)
+            : Promise.resolve([] as any[]),
+        ]);
+        const sendMapped = sendRows.map((r: any) => ({
+          id: 1000000 + r.id,
+          direction: 'outbound',
+          fromEmail: null,
+          fromName: '4S Graphics',
+          toEmail: r.recipientEmail,
+          subject: r.subject,
+          snippet: r.sentBy === 'drip-worker' ? 'Drip campaign email' : 'Sent email',
+          sentAt: r.sentAt?.toISOString() ?? null,
+          isDrip: r.sentBy === 'drip-worker',
+        }));
+        const gmailSubjectSet = new Set(gmailRows.map((r: any) => (r.subject || '').toLowerCase().trim()));
+        const dedupedSends = sendMapped.filter((r: any) => !gmailSubjectSet.has((r.subject || '').toLowerCase().trim()));
+        emails = [...gmailRows, ...dedupedSends].sort((a: any, b: any) => {
+          const ta = a.sentAt ? new Date(a.sentAt).getTime() : 0;
+          const tb = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+          return tb - ta;
+        });
       }
       // Query by lead ID — merge gmail_messages + email_sends for this lead
       else if (leadId) {

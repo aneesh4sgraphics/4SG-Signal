@@ -1,0 +1,54 @@
+In client/src/pages/lead-detail.tsx, fix three bugs in the Push to Odoo flow:
+
+BUG FIX 1 — Wrong redirect route:
+Find this line (around line 334):
+  setTimeout(() => setLocation(`/contacts/${data.customerId}`), 600);
+
+Replace with:
+  setTimeout(() => setLocation(`/odoo-contacts/${data.customerId}`), 600);
+
+BUG FIX 2 — Add a confirmation dialog before pushing:
+Find the Push to Odoo button render (around line 532). Currently it calls pushToOdooMutation.mutate() directly on click.
+
+Add a confirmation state variable near the other useState calls:
+  const [showPushConfirm, setShowPushConfirm] = useState(false);
+
+Replace the button's onClick with:
+  onClick={() => setShowPushConfirm(true)}
+
+Then add a confirmation dialog in the JSX (near the other dialogs or just before the closing fragment):
+
+  <AlertDialog open={showPushConfirm} onOpenChange={setShowPushConfirm}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Push to Odoo and convert to Contact?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This will create {lead?.name} as a Contact in Odoo and move them out of Leads permanently. This cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          onClick={() => { setShowPushConfirm(false); pushToOdooMutation.mutate(); }}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          Yes, push to Odoo
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+
+Make sure AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction are imported from @/components/ui/alert-dialog — they are likely already imported, just verify.
+
+BUG FIX 3 — Better error message on failure:
+Find the onError handler of pushToOdooMutation:
+  onError: (e: Error) => toast({ title: "Push to Odoo failed", description: e.message, variant: "destructive" }),
+
+Replace with:
+  onError: (e: Error) => toast({ 
+    title: "Push to Odoo failed", 
+    description: e.message || "Could not connect to Odoo. The lead has not been deleted — please try again.", 
+    variant: "destructive" 
+  }),
+
+Do not change anything else.
