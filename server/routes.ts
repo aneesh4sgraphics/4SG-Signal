@@ -31391,8 +31391,6 @@ Analyze this bounced email and provide insights in JSON format:
     try {
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const repliedLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
@@ -31489,7 +31487,7 @@ Analyze this bounced email and provide insights in JSON format:
                 isNotNull(leads.firstEmailSentAt),
                 isNull(leads.firstEmailReplyAt),
                 lt(leads.lastContactAt, tenDaysAgo),
-                gte(leads.lastContactAt, thirtyDaysAgo)
+                sql`${leads.lastContactAt} >= NOW() - INTERVAL '30 days'`
               ),
               eq(leads.salesKanbanStage, 'no_response')
             )
@@ -31514,7 +31512,7 @@ Analyze this bounced email and provide insights in JSON format:
             isNull(customers.pressTestSentAt),
             isNull(customers.swatchbookSentAt),
             eq(customers.salesKanbanStage, 'no_response'),
-            gte(customers.lastContactAt, thirtyDaysAgo)
+            sql`${customers.lastOutboundEmailAt} >= NOW() - INTERVAL '30 days'`
           )
         )
         .limit(100);
@@ -31752,6 +31750,37 @@ Analyze this bounced email and provide insights in JSON format:
     } catch (err: any) {
       console.error('[Global Search] Error:', err.message);
       res.status(500).json({ error: 'Search failed' });
+    }
+  });
+
+  app.post("/api/tasks/bulk-complete-overdue", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const userEmail = req.user?.email || '';
+      const isAneesh = userEmail === 'aneesh@4sgraphics.com';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
+
+      const conditions: any[] = [
+        eq(followUpTasks.status, 'pending'),
+        lt(followUpTasks.dueDate, today),
+        gte(followUpTasks.createdAt, thisYearStart),
+      ];
+
+      if (!isAneesh) {
+        conditions.push(
+          or(eq(followUpTasks.assignedTo, userEmail), eq(followUpTasks.assignedTo, userId))
+        );
+      }
+
+      const result = await db.update(followUpTasks)
+        .set({ status: 'completed', completedAt: new Date(), completedBy: userEmail })
+        .where(and(...conditions));
+
+      res.json({ completed: (result as any).rowCount || 0 });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to complete tasks' });
     }
   });
 

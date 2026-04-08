@@ -1,0 +1,66 @@
+Make two changes for bulk completing overdue tasks:
+
+CHANGE 1 — In server/routes.ts, add this endpoint before the closing of the routes function:
+
+  app.post("/api/tasks/bulk-complete-overdue", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const userEmail = req.user?.email || '';
+      const isAneesh = userEmail === 'aneesh@4sgraphics.com';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
+
+      const conditions: any[] = [
+        eq(followUpTasks.status, 'pending'),
+        lt(followUpTasks.dueDate, today),
+        gte(followUpTasks.createdAt, thisYearStart),
+      ];
+
+      if (!isAneesh) {
+        conditions.push(
+          or(eq(followUpTasks.assignedTo, userEmail), eq(followUpTasks.assignedTo, userId))
+        );
+      }
+
+      const result = await db.update(followUpTasks)
+        .set({ status: 'completed', completedAt: new Date(), completedBy: userEmail })
+        .where(and(...conditions));
+
+      res.json({ completed: (result as any).rowCount || 0 });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to complete tasks' });
+    }
+  });
+
+CHANGE 2 — In client/src/pages/task-inbox.tsx, add a bulk complete mutation and button:
+
+Add this mutation near the other mutations:
+  const bulkCompleteOverdueMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/tasks/bulk-complete-overdue', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/list'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/summary'] });
+      toast({ title: `${data.completed} overdue tasks marked complete` });
+    },
+    onError: () => toast({ title: 'Failed to complete tasks', variant: 'destructive' }),
+  });
+
+Find where the tab filters are rendered (the Today / Overdue / This Week buttons). Right after the overdue tab button, add:
+
+  {activeTab === 'overdue' && (
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-xs border-red-200 text-red-600 hover:bg-red-50 ml-2"
+      onClick={() => bulkCompleteOverdueMutation.mutate()}
+      disabled={bulkCompleteOverdueMutation.isPending}
+    >
+      {bulkCompleteOverdueMutation.isPending ? 'Completing...' : 'Mark all done'}
+    </Button>
+  )}
+
+Do not change anything else.

@@ -446,6 +446,19 @@ export default function TaskInboxPage() {
     },
   });
 
+  const bulkCompleteOverdueMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/tasks/bulk-complete-overdue', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/list'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/summary'] });
+      toast({ title: `${data.completed} overdue tasks marked complete` });
+    },
+    onError: () => toast({ title: 'Failed to complete tasks', variant: 'destructive' }),
+  });
+
   const getTaskTypeIcon = (taskType: string | undefined) => {
     if (!taskType) return Clock;
     if (taskType.includes("quote")) return FileText;
@@ -715,6 +728,17 @@ export default function TaskInboxPage() {
                     <SelectItem value="created">Recently Created</SelectItem>
                   </SelectContent>
                 </Select>
+                {activeTab === 'overdue' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-red-200 text-red-600 hover:bg-red-50 ml-2"
+                    onClick={() => bulkCompleteOverdueMutation.mutate()}
+                    disabled={bulkCompleteOverdueMutation.isPending}
+                  >
+                    {bulkCompleteOverdueMutation.isPending ? 'Completing...' : 'Mark all done'}
+                  </Button>
+                )}
               </div>
             )}
           </div>
