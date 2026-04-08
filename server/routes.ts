@@ -30997,7 +30997,7 @@ Analyze this bounced email and provide insights in JSON format:
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
       const repliedLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
         .from(leads)
         .where(
           and(
@@ -31013,13 +31013,13 @@ Analyze this bounced email and provide insights in JSON format:
         .limit(20);
 
       const repliedCustomers = await db
-        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage, signal: sql<string | null>`null` })
         .from(customers)
         .where(eq(customers.salesKanbanStage, 'replied'))
         .limit(20);
 
       const samplesLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
         .from(leads)
         .where(
           or(
@@ -31032,13 +31032,13 @@ Analyze this bounced email and provide insights in JSON format:
         .limit(20);
 
       const samplesCustomers = await db
-        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage, signal: sql<string | null>`null` })
         .from(customers)
         .where(eq(customers.salesKanbanStage, 'samples_requested'))
         .limit(20);
 
       const noResponseLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
         .from(leads)
         .where(
           and(
@@ -31058,13 +31058,13 @@ Analyze this bounced email and provide insights in JSON format:
         .limit(20);
 
       const noResponseCustomers = await db
-        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage })
+        .select({ id: sql<number>`0`, name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company})`, company: customers.company, type: sql<string>`'customer'`, salesKanbanStage: customers.salesKanbanStage, signal: sql<string | null>`null` })
         .from(customers)
         .where(eq(customers.salesKanbanStage, 'no_response'))
         .limit(20);
 
       const issueLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`'issue flagged'` })
         .from(leads)
         .where(eq(leads.salesKanbanStage, 'issue'))
         .limit(20);
