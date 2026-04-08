@@ -1,0 +1,168 @@
+In server/routes.ts, replace the entire /api/admin/backfill-kanban-stages endpoint body with this improved version that reads from lead_activities (where historical data actually lives):
+
+app.post("/api/admin/backfill-kanban-stages", isAuthenticated, async (req: any, res) => {
+  try {
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+    // Step 1: Find lead IDs that have mailer/sample activities logged
+    const mailerActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(
+        inArray(leadActivities.activityType, [
+          'mailer_one_page', 'mailer_envelope', 'mailer_press_kit', 'sample_sent'
+        ])
+      );
+
+    const mailerLeadIds = mailerActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    // Step 2: Find lead IDs that have email_reply activities logged
+    const replyActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(eq(leadActivities.activityType, 'email_reply'));
+
+    const replyLeadIds = replyActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    // Step 3: Find lead IDs that have email_sent activities logged (for no_response)
+    const emailedLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(eq(leadActivities.activityType, 'email_sent'));
+
+    const emailedLeadIds = emailedLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    // Step 4: Set samples_requested for leads with mailer/sample activities
+    let samplesUpdated = 0;
+    if (mailerLeadIds.length > 0) {
+      const result = await db.update(leads)
+        .set({ salesKanbanStage: 'samples_requested' })
+        .where(
+          and(
+            inArray(leads.id, mailerLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''))
+          )
+        );
+      samplesUpdated = (result as any).rowCount || 0;
+    }
+
+    // Also catch leads with timestamp fields set (from newer activity)
+    await db.update(leads)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+          or(
+            isNotNull(leads.pressTestKitSentAt),
+            isNotNull(leads.sampleEnvelopeSentAt),
+            isNotNull(leads.sampleSentAt),
+            isNotNull(leads.onePageMailerSentAt),
+          )
+        )
+      );
+
+    // Step 5: Set replied for leads with reply activities (overrides samples)
+    let repliedUpdated = 0;
+    if (replyLeadIds.length > 0) {
+      const result = await db.update(leads)
+        .set({ salesKanbanStage: 'replied' })
+        .where(
+          and(
+            inArray(leads.id, replyLeadIds),
+            or(
+              isNull(leads.salesKanbanStage),
+              eq(leads.salesKanbanStage, ''),
+              eq(leads.salesKanbanStage, 'samples_requested'),
+            )
+          )
+        );
+      repliedUpdated = (result as any).rowCount || 0;
+    }
+
+    // Also catch leads with firstEmailReplyAt set
+    await db.update(leads)
+      .set({ salesKanbanStage: 'replied' })
+      .where(
+        and(
+          isNotNull(leads.firstEmailReplyAt),
+          or(
+            isNull(leads.salesKanbanStage),
+            eq(leads.salesKanbanStage, ''),
+            eq(leads.salesKanbanStage, 'samples_requested'),
+          )
+        )
+      );
+
+    // Step 6: Set no_response for emailed leads with no reply and no samples
+    let noResponseUpdated = 0;
+    if (emailedLeadIds.length > 0) {
+      const result = await db.update(leads)
+        .set({ salesKanbanStage: 'no_response' })
+        .where(
+          and(
+            inArray(leads.id, emailedLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+            isNull(leads.firstEmailReplyAt),
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleEnvelopeSentAt),
+            lt(leads.lastContactAt, tenDaysAgo)
+          )
+        );
+      noResponseUpdated = (result as any).rowCount || 0;
+    }
+
+    // Step 7: Customers with swatchbook or press test → samples_requested
+    await db.update(customers)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(isNull(customers.salesKanbanStage), eq(customers.salesKanbanStage, '')),
+          or(
+            isNotNull(customers.pressTestSentAt),
+            isNotNull(customers.swatchbookSentAt),
+          )
+        )
+      );
+
+    // Count final results
+    const [leadCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+      replied: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'replied' THEN 1 END)::int`,
+      noResponse: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'no_response' THEN 1 END)::int`,
+    }).from(leads);
+
+    const [custCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+    }).from(customers);
+
+    res.json({
+      success: true,
+      leads: {
+        samples_requested: leadCounts.samples,
+        replied: leadCounts.replied,
+        no_response: leadCounts.noResponse,
+      },
+      customers: {
+        samples_requested: custCounts.samples,
+      },
+      activityScan: {
+        mailerActivitiesFound: mailerLeadIds.length,
+        replyActivitiesFound: replyLeadIds.length,
+        emailedLeadsFound: emailedLeadIds.length,
+      },
+      message: 'Kanban stages backfilled from lead activity history'
+    });
+  } catch (error: any) {
+    console.error('[Backfill] Error:', error);
+    res.status(500).json({ error: 'Backfill failed: ' + error.message });
+  }
+});
+
+Make sure leadActivities is imported from schema. Do not change anything else.

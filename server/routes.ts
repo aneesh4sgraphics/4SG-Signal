@@ -30853,8 +30853,56 @@ Analyze this bounced email and provide insights in JSON format:
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
-      // 1. Leads with press test kit sent → samples_requested (regardless of when)
-      const r1 = await db.update(leads)
+      // Step 1: Find lead IDs that have mailer/sample activities logged
+      const mailerActivityLeads = await db
+        .selectDistinct({ leadId: leadActivities.leadId })
+        .from(leadActivities)
+        .where(
+          inArray(leadActivities.activityType, [
+            'mailer_one_page', 'mailer_envelope', 'mailer_press_kit', 'sample_sent'
+          ])
+        );
+
+      const mailerLeadIds = mailerActivityLeads
+        .map(r => r.leadId)
+        .filter((id): id is number => id !== null);
+
+      // Step 2: Find lead IDs that have email_reply activities logged
+      const replyActivityLeads = await db
+        .selectDistinct({ leadId: leadActivities.leadId })
+        .from(leadActivities)
+        .where(eq(leadActivities.activityType, 'email_reply'));
+
+      const replyLeadIds = replyActivityLeads
+        .map(r => r.leadId)
+        .filter((id): id is number => id !== null);
+
+      // Step 3: Find lead IDs that have email_sent activities logged (for no_response)
+      const emailedLeads = await db
+        .selectDistinct({ leadId: leadActivities.leadId })
+        .from(leadActivities)
+        .where(eq(leadActivities.activityType, 'email_sent'));
+
+      const emailedLeadIds = emailedLeads
+        .map(r => r.leadId)
+        .filter((id): id is number => id !== null);
+
+      // Step 4: Set samples_requested for leads with mailer/sample activities
+      let samplesUpdated = 0;
+      if (mailerLeadIds.length > 0) {
+        const result = await db.update(leads)
+          .set({ salesKanbanStage: 'samples_requested' })
+          .where(
+            and(
+              inArray(leads.id, mailerLeadIds),
+              or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''))
+            )
+          );
+        samplesUpdated = (result as any).rowCount || 0;
+      }
+
+      // Also catch leads with timestamp fields set (from newer activity)
+      await db.update(leads)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
           and(
@@ -30868,8 +30916,26 @@ Analyze this bounced email and provide insights in JSON format:
           )
         );
 
-      // 2. Leads that replied → replied (takes priority, overrides samples)
-      const r2 = await db.update(leads)
+      // Step 5: Set replied for leads with reply activities (overrides samples)
+      let repliedUpdated = 0;
+      if (replyLeadIds.length > 0) {
+        const result = await db.update(leads)
+          .set({ salesKanbanStage: 'replied' })
+          .where(
+            and(
+              inArray(leads.id, replyLeadIds),
+              or(
+                isNull(leads.salesKanbanStage),
+                eq(leads.salesKanbanStage, ''),
+                eq(leads.salesKanbanStage, 'samples_requested'),
+              )
+            )
+          );
+        repliedUpdated = (result as any).rowCount || 0;
+      }
+
+      // Also catch leads with firstEmailReplyAt set
+      await db.update(leads)
         .set({ salesKanbanStage: 'replied' })
         .where(
           and(
@@ -30882,22 +30948,26 @@ Analyze this bounced email and provide insights in JSON format:
           )
         );
 
-      // 3. Leads emailed 10+ days ago with no reply → no_response
-      const r3 = await db.update(leads)
-        .set({ salesKanbanStage: 'no_response' })
-        .where(
-          and(
-            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
-            isNotNull(leads.firstEmailSentAt),
-            isNull(leads.firstEmailReplyAt),
-            isNull(leads.pressTestKitSentAt),
-            isNull(leads.sampleEnvelopeSentAt),
-            lt(leads.lastContactAt, tenDaysAgo)
-          )
-        );
+      // Step 6: Set no_response for emailed leads with no reply and no samples
+      let noResponseUpdated = 0;
+      if (emailedLeadIds.length > 0) {
+        const result = await db.update(leads)
+          .set({ salesKanbanStage: 'no_response' })
+          .where(
+            and(
+              inArray(leads.id, emailedLeadIds),
+              or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+              isNull(leads.firstEmailReplyAt),
+              isNull(leads.pressTestKitSentAt),
+              isNull(leads.sampleEnvelopeSentAt),
+              lt(leads.lastContactAt, tenDaysAgo)
+            )
+          );
+        noResponseUpdated = (result as any).rowCount || 0;
+      }
 
-      // 4. Customers with swatchbook or press test sent → samples_requested
-      const r4 = await db.update(customers)
+      // Step 7: Customers with swatchbook or press test → samples_requested
+      await db.update(customers)
         .set({ salesKanbanStage: 'samples_requested' })
         .where(
           and(
@@ -30909,7 +30979,7 @@ Analyze this bounced email and provide insights in JSON format:
           )
         );
 
-      // Count results after backfill
+      // Count final results
       const [leadCounts] = await db.select({
         samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
         replied: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'replied' THEN 1 END)::int`,
@@ -30930,7 +31000,12 @@ Analyze this bounced email and provide insights in JSON format:
         customers: {
           samples_requested: custCounts.samples,
         },
-        message: 'Kanban stages backfilled from all historical activity'
+        activityScan: {
+          mailerActivitiesFound: mailerLeadIds.length,
+          replyActivitiesFound: replyLeadIds.length,
+          emailedLeadsFound: emailedLeadIds.length,
+        },
+        message: 'Kanban stages backfilled from lead activity history'
       });
     } catch (error: any) {
       console.error('[Backfill] Error:', error);
