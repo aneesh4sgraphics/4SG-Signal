@@ -59,7 +59,7 @@ interface BusinessMetrics {
   connected: boolean;
 }
 
-interface OdooContact { id: number; name: string; email: string | null; phone: string | null; function: string | null; }
+interface OdooContact { id: number; name: string; email: string | null; phone: string | null; function: string | null; localId?: string; localOnly?: boolean; }
 
 interface ActivityEvent {
   id: number; customerId: string; eventType: string; title: string;
@@ -1103,17 +1103,26 @@ export default function OdooCompanyDetail() {
             ) : (
               <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
                 {contactsData.contacts.map(contact => (
-                  <div key={contact.id} className="px-4 py-3 hover:bg-gray-50">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 text-xs font-semibold shrink-0">{initials(contact.name)}</div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{contact.name}</p>
-                        {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
+                  <div key={contact.localId || contact.id} className="px-4 py-3 hover:bg-gray-50">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 text-xs font-semibold shrink-0">{initials(contact.name)}</div>
+                        <div className="min-w-0">
+                          {contact.localId ? (
+                            <Link href={`/odoo-contacts/${contact.localId}`} className="text-sm font-medium text-gray-800 hover:text-violet-600 hover:underline">{contact.name}</Link>
+                          ) : (
+                            <p className="text-sm font-medium text-gray-800">{contact.name}</p>
+                          )}
+                          {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
+                        </div>
                       </div>
+                      {contact.localOnly && (
+                        <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Local</span>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-3 mt-1 text-xs ml-9">
                       {contact.email && (
-                        <button onClick={() => emailComposer.open({ to: contact.email || "", customerId: company.id, customerName: contact.name, usageType: "client_email", variables: { "client.name": contact.name, "client.company": company.company || "", "client.email": contact.email || "", "client.firstName": contact.name.split(" ")[0] || "", "client.lastName": contact.name.split(" ").slice(1).join(" ") || "" } })} className="flex items-center gap-1 text-violet-600 hover:text-green-600">
+                        <button onClick={() => emailComposer.open({ to: contact.email || "", customerId: contact.localId || company.id, customerName: contact.name, usageType: "client_email", variables: { "client.name": contact.name, "client.company": company.company || "", "client.email": contact.email || "", "client.firstName": contact.name.split(" ")[0] || "", "client.lastName": contact.name.split(" ").slice(1).join(" ") || "" } })} className="flex items-center gap-1 text-violet-600 hover:text-green-600">
                           <Mail className="w-3 h-3" /> {contact.email}
                           {isShopifyEmail(contact.email) && <SiShopify className="w-3 h-3 text-green-600" />}
                         </button>

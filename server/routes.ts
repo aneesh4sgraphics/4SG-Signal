@@ -20229,22 +20229,72 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
-  // Get company contacts (people belonging to this company) from Odoo
+  // Get company contacts (people belonging to this company) from Odoo + local DB
   app.get("/api/odoo/customer/:customerId/contacts", requireApproval, async (req: any, res) => {
     try {
       const { customerId } = req.params;
       
-      // Get customer to find their odooPartnerId
-      const customer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
-      if (!customer.length || !customer[0].odooPartnerId) {
-        return res.json({ contacts: [] });
+      // Get company record
+      const [company] = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+      if (!company) return res.json({ contacts: [] });
+
+      // Fetch Odoo contacts if linked
+      let odooContacts: Array<{ id: number; name: string; email: string | null; phone: string | null; function: string | null }> = [];
+      if (company.odooPartnerId) {
+        try {
+          odooContacts = await odooClient.getCompanyContacts(company.odooPartnerId);
+        } catch (e) {
+          console.error('[Contacts] Odoo fetch error:', e);
+        }
       }
-      
-      const contacts = await odooClient.getCompanyContacts(customer[0].odooPartnerId);
-      res.json({ contacts });
+
+      // Build a set of emails already returned from Odoo so we don't double-list
+      const odooEmails = new Set(odooContacts.map(c => c.email?.toLowerCase().trim()).filter(Boolean));
+
+      // Fetch local contacts: parentCustomerId match OR same company name (non-company records)
+      const companyNameLower = company.company?.toLowerCase().trim();
+      const localRows = await db
+        .select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          email: customers.email,
+          phone: customers.phone,
+          jobTitle: customers.jobTitle,
+          parentCustomerId: customers.parentCustomerId,
+          company: customers.company,
+        })
+        .from(customers)
+        .where(and(
+          eq(customers.isCompany, false),
+          or(
+            eq(customers.parentCustomerId, customerId),
+            companyNameLower
+              ? sql`LOWER(TRIM(COALESCE(${customers.company}, ''))) = ${companyNameLower} AND ${customers.parentCustomerId} IS NULL`
+              : sql`false`
+          )
+        ));
+
+      // Convert local contacts to the same shape, skipping those already in Odoo
+      const localContacts = localRows
+        .filter(r => {
+          const emailKey = r.email?.toLowerCase().trim();
+          return !emailKey || !odooEmails.has(emailKey);
+        })
+        .map((r, idx) => ({
+          id: -(idx + 1), // negative synthetic ID to avoid collision with Odoo IDs
+          name: [r.firstName, r.lastName].filter(Boolean).join(' ') || r.email || 'Unknown',
+          email: r.email || null,
+          phone: r.phone || null,
+          function: r.jobTitle || null,
+          localId: r.id,   // UUID for navigation to the contact's detail page
+          localOnly: true,
+        }));
+
+      res.json({ contacts: [...odooContacts, ...localContacts] });
     } catch (error: any) {
-      console.error("Error fetching Odoo company contacts:", error);
-      res.status(500).json({ error: error.message || "Failed to fetch company contacts from Odoo" });
+      console.error("Error fetching company contacts:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch company contacts" });
     }
   });
 
@@ -20274,27 +20324,53 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         function: jobFunction?.trim() || false, // job title/function field
       };
       
-      // If customer is linked to Odoo, create contact as child in Odoo
+      // Always save the contact locally with parentCustomerId link
+      const newLocalId = crypto.randomUUID();
+      const nameParts = (name.trim()).split(' ');
+      await db.insert(customers).values({
+        id: newLocalId,
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        jobTitle: jobFunction?.trim() || null,
+        company: customer.company || '',
+        isCompany: false,
+        contactType: 'contact',
+        parentCustomerId: customerId,
+        salesRepId: customer.salesRepId || null,
+        salesRepName: customer.salesRepName || null,
+        pricingTier: customer.pricingTier || null,
+        sources: ['manual'],
+        createdAt: new Date(),
+      });
+
+      // If customer is linked to Odoo, also create contact as child in Odoo
       if (customer.odooPartnerId) {
         contactData.parent_id = customer.odooPartnerId;
         
-        const newContactId = await odooClient.create('res.partner', contactData);
-        if (!newContactId) {
-          return res.status(500).json({ error: "Failed to create contact in Odoo" });
+        try {
+          const newContactId = await odooClient.create('res.partner', contactData);
+          if (newContactId) {
+            // Link local record to Odoo
+            await db.update(customers).set({ odooPartnerId: newContactId }).where(eq(customers.id, newLocalId));
+            console.log(`[Odoo] Created child contact ID ${newContactId} for parent ${customer.odooPartnerId}`);
+          }
+        } catch (odooErr) {
+          console.error('[Odoo] Failed to create contact in Odoo (saved locally):', odooErr);
         }
-        
-        console.log(`[Odoo] Created child contact ID ${newContactId} for parent ${customer.odooPartnerId}`);
         
         res.status(201).json({ 
           success: true, 
-          contactId: newContactId,
-          message: "Contact created in Odoo successfully" 
+          localId: newLocalId,
+          message: "Contact created successfully" 
         });
       } else {
-        // Store locally if not linked to Odoo (for future push)
-        // For now, just return an error since contacts need an Odoo parent
-        return res.status(400).json({ 
-          error: "Cannot create contact: Company is not linked to Odoo. Please create the company in Odoo first." 
+        // Saved locally only
+        res.status(201).json({ 
+          success: true, 
+          localId: newLocalId,
+          message: "Contact saved locally (company not linked to Odoo)" 
         });
       }
     } catch (error: any) {
