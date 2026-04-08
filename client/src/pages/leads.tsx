@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useEmailComposer } from "@/components/email-composer";
+import BulkEmailComposer from "@/components/BulkEmailComposer";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,6 +227,7 @@ export default function LeadsPage() {
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
   const [importStatus, setImportStatus] = useState<{ message: string; progress: number } | null>(null);
   const [showBulkDrip, setShowBulkDrip] = useState(false);
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
   const [selectedBulkDripCampaignId, setSelectedBulkDripCampaignId] = useState<string>('');
   const [showMondayReview, setShowMondayReview] = useState(false);
   const [mondayReviewDismissed, setMondayReviewDismissed] = useState(() => {
@@ -934,6 +936,15 @@ export default function LeadsPage() {
                   >
                     <Zap className="w-4 h-4" />
                     Drip Campaign
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white border-green-300 text-green-700 hover:bg-green-50"
+                    onClick={() => setShowBulkEmail(true)}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Send Email
                   </Button>
                   <Button
                     variant="outline"
@@ -1870,6 +1881,25 @@ export default function LeadsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      {showBulkEmail && (
+        <Dialog open={showBulkEmail} onOpenChange={setShowBulkEmail}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Send Email to {selectedLeads.size} Lead{selectedLeads.size !== 1 ? 's' : ''}</DialogTitle>
+              <DialogDescription>Compose a one-time email to all selected leads. Each lead receives a personalized copy.</DialogDescription>
+            </DialogHeader>
+            <BulkEmailComposer
+              leadIds={Array.from(selectedLeads)}
+              onClose={() => setShowBulkEmail(false)}
+              onSent={(count) => {
+                toast({ title: `Email sent to ${count} lead${count !== 1 ? 's' : ''}` });
+                setShowBulkEmail(false);
+                setSelectedLeads(new Set());
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       </div>
     </div>
   );

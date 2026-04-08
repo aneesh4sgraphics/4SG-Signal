@@ -18160,6 +18160,53 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
   });
 
   // Bulk push leads to Odoo as Contacts
+  app.post("/api/leads/bulk-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const { leadIds, subject, body } = req.body;
+      if (!leadIds?.length || !subject || !body) {
+        return res.status(400).json({ error: 'leadIds, subject and body are required' });
+      }
+
+      const userId = (req.user as any)?.claims?.sub || req.user?.id;
+      const { sendEmailAsUser, getUserGmailConnection } = await import('./user-gmail-oauth');
+      const { sendEmail } = await import('./gmail-client');
+
+      const userGmailConnection = userId ? await getUserGmailConnection(userId).catch(() => null) : null;
+      const usePersonalGmail = !!(userGmailConnection?.isActive && userGmailConnection.scope?.includes('gmail.send'));
+
+      const selectedLeads = await db.select().from(leads).where(inArray(leads.id, leadIds));
+
+      let sent = 0;
+      let failed = 0;
+
+      for (const lead of selectedLeads) {
+        if (!lead.email) { failed++; continue; }
+        try {
+          const personalizedSubject = subject
+            .replace(/\{\{name\}\}/g, lead.name || lead.company || '')
+            .replace(/\{\{company\}\}/g, lead.company || '');
+          const personalizedBody = body
+            .replace(/\{\{name\}\}/g, lead.name || lead.company || '')
+            .replace(/\{\{company\}\}/g, lead.company || '');
+
+          if (usePersonalGmail) {
+            await sendEmailAsUser(userGmailConnection, lead.email, personalizedSubject, personalizedBody);
+          } else {
+            await sendEmail(lead.email, personalizedSubject, personalizedBody);
+          }
+          await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, lead.id));
+          sent++;
+        } catch (e) {
+          failed++;
+        }
+      }
+
+      res.json({ sent, failed });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Bulk email failed' });
+    }
+  });
+
   app.post("/api/leads/push-to-odoo-bulk", isAuthenticated, async (req: any, res) => {
     try {
       const { leadIds } = req.body;
