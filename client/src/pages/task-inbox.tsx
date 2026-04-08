@@ -1240,6 +1240,13 @@ interface TaskRowsProps {
 }
 
 function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTypeIcon }: TaskRowsProps) {
+  const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
+
+  const handleComplete = (id: number) => {
+    setCompletingIds(prev => new Set(prev).add(id));
+    setTimeout(() => onComplete(id), 350);
+  };
+
   const groups: { label: string; tasks: UnifiedTask[] }[] = [];
 
   // Critical tasks are always pinned at the very top, regardless of due date
@@ -1291,24 +1298,28 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
               const daysOverdue = (task as any).daysOverdue ?? 0;
               const isSpotlight = task.source === "spotlight";
 
+              const isCompleting = completingIds.has(task.id as number);
               return (
                 <div
                   key={task.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors group border-l-2 ${u.border} ${u.bg} hover:brightness-95`}
-                  onClick={() => onTaskClick(task)}
+                  className={`flex items-center gap-3 px-3 cursor-pointer group border-l-2 ${u.border} ${u.bg} transition-all duration-300 ease-out overflow-hidden ${isCompleting ? 'opacity-0 translate-x-12 max-h-0 py-0' : 'opacity-100 translate-x-0 max-h-24 py-2.5 hover:brightness-95'}`}
+                  onClick={() => !isCompleting && onTaskClick(task)}
                 >
                   {/* Checkbox */}
                   <button
                     className="flex-shrink-0 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!isSpotlight && typeof task.id === 'number') onComplete(task.id);
+                      if (!isSpotlight && typeof task.id === 'number') handleComplete(task.id);
                       else if (!isSpotlight) onTaskClick(task);
                     }}
-                    disabled={isCompletePending}
+                    disabled={isCompletePending || isCompleting}
                     title="Mark complete"
                   >
-                    <Circle className={`h-4 w-4 ${u.dot.replace('bg-', 'text-')} group-hover:text-gray-400`} />
+                    {isCompleting
+                      ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      : <Circle className={`h-4 w-4 ${u.dot.replace('bg-', 'text-')} group-hover:text-gray-400`} />
+                    }
                   </button>
 
                   {/* Type Icon */}
