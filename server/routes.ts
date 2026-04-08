@@ -2583,6 +2583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 mailerSentCount: sql`COALESCE(${leads.mailerSentCount}, 0) + 1`,
                 lastMailerSentAt: new Date(),
                 lastMailerType: labelTypeDisplay,
+                salesKanbanStage: 'samples_requested',
               })
               .where(eq(leads.id, leadId));
           }
@@ -3010,6 +3011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   mailerSentCount: sql`COALESCE(${leads.mailerSentCount}, 0) + 1`,
                   lastMailerSentAt: new Date(),
                   lastMailerType: labelTypeDisplay,
+                  salesKanbanStage: 'samples_requested',
                 })
                 .where(eq(leads.id, addr.leadId));
             }
