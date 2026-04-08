@@ -193,6 +193,14 @@ Auto-generates actionable follow-up tasks from multiple sources:
 
 ## Recent Changes (April 2026)
 
+### April 8 — Click Flow & Matching Bug Fixes
+- **Broken link fixed:** `admin-config.tsx` pointed to `/odoo-company/:id` (nonexistent) — corrected to `/odoo-contacts/:id`
+- **Contact auto-linking:** `POST /api/customers` now auto-sets `parentCustomerId` when a contact's company name matches an existing company entity (`isCompany=true`)
+- **Task Inbox clickable names:** Customer/lead names in task list, emails-not-replied, sequence follow-ups, and press test entries are now clickable links to their detail pages
+- **Gmail emails clickable:** Email rows on company detail page now open Gmail search on click (was non-interactive)
+- **Products clickable:** "Products Purchased" on company detail page now links to `/odoo-products/:productId` (added `productId` to Odoo metrics response)
+- **Contact tab fixes:** `hashCode` crash replaced with index-based IDs; local contacts show "Local" badge and are clickable links; `POST /api/odoo/customer/:id/contacts` saves locally with `parentCustomerId`
+
 ### April 2 — Codebase Cleanup
 - Deleted 4 unused component files: `TutorialCenter.tsx`, `AIChatbot.tsx`, `AppSwitcherDrawer.tsx`, `TutorialOverlay.tsx` (none imported anywhere — reduces JS bundle)
 - Removed 4 unguarded `console.log` statements from `quote-calculator.tsx` that were firing in production on every page load (filter validation logs, PDF retry log)

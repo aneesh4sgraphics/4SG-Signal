@@ -20,7 +20,7 @@ import {
   Upload, CheckCircle2, XCircle, Loader2, Printer, PhoneCall, FileText,
   Activity, Calendar, StickyNote, Plus, UserPlus, GitMerge, Trash2, Truck,
   Target, Eye, Trophy, Linkedin, MapPinned, Video, ClipboardList, Clock,
-  Star, MessageSquare, UserCheck, ArrowUpRight, ArrowDownLeft, Globe,
+  Star, MessageSquare, UserCheck, ArrowUpRight, ArrowDownLeft, Globe, ExternalLink,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
@@ -1015,7 +1015,11 @@ export default function OdooCompanyDetail() {
                   const senderLabel = isInbound ? (email.fromName || email.fromEmail || "Customer") : (email.fromName || "You");
                   const timeLabel = email.sentAt ? relativeTime(email.sentAt) : "";
                   return (
-                    <div key={email.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
+                    <div key={email.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer group"
+                      onClick={() => {
+                        const q = email.subject ? `subject:"${email.subject}"` : (email.fromEmail || '');
+                        window.open(`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}`, '_blank');
+                      }}>
                       <div className={`mt-0.5 shrink-0 ${isInbound ? "text-blue-500" : "text-gray-400"}`}>
                         {isInbound ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                       </div>
@@ -1024,9 +1028,10 @@ export default function OdooCompanyDetail() {
                           <span className="text-xs text-gray-500 shrink-0">{senderLabel}</span>
                           <span className="text-xs text-gray-400 shrink-0">{timeLabel}</span>
                         </div>
-                        <p className="text-sm font-medium text-gray-800 truncate mt-0.5">{email.subject || "(no subject)"}</p>
+                        <p className="text-sm font-medium text-gray-800 truncate mt-0.5 group-hover:text-violet-600">{email.subject || "(no subject)"}</p>
                         {email.snippet && <p className="text-xs text-gray-400 truncate mt-0.5">{email.snippet}</p>}
                       </div>
+                      <ExternalLink className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity mt-1 shrink-0" />
                     </div>
                   );
                 })}
@@ -1246,9 +1251,15 @@ export default function OdooCompanyDetail() {
               <div className="border border-gray-200 rounded-xl bg-white p-4">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Products Purchased</h2>
                 <div className="space-y-2">
-                  {metrics.topProducts.slice(0, 10).map((p, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700 truncate max-w-[60%]">{p.name}</span>
+                  {metrics.topProducts.slice(0, 10).map((p: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-sm group">
+                      {p.productId ? (
+                        <Link href={`/odoo-products/${p.productId}`} className="text-gray-700 truncate max-w-[60%] hover:text-violet-600 hover:underline">
+                          {p.name}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-700 truncate max-w-[60%]">{p.name}</span>
+                      )}
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>qty {p.quantity}</span>
                         <span className="font-medium text-gray-700">{formatCurrency(p.totalSpent)}</span>

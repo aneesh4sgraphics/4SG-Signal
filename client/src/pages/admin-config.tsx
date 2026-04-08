@@ -3428,7 +3428,7 @@ function TerritorySkipFlagsTab() {
                 {flags.map((flag) => (
                   <TableRow key={flag.id}>
                     <TableCell className="font-medium">
-                      <Link href={`/odoo-company/${flag.customerId}`} className="text-purple-600 hover:underline">
+                      <Link href={`/odoo-contacts/${flag.customerId}`} className="text-purple-600 hover:underline">
                         {flag.customerCompany || 'Unknown'}
                       </Link>
                     </TableCell>

@@ -1201,7 +1201,7 @@ ${plainTextBody}`;
     totalOutstanding: number;
     lifetimeSales: number;
     averageMargin: number | null;  // null means no margin data available
-    topProducts: Array<{ name: string; quantity: number; totalSpent: number }>;
+    topProducts: Array<{ name: string; quantity: number; totalSpent: number; productId?: number }>;
     purchasedCategories: Array<{ id: number; name: string }>;
   } | null> {
     try {
@@ -1225,9 +1225,9 @@ ${plainTextBody}`;
       const resolvedPartnerId = partnerDetails.resolvedPartnerId ?? partnerId;
 
       // Aggregate products by product ID (SKU) to find top products
-      const productAggregates = new Map<number, { name: string; quantity: number; totalSpent: number }>();
+      const productAggregates = new Map<number, { name: string; quantity: number; totalSpent: number; productId: number }>();
       for (const line of orderLines) {
-        const existing = productAggregates.get(line.productId) || { name: line.productName, quantity: 0, totalSpent: 0 };
+        const existing = productAggregates.get(line.productId) || { name: line.productName, quantity: 0, totalSpent: 0, productId: line.productId };
         existing.quantity += line.quantity;
         existing.totalSpent += line.priceTotal;
         productAggregates.set(line.productId, existing);

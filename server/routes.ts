@@ -6543,6 +6543,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Auto-link contact to parent company if company name matches an existing company record
+      if (!createdCustomer.isCompany && createdCustomer.company && !createdCustomer.parentCustomerId) {
+        try {
+          const companyLower = createdCustomer.company.toLowerCase().trim();
+          if (companyLower) {
+            const [parentCompany] = await db.select({ id: customers.id, salesRepId: customers.salesRepId, salesRepName: customers.salesRepName, pricingTier: customers.pricingTier })
+              .from(customers)
+              .where(and(
+                eq(customers.isCompany, true),
+                sql`LOWER(TRIM(COALESCE(${customers.company}, ''))) = ${companyLower}`
+              ))
+              .limit(1);
+            if (parentCompany) {
+              const inherit: Record<string, any> = { parentCustomerId: parentCompany.id };
+              if (!createdCustomer.salesRepId && parentCompany.salesRepId) {
+                inherit.salesRepId = parentCompany.salesRepId;
+                inherit.salesRepName = parentCompany.salesRepName;
+              }
+              if (!createdCustomer.pricingTier && parentCompany.pricingTier) {
+                inherit.pricingTier = parentCompany.pricingTier;
+              }
+              await db.update(customers).set(inherit).where(eq(customers.id, createdCustomer.id));
+              createdCustomer = { ...createdCustomer, ...inherit };
+              console.log(`[Auto-Link] Contact ${createdCustomer.id} linked to parent company ${parentCompany.id}`);
+            }
+          }
+        } catch (linkErr) {
+          console.error('[Auto-Link] Error linking contact to company:', linkErr);
+        }
+      }
+
       // Auto-assign sales rep based on location rules if not already assigned
       if (!createdCustomer.salesRepId) {
         const assignResult = await autoAssignSalesRepIfNeeded(
