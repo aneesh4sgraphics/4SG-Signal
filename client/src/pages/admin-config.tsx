@@ -573,6 +573,8 @@ export default function AdminConfig() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("home");
   const [testCustomerOpen, setTestCustomerOpen] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<any>(null);
 
   const { data: machineTypes = [], isLoading: machineTypesLoading } = useQuery<AdminMachineType[]>({
     queryKey: ["/api/admin/config/machine-types"],
@@ -728,6 +730,39 @@ export default function AdminConfig() {
               onSeedConfig={() => seedConfigMutation.mutate()}
               isSeedPending={seedConfigMutation.isPending}
             />
+            <div style={{ background: '#fff', border: '1px solid #EBEBEB', borderRadius: '12px', padding: '20px', marginBottom: '16px', marginTop: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 6px' }}>Kanban Backfill</h3>
+              <p style={{ fontSize: '13px', color: '#8A8A8A', margin: '0 0 14px' }}>
+                Scan historical lead and contact activity to populate the sales kanban board with past mailers, samples, replies, and no-response leads.
+              </p>
+              {backfillResult && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '12px', marginBottom: '12px', fontSize: '13px' }}>
+                  <strong>Backfill complete:</strong><br />
+                  Leads replied: {backfillResult.leads?.replied ?? 0} &nbsp;·&nbsp;
+                  Samples sent: {backfillResult.leads?.samples_requested ?? 0} &nbsp;·&nbsp;
+                  No response: {backfillResult.leads?.no_response ?? 0}
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  setBackfillLoading(true);
+                  setBackfillResult(null);
+                  try {
+                    const res = await fetch('/api/admin/backfill-kanban-stages', { method: 'POST', credentials: 'include' });
+                    const data = await res.json();
+                    setBackfillResult(data);
+                  } catch (e) {
+                    alert('Backfill failed');
+                  } finally {
+                    setBackfillLoading(false);
+                  }
+                }}
+                disabled={backfillLoading}
+                style={{ background: '#5E4ECD', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: backfillLoading ? 'wait' : 'pointer', opacity: backfillLoading ? 0.7 : 1 }}
+              >
+                {backfillLoading ? 'Running backfill...' : 'Run Kanban Backfill'}
+              </button>
+            </div>
           </TabsContent>
 
           <TabsContent value="catalog">
