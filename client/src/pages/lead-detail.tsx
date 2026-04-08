@@ -218,6 +218,7 @@ export default function LeadDetail() {
   const [showDripEnroll, setShowDripEnroll] = useState(false);
   const [showPushConfirm, setShowPushConfirm] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
+  const [dripToCancelId, setDripToCancelId] = useState<number | null>(null);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const { data: lead, isLoading } = useQuery<Lead>({
@@ -894,7 +895,7 @@ export default function LeadDetail() {
                               </div>
                             </div>
                             {a.status === "active" && (
-                              <button onClick={() => cancelDripMutation.mutate(a.id)} className="text-gray-300 hover:text-red-500 p-0.5">
+                              <button onClick={() => setDripToCancelId(a.id)} className="text-gray-300 hover:text-red-500 p-0.5">
                                 <X className="w-3.5 h-3.5" />
                               </button>
                             )}
@@ -1319,6 +1320,26 @@ export default function LeadDetail() {
       </Dialog>
 
       {/* Push to Odoo Confirmation */}
+      {dripToCancelId !== null && (
+        <AlertDialog open={true} onOpenChange={() => setDripToCancelId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel drip campaign?</AlertDialogTitle>
+              <AlertDialogDescription>This will stop all remaining emails in this sequence for this lead. This cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDripToCancelId(null)}>Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => { cancelDripMutation.mutate(dripToCancelId); setDripToCancelId(null); }}
+              >
+                Yes, cancel drip
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       <AlertDialog open={showPushConfirm} onOpenChange={setShowPushConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
