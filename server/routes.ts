@@ -31013,6 +31013,56 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  app.get("/api/admin/debug-activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const activityTypes = await db
+        .selectDistinct({ activityType: leadActivities.activityType })
+        .from(leadActivities)
+        .orderBy(leadActivities.activityType);
+
+      const typeCounts = await db
+        .select({
+          activityType: leadActivities.activityType,
+          count: sql<number>`COUNT(*)::int`
+        })
+        .from(leadActivities)
+        .groupBy(leadActivities.activityType)
+        .orderBy(desc(sql`COUNT(*)`));
+
+      const recent = await db
+        .select({
+          id: leadActivities.id,
+          leadId: leadActivities.leadId,
+          activityType: leadActivities.activityType,
+          summary: leadActivities.summary,
+          createdAt: leadActivities.createdAt,
+        })
+        .from(leadActivities)
+        .orderBy(desc(leadActivities.createdAt))
+        .limit(20);
+
+      const [emailedCount] = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(leads)
+        .where(isNotNull(leads.firstEmailSentAt));
+
+      const [contactedCount] = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(leads)
+        .where(isNotNull(leads.lastContactAt));
+
+      res.json({
+        distinctActivityTypes: activityTypes.map(r => r.activityType),
+        countsByType: typeCounts,
+        recentActivities: recent,
+        leadsWithFirstEmailSent: emailedCount.count,
+        leadsWithLastContact: contactedCount.count,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Import database data from JSON export (with duplicate prevention)
   app.post("/api/admin/database/import", isAuthenticated, requireAdmin, async (req, res) => {
     try {
