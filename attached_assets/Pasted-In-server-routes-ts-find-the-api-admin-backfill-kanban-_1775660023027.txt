@@ -1,0 +1,124 @@
+In server/routes.ts, find the /api/admin/backfill-kanban-stages endpoint and replace its entire try block with this corrected version that runs in priority order (replied > samples > no_response):
+
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+    // PRIORITY 1: Mark replied — overrides everything
+    // From firstEmailReplyAt field
+    await db.update(leads)
+      .set({ salesKanbanStage: 'replied' })
+      .where(isNotNull(leads.firstEmailReplyAt));
+
+    // PRIORITY 2: Mark samples_requested — only if not already replied
+    // From activity log
+    const sampleActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(
+        inArray(leadActivities.activityType, [
+          'sample_sent', 'mailer_one_page', 'mailer_envelope', 'mailer_press_kit'
+        ])
+      );
+    const sampleLeadIds = sampleActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    if (sampleLeadIds.length > 0) {
+      await db.update(leads)
+        .set({ salesKanbanStage: 'samples_requested' })
+        .where(
+          and(
+            inArray(leads.id, sampleLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''), eq(leads.salesKanbanStage, 'no_response'))
+          )
+        );
+    }
+
+    // Also from timestamp fields
+    await db.update(leads)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(
+            isNotNull(leads.pressTestKitSentAt),
+            isNotNull(leads.sampleEnvelopeSentAt),
+            isNotNull(leads.sampleSentAt),
+            isNotNull(leads.onePageMailerSentAt),
+          ),
+          or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, ''), eq(leads.salesKanbanStage, 'no_response'))
+        )
+      );
+
+    // PRIORITY 3: Mark no_response — only if not replied or samples
+    const emailedActivityLeads = await db
+      .selectDistinct({ leadId: leadActivities.leadId })
+      .from(leadActivities)
+      .where(eq(leadActivities.activityType, 'email_sent'));
+    const emailedLeadIds = emailedActivityLeads
+      .map(r => r.leadId)
+      .filter((id): id is number => id !== null);
+
+    if (emailedLeadIds.length > 0) {
+      await db.update(leads)
+        .set({ salesKanbanStage: 'no_response' })
+        .where(
+          and(
+            inArray(leads.id, emailedLeadIds),
+            or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+            isNull(leads.firstEmailReplyAt),
+            lt(leads.lastContactAt, tenDaysAgo)
+          )
+        );
+    }
+
+    await db.update(leads)
+      .set({ salesKanbanStage: 'no_response' })
+      .where(
+        and(
+          or(isNull(leads.salesKanbanStage), eq(leads.salesKanbanStage, '')),
+          isNotNull(leads.firstEmailSentAt),
+          isNull(leads.firstEmailReplyAt),
+          lt(leads.lastContactAt, tenDaysAgo)
+        )
+      );
+
+    // Customers: swatchbook or press test → samples_requested
+    await db.update(customers)
+      .set({ salesKanbanStage: 'samples_requested' })
+      .where(
+        and(
+          or(isNull(customers.salesKanbanStage), eq(customers.salesKanbanStage, ''), eq(customers.salesKanbanStage, 'no_response')),
+          or(
+            isNotNull(customers.pressTestSentAt),
+            isNotNull(customers.swatchbookSentAt),
+          )
+        )
+      );
+
+    // Final counts
+    const [leadCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+      replied: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'replied' THEN 1 END)::int`,
+      noResponse: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'no_response' THEN 1 END)::int`,
+    }).from(leads);
+
+    const [custCounts] = await db.select({
+      samples: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'samples_requested' THEN 1 END)::int`,
+    }).from(customers);
+
+    res.json({
+      success: true,
+      leads: {
+        samples_requested: leadCounts.samples,
+        replied: leadCounts.replied,
+        no_response: leadCounts.noResponse,
+      },
+      customers: { samples_requested: custCounts.samples },
+      debug: {
+        sampleActivitiesFound: sampleLeadIds.length,
+        emailedActivitiesFound: emailedLeadIds.length,
+      },
+      message: 'Backfill complete'
+    });
+
+Do not change anything else.
