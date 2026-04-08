@@ -31014,7 +31014,7 @@ Analyze this bounced email and provide insights in JSON format:
 
       const repliedCustomers = await db
         .select({
-          id: sql<number>`0`,
+          id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
           type: sql<string>`'customer'`,
@@ -31053,7 +31053,7 @@ Analyze this bounced email and provide insights in JSON format:
 
       const samplesCustomers = await db
         .select({
-          id: sql<number>`0`,
+          id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
           type: sql<string>`'customer'`,
@@ -31099,7 +31099,7 @@ Analyze this bounced email and provide insights in JSON format:
 
       const noResponseCustomers = await db
         .select({
-          id: sql<number>`0`,
+          id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
           type: sql<string>`'customer'`,
@@ -31124,7 +31124,7 @@ Analyze this bounced email and provide insights in JSON format:
 
       const issueCustomers = await db
         .select({
-          id: sql<number>`0`,
+          id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
           type: sql<string>`'customer'`,

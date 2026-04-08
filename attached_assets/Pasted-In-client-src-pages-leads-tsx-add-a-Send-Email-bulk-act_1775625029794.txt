@@ -1,0 +1,158 @@
+In client/src/pages/leads.tsx, add a "Send Email" bulk action button to the existing selected leads action bar (the violet bar that appears when leads are selected).
+
+1. Add this button inside the action bar div, after the "Drip Campaign" button:
+  <Button
+    variant="outline"
+    size="sm"
+    className="gap-2 bg-white border-green-300 text-green-700 hover:bg-green-50"
+    onClick={() => setShowBulkEmail(true)}
+  >
+    <Mail className="w-4 h-4" />
+    Send Email
+  </Button>
+
+2. Add state: const [showBulkEmail, setShowBulkEmail] = useState(false);
+
+3. Add this modal at the bottom of the JSX, before the final closing tags:
+  {showBulkEmail && (
+    <Dialog open={showBulkEmail} onOpenChange={setShowBulkEmail}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Send Email to {selectedLeads.size} Lead{selectedLeads.size !== 1 ? 's' : ''}</DialogTitle>
+          <DialogDescription>Compose a one-time email to all selected leads. Each lead receives a personalized copy.</DialogDescription>
+        </DialogHeader>
+        <BulkEmailComposer
+          leadIds={Array.from(selectedLeads)}
+          onClose={() => setShowBulkEmail(false)}
+          onSent={(count) => {
+            toast({ title: `Email sent to ${count} lead${count !== 1 ? 's' : ''}` });
+            setShowBulkEmail(false);
+            setSelectedLeads(new Set());
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  )}
+
+4. Create a new file client/src/components/BulkEmailComposer.tsx:
+
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Send } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface BulkEmailComposerProps {
+  leadIds: number[];
+  onClose: () => void;
+  onSent: (count: number) => void;
+}
+
+export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmailComposerProps) {
+  const { toast } = useToast();
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/leads/bulk-email', {
+        leadIds,
+        subject,
+        body,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      onSent(data.sent || leadIds.length);
+    },
+    onError: (err: any) => {
+      toast({ title: 'Send failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const canSend = subject.trim().length > 0 && body.trim().length > 0;
+
+  return (
+    <div className="space-y-4 py-2">
+      <div className="space-y-1">
+        <Label>Subject</Label>
+        <Input
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="e.g. Quick intro — waterproof papers for your print shop"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label>Message</Label>
+        <Textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Write your email here. Use {{name}} to personalize with the lead's name and {{company}} for their company."
+          className="min-h-[200px]"
+        />
+        <p className="text-xs text-gray-400">Use {'{{name}}'} and {'{{company}}'} for personalization</p>
+      </div>
+      <div className="flex justify-between items-center pt-2">
+        <p className="text-sm text-gray-500">Sending to {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''}</p>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={sendMutation.isPending}>Cancel</Button>
+          <Button
+            onClick={() => sendMutation.mutate()}
+            disabled={!canSend || sendMutation.isPending}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+            Send to {leadIds.length} Lead{leadIds.length !== 1 ? 's' : ''}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+5. Add the API endpoint in server/routes.ts — POST /api/leads/bulk-email:
+
+app.post("/api/leads/bulk-email", isAuthenticated, async (req: any, res) => {
+  try {
+    const { leadIds, subject, body } = req.body;
+    if (!leadIds?.length || !subject || !body) {
+      return res.status(400).json({ error: 'leadIds, subject and body are required' });
+    }
+
+    const userId = req.user?.claims?.sub || req.user?.id;
+    const selectedLeads = await db.select().from(leads).where(inArray(leads.id, leadIds));
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const lead of selectedLeads) {
+      if (!lead.email) { failed++; continue; }
+      try {
+        const personalizedSubject = subject
+          .replace(/\{\{name\}\}/g, lead.name || lead.company || '')
+          .replace(/\{\{company\}\}/g, lead.company || '');
+        const personalizedBody = body
+          .replace(/\{\{name\}\}/g, lead.name || lead.company || '')
+          .replace(/\{\{company\}\}/g, lead.company || '');
+
+        await sendGmailEmail(userId, lead.email, personalizedSubject, personalizedBody);
+        await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, lead.id));
+        sent++;
+      } catch (e) {
+        failed++;
+      }
+    }
+
+    res.json({ sent, failed });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Bulk email failed' });
+  }
+});
+
+Make sure to import BulkEmailComposer in leads.tsx and import Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription from @/components/ui/dialog if not already imported. Make sure sendGmailEmail is imported in routes.ts from the gmail client.
+
+Do not change anything else.
