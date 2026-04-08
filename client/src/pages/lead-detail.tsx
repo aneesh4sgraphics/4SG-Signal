@@ -208,7 +208,7 @@ export default function LeadDetail() {
   const emailComposer = useEmailComposer();
   const queryClientInstance = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<TabKey>("activity");
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
