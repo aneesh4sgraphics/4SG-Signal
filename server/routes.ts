@@ -29077,6 +29077,7 @@ Analyze this bounced email and provide insights in JSON format:
       }
 
       // Per-rep task counts for admin sidebar — only computed for Aneesh
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
       let repTaskCounts: Array<{ email: string; name: string; pending: number; overdue: number }> = [];
       if (isAneesh) {
         const REP_EMAILS = [
@@ -29091,6 +29092,7 @@ Analyze this bounced email and provide insights in JSON format:
               .from(followUpTasks)
               .where(and(
                 eq(followUpTasks.status, 'pending'),
+                gte(followUpTasks.createdAt, thisYearStart),
                 sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
                   SELECT id FROM users WHERE email = ${rep.email}
                 ))`
@@ -29100,6 +29102,7 @@ Analyze this bounced email and provide insights in JSON format:
               .from(followUpTasks)
               .where(and(
                 eq(followUpTasks.status, 'pending'),
+                gte(followUpTasks.createdAt, thisYearStart),
                 lt(followUpTasks.dueDate, today),
                 sql`(${followUpTasks.assignedTo} = ${rep.email} OR ${followUpTasks.assignedTo} IN (
                   SELECT id FROM users WHERE email = ${rep.email}
