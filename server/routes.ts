@@ -29167,7 +29167,11 @@ Analyze this bounced email and provide insights in JSON format:
       const endOfWeek = new Date(today);
       endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay()));
 
-      const baseConditions: any[] = [eq(followUpTasks.status, 'pending')];
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
+      const baseConditions: any[] = [
+        eq(followUpTasks.status, 'pending'),
+        gte(followUpTasks.createdAt, thisYearStart),
+      ];
 
       const rawEmail = req.user?.email || '';
       // Visibility: Aneesh sees all; others see only their own tasks
