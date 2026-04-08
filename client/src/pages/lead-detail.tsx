@@ -452,8 +452,8 @@ export default function LeadDetail() {
   ].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
 
   const TABS: TabDef[] = [
-    { key: "overview", label: "Overview", icon: TrendingUp },
     { key: "activity", label: "Activity", icon: Activity, count: nonNoteActivities.length || undefined },
+    { key: "overview", label: "Overview", icon: TrendingUp },
     { key: "emails", label: "Emails", icon: Mail, count: allEmails.length || undefined },
     { key: "calls", label: "Calls", icon: PhoneCall, count: 0 },
     { key: "notes", label: "Notes", icon: StickyNote, count: notes.length || undefined },
