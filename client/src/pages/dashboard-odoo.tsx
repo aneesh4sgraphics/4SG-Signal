@@ -35,7 +35,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { ConnectionPrompt } from "@/components/ConnectionPrompt";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { SketchboardBoard } from "@/pages/sketchboard";
 
 interface DashboardStats {
   totalQuotes: number;
@@ -374,27 +373,24 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#6B6B8C', margin: 0 }}>{dateString}</p>
           </div>
 
-          {/* Daily Sketchboard */}
           <div style={{ marginBottom: '24px' }}>
-            <SketchboardBoard compact />
-          </div>
-
-          <div style={{ marginBottom: '24px' }}>
+            <p style={{fontSize:'11px',fontWeight:600,color:'#8A8A8A',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'12px'}}>Sales pipeline signals</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
               {[
-                { key: 'replied', label: 'Emails Replied', color: '#D1FAE5', border: '#6EE7B7', dot: '#059669', emptyText: 'No replies yet' },
-                { key: 'samplesRequested', label: 'Samples Requested', color: '#DBEAFE', border: '#BFDBFE', dot: '#2563EB', emptyText: 'No samples sent' },
-                { key: 'noResponse', label: 'No Response', color: '#FEF9C3', border: '#FDE047', dot: '#D97706', emptyText: 'All leads active' },
-                { key: 'issues', label: 'Issues', color: '#FEE2E2', border: '#FECACA', dot: '#DC2626', emptyText: 'No issues logged' },
+                { key: 'replied', label: 'Emails Replied', color: '#D1FAE5', border: '#6EE7B7', dot: '#059669', emptyText: 'No replies yet', hint: 'Email replies, quote & sample requests', hintColor: '#6B8A6B' },
+                { key: 'samplesRequested', label: 'Samples Requested', color: '#DBEAFE', border: '#BFDBFE', dot: '#2563EB', emptyText: 'No samples sent', hint: 'Swatchbook, press test kit, mailer sent', hintColor: '#4A6A9B' },
+                { key: 'noResponse', label: 'No Response', color: '#FEF9C3', border: '#FDE047', dot: '#D97706', emptyText: 'All leads active', hint: 'Emailed 10+ days ago, no reply', hintColor: '#8A6A20' },
+                { key: 'issues', label: 'Issues', color: '#FEE2E2', border: '#FECACA', dot: '#DC2626', emptyText: 'No issues logged', hint: 'Price, supply or print issues flagged', hintColor: '#8A3030' },
               ].map(col => {
                 const items = kanbanData?.[col.key as keyof typeof kanbanData] || [];
                 return (
                   <div key={col.key} style={{ background: col.color, border: `1px solid ${col.border}`, borderRadius: '12px', padding: '14px', minHeight: '180px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: col.dot, flexShrink: 0, display: 'inline-block' }} />
                       <span style={{ fontSize: '12px', fontWeight: 600, color: '#1A1A1A' }}>{col.label}</span>
                       <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 600, color: col.dot, background: 'rgba(255,255,255,0.6)', padding: '1px 7px', borderRadius: '10px' }}>{items.length}</span>
                     </div>
+                    <p style={{fontSize:'11px',color:col.hintColor,marginBottom:'8px',fontStyle:'italic'}}>{col.hint}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       {items.length === 0 ? (
                         <p style={{ fontSize: '12px', color: '#8A8A8A', fontStyle: 'italic', margin: 0 }}>{col.emptyText}</p>
@@ -402,11 +398,13 @@ export default function Dashboard() {
                         items.slice(0, 6).map((item: any) => (
                           <div
                             key={item.id}
-                            style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '7px', padding: '6px 8px', fontSize: '12px', color: '#1A1A1A', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}
+                            style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '3px' }}
                             onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY }); }}
                           >
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.company || item.name}</span>
-                            <span style={{ fontSize: '10px', color: '#8A8A8A', flexShrink: 0 }}>···</span>
+                            <span style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.company || item.name}</span>
+                            {item.signal && (
+                              <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 6px', borderRadius: '4px', display: 'inline-block', width: 'fit-content', background: 'rgba(255,255,255,0.6)', color: '#4A4A4A' }}>{item.signal}</span>
+                            )}
                           </div>
                         ))
                       )}
