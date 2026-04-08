@@ -31391,6 +31391,8 @@ Analyze this bounced email and provide insights in JSON format:
     try {
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const repliedLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
@@ -31486,7 +31488,8 @@ Analyze this bounced email and provide insights in JSON format:
               and(
                 isNotNull(leads.firstEmailSentAt),
                 isNull(leads.firstEmailReplyAt),
-                lt(leads.lastContactAt, tenDaysAgo)
+                lt(leads.lastContactAt, tenDaysAgo),
+                gte(leads.lastContactAt, thirtyDaysAgo)
               ),
               eq(leads.salesKanbanStage, 'no_response')
             )
@@ -31510,7 +31513,8 @@ Analyze this bounced email and provide insights in JSON format:
           and(
             isNull(customers.pressTestSentAt),
             isNull(customers.swatchbookSentAt),
-            eq(customers.salesKanbanStage, 'no_response')
+            eq(customers.salesKanbanStage, 'no_response'),
+            gte(customers.lastContactAt, thirtyDaysAgo)
           )
         )
         .limit(100);
