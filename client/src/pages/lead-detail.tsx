@@ -10,6 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -212,6 +216,7 @@ export default function LeadDetail() {
   const [newActivity, setNewActivity] = useState({ activityType: "note", summary: "", details: "" });
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [showDripEnroll, setShowDripEnroll] = useState(false);
+  const [showPushConfirm, setShowPushConfirm] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
 
   // ── Queries ─────────────────────────────────────────────────────────────────
@@ -344,10 +349,10 @@ export default function LeadDetail() {
         toast({ title: "Moved to Contacts" });
         queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
         queryClientInstance.invalidateQueries({ queryKey: ["/api/customers"] });
-        setTimeout(() => setLocation(`/contacts/${data.customerId}`), 600);
+        setTimeout(() => setLocation(`/odoo-contacts/${data.customerId}`), 600);
       }
     },
-    onError: (e: Error) => toast({ title: "Push to Odoo failed", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Push to Odoo failed", description: e.message || "Could not connect to Odoo. The lead has not been deleted — please try again.", variant: "destructive" }),
   });
 
   const enrollDripMutation = useMutation({
@@ -542,7 +547,7 @@ export default function LeadDetail() {
               ) : (
                 <Button
                   variant="outline" size="sm" className="h-8 text-xs border-violet-200 text-violet-700 hover:bg-violet-50"
-                  onClick={() => pushToOdooMutation.mutate()}
+                  onClick={() => setShowPushConfirm(true)}
                   disabled={pushToOdooMutation.isPending}
                 >
                   {pushToOdooMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
@@ -1312,6 +1317,27 @@ export default function LeadDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Push to Odoo Confirmation */}
+      <AlertDialog open={showPushConfirm} onOpenChange={setShowPushConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Push to Odoo and convert to Contact?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create {lead?.name} as a Contact in Odoo and move them out of Leads permanently. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setShowPushConfirm(false); pushToOdooMutation.mutate(); }}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Yes, push to Odoo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
