@@ -1,0 +1,60 @@
+In client/src/pages/task-inbox.tsx, add a "Complete all overdue" button in the overdue tab header.
+
+1. Add a bulk complete mutation:
+  const bulkCompleteOverdueMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/tasks/bulk-complete-overdue', {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/list'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/summary'] });
+      toast({ title: `${data.completed} overdue tasks marked complete` });
+    },
+  });
+
+2. Add a "Mark all done" button next to the overdue filter tab — only visible when activeTab === 'overdue' and there are overdue tasks:
+
+  {activeTab === 'overdue' && tasks.length > 0 && (
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+      onClick={() => bulkCompleteOverdueMutation.mutate()}
+      disabled={bulkCompleteOverdueMutation.isPending}
+    >
+      {bulkCompleteOverdueMutation.isPending ? 'Completing...' : `Mark all ${tasks.length} done`}
+    </Button>
+  )}
+
+3. In server/routes.ts, add the endpoint:
+
+  app.post("/api/tasks/bulk-complete-overdue", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const userEmail = req.user?.email || '';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
+
+      const result = await db.update(followUpTasks)
+        .set({ status: 'completed', completedAt: new Date(), completedBy: userEmail })
+        .where(
+          and(
+            eq(followUpTasks.status, 'pending'),
+            lt(followUpTasks.dueDate, today),
+            gte(followUpTasks.createdAt, thisYearStart),
+            or(
+              eq(followUpTasks.assignedTo, userEmail),
+              eq(followUpTasks.assignedTo, userId)
+            )
+          )
+        );
+
+      res.json({ completed: (result as any).rowCount || 0 });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to complete tasks' });
+    }
+  });
+
+Do not change anything else.

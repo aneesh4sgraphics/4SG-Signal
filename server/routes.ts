@@ -16717,6 +16717,21 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           ));
       }
 
+      // Auto-log stage change activity
+      if (data.stage) {
+        try {
+          await db.insert(leadActivities).values({
+            leadId: parseInt(req.params.id),
+            activityType: 'stage_changed',
+            summary: `Stage changed to ${data.stage}`,
+            performedBy: req.user?.email || 'system',
+            performedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : req.user?.email || 'System',
+          });
+        } catch (e) {
+          console.error('[Stage Change] Failed to log activity:', e);
+        }
+      }
+
       // Invalidate Spotlight prefetch caches so the next task fetch reads fresh lead data
       spotlightEngine.invalidateAllPrefetchCaches();
 
