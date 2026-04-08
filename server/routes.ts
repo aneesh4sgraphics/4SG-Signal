@@ -31126,7 +31126,7 @@ Analyze this bounced email and provide insights in JSON format:
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
       const repliedLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
         .from(leads)
         .where(
           and(
@@ -31139,7 +31139,7 @@ Analyze this bounced email and provide insights in JSON format:
           )
         )
         .orderBy(desc(leads.firstEmailReplyAt))
-        .limit(20);
+        .limit(100);
 
       const repliedCustomers = await db
         .select({
@@ -31148,6 +31148,7 @@ Analyze this bounced email and provide insights in JSON format:
           company: customers.company,
           type: sql<string>`'customer'`,
           salesKanbanStage: customers.salesKanbanStage,
+          rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`'replied to email'`
         })
         .from(customers)
@@ -31164,11 +31165,11 @@ Analyze this bounced email and provide insights in JSON format:
             eq(shipmentFollowUpTasks.replyReceived, true)
           )
         )
-        .groupBy(customers.id, customers.firstName, customers.lastName, customers.company, customers.salesKanbanStage)
-        .limit(20);
+        .groupBy(customers.id, customers.firstName, customers.lastName, customers.company, customers.salesKanbanStage, customers.salesRepName)
+        .limit(100);
 
       const samplesLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
         .from(leads)
         .where(
           or(
@@ -31178,7 +31179,7 @@ Analyze this bounced email and provide insights in JSON format:
           )
         )
         .orderBy(desc(leads.pressTestKitSentAt))
-        .limit(20);
+        .limit(100);
 
       const samplesCustomers = await db
         .select({
@@ -31187,6 +31188,7 @@ Analyze this bounced email and provide insights in JSON format:
           company: customers.company,
           type: sql<string>`'customer'`,
           salesKanbanStage: customers.salesKanbanStage,
+          rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`
             CASE
               WHEN ${customers.pressTestSentAt} IS NOT NULL THEN 'press test sent'
@@ -31204,10 +31206,10 @@ Analyze this bounced email and provide insights in JSON format:
           )
         )
         .orderBy(desc(customers.pressTestSentAt))
-        .limit(20);
+        .limit(100);
 
       const noResponseLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
         .from(leads)
         .where(
           and(
@@ -31224,7 +31226,7 @@ Analyze this bounced email and provide insights in JSON format:
           )
         )
         .orderBy(asc(leads.lastContactAt))
-        .limit(20);
+        .limit(100);
 
       const noResponseCustomers = await db
         .select({
@@ -31233,6 +31235,7 @@ Analyze this bounced email and provide insights in JSON format:
           company: customers.company,
           type: sql<string>`'customer'`,
           salesKanbanStage: customers.salesKanbanStage,
+          rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`'no recent contact'`
         })
         .from(customers)
@@ -31243,13 +31246,13 @@ Analyze this bounced email and provide insights in JSON format:
             eq(customers.salesKanbanStage, 'no_response')
           )
         )
-        .limit(20);
+        .limit(100);
 
       const issueLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, signal: sql<string>`'issue flagged'` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`'issue flagged'` })
         .from(leads)
         .where(eq(leads.salesKanbanStage, 'issue'))
-        .limit(20);
+        .limit(100);
 
       const issueCustomers = await db
         .select({
@@ -31258,11 +31261,12 @@ Analyze this bounced email and provide insights in JSON format:
           company: customers.company,
           type: sql<string>`'customer'`,
           salesKanbanStage: customers.salesKanbanStage,
+          rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`'issue flagged'`
         })
         .from(customers)
         .where(eq(customers.salesKanbanStage, 'issue'))
-        .limit(20);
+        .limit(100);
 
       res.json({
         replied: [...repliedLeads, ...repliedCustomers],

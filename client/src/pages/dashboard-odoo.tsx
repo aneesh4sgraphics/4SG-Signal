@@ -257,6 +257,7 @@ export default function Dashboard() {
   });
 
   const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number; type?: string } | null>(null);
+  const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!moveMenu) return;
@@ -398,23 +399,47 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       {items.length === 0 ? (
                         <p style={{ fontSize: '12px', color: '#8A8A8A', fontStyle: 'italic', margin: 0 }}>{col.emptyText}</p>
-                      ) : (
-                        items.slice(0, 6).map((item: any) => (
-                          <div
-                            key={item.id}
-                            style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '3px' }}
-                            onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type }); }}
-                          >
-                            <span style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.company || item.name}</span>
-                            {item.signal && (
-                              <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 6px', borderRadius: '4px', display: 'inline-block', width: 'fit-content', background: 'rgba(255,255,255,0.6)', color: '#4A4A4A' }}>{item.signal}</span>
+                      ) : (() => {
+                        const isExpanded = expandedCols.has(col.key);
+                        const visibleItems = isExpanded ? items : items.slice(0, 6);
+                        return (
+                          <>
+                            {visibleItems.map((item: any) => (
+                              <div
+                                key={item.id}
+                                style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '3px' }}
+                                onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type }); }}
+                              >
+                                <span style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.company || item.name}</span>
+                                {item.signal && (
+                                  <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 6px', borderRadius: '4px', display: 'inline-block', width: 'fit-content', background: 'rgba(255,255,255,0.6)', color: '#4A4A4A' }}>{item.signal}</span>
+                                )}
+                                {item.rep && (
+                                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#fff', background: '#5E4ECD', borderRadius: '4px', padding: '1px 5px', display: 'inline-block', width: 'fit-content' }}>
+                                    {item.rep.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3)}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                            {items.length > 6 && (
+                              <p
+                                style={{ fontSize: '11px', color: '#5E4ECD', margin: 0, padding: '4px 0', cursor: 'pointer', fontWeight: 600 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedCols(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(col.key)) next.delete(col.key);
+                                    else next.add(col.key);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isExpanded ? '▲ Show less' : `▼ +${items.length - 6} more`}
+                              </p>
                             )}
-                          </div>
-                        ))
-                      )}
-                      {items.length > 6 && (
-                        <p style={{ fontSize: '11px', color: '#8A8A8A', margin: 0, padding: '2px 0' }}>+{items.length - 6} more</p>
-                      )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
