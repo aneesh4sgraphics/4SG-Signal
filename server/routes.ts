@@ -29991,7 +29991,7 @@ Analyze this bounced email and provide insights in JSON format:
   // Returns customers/leads who received Press Test Sheets, sourced from:
   //   1. Local labelPrints table (labelType = 'press_test_kit')
   //   2. Leads with pressTestKitSentAt set
-  //   3. Odoo Sales Orders with "Samples"-suffixed product codes
+  //   3. Odoo Sales Orders with "Samples" in product SKU OR Customer Reference (client_order_ref)
   //   4. Odoo Invoices with "Samples"-suffixed product codes
   app.get("/api/tasks/press-test-sent", isAuthenticated, async (_req, res) => {
     try {
@@ -30067,12 +30067,24 @@ Analyze this bounced email and provide insights in JSON format:
       }
 
       // 3 & 4. Odoo Sales Orders and Invoices (only if Odoo is configured)
+      // Also includes orders where Customer Reference (client_order_ref) contains "Samples"
       if (isOdooConfigured()) {
         try {
-          const [odooOrders, odooInvoices] = await Promise.all([
+          const [skuOrders, refOrders, odooInvoices] = await Promise.all([
             odooClient.getPressTestSampleOrders(),
+            odooClient.getZeroValueSampleOrders(),
             odooClient.getPressTestSampleInvoices(),
           ]);
+
+          // Merge SKU-matched and Customer-Reference-matched orders, dedup by Odoo ID
+          const seenOrderIds = new Set<number>();
+          const odooOrders: any[] = [];
+          for (const order of [...skuOrders, ...refOrders]) {
+            if (!seenOrderIds.has(order.id)) {
+              seenOrderIds.add(order.id);
+              odooOrders.push(order);
+            }
+          }
 
           for (const order of odooOrders) {
             const partnerName = Array.isArray(order.partner_id) ? order.partner_id[1] : (order.partner_id?.name || 'Unknown');
