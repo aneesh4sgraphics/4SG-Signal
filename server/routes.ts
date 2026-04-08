@@ -6497,10 +6497,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check for duplicate company name (exact match, case-insensitive)
-      if (customer.company && customer.company.trim()) {
+      // Only applies when creating a company entity (isCompany=true), NOT when the
+      // "company" field is just the employer name on an individual contact record.
+      if (customer.isCompany && customer.company && customer.company.trim()) {
         const companyLower = customer.company.toLowerCase().trim();
         const duplicateByCompany = allCustomers.find(c => 
-          c.company && c.company.toLowerCase().trim() === companyLower
+          c.isCompany && c.company && c.company.toLowerCase().trim() === companyLower
         );
         if (duplicateByCompany) {
           return res.status(409).json({ 
