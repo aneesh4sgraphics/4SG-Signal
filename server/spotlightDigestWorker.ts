@@ -255,6 +255,16 @@ async function sendDigestToUser(user: typeof users.$inferSelect, now: Date) {
     ? `You completed <strong>${totalActions} action${totalActions !== 1 ? 's' : ''}</strong> across <strong>${activity.customersWorkedCount} contact${activity.customersWorkedCount !== 1 ? 's' : ''}</strong>.`
     : `You worked with <strong>${activity.customersWorkedCount} contact${activity.customersWorkedCount !== 1 ? 's' : ''}</strong>.`;
 
+  const tenDaysAgo = new Date();
+  tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+  const [kanbanCounts] = await db.select({
+    replied: sql<number>`COUNT(CASE WHEN first_email_reply_at IS NOT NULL THEN 1 END)::int`,
+    samplesSent: sql<number>`COUNT(CASE WHEN press_test_kit_sent_at IS NOT NULL OR sample_envelope_sent_at IS NOT NULL THEN 1 END)::int`,
+    noResponse: sql<number>`COUNT(CASE WHEN last_contact_at < ${tenDaysAgo} AND first_email_reply_at IS NULL AND first_email_sent_at IS NOT NULL THEN 1 END)::int`,
+    issues: sql<number>`COUNT(CASE WHEN sales_kanban_stage = 'issue' THEN 1 END)::int`,
+  }).from(leads);
+
   const htmlBody = `
 <!DOCTYPE html>
 <html>
@@ -281,6 +291,33 @@ async function sendDigestToUser(user: typeof users.$inferSelect, now: Date) {
       </table>` : ''}
 
       ${contactsSection}
+
+      <div style="background:#ffffff;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #e2e8f0;">
+        <h2 style="font-size:16px;font-weight:600;color:#1a1a1a;margin:0 0 14px;">Pipeline snapshot</h2>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding:8px 12px;background:#D1FAE5;border-radius:8px;text-align:center;width:25%">
+              <div style="font-size:22px;font-weight:700;color:#059669">${kanbanCounts?.replied ?? 0}</div>
+              <div style="font-size:11px;color:#065f46">Replied</div>
+            </td>
+            <td style="width:8px"></td>
+            <td style="padding:8px 12px;background:#DBEAFE;border-radius:8px;text-align:center;width:25%">
+              <div style="font-size:22px;font-weight:700;color:#2563EB">${kanbanCounts?.samplesSent ?? 0}</div>
+              <div style="font-size:11px;color:#1e40af">Samples sent</div>
+            </td>
+            <td style="width:8px"></td>
+            <td style="padding:8px 12px;background:#FEF9C3;border-radius:8px;text-align:center;width:25%">
+              <div style="font-size:22px;font-weight:700;color:#D97706">${kanbanCounts?.noResponse ?? 0}</div>
+              <div style="font-size:11px;color:#92400e">No response</div>
+            </td>
+            <td style="width:8px"></td>
+            <td style="padding:8px 12px;background:#FEE2E2;border-radius:8px;text-align:center;width:25%">
+              <div style="font-size:22px;font-weight:700;color:#DC2626">${kanbanCounts?.issues ?? 0}</div>
+              <div style="font-size:11px;color:#991b1b">Issues</div>
+            </td>
+          </tr>
+        </table>
+      </div>
     </div>
 
     <div style="padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
