@@ -1572,7 +1572,7 @@ export default function OdooContacts() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{getDisplayName(contact)}</span>
+                              <span className="font-bold text-gray-900">{getDisplayName(contact)}</span>
                               <div className="flex items-center gap-1">
                                 {contact.odooPartnerId && (
                                   <SiOdoo className="w-4 h-4 text-purple-600" title="Odoo customer" />
@@ -1893,7 +1893,7 @@ export default function OdooContacts() {
                         </div>
                       </div>
                       
-                      <h3 className="font-semibold text-gray-900 mb-1 truncate group-hover:text-violet-700 transition-colors">
+                      <h3 className="font-bold text-gray-900 mb-1 truncate group-hover:text-violet-700 transition-colors">
                         {getDisplayName(contact)}
                       </h3>
                       
