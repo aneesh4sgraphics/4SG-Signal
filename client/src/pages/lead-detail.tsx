@@ -28,6 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
+  UserCheck,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -217,6 +218,7 @@ export default function LeadDetail() {
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [showDripEnroll, setShowDripEnroll] = useState(false);
   const [showPushConfirm, setShowPushConfirm] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
   const [dripToCancelId, setDripToCancelId] = useState<number | null>(null);
 
@@ -399,6 +401,46 @@ export default function LeadDetail() {
     onError: () => toast({ title: "Error", description: "Failed to update customer type", variant: "destructive" }),
   });
 
+  // ── Convert to Customer ──────────────────────────────────────────────────────
+  const { data: convertPreview, isLoading: previewLoading } = useQuery<{
+    taskCount: number; noteCount: number;
+    existingCustomer: { id: string; name: string } | null;
+    leadName: string; leadEmail: string | null;
+  }>({
+    queryKey: ["/api/leads", leadId, "convert-preview"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leads/${leadId}/convert-preview`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch preview");
+      return res.json();
+    },
+    enabled: showConvertDialog && !!leadId,
+    staleTime: 0,
+  });
+
+  const convertMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/leads/${leadId}/convert-to-customer`, {});
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error ?? "Conversion failed");
+      }
+      return res.json() as Promise<{ ok: boolean; customerId: string; customerName: string; isExisting: boolean }>;
+    },
+    onSuccess: (result) => {
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: result.isExisting ? "Lead merged into existing contact" : "Lead converted to customer",
+        description: `Redirecting to ${result.customerName}…`,
+      });
+      setShowConvertDialog(false);
+      setLocation(`/odoo-contacts/${result.customerId}`);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Conversion failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   // ── Loading / Error ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -561,6 +603,13 @@ export default function LeadDetail() {
                   Push to Odoo
                 </Button>
               )}
+
+              <Button
+                size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setShowConvertDialog(true)}
+              >
+                <UserCheck className="h-3.5 w-3.5 mr-1" /> Convert to Customer
+              </Button>
             </div>
           </div>
 
@@ -1380,6 +1429,82 @@ export default function LeadDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Convert to Customer Dialog ── */}
+      <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-emerald-600" />
+              Convert Lead to Customer
+            </DialogTitle>
+          </DialogHeader>
+
+          {previewLoading ? (
+            <div className="py-8 flex items-center justify-center gap-2 text-gray-500">
+              <Loader2 className="w-5 h-5 animate-spin" /> Loading transfer summary…
+            </div>
+          ) : convertPreview ? (
+            <div className="space-y-4 py-2">
+              {convertPreview.existingCustomer && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    A contact named <strong>{convertPreview.existingCustomer.name}</strong> already exists with this email.
+                    Lead data will be <strong>merged into the existing contact</strong> — no duplicate will be created.
+                  </span>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 text-sm">
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-gray-600">Lead name</span>
+                  <span className="font-medium">{convertPreview.leadName}</span>
+                </div>
+                {convertPreview.leadEmail && (
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-gray-600">Email</span>
+                    <span className="font-medium text-gray-800">{convertPreview.leadEmail}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-gray-600">Tasks to carry over</span>
+                  <span className="font-semibold text-gray-900">{convertPreview.taskCount}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-gray-600">Notes to carry over</span>
+                  <span className="font-semibold text-gray-900">{convertPreview.noteCount}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-gray-600">Emails linked</span>
+                  <span className="font-semibold text-gray-900">{leadEmails.length}</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                After conversion, this lead record will be permanently deleted and you will be redirected to the new customer page.
+              </p>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowConvertDialog(false)} disabled={convertMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => convertMutation.mutate()}
+              disabled={previewLoading || convertMutation.isPending}
+            >
+              {convertMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Converting…</>
+              ) : (
+                <><UserCheck className="w-4 h-4 mr-2" /> Confirm Conversion</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

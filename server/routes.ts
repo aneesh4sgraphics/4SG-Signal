@@ -18294,6 +18294,201 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Preview what will be transferred when converting a lead to customer
+  app.get("/api/leads/:id/convert-preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const leadId = parseInt(req.params.id);
+      if (isNaN(leadId)) return res.status(400).json({ error: 'Invalid lead ID' });
+      const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+      if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+      const [taskRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
+        .from(followUpTasks).where(eq(followUpTasks.leadId, leadId));
+      const [noteRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
+        .from(leadActivities)
+        .where(and(eq(leadActivities.leadId, leadId), eq(leadActivities.activityType, 'note_added')));
+
+      let existingCustomer: { id: string; name: string } | null = null;
+      if (lead.emailNormalized) {
+        const [cust] = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, company: customers.company })
+          .from(customers).where(eq(customers.emailNormalized, lead.emailNormalized)).limit(1);
+        if (cust) {
+          existingCustomer = {
+            id: cust.id,
+            name: [cust.firstName, cust.lastName].filter(Boolean).join(' ') || cust.company || 'Unnamed',
+          };
+        }
+      }
+
+      res.json({
+        taskCount: Number(taskRow?.count ?? 0),
+        noteCount: Number(noteRow?.count ?? 0),
+        existingCustomer,
+        leadName: lead.name,
+        leadEmail: lead.email,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Convert a lead into a customer (or merge into existing customer by email)
+  app.post("/api/leads/:id/convert-to-customer", isAuthenticated, async (req: any, res) => {
+    try {
+      const leadId = parseInt(req.params.id);
+      if (isNaN(leadId)) return res.status(400).json({ error: 'Invalid lead ID' });
+
+      const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+      if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+      const performedBy = (req.user as any)?.claims?.sub || req.user?.id || 'unknown';
+      const performedByName = (req.user as any)?.claims?.email || req.user?.email || 'unknown';
+      const conversionDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const conversionNote = `Converted from lead on ${conversionDate}.`;
+
+      let customerId: string;
+      let customerName: string;
+      let isExisting = false;
+
+      // Check if a customer already exists with this email
+      let existingCustomer: typeof customers.$inferSelect | undefined;
+      if (lead.emailNormalized) {
+        const rows = await db.select().from(customers)
+          .where(eq(customers.emailNormalized, lead.emailNormalized))
+          .limit(1);
+        existingCustomer = rows[0];
+      }
+
+      await db.transaction(async (tx) => {
+        if (existingCustomer) {
+          // Merge: use existing customer, append notes
+          isExisting = true;
+          customerId = existingCustomer.id;
+          customerName = [existingCustomer.firstName, existingCustomer.lastName].filter(Boolean).join(' ')
+            || existingCustomer.company || lead.name;
+
+          const mergedNote = [
+            existingCustomer.note,
+            lead.description ? `[From lead] ${lead.description}` : null,
+            lead.internalNotes ? `[Lead notes] ${lead.internalNotes}` : null,
+            conversionNote,
+          ].filter(Boolean).join('\n\n');
+          await tx.update(customers)
+            .set({ note: mergedNote, updatedAt: new Date() })
+            .where(eq(customers.id, existingCustomer.id));
+        } else {
+          // Create new customer from lead
+          const nameParts = (lead.name || '').split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          customerId = crypto.randomUUID();
+          customerName = lead.name;
+
+          const initialNote = [
+            lead.description,
+            lead.internalNotes ? `[Internal notes] ${lead.internalNotes}` : null,
+            conversionNote,
+          ].filter(Boolean).join('\n\n');
+
+          await tx.insert(customers).values({
+            id: customerId,
+            firstName,
+            lastName,
+            company: lead.company || null,
+            email: lead.email || null,
+            emailNormalized: lead.emailNormalized || null,
+            phone: lead.phone || null,
+            cell: lead.mobile || null,
+            address1: lead.street || null,
+            address2: lead.street2 || null,
+            city: lead.city || null,
+            province: lead.state || null,
+            zip: lead.zip || null,
+            country: lead.country || null,
+            website: lead.website || null,
+            note: initialNote || null,
+            tags: lead.tags || null,
+            salesRepId: lead.salesRepId || null,
+            salesRepName: lead.salesRepName || null,
+            pricingTier: lead.pricingTier || null,
+            pricingTierSetBy: lead.pricingTierSetBy || null,
+            pricingTierSetAt: lead.pricingTierSetAt || null,
+            customerType: lead.customerType || null,
+            isCompany: lead.isCompany || false,
+            salesKanbanStage: lead.salesKanbanStage || null,
+            jobTitle: lead.jobTitle || null,
+            companyDomain: lead.companyDomain || null,
+            odooPartnerId: lead.sourceContactOdooPartnerId || lead.odooPartnerId || null,
+            sources: ['converted_lead'],
+          });
+        }
+
+        // Move all follow-up tasks from lead → customer
+        await tx.update(followUpTasks)
+          .set({ leadId: null, customerId })
+          .where(eq(followUpTasks.leadId, leadId));
+
+        // Move lead notes (note_added) → customerActivityEvents
+        const leadNotes = await tx.select().from(leadActivities)
+          .where(and(
+            eq(leadActivities.leadId, leadId),
+            eq(leadActivities.activityType, 'note_added'),
+          ));
+        for (const note of leadNotes) {
+          await tx.insert(customerActivityEvents).values({
+            customerId,
+            eventType: 'note_added',
+            title: note.summary || 'Note (from lead)',
+            description: note.details ?? undefined,
+            sourceType: 'manual',
+            createdBy: note.performedBy ?? undefined,
+            createdByName: note.performedByName ?? undefined,
+          });
+        }
+
+        // Add a conversion activity note to the customer
+        await tx.insert(customerActivityEvents).values({
+          customerId,
+          eventType: 'note_added',
+          title: conversionNote,
+          sourceType: 'system',
+          createdBy: performedBy,
+          createdByName: performedByName,
+        });
+
+        // Link any gmail messages that match this lead's email to the customer
+        if (lead.emailNormalized) {
+          await tx.update(gmailMessages)
+            .set({ customerId })
+            .where(and(
+              eq(gmailMessages.fromEmailNormalized, lead.emailNormalized),
+              isNull(gmailMessages.customerId),
+            ));
+          await tx.update(gmailMessages)
+            .set({ customerId })
+            .where(and(
+              eq(gmailMessages.toEmailNormalized, lead.emailNormalized),
+              isNull(gmailMessages.customerId),
+            ));
+        }
+
+        // Delete the lead (cascades to leadActivities)
+        await tx.delete(leads).where(eq(leads.id, leadId));
+      });
+
+      // Invalidate caches
+      setCachedData('leads', null);
+      setCachedData('customers', null);
+
+      res.json({ ok: true, customerId: customerId!, customerName: customerName!, isExisting });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      console.error('Convert lead error:', message);
+      res.status(500).json({ error: message });
+    }
+  });
+
   // Add activity to a lead
   app.post("/api/leads/:id/activities", isAuthenticated, async (req: any, res) => {
     try {
