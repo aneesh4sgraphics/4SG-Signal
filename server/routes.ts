@@ -12440,7 +12440,12 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         normalizedEmail
           ? db.select({ id: gmailMessages.id, direction: gmailMessages.direction, fromEmail: gmailMessages.fromEmail, fromName: gmailMessages.fromName, toEmail: gmailMessages.toEmail, subject: gmailMessages.subject, snippet: gmailMessages.snippet, sentAt: gmailMessages.sentAt })
               .from(gmailMessages)
-              .where(or(eq(gmailMessages.fromEmailNormalized, normalizedEmail), eq(gmailMessages.toEmailNormalized, normalizedEmail)))
+              .where(or(
+                eq(gmailMessages.fromEmailNormalized, normalizedEmail),
+                eq(gmailMessages.toEmailNormalized, normalizedEmail),
+                sql`LOWER(TRIM(${gmailMessages.fromEmail})) = ${normalizedEmail}`,
+                sql`LOWER(TRIM(${gmailMessages.toEmail})) = ${normalizedEmail}`
+              ))
               .orderBy(desc(gmailMessages.sentAt))
               .limit(30)
           : Promise.resolve([] as any[]),
@@ -13564,7 +13569,9 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           .where(
             or(
               eq(gmailMessages.fromEmailNormalized, normalizedEmail),
-              eq(gmailMessages.toEmailNormalized, normalizedEmail)
+              eq(gmailMessages.toEmailNormalized, normalizedEmail),
+              sql`LOWER(TRIM(${gmailMessages.fromEmail})) = ${normalizedEmail}`,
+              sql`LOWER(TRIM(${gmailMessages.toEmail})) = ${normalizedEmail}`
             )
           )
           .orderBy(desc(gmailMessages.sentAt))
@@ -13676,7 +13683,9 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           .where(
             or(
               eq(gmailMessages.fromEmailNormalized, normalizedEmail),
-              eq(gmailMessages.toEmailNormalized, normalizedEmail)
+              eq(gmailMessages.toEmailNormalized, normalizedEmail),
+              sql`LOWER(TRIM(${gmailMessages.fromEmail})) = ${normalizedEmail}`,
+              sql`LOWER(TRIM(${gmailMessages.toEmail})) = ${normalizedEmail}`
             )
           )
           .orderBy(desc(gmailMessages.sentAt))
