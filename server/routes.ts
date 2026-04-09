@@ -31485,32 +31485,41 @@ Analyze this bounced email and provide insights in JSON format:
         .orderBy(desc(leads.pressTestKitSentAt))
         .limit(100);
 
-      const samplesCustomers = await db
-        .select({
-          id: customers.id,
-          name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
-          company: customers.company,
-          type: sql<string>`'customer'`,
-          salesKanbanStage: customers.salesKanbanStage,
-          rep: sql<string | null>`${customers.salesRepName}`,
-          signal: sql<string>`
-            CASE
-              WHEN ${customers.pressTestSentAt} IS NOT NULL THEN 'press test sent'
-              WHEN ${customers.swatchbookSentAt} IS NOT NULL THEN 'swatchbook sent'
-              ELSE 'samples requested'
-            END
-          `
-        })
-        .from(customers)
-        .where(
-          or(
-            isNotNull(customers.pressTestSentAt),
-            isNotNull(customers.swatchbookSentAt),
-            eq(customers.salesKanbanStage, 'samples_requested')
-          )
+      // Pull pending sample shipments from shipment_follow_up_tasks, matching to customers
+      const shipmentSamplesRaw = await db.execute(sql`
+        SELECT DISTINCT ON (COALESCE(c.id::text, sft.recipient_email))
+          COALESCE(c.id::text, 'ship_' || sft.id::text) AS id,
+          COALESCE(
+            c.first_name || ' ' || c.last_name,
+            c.company,
+            sft.recipient_name,
+            sft.customer_company,
+            sft.recipient_email,
+            'Unknown'
+          ) AS name,
+          COALESCE(c.company, sft.customer_company) AS company,
+          CASE WHEN c.id IS NOT NULL THEN 'customer' ELSE 'shipment' END AS type,
+          c.sales_kanban_stage AS "salesKanbanStage",
+          c.sales_rep_name AS rep,
+          CASE
+            WHEN sft.shipment_type = 'press_test_kit' THEN 'press test sent'
+            WHEN sft.shipment_type = 'swatchbook' THEN 'swatchbook sent'
+            ELSE 'samples sent'
+          END AS signal
+        FROM shipment_follow_up_tasks sft
+        LEFT JOIN customers c ON (
+          c.id = sft.customer_id
+          OR LOWER(TRIM(c.email)) = LOWER(TRIM(sft.recipient_email))
         )
-        .orderBy(desc(customers.pressTestSentAt))
-        .limit(100);
+        WHERE sft.shipment_type IN ('samples', 'swatchbook', 'press_test_kit')
+          AND sft.status = 'pending'
+          AND sft.reply_received = false
+          AND sft.dismissed_at IS NULL
+          AND sft.sent_at >= NOW() - INTERVAL '90 days'
+        ORDER BY COALESCE(c.id::text, sft.recipient_email), sft.sent_at DESC
+        LIMIT 100
+      `);
+      const samplesCustomers = (shipmentSamplesRaw.rows as any[]);
 
       const noResponseLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })

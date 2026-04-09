@@ -407,21 +407,23 @@ export default function Dashboard() {
                             {visibleItems.map((item: any) => (
                               <div
                                 key={item.id}
-                                style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '3px', position: 'relative' }}
+                                style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: item.type === 'shipment' ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', gap: '3px', position: 'relative' }}
                                 onClick={() => {
                                   if (item.type === 'customer') {
                                     navigate(`/odoo-contacts/${item.id}`);
-                                  } else {
+                                  } else if (item.type === 'lead') {
                                     navigate(`/leads/${item.id}`);
                                   }
                                 }}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
                                   <span style={{ fontSize: '12px', fontWeight: 500, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.company || item.name}</span>
-                                  <button
-                                    style={{ fontSize: '14px', color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
-                                    onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type }); }}
-                                  >···</button>
+                                  {item.type !== 'shipment' && (
+                                    <button
+                                      style={{ fontSize: '14px', color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
+                                      onClick={(e) => { e.stopPropagation(); setMoveMenu(moveMenu?.leadId === item.id ? null : { leadId: item.id, x: e.clientX, y: e.clientY, type: item.type }); }}
+                                    >···</button>
+                                  )}
                                 </div>
                                 {item.signal && (
                                   <span style={{ fontSize: '10px', fontWeight: 500, padding: '1px 6px', borderRadius: '4px', display: 'inline-block', width: 'fit-content', background: 'rgba(255,255,255,0.6)', color: '#4A4A4A' }}>{item.signal}</span>
