@@ -532,7 +532,12 @@ export function registerCustomersRoutes(app: Express): void {
         const hasFilters = Object.keys(filters).length > 0;
         
         const result = await storage.getCustomersPaginated(page, limit, search, hasFilters ? filters : undefined);
-        return res.json(result);
+        return res.json({
+          customers: result.data,
+          total: result.total,
+          page: result.page,
+          pageSize: result.limit,
+        });
       }
       
       // Legacy mode - return full customer array (for backward compatibility)

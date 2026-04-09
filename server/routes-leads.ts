@@ -349,8 +349,11 @@ export function registerLeadsRoutes(app: Express): void {
   });
   app.get("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      const { stage, salesRepId, search, state: stateFilter, city: cityFilter, limit = 100, offset = 0, tag, createdAfterDays } = req.query;
-      
+      const { stage, salesRepId, search, state: stateFilter, city: cityFilter, tag, createdAfterDays } = req.query;
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const pageSize = Math.min(200, parseInt(req.query.pageSize as string) || parseInt(req.query.limit as string) || 100);
+      const offset = (page - 1) * pageSize;
+
       let query = db.select().from(leads);
       const conditions: any[] = [];
       
@@ -393,19 +396,21 @@ export function registerLeadsRoutes(app: Express): void {
         }
       }
       
-      const result = await db.select().from(leads)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(leads.createdAt))
-        .limit(parseInt(limit as string))
-        .offset(parseInt(offset as string));
-      
-      // Get total count for pagination
-      const countResult = await db.select({ count: sql<number>`count(*)::int` }).from(leads)
-        .where(conditions.length > 0 ? and(...conditions) : undefined);
-      
+      const [result, countResult] = await Promise.all([
+        db.select().from(leads)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(desc(leads.createdAt))
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ count: sql<number>`count(*)::int` }).from(leads)
+          .where(conditions.length > 0 ? and(...conditions) : undefined),
+      ]);
+
       res.json({
         leads: result,
-        total: countResult[0]?.count || 0
+        total: countResult[0]?.count || 0,
+        page,
+        pageSize,
       });
     } catch (error) {
       console.error("Error fetching leads:", error);
@@ -510,12 +515,17 @@ export function registerLeadsRoutes(app: Express): void {
         return res.status(404).json({ error: "Lead not found" });
       }
       
-      // Get activities for this lead
+      // Get activities for this lead (newest-first, 50 at a time)
+      const before = req.query.before as string | undefined;
+      const activityConditions: any[] = [eq(leadActivities.leadId, id)];
+      if (before) {
+        activityConditions.push(sql`${leadActivities.createdAt} < ${new Date(before).toISOString()}`);
+      }
       const activities = await db.select().from(leadActivities)
-        .where(eq(leadActivities.leadId, id))
+        .where(and(...activityConditions))
         .orderBy(desc(leadActivities.createdAt))
         .limit(50);
-      
+
       res.json({ ...lead[0], activities });
     } catch (error) {
       console.error("Error fetching lead:", error);

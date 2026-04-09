@@ -331,10 +331,10 @@ export default function OdooContacts() {
   const domainMismatchSet = new Set<string>(domainMismatchData?.contactIds ?? []);
 
   const { data: paginatedData, isLoading, refetch } = useQuery<{ 
-    data: Contact[]; 
+    customers: Contact[]; 
     total: number; 
     page: number; 
-    totalPages: number; 
+    pageSize: number; 
   }>({
     queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect],
     queryFn: async () => {
@@ -345,9 +345,9 @@ export default function OdooContacts() {
     staleTime: 30000,
   });
   
-  const contacts = paginatedData?.data || [];
+  const contacts = paginatedData?.customers || [];
   const totalContacts = paginatedData?.total || 0;
-  const totalPages = paginatedData?.totalPages || 1;
+  const totalPages = paginatedData ? Math.ceil(paginatedData.total / paginatedData.pageSize) : 1;
 
   // Fetch available partner categories (tags) from Odoo for filter dropdown
   const { data: partnerCategories = [] } = useQuery<Array<{ id: number; name: string }>>({

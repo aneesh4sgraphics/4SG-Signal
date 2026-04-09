@@ -264,13 +264,15 @@ export default function LeadsPage() {
   });
   const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
 
-  const { data: leadsData, isLoading, refetch } = useQuery<{ leads: Lead[]; total: number }>({
-    queryKey: ['/api/leads', { stage: stageFilter, search }],
+  const PAGE_SIZE = 100;
+  const { data: leadsData, isLoading, refetch } = useQuery<{ leads: Lead[]; total: number; page: number; pageSize: number }>({
+    queryKey: ['/api/leads', { stage: stageFilter, search, page: currentPage }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (stageFilter !== 'all') params.set('stage', stageFilter);
       if (search) params.set('search', search);
-      params.set('limit', '100');
+      params.set('page', String(currentPage));
+      params.set('pageSize', String(PAGE_SIZE));
       const res = await fetch(`/api/leads?${params.toString()}`, { credentials: 'include' });
       return res.json();
     },
