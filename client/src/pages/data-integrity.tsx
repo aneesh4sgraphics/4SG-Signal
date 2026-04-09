@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,8 @@ export default function DataIntegrity() {
     try { return new Set(JSON.parse(localStorage.getItem("conflict_skipped") || "[]")); }
     catch { return new Set(); }
   });
+  // Track session baseline for progress bar (max total seen so far)
+  const sessionBaselineRef = useRef<number>(0);
   const [confirmDialog, setConfirmDialog] = useState<{
     conflict: Conflict;
     action: "keep_lead" | "keep_customer";
@@ -93,7 +95,7 @@ export default function DataIntegrity() {
     setPage(1);
   };
 
-  const { data, isLoading } = useQuery<ConflictsResponse>({
+  const { data, isLoading, error } = useQuery<ConflictsResponse>({
     queryKey: ["/api/admin/email-conflicts", page, debouncedSearch, filterHasTasks, filterHasEmails],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -104,6 +106,7 @@ export default function DataIntegrity() {
         ...(filterHasEmails ? { hasEmails: "true" } : {}),
       });
       const res = await fetch(`/api/admin/email-conflicts?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to load conflicts (${res.status})`);
       return res.json();
     },
     staleTime: 0,
@@ -148,7 +151,16 @@ export default function DataIntegrity() {
   );
   const total = data?.total ?? 0;
   const skippedCount = skipped.size;
-  const resolvedProgress = total === 0 ? 100 : 0;
+
+  // Update baseline: track the highest total seen so far this session (unfiltered)
+  useEffect(() => {
+    if (!filterHasTasks && !filterHasEmails && !debouncedSearch && total > sessionBaselineRef.current) {
+      sessionBaselineRef.current = total;
+    }
+  }, [total, filterHasTasks, filterHasEmails, debouncedSearch]);
+
+  const baseline = sessionBaselineRef.current || total;
+  const resolvedProgress = baseline > 0 ? Math.round(((baseline - total) / baseline) * 100) : (total === 0 ? 100 : 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -177,6 +189,8 @@ export default function DataIntegrity() {
           <CardContent className="p-5">
             {isLoading ? (
               <Skeleton className="h-8 w-full" />
+            ) : error ? (
+              <p className="text-sm text-red-600">{(error as Error).message}</p>
             ) : (
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -184,11 +198,16 @@ export default function DataIntegrity() {
                     <span className="font-medium text-gray-700">
                       {total === 0 ? "All conflicts resolved!" : `${total} conflict${total !== 1 ? "s" : ""} remaining`}
                     </span>
-                    {skippedCount > 0 && (
-                      <button onClick={unskipAll} className="text-xs text-blue-600 hover:underline">
-                        Show {skippedCount} skipped
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {resolvedProgress > 0 && baseline > total && (
+                        <span className="text-xs text-green-600 font-medium">{resolvedProgress}% resolved</span>
+                      )}
+                      {skippedCount > 0 && (
+                        <button onClick={unskipAll} className="text-xs text-blue-600 hover:underline">
+                          Show {skippedCount} skipped
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <Progress value={resolvedProgress} className="h-2.5" />
                 </div>
@@ -238,6 +257,14 @@ export default function DataIntegrity() {
               <Skeleton key={i} className="h-44 w-full rounded-xl" />
             ))}
           </div>
+        ) : error ? (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+              <h3 className="font-semibold text-gray-700 text-lg">Failed to load conflicts</h3>
+              <p className="text-sm text-red-500 mt-1">{(error as Error).message}</p>
+            </CardContent>
+          </Card>
         ) : visibleConflicts.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">
