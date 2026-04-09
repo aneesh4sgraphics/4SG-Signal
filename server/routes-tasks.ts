@@ -5,6 +5,7 @@ import { isAuthenticated } from "./replitAuth";
 import { odooClient, isOdooConfigured } from "./odoo";
 import { storage } from "./storage";
 import { spotlightEngine } from "./spotlight-engine";
+import { analyzeForHints } from "./spotlight-heuristics";
 import OpenAI from "openai";
 import {
   customers,
