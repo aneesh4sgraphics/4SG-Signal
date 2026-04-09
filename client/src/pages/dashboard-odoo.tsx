@@ -382,7 +382,7 @@ export default function Dashboard() {
             <p style={{fontSize:'11px',fontWeight:600,color:'#8A8A8A',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'12px'}}>Sales pipeline signals</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
               {[
-                { key: 'replied', label: 'Emails Replied', color: '#D1FAE5', border: '#6EE7B7', dot: '#059669', emptyText: 'No replies yet', hint: 'Email replies, quote & sample requests', hintColor: '#6B8A6B' },
+                { key: 'replied', label: 'Needs Reply', color: '#D1FAE5', border: '#6EE7B7', dot: '#059669', emptyText: 'No pending replies', hint: 'Inbound emails awaiting your response', hintColor: '#6B8A6B' },
                 { key: 'samplesRequested', label: 'Samples Requested', color: '#DBEAFE', border: '#BFDBFE', dot: '#2563EB', emptyText: 'No samples sent', hint: 'Swatchbook, press test kit, mailer sent', hintColor: '#4A6A9B' },
                 { key: 'noResponse', label: 'No Response', color: '#FEF9C3', border: '#FDE047', dot: '#D97706', emptyText: 'All leads active', hint: 'Emailed 10+ days ago, no reply', hintColor: '#8A6A20' },
                 { key: 'issues', label: 'Issues', color: '#FEE2E2', border: '#FECACA', dot: '#DC2626', emptyText: 'No issues logged', hint: 'Price, supply or print issues flagged', hintColor: '#8A3030' },
@@ -464,7 +464,7 @@ export default function Dashboard() {
               >
                 <p style={{ fontSize: '11px', color: '#8A8A8A', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 6px', margin: 0 }}>Move to</p>
                 {[
-                  { stage: 'replied', label: 'Emails Replied', color: '#059669', bg: '#D1FAE5' },
+                  { stage: 'replied', label: 'Needs Reply', color: '#059669', bg: '#D1FAE5' },
                   { stage: 'samples_requested', label: 'Samples Requested', color: '#2563EB', bg: '#DBEAFE' },
                   { stage: 'no_response', label: 'No Response', color: '#D97706', bg: '#FEF9C3' },
                   { stage: 'issue', label: 'Issue', color: '#DC2626', bg: '#FEE2E2' },

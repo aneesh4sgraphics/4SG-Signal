@@ -31402,7 +31402,7 @@ Analyze this bounced email and provide insights in JSON format:
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
       const repliedLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'replied to email' ELSE 'marked replied' END` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
         .from(leads)
         .where(
           and(
@@ -31417,7 +31417,8 @@ Analyze this bounced email and provide insights in JSON format:
         .orderBy(desc(leads.firstEmailReplyAt))
         .limit(100);
 
-      const repliedCustomers = await db
+      // Customers manually placed in replied stage
+      const repliedCustomersManual = await db
         .select({
           id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
@@ -31425,24 +31426,51 @@ Analyze this bounced email and provide insights in JSON format:
           type: sql<string>`'customer'`,
           salesKanbanStage: customers.salesKanbanStage,
           rep: sql<string | null>`${customers.salesRepName}`,
-          signal: sql<string>`'replied to email'`
+          signal: sql<string>`'needs reply'`
         })
         .from(customers)
-        .innerJoin(
-          shipmentFollowUpTasks,
-          and(
-            eq(shipmentFollowUpTasks.customerId, customers.id),
-            eq(shipmentFollowUpTasks.replyReceived, true)
+        .where(eq(customers.salesKanbanStage, 'replied'))
+        .limit(50);
+
+      // Customers with an inbound Gmail message in last 60 days, no outbound email from us since then
+      const inboundUnrepliedCustomers = await db.execute(sql`
+        SELECT DISTINCT ON (c.id)
+          c.id,
+          COALESCE(c.first_name || ' ' || c.last_name, c.company, 'Unknown') AS name,
+          c.company,
+          'customer' AS type,
+          c.sales_kanban_stage AS "salesKanbanStage",
+          c.sales_rep_name AS rep,
+          'email needs response' AS signal
+        FROM gmail_messages gm
+        JOIN customers c ON c.id = gm.customer_id
+        WHERE gm.direction = 'inbound'
+          AND gm.sent_at >= NOW() - INTERVAL '90 days'
+          AND NOT EXISTS (
+            SELECT 1 FROM gmail_messages outbound
+            WHERE outbound.customer_id = gm.customer_id
+              AND outbound.direction = 'outbound'
+              AND outbound.sent_at > gm.sent_at
           )
-        )
-        .where(
-          or(
-            eq(customers.salesKanbanStage, 'replied'),
-            eq(shipmentFollowUpTasks.replyReceived, true)
+          AND NOT EXISTS (
+            SELECT 1 FROM email_sends es
+            WHERE LOWER(TRIM(es.recipient_email)) = LOWER(TRIM(c.email))
+              AND es.sent_at > gm.sent_at
           )
-        )
-        .groupBy(customers.id, customers.firstName, customers.lastName, customers.company, customers.salesKanbanStage, customers.salesRepName)
-        .limit(100);
+          AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost'))
+        ORDER BY c.id, gm.sent_at DESC
+        LIMIT 50
+      `);
+
+      // Merge: manual + inbound unresponded, dedup by id
+      const seenCustomerIds = new Set<string>();
+      const repliedCustomers: any[] = [];
+      for (const row of [...repliedCustomersManual, ...(inboundUnrepliedCustomers.rows as any[])]) {
+        if (!seenCustomerIds.has(row.id)) {
+          seenCustomerIds.add(row.id);
+          repliedCustomers.push(row);
+        }
+      }
 
       const samplesLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
