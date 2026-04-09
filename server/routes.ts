@@ -31651,6 +31651,84 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // Unknown Inquiries — inbound emails with pricing/sample keywords from senders not in leads/customers
+  app.get("/api/dashboard/unknown-inquiries", isAuthenticated, async (req: any, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT DISTINCT ON (LOWER(TRIM(gm.from_email)))
+          gm.id,
+          gm.from_email     AS "fromEmail",
+          gm.from_name      AS "fromName",
+          gm.subject,
+          gm.snippet,
+          gm.sent_at        AS "sentAt",
+          gm.thread_id      AS "threadId"
+        FROM gmail_messages gm
+        WHERE gm.direction = 'inbound'
+          AND gm.sent_at >= NOW() - INTERVAL '60 days'
+          AND gm.customer_id IS NULL
+
+          -- Must have a pricing or sample keyword in subject or snippet
+          AND (
+            gm.subject ILIKE '%price%'
+            OR gm.subject ILIKE '%pricing%'
+            OR gm.subject ILIKE '%sample%'
+            OR gm.subject ILIKE '%quote%'
+            OR gm.subject ILIKE '%swatchbook%'
+            OR gm.subject ILIKE '%swatch book%'
+            OR gm.subject ILIKE '%press test%'
+            OR gm.subject ILIKE '%press kit%'
+            OR gm.snippet  ILIKE '%price%'
+            OR gm.snippet  ILIKE '%sample%'
+            OR gm.snippet  ILIKE '%quote%'
+          )
+
+          -- Exclude if sender is already a lead
+          AND NOT EXISTS (
+            SELECT 1 FROM leads l
+            WHERE LOWER(TRIM(l.email)) = LOWER(TRIM(gm.from_email))
+          )
+
+          -- Exclude obvious marketing / automated senders (domain-based)
+          AND gm.from_email NOT ILIKE '%noreply%'
+          AND gm.from_email NOT ILIKE '%no-reply%'
+          AND gm.from_email NOT ILIKE '%donotreply%'
+          AND gm.from_email NOT ILIKE '%do-not-reply%'
+          AND gm.from_email NOT ILIKE '%mailer%'
+          AND gm.from_email NOT ILIKE '%notification%'
+          AND gm.from_email NOT ILIKE '%postmaster%'
+          AND gm.from_email NOT ILIKE '%bounce%'
+          AND gm.from_email NOT ILIKE '%mailchimp%'
+          AND gm.from_email NOT ILIKE '%sendgrid%'
+          AND gm.from_email NOT ILIKE '%klaviyo%'
+          AND gm.from_email NOT ILIKE '%hubspot%'
+          AND gm.from_email NOT ILIKE '@google.com'
+          AND gm.from_email NOT ILIKE '%googlemail%'
+
+          -- Exclude marketing-keyword subjects
+          AND gm.subject NOT ILIKE '%unsubscribe%'
+          AND gm.subject NOT ILIKE '%newsletter%'
+          AND gm.subject NOT ILIKE '%promotional%'
+          AND gm.subject NOT ILIKE '%promotion%'
+          AND gm.subject NOT ILIKE '%limited offer%'
+          AND gm.subject NOT ILIKE '%deal%'
+          AND gm.subject NOT ILIKE '%discount%'
+          AND gm.subject NOT ILIKE '%your account%'
+          AND gm.subject NOT ILIKE '%invoice%'
+          AND gm.subject NOT ILIKE '%payment%'
+          AND gm.subject NOT ILIKE '%delivery status%'
+
+        ORDER BY LOWER(TRIM(gm.from_email)), gm.sent_at DESC
+        LIMIT 20
+      `);
+
+      res.json(rows.rows as any[]);
+    } catch (error) {
+      console.error("[Unknown Inquiries] Error:", error);
+      res.status(500).json({ error: "Failed to fetch unknown inquiries" });
+    }
+  });
+
   app.patch("/api/leads/:id/kanban-stage", isAuthenticated, async (req: any, res) => {
     try {
       const leadId = parseInt(req.params.id);
