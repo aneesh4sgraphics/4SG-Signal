@@ -27,7 +27,7 @@ import {
   PhoneCall, Send, Gift, Loader2, Plus, Edit, CheckCircle2, Star,
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
-  AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp,
+  AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -221,6 +221,12 @@ export default function LeadDetail() {
   const [dripToCancelId, setDripToCancelId] = useState<number | null>(null);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
+  const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
+    queryKey: ['/api/admin/email-conflict-emails'],
+    staleTime: 60 * 1000,
+  });
+  const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
+
   const { data: lead, isLoading } = useQuery<Lead>({
     queryKey: ["/api/leads", leadId],
     queryFn: async () => {
@@ -604,6 +610,21 @@ export default function LeadDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Conflict Warning Banner ───────────────────────────────────────────── */}
+      {lead.emailNormalized && conflictEmailSet.has(lead.emailNormalized) && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-3 flex items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+          <p className="text-sm text-orange-800 flex-1">
+            <strong>Email conflict:</strong> {lead.email} also exists in Contacts. This creates duplicated identity records.
+          </p>
+          <Link href="/admin/data-integrity">
+            <span className="text-xs font-semibold text-orange-700 underline cursor-pointer hover:text-orange-900">
+              Resolve now →
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* ── Tab Content ───────────────────────────────────────────────────────── */}
       <div className="flex-1 px-6 py-6 bg-gray-50">

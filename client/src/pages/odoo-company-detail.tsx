@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Building2, User, Mail, Phone, MapPin, DollarSign, TrendingUp,
-  Package, CreditCard, AlertCircle, ChevronRight, ChevronLeft, Tag, Pencil,
+  Package, CreditCard, AlertCircle, AlertTriangle, ChevronRight, ChevronLeft, Tag, Pencil,
   Upload, CheckCircle2, XCircle, Loader2, Printer, PhoneCall, FileText,
   Activity, Calendar, StickyNote, Plus, UserPlus, GitMerge, Trash2, Truck,
   Target, Eye, Trophy, Linkedin, MapPinned, Video, ClipboardList, Clock,
@@ -38,7 +38,7 @@ interface ShopifyCustomerMapping {
 
 interface Contact {
   id: string; firstName: string | null; lastName: string | null;
-  email: string | null; email2: string | null; company: string | null;
+  email: string | null; emailNormalized: string | null; email2: string | null; email2Normalized: string | null; company: string | null;
   phone: string | null; phone2: string | null; cell: string | null;
   address1: string | null; address2: string | null; city: string | null;
   province: string | null; country: string | null; zip: string | null;
@@ -238,6 +238,12 @@ export default function OdooCompanyDetail() {
   const queryClient = useQueryClient();
 
   // ── Queries ─────────────────────────────────────────────────────────────────
+  const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
+    queryKey: ['/api/admin/email-conflict-emails'],
+    staleTime: 60 * 1000,
+  });
+  const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
+
   const { data: company, isLoading: companyLoading } = useQuery<Contact>({
     queryKey: ["/api/customers", companyId],
     queryFn: async () => { const r = await fetch(`/api/customers/${companyId}`); if (!r.ok) throw new Error("Not found"); return r.json(); },
@@ -753,6 +759,24 @@ export default function OdooCompanyDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Conflict Warning Banner ───────────────────────────────────────── */}
+      {company && (
+        (company.emailNormalized && conflictEmailSet.has(company.emailNormalized)) ||
+        (company.email2Normalized && conflictEmailSet.has(company.email2Normalized))
+      ) && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-3 flex items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
+          <p className="text-sm text-orange-800 flex-1">
+            <strong>Email conflict:</strong> {company?.email} also exists as a Lead. This creates duplicated identity records.
+          </p>
+          <Link href="/admin/data-integrity">
+            <span className="text-xs font-semibold text-orange-700 underline cursor-pointer hover:text-orange-900">
+              Resolve now →
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* ── TAB CONTENT ────────────────────────────────────────────────────── */}
       <div className="px-6 py-6 space-y-6">

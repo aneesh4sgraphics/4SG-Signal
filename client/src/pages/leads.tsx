@@ -92,6 +92,7 @@ interface Lead {
   sourceCustomerId: string | null;
   name: string;
   email: string | null;
+  emailNormalized: string | null;
   phone: string | null;
   mobile: string | null;
   company: string | null;
@@ -256,6 +257,12 @@ export default function LeadsPage() {
     company: '',
     description: '',
   });
+
+  const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
+    queryKey: ['/api/admin/email-conflict-emails'],
+    staleTime: 60 * 1000,
+  });
+  const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
 
   const { data: leadsData, isLoading, refetch } = useQuery<{ leads: Lead[]; total: number }>({
     queryKey: ['/api/leads', { stage: stageFilter, search }],
@@ -1171,6 +1178,13 @@ export default function LeadsPage() {
                           <Star className="w-3 h-3 text-amber-500" />
                           <span>Score: {lead.score}</span>
                         </div>
+                      )}
+                      {lead.emailNormalized && conflictEmailSet.has(lead.emailNormalized) && (
+                        <Link href="/admin/data-integrity" onClick={(e) => e.stopPropagation()}>
+                          <span title="This email exists in both Leads and Contacts" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 text-xs font-medium cursor-pointer hover:bg-orange-200">
+                            ⚠ Duplicate
+                          </span>
+                        </Link>
                       )}
                       {lead.odooLeadId && (
                         <SiOdoo className="w-3.5 h-3.5 text-purple-500" title="Synced from Odoo" />

@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check, Trophy, Flame, Phone, Mail, FileText, Sparkles, RefreshCw, Database } from "lucide-react";
+import { Settings, Download, ArrowLeft, Users, UserCheck, UserX, Clock, Shield, UserCog, Sliders, ChevronRight, Check, Trophy, Flame, Phone, Mail, FileText, Sparkles, RefreshCw, Database, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -467,6 +467,26 @@ export default function Admin() {
                   <div>
                     <h3 className="font-semibold text-lg">Rules & Config</h3>
                     <p className="text-sm text-gray-500">Manage coaching timers, nudge settings, and mappings</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Data Integrity Quick Link */}
+        <Link href="/admin/data-integrity">
+          <Card className="glass-card border-0 shadow-lg mb-6 cursor-pointer hover:bg-gray-50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <AlertTriangle className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Data Integrity</h3>
+                    <p className="text-sm text-gray-500">Resolve email conflicts between Leads and Contacts</p>
                   </div>
                 </div>
                 <ChevronRight className="h-5 w-5 text-gray-400" />

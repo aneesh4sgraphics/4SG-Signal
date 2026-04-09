@@ -76,6 +76,7 @@ import {
   Clock,
   TrendingUp,
   Camera,
+  AlertTriangle,
 } from "lucide-react";
 import { SiShopify, SiOdoo } from "react-icons/si";
 import { PrintLabelButton, useLabelQueue, CustomerAddress } from "@/components/PrintLabelButton";
@@ -87,7 +88,9 @@ interface Contact {
   firstName: string | null;
   lastName: string | null;
   email: string | null;
+  emailNormalized: string | null;
   email2: string | null;
+  email2Normalized: string | null;
   company: string | null;
   phone: string | null;
   phone2: string | null;
@@ -315,6 +318,12 @@ export default function OdooContacts() {
   if (filters.isHotProspect === true) queryParams.set('isHotProspect', 'true');
 
   // Fetch contacts with server-side pagination
+  const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
+    queryKey: ['/api/admin/email-conflict-emails'],
+    staleTime: 60 * 1000,
+  });
+  const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
+
   const { data: paginatedData, isLoading, refetch } = useQuery<{ 
     data: Contact[]; 
     total: number; 
@@ -1565,6 +1574,15 @@ export default function OdooContacts() {
                                 {isShopifyCustomer(contact) && (
                                   <SiShopify className="w-4 h-4 text-green-600" title={`Shopify customer: ${contact.email}`} />
                                 )}
+                                {(contact.emailNormalized && conflictEmailSet.has(contact.emailNormalized)) ||
+                                 (contact.email2Normalized && conflictEmailSet.has(contact.email2Normalized)) ? (
+                                  <Link href="/admin/data-integrity" onClick={e => e.stopPropagation()}>
+                                    <span title="This email exists in both Leads and Contacts"
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 text-xs font-medium cursor-pointer hover:bg-orange-200">
+                                      ⚠ Duplicate
+                                    </span>
+                                  </Link>
+                                ) : null}
                               </div>
                               {contact.isHotProspect && <Flame className="w-4 h-4 text-orange-500" />}
                             </div>

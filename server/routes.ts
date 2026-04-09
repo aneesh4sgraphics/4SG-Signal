@@ -31938,6 +31938,120 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // ─── Email Conflict Detection ─────────────────────────────────────────────
+  // Lightweight: returns just the set of conflicting normalized emails (used for badges)
+  app.get("/api/admin/email-conflict-emails", isAuthenticated, async (_req: any, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT DISTINCT l.email_normalized
+        FROM leads l
+        INNER JOIN customers c
+          ON (c.email_normalized = l.email_normalized
+           OR c.email2_normalized = l.email_normalized)
+        WHERE l.email_normalized IS NOT NULL
+          AND l.email_normalized <> ''
+      `);
+      res.json({ emails: (result.rows as any[]).map(r => r.email_normalized) });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Full paginated conflict list (admin-only)
+  app.get("/api/admin/email-conflicts", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
+      const limit  = Math.min(50, parseInt(req.query.limit as string) || 20);
+      const search = ((req.query.search as string) || '').trim();
+      const offset = (page - 1) * limit;
+      const searchLike = search ? `%${search}%` : null;
+
+      const whereSql  = sql`l.email_normalized IS NOT NULL AND l.email_normalized <> ''`;
+      const searchSql = searchLike
+        ? sql`AND (l.name ILIKE ${searchLike} OR l.email ILIKE ${searchLike}
+               OR CONCAT(COALESCE(c.first_name,''),' ',COALESCE(c.last_name,'')) ILIKE ${searchLike})`
+        : sql``;
+
+      const rows = await db.execute(sql`
+        SELECT
+          l.email_normalized,
+          l.id            AS lead_id,
+          l.name          AS lead_name,
+          l.email         AS lead_email,
+          l.company       AS lead_company,
+          l.stage         AS lead_stage,
+          l.score         AS lead_score,
+          (SELECT COUNT(*)::int FROM follow_up_tasks ft
+            WHERE ft.lead_id = l.id AND ft.status = 'pending') AS lead_task_count,
+          c.id            AS customer_id,
+          TRIM(CONCAT(COALESCE(c.first_name,''),' ',COALESCE(c.last_name,'')))
+                          AS customer_name,
+          c.email         AS customer_email,
+          c.company       AS customer_company,
+          COALESCE(c.total_spent::text,'0') AS customer_total_spent,
+          COALESCE(c.total_orders,0)        AS customer_total_orders,
+          (SELECT COUNT(*)::int FROM follow_up_tasks ft
+            WHERE ft.customer_id = c.id AND ft.status = 'pending') AS customer_task_count
+        FROM leads l
+        INNER JOIN customers c
+          ON (c.email_normalized = l.email_normalized
+           OR c.email2_normalized = l.email_normalized)
+        WHERE ${whereSql} ${searchSql}
+        ORDER BY l.name ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS total
+        FROM leads l
+        INNER JOIN customers c
+          ON (c.email_normalized = l.email_normalized
+           OR c.email2_normalized = l.email_normalized)
+        WHERE ${whereSql} ${searchSql}
+      `);
+
+      const total = (countResult.rows[0] as any)?.total ?? 0;
+      res.json({ conflicts: rows.rows, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Resolve a conflict: keep the lead or the customer
+  app.post("/api/admin/email-conflicts/resolve", isAuthenticated, requireAdmin, async (req: any, res) => {
+    const { leadId, customerId, action } = req.body;
+    if (!leadId || !customerId || !['keep_lead', 'keep_customer'].includes(action)) {
+      return res.status(400).json({ error: 'leadId, customerId, and valid action required' });
+    }
+    try {
+      await db.transaction(async (tx) => {
+        if (action === 'keep_lead') {
+          await tx.update(followUpTasks)
+            .set({ customerId: null, leadId: Number(leadId) })
+            .where(and(eq(followUpTasks.customerId, String(customerId)), isNull(followUpTasks.leadId)));
+          await tx.delete(customers).where(eq(customers.id, String(customerId)));
+        } else {
+          await tx.update(followUpTasks)
+            .set({ leadId: null, customerId: String(customerId) })
+            .where(and(eq(followUpTasks.leadId, Number(leadId)), isNull(followUpTasks.customerId)));
+          await tx.delete(leads).where(eq(leads.id, Number(leadId)));
+        }
+      });
+
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS total
+        FROM leads l
+        INNER JOIN customers c
+          ON (c.email_normalized = l.email_normalized
+           OR c.email2_normalized = l.email_normalized)
+        WHERE l.email_normalized IS NOT NULL AND l.email_normalized <> ''
+      `);
+      res.json({ ok: true, remaining: (countResult.rows[0] as any)?.total ?? 0 });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.path}` });
