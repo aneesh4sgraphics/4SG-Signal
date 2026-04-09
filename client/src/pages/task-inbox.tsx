@@ -229,6 +229,9 @@ export default function TaskInboxPage() {
   const [selectedTask, setSelectedTask] = useState<UnifiedTask | null>(null);
   const [showSpotlightPrompt, setShowSpotlightPrompt] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('09:00');
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [createForm, setCreateForm] = useState<CreateTaskForm>({
@@ -355,6 +358,20 @@ export default function TaskInboxPage() {
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
       toast({ title: "Failed to cancel task", variant: "destructive" });
+    },
+  });
+
+  const rescheduleTaskMutation = useMutation({
+    mutationFn: async ({ taskId, dueDate }: { taskId: number; dueDate: Date }) =>
+      apiRequest("PATCH", `/api/calendar/tasks/${taskId}`, { dueDate: dueDate.toISOString() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+      setShowReschedule(false);
+      toast({ title: "Task rescheduled", description: "Due date updated successfully." });
+    },
+    onError: () => {
+      toast({ title: "Failed to reschedule task", variant: "destructive" });
     },
   });
 
@@ -862,7 +879,7 @@ export default function TaskInboxPage() {
       </Dialog>
 
       {/* Task Detail Dialog */}
-      <Dialog open={showTaskDetail} onOpenChange={setShowTaskDetail}>
+      <Dialog open={showTaskDetail} onOpenChange={(open) => { setShowTaskDetail(open); if (!open) setShowReschedule(false); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedTask ? formatTaskTitle(selectedTask.title, selectedTask) : ''}</DialogTitle>
@@ -1070,7 +1087,73 @@ export default function TaskInboxPage() {
                     Enter SPOTLIGHT
                   </Button>
                 )}
+                {typeof selectedTask.id === "number" && selectedTask.source !== "email_not_replied" && selectedTask.source !== "spotlight" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                    onClick={() => {
+                      const currentDue = selectedTask.dueDate ? new Date(selectedTask.dueDate) : new Date();
+                      const yyyy = currentDue.getFullYear();
+                      const mm = String(currentDue.getMonth() + 1).padStart(2, '0');
+                      const dd = String(currentDue.getDate()).padStart(2, '0');
+                      const hh = String(currentDue.getHours()).padStart(2, '0');
+                      const min = String(currentDue.getMinutes()).padStart(2, '0');
+                      setRescheduleDate(`${yyyy}-${mm}-${dd}`);
+                      setRescheduleTime(`${hh}:${min}`);
+                      setShowReschedule(v => !v);
+                    }}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Reschedule
+                  </Button>
+                )}
               </div>
+              {showReschedule && typeof selectedTask.id === "number" && (
+                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-col gap-3">
+                  <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Pick a new date &amp; time</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                      <label className="text-xs text-gray-500">Date</label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={e => setRescheduleDate(e.target.value)}
+                        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                      <label className="text-xs text-gray-500">Time</label>
+                      <input
+                        type="time"
+                        value={rescheduleTime}
+                        onChange={e => setRescheduleTime(e.target.value)}
+                        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                      disabled={rescheduleTaskMutation.isPending || !rescheduleDate}
+                      onClick={() => {
+                        if (!rescheduleDate) return;
+                        const [h, m] = (rescheduleTime || '09:00').split(':').map(Number);
+                        const d = new Date(rescheduleDate);
+                        d.setHours(h, m, 0, 0);
+                        rescheduleTaskMutation.mutate({ taskId: selectedTask.id as number, dueDate: d });
+                      }}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {rescheduleTaskMutation.isPending ? 'Saving…' : 'Confirm'}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => setShowReschedule(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
