@@ -3,15 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  AlertTriangle, ArrowLeft, Search, CheckCircle2, User, Building2,
+  AlertTriangle, ArrowLeft, Search, CheckCircle2, Building2,
   ClipboardList, DollarSign, Mail, ChevronLeft, ChevronRight,
+  FileText,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -27,6 +28,8 @@ interface Conflict {
   lead_stage: string;
   lead_score: number;
   lead_task_count: number;
+  lead_email_count: number;
+  lead_note_count: number;
   customer_id: string;
   customer_name: string;
   customer_email: string;
@@ -34,6 +37,8 @@ interface Conflict {
   customer_total_spent: string;
   customer_total_orders: number;
   customer_task_count: number;
+  customer_email_count: number;
+  customer_note_count: number;
 }
 
 interface ConflictsResponse {
@@ -61,6 +66,8 @@ export default function DataIntegrity() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterHasTasks, setFilterHasTasks] = useState(false);
+  const [filterHasEmails, setFilterHasEmails] = useState(false);
   const [skipped, setSkipped] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("conflict_skipped") || "[]")); }
     catch { return new Set(); }
@@ -70,7 +77,6 @@ export default function DataIntegrity() {
     action: "keep_lead" | "keep_customer";
   } | null>(null);
 
-  // Debounce search
   const triggerSearch = (val: string) => {
     setSearch(val);
     clearTimeout((window as any)._conflictSearchTimer);
@@ -80,13 +86,21 @@ export default function DataIntegrity() {
     }, 350);
   };
 
+  const toggleFilter = (filter: "tasks" | "emails") => {
+    if (filter === "tasks") setFilterHasTasks(p => !p);
+    else setFilterHasEmails(p => !p);
+    setPage(1);
+  };
+
   const { data, isLoading } = useQuery<ConflictsResponse>({
-    queryKey: ["/api/admin/email-conflicts", page, debouncedSearch],
+    queryKey: ["/api/admin/email-conflicts", page, debouncedSearch, filterHasTasks, filterHasEmails],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(PAGE_SIZE),
         ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(filterHasTasks ? { hasTasks: "true" } : {}),
+        ...(filterHasEmails ? { hasEmails: "true" } : {}),
       });
       const res = await fetch(`/api/admin/email-conflicts?${params}`, { credentials: "include" });
       return res.json();
@@ -133,7 +147,6 @@ export default function DataIntegrity() {
   );
   const total = data?.total ?? 0;
   const skippedCount = skipped.size;
-
   const resolvedProgress = total === 0 ? 100 : 0;
 
   return (
@@ -153,7 +166,7 @@ export default function DataIntegrity() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               The same email address exists in both <strong>Leads</strong> and <strong>Contacts</strong>.
-              Choose which record should survive — the other will be deleted and its tasks migrated.
+              Choose which record should survive — the other will be deleted, and its open tasks and notes migrated.
             </p>
           </div>
         </div>
@@ -171,15 +184,12 @@ export default function DataIntegrity() {
                       {total === 0 ? "All conflicts resolved!" : `${total} conflict${total !== 1 ? "s" : ""} remaining`}
                     </span>
                     {skippedCount > 0 && (
-                      <button
-                        onClick={unskipAll}
-                        className="text-xs text-blue-600 hover:underline"
-                      >
+                      <button onClick={unskipAll} className="text-xs text-blue-600 hover:underline">
                         Show {skippedCount} skipped
                       </button>
                     )}
                   </div>
-                  <Progress value={total === 0 ? 100 : resolvedProgress} className="h-2.5" />
+                  <Progress value={resolvedProgress} className="h-2.5" />
                 </div>
                 {total === 0 && (
                   <CheckCircle2 className="h-7 w-7 text-green-500 shrink-0" />
@@ -189,22 +199,42 @@ export default function DataIntegrity() {
           </CardContent>
         </Card>
 
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={e => triggerSearch(e.target.value)}
-            className="pl-9"
-          />
+        {/* Search + Filters */}
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={e => triggerSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Button
+            variant={filterHasTasks ? "default" : "outline"}
+            size="sm"
+            className={filterHasTasks ? "bg-amber-600 hover:bg-amber-700" : ""}
+            onClick={() => toggleFilter("tasks")}
+          >
+            <ClipboardList className="h-4 w-4 mr-1.5" />
+            Has open tasks
+          </Button>
+          <Button
+            variant={filterHasEmails ? "default" : "outline"}
+            size="sm"
+            className={filterHasEmails ? "bg-blue-600 hover:bg-blue-700" : ""}
+            onClick={() => toggleFilter("emails")}
+          >
+            <Mail className="h-4 w-4 mr-1.5" />
+            Has emails
+          </Button>
         </div>
 
         {/* Conflict list */}
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full rounded-xl" />
+              <Skeleton key={i} className="h-44 w-full rounded-xl" />
             ))}
           </div>
         ) : visibleConflicts.length === 0 ? (
@@ -212,12 +242,14 @@ export default function DataIntegrity() {
             <CardContent className="py-16 text-center">
               <CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-3" />
               <h3 className="font-semibold text-gray-700 text-lg">
-                {total === 0 ? "No conflicts found!" : "All visible conflicts skipped"}
+                {total === 0 ? "No conflicts found!" : "No results match your filters"}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 {total === 0
                   ? "Every email is unique across Leads and Contacts."
-                  : `${skippedCount} hidden. Click "Show skipped" above to review them.`}
+                  : skippedCount > 0
+                  ? `${skippedCount} hidden. Click "Show skipped" above to review them.`
+                  : "Try clearing the filters to see more conflicts."}
               </p>
             </CardContent>
           </Card>
@@ -270,7 +302,17 @@ export default function DataIntegrity() {
                           )}
                           {c.lead_task_count > 0 && (
                             <span className="text-xs flex items-center gap-0.5 text-amber-600">
-                              <ClipboardList className="h-3 w-3" /> {c.lead_task_count} open task{c.lead_task_count !== 1 ? "s" : ""}
+                              <ClipboardList className="h-3 w-3" /> {c.lead_task_count} task{c.lead_task_count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {c.lead_email_count > 0 && (
+                            <span className="text-xs flex items-center gap-0.5 text-blue-600">
+                              <Mail className="h-3 w-3" /> {c.lead_email_count} email{c.lead_email_count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {c.lead_note_count > 0 && (
+                            <span className="text-xs flex items-center gap-0.5 text-gray-600">
+                              <FileText className="h-3 w-3" /> {c.lead_note_count} note{c.lead_note_count !== 1 ? "s" : ""}
                             </span>
                           )}
                         </div>
@@ -305,7 +347,17 @@ export default function DataIntegrity() {
                           )}
                           {c.customer_task_count > 0 && (
                             <span className="text-xs flex items-center gap-0.5 text-amber-600">
-                              <ClipboardList className="h-3 w-3" /> {c.customer_task_count} open task{c.customer_task_count !== 1 ? "s" : ""}
+                              <ClipboardList className="h-3 w-3" /> {c.customer_task_count} task{c.customer_task_count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {c.customer_email_count > 0 && (
+                            <span className="text-xs flex items-center gap-0.5 text-blue-600">
+                              <Mail className="h-3 w-3" /> {c.customer_email_count} email{c.customer_email_count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {c.customer_note_count > 0 && (
+                            <span className="text-xs flex items-center gap-0.5 text-gray-600">
+                              <FileText className="h-3 w-3" /> {c.customer_note_count} note{c.customer_note_count !== 1 ? "s" : ""}
                             </span>
                           )}
                         </div>
@@ -370,23 +422,24 @@ export default function DataIntegrity() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirm resolution</AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmDialog.action === "keep_lead" ? (
-                  <>
-                    <strong>{confirmDialog.conflict.lead_name}</strong> will remain as a <strong>Lead</strong>.
-                    The Contact record (<em>{confirmDialog.conflict.customer_name || confirmDialog.conflict.customer_id}</em>) will be
-                    permanently deleted and its open tasks migrated to the lead.
-                  </>
-                ) : (
-                  <>
-                    <strong>{confirmDialog.conflict.customer_name || confirmDialog.conflict.customer_id}</strong> will remain as a{" "}
-                    <strong>Contact</strong>.
-                    The Lead record (<em>{confirmDialog.conflict.lead_name}</em>) will be permanently deleted and its open tasks migrated
-                    to the contact.
-                  </>
-                )}
-                <br /><br />
-                <span className="text-red-600 font-medium">This action cannot be undone.</span>
+              <AlertDialogDescription asChild>
+                <div>
+                  {confirmDialog.action === "keep_lead" ? (
+                    <p>
+                      <strong>{confirmDialog.conflict.lead_name}</strong> will remain as a <strong>Lead</strong>.
+                      The Contact (<em>{confirmDialog.conflict.customer_name || confirmDialog.conflict.customer_id}</em>) will be
+                      permanently deleted — its open tasks and notes will be migrated to the lead first.
+                    </p>
+                  ) : (
+                    <p>
+                      <strong>{confirmDialog.conflict.customer_name || confirmDialog.conflict.customer_id}</strong> will remain as a{" "}
+                      <strong>Contact</strong>.
+                      The Lead (<em>{confirmDialog.conflict.lead_name}</em>) will be permanently deleted — its open tasks and notes will be
+                      migrated to the contact first.
+                    </p>
+                  )}
+                  <p className="text-red-600 font-medium mt-3">This action cannot be undone.</p>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

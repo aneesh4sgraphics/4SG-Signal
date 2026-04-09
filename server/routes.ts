@@ -31960,16 +31960,32 @@ Analyze this bounced email and provide insights in JSON format:
   // Full paginated conflict list (admin-only)
   app.get("/api/admin/email-conflicts", isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
-      const page   = Math.max(1, parseInt(req.query.page  as string) || 1);
-      const limit  = Math.min(50, parseInt(req.query.limit as string) || 20);
-      const search = ((req.query.search as string) || '').trim();
-      const offset = (page - 1) * limit;
+      const page     = Math.max(1, parseInt(req.query.page  as string) || 1);
+      const limit    = Math.min(50, parseInt(req.query.limit as string) || 20);
+      const search   = ((req.query.search as string) || '').trim();
+      const hasTasks = req.query.hasTasks === 'true';
+      const hasEmails = req.query.hasEmails === 'true';
+      const offset   = (page - 1) * limit;
       const searchLike = search ? `%${search}%` : null;
 
-      const whereSql  = sql`l.email_normalized IS NOT NULL AND l.email_normalized <> ''`;
+      const baseCond = sql`l.email_normalized IS NOT NULL AND l.email_normalized <> ''`;
       const searchSql = searchLike
         ? sql`AND (l.name ILIKE ${searchLike} OR l.email ILIKE ${searchLike}
                OR CONCAT(COALESCE(c.first_name,''),' ',COALESCE(c.last_name,'')) ILIKE ${searchLike})`
+        : sql``;
+      const taskFilterSql = hasTasks
+        ? sql`AND (
+            (SELECT COUNT(*) FROM follow_up_tasks ft WHERE ft.lead_id = l.id AND ft.status = 'pending') > 0
+            OR
+            (SELECT COUNT(*) FROM follow_up_tasks ft WHERE ft.customer_id = c.id AND ft.status = 'pending') > 0
+          )`
+        : sql``;
+      const emailFilterSql = hasEmails
+        ? sql`AND (
+            (SELECT COUNT(*) FROM lead_activities la WHERE la.lead_id = l.id AND la.activity_type LIKE 'email%') > 0
+            OR
+            (SELECT COUNT(*) FROM customer_activity_events cae WHERE cae.customer_id = c.id AND cae.event_type IN ('email_sent','email_received')) > 0
+          )`
         : sql``;
 
       const rows = await db.execute(sql`
@@ -31982,7 +31998,11 @@ Analyze this bounced email and provide insights in JSON format:
           l.stage         AS lead_stage,
           l.score         AS lead_score,
           (SELECT COUNT(*)::int FROM follow_up_tasks ft
-            WHERE ft.lead_id = l.id AND ft.status = 'pending') AS lead_task_count,
+            WHERE ft.lead_id = l.id AND ft.status = 'pending')              AS lead_task_count,
+          (SELECT COUNT(*)::int FROM lead_activities la
+            WHERE la.lead_id = l.id AND la.activity_type LIKE 'email%')     AS lead_email_count,
+          (SELECT COUNT(*)::int FROM lead_activities la
+            WHERE la.lead_id = l.id AND la.activity_type = 'note_added')    AS lead_note_count,
           c.id            AS customer_id,
           TRIM(CONCAT(COALESCE(c.first_name,''),' ',COALESCE(c.last_name,'')))
                           AS customer_name,
@@ -31991,12 +32011,18 @@ Analyze this bounced email and provide insights in JSON format:
           COALESCE(c.total_spent::text,'0') AS customer_total_spent,
           COALESCE(c.total_orders,0)        AS customer_total_orders,
           (SELECT COUNT(*)::int FROM follow_up_tasks ft
-            WHERE ft.customer_id = c.id AND ft.status = 'pending') AS customer_task_count
+            WHERE ft.customer_id = c.id AND ft.status = 'pending')          AS customer_task_count,
+          (SELECT COUNT(*)::int FROM customer_activity_events cae
+            WHERE cae.customer_id = c.id
+              AND cae.event_type IN ('email_sent','email_received'))         AS customer_email_count,
+          (SELECT COUNT(*)::int FROM customer_activity_events cae
+            WHERE cae.customer_id = c.id
+              AND cae.event_type = 'note_added')                            AS customer_note_count
         FROM leads l
         INNER JOIN customers c
           ON (c.email_normalized = l.email_normalized
            OR c.email2_normalized = l.email_normalized)
-        WHERE ${whereSql} ${searchSql}
+        WHERE ${baseCond} ${searchSql} ${taskFilterSql} ${emailFilterSql}
         ORDER BY l.name ASC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -32007,7 +32033,7 @@ Analyze this bounced email and provide insights in JSON format:
         INNER JOIN customers c
           ON (c.email_normalized = l.email_normalized
            OR c.email2_normalized = l.email_normalized)
-        WHERE ${whereSql} ${searchSql}
+        WHERE ${baseCond} ${searchSql} ${taskFilterSql} ${emailFilterSql}
       `);
 
       const total = (countResult.rows[0] as any)?.total ?? 0;
@@ -32023,17 +32049,66 @@ Analyze this bounced email and provide insights in JSON format:
     if (!leadId || !customerId || !['keep_lead', 'keep_customer'].includes(action)) {
       return res.status(400).json({ error: 'leadId, customerId, and valid action required' });
     }
+
+    // Verify this pair actually constitutes a conflict before any destructive action
+    const conflictCheck = await db.execute(sql`
+      SELECT 1
+      FROM leads l
+      INNER JOIN customers c
+        ON (c.email_normalized = l.email_normalized
+         OR c.email2_normalized = l.email_normalized)
+      WHERE l.id = ${Number(leadId)}
+        AND c.id = ${String(customerId)}
+      LIMIT 1
+    `);
+    if ((conflictCheck.rows as any[]).length === 0) {
+      return res.status(400).json({ error: 'No email conflict exists for this lead/customer pair' });
+    }
+
     try {
       await db.transaction(async (tx) => {
         if (action === 'keep_lead') {
+          // 1. Migrate ALL pending tasks from customer → lead
           await tx.update(followUpTasks)
             .set({ customerId: null, leadId: Number(leadId) })
-            .where(and(eq(followUpTasks.customerId, String(customerId)), isNull(followUpTasks.leadId)));
+            .where(and(eq(followUpTasks.customerId, String(customerId)), eq(followUpTasks.status, 'pending')));
+          // 2. Migrate notes from customerActivityEvents → leadActivities
+          const custNotes = await tx.select()
+            .from(customerActivityEvents)
+            .where(and(eq(customerActivityEvents.customerId, String(customerId)), eq(customerActivityEvents.eventType, 'note_added')));
+          for (const note of custNotes) {
+            await tx.insert(leadActivities).values({
+              leadId: Number(leadId),
+              activityType: 'note_added',
+              summary: note.title || 'Note (migrated from contact)',
+              details: note.description || undefined,
+              performedBy: note.createdBy || undefined,
+              performedByName: note.createdByName || undefined,
+            });
+          }
+          // 3. Delete customer (cascade removes activities, contacts, etc.)
           await tx.delete(customers).where(eq(customers.id, String(customerId)));
         } else {
+          // 1. Migrate ALL pending tasks from lead → customer
           await tx.update(followUpTasks)
             .set({ leadId: null, customerId: String(customerId) })
-            .where(and(eq(followUpTasks.leadId, Number(leadId)), isNull(followUpTasks.customerId)));
+            .where(and(eq(followUpTasks.leadId, Number(leadId)), eq(followUpTasks.status, 'pending')));
+          // 2. Migrate notes from leadActivities → customerActivityEvents
+          const leadNotes = await tx.select()
+            .from(leadActivities)
+            .where(and(eq(leadActivities.leadId, Number(leadId)), eq(leadActivities.activityType, 'note_added')));
+          for (const note of leadNotes) {
+            await tx.insert(customerActivityEvents).values({
+              customerId: String(customerId),
+              eventType: 'note_added',
+              title: note.summary || 'Note (migrated from lead)',
+              description: note.details || undefined,
+              sourceType: 'manual',
+              createdBy: note.performedBy || undefined,
+              createdByName: note.performedByName || undefined,
+            });
+          }
+          // 3. Delete lead (cascade removes leadActivities, etc.)
           await tx.delete(leads).where(eq(leads.id, Number(leadId)));
         }
       });
