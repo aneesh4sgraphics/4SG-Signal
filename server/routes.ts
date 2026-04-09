@@ -182,20 +182,7 @@ import { autoTrackQuoteSent, autoTrackPriceListSent, autoTrackSampleShipped, fin
 import { scanForBouncedEmails } from "./bounce-detector";
 
 // Simple in-memory cache for frequently accessed data
-const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-function getCachedData(key: string) {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.data;
-  }
-  return null;
-}
-
-function setCachedData(key: string, data: any) {
-  cache.set(key, { data, timestamp: Date.now() });
-}
+import { getCachedData, setCachedData } from "./cache";
 
 // Stale-While-Revalidate cache for Odoo reports (per-user, 10 min TTL)
 const reportCache = new Map<string, { data: any; timestamp: number; refreshing: boolean }>();

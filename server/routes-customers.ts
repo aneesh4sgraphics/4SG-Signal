@@ -6,6 +6,7 @@ import { normalizeEmail } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
 import { storage } from "./storage";
 import { autoAssignSalesRepIfNeeded } from "./sales-rep-auto-assign";
+import { getCachedData, setCachedData } from "./cache";
 import {
   customers,
   customerContacts,

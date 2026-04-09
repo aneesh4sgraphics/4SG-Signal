@@ -6,6 +6,7 @@ import { normalizeEmail } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
 import { storage } from "./storage";
 import { isBlockedCompany, getBlockedKeywordMatch, BLOCKED_COMPANY_KEYWORDS } from "./customer-blocklist";
+import { getCachedData, setCachedData } from "./cache";
 import { scanForBouncedEmails } from "./bounce-detector";
 import multer from "multer";
 import path from "path";
