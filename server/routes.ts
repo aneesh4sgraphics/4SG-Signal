@@ -29596,7 +29596,7 @@ Analyze this bounced email and provide insights in JSON format:
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: "Invalid task ID" });
       const { notes } = req.body;
-      const [taskRow] = await db.select({ assignedTo: followUpTasks.assignedTo }).from(followUpTasks).where(eq(followUpTasks.id, id)).limit(1);
+      const [taskRow] = await db.select({ assignedTo: followUpTasks.assignedTo, leadId: followUpTasks.leadId, customerId: followUpTasks.customerId }).from(followUpTasks).where(eq(followUpTasks.id, id)).limit(1);
       if (!taskRow) return res.status(404).json({ error: "Task not found" });
       // Use canonical auth pattern — ID lives in claims.sub OR user.id; email in claims.email OR user.email
       const userId = (req.user as any)?.claims?.sub || req.user?.id;
@@ -29614,6 +29614,20 @@ Analyze this bounced email and provide insights in JSON format:
       }
       const task = await storage.completeFollowUpTask(id, userId, notes);
       if (!task) return res.status(404).json({ error: "Task not found" });
+
+      // Sync kanban: completing a task means the rep acted on this lead/customer —
+      // remove them from 'no_response' and refresh lastContactAt so they drop off the Kanban.
+      if (taskRow.leadId) {
+        await db.update(leads)
+          .set({ lastContactAt: new Date(), salesKanbanStage: sql`CASE WHEN sales_kanban_stage = 'no_response' THEN NULL ELSE sales_kanban_stage END` })
+          .where(eq(leads.id, taskRow.leadId));
+      }
+      if (taskRow.customerId) {
+        await db.update(customers)
+          .set({ salesKanbanStage: sql`CASE WHEN sales_kanban_stage = 'no_response' THEN NULL ELSE sales_kanban_stage END` })
+          .where(eq(customers.id, taskRow.customerId));
+      }
+
       res.json(task);
     } catch (error) {
       console.error("[Tasks] Error completing task:", error);
@@ -31545,6 +31559,20 @@ Analyze this bounced email and provide insights in JSON format:
       `);
       const samplesCustomers = (shipmentSamplesRaw.rows as any[]);
 
+      // Subquery fragments: exclude records that have a future pending follow-up task (rescheduled/snoozed)
+      const noFutureLeadTask = sql`NOT EXISTS (
+        SELECT 1 FROM follow_up_tasks ft
+        WHERE ft.lead_id = ${leads.id}
+          AND ft.status = 'pending'
+          AND ft.due_date > NOW()
+      )`;
+      const noFutureCustomerTask = sql`NOT EXISTS (
+        SELECT 1 FROM follow_up_tasks ft
+        WHERE ft.customer_id = ${customers.id}
+          AND ft.status = 'pending'
+          AND ft.due_date > NOW()
+      )`;
+
       const noResponseLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
         .from(leads)
@@ -31561,6 +31589,7 @@ Analyze this bounced email and provide insights in JSON format:
               ),
               eq(leads.salesKanbanStage, 'no_response')
             ),
+            noFutureLeadTask,
             leadRepCond,
           )
         )
@@ -31584,6 +31613,7 @@ Analyze this bounced email and provide insights in JSON format:
             isNull(customers.swatchbookSentAt),
             eq(customers.salesKanbanStage, 'no_response'),
             sql`${customers.lastOutboundEmailAt} >= NOW() - INTERVAL '30 days'`,
+            noFutureCustomerTask,
             custRepCond,
           )
         )

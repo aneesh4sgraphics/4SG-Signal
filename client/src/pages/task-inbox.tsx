@@ -335,6 +335,7 @@ export default function TaskInboxPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kanban"] });
       toast({ title: "Task completed" });
     },
     onError: () => {
@@ -367,6 +368,7 @@ export default function TaskInboxPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kanban"] });
       setShowReschedule(false);
       toast({ title: "Task rescheduled", description: "Due date updated successfully." });
     },
