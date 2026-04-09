@@ -31688,7 +31688,7 @@ Analyze this bounced email and provide insights in JSON format:
             OR gm.snippet  ILIKE '%quote%'
           )
 
-          -- Exclude if sender is already a lead, customer, or customer contact
+          -- Exclude if sender is already a lead, customer, or customer contact (exact email match)
           AND NOT EXISTS (
             SELECT 1 FROM leads l
             WHERE LOWER(TRIM(l.email)) = LOWER(TRIM(gm.from_email))
@@ -31700,6 +31700,31 @@ Analyze this bounced email and provide insights in JSON format:
           AND NOT EXISTS (
             SELECT 1 FROM customer_contacts cc
             WHERE LOWER(TRIM(cc.email)) = LOWER(TRIM(gm.from_email))
+          )
+          -- Exclude if the sender's domain matches a known customer/lead domain
+          -- (catches colleagues from the same company whose exact email isn't stored)
+          -- Skips generic email providers to avoid false exclusions
+          AND SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2) NOT IN (
+            'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
+            'aol.com','live.com','msn.com','me.com','mac.com','googlemail.com'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM customers c2
+            WHERE c2.email IS NOT NULL AND c2.email != ''
+              AND SPLIT_PART(LOWER(TRIM(c2.email)), '@', 2)
+                = SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2)
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM leads l2
+            WHERE l2.email IS NOT NULL AND l2.email != ''
+              AND SPLIT_PART(LOWER(TRIM(l2.email)), '@', 2)
+                = SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2)
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM customer_contacts cc2
+            WHERE cc2.email IS NOT NULL AND cc2.email != ''
+              AND SPLIT_PART(LOWER(TRIM(cc2.email)), '@', 2)
+                = SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2)
           )
 
           -- Exclude obvious marketing / automated senders (domain-based)
