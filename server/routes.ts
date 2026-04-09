@@ -18309,9 +18309,10 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         .where(eq(leadActivities.leadId, leadId));
 
       let existingCustomer: { id: string; name: string } | null = null;
-      if (lead.emailNormalized) {
+      const previewNorm = lead.emailNormalized || (lead.email ? normalizeEmail(lead.email) : null);
+      if (previewNorm) {
         const [cust] = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, company: customers.company })
-          .from(customers).where(eq(customers.emailNormalized, lead.emailNormalized)).limit(1);
+          .from(customers).where(eq(customers.emailNormalized, previewNorm)).limit(1);
         if (cust) {
           existingCustomer = {
             id: cust.id,
@@ -18352,10 +18353,12 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       let isExisting = false;
 
       // Check if a customer already exists with this email
+      // Primary: match by normalized email; fallback to raw email normalizer if lead lacks normalized
       let existingCustomer: typeof customers.$inferSelect | undefined;
-      if (lead.emailNormalized) {
+      const lookupNorm = lead.emailNormalized || (lead.email ? normalizeEmail(lead.email) : null);
+      if (lookupNorm) {
         const rows = await db.select().from(customers)
-          .where(eq(customers.emailNormalized, lead.emailNormalized))
+          .where(eq(customers.emailNormalized, lookupNorm))
           .limit(1);
         existingCustomer = rows[0];
       }
