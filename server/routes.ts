@@ -31688,10 +31688,14 @@ Analyze this bounced email and provide insights in JSON format:
             OR gm.snippet  ILIKE '%quote%'
           )
 
-          -- Exclude if sender is already a lead
+          -- Exclude if sender is already a lead or an existing contact/customer
           AND NOT EXISTS (
             SELECT 1 FROM leads l
             WHERE LOWER(TRIM(l.email)) = LOWER(TRIM(gm.from_email))
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM customers c
+            WHERE LOWER(TRIM(c.email)) = LOWER(TRIM(gm.from_email))
           )
 
           -- Exclude obvious marketing / automated senders (domain-based)
