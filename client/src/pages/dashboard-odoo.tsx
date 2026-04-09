@@ -203,7 +203,7 @@ export default function Dashboard() {
   }
   const { data: unknownInquiries = [] } = useQuery<UnknownInquiry[]>({
     queryKey: ['/api/dashboard/unknown-inquiries'],
-    staleTime: 120000,
+    staleTime: 0,
   });
   const [showInquiries, setShowInquiries] = useState(false);
   const [confirmDismiss, setConfirmDismiss] = useState<string | null>(null);
