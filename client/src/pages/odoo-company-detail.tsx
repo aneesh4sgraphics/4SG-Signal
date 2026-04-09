@@ -705,7 +705,10 @@ export default function OdooCompanyDetail() {
     );
   }
 
-  const displayName = company.company || `${company.firstName || ""} ${company.lastName || ""}`.trim() || "Unnamed";
+  const personName = `${company.firstName || ""} ${company.lastName || ""}`.trim();
+  const displayName = company.isCompany
+    ? (company.company || personName || "Unnamed")
+    : (personName || company.company || company.email || "Unnamed");
   const address = [company.address1, company.address2, company.city, company.province, company.zip, company.country].filter(Boolean).join(", ");
 
   const TABS: { key: TabKey; label: string; count?: number }[] = [
@@ -757,6 +760,9 @@ export default function OdooCompanyDetail() {
                     </button>
                   )}
                 </div>
+                {!company.isCompany && company.company && (
+                  <p className="text-sm font-medium text-gray-600 mt-0.5">{company.company}</p>
+                )}
                 <p className="text-sm text-gray-500 mt-0.5">
                   {company.email && <span className="mr-3">{company.email}</span>}
                   {company.phone && <span>{company.phone}</span>}
