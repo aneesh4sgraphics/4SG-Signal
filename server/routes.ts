@@ -163,6 +163,7 @@ import {
   companies,
   insertCompanySchema,
   sketchboardEntries,
+  opportunityScores,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -31457,6 +31458,39 @@ Analyze this bounced email and provide insights in JSON format:
     } catch (error) {
       console.error("Error recording follow-up:", error);
       res.status(500).json({ error: "Failed to record follow-up" });
+    }
+  });
+
+  // Mark an opportunity as Won or Lost (deactivates it from the pipeline)
+  app.post("/api/opportunities/:id/outcome", isAuthenticated, async (req: any, res) => {
+    const id = parseInt(req.params.id);
+    const { outcome } = req.body;
+    if (isNaN(id) || !['won', 'lost'].includes(outcome)) {
+      return res.status(400).json({ error: "outcome must be 'won' or 'lost'" });
+    }
+    try {
+      const [existing] = await db.select().from(opportunityScores).where(eq(opportunityScores.id, id)).limit(1);
+      if (!existing) return res.status(404).json({ error: "Opportunity not found" });
+
+      const history = [
+        ...(existing.followUpHistory || []),
+        {
+          step: 0,
+          type: 'other' as const,
+          date: new Date().toISOString(),
+          outcome,
+          userId: (req.user as any)?.claims?.sub || req.user?.id,
+        },
+      ];
+
+      await db.update(opportunityScores)
+        .set({ isActive: false, followUpHistory: history, updatedAt: new Date() })
+        .where(eq(opportunityScores.id, id));
+
+      res.json({ ok: true, outcome });
+    } catch (err: any) {
+      console.error("Error setting opportunity outcome:", err);
+      res.status(500).json({ error: err.message });
     }
   });
 

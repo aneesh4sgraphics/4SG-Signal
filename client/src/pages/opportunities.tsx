@@ -18,7 +18,7 @@ import {
   Phone, Mail, ExternalLink, Building2, MapPin, Star,
   Loader2, AlertCircle, HelpCircle, DollarSign, LayoutGrid,
   Kanban, Zap, Clock, ChevronRight, ArrowDownLeft, ArrowUpRight,
-  ShoppingCart, FileText, X,
+  ShoppingCart, FileText, X, Trophy, ThumbsDown,
 } from "lucide-react";
 import {
   Tooltip,
@@ -106,8 +106,29 @@ function formatRevenue(val: number | null | undefined): string {
 // ─── Opportunity detail sheet ───────────────────────────────────────────────
 
 function OppDetailSheet({ opp, onClose }: { opp: any | null; onClose: () => void }) {
+  const { toast } = useToast();
   const config = opp ? (OPPORTUNITY_TYPE_CONFIG[opp.opportunityType] || OPPORTUNITY_TYPE_CONFIG.new_fit) : null;
   const Icon = config?.icon;
+
+  const outcomeMutation = useMutation({
+    mutationFn: async (outcome: 'won' | 'lost') => {
+      const r = await apiRequest("POST", `/api/opportunities/${opp.id}/outcome`, { outcome });
+      return r.json();
+    },
+    onSuccess: (_data, outcome) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/opportunities"] });
+      toast({
+        title: outcome === 'won' ? "Marked as Won!" : "Marked as Lost",
+        description: outcome === 'won'
+          ? `${opp.entityCompany || opp.entityName} has been moved to won.`
+          : `${opp.entityCompany || opp.entityName} has been removed from the pipeline.`,
+      });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: emails = [], isLoading: emailsLoading } = useQuery<any[]>({
     queryKey: ['/api/customer-activity/emails', opp?.entityEmail],
@@ -386,17 +407,42 @@ function OppDetailSheet({ opp, onClose }: { opp: any | null; onClose: () => void
               )}
             </div>
 
-            {/* Footer: view full profile */}
-            {detailLink && (
-              <div className="px-5 py-3 border-t bg-white flex-shrink-0">
+            {/* Footer: Won / Lost + view full profile */}
+            <div className="px-5 py-3 border-t bg-white flex-shrink-0 space-y-2">
+              {/* Won / Lost action row */}
+              {opp.id && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                    disabled={outcomeMutation.isPending}
+                    onClick={() => outcomeMutation.mutate('won')}
+                  >
+                    <Trophy className="w-3.5 h-3.5 mr-1.5" />
+                    Won
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    disabled={outcomeMutation.isPending}
+                    onClick={() => outcomeMutation.mutate('lost')}
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5 mr-1.5" />
+                    Lost
+                  </Button>
+                </div>
+              )}
+              {/* View full profile */}
+              {detailLink && (
                 <Link href={detailLink}>
                   <Button variant="outline" size="sm" className="w-full text-xs">
                     <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                     View Full Profile
                   </Button>
                 </Link>
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
       </SheetContent>
