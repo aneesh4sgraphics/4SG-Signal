@@ -236,13 +236,20 @@ export default function Dashboard() {
     staleTime: 60000,
   });
 
+  const [repFilter, setRepFilter] = useState<string>('all');
+  const kanbanRepParam = isAdminUser ? repFilter : 'me';
+  const kanbanUrl = isAdminUser && repFilter !== 'all'
+    ? `/api/dashboard/kanban?rep=${repFilter}`
+    : '/api/dashboard/kanban';
+
   const { data: kanbanData } = useQuery<{
     replied: any[];
     samplesRequested: any[];
     noResponse: any[];
     issues: any[];
   }>({
-    queryKey: ['/api/dashboard/kanban'],
+    queryKey: ['/api/dashboard/kanban', kanbanRepParam],
+    queryFn: () => fetch(kanbanUrl, { credentials: 'include' }).then(r => r.json()),
     refetchInterval: 60000,
   });
 
@@ -253,7 +260,7 @@ export default function Dashboard() {
       }
       return apiRequest('PATCH', `/api/leads/${leadId}/kanban-stage`, { stage });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }), // matches all kanban keys
   });
 
   const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number; type?: string } | null>(null);
@@ -379,7 +386,31 @@ export default function Dashboard() {
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <p style={{fontSize:'11px',fontWeight:600,color:'#8A8A8A',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'12px'}}>Sales pipeline signals</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <p style={{fontSize:'11px',fontWeight:600,color:'#8A8A8A',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>Sales pipeline signals</p>
+              {isAdminUser && (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {[
+                    { key: 'all', label: 'All Reps' },
+                    { key: 'aneesh', label: 'Aneesh' },
+                    { key: 'patricio', label: 'Patricio' },
+                    { key: 'santiago', label: 'Santiago' },
+                    { key: 'oscar', label: 'Oscar' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setRepFilter(opt.key)}
+                      style={{
+                        fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', border: 'none', cursor: 'pointer',
+                        background: repFilter === opt.key ? '#5E4ECD' : '#EBEBEB',
+                        color: repFilter === opt.key ? '#fff' : '#555',
+                        transition: 'all 0.15s',
+                      }}
+                    >{opt.label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
               {[
                 { key: 'replied', label: 'Needs Reply', color: '#D1FAE5', border: '#6EE7B7', dot: '#059669', emptyText: 'No pending replies', hint: 'Inbound emails awaiting your response', hintColor: '#6B8A6B' },

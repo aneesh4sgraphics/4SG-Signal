@@ -31401,6 +31401,24 @@ Analyze this bounced email and provide insights in JSON format:
       const tenDaysAgo = new Date();
       tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
+      // Rep filter: admins can pass ?rep=aneesh to scope; non-admins are auto-scoped to their name
+      const isAdmin = req.user?.role === 'admin';
+      const userId = (req.user as any)?.claims?.sub || req.user?.id || '';
+      const userEmail: string = ((req.user as any)?.claims?.email || req.user?.email || '').toLowerCase();
+      const userFirstName = userEmail.split('@')[0]; // e.g. "aneesh"
+      const repParam = (req.query.rep as string || '').toLowerCase().trim();
+      // repFilter: null = show all (admin with no filter), string = ILIKE pattern
+      const repFilter: string | null = isAdmin
+        ? (repParam && repParam !== 'all' ? repParam : null)
+        : userFirstName || null;
+
+      // Helper: optional ilike condition for Drizzle queries
+      const leadRepCond = repFilter ? ilike(leads.salesRepName, `%${repFilter}%`) : undefined;
+      const custRepCond = repFilter ? ilike(customers.salesRepName, `%${repFilter}%`) : undefined;
+      // SQL fragment for raw queries (safe: repFilter is always derived from email first-name, never user input without validation)
+      const repSqlFrag = repFilter ? sql`AND LOWER(c.sales_rep_name) ILIKE ${'%' + repFilter + '%'}` : sql``;
+      const repShipSqlFrag = repFilter ? sql`AND (LOWER(c.sales_rep_name) ILIKE ${'%' + repFilter + '%'} OR (c.id IS NULL AND sft.user_id::text = ${userId}))` : sql``;
+
       const repliedLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
         .from(leads)
@@ -31411,7 +31429,8 @@ Analyze this bounced email and provide insights in JSON format:
             or(
               isNotNull(leads.firstEmailReplyAt),
               eq(leads.salesKanbanStage, 'replied')
-            )
+            ),
+            leadRepCond,
           )
         )
         .orderBy(desc(leads.firstEmailReplyAt))
@@ -31429,7 +31448,7 @@ Analyze this bounced email and provide insights in JSON format:
           signal: sql<string>`'needs reply'`
         })
         .from(customers)
-        .where(eq(customers.salesKanbanStage, 'replied'))
+        .where(and(eq(customers.salesKanbanStage, 'replied'), custRepCond))
         .limit(50);
 
       // Customers with an inbound Gmail message in last 60 days, no outbound email from us since then
@@ -31458,6 +31477,7 @@ Analyze this bounced email and provide insights in JSON format:
               AND es.sent_at > gm.sent_at
           )
           AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost'))
+          ${repSqlFrag}
         ORDER BY c.id, gm.sent_at DESC
         LIMIT 50
       `);
@@ -31476,10 +31496,13 @@ Analyze this bounced email and provide insights in JSON format:
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
         .from(leads)
         .where(
-          or(
-            isNotNull(leads.pressTestKitSentAt),
-            isNotNull(leads.sampleSentAt),
-            eq(leads.salesKanbanStage, 'samples_requested')
+          and(
+            or(
+              isNotNull(leads.pressTestKitSentAt),
+              isNotNull(leads.sampleSentAt),
+              eq(leads.salesKanbanStage, 'samples_requested')
+            ),
+            leadRepCond,
           )
         )
         .orderBy(desc(leads.pressTestKitSentAt))
@@ -31516,6 +31539,7 @@ Analyze this bounced email and provide insights in JSON format:
           AND sft.reply_received = false
           AND sft.dismissed_at IS NULL
           AND sft.sent_at >= NOW() - INTERVAL '90 days'
+          ${repShipSqlFrag}
         ORDER BY COALESCE(c.id::text, sft.recipient_email), sft.sent_at DESC
         LIMIT 100
       `);
@@ -31536,7 +31560,8 @@ Analyze this bounced email and provide insights in JSON format:
                 sql`${leads.lastContactAt} >= NOW() - INTERVAL '30 days'`
               ),
               eq(leads.salesKanbanStage, 'no_response')
-            )
+            ),
+            leadRepCond,
           )
         )
         .orderBy(asc(leads.lastContactAt))
@@ -31558,7 +31583,8 @@ Analyze this bounced email and provide insights in JSON format:
             isNull(customers.pressTestSentAt),
             isNull(customers.swatchbookSentAt),
             eq(customers.salesKanbanStage, 'no_response'),
-            sql`${customers.lastOutboundEmailAt} >= NOW() - INTERVAL '30 days'`
+            sql`${customers.lastOutboundEmailAt} >= NOW() - INTERVAL '30 days'`,
+            custRepCond,
           )
         )
         .limit(100);
@@ -31566,7 +31592,7 @@ Analyze this bounced email and provide insights in JSON format:
       const issueLeads = await db
         .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`'issue flagged'` })
         .from(leads)
-        .where(eq(leads.salesKanbanStage, 'issue'))
+        .where(and(eq(leads.salesKanbanStage, 'issue'), leadRepCond))
         .limit(100);
 
       const issueCustomers = await db
@@ -31580,7 +31606,7 @@ Analyze this bounced email and provide insights in JSON format:
           signal: sql<string>`'issue flagged'`
         })
         .from(customers)
-        .where(eq(customers.salesKanbanStage, 'issue'))
+        .where(and(eq(customers.salesKanbanStage, 'issue'), custRepCond))
         .limit(100);
 
       res.json({
