@@ -31974,7 +31974,9 @@ Analyze this bounced email and provide insights in JSON format:
 
   // ─── Email Conflict Detection ─────────────────────────────────────────────
   // Lightweight: returns just the set of conflicting normalized emails (used for badges)
-  app.get("/api/admin/email-conflict-emails", isAuthenticated, requireAdmin, async (_req: any, res) => {
+  // Note: intentionally not requireAdmin — all authenticated users can access this
+  // lightweight badge data to show duplicate warnings on lead/contact cards
+  app.get("/api/admin/email-conflict-emails", isAuthenticated, async (_req: any, res) => {
     try {
       const result = await db.execute(sql`
         SELECT DISTINCT l.email_normalized
