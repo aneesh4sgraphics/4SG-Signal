@@ -20606,6 +20606,8 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const queueEntries: any[] = [];
       const fieldMappings: Record<string, string> = {
         company: 'company',
+        firstName: 'firstName',
+        lastName: 'lastName',
         email: 'email',
         phone: 'phone',
         address1: 'address1',

@@ -221,7 +221,8 @@ export default function OdooCompanyDetail() {
   const [editContactForm, setEditContactForm] = useState({ name: "", email: "", phone: "", function: "" });
   const labelQueue = useLabelQueue();
   const [editForm, setEditForm] = useState({
-    company: "", email: "", phone: "", address1: "", address2: "",
+    company: "", firstName: "", lastName: "",
+    email: "", phone: "", address1: "", address2: "",
     city: "", province: "", zip: "", country: "", website: "", note: "",
   });
   type CardKey = "email" | "phone" | "website" | "salesRep" | "customerType" | "location";
@@ -604,7 +605,21 @@ export default function OdooCompanyDetail() {
 
   const openEditDialog = () => {
     if (company) {
-      setEditForm({ company: company.company || "", email: company.email || "", phone: company.phone || "", address1: company.address1 || "", address2: company.address2 || "", city: company.city || "", province: company.province || "", zip: company.zip || "", country: company.country || "", website: company.website || "", note: company.note || "" });
+      setEditForm({
+        company: company.company || "",
+        firstName: company.firstName || "",
+        lastName: company.lastName || "",
+        email: company.email || "",
+        phone: company.phone || "",
+        address1: company.address1 || "",
+        address2: company.address2 || "",
+        city: company.city || "",
+        province: company.province || "",
+        zip: company.zip || "",
+        country: company.country || "",
+        website: company.website || "",
+        note: company.note || "",
+      });
       setIsEditOpen(true);
     }
   };
@@ -1329,11 +1344,30 @@ export default function OdooCompanyDetail() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Pencil className="w-5 h-5 text-violet-600" />Edit Company Information</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-violet-600" />
+              {company?.isCompany ? "Edit Company Information" : "Edit Contact Information"}
+            </DialogTitle>
             <DialogDescription>Changes queued for Odoo sync.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2"><Label>Company Name</Label><Input value={editForm.company} onChange={e => setEditForm({ ...editForm, company: e.target.value })} placeholder="Company name" /></div>
+            {company?.isCompany ? (
+              <div className="grid gap-2">
+                <Label>Company Name</Label>
+                <Input value={editForm.company} onChange={e => setEditForm({ ...editForm, company: e.target.value })} placeholder="Company name" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>First Name</Label>
+                  <Input value={editForm.firstName} onChange={e => setEditForm({ ...editForm, firstName: e.target.value })} placeholder="First name" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Last Name</Label>
+                  <Input value={editForm.lastName} onChange={e => setEditForm({ ...editForm, lastName: e.target.value })} placeholder="Last name" />
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2"><Label>Email</Label><Input type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
               <div className="grid gap-2"><Label>Phone</Label><Input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
