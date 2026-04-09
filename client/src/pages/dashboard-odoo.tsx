@@ -205,8 +205,13 @@ export default function Dashboard() {
     queryKey: ['/api/dashboard/unknown-inquiries'],
     staleTime: 120000,
   });
+  const [showInquiries, setShowInquiries] = useState(false);
+  const [confirmDismiss, setConfirmDismiss] = useState<string | null>(null);
   const [dismissedInquiries, setDismissedInquiries] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('dismissedInquiries') || '[]')); } catch { return new Set(); }
+  });
+  const [blacklistedSenders, setBlacklistedSenders] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('blacklistedSenders') || '[]')); } catch { return new Set(); }
   });
   const dismissInquiry = (email: string) => {
     setDismissedInquiries(prev => {
@@ -215,6 +220,16 @@ export default function Dashboard() {
       localStorage.setItem('dismissedInquiries', JSON.stringify([...next]));
       return next;
     });
+    setConfirmDismiss(null);
+  };
+  const blockSender = (email: string) => {
+    setBlacklistedSenders(prev => {
+      const next = new Set(prev);
+      next.add(email.toLowerCase());
+      localStorage.setItem('blacklistedSenders', JSON.stringify([...next]));
+      return next;
+    });
+    setConfirmDismiss(null);
   };
   const [addingLead, setAddingLead] = useState<string | null>(null);
   const addAsLeadMutation = useMutation({
@@ -240,7 +255,9 @@ export default function Dashboard() {
     onError: () => { setAddingLead(null); },
   });
 
-  const visibleInquiries = unknownInquiries.filter(i => !dismissedInquiries.has(i.fromEmail));
+  const visibleInquiries = unknownInquiries.filter(i =>
+    !dismissedInquiries.has(i.fromEmail) && !blacklistedSenders.has(i.fromEmail.toLowerCase())
+  );
 
   interface RecentWin {
     customerId: string;
@@ -438,66 +455,107 @@ export default function Dashboard() {
             <p style={{ fontSize: '14px', color: '#6B6B8C', margin: 0 }}>{dateString}</p>
           </div>
 
-          {/* Unknown Inbound Inquiries */}
+          {/* Unknown Inbound Inquiries — collapsible */}
           {visibleInquiries.length > 0 && (
-            <div style={{ marginBottom: '24px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <Inbox style={{ width: 16, height: 16, color: '#D97706' }} />
-                <p style={{ fontSize: '11px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+            <div style={{ marginBottom: '24px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', overflow: 'hidden' }}>
+              {/* Header — always visible, clickable to toggle */}
+              <div
+                onClick={() => setShowInquiries(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}
+              >
+                <ChevronRight
+                  style={{ width: 15, height: 15, color: '#D97706', flexShrink: 0, transition: 'transform 0.2s', transform: showInquiries ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                />
+                <Inbox style={{ width: 15, height: 15, color: '#D97706', flexShrink: 0 }} />
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, flex: 1 }}>
                   New Inbound Inquiries — Not in CRM
                 </p>
                 <span style={{ fontSize: '11px', background: '#FEF3C7', color: '#92400E', borderRadius: '20px', padding: '1px 8px', fontWeight: 600 }}>
                   {visibleInquiries.length}
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {visibleInquiries.map(inquiry => (
-                  <div key={inquiry.fromEmail} style={{ background: '#fff', border: '1px solid #FDE68A', borderRadius: '8px', padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: '13px', color: '#111' }}>
-                          {inquiry.fromName && inquiry.fromName !== inquiry.fromEmail ? inquiry.fromName : inquiry.fromEmail.split('@')[0]}
-                        </span>
-                        <span style={{ fontSize: '12px', color: '#888' }}>{inquiry.fromEmail}</span>
-                        {inquiry.sentAt && (
-                          <span style={{ fontSize: '11px', color: '#AAA', marginLeft: 'auto' }}>
-                            {new Date(inquiry.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        )}
+
+              {/* Expandable list */}
+              {showInquiries && (
+                <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {visibleInquiries.map(inquiry => (
+                    <div key={inquiry.fromEmail}>
+                      <div style={{ background: '#fff', border: '1px solid #FDE68A', borderRadius: '8px', padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, fontSize: '13px', color: '#111' }}>
+                              {inquiry.fromName && inquiry.fromName !== inquiry.fromEmail ? inquiry.fromName : inquiry.fromEmail.split('@')[0]}
+                            </span>
+                            <span style={{ fontSize: '12px', color: '#888' }}>{inquiry.fromEmail}</span>
+                            {inquiry.sentAt && (
+                              <span style={{ fontSize: '11px', color: '#AAA', marginLeft: 'auto' }}>
+                                {new Date(inquiry.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                          {inquiry.subject && <p style={{ fontSize: '12px', color: '#555', margin: '0 0 2px', fontWeight: 500 }}>{inquiry.subject}</p>}
+                          {inquiry.snippet && <p style={{ fontSize: '12px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '480px' }}>{inquiry.snippet}</p>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+                          {inquiry.threadId && (
+                            <a
+                              href={`https://mail.google.com/mail/u/0/#all/${inquiry.threadId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ fontSize: '11px', color: '#2563EB', textDecoration: 'none', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '4px 8px', background: '#EFF6FF', whiteSpace: 'nowrap' }}
+                            >
+                              Open Email
+                            </a>
+                          )}
+                          <button
+                            disabled={addAsLeadMutation.isPending && addingLead === inquiry.fromEmail}
+                            onClick={e => { e.stopPropagation(); setAddingLead(inquiry.fromEmail); addAsLeadMutation.mutate(inquiry); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#fff', background: '#16A34A', border: 'none', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            <UserPlus style={{ width: 12, height: 12 }} />
+                            {addAsLeadMutation.isPending && addingLead === inquiry.fromEmail ? 'Adding…' : 'Add as Lead'}
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setConfirmDismiss(confirmDismiss === inquiry.fromEmail ? null : inquiry.fromEmail); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: '#999' }}
+                            title="Dismiss options"
+                          >
+                            <X style={{ width: 12, height: 12 }} />
+                          </button>
+                        </div>
                       </div>
-                      {inquiry.subject && <p style={{ fontSize: '12px', color: '#555', margin: '0 0 2px', fontWeight: 500 }}>{inquiry.subject}</p>}
-                      {inquiry.snippet && <p style={{ fontSize: '12px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '480px' }}>{inquiry.snippet}</p>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-                      {inquiry.threadId && (
-                        <a
-                          href={`https://mail.google.com/mail/u/0/#all/${inquiry.threadId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '11px', color: '#2563EB', textDecoration: 'none', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '4px 8px', background: '#EFF6FF', whiteSpace: 'nowrap' }}
-                        >
-                          Open Email
-                        </a>
+
+                      {/* Inline dismiss confirmation */}
+                      {confirmDismiss === inquiry.fromEmail && (
+                        <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '0 0 8px 8px', borderTop: 'none', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '12px', color: '#9A3412', fontWeight: 500, flex: 1 }}>
+                            Do you want to hide this sender in the future too?
+                          </span>
+                          <button
+                            onClick={() => dismissInquiry(inquiry.fromEmail)}
+                            style={{ fontSize: '11px', fontWeight: 600, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            Just hide this once
+                          </button>
+                          <button
+                            onClick={() => blockSender(inquiry.fromEmail)}
+                            style={{ fontSize: '11px', fontWeight: 600, color: '#fff', background: '#DC2626', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            Block this sender
+                          </button>
+                          <button
+                            onClick={() => setConfirmDismiss(null)}
+                            style={{ fontSize: '11px', color: '#AAA', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       )}
-                      <button
-                        disabled={addAsLeadMutation.isPending && addingLead === inquiry.fromEmail}
-                        onClick={() => { setAddingLead(inquiry.fromEmail); addAsLeadMutation.mutate(inquiry); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: '#fff', background: '#16A34A', border: 'none', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        <UserPlus style={{ width: 12, height: 12 }} />
-                        {addAsLeadMutation.isPending && addingLead === inquiry.fromEmail ? 'Adding…' : 'Add as Lead'}
-                      </button>
-                      <button
-                        onClick={() => dismissInquiry(inquiry.fromEmail)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: '#999' }}
-                        title="Dismiss"
-                      >
-                        <X style={{ width: 12, height: 12 }} />
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -31654,6 +31654,10 @@ Analyze this bounced email and provide insights in JSON format:
   // Unknown Inquiries — inbound emails with pricing/sample keywords from senders not in leads/customers
   app.get("/api/dashboard/unknown-inquiries", isAuthenticated, async (req: any, res) => {
     try {
+      const isAdmin = req.user?.role === 'admin';
+      const userId = (req.user as any)?.claims?.sub || req.user?.id || '';
+      const userFilter = isAdmin ? sql`` : sql`AND gm.user_id = ${userId}`;
+
       const rows = await db.execute(sql`
         SELECT DISTINCT ON (LOWER(TRIM(gm.from_email)))
           gm.id,
@@ -31667,6 +31671,7 @@ Analyze this bounced email and provide insights in JSON format:
         WHERE gm.direction = 'inbound'
           AND gm.sent_at >= NOW() - INTERVAL '60 days'
           AND gm.customer_id IS NULL
+          ${userFilter}
 
           -- Must have a pricing or sample keyword in subject or snippet
           AND (
