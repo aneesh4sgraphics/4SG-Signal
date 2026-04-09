@@ -17002,154 +17002,161 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
       // --- All checks passed — proceed with company-aware conversion ---
 
-      // Step 1: Resolve company domain
-      const companyDomain = lead.companyDomain || extractCompanyDomain(lead.email) || null;
-      let resolvedCompanyId: number | null = lead.companyId || null;
+      const result = await db.transaction(async (tx) => {
+        // Step 1: Resolve company domain
+        const companyDomain = lead.companyDomain || extractCompanyDomain(lead.email) || null;
+        let resolvedCompanyId: number | null = lead.companyId || null;
 
-      if (companyDomain && !resolvedCompanyId) {
-        // Find or create the company record
-        const [existingCompany] = await db.select({ id: companies.id })
-          .from(companies)
-          .where(eq(companies.domain, companyDomain))
-          .limit(1);
+        if (companyDomain && !resolvedCompanyId) {
+          // Find or create the company record
+          const [existingCompany] = await tx.select({ id: companies.id })
+            .from(companies)
+            .where(eq(companies.domain, companyDomain))
+            .limit(1);
 
-        if (existingCompany) {
-          resolvedCompanyId = existingCompany.id;
-        } else {
-          const companyName = lead.company || companyDomain;
-          const [newCompany] = await db.insert(companies)
-            .values({ name: companyName, domain: companyDomain })
-            .returning({ id: companies.id });
-          resolvedCompanyId = newCompany.id;
-        }
-      }
-
-      // Step 2: Convert this lead to a customer
-      const nameParts = (lead.name || '').split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-      const newCustomerId = crypto.randomUUID();
-
-      await db.insert(customers).values({
-        id: newCustomerId,
-        firstName,
-        lastName,
-        company: lead.company || '',
-        email: lead.email || null,
-        emailNormalized: lead.emailNormalized || null,
-        phone: lead.phone || null,
-        cell: lead.mobile || null,
-        address1: lead.street || null,
-        address2: lead.street2 || null,
-        city: lead.city || null,
-        province: lead.state || null,
-        zip: lead.zip || null,
-        country: lead.country || null,
-        website: lead.website || null,
-        note: lead.description || null,
-        salesRepId: lead.salesRepId || null,
-        salesRepName: lead.salesRepName || null,
-        pricingTier: lead.pricingTier || null,
-        pricingTierSetBy: lead.pricingTierSetBy || null,
-        pricingTierSetAt: lead.pricingTierSetAt || null,
-        customerType: lead.customerType || null,
-        tags: lead.tags || null,
-        isCompany: lead.isCompany || false,
-        odooPartnerId: lead.sourceContactOdooPartnerId || null,
-        sources: ['lead_conversion'],
-        swatchbookSentAt: lead.swatchbookSentAt || null,
-        priceListSentAt: lead.priceListSentAt || null,
-        // Company parity fields
-        companyDomain: companyDomain,
-        jobTitle: lead.jobTitle || null,
-        companyId: resolvedCompanyId,
-        createdAt: new Date(),
-      });
-
-      // Log the conversion
-      await db.insert(customerActivityEvents).values({
-        customerId: newCustomerId,
-        eventType: 'status_change',
-        title: 'Lead converted to customer (qualified)',
-        description: `Lead "${lead.name}" was qualified and converted to a contact.`,
-        sourceType: 'manual',
-        sourceTable: 'leads',
-        sourceId: String(lead.id),
-        eventDate: new Date(),
-      });
-
-      // Step 3: Mark this lead as converted and update company link
-      await db.update(leads)
-        .set({ stage: 'converted', companyDomain, companyId: resolvedCompanyId, updatedAt: new Date() })
-        .where(eq(leads.id, id));
-
-      // Step 4: Auto-convert sibling leads with the same company domain (not already converted)
-      let siblingsConverted = 0;
-      if (companyDomain) {
-        const siblings = await db.select()
-          .from(leads)
-          .where(and(
-            eq(leads.companyDomain, companyDomain),
-            inArray(leads.stage, ['new', 'contacted', 'qualified']),
-            sql`${leads.id} != ${id}`
-          ));
-
-        for (const sibling of siblings) {
-          const siblingNameParts = (sibling.name || '').split(' ');
-          const siblingFirstName = siblingNameParts[0] || '';
-          const siblingLastName = siblingNameParts.slice(1).join(' ') || '';
-          const siblingCustomerId = crypto.randomUUID();
-
-          try {
-            await db.insert(customers).values({
-              id: siblingCustomerId,
-              firstName: siblingFirstName,
-              lastName: siblingLastName,
-              company: sibling.company || '',
-              email: sibling.email || null,
-              emailNormalized: sibling.emailNormalized || null,
-              phone: sibling.phone || null,
-              cell: sibling.mobile || null,
-              address1: sibling.street || null,
-              address2: sibling.street2 || null,
-              city: sibling.city || null,
-              province: sibling.state || null,
-              zip: sibling.zip || null,
-              country: sibling.country || null,
-              website: sibling.website || null,
-              note: sibling.description || null,
-              salesRepId: sibling.salesRepId || null,
-              salesRepName: sibling.salesRepName || null,
-              pricingTier: sibling.pricingTier || null,
-              pricingTierSetBy: sibling.pricingTierSetBy || null,
-              pricingTierSetAt: sibling.pricingTierSetAt || null,
-              customerType: sibling.customerType || null,
-              tags: sibling.tags || null,
-              isCompany: sibling.isCompany || false,
-              odooPartnerId: sibling.sourceContactOdooPartnerId || null,
-              sources: ['lead_conversion'],
-              companyDomain: companyDomain,
-              jobTitle: sibling.jobTitle || null,
-              companyId: resolvedCompanyId,
-              createdAt: new Date(),
-            });
-
-            await db.update(leads)
-              .set({ stage: 'converted', companyId: resolvedCompanyId, updatedAt: new Date() })
-              .where(eq(leads.id, sibling.id));
-
-            siblingsConverted++;
-          } catch (siblingErr) {
-            console.error(`[Qualify] Failed to auto-convert sibling lead #${sibling.id}:`, siblingErr);
+          if (existingCompany) {
+            resolvedCompanyId = existingCompany.id;
+          } else {
+            const companyName = lead.company || companyDomain;
+            const [newCompany] = await tx.insert(companies)
+              .values({ name: companyName, domain: companyDomain })
+              .returning({ id: companies.id });
+            resolvedCompanyId = newCompany.id;
           }
         }
-      }
+
+        // Step 2: Convert this lead to a customer
+        const nameParts = (lead.name || '').split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const newCustomerId = crypto.randomUUID();
+
+        await tx.insert(customers).values({
+          id: newCustomerId,
+          firstName,
+          lastName,
+          company: lead.company || '',
+          email: lead.email || null,
+          emailNormalized: lead.emailNormalized || null,
+          phone: lead.phone || null,
+          cell: lead.mobile || null,
+          address1: lead.street || null,
+          address2: lead.street2 || null,
+          city: lead.city || null,
+          province: lead.state || null,
+          zip: lead.zip || null,
+          country: lead.country || null,
+          website: lead.website || null,
+          note: lead.description || null,
+          salesRepId: lead.salesRepId || null,
+          salesRepName: lead.salesRepName || null,
+          pricingTier: lead.pricingTier || null,
+          pricingTierSetBy: lead.pricingTierSetBy || null,
+          pricingTierSetAt: lead.pricingTierSetAt || null,
+          customerType: lead.customerType || null,
+          tags: lead.tags || null,
+          isCompany: lead.isCompany || false,
+          odooPartnerId: lead.sourceContactOdooPartnerId || null,
+          sources: ['lead_conversion'],
+          swatchbookSentAt: lead.swatchbookSentAt || null,
+          priceListSentAt: lead.priceListSentAt || null,
+          // Company parity fields
+          companyDomain: companyDomain,
+          jobTitle: lead.jobTitle || null,
+          companyId: resolvedCompanyId,
+          createdAt: new Date(),
+        });
+
+        // Log the conversion
+        await tx.insert(customerActivityEvents).values({
+          customerId: newCustomerId,
+          eventType: 'status_change',
+          title: 'Lead converted to customer (qualified)',
+          description: `Lead "${lead.name}" was qualified and converted to a contact.`,
+          sourceType: 'manual',
+          sourceTable: 'leads',
+          sourceId: String(lead.id),
+          eventDate: new Date(),
+        });
+
+        // Step 3: Mark this lead as converted and update company link
+        await tx.update(leads)
+          .set({ stage: 'converted', companyDomain, companyId: resolvedCompanyId, updatedAt: new Date() })
+          .where(eq(leads.id, id));
+
+        // Step 4: Auto-convert sibling leads with the same company domain (not already converted)
+        let siblingsConverted = 0;
+        if (companyDomain) {
+          const siblings = await tx.select()
+            .from(leads)
+            .where(and(
+              eq(leads.companyDomain, companyDomain),
+              inArray(leads.stage, ['new', 'contacted', 'qualified']),
+              sql`${leads.id} != ${id}`
+            ));
+
+          for (const sibling of siblings) {
+            const siblingNameParts = (sibling.name || '').split(' ');
+            const siblingFirstName = siblingNameParts[0] || '';
+            const siblingLastName = siblingNameParts.slice(1).join(' ') || '';
+            const siblingCustomerId = crypto.randomUUID();
+
+            try {
+              // Use a savepoint so a sibling failure cannot abort the outer transaction
+              await tx.transaction(async (stx) => {
+                await stx.insert(customers).values({
+                  id: siblingCustomerId,
+                  firstName: siblingFirstName,
+                  lastName: siblingLastName,
+                  company: sibling.company || '',
+                  email: sibling.email || null,
+                  emailNormalized: sibling.emailNormalized || null,
+                  phone: sibling.phone || null,
+                  cell: sibling.mobile || null,
+                  address1: sibling.street || null,
+                  address2: sibling.street2 || null,
+                  city: sibling.city || null,
+                  province: sibling.state || null,
+                  zip: sibling.zip || null,
+                  country: sibling.country || null,
+                  website: sibling.website || null,
+                  note: sibling.description || null,
+                  salesRepId: sibling.salesRepId || null,
+                  salesRepName: sibling.salesRepName || null,
+                  pricingTier: sibling.pricingTier || null,
+                  pricingTierSetBy: sibling.pricingTierSetBy || null,
+                  pricingTierSetAt: sibling.pricingTierSetAt || null,
+                  customerType: sibling.customerType || null,
+                  tags: sibling.tags || null,
+                  isCompany: sibling.isCompany || false,
+                  odooPartnerId: sibling.sourceContactOdooPartnerId || null,
+                  sources: ['lead_conversion'],
+                  companyDomain: companyDomain,
+                  jobTitle: sibling.jobTitle || null,
+                  companyId: resolvedCompanyId,
+                  createdAt: new Date(),
+                });
+
+                await stx.update(leads)
+                  .set({ stage: 'converted', companyId: resolvedCompanyId, updatedAt: new Date() })
+                  .where(eq(leads.id, sibling.id));
+              });
+
+              siblingsConverted++;
+            } catch (siblingErr) {
+              console.error(`[Qualify] Failed to auto-convert sibling lead #${sibling.id}:`, siblingErr);
+            }
+          }
+        }
+
+        return { qualified: true as const, customerId: newCustomerId, companyId: resolvedCompanyId, siblingsConverted };
+      });
 
       // Invalidate Spotlight prefetch caches
       spotlightEngine.invalidateAllPrefetchCaches();
 
-      console.log(`[Leads] Lead ${id} qualified → converted to customer ${newCustomerId} by ${req.user?.email} (${siblingsConverted} siblings auto-converted)`);
-      res.json({ qualified: true, customerId: newCustomerId, companyId: resolvedCompanyId, siblingsConverted });
+      console.log(`[Leads] Lead ${id} qualified → converted to customer ${result.customerId} by ${req.user?.email} (${result.siblingsConverted} siblings auto-converted)`);
+      res.json(result);
     } catch (error) {
       console.error("Error qualifying lead:", error);
       res.status(500).json({ error: "Failed to qualify lead" });
@@ -18177,51 +18184,53 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const nameParts = (lead.name || '').trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
-      await db.insert(customers).values({
-        id: newCustomerId,
-        firstName, lastName,
-        company: lead.company || lead.name || '',
-        email: lead.email || null,
-        emailNormalized: lead.emailNormalized || (lead.email ? lead.email.toLowerCase().trim() : null),
-        phone: lead.phone || null,
-        cell: lead.mobile || null,
-        address1: lead.street || null,
-        address2: lead.street2 || null,
-        city: lead.city || null,
-        province: lead.state || null,
-        zip: lead.zip || null,
-        country: lead.country || null,
-        website: lead.website || null,
-        note: lead.description || null,
-        salesRepId: lead.salesRepId || null,
-        salesRepName: lead.salesRepName || null,
-        pricingTier: lead.pricingTier || null,
-        pricingTierSetBy: lead.pricingTierSetBy || null,
-        pricingTierSetAt: lead.pricingTierSetAt || null,
-        customerType: lead.customerType || null,
-        tags: lead.tags || null,
-        isCompany: lead.isCompany || false,
-        contactType: 'contact',
-        sources: ['lead_conversion'],
-        swatchbookSentAt: lead.swatchbookSentAt || null,
-        priceListSentAt: lead.priceListSentAt || null,
-        odooPartnerId: lead.odooPartnerId,
-        totalSpent: '0',
-        totalOrders: 0,
-        createdAt: new Date(),
+      await db.transaction(async (tx) => {
+        await tx.insert(customers).values({
+          id: newCustomerId,
+          firstName, lastName,
+          company: lead.company || lead.name || '',
+          email: lead.email || null,
+          emailNormalized: lead.emailNormalized || (lead.email ? lead.email.toLowerCase().trim() : null),
+          phone: lead.phone || null,
+          cell: lead.mobile || null,
+          address1: lead.street || null,
+          address2: lead.street2 || null,
+          city: lead.city || null,
+          province: lead.state || null,
+          zip: lead.zip || null,
+          country: lead.country || null,
+          website: lead.website || null,
+          note: lead.description || null,
+          salesRepId: lead.salesRepId || null,
+          salesRepName: lead.salesRepName || null,
+          pricingTier: lead.pricingTier || null,
+          pricingTierSetBy: lead.pricingTierSetBy || null,
+          pricingTierSetAt: lead.pricingTierSetAt || null,
+          customerType: lead.customerType || null,
+          tags: lead.tags || null,
+          isCompany: lead.isCompany || false,
+          contactType: 'contact',
+          sources: ['lead_conversion'],
+          swatchbookSentAt: lead.swatchbookSentAt || null,
+          priceListSentAt: lead.priceListSentAt || null,
+          odooPartnerId: lead.odooPartnerId,
+          totalSpent: '0',
+          totalOrders: 0,
+          createdAt: new Date(),
+        });
+        await tx.insert(customerActivityEvents).values({
+          customerId: newCustomerId,
+          eventType: 'note',
+          title: 'Contact created from Lead (retroactive)',
+          description: `Lead "${lead.name}" was already in Odoo as partner #${lead.odooPartnerId}; local contact record created now.`,
+          sourceType: 'manual',
+          sourceTable: 'leads',
+          sourceId: String(lead.id),
+          eventDate: new Date(),
+        });
+        await tx.delete(leadActivities).where(eq(leadActivities.leadId, leadId));
+        await tx.delete(leads).where(eq(leads.id, leadId));
       });
-      await db.insert(customerActivityEvents).values({
-        customerId: newCustomerId,
-        eventType: 'note',
-        title: 'Contact created from Lead (retroactive)',
-        description: `Lead "${lead.name}" was already in Odoo as partner #${lead.odooPartnerId}; local contact record created now.`,
-        sourceType: 'manual',
-        sourceTable: 'leads',
-        sourceId: String(lead.id),
-        eventDate: new Date(),
-      });
-      await db.delete(leadActivities).where(eq(leadActivities.leadId, leadId));
-      await db.delete(leads).where(eq(leads.id, leadId));
       console.log(`[Push to Odoo] Lead #${leadId} retroactively converted — customer ${newCustomerId}`);
       return { success: true, odooPartnerId: lead.odooPartnerId, customerId: newCustomerId };
     }
@@ -18348,59 +18357,62 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    await db.insert(customers).values({
-      id: newCustomerId,
-      firstName,
-      lastName,
-      company: lead.company || lead.name || '',
-      email: lead.email || null,
-      emailNormalized: lead.emailNormalized || (lead.email ? lead.email.toLowerCase().trim() : null),
-      phone: lead.phone || null,
-      cell: lead.mobile || null,
-      address1: lead.street || null,
-      address2: lead.street2 || null,
-      city: lead.city || null,
-      province: lead.state || null,
-      zip: lead.zip || null,
-      country: lead.country || null,
-      website: lead.website || null,
-      note: lead.description || null,
-      salesRepId: lead.salesRepId || null,
-      salesRepName: lead.salesRepName || null,
-      pricingTier: lead.pricingTier || null,
-      pricingTierSetBy: lead.pricingTierSetBy || null,
-      pricingTierSetAt: lead.pricingTierSetAt || null,
-      customerType: lead.customerType || null,
-      tags: lead.tags || null,
-      isCompany: lead.isCompany || false,
-      contactType: 'contact',
-      sources: ['lead_conversion'],
-      swatchbookSentAt: lead.swatchbookSentAt || null,
-      priceListSentAt: lead.priceListSentAt || null,
-      odooPartnerId: newPartnerId,
-      jobTitle: lead.jobTitle || null,
-      companyDomain: lead.companyDomain || null,
-      companyId: lead.companyId || null,
-      totalSpent: '0',
-      totalOrders: 0,
-      createdAt: new Date(),
-    });
+    // Wrap all local DB writes in a transaction — Odoo partner already created above
+    await db.transaction(async (tx) => {
+      await tx.insert(customers).values({
+        id: newCustomerId,
+        firstName,
+        lastName,
+        company: lead.company || lead.name || '',
+        email: lead.email || null,
+        emailNormalized: lead.emailNormalized || (lead.email ? lead.email.toLowerCase().trim() : null),
+        phone: lead.phone || null,
+        cell: lead.mobile || null,
+        address1: lead.street || null,
+        address2: lead.street2 || null,
+        city: lead.city || null,
+        province: lead.state || null,
+        zip: lead.zip || null,
+        country: lead.country || null,
+        website: lead.website || null,
+        note: lead.description || null,
+        salesRepId: lead.salesRepId || null,
+        salesRepName: lead.salesRepName || null,
+        pricingTier: lead.pricingTier || null,
+        pricingTierSetBy: lead.pricingTierSetBy || null,
+        pricingTierSetAt: lead.pricingTierSetAt || null,
+        customerType: lead.customerType || null,
+        tags: lead.tags || null,
+        isCompany: lead.isCompany || false,
+        contactType: 'contact',
+        sources: ['lead_conversion'],
+        swatchbookSentAt: lead.swatchbookSentAt || null,
+        priceListSentAt: lead.priceListSentAt || null,
+        odooPartnerId: newPartnerId,
+        jobTitle: lead.jobTitle || null,
+        companyDomain: lead.companyDomain || null,
+        companyId: lead.companyId || null,
+        totalSpent: '0',
+        totalOrders: 0,
+        createdAt: new Date(),
+      });
 
-    // Log a conversion activity on the new contact
-    await db.insert(customerActivityEvents).values({
-      customerId: newCustomerId,
-      eventType: 'note',
-      title: 'Contact created from Lead (pushed to Odoo)',
-      description: `Lead "${lead.name}" was pushed to Odoo as Contact #${newPartnerId} and moved to the Contacts page.`,
-      sourceType: 'manual',
-      sourceTable: 'leads',
-      sourceId: String(lead.id),
-      eventDate: new Date(),
-    });
+      // Log a conversion activity on the new contact
+      await tx.insert(customerActivityEvents).values({
+        customerId: newCustomerId,
+        eventType: 'note',
+        title: 'Contact created from Lead (pushed to Odoo)',
+        description: `Lead "${lead.name}" was pushed to Odoo as Contact #${newPartnerId} and moved to the Contacts page.`,
+        sourceType: 'manual',
+        sourceTable: 'leads',
+        sourceId: String(lead.id),
+        eventDate: new Date(),
+      });
 
-    // Delete the lead — it now lives in Contacts
-    await db.delete(leadActivities).where(eq(leadActivities.leadId, leadId));
-    await db.delete(leads).where(eq(leads.id, leadId));
+      // Delete the lead — it now lives in Contacts
+      await tx.delete(leadActivities).where(eq(leadActivities.leadId, leadId));
+      await tx.delete(leads).where(eq(leads.id, leadId));
+    });
 
     console.log(`[Push to Odoo] Lead #${leadId} "${lead.name}" → Odoo partner #${newPartnerId}, customer ${newCustomerId}, lead deleted`);
 
