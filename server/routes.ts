@@ -31974,7 +31974,7 @@ Analyze this bounced email and provide insights in JSON format:
 
   // ─── Email Conflict Detection ─────────────────────────────────────────────
   // Lightweight: returns just the set of conflicting normalized emails (used for badges)
-  app.get("/api/admin/email-conflict-emails", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/admin/email-conflict-emails", isAuthenticated, requireAdmin, async (_req: any, res) => {
     try {
       const result = await db.execute(sql`
         SELECT DISTINCT l.email_normalized
@@ -32031,6 +32031,7 @@ Analyze this bounced email and provide insights in JSON format:
           l.company       AS lead_company,
           l.stage         AS lead_stage,
           l.score         AS lead_score,
+          l.source_type   AS lead_source_type,
           (SELECT COUNT(*)::int FROM follow_up_tasks ft
             WHERE ft.lead_id = l.id AND ft.status = 'pending')              AS lead_task_count,
           (SELECT COUNT(*)::int FROM lead_activities la
@@ -32102,10 +32103,10 @@ Analyze this bounced email and provide insights in JSON format:
     try {
       await db.transaction(async (tx) => {
         if (action === 'keep_lead') {
-          // 1. Migrate ALL pending tasks from customer → lead
+          // 1. Migrate ALL tasks (any status) from customer → lead
           await tx.update(followUpTasks)
             .set({ customerId: null, leadId: Number(leadId) })
-            .where(and(eq(followUpTasks.customerId, String(customerId)), eq(followUpTasks.status, 'pending')));
+            .where(eq(followUpTasks.customerId, String(customerId)));
           // 2. Migrate notes from customerActivityEvents → leadActivities
           const custNotes = await tx.select()
             .from(customerActivityEvents)
@@ -32123,10 +32124,10 @@ Analyze this bounced email and provide insights in JSON format:
           // 3. Delete customer (cascade removes activities, contacts, etc.)
           await tx.delete(customers).where(eq(customers.id, String(customerId)));
         } else {
-          // 1. Migrate ALL pending tasks from lead → customer
+          // 1. Migrate ALL tasks (any status) from lead → customer
           await tx.update(followUpTasks)
             .set({ leadId: null, customerId: String(customerId) })
-            .where(and(eq(followUpTasks.leadId, Number(leadId)), eq(followUpTasks.status, 'pending')));
+            .where(eq(followUpTasks.leadId, Number(leadId)));
           // 2. Migrate notes from leadActivities → customerActivityEvents
           const leadNotes = await tx.select()
             .from(leadActivities)

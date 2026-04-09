@@ -27,6 +27,7 @@ interface Conflict {
   lead_company: string | null;
   lead_stage: string;
   lead_score: number;
+  lead_source_type: string | null;
   lead_task_count: number;
   lead_email_count: number;
   lead_note_count: number;
@@ -297,6 +298,11 @@ export default function DataIntegrity() {
                           <Badge variant="outline" className="text-xs">
                             {STAGE_LABELS[c.lead_stage] ?? c.lead_stage}
                           </Badge>
+                          {c.lead_source_type && c.lead_source_type !== 'manual' && (
+                            <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
+                              {c.lead_source_type}
+                            </Badge>
+                          )}
                           {c.lead_score > 0 && (
                             <span className="text-xs text-gray-500">Score: {c.lead_score}</span>
                           )}
