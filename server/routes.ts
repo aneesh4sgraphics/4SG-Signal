@@ -18306,7 +18306,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         .from(followUpTasks).where(eq(followUpTasks.leadId, leadId));
       const [noteRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
         .from(leadActivities)
-        .where(and(eq(leadActivities.leadId, leadId), eq(leadActivities.activityType, 'note_added')));
+        .where(eq(leadActivities.leadId, leadId));
 
       let existingCustomer: { id: string; name: string } | null = null;
       if (lead.emailNormalized) {
@@ -18362,7 +18362,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
 
       await db.transaction(async (tx) => {
         if (existingCustomer) {
-          // Merge: use existing customer, append notes
+          // Merge: use existing customer, append notes and carry over kanban stage
           isExisting = true;
           customerId = existingCustomer.id;
           customerName = [existingCustomer.firstName, existingCustomer.lastName].filter(Boolean).join(' ')
@@ -18374,8 +18374,18 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
             lead.internalNotes ? `[Lead notes] ${lead.internalNotes}` : null,
             conversionNote,
           ].filter(Boolean).join('\n\n');
+
+          const mergeUpdates: Record<string, unknown> = {
+            note: mergedNote,
+            updatedAt: new Date(),
+          };
+          // Carry over kanban stage if the existing customer doesn't have one
+          if (!existingCustomer.salesKanbanStage && lead.salesKanbanStage) {
+            mergeUpdates.salesKanbanStage = lead.salesKanbanStage;
+          }
+
           await tx.update(customers)
-            .set({ note: mergedNote, updatedAt: new Date() })
+            .set(mergeUpdates)
             .where(eq(customers.id, existingCustomer.id));
         } else {
           // Create new customer from lead
@@ -18429,21 +18439,33 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           .set({ leadId: null, customerId })
           .where(eq(followUpTasks.leadId, leadId));
 
-        // Move lead notes (note_added) → customerActivityEvents
-        const leadNotes = await tx.select().from(leadActivities)
-          .where(and(
-            eq(leadActivities.leadId, leadId),
-            eq(leadActivities.activityType, 'note_added'),
-          ));
-        for (const note of leadNotes) {
+        // Migrate ALL lead activities (notes, calls, emails, etc.) → customerActivityEvents
+        const allLeadActivities = await tx.select().from(leadActivities)
+          .where(eq(leadActivities.leadId, leadId));
+        for (const activity of allLeadActivities) {
+          // Map lead activity types → valid ACTIVITY_EVENT_TYPES
+          const eventTypeMap: Record<string, string> = {
+            'note': 'note_added',
+            'note_added': 'note_added',
+            'email_sent': 'email_sent',
+            'email_received': 'email_received',
+            'call': 'call_made',
+            'call_made': 'call_made',
+            'meeting': 'meeting_completed',
+            'meeting_scheduled': 'meeting_scheduled',
+            'meeting_completed': 'meeting_completed',
+            'sample_sent': 'note_added',
+            'task': 'note_added',
+          };
+          const eventType = eventTypeMap[activity.activityType] || 'note_added';
           await tx.insert(customerActivityEvents).values({
             customerId,
-            eventType: 'note_added',
-            title: note.summary || 'Note (from lead)',
-            description: note.details ?? undefined,
+            eventType,
+            title: activity.summary || `${activity.activityType} (from lead)`,
+            description: activity.details ?? undefined,
             sourceType: 'manual',
-            createdBy: note.performedBy ?? undefined,
-            createdByName: note.performedByName ?? undefined,
+            createdBy: activity.performedBy ?? undefined,
+            createdByName: activity.performedByName ?? undefined,
           });
         }
 

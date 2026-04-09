@@ -1472,7 +1472,7 @@ export default function LeadDetail() {
                   <span className="font-semibold text-gray-900">{convertPreview.taskCount}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-gray-600">Notes to carry over</span>
+                  <span className="text-gray-600">Activity history entries</span>
                   <span className="font-semibold text-gray-900">{convertPreview.noteCount}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
