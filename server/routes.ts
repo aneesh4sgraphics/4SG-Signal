@@ -3168,9 +3168,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers/:companyId/contacts/:contactId/move-standalone", isAuthenticated, async (req: any, res) => {
     try {
       const { companyId, contactId } = req.params;
+      // Verify the contact is actually a child of this company before modifying
+      const [existing] = await db.select({ id: customers.id })
+        .from(customers)
+        .where(and(
+          eq(customers.id, contactId),
+          eq(customers.parentCustomerId, companyId),
+          eq(customers.isCompany, false),
+        ))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Contact not found in this company" });
       await db.update(customers)
         .set({ parentCustomerId: null })
-        .where(and(eq(customers.id, contactId), eq(customers.parentCustomerId, companyId)));
+        .where(eq(customers.id, contactId));
       await db.delete(domainAcknowledgments)
         .where(and(eq(domainAcknowledgments.companyId, companyId), eq(domainAcknowledgments.contactId, contactId)));
       res.json({ ok: true });
