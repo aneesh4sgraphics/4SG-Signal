@@ -1,0 +1,552 @@
+import type { Express } from "express";
+import { db } from "./db";
+import { eq, sql, or, desc, not, inArray } from "drizzle-orm";
+import { isAuthenticated, requireAdmin } from "./replitAuth";
+import { storage } from "./storage";
+import {
+  customers,
+  leads,
+  dripCampaigns,
+  dripCampaignSteps,
+  dripCampaignAssignments,
+  dripCampaignStepStatus,
+} from "@shared/schema";
+
+async function scheduleStepsForAssignment(assignmentId: number, steps: any[], startDate: Date) {
+  let scheduledTime = new Date(startDate);
+  for (const step of steps) {
+    // Add delay based on unit
+    if (step.delayAmount > 0) {
+      switch (step.delayUnit) {
+        case 'minutes':
+          scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 1000);
+          break;
+        case 'hours':
+          scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 60 * 1000);
+          break;
+        case 'weeks':
+          scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'days':
+        default:
+          scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 24 * 60 * 60 * 1000);
+          break;
+      }
+    }
+    
+    await storage.createDripCampaignStepStatus({
+      assignmentId,
+      stepId: step.id,
+      scheduledFor: scheduledTime,
+      status: 'scheduled',
+    });
+  }
+}
+
+// Update assignment status (pause, resume, cancel)
+
+
+export function registerDripRoutes(app: Express): void {
+  app.get("/api/drip-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaigns = await storage.getDripCampaigns();
+      res.json(campaigns);
+    } catch (error) {
+      console.error("Error fetching drip campaigns:", error);
+      res.status(500).json({ error: "Failed to fetch drip campaigns" });
+    }
+  });
+  app.get("/api/drip-campaigns/assignment-counts", isAuthenticated, async (req: any, res) => {
+    try {
+      const counts = await storage.getDripCampaignAssignmentCounts();
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching drip campaign assignment counts:", error);
+      res.status(500).json({ error: "Failed to fetch assignment counts" });
+    }
+  });
+  app.get("/api/drip-campaigns/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const campaign = await storage.getDripCampaign(id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      const steps = await storage.getDripCampaignSteps(id);
+      res.json({ ...campaign, steps });
+    } catch (error) {
+      console.error("Error fetching drip campaign:", error);
+      res.status(500).json({ error: "Failed to fetch drip campaign" });
+    }
+  });
+  app.post("/api/drip-campaigns", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { name, description, isActive, triggerType } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      
+      const campaign = await storage.createDripCampaign({
+        name,
+        description,
+        isActive: isActive || false,
+        triggerType: triggerType || 'manual',
+        createdBy: req.user?.email,
+      });
+      
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error creating drip campaign:", error);
+      res.status(500).json({ error: "Failed to create drip campaign" });
+    }
+  });
+  app.patch("/api/drip-campaigns/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, description, isActive, triggerType, settings } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (triggerType !== undefined) updateData.triggerType = triggerType;
+      if (settings !== undefined) updateData.settings = settings;
+      
+      const campaign = await storage.updateDripCampaign(id, updateData);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      
+      res.json(campaign);
+    } catch (error) {
+      console.error("Error updating drip campaign:", error);
+      res.status(500).json({ error: "Failed to update drip campaign" });
+    }
+  });
+  app.delete("/api/drip-campaigns/:id", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteDripCampaign(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting drip campaign:", error);
+      res.status(500).json({ error: "Failed to delete drip campaign" });
+    }
+  });
+  app.get("/api/drip-campaigns/:campaignId/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      const steps = await storage.getDripCampaignSteps(campaignId);
+      res.json(steps);
+    } catch (error) {
+      console.error("Error fetching drip campaign steps:", error);
+      res.status(500).json({ error: "Failed to fetch drip campaign steps" });
+    }
+  });
+  app.post("/api/drip-campaigns/:campaignId/steps", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      const { name, subject, body, delayAmount, delayUnit, stepOrder, templateId, attachments, variables, isActive } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Step name is required" });
+      }
+      
+      // Get current max step order
+      const existingSteps = await storage.getDripCampaignSteps(campaignId);
+      const maxOrder = existingSteps.length > 0 ? Math.max(...existingSteps.map(s => s.stepOrder)) : 0;
+      
+      const step = await storage.createDripCampaignStep({
+        campaignId,
+        name,
+        subject: subject || '',
+        body: body || '',
+        delayAmount: delayAmount || 0,
+        delayUnit: delayUnit || 'days',
+        stepOrder: stepOrder || maxOrder + 1,
+        templateId: templateId || null,
+        attachments: attachments || [],
+        variables: variables || [],
+        isActive: isActive !== false,
+      });
+      
+      res.json(step);
+    } catch (error) {
+      console.error("Error creating drip campaign step:", error);
+      res.status(500).json({ error: "Failed to create drip campaign step" });
+    }
+  });
+  app.patch("/api/drip-campaigns/:campaignId/steps/:stepId", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.stepId);
+      const { name, subject, body, delayAmount, delayUnit, stepOrder, templateId, attachments, variables, isActive } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (subject !== undefined) updateData.subject = subject;
+      if (body !== undefined) updateData.body = body;
+      if (delayAmount !== undefined) updateData.delayAmount = delayAmount;
+      if (delayUnit !== undefined) updateData.delayUnit = delayUnit;
+      if (stepOrder !== undefined) updateData.stepOrder = stepOrder;
+      if (templateId !== undefined) updateData.templateId = templateId;
+      if (attachments !== undefined) updateData.attachments = attachments;
+      if (variables !== undefined) updateData.variables = variables;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      
+      const step = await storage.updateDripCampaignStep(stepId, updateData);
+      if (!step) {
+        return res.status(404).json({ error: "Step not found" });
+      }
+      
+      res.json(step);
+    } catch (error) {
+      console.error("Error updating drip campaign step:", error);
+      res.status(500).json({ error: "Failed to update drip campaign step" });
+    }
+  });
+  app.delete("/api/drip-campaigns/:campaignId/steps/:stepId", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const stepId = parseInt(req.params.stepId);
+      await storage.deleteDripCampaignStep(stepId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting drip campaign step:", error);
+      res.status(500).json({ error: "Failed to delete drip campaign step" });
+    }
+  });
+  app.post("/api/drip-campaigns/:campaignId/steps/reorder", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      const { stepIds } = req.body;
+      
+      if (!Array.isArray(stepIds)) {
+        return res.status(400).json({ error: "stepIds must be an array" });
+      }
+      
+      await storage.reorderDripCampaignSteps(campaignId, stepIds);
+      const steps = await storage.getDripCampaignSteps(campaignId);
+      res.json(steps);
+    } catch (error) {
+      console.error("Error reordering drip campaign steps:", error);
+      res.status(500).json({ error: "Failed to reorder drip campaign steps" });
+    }
+  });
+  app.post("/api/drip-campaigns/:campaignId/steps/:stepId/test-send", isAuthenticated, async (req: any, res) => {
+    try {
+      const stepId   = parseInt(req.params.stepId);
+      const { recipientType, recipientId } = req.body as {
+        recipientType: 'lead' | 'customer';
+        recipientId: string;
+      };
+
+      // 1. Get the drip step + campaign settings
+      const [step] = await db.select().from(dripCampaignSteps).where(eq(dripCampaignSteps.id, stepId));
+      if (!step) return res.status(404).json({ error: 'Step not found' });
+
+      const campaignId = parseInt(req.params.campaignId);
+      const [campaign] = await db.select().from(dripCampaigns).where(eq(dripCampaigns.id, campaignId));
+      const campaignSettings = (campaign?.settings || {}) as any;
+
+      // 2. Gather recipient info
+      let firstName = '', lastName = '', company = '', recipientEmail = '';
+      if (recipientType === 'lead') {
+        const [lead] = await db.select().from(leads).where(eq(leads.id, parseInt(recipientId)));
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+        const nameParts = (lead.name || '').split(' ');
+        firstName = nameParts[0] || '';
+        lastName  = nameParts.slice(1).join(' ');
+        company   = lead.company || '';
+        recipientEmail = lead.email || '';
+      } else {
+        const [cust] = await db.select().from(customers).where(eq(customers.id, recipientId));
+        if (!cust) return res.status(404).json({ error: 'Customer not found' });
+        firstName = cust.firstName || '';
+        lastName  = cust.lastName  || '';
+        company   = cust.company   || '';
+        recipientEmail = cust.email || '';
+      }
+
+      // 3. Fetch logged-in user so we can use their name in variable substitution
+      const authUserId = (req.user as any)?.claims?.sub || req.user?.userId || req.user?.id;
+      const dbUser = await storage.getUser(authUserId);
+      const senderName = [dbUser?.firstName, dbUser?.lastName].filter(Boolean).join(' ') || '4S Graphics Team';
+
+      // Variable substitution (mirror replaceVariables logic)
+      const recipientName = `${firstName} ${lastName}`.trim() || company || 'Valued Customer';
+      const replacements: Record<string, string> = {
+        'First Name': firstName, 'Last Name': lastName, 'Full Name': recipientName,
+        'Email': recipientEmail, 'Company': company,
+        'Sales Rep Name': senderName, 'Unsubscribe Link': '#unsubscribe',
+        'client.first_name': firstName, 'client.last_name': lastName,
+        'client.company': company, 'client.email': recipientEmail, 'client.name': recipientName,
+        'customer.first_name': firstName, 'customer.last_name': lastName,
+        'customer.company': company, 'customer.email': recipientEmail, 'customer.name': recipientName,
+        'company_name': company, 'current_date': new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        'current_year': new Date().getFullYear().toString(),
+        'sender.name': senderName, 'sender_name': senderName,
+        'user.name': senderName, 'user_name': senderName,
+      };
+      const applyVars = (text: string) => {
+        let out = text || '';
+        for (const [key, val] of Object.entries(replacements)) {
+          const rx = new RegExp(`\\{\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\}\\}`, 'gi');
+          out = out.replace(rx, val);
+        }
+        return out.replace(/\{\{[^}]*\}\}/g, '');
+      };
+
+      const finalSubject = `[TEST] ${applyVars(step.subject || '')}`;
+      let finalBody      = applyVars(step.body || '');
+
+      // 4. Send to the logged-in user's email
+      const toEmail = dbUser?.email;
+      if (!toEmail) return res.status(400).json({ error: 'Could not determine your email address' });
+
+      // 5. Append sender signature if the campaign has it enabled
+      // Signatures are keyed by email address, not user ID
+      if (campaignSettings.includeSenderSignature && toEmail) {
+        const userSig = await storage.getEmailSignature(toEmail);
+        if (userSig?.signatureHtml) {
+          finalBody = finalBody + '<br><br>--<br>' + userSig.signatureHtml;
+        } else {
+          console.log(`[Test Send Signature] No signature found for ${toEmail}`);
+        }
+      }
+
+      const { sendEmailAsUser, getUserGmailConnection } = await import("./user-gmail-oauth");
+      const { sendEmail } = await import("./gmail-client");
+      const userGmailConn = await getUserGmailConnection(authUserId);
+      const plain = finalBody.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+      if (userGmailConn?.isActive && userGmailConn.scope?.includes('gmail.send')) {
+        await sendEmailAsUser(authUserId, toEmail, finalSubject, plain, finalBody);
+      } else {
+        await sendEmail(toEmail, finalSubject, plain, finalBody);
+      }
+
+      console.log(`[Test Send] Step "${step.name}" sent to ${toEmail} using data from ${recipientType} ${recipientId}`);
+      res.json({ success: true, sentTo: toEmail });
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ error: "Failed to send test email" });
+    }
+  });
+  app.get("/api/drip-campaigns/:campaignId/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      const assignments = await storage.getDripCampaignAssignments(campaignId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching drip campaign assignments:", error);
+      res.status(500).json({ error: "Failed to fetch drip campaign assignments" });
+    }
+  });
+  app.get("/api/drip-campaigns/:campaignId/assignments/enriched", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+
+      // Fetch assignments joined with customer data
+      const rows = await db.select({
+        id: dripCampaignAssignments.id,
+        campaignId: dripCampaignAssignments.campaignId,
+        customerId: dripCampaignAssignments.customerId,
+        leadId: dripCampaignAssignments.leadId,
+        status: dripCampaignAssignments.status,
+        startedAt: dripCampaignAssignments.startedAt,
+        completedAt: dripCampaignAssignments.completedAt,
+        pausedAt: dripCampaignAssignments.pausedAt,
+        cancelledAt: dripCampaignAssignments.cancelledAt,
+        assignedBy: dripCampaignAssignments.assignedBy,
+        customerCompany: customers.company,
+        customerEmail: customers.email,
+        customerFirstName: customers.firstName,
+        customerLastName: customers.lastName,
+      })
+        .from(dripCampaignAssignments)
+        .leftJoin(customers, eq(dripCampaignAssignments.customerId, customers.id))
+        .where(eq(dripCampaignAssignments.campaignId, campaignId))
+        .orderBy(desc(dripCampaignAssignments.startedAt));
+
+      // Resolve lead names
+      const leadIds = rows.filter(r => r.leadId).map(r => r.leadId!);
+      let leadMap: Record<number, { name: string; company: string | null; email: string | null }> = {};
+      if (leadIds.length > 0) {
+        const leadRows = await db.select({ id: leads.id, name: leads.name, company: leads.company, email: leads.email })
+          .from(leads)
+          .where(inArray(leads.id, leadIds));
+        leadMap = Object.fromEntries(leadRows.map(l => [l.id, l]));
+      }
+
+      // Get step status counts per assignment
+      const assignmentIds = rows.map(r => r.id);
+      let stepCountMap: Record<number, { sent: number; total: number }> = {};
+      if (assignmentIds.length > 0) {
+        const stepStatuses = await db.select({
+          assignmentId: dripCampaignStepStatus.assignmentId,
+          status: dripCampaignStepStatus.status,
+          count: sql<number>`count(*)::int`,
+        })
+          .from(dripCampaignStepStatus)
+          .where(inArray(dripCampaignStepStatus.assignmentId, assignmentIds))
+          .groupBy(dripCampaignStepStatus.assignmentId, dripCampaignStepStatus.status);
+
+        for (const row of stepStatuses) {
+          if (!stepCountMap[row.assignmentId]) stepCountMap[row.assignmentId] = { sent: 0, total: 0 };
+          stepCountMap[row.assignmentId].total += Number(row.count);
+          if (row.status === 'sent') stepCountMap[row.assignmentId].sent += Number(row.count);
+        }
+      }
+
+      const enriched = rows.map(r => {
+        const lead = r.leadId ? leadMap[r.leadId] : null;
+        const stepProgress = stepCountMap[r.id] ?? { sent: 0, total: 0 };
+        const name = lead
+          ? (lead.name || lead.company || lead.email || 'Unknown Lead')
+          : (r.customerCompany || [r.customerFirstName, r.customerLastName].filter(Boolean).join(' ') || r.customerEmail || 'Unknown');
+        return {
+          id: r.id,
+          campaignId: r.campaignId,
+          customerId: r.customerId,
+          leadId: r.leadId,
+          status: r.status,
+          startedAt: r.startedAt,
+          completedAt: r.completedAt,
+          pausedAt: r.pausedAt,
+          cancelledAt: r.cancelledAt,
+          assignedBy: r.assignedBy,
+          name,
+          email: lead?.email ?? r.customerEmail,
+          company: lead?.company ?? r.customerCompany,
+          type: r.leadId ? 'lead' : 'customer',
+          stepsSent: stepProgress.sent,
+          stepsTotal: stepProgress.total,
+        };
+      });
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching enriched assignments:", error);
+      res.status(500).json({ error: "Failed to fetch enriched assignments" });
+    }
+  });
+  app.post("/api/drip-campaigns/:campaignId/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaignId = parseInt(req.params.campaignId);
+      const { customerIds, leadIds, startAt } = req.body;
+      
+      const hasCustomers = Array.isArray(customerIds) && customerIds.length > 0;
+      const hasLeads = Array.isArray(leadIds) && leadIds.length > 0;
+      
+      if (!hasCustomers && !hasLeads) {
+        return res.status(400).json({ error: "customerIds or leadIds array is required" });
+      }
+      
+      // Get campaign steps to schedule
+      const steps = await storage.getDripCampaignSteps(campaignId);
+      if (steps.length === 0) {
+        return res.status(400).json({ error: "Campaign has no steps to schedule" });
+      }
+      
+      const startDate = startAt ? new Date(startAt) : new Date();
+      const assignments = [];
+      
+      // Process customers
+      if (hasCustomers) {
+        for (const customerId of customerIds) {
+          // Check if already assigned
+          const existing = await storage.getDripCampaignAssignments(campaignId, customerId);
+          if (existing.some(a => a.status === 'active')) {
+            continue; // Skip if already active
+          }
+          
+          // Create assignment
+          const assignment = await storage.createDripCampaignAssignment({
+            campaignId,
+            customerId,
+            status: 'active',
+            startedAt: startDate,
+            assignedBy: req.user?.email,
+            metadata: {},
+          });
+          
+          // Schedule all steps for this assignment
+          await scheduleStepsForAssignment(assignment.id, steps, startDate);
+          assignments.push(assignment);
+        }
+      }
+      
+      // Process leads
+      if (hasLeads) {
+        for (const leadId of leadIds) {
+          // Validate leadId is a valid integer
+          const parsedLeadId = parseInt(leadId);
+          if (isNaN(parsedLeadId)) {
+            console.warn(`[Drip Assign] Invalid leadId: ${leadId}, skipping`);
+            continue;
+          }
+          
+          // Check if already assigned (search by leadId)
+          const existing = await storage.getDripCampaignAssignments(campaignId, undefined, parsedLeadId);
+          if (existing.some(a => a.status === 'active')) {
+            continue; // Skip if already active
+          }
+          
+          // Create assignment for lead
+          const assignment = await storage.createDripCampaignAssignment({
+            campaignId,
+            leadId: parsedLeadId,
+            status: 'active',
+            startedAt: startDate,
+            assignedBy: req.user?.email,
+            metadata: {},
+          });
+          
+          // Schedule all steps for this assignment
+          await scheduleStepsForAssignment(assignment.id, steps, startDate);
+          assignments.push(assignment);
+        }
+      }
+      
+      res.json({ created: assignments.length, assignments });
+    } catch (error) {
+      console.error("Error creating drip campaign assignments:", error);
+      res.status(500).json({ error: "Failed to create drip campaign assignments" });
+    }
+  });
+  app.patch("/api/drip-campaigns/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      const { status } = req.body;
+      
+      if (!['active', 'paused', 'completed', 'cancelled'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+      }
+      
+      const updateData: any = { status };
+      if (status === 'paused') updateData.pausedAt = new Date();
+      if (status === 'cancelled') updateData.cancelledAt = new Date();
+      if (status === 'completed') updateData.completedAt = new Date();
+      
+      const assignment = await storage.updateDripCampaignAssignment(assignmentId, updateData);
+      if (!assignment) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error updating drip campaign assignment:", error);
+      res.status(500).json({ error: "Failed to update drip campaign assignment" });
+    }
+  });
+  app.get("/api/drip-campaigns/assignments/:assignmentId/statuses", isAuthenticated, async (req: any, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      const statuses = await storage.getDripCampaignStepStatuses(assignmentId);
+      res.json(statuses);
+    } catch (error) {
+      console.error("Error fetching drip campaign step statuses:", error);
+      res.status(500).json({ error: "Failed to fetch drip campaign step statuses" });
+    }
+  });
+}
