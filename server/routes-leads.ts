@@ -1182,10 +1182,6 @@ export function registerLeadsRoutes(app: Express): void {
         await tx.delete(leads).where(eq(leads.id, leadId));
       });
 
-      // Invalidate caches
-      setCachedData('leads', null);
-      setCachedData('customers', null);
-
       res.json({ ok: true, customerId: customerId!, customerName: customerName!, isExisting });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unexpected error';
