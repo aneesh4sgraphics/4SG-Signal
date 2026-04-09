@@ -403,7 +403,16 @@ export default function LeadsPage() {
       toast({ title: 'Lead Created', description: 'New lead added successfully' });
     },
     onError: (error: any) => {
-      toast({ title: 'Error', description: error.message || 'Failed to create lead', variant: 'destructive' });
+      if (error.status === 409 || error.message?.includes('duplicate')) {
+        const data = error.data || {};
+        toast({
+          title: 'Duplicate lead',
+          description: data.message || 'A lead or contact with this email already exists.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Failed to create lead', description: error.message, variant: 'destructive' });
+      }
     },
   });
 

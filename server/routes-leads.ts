@@ -533,7 +533,43 @@ export function registerLeadsRoutes(app: Express): void {
           data.companyDomain = extractCompanyDomain(data.email) ?? undefined;
         }
       }
-      
+
+      // Duplicate detection
+      if (data.email) {
+        const normalizedIncoming = normalizeEmail(data.email);
+
+        // Check existing leads
+        const [existingLead] = await db.select({ id: leads.id, name: leads.name, company: leads.company, stage: leads.stage })
+          .from(leads)
+          .where(eq(leads.emailNormalized, normalizedIncoming))
+          .limit(1);
+
+        if (existingLead) {
+          return res.status(409).json({
+            error: 'duplicate',
+            message: `A lead with this email already exists: ${existingLead.name || existingLead.company}`,
+            existingId: existingLead.id,
+            existingType: 'lead',
+            existingStage: existingLead.stage,
+          });
+        }
+
+        // Check existing customers
+        const [existingCustomer] = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, company: customers.company })
+          .from(customers)
+          .where(eq(customers.emailNormalized, normalizedIncoming))
+          .limit(1);
+
+        if (existingCustomer) {
+          return res.status(409).json({
+            error: 'duplicate',
+            message: `This email already exists as a Contact: ${existingCustomer.company || existingCustomer.firstName}`,
+            existingId: existingCustomer.id,
+            existingType: 'customer',
+          });
+        }
+      }
+
       const result = await db.insert(leads).values(data).returning();
       
       // Log the creation activity
