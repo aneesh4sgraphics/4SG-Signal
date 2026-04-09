@@ -28,7 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
-  UserCheck,
+  UserCheck, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -221,6 +221,7 @@ export default function LeadDetail() {
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
   const [dripToCancelId, setDripToCancelId] = useState<number | null>(null);
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
 
   // ── Queries ─────────────────────────────────────────────────────────────────
   const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
@@ -504,6 +505,20 @@ export default function LeadDetail() {
     ...leadEmails.map(e => ({ ...e, isFromActivity: false })),
     ...activityEmailRows,
   ].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+
+  const normalizeSubject = (s: string) => s.replace(/^(Re:|Fwd:|FW:|RE:|FWD:)\s*/gi, '').trim().toLowerCase();
+
+  const threadGroups = allEmails.reduce((acc, email) => {
+    const key = normalizeSubject(email.subject || '');
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(email);
+    return acc;
+  }, {} as Record<string, typeof allEmails>);
+
+  // Thread groups ordered by their latest message (allEmails is already newest-first)
+  const orderedThreadKeys = Array.from(
+    new Set(allEmails.map(e => normalizeSubject(e.subject || '')))
+  );
 
   const TABS: TabDef[] = [
     { key: "activity", label: "Activity", icon: Activity, count: nonNoteActivities.length || undefined },
@@ -1063,32 +1078,97 @@ export default function LeadDetail() {
             ) : allEmails.length === 0 ? (
               <EmptyState icon={Mail} title="No emails yet" sub={lead.email ? "Email history will appear here" : "No email address on this lead"} />
             ) : (
-              <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
-                {allEmails.map((email) => (
-                  <div key={email.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                    <div className={`mt-0.5 shrink-0 ${email.direction === "inbound" ? "text-blue-500" : "text-gray-400"}`}>
-                      {email.direction === "inbound" ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-gray-800 truncate">
-                          {email.direction === "inbound" ? ((email as any).fromName || (email as any).fromEmail) : ((email as any).fromName || "You")}
-                        </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {(email as any).isDrip && (
-                            <span className="text-xs bg-violet-50 text-violet-600 border border-violet-100 rounded px-1.5 py-0.5">Drip</span>
+              <div className="space-y-2">
+                {orderedThreadKeys.map((threadKey) => {
+                  const msgs = threadGroups[threadKey];
+                  if (!msgs || msgs.length === 0) return null;
+                  const latest = msgs[0];
+                  const isExpanded = expandedThreads.has(threadKey);
+                  const hasMultiple = msgs.length > 1;
+                  const toggleThread = () => setExpandedThreads(prev => {
+                    const next = new Set(prev);
+                    if (next.has(threadKey)) next.delete(threadKey);
+                    else next.add(threadKey);
+                    return next;
+                  });
+                  const threadSubject = latest.subject || "(no subject)";
+                  const dominantDirection = msgs.filter(m => m.direction === "inbound").length >= msgs.length / 2 ? "inbound" : "outbound";
+
+                  return (
+                    <div key={threadKey} className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+                      {/* Thread header */}
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 ${hasMultiple ? "cursor-pointer hover:bg-gray-50" : ""} transition-colors`}
+                        onClick={hasMultiple ? toggleThread : undefined}
+                      >
+                        <div className={`shrink-0 ${dominantDirection === "inbound" ? "text-blue-500" : "text-gray-400"}`}>
+                          {dominantDirection === "inbound" ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-gray-800 truncate">{threadSubject}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {hasMultiple && (
+                                <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">{msgs.length}</span>
+                              )}
+                              {(latest as any).isDrip && (
+                                <span className="text-xs bg-violet-50 text-violet-600 border border-violet-100 rounded px-1.5 py-0.5">Drip</span>
+                              )}
+                              <span className={`text-xs px-1.5 py-0.5 rounded border ${dominantDirection === "inbound" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                                {dominantDirection === "inbound" ? "inbound" : "outbound"}
+                              </span>
+                              <span className="text-xs text-gray-400">{relativeTime(latest.sentAt)}</span>
+                              {hasMultiple && (
+                                <span className="text-gray-400">{isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Latest message preview (when collapsed or single message) */}
+                          {(!isExpanded || !hasMultiple) && (
+                            <div className="mt-1">
+                              <span className="text-xs text-gray-500">
+                                {latest.direction === "inbound" ? ((latest as any).fromName || (latest as any).fromEmail || "Them") : ((latest as any).fromName || "You")}
+                              </span>
+                              {(latest as any).snippet && (
+                                <span className="text-xs text-gray-400 ml-2 truncate">— {(latest as any).snippet}</span>
+                              )}
+                            </div>
                           )}
-                          {(email as any).isFromActivity && (
-                            <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 rounded px-1.5 py-0.5">Gmail</span>
-                          )}
-                          <span className="text-xs text-gray-400">{relativeTime(email.sentAt)}</span>
                         </div>
                       </div>
-                      <p className="text-xs font-medium text-gray-600 truncate mt-0.5">{email.subject || "(no subject)"}</p>
-                      {(email as any).snippet && <p className="text-xs text-gray-400 truncate mt-0.5">{(email as any).snippet}</p>}
+
+                      {/* Expanded: all messages in the thread chronologically */}
+                      {isExpanded && hasMultiple && (
+                        <div className="border-t border-gray-100 divide-y divide-gray-100">
+                          {[...msgs].reverse().map((email) => (
+                            <div key={email.id} className="flex items-start gap-3 px-4 py-3 bg-gray-50/50">
+                              <div className={`mt-0.5 shrink-0 ${email.direction === "inbound" ? "text-blue-500" : "text-gray-400"}`}>
+                                {email.direction === "inbound" ? <ArrowDownLeft className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-gray-700">
+                                    {email.direction === "inbound" ? ((email as any).fromName || (email as any).fromEmail || "Them") : ((email as any).fromName || "You")}
+                                  </span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {(email as any).isDrip && (
+                                      <span className="text-xs bg-violet-50 text-violet-600 border border-violet-100 rounded px-1.5 py-0.5">Drip</span>
+                                    )}
+                                    <span className={`text-xs px-1.5 py-0.5 rounded border ${email.direction === "inbound" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                                      {email.direction === "inbound" ? "inbound" : "outbound"}
+                                    </span>
+                                    <span className="text-xs text-gray-400">{relativeTime(email.sentAt)}</span>
+                                  </div>
+                                </div>
+                                {(email as any).snippet && <p className="text-xs text-gray-400 truncate mt-0.5">{(email as any).snippet}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
