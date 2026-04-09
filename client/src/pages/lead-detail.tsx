@@ -620,7 +620,7 @@ export default function LeadDetail() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-semibold text-gray-900 leading-tight">{lead.name}</h1>
+                <h1 className="text-xl font-bold text-gray-900 leading-tight">{lead.name}</h1>
                 <Badge className={`${stageInfo.color} border text-[11px] h-5 px-2`}>{stageInfo.label}</Badge>
               </div>
               <p className="text-sm text-gray-500 mt-0.5">

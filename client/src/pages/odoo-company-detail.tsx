@@ -713,7 +713,7 @@ export default function OdooCompanyDetail() {
     { key: "activity", label: "Activity", count: nonNoteEvents.length || undefined },
     { key: "emails", label: "Emails", count: gmailEmailsData.length || undefined },
     { key: "notes", label: "Notes", count: noteEvents.length || undefined },
-    ...(company.isCompany ? [{ key: "contacts" as TabKey, label: "Contacts", count: contactsData?.contacts?.length || undefined }] : []),
+    ...(company.isCompany ? [{ key: "contacts" as TabKey, label: "People", count: contactsData?.contacts?.length || undefined }] : []),
     { key: "business", label: "Business" },
   ];
 
@@ -739,12 +739,23 @@ export default function OdooCompanyDetail() {
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-semibold text-gray-900">{displayName}</h1>
+                  <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
                   {company.isHotProspect && <Badge className="bg-orange-100 text-orange-700 text-xs">🔥 Hot Prospect</Badge>}
                   {company.pricingTier && <Badge variant="secondary" className="text-xs capitalize bg-violet-100 text-violet-700">{company.pricingTier}</Badge>}
-                  {company.odooSyncStatus === "synced" && <Badge className="bg-green-100 text-green-700 text-xs">✓ Odoo Synced</Badge>}
-                  {company.odooSyncStatus === "pending" && <Badge className="bg-amber-100 text-amber-700 text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Pending Sync</Badge>}
-                  {!company.odooPartnerId && <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">Not in Odoo</Badge>}
+                  {company.odooPartnerId ? (
+                    <Badge className="bg-green-100 text-green-700 text-xs gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Odoo #{company.odooPartnerId}
+                    </Badge>
+                  ) : (
+                    <button
+                      onClick={() => pushSyncMutation.mutate()}
+                      disabled={pushSyncMutation.isPending}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      {pushSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                      Push to Odoo
+                    </button>
+                  )}
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {company.email && <span className="mr-3">{company.email}</span>}
@@ -758,11 +769,6 @@ export default function OdooCompanyDetail() {
               {company.odooPartnerId && (
                 <Button variant="outline" size="sm" onClick={openEditDialog} className="h-8 text-xs gap-1">
                   <Pencil className="w-3.5 h-3.5" /> Edit
-                </Button>
-              )}
-              {company.odooSyncStatus === "pending" && (
-                <Button variant="outline" size="sm" onClick={() => pushSyncMutation.mutate()} disabled={pushSyncMutation.isPending} className="h-8 text-xs gap-1 border-green-200 text-green-700">
-                  {pushSyncMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Push to Odoo
                 </Button>
               )}
               {company.email && (

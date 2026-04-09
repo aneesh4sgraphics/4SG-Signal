@@ -1600,8 +1600,8 @@ export default function OdooContacts() {
                               </div>
                               {contact.isHotProspect && <Flame className="w-4 h-4 text-orange-500" />}
                             </div>
-                            {contact.isCompany && contact.firstName && (
-                              <span className="text-xs text-gray-500">{contact.firstName} {contact.lastName}</span>
+                            {!contact.isCompany && contact.company && (
+                              <span className="text-xs text-gray-500">{contact.company}</span>
                             )}
                           </div>
                         </div>
@@ -1897,10 +1897,8 @@ export default function OdooContacts() {
                         {getDisplayName(contact)}
                       </h3>
                       
-                      {contact.isCompany && contact.firstName && (
-                        <p className="text-sm text-gray-500 mb-2 truncate">
-                          {contact.firstName} {contact.lastName}
-                        </p>
+                      {!contact.isCompany && contact.company && (
+                        <p className="text-sm text-gray-500 mb-1 truncate">{contact.company}</p>
                       )}
                       
                       <div className="space-y-1.5 mt-3">
