@@ -3740,6 +3740,20 @@ export type InsertSketchboardEntry = z.infer<typeof insertSketchboardEntrySchema
 export const SKETCHBOARD_COLUMNS = ['working_on', 'waiting_on', 'decide_on'] as const;
 export type SketchboardColumn = typeof SKETCHBOARD_COLUMNS[number];
 
+// ── Domain Mismatch Acknowledgments ──────────────────────────────────────────
+// Stores per-contact acknowledgments so the domain-mismatch warning is not
+// shown again after a user deliberately chooses "keep in this company".
+export const domainAcknowledgments = pgTable("domain_acknowledgments", {
+  id: serial("id").primaryKey(),
+  companyId: varchar("company_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  contactId: varchar("contact_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  acknowledgedBy: varchar("acknowledged_by", { length: 255 }),
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("IDX_domain_ack_company_contact").on(table.companyId, table.contactId),
+]);
+export type DomainAcknowledgment = typeof domainAcknowledgments.$inferSelect;
+
 export const UPS_GROUND_TRANSIT_DAYS: Record<string, number> = {
   'FL': 1,
   'GA': 2, 'AL': 2, 'SC': 2,

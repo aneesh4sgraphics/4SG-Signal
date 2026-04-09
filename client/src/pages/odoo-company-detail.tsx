@@ -21,6 +21,7 @@ import {
   Activity, Calendar, StickyNote, Plus, UserPlus, GitMerge, Trash2, Truck,
   Target, Eye, Trophy, Linkedin, MapPinned, Video, ClipboardList, Clock,
   Star, MessageSquare, UserCheck, ArrowUpRight, ArrowDownLeft, Globe, ExternalLink,
+  Info, ShieldAlert,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { useEmailComposer } from "@/components/email-composer";
@@ -219,6 +220,7 @@ export default function OdooCompanyDetail() {
   const [currentMergeGroupIndex, setCurrentMergeGroupIndex] = useState(0);
   const [editingContact, setEditingContact] = useState<OdooContact | null>(null);
   const [editContactForm, setEditContactForm] = useState({ name: "", email: "", phone: "", function: "" });
+  const [expandedDomainContactId, setExpandedDomainContactId] = useState<string | null>(null);
   const labelQueue = useLabelQueue();
   const [editForm, setEditForm] = useState({
     company: "", firstName: "", lastName: "",
@@ -274,6 +276,20 @@ export default function OdooCompanyDetail() {
     queryFn: async () => { const r = await fetch(`/api/odoo/customer/${companyId}/contacts`); if (!r.ok) throw new Error("Failed"); return r.json(); },
     enabled: !!companyId, staleTime: 60000,
   });
+
+  type DomainContactResult = { contactId: string; name: string; email: string | null; domain: string | null; status: 'match' | 'personal' | 'mismatch' | 'no_email'; acknowledged: boolean };
+  type DomainCheckData = { majorityDomain: string | null; companyId: string; contacts: DomainContactResult[]; mismatchCount: number };
+  const { data: domainCheck, refetch: refetchDomainCheck } = useQuery<DomainCheckData>({
+    queryKey: ["/api/customers", companyId, "domain-check"],
+    queryFn: async () => { const r = await fetch(`/api/customers/${companyId}/domain-check`); if (!r.ok) throw new Error("Failed"); return r.json(); },
+    enabled: !!companyId && !!(company?.isCompany),
+    staleTime: 30000,
+  });
+  const domainCheckMap = useMemo(() => {
+    const m: Record<string, DomainContactResult> = {};
+    for (const c of domainCheck?.contacts ?? []) m[c.contactId] = c;
+    return m;
+  }, [domainCheck]);
 
   const { data: paymentTermsOptions = [] } = useQuery<Array<{ id: number; name: string }>>({
     queryKey: ["/api/odoo/payment-terms"],
@@ -590,6 +606,35 @@ export default function OdooCompanyDetail() {
     },
     onSuccess: () => { refetchMachines(); toast({ title: "Machine profile updated" }); },
     onError: () => toast({ title: "Failed to update machine", variant: "destructive" }),
+  });
+
+  const acknowledgeDomainMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      const r = await apiRequest("POST", `/api/customers/${companyId}/contacts/${contactId}/acknowledge-domain`, {});
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", companyId, "domain-check"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/domain-mismatch-contact-ids"] });
+      setExpandedDomainContactId(null);
+      toast({ title: "Domain mismatch acknowledged", description: "This contact will no longer show a warning." });
+    },
+    onError: () => toast({ title: "Failed to acknowledge", variant: "destructive" }),
+  });
+
+  const moveStandaloneMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      const r = await apiRequest("POST", `/api/customers/${companyId}/contacts/${contactId}/move-standalone`, {});
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/odoo/customer", companyId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", companyId, "domain-check"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/domain-mismatch-contact-ids"] });
+      setExpandedDomainContactId(null);
+      toast({ title: "Contact moved", description: "Contact is now a standalone record." });
+    },
+    onError: () => toast({ title: "Failed to move contact", variant: "destructive" }),
   });
 
   // ── Computed ─────────────────────────────────────────────────────────────────
@@ -1141,9 +1186,16 @@ export default function OdooCompanyDetail() {
         {activeTab === "contacts" && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-                Contacts {contactsData?.contacts?.length ? <span className="normal-case font-normal text-gray-400">({contactsData.contacts.length})</span> : ""}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                  Contacts {contactsData?.contacts?.length ? <span className="normal-case font-normal text-gray-400">({contactsData.contacts.length})</span> : ""}
+                </h2>
+                {(domainCheck?.mismatchCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                    <ShieldAlert className="w-3 h-3" /> {domainCheck!.mismatchCount} {domainCheck!.mismatchCount === 1 ? "contact needs" : "contacts need"} attention
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {duplicateEmailContacts.length > 0 && (
                   <Button size="sm" variant="outline" className="text-amber-600 border-amber-300 h-8 text-xs gap-1" onClick={() => { setCurrentMergeGroupIndex(0); setSelectedMergeContacts([]); setKeepContactId(null); setIsMergeContactsOpen(true); }}>
@@ -1163,44 +1215,99 @@ export default function OdooCompanyDetail() {
               <EmptyState icon={User} title="No contacts found" sub="Add a contact linked to this account" />
             ) : (
               <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
-                {contactsData.contacts.map(contact => (
-                  <div key={contact.localId || contact.id} className="px-4 py-3 hover:bg-gray-50 group">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 text-xs font-semibold shrink-0">{initials(contact.name)}</div>
-                        <div className="min-w-0">
-                          {contact.localId ? (
-                            <Link href={`/odoo-contacts/${contact.localId}`} className="text-sm font-medium text-gray-800 hover:text-violet-600 hover:underline">{contact.name}</Link>
-                          ) : (
-                            <p className="text-sm font-medium text-gray-800">{contact.name}</p>
+                {contactsData.contacts.map(contact => {
+                  const domainInfo = contact.localId ? domainCheckMap[contact.localId] : undefined;
+                  const isExpanded = expandedDomainContactId === contact.localId;
+                  return (
+                    <div key={contact.localId || contact.id}>
+                      <div className="px-4 py-3 hover:bg-gray-50 group">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 text-xs font-semibold shrink-0">{initials(contact.name)}</div>
+                            <div className="min-w-0">
+                              {contact.localId ? (
+                                <Link href={`/odoo-contacts/${contact.localId}`} className="text-sm font-medium text-gray-800 hover:text-violet-600 hover:underline">{contact.name}</Link>
+                              ) : (
+                                <p className="text-sm font-medium text-gray-800">{contact.name}</p>
+                              )}
+                              {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {domainInfo?.status === 'personal' && (
+                              <button title="This contact uses a personal email address. That's fine if they prefer it." className="p-1 rounded text-blue-400 hover:text-blue-600">
+                                <Info className="w-4 h-4" />
+                              </button>
+                            )}
+                            {domainInfo?.status === 'mismatch' && !domainInfo.acknowledged && (
+                              <button
+                                title={`This contact uses @${domainInfo.domain} but the rest of this company uses @${domainCheck?.majorityDomain}. Were they added to the right company?`}
+                                onClick={() => setExpandedDomainContactId(isExpanded ? null : contact.localId!)}
+                                className="p-1 rounded text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                              >
+                                <AlertTriangle className="w-4 h-4" />
+                              </button>
+                            )}
+                            {contact.localOnly && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Local</span>
+                            )}
+                            <button
+                              onClick={() => { setEditingContact(contact); setEditContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", function: contact.function || "" }); }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
+                              title="Edit contact"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-3 mt-1 text-xs ml-9">
+                          {contact.email && (
+                            <button onClick={() => emailComposer.open({ to: contact.email || "", customerId: contact.localId || company.id, customerName: contact.name, usageType: "client_email", variables: { "client.name": contact.name, "client.company": company.company || "", "client.email": contact.email || "", "client.firstName": contact.name.split(" ")[0] || "", "client.lastName": contact.name.split(" ").slice(1).join(" ") || "" } })} className="flex items-center gap-1 text-violet-600 hover:text-green-600">
+                              <Mail className="w-3 h-3" /> {contact.email}
+                              {isShopifyEmail(contact.email) && <SiShopify className="w-3 h-3 text-green-600" />}
+                            </button>
                           )}
-                          {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
+                          {contact.phone && <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-gray-500 hover:text-violet-600"><Phone className="w-3 h-3" /> {contact.phone}</a>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {contact.localOnly && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Local</span>
-                        )}
-                        <button
-                          onClick={() => { setEditingContact(contact); setEditContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", function: contact.function || "" }); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
-                          title="Edit contact"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-3 mt-1 text-xs ml-9">
-                      {contact.email && (
-                        <button onClick={() => emailComposer.open({ to: contact.email || "", customerId: contact.localId || company.id, customerName: contact.name, usageType: "client_email", variables: { "client.name": contact.name, "client.company": company.company || "", "client.email": contact.email || "", "client.firstName": contact.name.split(" ")[0] || "", "client.lastName": contact.name.split(" ").slice(1).join(" ") || "" } })} className="flex items-center gap-1 text-violet-600 hover:text-green-600">
-                          <Mail className="w-3 h-3" /> {contact.email}
-                          {isShopifyEmail(contact.email) && <SiShopify className="w-3 h-3 text-green-600" />}
-                        </button>
+                      {isExpanded && domainInfo && contact.localId && (
+                        <div className="mx-4 mb-3 p-3 rounded-lg border border-orange-200 bg-orange-50">
+                          <div className="flex items-start gap-2 mb-3">
+                            <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                            <div className="text-sm text-orange-900">
+                              <p className="font-medium mb-0.5">Domain mismatch detected</p>
+                              <p className="text-xs text-orange-700">
+                                <span className="font-semibold">{contact.name}</span> uses <span className="font-mono font-semibold">@{domainInfo.domain}</span>, but most contacts here use <span className="font-mono font-semibold">@{domainCheck?.majorityDomain}</span>. Were they added to the right company?
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs border-orange-300 text-orange-800 hover:bg-orange-100"
+                              disabled={acknowledgeDomainMutation.isPending}
+                              onClick={() => acknowledgeDomainMutation.mutate(contact.localId!)}
+                            >
+                              {acknowledgeDomainMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                              Keep in this company
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50"
+                              disabled={moveStandaloneMutation.isPending}
+                              onClick={() => moveStandaloneMutation.mutate(contact.localId!)}
+                            >
+                              {moveStandaloneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                              Move to standalone contact
+                            </Button>
+                          </div>
+                        </div>
                       )}
-                      {contact.phone && <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-gray-500 hover:text-violet-600"><Phone className="w-3 h-3" /> {contact.phone}</a>}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

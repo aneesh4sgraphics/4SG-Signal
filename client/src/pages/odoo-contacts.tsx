@@ -324,6 +324,12 @@ export default function OdooContacts() {
   });
   const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
 
+  const { data: domainMismatchData } = useQuery<{ contactIds: string[] }>({
+    queryKey: ['/api/customers/domain-mismatch-contact-ids'],
+    staleTime: 60 * 1000,
+  });
+  const domainMismatchSet = new Set<string>(domainMismatchData?.contactIds ?? []);
+
   const { data: paginatedData, isLoading, refetch } = useQuery<{ 
     data: Contact[]; 
     total: number; 
@@ -1574,6 +1580,14 @@ export default function OdooContacts() {
                                 {isShopifyCustomer(contact) && (
                                   <SiShopify className="w-4 h-4 text-green-600" title={`Shopify customer: ${contact.email}`} />
                                 )}
+                                {domainMismatchSet.has(contact.id) && (
+                                  <Link href={`/odoo-contacts/${contact.id}`} onClick={e => e.stopPropagation()}>
+                                    <span title="This contact's email domain doesn't match their company. Click to review."
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-600 text-xs font-medium cursor-pointer hover:bg-orange-100">
+                                      <AlertTriangle className="w-3 h-3" /> Domain
+                                    </span>
+                                  </Link>
+                                )}
                                 {(contact.emailNormalized && conflictEmailSet.has(contact.emailNormalized)) ||
                                  (contact.email2Normalized && conflictEmailSet.has(contact.email2Normalized)) ? (
                                   <Link href="/admin/data-integrity" onClick={e => e.stopPropagation()}>
@@ -1866,6 +1880,14 @@ export default function OdooContacts() {
                           {contact.isHotProspect && (
                             <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
                               <Flame className="w-4 h-4 text-orange-500" />
+                            </div>
+                          )}
+                          {domainMismatchSet.has(contact.id) && (
+                            <div
+                              className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center"
+                              title="Email domain doesn't match company — click to review"
+                            >
+                              <AlertTriangle className="w-4 h-4 text-orange-500" />
                             </div>
                           )}
                         </div>

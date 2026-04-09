@@ -164,6 +164,7 @@ import {
   insertCompanySchema,
   sketchboardEntries,
   opportunityScores,
+  domainAcknowledgments,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -3053,6 +3054,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Batch label print error:", error);
       res.status(500).json({ error: "Failed to print labels" });
+    }
+  });
+
+  // ── Domain Integrity Endpoints ──────────────────────────────────────────────
+
+  const GENERIC_EMAIL_DOMAINS = new Set([
+    'gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com',
+    'aol.com','live.com','me.com','mac.com','googlemail.com',
+    'protonmail.com','proton.me','ymail.com','msn.com','hotmail.es',
+    'yahoo.es','live.com.mx','comcast.net','att.net','verizon.net',
+  ]);
+
+  function extractDomain(email: string | null | undefined): string | null {
+    if (!email) return null;
+    const idx = email.lastIndexOf('@');
+    if (idx === -1) return null;
+    return email.slice(idx + 1).toLowerCase().trim();
+  }
+
+  app.get("/api/customers/:id/domain-check", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+
+      const [company] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+      if (!company) return res.status(404).json({ error: "Company not found" });
+
+      const contacts = await db.select()
+        .from(customers)
+        .where(and(
+          eq(customers.parentCustomerId, id),
+          eq(customers.isCompany, false),
+        ));
+
+      const domainCounts: Record<string, number> = {};
+      for (const c of contacts) {
+        const domain = extractDomain(c.email);
+        if (domain && !GENERIC_EMAIL_DOMAINS.has(domain)) {
+          domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+        }
+      }
+
+      const companyEmailDomain = extractDomain(company.email);
+      if (companyEmailDomain && !GENERIC_EMAIL_DOMAINS.has(companyEmailDomain)) {
+        domainCounts[companyEmailDomain] = (domainCounts[companyEmailDomain] || 0) + 2;
+      }
+
+      let majorityDomain: string | null = null;
+      let maxCount = 0;
+      for (const [d, count] of Object.entries(domainCounts)) {
+        if (count > maxCount) { maxCount = count; majorityDomain = d; }
+      }
+
+      const acks = await db.select()
+        .from(domainAcknowledgments)
+        .where(eq(domainAcknowledgments.companyId, id));
+      const acknowledgedSet = new Set(acks.map(a => a.contactId));
+
+      const results = contacts.map(c => {
+        const domain = extractDomain(c.email);
+        let status: 'match' | 'personal' | 'mismatch' | 'no_email' = 'no_email';
+        if (domain) {
+          if (GENERIC_EMAIL_DOMAINS.has(domain)) status = 'personal';
+          else if (!majorityDomain || domain === majorityDomain) status = 'match';
+          else status = 'mismatch';
+        }
+        return {
+          contactId: c.id,
+          name: c.firstName && c.lastName ? `${c.firstName} ${c.lastName}` : (c.company || c.email || 'Unknown'),
+          email: c.email || null,
+          domain,
+          status,
+          acknowledged: acknowledgedSet.has(c.id),
+        };
+      });
+
+      res.json({
+        majorityDomain,
+        companyId: id,
+        contacts: results,
+        mismatchCount: results.filter(r => r.status === 'mismatch' && !r.acknowledged).length,
+      });
+    } catch (err) {
+      console.error("Domain check error:", err);
+      res.status(500).json({ error: "Failed to run domain check" });
+    }
+  });
+
+  app.post("/api/customers/:companyId/contacts/:contactId/acknowledge-domain", isAuthenticated, async (req: any, res) => {
+    try {
+      const { companyId, contactId } = req.params;
+      const userEmail = req.user?.claims?.email || req.user?.email || null;
+      await db.insert(domainAcknowledgments)
+        .values({ companyId, contactId, acknowledgedBy: userEmail })
+        .onConflictDoNothing();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Acknowledge domain error:", err);
+      res.status(500).json({ error: "Failed to acknowledge" });
+    }
+  });
+
+  app.post("/api/customers/:companyId/contacts/:contactId/move-standalone", isAuthenticated, async (req: any, res) => {
+    try {
+      const { companyId, contactId } = req.params;
+      await db.update(customers)
+        .set({ parentCustomerId: null })
+        .where(and(eq(customers.id, contactId), eq(customers.parentCustomerId, companyId)));
+      await db.delete(domainAcknowledgments)
+        .where(and(eq(domainAcknowledgments.companyId, companyId), eq(domainAcknowledgments.contactId, contactId)));
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Move standalone error:", err);
+      res.status(500).json({ error: "Failed to move contact" });
+    }
+  });
+
+  // Returns all contact IDs with unacknowledged domain mismatches (for contacts list badges)
+  app.get("/api/customers/domain-mismatch-contact-ids", isAuthenticated, async (req: any, res) => {
+    try {
+      const allContacts = await db.select({
+        id: customers.id,
+        email: customers.email,
+        parentCustomerId: customers.parentCustomerId,
+        isCompany: customers.isCompany,
+      }).from(customers).where(and(
+        eq(customers.isCompany, false),
+        sql`${customers.parentCustomerId} IS NOT NULL`,
+      ));
+
+      const companyIds = [...new Set(allContacts.map(c => c.parentCustomerId).filter(Boolean))] as string[];
+      if (!companyIds.length) return res.json({ contactIds: [] });
+
+      const companyRecords = await db.select({ id: customers.id, email: customers.email })
+        .from(customers)
+        .where(inArray(customers.id, companyIds));
+
+      const acks = await db.select({ contactId: domainAcknowledgments.contactId })
+        .from(domainAcknowledgments);
+      const ackedSet = new Set(acks.map(a => a.contactId));
+
+      const byCompany: Record<string, typeof allContacts> = {};
+      for (const c of allContacts) {
+        if (!c.parentCustomerId) continue;
+        byCompany[c.parentCustomerId] ??= [];
+        byCompany[c.parentCustomerId].push(c);
+      }
+
+      const companyEmailMap: Record<string, string | null> = {};
+      for (const co of companyRecords) companyEmailMap[co.id] = co.email;
+
+      const mismatchIds: string[] = [];
+      for (const [cid, contacts] of Object.entries(byCompany)) {
+        const domainCounts: Record<string, number> = {};
+        const companyDomain = extractDomain(companyEmailMap[cid]);
+        if (companyDomain && !GENERIC_EMAIL_DOMAINS.has(companyDomain)) {
+          domainCounts[companyDomain] = (domainCounts[companyDomain] || 0) + 2;
+        }
+        for (const c of contacts) {
+          const d = extractDomain(c.email);
+          if (d && !GENERIC_EMAIL_DOMAINS.has(d)) domainCounts[d] = (domainCounts[d] || 0) + 1;
+        }
+        let majorityDomain: string | null = null;
+        let maxCount = 0;
+        for (const [d, count] of Object.entries(domainCounts)) {
+          if (count > maxCount) { maxCount = count; majorityDomain = d; }
+        }
+        if (!majorityDomain) continue;
+        for (const c of contacts) {
+          const d = extractDomain(c.email);
+          if (d && !GENERIC_EMAIL_DOMAINS.has(d) && d !== majorityDomain && !ackedSet.has(c.id)) {
+            mismatchIds.push(c.id);
+          }
+        }
+      }
+      res.json({ contactIds: mismatchIds });
+    } catch (err) {
+      console.error("Domain mismatch contact IDs error:", err);
+      res.status(500).json({ error: "Failed to get mismatch IDs" });
     }
   });
 
