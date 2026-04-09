@@ -923,41 +923,48 @@ export function registerCustomersRoutes(app: Express): void {
     try {
       const currentId = req.params.id;
       
-      // Get current company to find its name for sorting context
-      const currentCompany = await storage.getCustomer(currentId);
-      if (!currentCompany || !currentCompany.isCompany) {
-        return res.json({ prevId: null, nextId: null });
+      // Get current record to find its display name for sorting context
+      const currentCustomer = await storage.getCustomer(currentId);
+      if (!currentCustomer) {
+        return res.json({ prevId: null, prevName: null, nextId: null, nextName: null });
       }
       
-      const currentName = (currentCompany.company || '').toLowerCase();
+      // Use company name if available, otherwise fall back to first+last name
+      const displayNameExpr = sql`LOWER(TRIM(COALESCE(NULLIF(${customers.company},''), TRIM(CONCAT(${customers.firstName},' ',${customers.lastName})), '')))`;
+      const currentName = (
+        currentCustomer.company?.trim() ||
+        `${currentCustomer.firstName || ''} ${currentCustomer.lastName || ''}`.trim() ||
+        ''
+      ).toLowerCase();
       
-      // Find prev company (largest name that's smaller than current)
+      // Find prev record (largest display name strictly less than current)
       const prevResult = await db
-        .select({ id: customers.id, company: customers.company })
+        .select({ id: customers.id, company: customers.company, firstName: customers.firstName, lastName: customers.lastName })
         .from(customers)
-        .where(and(
-          eq(customers.isCompany, true),
-          sql`LOWER(COALESCE(${customers.company}, '')) < ${currentName}`
-        ))
-        .orderBy(desc(sql`LOWER(COALESCE(${customers.company}, ''))`))
+        .where(sql`${displayNameExpr} < ${currentName}`)
+        .orderBy(desc(displayNameExpr))
         .limit(1);
       
-      // Find next company (smallest name that's larger than current)
+      // Find next record (smallest display name strictly greater than current)
       const nextResult = await db
-        .select({ id: customers.id, company: customers.company })
+        .select({ id: customers.id, company: customers.company, firstName: customers.firstName, lastName: customers.lastName })
         .from(customers)
-        .where(and(
-          eq(customers.isCompany, true),
-          sql`LOWER(COALESCE(${customers.company}, '')) > ${currentName}`
-        ))
-        .orderBy(asc(sql`LOWER(COALESCE(${customers.company}, ''))`))
+        .where(sql`${displayNameExpr} > ${currentName}`)
+        .orderBy(asc(displayNameExpr))
         .limit(1);
+
+      const prevRecord = prevResult[0];
+      const nextRecord = nextResult[0];
+      const buildName = (r: typeof prevRecord | undefined) => {
+        if (!r) return null;
+        return r.company?.trim() || `${r.firstName || ''} ${r.lastName || ''}`.trim() || null;
+      };
       
       res.json({
-        prevId: prevResult[0]?.id || null,
-        prevName: prevResult[0]?.company || null,
-        nextId: nextResult[0]?.id || null,
-        nextName: nextResult[0]?.company || null,
+        prevId: prevRecord?.id || null,
+        prevName: buildName(prevRecord),
+        nextId: nextRecord?.id || null,
+        nextName: buildName(nextRecord),
       });
     } catch (error) {
       console.error("Error fetching customer navigation:", error);
