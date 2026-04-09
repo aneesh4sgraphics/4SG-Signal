@@ -20434,6 +20434,57 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     }
   });
 
+  // Edit an individual contact (updates local DB + Odoo if linked)
+  app.patch("/api/odoo/customer/:customerId/contacts/:contactId", requireApproval, async (req: any, res) => {
+    try {
+      const { customerId, contactId } = req.params;
+      const { name, email, phone, function: jobFunction, localId } = req.body;
+      if (!name || !name.trim()) return res.status(422).json({ error: "Contact name is required" });
+
+      const updateData: Record<string, any> = {
+        name: name.trim(),
+        email: email?.trim() || null,
+        phone: phone?.trim() || null,
+        jobTitle: jobFunction?.trim() || null,
+        updatedAt: new Date(),
+      };
+
+      // Update local record if we have one
+      const localRecordId = localId || null;
+      if (localRecordId) {
+        await db.update(customers)
+          .set({
+            firstName: updateData.name.split(' ')[0] || '',
+            lastName: updateData.name.split(' ').slice(1).join(' ') || '',
+            email: updateData.email,
+            phone: updateData.phone,
+            jobTitle: updateData.jobTitle,
+          })
+          .where(eq(customers.id, localRecordId));
+      }
+
+      // Update in Odoo if this is an Odoo contact (numeric contactId)
+      const odooContactId = parseInt(contactId);
+      if (!isNaN(odooContactId) && odooContactId > 0) {
+        try {
+          await odooClient.update('res.partner', odooContactId, {
+            name: updateData.name,
+            email: updateData.email || false,
+            phone: updateData.phone || false,
+            function: jobFunction?.trim() || false,
+          });
+        } catch (odooErr) {
+          console.error('[Odoo] Failed to update contact in Odoo (local updated):', odooErr);
+        }
+      }
+
+      res.json({ success: true, message: "Contact updated" });
+    } catch (error: any) {
+      console.error("Error updating contact:", error);
+      res.status(500).json({ error: error.message || "Failed to update contact" });
+    }
+  });
+
   // Merge contacts in Odoo (keeps one, deletes others)
   app.post("/api/odoo/customer/:customerId/contacts/merge", requireApproval, async (req: any, res) => {
     try {

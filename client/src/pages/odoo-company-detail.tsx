@@ -217,6 +217,8 @@ export default function OdooCompanyDetail() {
   const [selectedMergeContacts, setSelectedMergeContacts] = useState<number[]>([]);
   const [keepContactId, setKeepContactId] = useState<number | null>(null);
   const [currentMergeGroupIndex, setCurrentMergeGroupIndex] = useState(0);
+  const [editingContact, setEditingContact] = useState<OdooContact | null>(null);
+  const [editContactForm, setEditContactForm] = useState({ name: "", email: "", phone: "", function: "" });
   const labelQueue = useLabelQueue();
   const [editForm, setEditForm] = useState({
     company: "", email: "", phone: "", address1: "", address2: "",
@@ -512,6 +514,21 @@ export default function OdooCompanyDetail() {
     onSuccess: (data) => {
       toast({ title: "Contact Created", description: data.message });
       setIsNewContactOpen(false); setNewContactForm({ name: "", email: "", phone: "", function: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/odoo/customer", companyId, "contacts"] });
+    },
+    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+  });
+
+  const editContactMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone: string; function: string; localId?: string }) => {
+      const contactId = editingContact?.id ?? 0;
+      const r = await apiRequest("PATCH", `/api/odoo/customer/${companyId}/contacts/${contactId}`, { ...data, localId: editingContact?.localId });
+      if (!r.ok) { const err = await r.json(); throw new Error(err.error || "Failed"); }
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Contact updated" });
+      setEditingContact(null);
       queryClient.invalidateQueries({ queryKey: ["/api/odoo/customer", companyId, "contacts"] });
     },
     onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
@@ -1108,7 +1125,7 @@ export default function OdooCompanyDetail() {
             ) : (
               <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
                 {contactsData.contacts.map(contact => (
-                  <div key={contact.localId || contact.id} className="px-4 py-3 hover:bg-gray-50">
+                  <div key={contact.localId || contact.id} className="px-4 py-3 hover:bg-gray-50 group">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 text-xs font-semibold shrink-0">{initials(contact.name)}</div>
@@ -1121,9 +1138,18 @@ export default function OdooCompanyDetail() {
                           {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
                         </div>
                       </div>
-                      {contact.localOnly && (
-                        <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Local</span>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {contact.localOnly && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Local</span>
+                        )}
+                        <button
+                          onClick={() => { setEditingContact(contact); setEditContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", function: contact.function || "" }); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
+                          title="Edit contact"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-3 mt-1 text-xs ml-9">
                       {contact.email && (
@@ -1369,6 +1395,28 @@ export default function OdooCompanyDetail() {
             <Button variant="outline" onClick={() => setIsNewNoteOpen(false)}>Cancel</Button>
             <Button onClick={() => addNoteMutation.mutate(newNoteText)} disabled={!newNoteText.trim() || addNoteMutation.isPending}>
               {addNoteMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Save Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Contact Dialog */}
+      <Dialog open={!!editingContact} onOpenChange={open => { if (!open) setEditingContact(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="w-4 h-4 text-violet-600" />Edit Contact</DialogTitle>
+            <DialogDescription>Changes will be saved to this app and synced to Odoo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2"><Label>Name *</Label><Input placeholder="John Doe" value={editContactForm.name} onChange={e => setEditContactForm(p => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Job Title / Function</Label><Input placeholder="Sales Manager" value={editContactForm.function} onChange={e => setEditContactForm(p => ({ ...p, function: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Email</Label><Input type="email" placeholder="john@example.com" value={editContactForm.email} onChange={e => setEditContactForm(p => ({ ...p, email: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Phone</Label><Input placeholder="+1 555-123-4567" value={editContactForm.phone} onChange={e => setEditContactForm(p => ({ ...p, phone: e.target.value }))} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingContact(null)}>Cancel</Button>
+            <Button type="button" onClick={() => editContactMutation.mutate(editContactForm)} disabled={!editContactForm.name.trim() || editContactMutation.isPending}>
+              {editContactMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />} Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
