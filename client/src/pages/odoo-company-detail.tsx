@@ -1270,41 +1270,55 @@ export default function OdooCompanyDetail() {
                           {contact.phone && <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-gray-500 hover:text-violet-600"><Phone className="w-3 h-3" /> {contact.phone}</a>}
                         </div>
                       </div>
-                      {isExpanded && domainInfo && contact.localId && (
-                        <div className="mx-4 mb-3 p-3 rounded-lg border border-orange-200 bg-orange-50">
-                          <div className="flex items-start gap-2 mb-3">
-                            <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
-                            <div className="text-sm text-orange-900">
-                              <p className="font-medium mb-0.5">Domain mismatch detected</p>
-                              <p className="text-xs text-orange-700">
-                                <span className="font-semibold">{contact.name}</span> uses <span className="font-mono font-semibold">@{domainInfo.domain}</span>, but most contacts here use <span className="font-mono font-semibold">@{domainCheck?.majorityDomain}</span>. Were they added to the right company?
-                              </p>
+                      {isExpanded && domainInfo && contact.localId && (() => {
+                        const otherDomains = [...new Set(
+                          (domainCheck?.contacts ?? [])
+                            .filter(c => c.contactId !== contact.localId && c.status === 'match' && c.domain)
+                            .map(c => c.domain!)
+                        )];
+                        return (
+                          <div className="mx-4 mb-3 p-3 rounded-lg border border-orange-200 bg-orange-50">
+                            <div className="flex items-start gap-2 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                              <div className="text-sm text-orange-900">
+                                <p className="font-medium mb-1">Domain mismatch detected</p>
+                                <div className="text-xs text-orange-700 space-y-0.5">
+                                  <p><span className="font-semibold">{contact.name}</span> email: <span className="font-mono font-semibold">{domainInfo.email || '(no email)'}</span></p>
+                                  <p>Company domain: <span className="font-mono font-semibold">@{domainCheck?.majorityDomain}</span></p>
+                                  {otherDomains.length > 0 && (
+                                    <p>Other contacts use: {otherDomains.slice(0, 3).map(d => (
+                                      <span key={d} className="font-mono font-semibold mr-1">@{d}</span>
+                                    ))}{otherDomains.length > 3 && <span>+{otherDomains.length - 3} more</span>}</p>
+                                  )}
+                                  <p className="mt-1 italic">Were they added to the right company?</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-orange-300 text-orange-800 hover:bg-orange-100"
+                                disabled={acknowledgeDomainMutation.isPending}
+                                onClick={() => acknowledgeDomainMutation.mutate(contact.localId!)}
+                              >
+                                {acknowledgeDomainMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                Keep in this company
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50"
+                                disabled={moveStandaloneMutation.isPending}
+                                onClick={() => moveStandaloneMutation.mutate(contact.localId!)}
+                              >
+                                {moveStandaloneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                Move to standalone contact
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs border-orange-300 text-orange-800 hover:bg-orange-100"
-                              disabled={acknowledgeDomainMutation.isPending}
-                              onClick={() => acknowledgeDomainMutation.mutate(contact.localId!)}
-                            >
-                              {acknowledgeDomainMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                              Keep in this company
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs border-red-200 text-red-700 hover:bg-red-50"
-                              disabled={moveStandaloneMutation.isPending}
-                              onClick={() => moveStandaloneMutation.mutate(contact.localId!)}
-                            >
-                              {moveStandaloneMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                              Move to standalone contact
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}

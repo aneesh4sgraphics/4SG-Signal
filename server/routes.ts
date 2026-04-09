@@ -3144,6 +3144,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers/:companyId/contacts/:contactId/acknowledge-domain", isAuthenticated, async (req: any, res) => {
     try {
       const { companyId, contactId } = req.params;
+      // Verify the contact actually belongs to this company (security guard)
+      const [contact] = await db.select({ id: customers.id })
+        .from(customers)
+        .where(and(
+          eq(customers.id, contactId),
+          eq(customers.parentCustomerId, companyId),
+          eq(customers.isCompany, false),
+        ))
+        .limit(1);
+      if (!contact) return res.status(404).json({ error: "Contact not found in this company" });
       const userEmail = req.user?.claims?.email || req.user?.email || null;
       await db.insert(domainAcknowledgments)
         .values({ companyId, contactId, acknowledgedBy: userEmail })
@@ -3190,9 +3200,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(customers)
         .where(inArray(customers.id, companyIds));
 
-      const acks = await db.select({ contactId: domainAcknowledgments.contactId })
-        .from(domainAcknowledgments);
-      const ackedSet = new Set(acks.map(a => a.contactId));
+      // Use composite key "companyId:contactId" so acknowledgments are pair-scoped
+      const acks = await db.select({
+        companyId: domainAcknowledgments.companyId,
+        contactId: domainAcknowledgments.contactId,
+      }).from(domainAcknowledgments);
+      const ackedSet = new Set(acks.map(a => `${a.companyId}:${a.contactId}`));
 
       const byCompany: Record<string, typeof allContacts> = {};
       for (const c of allContacts) {
@@ -3223,7 +3236,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!majorityDomain) continue;
         for (const c of contacts) {
           const d = extractDomain(c.email);
-          if (d && !GENERIC_EMAIL_DOMAINS.has(d) && d !== majorityDomain && !ackedSet.has(c.id)) {
+          const compositeKey = `${cid}:${c.id}`;
+          if (d && !GENERIC_EMAIL_DOMAINS.has(d) && d !== majorityDomain && !ackedSet.has(compositeKey)) {
             mismatchIds.push(c.id);
           }
         }
