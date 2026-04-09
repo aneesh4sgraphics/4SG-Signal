@@ -21399,13 +21399,21 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers, ${existingEmailMap.size} total by email`);
       }
       
-      // Step 3: Get Vendor category ID to filter out vendors
-      console.log("[Odoo Import] Fetching Vendor category ID...");
-      const vendorCategoryId = await odooClient.getVendorCategoryId();
+      // Step 3: Get excluded category IDs (Vendor + Account Team)
+      console.log("[Odoo Import] Fetching excluded category IDs...");
+      const [vendorCategoryId, accountTeamCategoryId] = await Promise.all([
+        odooClient.getVendorCategoryId(),
+        odooClient.getAccountTeamCategoryId(),
+      ]);
       if (vendorCategoryId) {
         console.log(`[Odoo Import] Will filter out contacts with Vendor category ID: ${vendorCategoryId}`);
       } else {
         console.log("[Odoo Import] WARNING: No 'Vendor' category found in Odoo - vendor filtering disabled");
+      }
+      if (accountTeamCategoryId) {
+        console.log(`[Odoo Import] Will filter out contacts with Account Team category ID: ${accountTeamCategoryId}`);
+      } else {
+        console.log("[Odoo Import] WARNING: No 'Account Team' category found in Odoo - account team filtering disabled");
       }
       
       // Step 4: Fetch ALL partners from Odoo (companies and contacts) using pagination
@@ -21424,11 +21432,13 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         imported: 0,
         skipped: 0,
         skippedVendors: 0,
+        skippedAccountTeam: 0,
         skippedNoEmail: 0,
         skippedBlocked: 0,
         skippedExcluded: 0,
         alreadyExists: 0,
         deleted: 0,
+        removedAccountTeam: 0,
         failed: 0,
         errors: [] as string[],
         skippedPartners: [] as string[],
@@ -21454,6 +21464,25 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           // Skip partners with Vendor tag
           if (vendorCategoryId && odooClient.hasVendorTag(partner, vendorCategoryId)) {
             results.skippedVendors++;
+            continue;
+          }
+          
+          // Skip (and retroactively remove) partners tagged as Account Team
+          if (accountTeamCategoryId && odooClient.hasVendorTag(partner, accountTeamCategoryId)) {
+            results.skippedAccountTeam++;
+            // If this partner is already in the app, remove them
+            if (existingOdooIds.has(partner.id)) {
+              const existingId = existingOdooCustomers.get(partner.id);
+              if (existingId) {
+                try {
+                  await db.delete(customers).where(eq(customers.id, existingId));
+                  results.removedAccountTeam++;
+                  console.log(`[Odoo Import] Removed Account Team contact: ${partner.name} (Odoo ID: ${partner.id})`);
+                } catch (delErr: any) {
+                  console.error(`[Odoo Import] Failed to remove Account Team contact ${partner.id}:`, delErr.message);
+                }
+              }
+            }
             continue;
           }
           
@@ -21607,7 +21636,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         }
       }
       
-      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.skippedBlocked} blocked, ${results.skippedExcluded} excluded, ${results.skippedNoEmail} no email, ${results.failed} failed`);
+      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.skippedAccountTeam} account team skipped (${results.removedAccountTeam} existing removed), ${results.skippedBlocked} blocked, ${results.skippedExcluded} excluded, ${results.skippedNoEmail} no email, ${results.failed} failed`);
       
       // Step 5: Resolve parent customer IDs (link children to their parent companies)
       console.log("[Odoo Import] Resolving parent relationships...");

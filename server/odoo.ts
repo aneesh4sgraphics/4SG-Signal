@@ -908,6 +908,34 @@ class OdooClient {
     }
   }
 
+  // Get the ID of the "Account Team" category - returns null if not found
+  async getAccountTeamCategoryId(): Promise<number | null> {
+    try {
+      const categories = await this.searchRead('res.partner.category', [
+        ['name', 'ilike', 'account team']
+      ], ['id', 'name'], { limit: 10 });
+      
+      for (const cat of categories) {
+        const lower = cat.name.toLowerCase();
+        if (lower === 'account team' || lower === 'account teams') {
+          console.log(`[Odoo] Found Account Team category ID: ${cat.id} (${cat.name})`);
+          return cat.id;
+        }
+      }
+      
+      if (categories.length > 0) {
+        console.log(`[Odoo] Found Account Team category ID (partial match): ${categories[0].id} (${categories[0].name})`);
+        return categories[0].id;
+      }
+      
+      console.log('[Odoo] Account Team category not found');
+      return null;
+    } catch (error: any) {
+      console.error('[Odoo] Error fetching Account Team category:', error.message);
+      return null;
+    }
+  }
+
   // Check if a partner has the Vendor tag
   // Handles both simple arrays [1,2,3] and tuple-style arrays [[1,"Vendor"],[2,"Customer"]]
   hasVendorTag(partner: OdooPartner, vendorCategoryId: number): boolean {

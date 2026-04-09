@@ -1,0 +1,56 @@
+In server/routes.ts, update the POST /api/leads endpoint (around line 16856) to check for duplicates before inserting.
+
+After the insertLeadSchema.parse(req.body) line and before the db.insert(leads), add:
+
+  // Duplicate detection
+  if (data.email) {
+    const normalizedIncoming = normalizeEmail(data.email);
+    
+    // Check existing leads
+    const [existingLead] = await db.select({ id: leads.id, name: leads.name, company: leads.company, stage: leads.stage })
+      .from(leads)
+      .where(eq(leads.emailNormalized, normalizedIncoming))
+      .limit(1);
+    
+    if (existingLead) {
+      return res.status(409).json({
+        error: 'duplicate',
+        message: `A lead with this email already exists: ${existingLead.name || existingLead.company}`,
+        existingId: existingLead.id,
+        existingType: 'lead',
+        existingStage: existingLead.stage,
+      });
+    }
+
+    // Check existing customers
+    const [existingCustomer] = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName, company: customers.company })
+      .from(customers)
+      .where(eq(customers.emailNormalized, normalizedIncoming))
+      .limit(1);
+
+    if (existingCustomer) {
+      return res.status(409).json({
+        error: 'duplicate',
+        message: `This email already exists as a Contact: ${existingCustomer.company || existingCustomer.firstName}`,
+        existingId: existingCustomer.id,
+        existingType: 'customer',
+      });
+    }
+  }
+
+Then in client/src/pages/leads.tsx, find where the create lead form submits (the mutation that calls POST /api/leads). Update the onError handler to detect status 409 and show a specific message:
+
+  onError: (error: any) => {
+    if (error.status === 409 || error.message?.includes('duplicate')) {
+      const data = error.data || {};
+      toast({
+        title: 'Duplicate lead',
+        description: data.message || 'A lead or contact with this email already exists.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: 'Failed to create lead', description: error.message, variant: 'destructive' });
+    }
+  },
+
+Do not change anything else.
