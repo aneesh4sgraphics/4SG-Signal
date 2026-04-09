@@ -32080,27 +32080,33 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
-  // Resolve a conflict: keep the lead or the customer
+  // Resolve a conflict: keep the lead or the customer (email is the identity key)
   app.post("/api/admin/email-conflicts/resolve", isAuthenticated, requireAdmin, async (req: any, res) => {
-    const { leadId, customerId, action } = req.body;
-    if (!leadId || !customerId || !['keep_lead', 'keep_customer'].includes(action)) {
-      return res.status(400).json({ error: 'leadId, customerId, and valid action required' });
+    const { email, action } = req.body as { email?: string; action?: string };
+    if (!email || !['keep_lead', 'keep_customer'].includes(action ?? '')) {
+      return res.status(400).json({ error: "email and valid action ('keep_lead'|'keep_customer') required" });
     }
 
-    // Verify this pair actually constitutes a conflict before any destructive action
-    const conflictCheck = await db.execute(sql`
-      SELECT 1
+    // Normalize the incoming email to match the stored normalized columns
+    const normEmail = normalizeEmail(email);
+
+    // Find the first conflict pair with this normalized email
+    const conflictRows = await db.execute(sql`
+      SELECT l.id AS lead_id, c.id AS customer_id
       FROM leads l
       INNER JOIN customers c
         ON (c.email_normalized = l.email_normalized
          OR c.email2_normalized = l.email_normalized)
-      WHERE l.id = ${Number(leadId)}
-        AND c.id = ${String(customerId)}
+      WHERE l.email_normalized = ${normEmail}
+        AND l.email_normalized IS NOT NULL
+        AND l.email_normalized <> ''
       LIMIT 1
     `);
-    if ((conflictCheck.rows as any[]).length === 0) {
-      return res.status(400).json({ error: 'No email conflict exists for this lead/customer pair' });
+    if (conflictRows.rows.length === 0) {
+      return res.status(400).json({ error: 'No email conflict exists for this email address' });
     }
+
+    const { lead_id: leadId, customer_id: customerId } = conflictRows.rows[0] as { lead_id: number; customer_id: string };
 
     try {
       await db.transaction(async (tx) => {
@@ -32112,15 +32118,18 @@ Analyze this bounced email and provide insights in JSON format:
           // 2. Migrate notes from customerActivityEvents → leadActivities
           const custNotes = await tx.select()
             .from(customerActivityEvents)
-            .where(and(eq(customerActivityEvents.customerId, String(customerId)), eq(customerActivityEvents.eventType, 'note_added')));
+            .where(and(
+              eq(customerActivityEvents.customerId, String(customerId)),
+              eq(customerActivityEvents.eventType, 'note_added'),
+            ));
           for (const note of custNotes) {
             await tx.insert(leadActivities).values({
               leadId: Number(leadId),
               activityType: 'note_added',
               summary: note.title || 'Note (migrated from contact)',
-              details: note.description || undefined,
-              performedBy: note.createdBy || undefined,
-              performedByName: note.createdByName || undefined,
+              details: note.description ?? undefined,
+              performedBy: note.createdBy ?? undefined,
+              performedByName: note.createdByName ?? undefined,
             });
           }
           // 3. Delete customer (cascade removes activities, contacts, etc.)
@@ -32133,16 +32142,19 @@ Analyze this bounced email and provide insights in JSON format:
           // 2. Migrate notes from leadActivities → customerActivityEvents
           const leadNotes = await tx.select()
             .from(leadActivities)
-            .where(and(eq(leadActivities.leadId, Number(leadId)), eq(leadActivities.activityType, 'note_added')));
+            .where(and(
+              eq(leadActivities.leadId, Number(leadId)),
+              eq(leadActivities.activityType, 'note_added'),
+            ));
           for (const note of leadNotes) {
             await tx.insert(customerActivityEvents).values({
               customerId: String(customerId),
               eventType: 'note_added',
               title: note.summary || 'Note (migrated from lead)',
-              description: note.details || undefined,
+              description: note.details ?? undefined,
               sourceType: 'manual',
-              createdBy: note.performedBy || undefined,
-              createdByName: note.performedByName || undefined,
+              createdBy: note.performedBy ?? undefined,
+              createdByName: note.performedByName ?? undefined,
             });
           }
           // 3. Delete lead (cascade removes leadActivities, etc.)
@@ -32158,9 +32170,11 @@ Analyze this bounced email and provide insights in JSON format:
            OR c.email2_normalized = l.email_normalized)
         WHERE l.email_normalized IS NOT NULL AND l.email_normalized <> ''
       `);
-      res.json({ ok: true, remaining: (countResult.rows[0] as any)?.total ?? 0 });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      const remaining = (countResult.rows[0] as Record<string, unknown>)?.total as number ?? 0;
+      res.json({ ok: true, remaining });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unexpected error';
+      res.status(500).json({ error: message });
     }
   });
 

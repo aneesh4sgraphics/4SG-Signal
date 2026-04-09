@@ -75,6 +75,8 @@ export default function DataIntegrity() {
   });
   // Track session baseline for progress bar (max total seen so far)
   const sessionBaselineRef = useRef<number>(0);
+  // Typed ref for debounce timer (avoids window any cast)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     conflict: Conflict;
     action: "keep_lead" | "keep_customer";
@@ -82,8 +84,8 @@ export default function DataIntegrity() {
 
   const triggerSearch = (val: string) => {
     setSearch(val);
-    clearTimeout((window as any)._conflictSearchTimer);
-    (window as any)._conflictSearchTimer = setTimeout(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(val);
       setPage(1);
     }, 350);
@@ -113,9 +115,13 @@ export default function DataIntegrity() {
   });
 
   const resolveMutation = useMutation({
-    mutationFn: async (vars: { leadId: number; customerId: string; action: string }) => {
+    mutationFn: async (vars: { email: string; action: "keep_lead" | "keep_customer" }) => {
       const r = await apiRequest("POST", "/api/admin/email-conflicts/resolve", vars);
-      return r.json();
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: r.statusText }));
+        throw new Error(body.error ?? "Failed to resolve conflict");
+      }
+      return r.json() as Promise<{ ok: boolean; remaining: number }>;
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["/api/admin/email-conflicts"] });
@@ -126,7 +132,7 @@ export default function DataIntegrity() {
       });
       setConfirmDialog(null);
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
@@ -481,8 +487,7 @@ export default function DataIntegrity() {
                 className="bg-red-600 hover:bg-red-700"
                 onClick={() =>
                   resolveMutation.mutate({
-                    leadId: confirmDialog.conflict.lead_id,
-                    customerId: confirmDialog.conflict.customer_id,
+                    email: confirmDialog.conflict.email_normalized,
                     action: confirmDialog.action,
                   })
                 }
