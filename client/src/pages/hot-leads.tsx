@@ -37,7 +37,7 @@ export default function HotLeadsPage() {
 
   const removeHotLeadMutation = useMutation({
     mutationFn: async (customerId: string) => {
-      return apiRequest("PATCH", `/api/customers/${customerId}`, {
+      return apiRequest("PUT", `/api/customers/${customerId}`, {
         isHotProspect: false,
       });
     },
@@ -187,7 +187,9 @@ export default function HotLeadsPage() {
                             </div>
                           </div>
                           
-                          <ChevronRight className="h-5 w-5 text-[#999999] mt-2" />
+                          <Link href={`/odoo-contacts/${customer.id}`}>
+                            <ChevronRight className="h-5 w-5 text-[#999999] mt-2 hover:text-orange-500 transition-colors cursor-pointer" />
+                          </Link>
                         </div>
                       </div>
                     );
