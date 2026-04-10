@@ -70,6 +70,7 @@ import {
   CheckCircle,
   Zap,
   Camera,
+  Flame,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -347,6 +348,17 @@ export default function LeadsPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads/needs-review'] });
+    },
+  });
+
+  const toggleHotMutation = useMutation({
+    mutationFn: async ({ leadId, isHotProspect }: { leadId: number; isHotProspect: boolean }) => {
+      const res = await apiRequest('PUT', `/api/leads/${leadId}`, { isHotProspect });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
     },
   });
 
@@ -1052,6 +1064,13 @@ export default function LeadsPage() {
               
               return (
                 <div key={lead.id} className="relative block">
+                  <div
+                    className="absolute top-3 right-3 z-10"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleHotMutation.mutate({ leadId: lead.id, isHotProspect: !lead.isHotProspect }); }}
+                    title={lead.isHotProspect ? "Remove Hot status" : "Mark as Hot Prospect"}
+                  >
+                    <Flame className={`w-4 h-4 cursor-pointer transition-colors ${lead.isHotProspect ? 'text-orange-500 fill-orange-200' : 'text-gray-300 hover:text-orange-400'}`} />
+                  </div>
                   <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}

@@ -491,6 +491,8 @@ export const leads = pgTable("leads", {
   customerType: varchar("customer_type", { length: 50 }), // 'reseller' or 'printer'
   // Machine profile (what equipment they own - for printers)
   machineTypes: text("machine_types").array().default([]), // ['roland', 'hp_latex', 'mimaki', etc.]
+  // Hot prospect flag (matches customers.isHotProspect for parity)
+  isHotProspect: boolean("is_hot_prospect").default(false),
   // Tags for categorization
   tags: varchar("tags", { length: 500 }),
   // Odoo sync fields

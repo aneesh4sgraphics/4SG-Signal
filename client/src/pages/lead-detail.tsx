@@ -28,7 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
-  UserCheck, ChevronDown, ChevronUp,
+  UserCheck, ChevronDown, ChevronUp, Flame,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -647,6 +647,14 @@ export default function LeadDetail() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900 leading-tight">{lead.name}</h1>
                 <Badge className={`${stageInfo.color} border text-[11px] h-5 px-2`}>{stageInfo.label}</Badge>
+                <button
+                  title={lead.isHotProspect ? "Remove Hot status" : "Mark as Hot Prospect"}
+                  onClick={() => updateLeadMutation.mutate({ isHotProspect: !lead.isHotProspect })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${lead.isHotProspect ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' : 'bg-gray-100 border-gray-200 text-gray-400 hover:bg-orange-50 hover:text-orange-400 hover:border-orange-200'}`}
+                >
+                  <Flame className="w-3 h-3" />
+                  {lead.isHotProspect ? 'Hot' : 'Mark Hot'}
+                </button>
               </div>
               <p className="text-sm text-gray-500 mt-0.5">
                 {lead.jobTitle && <span>{lead.jobTitle}{lead.company ? " · " : ""}</span>}
