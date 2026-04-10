@@ -1347,7 +1347,11 @@ function TaskRows({ tasks, onTaskClick, onComplete, isCompletePending, getTaskTy
   const nonCritical = tasks.filter(t => t.priority !== "critical");
 
   const overdue = nonCritical.filter(t => t.category === "overdue" && t.source !== "spotlight");
-  const today = nonCritical.filter(t => t.dueDate && isToday(new Date(t.dueDate)) && t.source !== "spotlight");
+  // Use server's category as authoritative for "today" — client timezone can shift a midnight-UTC date
+  // into "past" while the server correctly computed it as today. Guard both cases.
+  const today = nonCritical.filter(t => t.dueDate && (
+    isToday(new Date(t.dueDate)) || (t.category === "today" && isPast(new Date(t.dueDate)))
+  ) && t.source !== "spotlight");
   const thisWeek = nonCritical.filter(t => t.dueDate && !isToday(new Date(t.dueDate)) && isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
   const upcoming = nonCritical.filter(t => t.dueDate && !isThisWeek(new Date(t.dueDate)) && !isPast(new Date(t.dueDate)) && t.source !== "spotlight");
   const spotlight = nonCritical.filter(t => t.source === "spotlight");
