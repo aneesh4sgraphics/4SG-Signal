@@ -256,6 +256,8 @@ export default function LeadsPage() {
     phone: '',
     company: '',
     description: '',
+    source: '',
+    customerType: '',
   });
 
   const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
@@ -401,7 +403,7 @@ export default function LeadsPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
       setShowCreateDialog(false);
-      setNewLead({ name: '', email: '', phone: '', company: '', description: '' });
+      setNewLead({ name: '', email: '', phone: '', company: '', description: '', source: '', customerType: '' });
       toast({ title: 'Lead Created', description: 'New lead added successfully' });
     },
     onError: (error: any) => {
@@ -1680,6 +1682,33 @@ export default function LeadsPage() {
                   onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
                   placeholder="(555) 123-4567"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Lead Source</Label>
+                <Select value={newLead.source} onValueChange={(v) => setNewLead({ ...newLead, source: v })}>
+                  <SelectTrigger><SelectValue placeholder="How did you find this lead?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lusha">Lusha</SelectItem>
+                    <SelectItem value="fga_memberlist">FGA Memberlist</SelectItem>
+                    <SelectItem value="website">Website</SelectItem>
+                    <SelectItem value="cold_call">Cold Call</SelectItem>
+                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="trade_show">Trade Show</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Customer Type</Label>
+                <Select value={newLead.customerType} onValueChange={(v) => setNewLead({ ...newLead, customerType: v })}>
+                  <SelectTrigger><SelectValue placeholder="Type of print shop" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="printer">Printer</SelectItem>
+                    <SelectItem value="dealer">Dealer</SelectItem>
+                    <SelectItem value="distributor">Distributor</SelectItem>
+                    <SelectItem value="reseller">Reseller</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Notes</Label>

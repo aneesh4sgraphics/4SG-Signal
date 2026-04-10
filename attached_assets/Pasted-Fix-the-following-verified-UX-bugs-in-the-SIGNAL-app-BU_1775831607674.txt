@@ -1,0 +1,194 @@
+Fix the following verified UX bugs in the SIGNAL app:
+
+─────────────────────────────────────────
+BUG 1 — No success toast when saving lead edits
+─────────────────────────────────────────
+In client/src/pages/lead-detail.tsx, find the updateLeadMutation onSuccess handler (around line 298):
+  onSuccess: () => {
+    setIsEditOpen(false);
+    queryClient...
+
+Add a toast call:
+  onSuccess: () => {
+    setIsEditOpen(false);
+    queryClientInstance.invalidateQueries({ queryKey: ["/api/leads", leadId] });
+    toast({ title: "Lead updated", description: "Changes saved successfully" });
+  },
+
+─────────────────────────────────────────
+BUG 2 — Lead create form missing Source and Customer Type fields
+─────────────────────────────────────────
+In client/src/pages/leads.tsx, find the newLead state (around line 253):
+  const [newLead, setNewLead] = useState({ name: '', company: '', email: '', phone: '', description: '' });
+
+Add source and customerType:
+  const [newLead, setNewLead] = useState({ name: '', company: '', email: '', phone: '', description: '', source: '', customerType: '' });
+
+In the Create Lead dialog form, add these two fields before the Notes textarea:
+
+  <div className="space-y-2">
+    <Label>Lead Source</Label>
+    <Select value={newLead.source} onValueChange={(v) => setNewLead({ ...newLead, source: v })}>
+      <SelectTrigger><SelectValue placeholder="How did you find this lead?" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="lusha">Lusha</SelectItem>
+        <SelectItem value="fga_memberlist">FGA Memberlist</SelectItem>
+        <SelectItem value="website">Website</SelectItem>
+        <SelectItem value="cold_call">Cold Call</SelectItem>
+        <SelectItem value="referral">Referral</SelectItem>
+        <SelectItem value="trade_show">Trade Show</SelectItem>
+        <SelectItem value="other">Other</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  <div className="space-y-2">
+    <Label>Customer Type</Label>
+    <Select value={newLead.customerType} onValueChange={(v) => setNewLead({ ...newLead, customerType: v })}>
+      <SelectTrigger><SelectValue placeholder="Type of print shop" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="printer">Printer</SelectItem>
+        <SelectItem value="dealer">Dealer</SelectItem>
+        <SelectItem value="distributor">Distributor</SelectItem>
+        <SelectItem value="reseller">Reseller</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+─────────────────────────────────────────
+BUG 3 — Cmd+K keyboard shortcut not wired to CommandPalette
+─────────────────────────────────────────
+In client/src/components/OdooLayout.tsx, find where CommandPalette is used and commandOpen/setCommandOpen are declared.
+
+Add a useEffect to listen for Cmd+K / Ctrl+K:
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setCommandOpen]);
+
+─────────────────────────────────────────
+BUG 4 — Lead detail Tasks tab shows empty state even when tasks exist
+─────────────────────────────────────────
+In client/src/pages/lead-detail.tsx, find the tasks tab section (activeTab === "tasks"). Currently it shows:
+  <EmptyState icon={CheckSquare} title="No tasks yet" sub="Tasks assigned to this lead will appear here" />
+
+Replace this with a real query and display. Add a query near the other queries:
+  const { data: leadTasks = [] } = useQuery<any[]>({
+    queryKey: ['/api/tasks/list', leadId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/list?leadId=${leadId}&filter=pending`, { credentials: 'include' });
+      const data = await res.json();
+      return data.tasks || data || [];
+    },
+    enabled: !!leadId && activeTab === 'tasks',
+  });
+
+Then replace the empty state in the tasks tab with:
+  {leadTasks.length === 0 ? (
+    <EmptyState icon={CheckSquare} title="No tasks yet" sub="Tasks assigned to this lead will appear here" />
+  ) : (
+    <div className="space-y-3">
+      {leadTasks.map((task: any) => (
+        <div key={task.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-gray-900">{task.title}</p>
+              {task.description && <p className="text-xs text-gray-500 mt-1">{task.description}</p>}
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+              task.priority === 'high' || task.priority === 'urgent' 
+                ? 'bg-red-100 text-red-700' 
+                : 'bg-gray-100 text-gray-600'
+            }`}>{task.priority}</span>
+          </div>
+          <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+            <span>{task.taskType?.replace(/_/g, ' ')}</span>
+            {task.dueDate && <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
+            {task.assignedToName && <span>→ {task.assignedToName}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+─────────────────────────────────────────
+BUG 5 — Bulk email has no preview before sending
+─────────────────────────────────────────
+In client/src/components/BulkEmailComposer.tsx, add a preview step between composing and sending.
+
+1. Add state: const [showPreview, setShowPreview] = useState(false);
+
+2. Change the Send button to show "Preview" first:
+  <Button
+    onClick={() => setShowPreview(true)}
+    disabled={!canSend || sendMutation.isPending}
+    className="bg-green-600 hover:bg-green-700 text-white"
+  >
+    Preview & Send
+  </Button>
+
+3. Add a preview panel below the form that appears when showPreview is true:
+  {showPreview && (
+    <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-medium text-gray-700">Preview (first lead)</p>
+        <button onClick={() => setShowPreview(false)} className="text-xs text-gray-400 hover:text-gray-600">Edit</button>
+      </div>
+      <p className="text-xs text-gray-500 mb-1"><strong>Subject:</strong> {subject.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}</p>
+      <div className="text-xs text-gray-700 whitespace-pre-wrap bg-white border rounded p-3 mt-2 max-h-32 overflow-y-auto">
+        {body.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}
+      </div>
+      <div className="flex justify-end gap-2 mt-3">
+        <Button variant="ghost" size="sm" onClick={() => setShowPreview(false)}>Edit</Button>
+        <Button
+          size="sm"
+          onClick={() => sendMutation.mutate()}
+          disabled={sendMutation.isPending}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          {sendMutation.isPending ? 'Sending...' : `Confirm & Send to ${leadIds.length} leads`}
+        </Button>
+      </div>
+    </div>
+  )}
+
+─────────────────────────────────────────
+BUG 6 — Lead detail Calls tab is empty
+─────────────────────────────────────────
+In client/src/pages/lead-detail.tsx, find the calls tab section (activeTab === "calls"). It currently renders nothing useful.
+
+Replace its contents with a filtered view of activities where activityType === 'call_made':
+  {activeTab === "calls" && (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Call History</h2>
+        <Button size="sm" variant="outline" onClick={() => { setNewActivity({ activityType: "call_made", summary: "", details: "" }); setIsAddActivityOpen(true); }}>
+          <Phone className="w-4 h-4 mr-1" /> Log Call
+        </Button>
+      </div>
+      {activities.filter((a: any) => a.activityType === 'call_made').length === 0 ? (
+        <EmptyState icon={Phone} title="No calls logged" sub="Log a call using the button above" />
+      ) : (
+        <div className="space-y-3">
+          {activities.filter((a: any) => a.activityType === 'call_made').map((activity: any) => (
+            <div key={activity.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+              <div className="flex items-start justify-between">
+                <p className="text-sm font-medium text-gray-900">{activity.summary}</p>
+                <span className="text-xs text-gray-400">{relativeTime(activity.createdAt)}</span>
+              </div>
+              {activity.details && <p className="text-xs text-gray-500 mt-1">{activity.details}</p>}
+              <p className="text-xs text-gray-400 mt-2">{activity.performedByName || 'Unknown'}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+
+Do not change any API calls, routing, or data fetching logic. Only fix the UI issues described.

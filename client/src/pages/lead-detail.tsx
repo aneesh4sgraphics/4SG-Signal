@@ -275,6 +275,16 @@ export default function LeadDetail() {
     staleTime: 30 * 60 * 1000,
   });
 
+  const { data: leadTasks = [] } = useQuery<any[]>({
+    queryKey: ["/api/tasks/list", leadId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/list?leadId=${leadId}&filter=pending`, { credentials: "include" });
+      const data = await res.json();
+      return data.tasks || data || [];
+    },
+    enabled: !!leadId && activeTab === "tasks",
+  });
+
   // ── Mutations ────────────────────────────────────────────────────────────────
   const addActivityMutation = useMutation({
     mutationFn: async (data: { activityType: string; summary: string; details: string }) => {
@@ -296,11 +306,11 @@ export default function LeadDetail() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Lead updated" });
       setIsEditOpen(false);
       setEditForm({});
       queryClientInstance.invalidateQueries({ queryKey: ["/api/leads", leadId] });
       queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead updated", description: "Changes saved successfully" });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message || "Failed to update lead", variant: "destructive" }),
   });
@@ -1177,7 +1187,28 @@ export default function LeadDetail() {
         {/* ── CALLS ────────────────────────────────────────────────────────────── */}
         {activeTab === "calls" && (
           <div className="max-w-3xl">
-            <EmptyState icon={PhoneCall} title="No calls logged" sub="Call logs will appear here" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Call History</h2>
+              <Button size="sm" variant="outline" onClick={() => { setNewActivity({ activityType: "call_made", summary: "", details: "" }); setIsAddActivityOpen(true); }}>
+                <PhoneCall className="w-4 h-4 mr-1" /> Log Call
+              </Button>
+            </div>
+            {activities.filter((a: any) => a.activityType === "call_made").length === 0 ? (
+              <EmptyState icon={PhoneCall} title="No calls logged" sub="Log a call using the button above" />
+            ) : (
+              <div className="space-y-3">
+                {activities.filter((a: any) => a.activityType === "call_made").map((activity: any) => (
+                  <div key={activity.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="flex items-start justify-between">
+                      <p className="text-sm font-medium text-gray-900">{activity.summary}</p>
+                      <span className="text-xs text-gray-400">{relativeTime(activity.createdAt)}</span>
+                    </div>
+                    {activity.details && <p className="text-xs text-gray-500 mt-1">{activity.details}</p>}
+                    <p className="text-xs text-gray-400 mt-2">{activity.performedByName || "Unknown"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1212,7 +1243,32 @@ export default function LeadDetail() {
         {/* ── TASKS ────────────────────────────────────────────────────────────── */}
         {activeTab === "tasks" && (
           <div className="max-w-3xl">
-            <EmptyState icon={CheckSquare} title="No tasks yet" sub="Tasks assigned to this lead will appear here" />
+            {leadTasks.length === 0 ? (
+              <EmptyState icon={CheckSquare} title="No tasks yet" sub="Tasks assigned to this lead will appear here" />
+            ) : (
+              <div className="space-y-3">
+                {leadTasks.map((task: any) => (
+                  <div key={task.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{task.title}</p>
+                        {task.description && <p className="text-xs text-gray-500 mt-1">{task.description}</p>}
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        task.priority === "high" || task.priority === "urgent"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>{task.priority}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                      <span>{task.taskType?.replace(/_/g, " ")}</span>
+                      {task.dueDate && <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
+                      {task.assignedToName && <span>→ {task.assignedToName}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

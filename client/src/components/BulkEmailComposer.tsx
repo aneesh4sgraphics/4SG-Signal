@@ -18,6 +18,7 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -63,15 +64,40 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
         <div className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={sendMutation.isPending}>Cancel</Button>
           <Button
-            onClick={() => sendMutation.mutate()}
+            onClick={() => setShowPreview(true)}
             disabled={!canSend || sendMutation.isPending}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
-            {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-            Send to {leadIds.length} Lead{leadIds.length !== 1 ? 's' : ''}
+            <Send className="w-4 h-4 mr-2" />
+            Preview & Send
           </Button>
         </div>
       </div>
+
+      {showPreview && (
+        <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-gray-700">Preview (first lead)</p>
+            <button onClick={() => setShowPreview(false)} className="text-xs text-gray-400 hover:text-gray-600">Edit</button>
+          </div>
+          <p className="text-xs text-gray-500 mb-1"><strong>Subject:</strong> {subject.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}</p>
+          <div className="text-xs text-gray-700 whitespace-pre-wrap bg-white border rounded p-3 mt-2 max-h-32 overflow-y-auto">
+            {body.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <Button variant="ghost" size="sm" onClick={() => setShowPreview(false)}>Edit</Button>
+            <Button
+              size="sm"
+              onClick={() => sendMutation.mutate()}
+              disabled={sendMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {sendMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              {sendMutation.isPending ? 'Sending...' : `Confirm & Send to ${leadIds.length} lead${leadIds.length !== 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

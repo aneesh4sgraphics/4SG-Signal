@@ -450,6 +450,17 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
     if (location) trackUsage(location);
   }, [location, trackUsage]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setCommandOpen]);
+
   const logout = () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
