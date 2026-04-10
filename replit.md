@@ -13,6 +13,7 @@ Full-stack TypeScript sales management and CRM application for 4S Graphics. Stre
 - Bounced email detection and hygiene tasks
 - Best Price Engine for margin protection and volume discounts
 - Integration with Odoo ERP, Gmail, Google Calendar, and Shopify
+- Task delegation — reassign any calendar task to another sales rep
 
 ---
 
@@ -34,14 +35,19 @@ Full-stack TypeScript sales management and CRM application for 4S Graphics. Stre
 ### Key Files
 | File | Purpose |
 |---|---|
-| `server/routes.ts` | All API routes (~30,700 lines) |
-| `server/spotlight-engine.ts` | Spotlight task generation engine (~6,600 lines) |
+| `server/routes.ts` | Core API routes + catch-all (new routes MUST go before the `/api/*` catch-all) |
+| `server/routes-tasks.ts` | All task-related API routes (list, complete, reschedule, critical, reassign, etc.) |
+| `server/routes-leads.ts` | Lead API routes |
+| `server/spotlight-engine.ts` | Spotlight task generation engine |
 | `server/storage.ts` | Database access layer |
 | `server/drip-email-worker.ts` | Drip campaign background worker |
+| `server/cache.ts` | Server-side cache helpers |
 | `shared/schema.ts` | Drizzle ORM schema + Zod insert types |
 | `client/src/App.tsx` | Route definitions and providers |
-| `client/src/pages/task-inbox.tsx` | Task Inbox page |
+| `client/src/pages/task-inbox.tsx` | Task Inbox page (filters, detail dialog, reschedule, delegate) |
 | `client/src/pages/spotlight.tsx` | Spotlight daily task engine UI |
+| `client/src/pages/dashboard-odoo.tsx` | Main dashboard (Kanban + Today's Work Log card) |
+| `client/src/pages/lead-detail.tsx` | Lead detail page (tasks tab, edit, calls) |
 | `client/src/pages/sequences.tsx` | Drip Campaign / Sequences page |
 | `client/src/components/FloatingCallLogger.tsx` | Floating call logger widget |
 | `client/src/components/CustomerJourneyPanel.tsx` | Customer journey side panel |
@@ -53,23 +59,31 @@ Full-stack TypeScript sales management and CRM application for 4S Graphics. Stre
 
 ### Database Schema
 - `customers` table: **NO `name` column** — company name is in `company` field
+- `customers` table: **NO `lastContactAt`** — use `lastOutboundEmailAt`; **NO `assignedTo`** — use `salesRepName`; `id` is varchar (UUID)
 - `customerContacts` table: **NO `title` column** — use `role`
 - `leads` table address field: `street` (NOT `address`)
-- `follow_up_tasks` table: has both `customerId` and `leadId` columns
+- `follow_up_tasks` table: has both `customerId` and `leadId` columns; also has `assignedTo` (email) and `assignedToName` columns
 - `emailSends` table: has `leadId`, `customerId`, `subject`, `sentAt`, `status`
 - **NEVER change primary key ID column types** (serial ↔ varchar breaks migrations)
+- **Drizzle pattern:** Never mix raw column references with `sql<>` template
 
 ### Auth & Users
 - **Dev user ID:** `dev-user-123`
 - **Production Aneesh ID:** `45980257` | patricio: `45163473` | santiago: `45165274`
 - Production auth middleware does **NOT** populate `req.user.role` — always use `storage.getUser(userId)` for role checks
-- All sales rep dropdowns must use `/api/sales-reps` — never `/api/users`
+- **Canonical auth pattern in routes:** `const userId = (req.user as any)?.claims?.sub || req.user?.id;` and `const userEmail = ((req.user as any)?.claims?.email || req.user?.email || '').toLowerCase();`
+- All sales rep dropdowns must use `/api/sales-reps` (returns `{ id, name, email }[]`) — never `/api/users`
 
 ### API Patterns
 - `routes.ts` is 30,700+ lines — use `sed -n 'X,Yp'` for targeted reads
+- **CRITICAL:** Any new API route must be placed **before** the `app.use('/api/*', ...)` catch-all in `routes.ts`
 - TanStack Query v5: always use object form `useQuery({ queryKey: [...] })`
 - Mutations must invalidate cache by `queryKey` using `queryClient` from `@lib/queryClient`
 - Array query keys for hierarchical invalidation: `['/api/recipes', id]` not `` [`/api/recipes/${id}`] ``
+
+### Timezone Handling
+- Server stores task due-dates at midnight UTC; client timezone (PDT) shifts them to the previous evening
+- **Fix:** Always trust `task.category === 'today'` (server-authoritative) as fallback when `isPast()` is true — do NOT rely solely on client-side date comparison
 
 ### Gmail OAuth
 - Gmail OAuth **only works on production URL** `https://4sgraphics.replit.app`
@@ -92,7 +106,7 @@ Generates prioritized daily tasks for sales reps (50 tasks/day in 5 repeating cy
 
 - **Task Buckets:** Data hygiene, quote follow-up, trust-building, lapsed customer engagement
 - **Fallback Priority:** Connect leads → follow up quotes → contact customers → send mailers/samples
-- **Lead Integration:** Leads appear based on urgency and stage
+- **Lead Integration:** Leads appear based on urgency and stage; lead tasks use synthetic `lead-{id}` customerId in memory but store `null` + `{ leadId }` in metadata in DB
 - **Cross-User Contact Prevention:** Prevents multiple reps contacting the same entity
 - **Territory Skip Tracking:** "Not My Territory" marks for reassignment
 - **Bounced Email Detection:** Scans Gmail for bounces, creates high-priority hygiene tasks
@@ -109,10 +123,25 @@ Generates prioritized daily tasks for sales reps (50 tasks/day in 5 repeating cy
 ### Task Inbox (Auto-Task Generation)
 Auto-generates actionable follow-up tasks from multiple sources:
 
-- **Call logs:** AI-extracted tasks + manual date picker after each logged call
+- **Call logs (Call Follow-ups tab):** AI-extracted tasks + manual date picker after each logged call. Dedicated sidebar nav item with a **blue badge** showing count. A small blue "Call" badge appears on every call-originated task row across all other tabs too.
 - **Emails Not Replied:** 5-day threshold for emails with specific subject keywords (Price per Sheet, Pricing, Price List, Press Test Sheets, Press Kit, Samples) and Gmail-sent emails
 - **Drip sequence follow-up:** Auto-task 3 days after a drip sequence step completes
 - **Tasks navigation:** Visible in main sidebar at all times (not collapsed under Automations)
+- **Reschedule:** Inline date/time picker panel in task detail dialog (indigo color scheme)
+- **Delegate:** Inline rep-picker panel in task detail dialog (violet color scheme) — only shown for calendar-source tasks; calls `PATCH /api/tasks/:id/reassign`; available to assignee or admin
+- **Task completion invalidation:** invalidates `["/api/tasks/list"]`, `["/api/tasks/summary"]`, `["/api/tasks/completed-today"]`, `["/api/dashboard/kanban"]`
+
+### Task Delegation
+- **Button:** Purple "Delegate" button appears in the task detail dialog for calendar-type tasks when sales reps exist
+- **UI:** Inline panel (mirrors Reschedule UX) with a native `<select>` of all reps from `/api/sales-reps`; Reschedule and Delegate panels are mutually exclusive; both reset on dialog close
+- **Endpoint:** `PATCH /api/tasks/:id/reassign` — updates `assignedTo` (email) and `assignedToName` on `followUpTasks`; requires caller to be the current assignee **or** an admin
+- **Local state update:** `selectedTask` is updated immediately on success so the dialog reflects the new assignee without re-fetch
+
+### Dashboard — Today's Work Log
+- New card on the main dashboard showing tasks completed **today**
+- **Endpoint:** `GET /api/tasks/completed-today` — returns tasks completed today with linked lead/customer names
+- **Display:** Emoji icons per task type, linked contact names (clickable to detail pages), completion times, rep name (for admins), "Done" badge
+- Card is hidden when there are no completions for the day
 
 ### Drip Campaigns / Sequences
 - Background worker: `server/drip-email-worker.ts`
@@ -192,6 +221,25 @@ Auto-generates actionable follow-up tasks from multiple sources:
 ---
 
 ## Recent Changes (April 2026)
+
+### April 10 — Task Delegation
+- **Delegate button** added to task detail dialog (violet, ArrowUpDown icon) — visible for calendar-source tasks when sales reps are available
+- **Inline delegate panel** opens below the action buttons (same UX as Reschedule); contains a native `<select>` populated from `/api/sales-reps`; Reschedule and Delegate panels are mutually exclusive; both reset on dialog close
+- **New endpoint:** `PATCH /api/tasks/:id/reassign` in `routes-tasks.ts` — updates `assignedTo` and `assignedToName`; caller must be the assignee or an admin
+- `selectedTask` state updated immediately on delegate success so the dialog reflects the new assignee without waiting for a re-fetch
+
+### April 10 — Call Follow-ups & Dashboard Work Log
+- **Call Follow-ups tab** added to Task Inbox sidebar nav with a blue badge showing count; filters tasks by `sourceType='call_log'`; a small blue "Call" badge appears on call-originated task rows across all tabs
+- **Timezone bug fixed:** Tasks due at midnight UTC were invisible due to client-side PDT offset; now trusts `task.category === 'today'` (server-authoritative) as the source of truth
+- **Today's Work Log** card added to main dashboard: `GET /api/tasks/completed-today` endpoint returns tasks completed today; card shows emoji per task type, linked contact names, completion time, rep name (admin view), and "Done" badges; hidden when empty
+
+### April 10 — Spotlight & UX Bug Fixes (6 bugs)
+- Lead edit form: toast now fires correctly after save
+- Create Lead dialog: all fields now render properly
+- Cmd+K command palette: restored and functional
+- Lead Tasks tab: now shows real persisted data (not empty)
+- BulkEmailComposer preview: fixed rendering issue
+- Calls tab + Log Call button: now working correctly on lead detail page
 
 ### April 8 — Click Flow & Matching Bug Fixes
 - **Broken link fixed:** `admin-config.tsx` pointed to `/odoo-company/:id` (nonexistent) — corrected to `/odoo-contacts/:id`
