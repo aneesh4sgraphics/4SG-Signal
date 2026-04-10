@@ -458,6 +458,14 @@ export default function Dashboard() {
     enabled: isAdmin,
   });
 
+  const { data: topLeads = [] } = useQuery<any[]>({
+    queryKey: ['/api/leads/top-priority'],
+    queryFn: async () => {
+      const res = await fetch('/api/leads/top-priority', { credentials: 'include' });
+      return res.json();
+    },
+  });
+
   const now = new Date();
   const dateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -734,6 +742,37 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* Top Priority Leads */}
+          {topLeads.length > 0 && (
+            <div style={{ background: '#FFFFFF', border: '1px solid #EAEAEA', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '16px' }}>🎯</span>
+                <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#111', margin: 0 }}>Top leads to focus on</h2>
+                <span style={{ fontSize: '11px', color: '#6B7280', marginLeft: 'auto' }}>Highest priority right now</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                {topLeads.map((lead: any) => (
+                  <div key={lead.id}
+                    style={{ background: '#F9F9FF', border: '1px solid #E8E8F0', borderRadius: '8px', padding: '10px 12px', cursor: 'pointer' }}
+                    onClick={() => navigate(`/leads/${lead.id}`)}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: '#111', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {lead.company || lead.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      {lead.firstEmailReplyAt && <span style={{ fontSize: '10px', background: '#D1FAE5', color: '#065F46', borderRadius: '4px', padding: '1px 5px' }}>Replied</span>}
+                      {lead.pressTestKitSentAt && <span style={{ fontSize: '10px', background: '#DBEAFE', color: '#1E40AF', borderRadius: '4px', padding: '1px 5px' }}>Kit sent</span>}
+                      {lead.sampleEnvelopeSentAt && !lead.pressTestKitSentAt && <span style={{ fontSize: '10px', background: '#EDE9FE', color: '#5B21B6', borderRadius: '4px', padding: '1px 5px' }}>Sample sent</span>}
+                      <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', borderRadius: '4px', padding: '1px 5px' }}>{lead.stage}</span>
+                    </div>
+                    {lead.expectedRevenue && parseFloat(lead.expectedRevenue) > 0 && (
+                      <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>${parseFloat(lead.expectedRevenue).toLocaleString()}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Team Leaderboard - Admin Only */}
           {isAdmin && leaderboardData?.users && leaderboardData.users.length > 0 && (

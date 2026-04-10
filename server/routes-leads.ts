@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, ilike, isNull, isNotNull, not, inArray, lt } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, isNull, isNotNull, not, inArray, notInArray, lt } from "drizzle-orm";
 import { isAuthenticated, requireApproval } from "./replitAuth";
 import { normalizeEmail, extractCompanyDomain } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
@@ -459,6 +459,52 @@ export function registerLeadsRoutes(app: Express): void {
       res.json(stuckLeads);
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch stuck leads' });
+    }
+  });
+
+  app.get("/api/leads/top-priority", isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email || '';
+      const isAneesh = userEmail === 'aneesh@4sgraphics.com';
+
+      let conditions: any[] = [
+        notInArray(leads.stage, ['converted', 'lost', 'not_a_fit']),
+        isNotNull(leads.email),
+      ];
+
+      if (!isAneesh) {
+        conditions.push(eq(leads.salesRepId, req.user?.id));
+      }
+
+      const topLeads = await db
+        .select({
+          id: leads.id,
+          name: leads.name,
+          company: leads.company,
+          email: leads.email,
+          stage: leads.stage,
+          salesRepName: leads.salesRepName,
+          expectedRevenue: leads.expectedRevenue,
+          score: leads.score,
+          firstEmailReplyAt: leads.firstEmailReplyAt,
+          lastContactAt: leads.lastContactAt,
+          onePageMailerSentAt: leads.onePageMailerSentAt,
+          sampleEnvelopeSentAt: leads.sampleEnvelopeSentAt,
+          pressTestKitSentAt: leads.pressTestKitSentAt,
+        })
+        .from(leads)
+        .where(and(...conditions))
+        .orderBy(
+          desc(leads.firstEmailReplyAt),
+          desc(leads.score),
+          desc(leads.expectedRevenue),
+          desc(leads.lastContactAt)
+        )
+        .limit(8);
+
+      res.json(topLeads);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to fetch top priority leads' });
     }
   });
 
