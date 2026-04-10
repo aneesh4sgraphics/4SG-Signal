@@ -1894,6 +1894,88 @@ Return ONLY a JSON object with these keys (use null for not found):
       res.status(500).json({ error: "Failed to complete task" });
     }
   });
+  app.get("/api/tasks/completed-today", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.claims?.sub || req.user?.id;
+      const rawEmail = (req.user?.email || '').toLowerCase();
+      const ANEESH_EMAIL = 'aneesh@4sgraphics.com';
+      const isAneesh = rawEmail === ANEESH_EMAIL;
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      // Base condition: completed today
+      const conditions: any[] = [
+        eq(followUpTasks.status, 'completed'),
+        gte(followUpTasks.completedAt, todayStart),
+      ];
+      // Non-admin: only see own completed tasks
+      if (!isAneesh) {
+        conditions.push(
+          sql`(${followUpTasks.completedBy} = ${userId} OR ${followUpTasks.completedBy} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+        );
+      }
+
+      const rawTasks = await db
+        .select({
+          id: followUpTasks.id,
+          title: followUpTasks.title,
+          taskType: followUpTasks.taskType,
+          completedAt: followUpTasks.completedAt,
+          completedBy: followUpTasks.completedBy,
+          assignedToName: followUpTasks.assignedToName,
+          completionNotes: followUpTasks.completionNotes,
+          customerId: followUpTasks.customerId,
+          leadId: followUpTasks.leadId,
+          sourceType: followUpTasks.sourceType,
+        })
+        .from(followUpTasks)
+        .where(and(...conditions))
+        .orderBy(desc(followUpTasks.completedAt))
+        .limit(30);
+
+      // Batch-enrich with customer/lead names
+      const customerIds = [...new Set(rawTasks.filter(t => t.customerId).map(t => t.customerId!))];
+      const leadIds = [...new Set(rawTasks.filter(t => t.leadId).map(t => t.leadId!))];
+
+      const [customerRows, leadRows] = await Promise.all([
+        customerIds.length > 0
+          ? db.select({ id: customers.id, company: customers.company, firstName: customers.firstName, lastName: customers.lastName })
+              .from(customers).where(inArray(customers.id, customerIds))
+          : [],
+        leadIds.length > 0
+          ? db.select({ id: leads.id, name: leads.name, company: leads.company })
+              .from(leads).where(inArray(leads.id, leadIds))
+          : [],
+      ]);
+      const customerMap = new Map(customerRows.map(c => [c.id, c]));
+      const leadMap = new Map(leadRows.map(l => [l.id, l]));
+
+      const result = rawTasks.map(task => {
+        let recordName = 'Unknown';
+        let recordType: 'customer' | 'lead' | null = null;
+        let recordId: string | number | null = null;
+        if (task.customerId) {
+          const c = customerMap.get(task.customerId);
+          recordName = c?.company || `${c?.firstName || ''} ${c?.lastName || ''}`.trim() || 'Unknown';
+          recordType = 'customer';
+          recordId = task.customerId;
+        } else if (task.leadId) {
+          const l = leadMap.get(task.leadId);
+          recordName = l?.name || l?.company || 'Unknown';
+          recordType = 'lead';
+          recordId = task.leadId;
+        }
+        return { ...task, recordName, recordType, recordId };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("[Tasks] Error fetching completed-today:", error);
+      res.status(500).json({ error: "Failed to fetch completed tasks" });
+    }
+  });
+
   app.get("/api/tasks/emails-not-replied", isAuthenticated, async (req: any, res) => {
     try {
       const userEmail = (req.user?.email || '').toLowerCase();

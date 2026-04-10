@@ -32,6 +32,7 @@ import {
   UserPlus,
   X,
   Inbox,
+  CheckCircle2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -258,6 +259,24 @@ export default function Dashboard() {
   const visibleInquiries = unknownInquiries.filter(i =>
     !dismissedInquiries.has(i.fromEmail) && !blacklistedSenders.has(i.fromEmail.toLowerCase())
   );
+
+  interface CompletedTask {
+    id: number;
+    title: string;
+    taskType: string;
+    completedAt: string;
+    assignedToName: string | null;
+    completionNotes: string | null;
+    recordName: string;
+    recordType: 'customer' | 'lead' | null;
+    recordId: string | number | null;
+    sourceType: string | null;
+  }
+  const { data: completedTodayTasks = [] } = useQuery<CompletedTask[]>({
+    queryKey: ['/api/tasks/completed-today'],
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
 
   interface RecentWin {
     customerId: string;
@@ -984,6 +1003,101 @@ export default function Dashboard() {
                             by {win.attributedToName}
                           </span>
                         )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Today's Activity Log — completed tasks */}
+          {completedTodayTasks.length > 0 && (
+            <div style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E0F2FE',
+              marginBottom: '24px',
+              padding: '20px 24px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <CheckCircle2 size={18} style={{ color: '#FFFFFF' }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#111111', margin: 0, lineHeight: 1.3 }}>
+                    Today's Work Log
+                  </h2>
+                  <p style={{ fontSize: '12px', color: '#6B7280', margin: 0 }}>
+                    {completedTodayTasks.length} task{completedTodayTasks.length !== 1 ? 's' : ''} completed today
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {completedTodayTasks.map((task) => {
+                  const taskHref = task.recordType === 'lead' && task.recordId
+                    ? `/leads/${task.recordId}`
+                    : task.recordType === 'customer' && task.recordId
+                    ? `/odoo-contacts/${task.recordId}`
+                    : null;
+                  const typeIcon = task.taskType?.includes('call') ? '📞'
+                    : task.taskType?.includes('email') ? '✉️'
+                    : task.taskType?.includes('quote') ? '📄'
+                    : task.taskType?.includes('sample') ? '📦'
+                    : task.sourceType === 'call_log' ? '📞'
+                    : '✅';
+                  const completedTime = task.completedAt
+                    ? new Date(task.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                    : '';
+                  return (
+                    <div key={task.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: '#F0F9FF',
+                      border: '1px solid #E0F2FE',
+                    }}>
+                      <span style={{ fontSize: '15px', flexShrink: 0 }}>{typeIcon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1E3A5F', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {task.title}
+                        </div>
+                        {task.recordName && task.recordName !== 'Unknown' && (
+                          taskHref ? (
+                            <Link href={taskHref} style={{ fontSize: '11px', color: '#2563EB', textDecoration: 'none' }}>
+                              {task.recordName}
+                            </Link>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: '#6B7280' }}>{task.recordName}</span>
+                          )
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        {task.assignedToName && isAdminUser && (
+                          <span style={{ fontSize: '11px', color: '#9CA3AF', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {task.assignedToName}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{completedTime}</span>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          color: '#059669',
+                          background: '#D1FAE5',
+                          padding: '2px 6px',
+                          borderRadius: '99px',
+                        }}>Done</span>
                       </div>
                     </div>
                   );

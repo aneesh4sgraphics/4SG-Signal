@@ -337,6 +337,7 @@ export default function TaskInboxPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/completed-today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kanban"] });
       toast({ title: "Task completed" });
     },
