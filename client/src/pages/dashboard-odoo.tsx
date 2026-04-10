@@ -787,6 +787,25 @@ export default function Dashboard() {
                           <span className="text-gray-600">Today</span>
                           <span className="font-bold">{repUser.today_total}</span>
                         </div>
+                        {(repUser as any).activityToday && (
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            {(repUser as any).activityToday.callsToday > 0 && (
+                              <span style={{ fontSize: '10px', background: '#EAF3DE', color: '#3B6D11', borderRadius: '4px', padding: '1px 6px' }}>
+                                📞 {(repUser as any).activityToday.callsToday} calls
+                              </span>
+                            )}
+                            {(repUser as any).activityToday.emailsToday > 0 && (
+                              <span style={{ fontSize: '10px', background: '#E6F1FB', color: '#185FA5', borderRadius: '4px', padding: '1px 6px' }}>
+                                ✉️ {(repUser as any).activityToday.emailsToday} emails
+                              </span>
+                            )}
+                            {(repUser as any).activityToday.callsToday === 0 && (repUser as any).activityToday.emailsToday === 0 && (
+                              <span style={{ fontSize: '10px', background: '#FCEBEB', color: '#A32D2D', borderRadius: '4px', padding: '1px 6px' }}>
+                                No activity today
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-gray-600">This Week</span>
                           <span className="font-bold text-base">{repUser.week_total}</span>

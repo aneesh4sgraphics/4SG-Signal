@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "./db";
-import { eq, sql, and, or, desc, asc, lt, isNull, isNotNull, not, inArray } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, lt, gte, isNull, isNotNull, not, inArray } from "drizzle-orm";
 import { isAuthenticated, requireAdmin } from "./replitAuth";
 import { normalizeEmail } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
@@ -2202,8 +2202,22 @@ I noticed you've been ordering [current product]. I wanted to mention that many 
         ORDER BY ba.week_total DESC
       `);
 
+      const todayActivityByRep = await db
+        .select({
+          performedBy: leadActivities.performedBy,
+          callsToday: sql<number>`COUNT(CASE WHEN activity_type = 'call_made' THEN 1 END)::int`,
+          emailsToday: sql<number>`COUNT(CASE WHEN activity_type = 'email_sent' THEN 1 END)::int`,
+          activitiesToday: sql<number>`COUNT(*)::int`,
+        })
+        .from(leadActivities)
+        .where(gte(leadActivities.createdAt, today))
+        .groupBy(leadActivities.performedBy);
+
       res.json({
-        users: userStats.rows,
+        users: (userStats.rows as any[]).map(user => ({
+          ...user,
+          activityToday: todayActivityByRep.find(a => a.performedBy === user.email) || { callsToday: 0, emailsToday: 0, activitiesToday: 0 },
+        })),
         dateRange: {
           today: today.toISOString(),
           weekStart: thisWeekStart.toISOString(),
