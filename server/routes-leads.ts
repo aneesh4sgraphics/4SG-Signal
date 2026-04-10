@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "./db";
-import { eq, sql, and, or, desc, ilike, isNull, isNotNull, not, inArray } from "drizzle-orm";
+import { eq, sql, and, or, desc, asc, ilike, isNull, isNotNull, not, inArray, lt } from "drizzle-orm";
 import { isAuthenticated, requireApproval } from "./replitAuth";
 import { normalizeEmail, extractCompanyDomain } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
@@ -417,6 +417,51 @@ export function registerLeadsRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch leads" });
     }
   });
+
+  app.get("/api/leads/stuck", isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email || '';
+      const isAneesh = userEmail === 'aneesh@4sgraphics.com';
+      
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const activeStages = ['new', 'contacted', 'qualified', 'nurturing'];
+
+      let conditions: any[] = [
+        inArray(leads.stage, activeStages),
+        lt(leads.updatedAt, thirtyDaysAgo),
+        isNull(leads.salesKanbanStage),
+      ];
+
+      if (!isAneesh) {
+        conditions.push(eq(leads.salesRepId, req.user?.id));
+      }
+
+      const stuckLeads = await db
+        .select({
+          id: leads.id,
+          name: leads.name,
+          company: leads.company,
+          email: leads.email,
+          stage: leads.stage,
+          salesRepName: leads.salesRepName,
+          updatedAt: leads.updatedAt,
+          lastContactAt: leads.lastContactAt,
+          expectedRevenue: leads.expectedRevenue,
+          daysSinceUpdate: sql<number>`EXTRACT(DAY FROM NOW() - ${leads.updatedAt})::int`,
+        })
+        .from(leads)
+        .where(and(...conditions))
+        .orderBy(asc(leads.updatedAt))
+        .limit(20);
+
+      res.json(stuckLeads);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to fetch stuck leads' });
+    }
+  });
+
   app.get("/api/leads/stats", isAuthenticated, async (req: any, res) => {
     try {
       const stats = await db.select({

@@ -448,6 +448,16 @@ export default function Dashboard() {
     .charAt(0).toUpperCase() + ((user as any)?.firstName || (user as any)?.email?.split('@')[0] || "User").slice(1);
   
   const isAdmin = (user as any)?.role === 'admin';
+
+  const { data: stuckLeads = [] } = useQuery<any[]>({
+    queryKey: ['/api/leads/stuck'],
+    queryFn: async () => {
+      const res = await fetch('/api/leads/stuck', { credentials: 'include' });
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
   const now = new Date();
   const dateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -853,6 +863,30 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Stuck Leads Widget - Admin Only */}
+          {isAdmin && stuckLeads.length > 0 && (
+            <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#92400E', margin: 0 }}>
+                  {stuckLeads.length} lead{stuckLeads.length !== 1 ? 's' : ''} stuck 30+ days
+                </h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {stuckLeads.slice(0, 5).map((lead: any) => (
+                  <div key={lead.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer' }}
+                    onClick={() => navigate(`/leads/${lead.id}`)}>
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#111' }}>{lead.company || lead.name}</span>
+                      <span style={{ fontSize: '11px', color: '#6B7280', marginLeft: '8px' }}>Stage: {lead.stage}</span>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#B45309', fontWeight: 500 }}>{lead.daysSinceUpdate}d stale</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

@@ -1,0 +1,46 @@
+In server/routes-admin.ts, find the GET /api/admin/leaderboard endpoint. After the existing query, add a "rep activity today" summary that counts calls logged, emails sent, and leads touched today per rep:
+
+In the leaderboard response, add a new field activityToday to each user object:
+  - callsToday: count of lead activities with activityType = 'call_made' today
+  - emailsToday: count of lead activities with activityType = 'email_sent' today
+  - leadsTouchedToday: count of distinct leads with lastContactAt = today
+
+Add this query before building the response:
+
+    const todayActivityByRep = await db
+      .select({
+        performedBy: leadActivities.performedBy,
+        callsToday: sql<number>`COUNT(CASE WHEN activity_type = 'call_made' THEN 1 END)::int`,
+        emailsToday: sql<number>`COUNT(CASE WHEN activity_type = 'email_sent' THEN 1 END)::int`,
+        activitiesToday: sql<number>`COUNT(*)::int`,
+      })
+      .from(leadActivities)
+      .where(gte(leadActivities.createdAt, today))
+      .groupBy(leadActivities.performedBy);
+
+Merge this into each user in the leaderboard response:
+  activityToday: todayActivityByRep.find(a => a.performedBy === user.email) || { callsToday: 0, emailsToday: 0, activitiesToday: 0 }
+
+Then in client/src/pages/dashboard-odoo.tsx, in the leaderboard card for each rep (inside the Stats Grid section), add after the existing "Today" stat:
+
+  {repUser.activityToday && (
+    <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+      {repUser.activityToday.callsToday > 0 && (
+        <span style={{ fontSize: '10px', background: '#EAF3DE', color: '#3B6D11', borderRadius: '4px', padding: '1px 6px' }}>
+          📞 {repUser.activityToday.callsToday} calls
+        </span>
+      )}
+      {repUser.activityToday.emailsToday > 0 && (
+        <span style={{ fontSize: '10px', background: '#E6F1FB', color: '#185FA5', borderRadius: '4px', padding: '1px 6px' }}>
+          ✉️ {repUser.activityToday.emailsToday} emails
+        </span>
+      )}
+      {repUser.activityToday.callsToday === 0 && repUser.activityToday.emailsToday === 0 && (
+        <span style={{ fontSize: '10px', background: '#FCEBEB', color: '#A32D2D', borderRadius: '4px', padding: '1px 6px' }}>
+          No activity today
+        </span>
+      )}
+    </div>
+  )}
+
+Do not change anything else.
