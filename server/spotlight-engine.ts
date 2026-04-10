@@ -820,7 +820,8 @@ class SpotlightEngine {
         
         const todayEvents = await db
           .select({ 
-            customerId: spotlightEvents.customerId
+            customerId: spotlightEvents.customerId,
+            metadata: spotlightEvents.metadata,
           })
           .from(spotlightEvents)
           .where(
@@ -834,10 +835,13 @@ class SpotlightEngine {
         // Use Set to deduplicate - customerId may contain "lead-123" format for leads
         const seenIds = new Set<string>();
         for (const event of todayEvents) {
-          if (event.customerId && !seenIds.has(event.customerId)) {
-            seenIds.add(event.customerId);
-            if (!session.skippedCustomerIds.includes(event.customerId)) {
-              session.skippedCustomerIds.push(event.customerId);
+          // For lead tasks, customerId is null in DB; reconstruct synthetic ID from metadata.leadId
+          const effectiveId = event.customerId 
+            || ((event.metadata as any)?.leadId ? `lead-${(event.metadata as any).leadId}` : null);
+          if (effectiveId && !seenIds.has(effectiveId)) {
+            seenIds.add(effectiveId);
+            if (!session.skippedCustomerIds.includes(effectiveId)) {
+              session.skippedCustomerIds.push(effectiveId);
             }
           }
         }
@@ -5839,6 +5843,7 @@ class SpotlightEngine {
     let bucket: TaskBucket;
     let subtype: string;
     let isLeadTask = false;
+    let leadId: number | null = null;
     
     if (taskId.includes('::')) {
       const parts = taskId.split('::');
@@ -5851,6 +5856,7 @@ class SpotlightEngine {
         if (parts[1] === 'lead') {
           // Lead task format: bucket::lead::leadId::subtype
           isLeadTask = true;
+          leadId = parseInt(parts[2]);
           customerId = `lead-${parts[2]}`; // Synthetic customer ID for leads
           subtype = parts[3];
         } else {
@@ -5891,12 +5897,15 @@ class SpotlightEngine {
       await db.insert(spotlightEvents).values({
         eventType: 'skipped',
         userId,
-        customerId,
+        // Lead tasks use a synthetic 'lead-123' customerId that isn't a real customer FK.
+        // Store null to avoid FK violation; leadId is captured in metadata for session restore.
+        customerId: isLeadTask ? null : customerId,
         bucket,
         taskSubtype: subtype,
         skipReason: reason,
         dayOfWeek: now.getDay(),
         hourOfDay: now.getHours(),
+        metadata: isLeadTask && leadId ? { leadId } : undefined,
       });
     } catch (e) {
       console.error('[Spotlight] Failed to log skip event:', e);
@@ -5924,12 +5933,16 @@ class SpotlightEngine {
     let customerId: string;
     let bucket: TaskBucket;
     let subtype: string;
+    let isLeadTask = false;
+    let leadId: number | null = null;
     
     if (taskId.includes('::')) {
       const parts = taskId.split('::');
       bucket = parts[0] as TaskBucket;
       if (parts.length === 4) {
         if (parts[1] === 'lead') {
+          isLeadTask = true;
+          leadId = parseInt(parts[2]);
           customerId = `lead-${parts[2]}`;
           subtype = parts[3];
         } else {
@@ -5973,12 +5986,15 @@ class SpotlightEngine {
       await db.insert(spotlightEvents).values({
         eventType: 'remind_today',
         userId,
-        customerId,
+        // Lead tasks use a synthetic 'lead-123' customerId that isn't a real customer FK.
+        // Store null to avoid FK violation; leadId is captured in metadata for session restore.
+        customerId: isLeadTask ? null : customerId,
         bucket,
         taskSubtype: subtype,
         skipReason: `remind_today::${today}`, // Include date for next-day tracking
         dayOfWeek: now.getDay(),
         hourOfDay: now.getHours(),
+        metadata: isLeadTask && leadId ? { leadId } : undefined,
       });
     } catch (e) {
       console.error('[Spotlight] Failed to log remind_today event:', e);
