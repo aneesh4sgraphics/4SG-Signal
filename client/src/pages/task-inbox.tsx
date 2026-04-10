@@ -234,6 +234,8 @@ export default function TaskInboxPage() {
   const [showReschedule, setShowReschedule] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('09:00');
+  const [showDelegate, setShowDelegate] = useState(false);
+  const [delegateToEmail, setDelegateToEmail] = useState('');
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [createForm, setCreateForm] = useState<CreateTaskForm>({
@@ -377,6 +379,30 @@ export default function TaskInboxPage() {
     },
     onError: () => {
       toast({ title: "Failed to reschedule task", variant: "destructive" });
+    },
+  });
+
+  const { data: salesReps = [] } = useQuery<{ id: string; name: string; email: string }[]>({
+    queryKey: ["/api/sales-reps"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const delegateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, assignedTo, assignedToName }: { taskId: number; assignedTo: string; assignedToName: string }) =>
+      apiRequest("PATCH", `/api/tasks/${taskId}/reassign`, { assignedTo, assignedToName }),
+    onSuccess: (_data, { assignedToName }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/summary"] });
+      setShowDelegate(false);
+      setDelegateToEmail('');
+      // Update the local selectedTask to reflect new assignee
+      if (selectedTask) {
+        setSelectedTask({ ...selectedTask, assignedToName });
+      }
+      toast({ title: "Task delegated", description: `Assigned to ${assignedToName}` });
+    },
+    onError: () => {
+      toast({ title: "Failed to delegate task", variant: "destructive" });
     },
   });
 
@@ -886,7 +912,7 @@ export default function TaskInboxPage() {
       </Dialog>
 
       {/* Task Detail Dialog */}
-      <Dialog open={showTaskDetail} onOpenChange={(open) => { setShowTaskDetail(open); if (!open) setShowReschedule(false); }}>
+      <Dialog open={showTaskDetail} onOpenChange={(open) => { setShowTaskDetail(open); if (!open) { setShowReschedule(false); setShowDelegate(false); setDelegateToEmail(''); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedTask ? formatTaskTitle(selectedTask.title, selectedTask) : ''}</DialogTitle>
@@ -1113,10 +1139,22 @@ export default function TaskInboxPage() {
                       setRescheduleDate(`${yyyy}-${mm}-${dd}`);
                       setRescheduleTime(`${hh}:${min}`);
                       setShowReschedule(v => !v);
+                      setShowDelegate(false);
                     }}
                   >
                     <Calendar className="h-4 w-4" />
                     Reschedule
+                  </Button>
+                )}
+                {typeof selectedTask.id === "number" && selectedTask.source === "calendar" && salesReps.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-violet-600 border-violet-200 hover:bg-violet-50"
+                    onClick={() => { setShowDelegate(v => !v); setShowReschedule(false); setDelegateToEmail(''); }}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    Delegate
                   </Button>
                 )}
               </div>
@@ -1160,6 +1198,39 @@ export default function TaskInboxPage() {
                       {rescheduleTaskMutation.isPending ? 'Saving…' : 'Confirm'}
                     </Button>
                     <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => setShowReschedule(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {showDelegate && typeof selectedTask.id === "number" && (
+                <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg flex flex-col gap-3">
+                  <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Delegate to another rep</p>
+                  <select
+                    className="w-full border border-violet-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    value={delegateToEmail}
+                    onChange={e => setDelegateToEmail(e.target.value)}
+                  >
+                    <option value="">— Select a rep —</option>
+                    {salesReps.map(rep => (
+                      <option key={rep.email} value={rep.email}>{rep.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                      disabled={!delegateToEmail || delegateTaskMutation.isPending}
+                      onClick={() => {
+                        const rep = salesReps.find(r => r.email === delegateToEmail);
+                        if (!rep) return;
+                        delegateTaskMutation.mutate({ taskId: selectedTask.id as number, assignedTo: rep.email, assignedToName: rep.name });
+                      }}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {delegateTaskMutation.isPending ? 'Saving…' : 'Confirm'}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => { setShowDelegate(false); setDelegateToEmail(''); }}>
                       Cancel
                     </Button>
                   </div>

@@ -1851,6 +1851,36 @@ Return ONLY a JSON object with these keys (use null for not found):
       res.status(500).json({ error: "Failed to update task" });
     }
   });
+  app.patch("/api/tasks/:id/reassign", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid task ID" });
+      const userId = (req.user as any)?.claims?.sub || req.user?.id;
+      const userRole = (req.user as any)?.claims?.role || req.user?.role;
+      const userEmail = ((req.user as any)?.claims?.email || req.user?.email || '').toLowerCase();
+      const isAdmin = userRole === 'admin' || userEmail === 'aneesh@4sgraphics.com';
+
+      // Fetch the task to check ownership
+      const [taskRow] = await db.select({ assignedTo: followUpTasks.assignedTo }).from(followUpTasks).where(eq(followUpTasks.id, id)).limit(1);
+      if (!taskRow) return res.status(404).json({ error: "Task not found" });
+      const isAssignee = taskRow.assignedTo && (taskRow.assignedTo === userEmail || taskRow.assignedTo === String(userId));
+      if (!isAdmin && !isAssignee) return res.status(403).json({ error: "Not authorized to delegate this task" });
+
+      const { assignedTo, assignedToName } = req.body as { assignedTo: string; assignedToName: string };
+      if (!assignedTo || !assignedToName) return res.status(400).json({ error: "assignedTo and assignedToName are required" });
+      const [updated] = await db
+        .update(followUpTasks)
+        .set({ assignedTo, assignedToName, updatedAt: new Date() })
+        .where(eq(followUpTasks.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Task not found" });
+      res.json({ success: true, assignedTo, assignedToName });
+    } catch (error) {
+      console.error("[Tasks] Error reassigning task:", error);
+      res.status(500).json({ error: "Failed to reassign task" });
+    }
+  });
+
   app.post("/api/tasks/:id/complete", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
