@@ -1429,6 +1429,11 @@ Return ONLY a JSON object with these keys (use null for not found):
 
       const pressTestSent = (Number(pressTestPrintsCount.count) || 0) + (Number(pressTestLeadsCount.count) || 0);
 
+      const [callFollowUpsResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(followUpTasks)
+        .where(and(eq(followUpTasks.status, 'pending'), eq(followUpTasks.sourceType, 'call_log'), ...visibilityCond));
+
       const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
       const sixDaysAgo = new Date(today); sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
       const thirteenDaysAgo = new Date(today); thirteenDaysAgo.setDate(thirteenDaysAgo.getDate() - 13);
@@ -1519,6 +1524,7 @@ Return ONLY a JSON object with these keys (use null for not found):
         emailsNotReplied: emailsNotRepliedCount,
         seqFollowUp: Number(seqResult.count) || 0,
         pressTestSent,
+        callFollowUps: Number(callFollowUpsResult.count) || 0,
         spotlightSkipped,
         spotlightRemaining,
         spotlightCompleted: session.totalCompleted || 0,
@@ -1585,6 +1591,9 @@ Return ONLY a JSON object with these keys (use null for not found):
       } else if (filter === 'email') {
         // "Email Tasks" tab — only show tasks with email-related taskType
         baseConditions.push(ilike(followUpTasks.taskType, '%email%'));
+      } else if (filter === 'call_followups') {
+        // "Call Follow-ups" tab — only show tasks created from call logs
+        baseConditions.push(eq(followUpTasks.sourceType, 'call_log'));
       }
 
       if (typeFilter && typeFilter !== 'all') {
