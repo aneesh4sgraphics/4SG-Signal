@@ -21241,7 +21241,7 @@ Analyze this bounced email and provide insights in JSON format:
       const repShipSqlFrag = repFilter ? sql`AND (LOWER(c.sales_rep_name) ILIKE ${'%' + repFilter + '%'} OR (c.id IS NULL AND sft.user_id::text = ${userId}))` : sql``;
 
       const repliedLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
+        .select({ id: leads.id, name: leads.name, company: leads.company, email: leads.email, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
         .from(leads)
         .where(
           and(
@@ -21281,7 +21281,10 @@ Analyze this bounced email and provide insights in JSON format:
           'customer' AS type,
           c.sales_kanban_stage AS "salesKanbanStage",
           c.sales_rep_name AS rep,
-          'email needs response' AS signal
+          'email needs response' AS signal,
+          gm.gmail_message_id AS "gmailMessageId",
+          gm.thread_id AS "gmailThreadId",
+          gm.from_email AS "senderEmail"
         FROM gmail_messages gm
         JOIN customers c ON c.id = gm.customer_id
         WHERE gm.direction = 'inbound'

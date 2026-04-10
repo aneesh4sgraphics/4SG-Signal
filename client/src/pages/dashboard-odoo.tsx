@@ -633,6 +633,20 @@ export default function Dashboard() {
                                 key={item.id}
                                 style={{ background: 'rgba(255,255,255,0.78)', borderRadius: '8px', padding: '8px 10px', marginBottom: '5px', cursor: item.type === 'shipment' ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', gap: '3px', position: 'relative' }}
                                 onClick={() => {
+                                  if (col.key === 'replied') {
+                                    // Deep-link to the specific Gmail thread that triggered the card
+                                    if (item.gmailThreadId) {
+                                      window.open(`https://mail.google.com/mail/u/0/#inbox/${item.gmailThreadId}`, '_blank');
+                                      return;
+                                    }
+                                    // Fallback: Gmail search by sender email (leads with firstEmailReplyAt)
+                                    const searchEmail = item.senderEmail || item.email;
+                                    if (item.signal === 'email needs response' && searchEmail) {
+                                      window.open(`https://mail.google.com/mail/u/0/#search/from:${encodeURIComponent(searchEmail)}`, '_blank');
+                                      return;
+                                    }
+                                  }
+                                  // Default: navigate to contact/lead page
                                   if (item.type === 'customer') {
                                     navigate(`/odoo-contacts/${item.id}`);
                                   } else if (item.type === 'lead') {
