@@ -3464,7 +3464,11 @@ function TerritorySkipFlagsTab() {
                           size="sm"
                           variant="outline"
                           className="text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => decisionMutation.mutate({ id: flag.id, decision: 'delete' })}
+                          onClick={() => {
+                            if (window.confirm('Delete this territory flag permanently?')) {
+                              decisionMutation.mutate({ id: flag.id, decision: 'delete' });
+                            }
+                          }}
                           disabled={decisionMutation.isPending}
                         >
                           <Trash2 className="h-3 w-3 mr-1" />

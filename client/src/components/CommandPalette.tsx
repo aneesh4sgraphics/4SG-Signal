@@ -266,7 +266,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     <CommandItem
                       key={`contact-${ct.id}`}
                       value={`contact-${ct.id}`}
-                      onSelect={() => handleSelect(`/contacts/${ct.id}`)}
+                      onSelect={() => handleSelect(`/odoo-contacts/${ct.id}`)}
                       className="flex items-center gap-3 py-2.5 cursor-pointer"
                     >
                       <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">

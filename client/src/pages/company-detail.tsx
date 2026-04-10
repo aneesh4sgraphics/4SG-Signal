@@ -368,7 +368,7 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
     return (
       <div
         className="p-3 rounded-lg border bg-white hover:bg-gray-50 cursor-pointer"
-        onClick={() => !isOdoo && setLocation(`/contacts/${c.id}`)}
+        onClick={() => !isOdoo && setLocation(`/odoo-contacts/${c.id}`)}
       >
         <div className="flex items-start gap-3">
           <div className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold ${isOdoo ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
@@ -759,7 +759,7 @@ function RightSidebar({ overview, contacts }: { overview: CompanyOverview; conta
                 <div
                   key={c.id}
                   className="flex items-center gap-2 py-1 cursor-pointer hover:bg-indigo-50 rounded-md px-1 -mx-1 group"
-                  onClick={() => setLocation(`/contacts/${c.id}`)}
+                  onClick={() => setLocation(`/odoo-contacts/${c.id}`)}
                 >
                   <div className="relative flex-shrink-0">
                     <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[10px] font-semibold">

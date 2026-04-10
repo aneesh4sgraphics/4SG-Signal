@@ -1074,7 +1074,11 @@ export default function TaskInboxPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => cancelTaskMutation.mutate(selectedTask.id as number)}
+                      onClick={() => {
+                        if (window.confirm('Cancel this task? It will be marked cancelled.')) {
+                          cancelTaskMutation.mutate(selectedTask.id as number);
+                        }
+                      }}
                       disabled={cancelTaskMutation.isPending}
                       className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
                     >

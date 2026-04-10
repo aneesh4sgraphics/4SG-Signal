@@ -614,7 +614,11 @@ export default function ProductLabels() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600"
-                            onClick={() => deleteLabelMutation.mutate(label.id)}
+                            onClick={() => {
+                              if (window.confirm('Delete this label template?')) {
+                                deleteLabelMutation.mutate(label.id);
+                              }
+                            }}
                             data-testid={`button-delete-${label.id}`}
                           >
                             <Trash2 className="h-4 w-4" />

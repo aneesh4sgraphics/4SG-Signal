@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Mail, Plus, Edit2, Trash2, Send, Eye, Copy, Search, Users, 
   FileText, Variable, ChevronRight, CheckCircle, AlertCircle, Clock, Zap, PenTool, Save, Loader2,
-  Smartphone, Monitor, Sun, Moon
+  Smartphone, Monitor, Sun, Moon, ArrowLeft
 } from "lucide-react";
 import type { EmailTemplate, Customer, ProductPricingMaster, EmailSignature } from "@shared/schema";
 import { EMAIL_TEMPLATE_VARIABLES } from "@shared/schema";
@@ -402,6 +402,14 @@ export default function EmailApp() {
 
   return (
     <div className="p-6 space-y-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="gap-1 text-gray-500 hover:text-gray-700">
+            <ArrowLeft className="w-4 h-4" />
+            Dashboard
+          </Button>
+        </Link>
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

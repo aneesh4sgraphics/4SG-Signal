@@ -1,0 +1,158 @@
+Fix the following bugs across the SIGNAL app. These are all verified real issues found in the code:
+
+─────────────────────────────────────────
+BUG 1 — /contacts/:id route is broken
+─────────────────────────────────────────
+In client/src/components/CommandPalette.tsx, find:
+  onSelect={() => handleSelect(`/contacts/${ct.id}`)}
+Change to:
+  onSelect={() => handleSelect(`/odoo-contacts/${ct.id}`)}
+
+In client/src/pages/company-detail.tsx, find all instances of:
+  setLocation(`/contacts/${c.id}`)
+Change to:
+  setLocation(`/odoo-contacts/${c.id}`)
+
+The /contacts/:id route uses a different (older) ContactDetail page. All navigation should go to /odoo-contacts/:id which uses the full OdooCompanyDetail page.
+
+─────────────────────────────────────────
+BUG 2 — Deleting email signature has no confirmation
+─────────────────────────────────────────
+In client/src/pages/sequences.tsx, find the delete signature button:
+  onClick={() => deleteSig.mutate()}
+
+Add a confirmation using window.confirm before the mutate:
+  onClick={() => {
+    if (window.confirm('Delete this email signature? This cannot be undone.')) {
+      deleteSig.mutate();
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 3 — Cancel task in task inbox has no confirmation
+─────────────────────────────────────────
+In client/src/pages/task-inbox.tsx, find:
+  onClick={() => cancelTaskMutation.mutate(selectedTask.id as number)
+
+Change to:
+  onClick={() => {
+    if (window.confirm('Cancel this task? It will be marked cancelled.')) {
+      cancelTaskMutation.mutate(selectedTask.id as number);
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 4 — Delete contact in bounce-investigation has no confirmation
+─────────────────────────────────────────
+In client/src/pages/bounce-investigation.tsx, find the destructive delete button:
+  onClick={() => deleteContactMutation.mutate()}
+
+Change to:
+  onClick={() => {
+    if (window.confirm('Permanently delete this contact? This cannot be undone.')) {
+      deleteContactMutation.mutate();
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 5 — Shopify mapping delete has no confirmation
+─────────────────────────────────────────
+In client/src/pages/shopify-settings.tsx, find both:
+  onClick={() => deleteMappingMutation.mutate(mapping.id)
+  onClick={() => deleteVariantMappingMutation.mutate(mapping.id)
+
+Wrap both with:
+  onClick={() => {
+    if (window.confirm('Delete this mapping?')) {
+      deleteMappingMutation.mutate(mapping.id);
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 6 — Product label delete has no confirmation
+─────────────────────────────────────────
+In client/src/pages/product-labels.tsx, find:
+  onClick={() => deleteLabelMutation.mutate(label.id)
+
+Change to:
+  onClick={() => {
+    if (window.confirm('Delete this label template?')) {
+      deleteLabelMutation.mutate(label.id);
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 7 — Drip assignment cancel in sequences has no confirmation
+─────────────────────────────────────────
+In client/src/pages/sequences.tsx, find:
+  onClick={() => updateAssignment.mutate({ id: a.id, status: 'cancelled' })
+
+Change to:
+  onClick={() => {
+    if (window.confirm('Cancel this drip assignment? The lead will stop receiving emails from this sequence.')) {
+      updateAssignment.mutate({ id: a.id, status: 'cancelled' });
+    }
+  }}
+
+─────────────────────────────────────────
+BUG 8 — Email app has no back button
+─────────────────────────────────────────
+In client/src/pages/email-app.tsx, find the top of the page render (the outermost wrapper div). Add a back button at the very top before the tabs:
+
+  import { ArrowLeft } from 'lucide-react'; (if not already imported)
+  import { Link } from 'wouter'; (if not already imported)
+
+Add this at the top of the page content:
+  <div className="flex items-center gap-2 mb-4">
+    <Link href="/">
+      <Button variant="ghost" size="sm" className="gap-1 text-gray-500 hover:text-gray-700">
+        <ArrowLeft className="w-4 h-4" />
+        Dashboard
+      </Button>
+    </Link>
+  </div>
+
+─────────────────────────────────────────
+BUG 9 — Lead kanban view drag-and-drop only works on list view leads, not all leads
+─────────────────────────────────────────
+In client/src/pages/leads.tsx, the kanban view filters leads using the local paginatedLeads array. But when dragging, it should use allLeads (all fetched leads, not just the current page).
+
+Find where stageLeads is computed in the kanban view:
+  const stageLeads = leads.filter(l => l.stage === stage.value);
+
+Make sure 'leads' here refers to leadsData?.leads (the full fetched list), not paginatedLeads. If it's using paginatedLeads, change it to use the full leads array from the API response.
+
+─────────────────────────────────────────
+BUG 10 — Quote calculator send email button doesn't warn when no items in quote
+─────────────────────────────────────────
+In client/src/pages/quote-calculator.tsx, find the send email button. It is disabled when !selectedCustomer but not when quoteItems.length === 0.
+
+Find the email send button and update its disabled condition to also check quoteItems:
+  disabled={isPDFGenerating || !selectedCustomer || quoteItems.length === 0}
+
+If quoteItems.length is already checked on the PDF button but not the email button, add it to the email button too.
+
+─────────────────────────────────────────
+BUG 11 — Leads page: "Convert zero spending contacts" button has no loading state visible
+─────────────────────────────────────────
+In client/src/pages/leads.tsx, find the "Convert" button that calls convertZeroSpendingMutation.mutate(). Add a disabled and loading state:
+  disabled={convertZeroSpendingMutation.isPending}
+
+And add a Loader2 spinner inside when pending:
+  {convertZeroSpendingMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+
+─────────────────────────────────────────
+BUG 12 — Admin: territory flag "delete" fires immediately without confirmation
+─────────────────────────────────────────
+In client/src/pages/admin-config.tsx, find:
+  onClick={() => decisionMutation.mutate({ id: flag.id, decision: 'delete' })
+
+Change to:
+  onClick={() => {
+    if (window.confirm('Delete this territory flag permanently?')) {
+      decisionMutation.mutate({ id: flag.id, decision: 'delete' });
+    }
+  }}
+
+─────────────────────────────────────────
+Do not change any business logic, API calls, or styling. Only fix the issues described above — broken navigation, missing confirmations, missing disabled/loading states.

@@ -952,7 +952,11 @@ export default function ShopifySettingsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deleteMappingMutation.mutate(mapping.id)}
+                            onClick={() => {
+                              if (window.confirm('Delete this mapping?')) {
+                                deleteMappingMutation.mutate(mapping.id);
+                              }
+                            }}
                             data-testid={`button-delete-mapping-${mapping.id}`}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -1152,7 +1156,11 @@ export default function ShopifySettingsPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => deleteVariantMappingMutation.mutate(mapping.id)}
+                                  onClick={() => {
+                                    if (window.confirm('Delete this mapping?')) {
+                                      deleteVariantMappingMutation.mutate(mapping.id);
+                                    }
+                                  }}
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
