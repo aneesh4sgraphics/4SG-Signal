@@ -23,7 +23,7 @@ import {
   leadActivities,
 } from "@shared/schema";
 
-const screenshotUpload = multer({ dest: "uploads/screenshots/", limits: { fileSize: 10 * 1024 * 1024 } });
+const screenshotUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 export function registerEmailRoutes(app: Express): void {
   app.post("/api/screenshot/extract", isAuthenticated, screenshotUpload.single('screenshot'), async (req: any, res) => {
