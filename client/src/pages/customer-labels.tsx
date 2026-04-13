@@ -1,17 +1,25 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Search, Printer, Plus, Check, Building2, Zap, MapPin, X, ChevronDown, ChevronUp,
   SlidersHorizontal, Flame, Home, Users, Layers, Star, Tag, Clock,
+  Mail, Droplets, CheckSquare, Square, Send, Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 import { useLabelQueue, type CustomerAddress } from '@/components/PrintLabelButton';
 import { useDebounce } from '@/hooks/useDebounce';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface Customer {
   id: string;
@@ -48,6 +56,12 @@ interface SalesRep {
   id: string;
   name: string;
   email?: string;
+}
+
+interface DripCampaign {
+  id: number;
+  name: string;
+  status: string;
 }
 
 function customerToAddress(c: Customer): CustomerAddress {
@@ -100,6 +114,7 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
 }
 
 export default function CustomerLabels() {
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
@@ -112,6 +127,16 @@ export default function CustomerLabels() {
   const [hotProspectsOnly, setHotProspectsOnly] = useState(false);
   const [hasAddressOnly, setHasAddressOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Selection state: set of "c-{customerId}" or "l-{leadId}"
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Bulk action dialogs
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [dripOpen, setDripOpen] = useState(false);
+  const [composeSubject, setComposeSubject] = useState('');
+  const [composeBody, setComposeBody] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
   const debouncedSearch = useDebounce(search, 300);
   const { queue, addToQueue, isInQueue, openPrintDialog } = useLabelQueue();
@@ -163,6 +188,11 @@ export default function CustomerLabels() {
     staleTime: 300000,
   });
 
+  const { data: dripCampaigns = [] } = useQuery<DripCampaign[]>({
+    queryKey: ['/api/drip-campaigns'],
+    staleTime: 60000,
+  });
+
   const { data: customersData, isLoading: customersLoading } = useQuery<{ customers: Customer[] }>({
     queryKey: ['/api/customers', 'label-search', debouncedSearch, selectedState, selectedCity,
       selectedSalesRep, selectedPricingTier, selectedCustomerType, selectedStrength,
@@ -208,6 +238,42 @@ export default function CustomerLabels() {
   const isLoading = customersLoading || leadsLoading;
   const hasResults = customers.length > 0 || leads.length > 0;
 
+  // Derived selection helpers
+  const selectedCustomerIds = [...selectedIds].filter(id => id.startsWith('c-')).map(id => id.slice(2));
+  const selectedLeadIds = [...selectedIds].filter(id => id.startsWith('l-')).map(id => parseInt(id.slice(2)));
+  const totalSelected = selectedIds.size;
+
+  const allCustomerKeys = customers.map(c => `c-${c.id}`);
+  const allLeadKeys = leads.map(l => `l-${l.id}`);
+  const allCustomersSelected = allCustomerKeys.length > 0 && allCustomerKeys.every(k => selectedIds.has(k));
+  const allLeadsSelected = allLeadKeys.length > 0 && allLeadKeys.every(k => selectedIds.has(k));
+
+  const toggleId = (key: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  const toggleAllCustomers = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allCustomersSelected) allCustomerKeys.forEach(k => next.delete(k));
+      else allCustomerKeys.forEach(k => next.add(k));
+      return next;
+    });
+  };
+
+  const toggleAllLeads = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allLeadsSelected) allLeadKeys.forEach(k => next.delete(k));
+      else allLeadKeys.forEach(k => next.add(k));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
   const clearAllFilters = () => {
     setSelectedState('');
     setSelectedCity('');
@@ -221,8 +287,52 @@ export default function CustomerLabels() {
     setHasAddressOnly(false);
   };
 
+  // Bulk email mutation
+  const bulkEmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/labels/bulk-email', {
+        customerIds: selectedCustomerIds,
+        leadIds: selectedLeadIds,
+        subject: composeSubject,
+        body: composeBody,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: `Sent ${data.sent} email${data.sent !== 1 ? 's' : ''}`, description: data.failed ? `${data.failed} failed (no email address)` : undefined });
+      setComposeOpen(false);
+      setComposeSubject('');
+      setComposeBody('');
+      clearSelection();
+    },
+    onError: (err: any) => {
+      toast({ title: 'Send failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  // Drip assignment mutation
+  const dripMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/drip-campaigns/${selectedCampaignId}/assignments`, {
+        customerIds: selectedCustomerIds,
+        leadIds: selectedLeadIds,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const count = (data.assignments?.length ?? 0);
+      toast({ title: `Added to drip campaign`, description: `${count} contact${count !== 1 ? 's' : ''} enrolled` });
+      setDripOpen(false);
+      setSelectedCampaignId('');
+      clearSelection();
+    },
+    onError: (err: any) => {
+      toast({ title: 'Drip assignment failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto pb-28">
       {/* Header */}
       <div className="mb-5">
         <div className="flex items-center justify-between">
@@ -578,17 +688,39 @@ export default function CustomerLabels() {
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Clients ({customers.length})
                 </span>
+                <button
+                  onClick={toggleAllCustomers}
+                  className="ml-auto flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  {allCustomersSelected
+                    ? <><CheckSquare className="h-3.5 w-3.5" /> Deselect all</>
+                    : <><Square className="h-3.5 w-3.5" /> Select all</>
+                  }
+                </button>
               </div>
               <div className="space-y-1">
                 {customers.map(c => {
+                  const key = `c-${c.id}`;
+                  const isSelected = selectedIds.has(key);
                   const name = c.company || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Unknown';
                   const location = formatLocation(c.city, c.province, c.zip);
                   const inQueue = isInQueue(c.id);
                   return (
                     <div
                       key={c.id}
-                      className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors"
+                      className={`flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border transition-colors ${
+                        isSelected ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'
+                      }`}
                     >
+                      <button
+                        onClick={() => toggleId(key)}
+                        className="flex-shrink-0 text-indigo-500 hover:text-indigo-700"
+                      >
+                        {isSelected
+                          ? <CheckSquare className="h-4 w-4" />
+                          : <Square className="h-4 w-4 text-gray-300 hover:text-gray-400" />
+                        }
+                      </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
@@ -645,16 +777,38 @@ export default function CustomerLabels() {
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Leads ({leads.length})
                 </span>
+                <button
+                  onClick={toggleAllLeads}
+                  className="ml-auto flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  {allLeadsSelected
+                    ? <><CheckSquare className="h-3.5 w-3.5" /> Deselect all</>
+                    : <><Square className="h-3.5 w-3.5" /> Select all</>
+                  }
+                </button>
               </div>
               <div className="space-y-1">
                 {leads.map(l => {
+                  const key = `l-${l.id}`;
+                  const isSelected = selectedIds.has(key);
                   const location = formatLocation(l.city, l.state, l.zip);
                   const inQueue = isInQueue(`lead-${l.id}`);
                   return (
                     <div
                       key={l.id}
-                      className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors"
+                      className={`flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border transition-colors ${
+                        isSelected ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'
+                      }`}
                     >
+                      <button
+                        onClick={() => toggleId(key)}
+                        className="flex-shrink-0 text-indigo-500 hover:text-indigo-700"
+                      >
+                        {isSelected
+                          ? <CheckSquare className="h-4 w-4" />
+                          : <Square className="h-4 w-4 text-gray-300 hover:text-gray-400" />
+                        }
+                      </button>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
                         {l.company && l.company !== l.name && (
@@ -692,6 +846,140 @@ export default function CustomerLabels() {
           )}
         </div>
       )}
+
+      {/* ── Bulk Action Bar (sticky bottom) ── */}
+      {totalSelected > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-2xl shadow-2xl border border-gray-700">
+          <span className="text-sm font-medium pr-2 border-r border-gray-600">
+            {totalSelected} selected
+          </span>
+          <Button
+            size="sm"
+            onClick={() => setComposeOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 h-8 gap-1.5 text-xs"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Compose Email
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setDripOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 h-8 gap-1.5 text-xs"
+          >
+            <Droplets className="h-3.5 w-3.5" />
+            Add to Drip
+          </Button>
+          <button
+            onClick={clearSelection}
+            className="ml-1 text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Compose Email Dialog ── */}
+      <Dialog open={composeOpen} onOpenChange={(open) => !open && setComposeOpen(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-blue-600" />
+              Compose Bulk Email
+            </DialogTitle>
+            <DialogDescription>
+              Sending to {totalSelected} contact{totalSelected !== 1 ? 's' : ''}. Use {`{{name}}`} and {`{{company}}`} to personalize.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Subject</Label>
+              <Input
+                value={composeSubject}
+                onChange={e => setComposeSubject(e.target.value)}
+                placeholder="e.g. Quick intro — waterproof papers for your print shop"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Message</Label>
+              <Textarea
+                value={composeBody}
+                onChange={e => setComposeBody(e.target.value)}
+                placeholder="Write your email here…"
+                className="min-h-[160px]"
+              />
+              <p className="text-xs text-gray-400 mt-1">Use {`{{name}}`} and {`{{company}}`} for personalization</p>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" onClick={() => setComposeOpen(false)} disabled={bulkEmailMutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => bulkEmailMutation.mutate()}
+                disabled={!composeSubject.trim() || !composeBody.trim() || bulkEmailMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {bulkEmailMutation.isPending
+                  ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Sending…</>
+                  : <><Send className="h-4 w-4 mr-2" /> Send to {totalSelected}</>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Drip Campaign Picker Dialog ── */}
+      <Dialog open={dripOpen} onOpenChange={(open) => !open && setDripOpen(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-purple-600" />
+              Add to Drip Campaign
+            </DialogTitle>
+            <DialogDescription>
+              Choose a campaign to enroll {totalSelected} contact{totalSelected !== 1 ? 's' : ''} in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Campaign</Label>
+              <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select a campaign…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dripCampaigns.filter(c => c.status === 'active').map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                  {dripCampaigns.filter(c => c.status !== 'active').length > 0 && (
+                    <>
+                      <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Inactive</div>
+                      {dripCampaigns.filter(c => c.status !== 'active').map(c => (
+                        <SelectItem key={c.id} value={String(c.id)} className="text-gray-400">{c.name}</SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="ghost" onClick={() => setDripOpen(false)} disabled={dripMutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => dripMutation.mutate()}
+                disabled={!selectedCampaignId || dripMutation.isPending}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {dripMutation.isPending
+                  ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Enrolling…</>
+                  : <><Droplets className="h-4 w-4 mr-2" /> Enroll {totalSelected}</>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

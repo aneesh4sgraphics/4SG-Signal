@@ -862,6 +862,59 @@ export function registerCustomersRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch price list counts" });
     }
   });
+  app.post("/api/labels/bulk-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerIds, leadIds, subject, body } = req.body;
+      if (!subject || !body) return res.status(400).json({ error: 'subject and body are required' });
+
+      const userId = (req.user as any)?.claims?.sub || req.user?.id;
+      const { sendEmailAsUser, getUserGmailConnection } = await import('./user-gmail-oauth');
+      const { sendEmail } = await import('./gmail-client');
+
+      const userGmailConnection = userId ? await getUserGmailConnection(userId).catch(() => null) : null;
+      const usePersonalGmail = !!(userGmailConnection?.isActive && userGmailConnection.scope?.includes('gmail.send'));
+
+      let sent = 0, failed = 0;
+
+      // Send to customers
+      if (Array.isArray(customerIds) && customerIds.length > 0) {
+        const selectedCustomers = await db.select().from(customers).where(inArray(customers.id, customerIds));
+        for (const c of selectedCustomers) {
+          if (!c.email) { failed++; continue; }
+          try {
+            const name = c.company || [c.firstName, c.lastName].filter(Boolean).join(' ') || '';
+            const personalized = (s: string) => s.replace(/\{\{name\}\}/g, name).replace(/\{\{company\}\}/g, c.company || '');
+            if (usePersonalGmail) await sendEmailAsUser(userGmailConnection, c.email, personalized(subject), personalized(body));
+            else await sendEmail(c.email, personalized(subject), personalized(body));
+            await db.update(customers).set({ lastOutboundEmailAt: new Date(), updatedAt: new Date() }).where(eq(customers.id, c.id));
+            sent++;
+          } catch { failed++; }
+        }
+      }
+
+      // Send to leads
+      if (Array.isArray(leadIds) && leadIds.length > 0) {
+        const { leads } = await import('@shared/schema');
+        const selectedLeads = await db.select().from(leads).where(inArray(leads.id, leadIds));
+        for (const l of selectedLeads) {
+          if (!l.email) { failed++; continue; }
+          try {
+            const personalized = (s: string) => s.replace(/\{\{name\}\}/g, l.name || l.company || '').replace(/\{\{company\}\}/g, l.company || '');
+            if (usePersonalGmail) await sendEmailAsUser(userGmailConnection, l.email, personalized(subject), personalized(body));
+            else await sendEmail(l.email, personalized(subject), personalized(body));
+            await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, l.id));
+            sent++;
+          } catch { failed++; }
+        }
+      }
+
+      res.json({ sent, failed });
+    } catch (error: any) {
+      console.error('[Labels Bulk Email]', error);
+      res.status(500).json({ error: 'Bulk email failed' });
+    }
+  });
+
   app.get("/api/customers/needs-review", isAuthenticated, async (_req, res) => {
     try {
       const thirtyDaysAgo = new Date();
