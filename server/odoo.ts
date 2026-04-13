@@ -1482,10 +1482,12 @@ ${plainTextBody}`;
             }
             if (countryIdForState) {
               const states = await this.getStates(countryIdForState);
-              const state = states.find(s => 
-                s.name.toLowerCase() === String(value).toLowerCase() ||
-                s.code.toLowerCase() === String(value).toLowerCase()
-              );
+              const stateInput = String(value).trim().toLowerCase();
+              const state = states.find(s => {
+                const fullCode = s.code.toLowerCase(); // e.g. "us-ut"
+                const shortCode = fullCode.includes('-') ? fullCode.split('-').slice(1).join('-') : fullCode;
+                return s.name.toLowerCase() === stateInput || fullCode === stateInput || shortCode === stateInput;
+              });
               if (state) {
                 odooValues['state_id'] = state.id;
               }

@@ -142,10 +142,14 @@ async function pushLeadToOdooContact(leadId: number): Promise<{ success: boolean
     const states = await odooClient.getStates(resolvedCountryId);
     const normalize = (s: string) => s.trim().toLowerCase();
     const stateInput = normalize(lead.state);
-    const match = states.find(s =>
-      normalize(s.name) === stateInput || normalize(s.code) === stateInput
-    );
+    const match = states.find(s => {
+      const fullCode = normalize(s.code); // e.g. "us-ut"
+      // Strip country prefix: "us-ut" → "ut", or keep as-is if no dash
+      const shortCode = fullCode.includes('-') ? fullCode.split('-').slice(1).join('-') : fullCode;
+      return normalize(s.name) === stateInput || fullCode === stateInput || shortCode === stateInput;
+    });
     if (match) resolvedStateId = match.id;
+    else console.warn(`[Odoo Push] Could not resolve state "${lead.state}" for country ID ${resolvedCountryId}`);
   }
 
   // Two-phase company sync: check local companies table first, then Odoo
