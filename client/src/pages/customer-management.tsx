@@ -6,6 +6,7 @@ import {
   Search, Building2, X, MapPin, Globe, Phone, Mail,
   Users, TrendingUp, ShoppingCart, DollarSign, ChevronRight,
   User, BarChart3, Filter, Clock, ArrowUpDown, RefreshCw,
+  CheckSquare, Square, Loader2, Pencil,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -361,21 +362,59 @@ function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClo
 
 
 // ─── Business card ─────────────────────────────────────────────────────────────
-function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: () => void }) {
+function CompanyCardItem({
+  company, onClick, selectMode = false, isSelected = false, onToggle,
+}: {
+  company: CompanyCard;
+  onClick: () => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggle?: () => void;
+}) {
   const location = [company.city, company.stateProvince].filter(Boolean).join(', ');
   const hasFinancials = company.lifetimeSales > 0 || company.totalOrders > 0;
 
+  const handleClick = () => {
+    if (selectMode) { onToggle?.(); } else { onClick(); }
+  };
+
   return (
     <button
-      onClick={onClick}
-      className="w-full text-left bg-white rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-4 group"
+      onClick={handleClick}
+      className={`w-full text-left rounded-xl border transition-all p-4 group ${
+        isSelected
+          ? 'bg-indigo-50 border-indigo-300 shadow-sm'
+          : 'bg-white border-gray-100 hover:border-indigo-200 hover:shadow-md'
+      }`}
     >
       <div className="flex items-start gap-3 mb-3">
-        <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-bold group-hover:bg-indigo-200 transition-colors">
-          {initials(company.name)}
-        </div>
+        {selectMode ? (
+          <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
+            {isSelected
+              ? <CheckSquare className="h-5 w-5 text-indigo-600" />
+              : <Square className="h-5 w-5 text-gray-300 group-hover:text-gray-400" />
+            }
+          </div>
+        ) : (
+          <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-bold group-hover:bg-indigo-200 transition-colors">
+            {initials(company.name)}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{company.name}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{company.name}</p>
+            {company.primaryCustomerType && (
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${
+                company.primaryCustomerType === 'reseller'
+                  ? 'bg-blue-100 text-blue-700'
+                  : company.primaryCustomerType === 'printer'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {company.primaryCustomerType}
+              </span>
+            )}
+          </div>
           {location ? (
             <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
               <MapPin className="h-3 w-3 flex-shrink-0" />{location}
@@ -386,7 +425,9 @@ function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: 
             </p>
           ) : null}
         </div>
-        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-400 flex-shrink-0 mt-0.5 transition-colors" />
+        {!selectMode && (
+          <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-400 flex-shrink-0 mt-0.5 transition-colors" />
+        )}
       </div>
 
       {hasFinancials ? (
@@ -426,6 +467,10 @@ function CompanyCardItem({ company, onClick }: { company: CompanyCard; onClick: 
   );
 }
 
+function companyKey(c: { id: number | null; name: string }): string {
+  return c.id !== null ? `id:${c.id}` : `name:${c.name}`;
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 const STRENGTH_ORDER: Record<string, number> = {
   very_strong: 0, strong: 1, moderate: 2, weak: 3, cold: 4,
@@ -451,6 +496,39 @@ export default function CustomerManagement() {
   const debouncedSearch = useDebounce(search, 250);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkType, setBulkType] = useState<string>('');
+
+  const toggleSelect = (key: string) => setSelectedKeys(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const selectAll = () => setSelectedKeys(new Set(companies.map(companyKey)));
+  const clearSelection = () => setSelectedKeys(new Set());
+  const exitSelectMode = () => { setSelectMode(false); clearSelection(); setBulkType(''); };
+
+  const bulkTypeMutation = useMutation({
+    mutationFn: async (customerType: string | null) => {
+      const selected = companies.filter(c => selectedKeys.has(companyKey(c)));
+      const companyIds = selected.filter(c => c.id !== null).map(c => c.id as number);
+      const companyNames = selected.filter(c => c.id === null).map(c => c.name);
+      const res = await apiRequest('POST', '/api/companies/bulk-set-customer-type', {
+        companyIds, companyNames, customerType,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Customer type updated',
+        description: `Updated ${data.updated} contact${data.updated !== 1 ? 's' : ''} across ${selectedKeys.size} compan${selectedKeys.size !== 1 ? 'ies' : 'y'}.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/directory'] });
+      exitSelectMode();
+    },
+    onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
 
   const syncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/odoo/sync-companies').then(r => r.json()),
@@ -632,6 +710,15 @@ export default function CustomerManagement() {
                 {activeFiltersCount}
               </Badge>
             )}
+          </Button>
+          <Button
+            variant={selectMode ? 'secondary' : 'outline'}
+            size="sm"
+            className="gap-2 h-9"
+            onClick={() => { if (selectMode) { exitSelectMode(); } else { setSelectMode(true); } }}
+          >
+            <Pencil className="h-4 w-4" />
+            {selectMode ? 'Cancel' : 'Bulk Edit'}
           </Button>
         </div>
 
@@ -816,20 +903,87 @@ export default function CustomerManagement() {
 
       {/* Cards grid */}
       {!isLoading && companies.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {companies.map((c, i) => (
-            <CompanyCardItem
-              key={`${c.source}-${c.id ?? c.name}-${i}`}
-              company={c}
-              onClick={() => {
-                if (c.id !== null) {
-                  navigate(`/companies/${c.id}`);
-                } else {
-                  navigate(`/companies/name/${encodeURIComponent(c.name)}`);
-                }
-              }}
-            />
-          ))}
+        <>
+          {/* Select-mode helper bar */}
+          {selectMode && (
+            <div className="mb-3 flex items-center gap-3 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+              <span className="text-sm text-indigo-700 font-medium">
+                {selectedKeys.size} of {companies.length} selected
+              </span>
+              <button onClick={selectAll} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline underline-offset-2">
+                Select all {companies.length}
+              </button>
+              {selectedKeys.size > 0 && (
+                <button onClick={clearSelection} className="text-xs text-indigo-500 hover:text-indigo-700">
+                  Deselect all
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 ${selectMode ? 'pb-32' : ''}`}>
+            {companies.map((c, i) => {
+              const key = companyKey(c);
+              return (
+                <CompanyCardItem
+                  key={`${c.source}-${c.id ?? c.name}-${i}`}
+                  company={c}
+                  selectMode={selectMode}
+                  isSelected={selectedKeys.has(key)}
+                  onToggle={() => toggleSelect(key)}
+                  onClick={() => {
+                    if (c.id !== null) {
+                      navigate(`/companies/${c.id}`);
+                    } else {
+                      navigate(`/companies/name/${encodeURIComponent(c.name)}`);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ── Bulk Edit Action Bar ── */}
+      {selectMode && selectedKeys.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-2xl shadow-2xl border border-gray-700">
+          <span className="text-sm font-medium pr-3 border-r border-gray-600">
+            {selectedKeys.size} compan{selectedKeys.size !== 1 ? 'ies' : 'y'} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Set type:</span>
+            <Select
+              value={bulkType}
+              onValueChange={v => setBulkType(v)}
+            >
+              <SelectTrigger className="h-8 w-[140px] bg-gray-800 border-gray-600 text-white text-xs">
+                <SelectValue placeholder="Choose type…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="reseller">Reseller</SelectItem>
+                <SelectItem value="printer">Printer</SelectItem>
+                <SelectItem value="clear">Clear type</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              disabled={!bulkType || bulkTypeMutation.isPending}
+              onClick={() => bulkTypeMutation.mutate(bulkType === 'clear' ? null : bulkType)}
+              className="bg-indigo-600 hover:bg-indigo-700 h-8 text-xs gap-1.5"
+            >
+              {bulkTypeMutation.isPending
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+                : 'Apply'
+              }
+            </Button>
+          </div>
+          <button
+            onClick={exitSelectMode}
+            className="ml-1 text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
     </div>

@@ -862,6 +862,47 @@ export function registerCustomersRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch price list counts" });
     }
   });
+  app.post("/api/companies/bulk-set-customer-type", isAuthenticated, async (req: any, res) => {
+    try {
+      const { companyIds, companyNames, customerType } = req.body as {
+        companyIds?: number[];
+        companyNames?: string[];
+        customerType: string | null;
+      };
+
+      const validTypes = ['reseller', 'printer', null];
+      if (!validTypes.includes(customerType)) {
+        return res.status(400).json({ error: 'customerType must be "reseller", "printer", or null' });
+      }
+
+      let updated = 0;
+
+      if (Array.isArray(companyIds) && companyIds.length > 0) {
+        const result = await db
+          .update(customers)
+          .set({ customerType: customerType ?? null, updatedAt: new Date() })
+          .where(inArray(customers.companyId, companyIds));
+        updated += (result as any).rowCount ?? 0;
+      }
+
+      if (Array.isArray(companyNames) && companyNames.length > 0) {
+        const result = await db
+          .update(customers)
+          .set({ customerType: customerType ?? null, updatedAt: new Date() })
+          .where(and(
+            isNull(customers.companyId),
+            inArray(customers.company, companyNames)
+          ));
+        updated += (result as any).rowCount ?? 0;
+      }
+
+      res.json({ updated });
+    } catch (error: any) {
+      console.error('[Bulk Set Customer Type]', error);
+      res.status(500).json({ error: 'Failed to update customer type' });
+    }
+  });
+
   app.post("/api/labels/bulk-email", isAuthenticated, async (req: any, res) => {
     try {
       const { customerIds, leadIds, subject, body } = req.body;
