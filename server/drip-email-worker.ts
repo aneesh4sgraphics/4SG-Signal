@@ -45,6 +45,7 @@ interface ScheduledEmail {
   recipientCompany: string | null;
   odooPartnerId: number | null;
   isLead: boolean;
+  leadSalesRepName: string | null;
 }
 
 // ─── Drip Sequence Follow-up Scanner ─────────────────────────────────────────
@@ -352,6 +353,7 @@ async function processScheduledEmails() {
           leadFirstName: sql<string>`SPLIT_PART(${leads.name}, ' ', 1)`,
           leadLastName: sql<string>`CASE WHEN POSITION(' ' IN ${leads.name}) > 0 THEN SUBSTRING(${leads.name} FROM POSITION(' ' IN ${leads.name}) + 1) ELSE '' END`,
           leadCompany: leads.company,
+          leadSalesRepName: leads.salesRepName,
         })
         .from(dripCampaignStepStatus)
         .innerJoin(dripCampaignSteps, eq(dripCampaignStepStatus.stepId, dripCampaignSteps.id))
@@ -365,16 +367,50 @@ async function processScheduledEmails() {
       if (emailData.length > 0) {
         const data = emailData[0];
         const isLead = data.leadId !== null;
-        
-        // Look up sender name from users table (keyed by email = campaignCreatedBy)
+
+        // For leads: resolve the sender from the lead's assigned sales rep.
+        // For customers: use the campaign creator.
+        // This ensures emails go out from the rep who owns the lead, not always
+        // from whichever rep happened to create the campaign.
         let senderName = '4S Graphics Team';
-        if (data.campaignCreatedBy) {
-          const [senderUser] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+        let effectiveSenderEmail: string | null = null;
+
+        if (isLead && data.leadSalesRepName) {
+          // Try to resolve the sales rep user: salesRepName may be stored as an email
+          // (e.g. "santiago@4sgraphics.com") or as a display name ("Santiago Castellanos").
+          let repUser: { firstName: string | null; lastName: string | null; email: string } | undefined;
+
+          if (data.leadSalesRepName.includes('@')) {
+            // Direct email lookup
+            const [found] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+              .from(users)
+              .where(eq(users.email, data.leadSalesRepName))
+              .limit(1);
+            repUser = found;
+          } else {
+            // Display-name lookup: match first + last name concatenated
+            const [found] = await db.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+              .from(users)
+              .where(sql`CONCAT(${users.firstName}, ' ', ${users.lastName}) = ${data.leadSalesRepName}`)
+              .limit(1);
+            repUser = found;
+          }
+
+          if (repUser?.email) {
+            senderName = [repUser.firstName, repUser.lastName].filter(Boolean).join(' ') || repUser.email;
+            effectiveSenderEmail = repUser.email;
+          }
+        }
+
+        // Fall back to campaign creator if we couldn't resolve the sales rep
+        if (!effectiveSenderEmail && data.campaignCreatedBy) {
+          effectiveSenderEmail = data.campaignCreatedBy;
+          const [creatorUser] = await db.select({ firstName: users.firstName, lastName: users.lastName })
             .from(users)
             .where(eq(users.email, data.campaignCreatedBy))
             .limit(1);
-          if (senderUser) {
-            senderName = [senderUser.firstName, senderUser.lastName].filter(Boolean).join(' ') || senderName;
+          if (creatorUser) {
+            senderName = [creatorUser.firstName, creatorUser.lastName].filter(Boolean).join(' ') || senderName;
           }
         }
 
@@ -389,7 +425,7 @@ async function processScheduledEmails() {
           body: data.body,
           campaignName: data.campaignName,
           campaignSettings: (data.campaignSettings || {}) as Record<string, any>,
-          campaignCreatedBy: data.campaignCreatedBy ?? null,
+          campaignCreatedBy: effectiveSenderEmail ?? data.campaignCreatedBy ?? null,
           senderName,
           recipientEmail: isLead ? data.leadEmail : data.customerEmail,
           recipientFirstName: isLead ? data.leadFirstName : data.customerFirstName,
@@ -397,6 +433,7 @@ async function processScheduledEmails() {
           recipientCompany: isLead ? data.leadCompany : data.customerCompany,
           odooPartnerId: isLead ? null : data.odooPartnerId,
           isLead,
+          leadSalesRepName: isLead ? (data.leadSalesRepName ?? null) : null,
         };
         
         await sendScheduledEmail(scheduledEmail);
@@ -476,13 +513,14 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       processedBody = processedBody + trackingPixel;
     }
 
-    // Try to send via the campaign creator's personal Gmail first (so email appears in their Sent folder)
+    // Send via the effective sender's personal Gmail (lead's assigned rep first, then campaign creator)
+    // so the email appears in their Sent folder and replies come back to them.
     let result: any;
     let usedPersonalGmail = false;
     if (email.campaignCreatedBy) {
       try {
         const { getUserGmailConnection, sendEmailAsUser } = await import('./user-gmail-oauth');
-        // Look up the creator's internal user ID by email
+        // Look up the effective sender's internal user ID by email
         const [creatorUser] = await db.select({ id: users.id })
           .from(users)
           .where(eq(users.email, email.campaignCreatedBy))
@@ -490,7 +528,7 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         if (creatorUser) {
           const conn = await getUserGmailConnection(creatorUser.id);
           if (conn?.isActive && conn.scope?.includes('gmail.send')) {
-            console.log(`[Drip Worker] Sending via personal Gmail for: ${email.campaignCreatedBy}`);
+            console.log(`[Drip Worker] Sending via personal Gmail for: ${email.campaignCreatedBy} (lead sales rep / campaign creator)`);
             result = await sendEmailAsUser(creatorUser.id, email.recipientEmail!, processedSubject, processedBody, processedBody, email.senderName);
             usedPersonalGmail = true;
           }
