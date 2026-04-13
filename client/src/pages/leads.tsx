@@ -185,6 +185,7 @@ export default function LeadsPage() {
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
   const [hasAddress, setHasAddress] = useState<boolean | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban' | 'funnel'>('cards');
+  const [kanbanSource, setKanbanSource] = useState<'all' | 'odoo' | 'local'>('all');
   const [sortField, setSortField] = useState<'name' | 'company' | 'state' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -389,10 +390,11 @@ export default function LeadsPage() {
       const parts = [];
       parts.push(`${data.imported} new leads imported`);
       if (data.updated > 0) parts.push(`${data.updated} updated`);
+      if (data.deleted > 0) parts.push(`${data.deleted} removed (deleted in Odoo)`);
       if (data.skippedExistingCustomer > 0) parts.push(`${data.skippedExistingCustomer} skipped (already in Contacts)`);
       
       toast({
-        title: 'Import Complete',
+        title: 'Odoo CRM Sync Complete',
         description: parts.join(', ') + '. Sales reps auto-assigned by location.',
       });
     },
@@ -587,13 +589,14 @@ export default function LeadsPage() {
               onClick={() => importMutation.mutate()}
               disabled={importMutation.isPending || convertZeroSpendingMutation.isPending}
               className="gap-2"
+              title="Sync leads from Odoo CRM pipeline. New leads are added, leads deleted in Odoo are removed."
             >
               {importMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <SiOdoo className="w-4 h-4" />
               )}
-              Import from Odoo
+              {importMutation.isPending ? 'Syncing...' : 'Full Sync from Odoo'}
             </Button>
             <Button
               variant="outline"
@@ -1424,9 +1427,37 @@ export default function LeadsPage() {
           </Card>
         ) : viewMode === 'kanban' ? (
           /* Kanban View */
+          <div className="space-y-4">
+            {/* Kanban source tabs */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setKanbanSource('all')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${kanbanSource === 'all' ? 'bg-slate-800 text-white' : 'bg-white/70 text-slate-600 hover:bg-white border border-slate-200'}`}
+              >
+                All Leads
+              </button>
+              <button
+                onClick={() => setKanbanSource('odoo')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${kanbanSource === 'odoo' ? 'bg-purple-700 text-white' : 'bg-white/70 text-purple-700 hover:bg-purple-50 border border-purple-200'}`}
+              >
+                <SiOdoo className="w-3.5 h-3.5" />
+                Odoo Leads
+              </button>
+              <button
+                onClick={() => setKanbanSource('local')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${kanbanSource === 'local' ? 'bg-slate-600 text-white' : 'bg-white/70 text-slate-600 hover:bg-white border border-slate-200'}`}
+              >
+                Local Leads
+              </button>
+            </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {STAGES.filter(s => !['not_a_fit', 'lost'].includes(s.value)).map(stage => {
-              const stageLeads = leads.filter(l => l.stage === stage.value);
+              const stageLeads = leads.filter(l => {
+                if (l.stage !== stage.value) return false;
+                if (kanbanSource === 'odoo') return l.sourceType === 'odoo';
+                if (kanbanSource === 'local') return l.sourceType !== 'odoo';
+                return true;
+              });
               return (
                 <div 
                   key={stage.value} 
@@ -1520,6 +1551,7 @@ export default function LeadsPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         ) : viewMode === 'funnel' ? (
           /* Funnel View */

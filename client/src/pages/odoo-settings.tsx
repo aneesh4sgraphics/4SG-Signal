@@ -25,7 +25,8 @@ import {
   Check,
   X,
   AlertCircle,
-  Upload
+  Upload,
+  Target,
 } from "lucide-react";
 import { 
   Dialog,
@@ -212,6 +213,38 @@ export default function OdooSettingsPage() {
     onError: (error: any) => {
       stopImportProgress(false);
       toast({ title: "Import failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const [leadSyncResult, setLeadSyncResult] = useState<{
+    imported: number;
+    updated: number;
+    deleted: number;
+    skippedExistingCustomer: number;
+  } | null>(null);
+
+  const syncLeadsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/leads/import-from-odoo');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed'); }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
+      setLeadSyncResult({
+        imported: data.imported,
+        updated: data.updated,
+        deleted: data.deleted,
+        skippedExistingCustomer: data.skippedExistingCustomer,
+      });
+      const parts = [`${data.imported} new leads imported`, `${data.updated} updated`];
+      if (data.deleted > 0) parts.push(`${data.deleted} removed (deleted in Odoo)`);
+      if (data.skippedExistingCustomer > 0) parts.push(`${data.skippedExistingCustomer} skipped (already in Contacts)`);
+      toast({ title: 'CRM Leads sync complete', description: parts.join(', ') });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Lead sync failed', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -942,6 +975,58 @@ export default function OdooSettingsPage() {
                         )}
                       </div>
                     )}
+
+                    {/* CRM Leads Sync Section */}
+                    <div className="border-t pt-6 mt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <Target className="h-4 w-4 text-purple-500" />
+                            Sync CRM Leads
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            Import leads from the Odoo CRM pipeline. New leads are added, leads deleted in Odoo are removed here.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => syncLeadsMutation.mutate()}
+                          disabled={syncLeadsMutation.isPending}
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 gap-2 flex-shrink-0"
+                        >
+                          {syncLeadsMutation.isPending
+                            ? <RefreshCw className="h-4 w-4 animate-spin" />
+                            : <RefreshCw className="h-4 w-4" />
+                          }
+                          {syncLeadsMutation.isPending ? 'Syncing Leads...' : 'Sync Leads Now'}
+                        </Button>
+                      </div>
+
+                      {leadSyncResult && (
+                        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 mt-3">
+                          <div className="font-medium text-purple-800 dark:text-purple-200 text-sm mb-2">CRM Lead Sync Complete</div>
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            <div className="p-2 bg-green-100 rounded">
+                              <div className="text-xl font-bold text-green-700">{leadSyncResult.imported}</div>
+                              <div className="text-xs text-green-600">New</div>
+                            </div>
+                            <div className="p-2 bg-blue-100 rounded">
+                              <div className="text-xl font-bold text-blue-700">{leadSyncResult.updated}</div>
+                              <div className="text-xs text-blue-600">Updated</div>
+                            </div>
+                            <div className="p-2 bg-orange-100 rounded">
+                              <div className="text-xl font-bold text-orange-700">{leadSyncResult.deleted}</div>
+                              <div className="text-xs text-orange-600">Removed</div>
+                            </div>
+                            <div className="p-2 bg-slate-100 rounded">
+                              <div className="text-xl font-bold text-slate-700">{leadSyncResult.skippedExistingCustomer}</div>
+                              <div className="text-xs text-slate-600">Skipped</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Sales Rep Sync Section */}
                     <div className="border-t pt-6 mt-6">
