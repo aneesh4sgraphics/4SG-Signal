@@ -71,7 +71,14 @@ import {
   Zap,
   Camera,
   Flame,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -231,6 +238,7 @@ export default function LeadsPage() {
   const [showBulkDrip, setShowBulkDrip] = useState(false);
   const [showBulkEmail, setShowBulkEmail] = useState(false);
   const [selectedBulkDripCampaignId, setSelectedBulkDripCampaignId] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMondayReview, setShowMondayReview] = useState(false);
   const [mondayReviewDismissed, setMondayReviewDismissed] = useState(() => {
     // Only keep the dismissal if it happened during *this* Monday (00:00 onward).
@@ -335,6 +343,28 @@ export default function LeadsPage() {
     },
     onError: (error: Error) => {
       toast({ title: 'Enrollment failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const bulkDeleteLeadsMutation = useMutation({
+    mutationFn: async (leadIds: number[]) => {
+      const res = await apiRequest('POST', '/api/leads/bulk-delete', { leadIds });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Delete failed');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      let desc = `Deleted ${data.deleted} lead${data.deleted !== 1 ? 's' : ''}.`;
+      if (data.skipped_odoo > 0) desc += ` Skipped ${data.skipped_odoo} Odoo-linked.`;
+      toast({ title: 'Leads deleted', description: desc });
+      setSelectedLeads(new Set());
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -1014,6 +1044,19 @@ export default function LeadsPage() {
                       : ''}to Odoo
                   </Button>
                   <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={bulkDeleteLeadsMutation.isPending}
+                    className="gap-2 bg-white border-rose-300 text-rose-700 hover:bg-rose-50"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    {bulkDeleteLeadsMutation.isPending
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Trash2 className="w-4 h-4" />
+                    }
+                    Delete Selected
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1973,6 +2016,34 @@ export default function LeadsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── Delete Leads Confirmation Dialog ── */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-500" />
+              Delete {selectedLeads.size} lead{selectedLeads.size !== 1 ? 's' : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected leads. Leads imported from Odoo will be skipped automatically. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                bulkDeleteLeadsMutation.mutate(Array.from(selectedLeads));
+              }}
+            >
+              Delete leads
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </div>
   );

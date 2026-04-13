@@ -862,6 +862,58 @@ export function registerCustomersRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch price list counts" });
     }
   });
+  app.post("/api/companies/bulk-delete", isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      const { companyIds, companyNames } = req.body as {
+        companyIds?: number[];
+        companyNames?: string[];
+      };
+
+      if ((!companyIds?.length) && (!companyNames?.length)) {
+        return res.status(400).json({ error: 'companyIds or companyNames required' });
+      }
+
+      let deleted = 0;
+      let skipped_odoo = 0;
+      let skipped_shopify = 0;
+
+      // Delete customers belonging to official companies (by companyId)
+      if (Array.isArray(companyIds) && companyIds.length > 0) {
+        const linked = await db
+          .select({ id: customers.id, odooPartnerId: customers.odooPartnerId, sources: customers.sources })
+          .from(customers)
+          .where(inArray(customers.companyId, companyIds));
+
+        for (const c of linked) {
+          if (c.odooPartnerId) { skipped_odoo++; continue; }
+          if ((c.sources as string[] | null)?.includes('shopify')) { skipped_shopify++; continue; }
+          await storage.deleteCustomer(c.id);
+          deleted++;
+        }
+      }
+
+      // Delete customers belonging to orphan companies (by company name, companyId IS NULL)
+      if (Array.isArray(companyNames) && companyNames.length > 0) {
+        const linked = await db
+          .select({ id: customers.id, odooPartnerId: customers.odooPartnerId, sources: customers.sources })
+          .from(customers)
+          .where(and(isNull(customers.companyId), inArray(customers.company, companyNames)));
+
+        for (const c of linked) {
+          if (c.odooPartnerId) { skipped_odoo++; continue; }
+          if ((c.sources as string[] | null)?.includes('shopify')) { skipped_shopify++; continue; }
+          await storage.deleteCustomer(c.id);
+          deleted++;
+        }
+      }
+
+      res.json({ deleted, skipped_odoo, skipped_shopify });
+    } catch (error: any) {
+      console.error('[Companies Bulk Delete]', error);
+      res.status(500).json({ error: 'Bulk delete failed' });
+    }
+  });
+
   app.post("/api/companies/bulk-set-customer-type", isAuthenticated, async (req: any, res) => {
     try {
       const { companyIds, companyNames, customerType } = req.body as {

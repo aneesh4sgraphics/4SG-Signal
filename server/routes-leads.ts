@@ -968,6 +968,40 @@ export function registerLeadsRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to qualify lead" });
     }
   });
+  app.post("/api/leads/bulk-delete", isAuthenticated, requireApproval, async (req: any, res) => {
+    try {
+      const { leadIds } = req.body as { leadIds: number[] };
+      if (!Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ error: 'leadIds array is required' });
+      }
+
+      // Only allow deleting local leads (not imported from Odoo)
+      const leadsToDelete = await db
+        .select({ id: leads.id, name: leads.name, odooLeadId: leads.odooLeadId })
+        .from(leads)
+        .where(inArray(leads.id, leadIds));
+
+      const odooLeads = leadsToDelete.filter(l => l.odooLeadId !== null);
+      const localLeads = leadsToDelete.filter(l => l.odooLeadId === null);
+
+      let deleted = 0;
+      for (const lead of localLeads) {
+        await db.delete(leadActivities).where(eq(leadActivities.leadId, lead.id));
+        await db.delete(leads).where(eq(leads.id, lead.id));
+        deleted++;
+      }
+
+      res.json({
+        deleted,
+        skipped_odoo: odooLeads.length,
+        skipped_odoo_names: odooLeads.map(l => l.name).slice(0, 5),
+      });
+    } catch (error: any) {
+      console.error('[Leads Bulk Delete]', error);
+      res.status(500).json({ error: 'Bulk delete failed' });
+    }
+  });
+
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);

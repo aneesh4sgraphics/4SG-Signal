@@ -6,8 +6,13 @@ import {
   Search, Building2, X, MapPin, Globe, Phone, Mail,
   Users, TrendingUp, ShoppingCart, DollarSign, ChevronRight,
   User, BarChart3, Filter, Clock, ArrowUpDown, RefreshCw,
-  CheckSquare, Square, Loader2, Pencil,
+  CheckSquare, Square, Loader2, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +47,8 @@ interface CompanyCard {
   lastInteractionDate: string | null;
   connectionStrength: ConnectionStrength;
   companyTags: string | null;
+  isOdooLinked: boolean;
+  isShopifyLinked: boolean;
 }
 
 // ─── Connection strength helpers ───────────────────────────────────────────────
@@ -109,6 +116,7 @@ interface Filters {
   tag: string | null;
   customerType: string | null;
   sort: SortOption;
+  localOnly: boolean;
 }
 
 function initials(name: string) {
@@ -414,6 +422,12 @@ function CompanyCardItem({
                 {company.primaryCustomerType}
               </span>
             )}
+            {company.isOdooLinked && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700">Odoo</span>
+            )}
+            {company.isShopifyLinked && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Shopify</span>
+            )}
           </div>
           {location ? (
             <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
@@ -486,6 +500,7 @@ const DEFAULT_FILTERS: Filters = {
   tag: null,
   customerType: null,
   sort: 'name',
+  localOnly: false,
 };
 
 export default function CustomerManagement() {
@@ -499,6 +514,7 @@ export default function CustomerManagement() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkType, setBulkType] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const toggleSelect = (key: string) => setSelectedKeys(prev => {
     const next = new Set(prev);
@@ -528,6 +544,25 @@ export default function CustomerManagement() {
       exitSelectMode();
     },
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async () => {
+      const selected = companies.filter(c => selectedKeys.has(companyKey(c)));
+      const companyIds = selected.filter(c => c.id !== null).map(c => c.id as number);
+      const companyNames = selected.filter(c => c.id === null).map(c => c.name);
+      const res = await apiRequest('POST', '/api/companies/bulk-delete', { companyIds, companyNames });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      let desc = `Deleted ${data.deleted} contact${data.deleted !== 1 ? 's' : ''}.`;
+      if (data.skipped_odoo > 0) desc += ` Skipped ${data.skipped_odoo} Odoo-linked.`;
+      if (data.skipped_shopify > 0) desc += ` Skipped ${data.skipped_shopify} Shopify-linked.`;
+      toast({ title: 'Contacts deleted', description: desc });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/directory'] });
+      exitSelectMode();
+    },
+    onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
   const syncMutation = useMutation({
@@ -585,6 +620,7 @@ export default function CustomerManagement() {
       if (filters.hasContacts === false && c.contactCount > 0) return false;
       if (filters.tag && !c.companyTags?.split(',').map(t => t.trim()).includes(filters.tag)) return false;
       if (filters.customerType && c.primaryCustomerType?.toLowerCase() !== filters.customerType.toLowerCase()) return false;
+      if (filters.localOnly && (c.isOdooLinked || c.isShopifyLinked)) return false;
       return true;
     });
 
@@ -630,6 +666,7 @@ export default function CustomerManagement() {
     filters.hasContacts !== null ? 1 : 0,
     filters.tag !== null ? 1 : 0,
     filters.customerType !== null ? 1 : 0,
+    filters.localOnly ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => setFilters(DEFAULT_FILTERS);
@@ -863,6 +900,17 @@ export default function CustomerManagement() {
                   </Select>
                 )}
 
+                {/* Local only toggle */}
+                <Button
+                  variant={filters.localOnly ? 'default' : 'outline'}
+                  size="sm"
+                  className={`h-9 gap-1.5 text-sm ${filters.localOnly ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600' : 'text-gray-600'}`}
+                  onClick={() => setFilters(f => ({ ...f, localOnly: !f.localOnly }))}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Local only
+                </Button>
+
                 {/* Clear */}
                 {activeFiltersCount > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 h-9">
@@ -978,6 +1026,19 @@ export default function CustomerManagement() {
               }
             </Button>
           </div>
+          <div className="h-4 w-px bg-gray-600" />
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={bulkDeleteMutation.isPending}
+            onClick={() => setShowDeleteConfirm(true)}
+            className="h-8 text-xs gap-1.5 bg-rose-700 hover:bg-rose-600"
+          >
+            {bulkDeleteMutation.isPending
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…</>
+              : <><Trash2 className="h-3.5 w-3.5" /> Delete</>
+            }
+          </Button>
           <button
             onClick={exitSelectMode}
             className="ml-1 text-gray-400 hover:text-white transition-colors"
@@ -986,6 +1047,31 @@ export default function CustomerManagement() {
           </button>
         </div>
       )}
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-500" />
+              Delete {selectedKeys.size} compan{selectedKeys.size !== 1 ? 'ies' : 'y'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all contacts in the selected companies that are <strong>not linked to Odoo or Shopify</strong>. 
+              Contacts linked to Odoo or Shopify will be skipped automatically. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => { setShowDeleteConfirm(false); bulkDeleteMutation.mutate(); }}
+            >
+              Delete contacts
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

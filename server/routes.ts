@@ -11425,6 +11425,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           primarySalesRep: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.salesRepName})`,
           primaryPricingTier: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.pricingTier})`,
           primaryCustomerType: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.customerType})`,
+          isOdooLinked: sql<boolean>`BOOL_OR(${customers.odooPartnerId} IS NOT NULL)`,
+          isShopifyLinked: sql<boolean>`BOOL_OR('shopify' = ANY(${customers.sources}))`,
         })
         .from(customers)
         .where(sql`${customers.companyId} IS NOT NULL`)
@@ -11484,6 +11486,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastInteractionDate: string | null;
         connectionStrength: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
         companyTags: string | null;
+        isOdooLinked: boolean;
+        isShopifyLinked: boolean;
       };
 
       const result: CompanyCard[] = officialRaw.map(c => {
@@ -11513,6 +11517,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
           companyTags: c.companyTags ?? null,
+          isOdooLinked: stats?.isOdooLinked ?? false,
+          isShopifyLinked: stats?.isShopifyLinked ?? false,
         };
       });
 
@@ -11529,6 +11535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           primaryCustomerType: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.customerType})`,
           city: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.city})`,
           province: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.province})`,
+          isOdooLinked: sql<boolean>`BOOL_OR(${customers.odooPartnerId} IS NOT NULL)`,
+          isShopifyLinked: sql<boolean>`BOOL_OR('shopify' = ANY(${customers.sources}))`,
         })
         .from(customers)
         .where(and(
@@ -11601,6 +11609,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
           companyTags: null,
+          isOdooLinked: row.isOdooLinked ?? false,
+          isShopifyLinked: row.isShopifyLinked ?? false,
         });
       }
 
