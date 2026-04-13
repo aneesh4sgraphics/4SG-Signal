@@ -37,6 +37,7 @@ interface CompanyCard {
   totalOrders: number;
   primarySalesRep: string | null;
   primaryPricingTier: string | null;
+  primaryCustomerType: string | null;
   lastInteractionDate: string | null;
   connectionStrength: ConnectionStrength;
   companyTags: string | null;
@@ -105,6 +106,7 @@ interface Filters {
   salesRep: string | null;
   hasContacts: boolean | null;
   tag: string | null;
+  customerType: string | null;
   sort: SortOption;
 }
 
@@ -437,6 +439,7 @@ const DEFAULT_FILTERS: Filters = {
   salesRep: null,
   hasContacts: null,
   tag: null,
+  customerType: null,
   sort: 'name',
 };
 
@@ -503,6 +506,7 @@ export default function CustomerManagement() {
       if (filters.hasContacts === true && c.contactCount === 0) return false;
       if (filters.hasContacts === false && c.contactCount > 0) return false;
       if (filters.tag && !c.companyTags?.split(',').map(t => t.trim()).includes(filters.tag)) return false;
+      if (filters.customerType && c.primaryCustomerType?.toLowerCase() !== filters.customerType.toLowerCase()) return false;
       return true;
     });
 
@@ -547,6 +551,7 @@ export default function CustomerManagement() {
     filters.salesRep !== null ? 1 : 0,
     filters.hasContacts !== null ? 1 : 0,
     filters.tag !== null ? 1 : 0,
+    filters.customerType !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => setFilters(DEFAULT_FILTERS);
@@ -735,6 +740,21 @@ export default function CustomerManagement() {
                     <SelectItem value="all">Any Contacts</SelectItem>
                     <SelectItem value="yes">Has Contacts</SelectItem>
                     <SelectItem value="no">No Contacts</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Customer Type */}
+                <Select
+                  value={filters.customerType || 'all'}
+                  onValueChange={v => setFilters(f => ({ ...f, customerType: v === 'all' ? null : v }))}
+                >
+                  <SelectTrigger className="w-[155px] h-9 bg-white text-sm">
+                    <SelectValue placeholder="Customer Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="reseller">Reseller</SelectItem>
+                    <SelectItem value="printer">Printer</SelectItem>
                   </SelectContent>
                 </Select>
 

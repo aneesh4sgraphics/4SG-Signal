@@ -11424,6 +11424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: sql<number>`COALESCE(SUM(${customers.totalOrders}), 0)`,
           primarySalesRep: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.salesRepName})`,
           primaryPricingTier: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.pricingTier})`,
+          primaryCustomerType: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.customerType})`,
         })
         .from(customers)
         .where(sql`${customers.companyId} IS NOT NULL`)
@@ -11479,6 +11480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalOrders: number;
         primarySalesRep: string | null;
         primaryPricingTier: string | null;
+        primaryCustomerType: string | null;
         lastInteractionDate: string | null;
         connectionStrength: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
         companyTags: string | null;
@@ -11507,6 +11509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: Number(stats?.totalOrders ?? 0),
           primarySalesRep: stats?.primarySalesRep ?? null,
           primaryPricingTier: stats?.primaryPricingTier ?? null,
+          primaryCustomerType: stats?.primaryCustomerType ?? null,
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
           companyTags: c.companyTags ?? null,
@@ -11523,6 +11526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: sql<number>`COALESCE(SUM(${customers.totalOrders}), 0)`,
           primarySalesRep: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.salesRepName})`,
           primaryPricingTier: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.pricingTier})`,
+          primaryCustomerType: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.customerType})`,
           city: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.city})`,
           province: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.province})`,
         })
@@ -11593,6 +11597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: Number(row.totalOrders),
           primarySalesRep: row.primarySalesRep ?? null,
           primaryPricingTier: row.primaryPricingTier ?? null,
+          primaryCustomerType: row.primaryCustomerType ?? null,
           lastInteractionDate: lastDate?.toISOString() ?? null,
           connectionStrength: calcConnectionStrength(lastDate),
           companyTags: null,
