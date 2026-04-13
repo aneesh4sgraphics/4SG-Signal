@@ -2254,8 +2254,13 @@ export default function OdooContacts() {
               <div className="space-y-2 py-2">
                 {reviewData.customers.map((c) => {
                   const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
-                  const daysSince = c.lastOutboundEmailAt
-                    ? Math.floor((Date.now() - new Date(c.lastOutboundEmailAt).getTime()) / (1000 * 60 * 60 * 24))
+                  // Use lastOutboundEmailAt if available; fall back to updatedAt for buyers
+                  const contactDate = c.lastOutboundEmailAt
+                    ? new Date(c.lastOutboundEmailAt)
+                    : (c.totalOrders > 0 && c.updatedAt ? new Date(c.updatedAt) : null);
+                  const isEmailTracked = !!c.lastOutboundEmailAt;
+                  const daysSince = contactDate
+                    ? Math.floor((Date.now() - contactDate.getTime()) / (1000 * 60 * 60 * 24))
                     : null;
                   const urgency = daysSince === null ? 'never'
                     : daysSince > 90 ? 'critical'
@@ -2296,7 +2301,11 @@ export default function OdooContacts() {
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="flex items-center gap-1 text-xs font-medium">
                           <Clock className="w-3.5 h-3.5" />
-                          {daysSince === null ? 'Never contacted' : `${daysSince}d ago`}
+                          {daysSince === null
+                            ? 'Never contacted'
+                            : !isEmailTracked && c.totalOrders > 0
+                              ? `Active buyer · ${daysSince}d`
+                              : `${daysSince}d ago`}
                         </span>
                         <Link href={`/odoo-contacts/${c.id}`}>
                           <Button size="sm" variant="outline" className="h-7 px-2 text-xs"

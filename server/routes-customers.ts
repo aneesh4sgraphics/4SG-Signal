@@ -894,6 +894,14 @@ export function registerCustomersRoutes(app: Express): void {
             or(
               isNull(customers.lastOutboundEmailAt),
               lte(customers.lastOutboundEmailAt, thirtyDaysAgo)
+            ),
+            // Exclude active buyers whose records were recently updated (via Odoo sync etc.)
+            // — if they have orders AND their record was touched in the last 30 days, they are
+            // still in active contact even if no email was sent through this system.
+            or(
+              isNull(customers.totalOrders),
+              eq(customers.totalOrders, 0),
+              lte(customers.updatedAt, thirtyDaysAgo)
             )
           )
         )
