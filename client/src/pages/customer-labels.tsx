@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Search, Printer, Plus, Check, Building2, Zap, MapPin, X, ChevronDown, ChevronUp,
   SlidersHorizontal, Flame, Home, Users, Layers, Star, Tag, Clock,
-  Mail, Droplets, CheckSquare, Square, Send, Loader2,
+  Mail, Droplets, CheckSquare, Square, Send, Loader2, PackagePlus,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -139,7 +139,8 @@ export default function CustomerLabels() {
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
   const debouncedSearch = useDebounce(search, 300);
-  const { queue, addToQueue, isInQueue, openPrintDialog } = useLabelQueue();
+  const { queue, addToQueue, addBulkToQueueAndOpen, isInQueue, openPrintDialog } = useLabelQueue();
+  const [bulkQueuePending, setBulkQueuePending] = useState(false);
 
   const hasStateFilter = !!selectedState;
   const hasCityFilter = !!selectedCity;
@@ -273,6 +274,26 @@ export default function CustomerLabels() {
   };
 
   const clearSelection = () => setSelectedIds(new Set());
+
+  const handleAddSelectedToQueue = async () => {
+    setBulkQueuePending(true);
+    try {
+      const items: { customer: CustomerAddress; leadId?: number }[] = [];
+      for (const id of selectedIds) {
+        if (id.startsWith('c-')) {
+          const c = customers.find(x => x.id === id.slice(2));
+          if (c) items.push({ customer: customerToAddress(c) });
+        } else if (id.startsWith('l-')) {
+          const leadId = parseInt(id.slice(2));
+          const l = leads.find(x => x.id === leadId);
+          if (l) items.push({ customer: leadToAddress(l), leadId });
+        }
+      }
+      await addBulkToQueueAndOpen(items);
+    } finally {
+      setBulkQueuePending(false);
+    }
+  };
 
   const clearAllFilters = () => {
     setSelectedState('');
@@ -853,6 +874,18 @@ export default function CustomerLabels() {
           <span className="text-sm font-medium pr-2 border-r border-gray-600">
             {totalSelected} selected
           </span>
+          <Button
+            size="sm"
+            onClick={handleAddSelectedToQueue}
+            disabled={bulkQueuePending}
+            className="bg-green-600 hover:bg-green-700 h-8 gap-1.5 text-xs"
+          >
+            {bulkQueuePending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <PackagePlus className="h-3.5 w-3.5" />
+            }
+            Add to Print Queue
+          </Button>
           <Button
             size="sm"
             onClick={() => setComposeOpen(true)}
