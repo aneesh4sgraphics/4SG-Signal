@@ -102,6 +102,8 @@ interface Customer {
   salesRepName: string | null;
   note: string | null;
   isCompany: boolean;
+  odooPartnerId: number | null;
+  sources: string[] | null;
 }
 
 type SortOption = 'name' | 'strength_desc' | 'strength_asc' | 'last_contacted_desc' | 'last_contacted_asc';
@@ -150,6 +152,9 @@ function TierBadge({ tier }: { tier: string | null }) {
 
 // ─── Contacts panel ────────────────────────────────────────────────────────────
 function CompanyContacts({ company }: { company: CompanyCard }) {
+  const { toast } = useToast();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const queryKey = company.id
     ? ['/api/companies', company.id, 'contacts']
     : ['/api/companies/by-name/contacts', company.name];
@@ -163,6 +168,27 @@ function CompanyContacts({ company }: { company: CompanyCard }) {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load contacts');
       return res.json();
+    },
+  });
+
+  const deleteContactMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('DELETE', `/api/customers/${id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Delete failed');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Contact deleted' });
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['/api/companies/directory'] });
+      setPendingDeleteId(null);
+    },
+    onError: (e: Error) => {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+      setPendingDeleteId(null);
     },
   });
 
@@ -182,68 +208,107 @@ function CompanyContacts({ company }: { company: CompanyCard }) {
   }
 
   return (
-    <div className="space-y-2">
-      {contacts.map(c => {
-        const name = c.isCompany
-          ? c.company || c.firstName || 'Unknown'
-          : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
-        const spent = parseFloat(c.totalSpent || '0');
-        const location = [c.city, c.province].filter(Boolean).join(', ');
-        return (
-          <div key={c.id} className="rounded-lg border border-gray-100 p-3 bg-gray-50 hover:bg-white transition-colors">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
-                {initials(name)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
-                  {c.role && <span className="text-[11px] text-gray-400">{c.role}</span>}
-                  <TierBadge tier={c.pricingTier} />
+    <>
+      <div className="space-y-2">
+        {contacts.map(c => {
+          const name = c.isCompany
+            ? c.company || c.firstName || 'Unknown'
+            : [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+          const spent = parseFloat(c.totalSpent || '0');
+          const location = [c.city, c.province].filter(Boolean).join(', ');
+          const isOdooContact = c.id.toString().startsWith('odoo_') || !!c.odooPartnerId;
+          const isShopifyContact = c.sources?.includes('shopify') ?? false;
+          const canDelete = !isOdooContact && !isShopifyContact;
+          return (
+            <div key={c.id} className="rounded-lg border border-gray-100 p-3 bg-gray-50 hover:bg-white transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-semibold">
+                  {initials(name)}
                 </div>
-                <div className="mt-1 space-y-0.5">
-                  {c.email && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                      <Mail className="h-3 w-3 flex-shrink-0 text-gray-400" />
-                      <a href={`mailto:${c.email}`} className="hover:text-indigo-600 truncate">{c.email}</a>
-                    </p>
-                  )}
-                  {(c.phone || c.cell) && (
-                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                      <Phone className="h-3 w-3 flex-shrink-0 text-gray-400" />
-                      {c.phone || c.cell}
-                    </p>
-                  )}
-                  {location && (
-                    <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                      <MapPin className="h-3 w-3 flex-shrink-0" />
-                      {location}
-                    </p>
-                  )}
-                </div>
-                {(spent > 0 || (c.totalOrders ?? 0) > 0) && (
-                  <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-gray-100">
-                    {spent > 0 && (
-                      <span className="text-[11px] text-gray-500">
-                        <span className="font-medium text-gray-700">{fmt$(spent)}</span> spent
-                      </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+                    {c.role && <span className="text-[11px] text-gray-400">{c.role}</span>}
+                    <TierBadge tier={c.pricingTier} />
+                    {isOdooContact && <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-medium">Odoo</span>}
+                    {isShopifyContact && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">Shopify</span>}
+                  </div>
+                  <div className="mt-1 space-y-0.5">
+                    {c.email && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <Mail className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                        <a href={`mailto:${c.email}`} className="hover:text-indigo-600 truncate">{c.email}</a>
+                      </p>
                     )}
-                    {(c.totalOrders ?? 0) > 0 && (
-                      <span className="text-[11px] text-gray-500">
-                        <span className="font-medium text-gray-700">{c.totalOrders}</span> orders
-                      </span>
+                    {(c.phone || c.cell) && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <Phone className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                        {c.phone || c.cell}
+                      </p>
                     )}
-                    {c.salesRepName && (
-                      <span className="text-[11px] text-gray-400">via {c.salesRepName}</span>
+                    {location && (
+                      <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        {location}
+                      </p>
                     )}
                   </div>
+                  {(spent > 0 || (c.totalOrders ?? 0) > 0) && (
+                    <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-gray-100">
+                      {spent > 0 && (
+                        <span className="text-[11px] text-gray-500">
+                          <span className="font-medium text-gray-700">{fmt$(spent)}</span> spent
+                        </span>
+                      )}
+                      {(c.totalOrders ?? 0) > 0 && (
+                        <span className="text-[11px] text-gray-500">
+                          <span className="font-medium text-gray-700">{c.totalOrders}</span> orders
+                        </span>
+                      )}
+                      {c.salesRepName && (
+                        <span className="text-[11px] text-gray-400">via {c.salesRepName}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {canDelete && (
+                  <button
+                    onClick={() => setPendingDeleteId(c.id)}
+                    className="flex-shrink-0 p-1.5 rounded-md text-gray-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                    title="Delete contact"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={open => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-500" />
+              Delete this contact?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the contact. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => pendingDeleteId && deleteContactMutation.mutate(pendingDeleteId)}
+            >
+              {deleteContactMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -514,7 +579,6 @@ export default function CustomerManagement() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkType, setBulkType] = useState<string>('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const toggleSelect = (key: string) => setSelectedKeys(prev => {
     const next = new Set(prev);
@@ -544,25 +608,6 @@ export default function CustomerManagement() {
       exitSelectMode();
     },
     onError: () => toast({ title: 'Update failed', variant: 'destructive' }),
-  });
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async () => {
-      const selected = companies.filter(c => selectedKeys.has(companyKey(c)));
-      const companyIds = selected.filter(c => c.id !== null).map(c => c.id as number);
-      const companyNames = selected.filter(c => c.id === null).map(c => c.name);
-      const res = await apiRequest('POST', '/api/companies/bulk-delete', { companyIds, companyNames });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      let desc = `Deleted ${data.deleted} contact${data.deleted !== 1 ? 's' : ''}.`;
-      if (data.skipped_odoo > 0) desc += ` Skipped ${data.skipped_odoo} Odoo-linked.`;
-      if (data.skipped_shopify > 0) desc += ` Skipped ${data.skipped_shopify} Shopify-linked.`;
-      toast({ title: 'Contacts deleted', description: desc });
-      queryClient.invalidateQueries({ queryKey: ['/api/companies/directory'] });
-      exitSelectMode();
-    },
-    onError: () => toast({ title: 'Delete failed', variant: 'destructive' }),
   });
 
   const syncMutation = useMutation({
@@ -1026,19 +1071,6 @@ export default function CustomerManagement() {
               }
             </Button>
           </div>
-          <div className="h-4 w-px bg-gray-600" />
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={bulkDeleteMutation.isPending}
-            onClick={() => setShowDeleteConfirm(true)}
-            className="h-8 text-xs gap-1.5 bg-rose-700 hover:bg-rose-600"
-          >
-            {bulkDeleteMutation.isPending
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…</>
-              : <><Trash2 className="h-3.5 w-3.5" /> Delete</>
-            }
-          </Button>
           <button
             onClick={exitSelectMode}
             className="ml-1 text-gray-400 hover:text-white transition-colors"
@@ -1048,30 +1080,6 @@ export default function CustomerManagement() {
         </div>
       )}
 
-      {/* ── Delete Confirmation Dialog ── */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-rose-500" />
-              Delete {selectedKeys.size} compan{selectedKeys.size !== 1 ? 'ies' : 'y'}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete all contacts in the selected companies that are <strong>not linked to Odoo or Shopify</strong>. 
-              Contacts linked to Odoo or Shopify will be skipped automatically. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-              onClick={() => { setShowDeleteConfirm(false); bulkDeleteMutation.mutate(); }}
-            >
-              Delete contacts
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

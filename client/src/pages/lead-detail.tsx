@@ -28,7 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
-  UserCheck, ChevronDown, ChevronUp, Flame,
+  UserCheck, ChevronDown, ChevronUp, Flame, Trash2,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -218,6 +218,7 @@ export default function LeadDetail() {
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [showDripEnroll, setShowDripEnroll] = useState(false);
   const [showPushConfirm, setShowPushConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [selectedDripCampaignId, setSelectedDripCampaignId] = useState<string>("");
   const [dripToCancelId, setDripToCancelId] = useState<number | null>(null);
@@ -373,6 +374,21 @@ export default function LeadDetail() {
       }
     },
     onError: (e: Error) => toast({ title: "Push to Odoo failed", description: e.message || "Could not connect to Odoo. The lead has not been deleted — please try again.", variant: "destructive" }),
+  });
+
+  const deleteLeadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/leads/${leadId}`);
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Delete failed"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Lead deleted" });
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClientInstance.invalidateQueries({ queryKey: ["/api/leads/stats"] });
+      setLocation("/leads");
+    },
+    onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
   });
 
   const enrollDripMutation = useMutation({
@@ -635,6 +651,22 @@ export default function LeadDetail() {
               >
                 <UserCheck className="h-3.5 w-3.5 mr-1" /> Convert to Customer
               </Button>
+
+              {!lead.odooLeadId && lead.sourceType !== 'shopify' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs border-rose-200 text-rose-600 hover:bg-rose-50"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleteLeadMutation.isPending}
+                >
+                  {deleteLeadMutation.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  }
+                  Delete
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1569,6 +1601,29 @@ export default function LeadDetail() {
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               Yes, push to Odoo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-500" />
+              Delete this lead?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{lead?.name}</strong> from your leads. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setShowDeleteConfirm(false); deleteLeadMutation.mutate(); }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Delete lead
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
