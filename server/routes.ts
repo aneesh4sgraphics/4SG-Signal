@@ -21266,6 +21266,7 @@ Analyze this bounced email and provide insights in JSON format:
               isNotNull(leads.firstEmailReplyAt),
               eq(leads.salesKanbanStage, 'replied')
             ),
+            ne(leads.salesKanbanStage, 'removed'),
             leadRepCond,
           )
         )
@@ -21315,7 +21316,7 @@ Analyze this bounced email and provide insights in JSON format:
             WHERE LOWER(TRIM(es.recipient_email)) = LOWER(TRIM(c.email))
               AND es.sent_at > gm.sent_at
           )
-          AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost'))
+          AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
           ${repSqlFrag}
         ORDER BY c.id, gm.sent_at DESC
         LIMIT 50
@@ -21341,6 +21342,7 @@ Analyze this bounced email and provide insights in JSON format:
               isNotNull(leads.sampleSentAt),
               eq(leads.salesKanbanStage, 'samples_requested')
             ),
+            ne(leads.salesKanbanStage, 'removed'),
             leadRepCond,
           )
         )
@@ -21378,6 +21380,7 @@ Analyze this bounced email and provide insights in JSON format:
           AND sft.reply_received = false
           AND sft.dismissed_at IS NULL
           AND sft.sent_at >= NOW() - INTERVAL '90 days'
+          AND (c.id IS NULL OR c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
           ${repShipSqlFrag}
         ORDER BY COALESCE(c.id::text, sft.recipient_email), sft.sent_at DESC
         LIMIT 100
@@ -21414,6 +21417,7 @@ Analyze this bounced email and provide insights in JSON format:
               ),
               eq(leads.salesKanbanStage, 'no_response')
             ),
+            ne(leads.salesKanbanStage, 'removed'),
             noFutureLeadTask,
             leadRepCond,
           )

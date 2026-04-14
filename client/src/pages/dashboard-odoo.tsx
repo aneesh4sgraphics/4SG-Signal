@@ -726,7 +726,7 @@ export default function Dashboard() {
                   { stage: 'samples_requested', label: 'Samples Requested', color: '#2563EB', bg: '#DBEAFE' },
                   { stage: 'no_response', label: 'No Response', color: '#D97706', bg: '#FEF9C3' },
                   { stage: 'issue', label: 'Issue', color: '#DC2626', bg: '#FEE2E2' },
-                  { stage: null, label: 'Remove from board', color: '#8A8A8A', bg: '#F4F3F0' },
+                  { stage: 'removed', label: 'Remove from board', color: '#8A8A8A', bg: '#F4F3F0' },
                 ].map(opt => (
                   <button
                     key={opt.stage || 'remove'}
