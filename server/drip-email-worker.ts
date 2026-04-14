@@ -468,14 +468,23 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 
     // Append sender signature if the campaign has it enabled
     if (email.campaignSettings.includeSenderSignature) {
-      // Use campaign creator's email for signature lookup
+      // Look up by user ID (email_signatures.user_id stores auth user ID, not email)
       const senderEmail = email.campaignCreatedBy;
       if (senderEmail) {
-        const userSig = await storage.getEmailSignature(senderEmail);
-        if (userSig?.signatureHtml) {
-          processedBody = processedBody + '<br><br>--<br>' + userSig.signatureHtml;
+        const [sigUser] = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, senderEmail))
+          .limit(1);
+        if (sigUser) {
+          const userSig = await storage.getEmailSignature(sigUser.id);
+          if (userSig?.signatureHtml) {
+            processedBody = processedBody + '<br><br>--<br>' + userSig.signatureHtml;
+            console.log(`[Drip Signature] Appended signature for user: ${senderEmail}`);
+          } else {
+            console.log(`[Drip Signature] No signature found for user ID: ${sigUser.id} (${senderEmail})`);
+          }
         } else {
-          console.log(`[Drip Signature] No signature found for sender: ${senderEmail}`);
+          console.log(`[Drip Signature] No user record found for email: ${senderEmail}`);
         }
       }
     }
@@ -543,7 +552,9 @@ async function sendScheduledEmail(email: ScheduledEmail) {
         email.recipientEmail!,
         processedSubject,
         processedBody,
-        processedBody
+        processedBody,
+        email.senderName || undefined,
+        email.campaignCreatedBy || undefined
       );
     }
 

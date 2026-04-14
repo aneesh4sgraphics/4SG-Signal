@@ -68,7 +68,7 @@ export function getSenderEmailFromConnection(): string {
   return email;
 }
 
-export async function sendEmail(to: string, subject: string, body: string, htmlBody?: string, fromName?: string) {
+export async function sendEmail(to: string, subject: string, body: string, htmlBody?: string, fromName?: string, replyTo?: string) {
   const gmail = await getGmailClient();
   
   // Get sender's email from connection settings (gmail.readonly scope not available)
@@ -92,8 +92,9 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   emailLines.push(`Subject: ${subject}`);
   emailLines.push(`Date: ${dateStr}`);
   emailLines.push(`Message-ID: ${messageId}`);
-  if (senderEmail) {
-    emailLines.push(`Reply-To: ${senderEmail}`);
+  const effectiveReplyTo = replyTo || senderEmail;
+  if (effectiveReplyTo) {
+    emailLines.push(`Reply-To: ${effectiveReplyTo}`);
   }
   emailLines.push('MIME-Version: 1.0');
   emailLines.push('Content-Type: text/html; charset=utf-8');
