@@ -50,10 +50,20 @@ const US_STATE_ABBR_TO_NAME: Record<string, string> = {
   WY:'Wyoming', PR:'Puerto Rico', VI:'Virgin Islands',
 };
 
+const CA_PROVINCE_ABBR_TO_NAME: Record<string, string> = {
+  AB:'Alberta', BC:'British Columbia', MB:'Manitoba', NB:'New Brunswick',
+  NL:'Newfoundland and Labrador', NS:'Nova Scotia', NT:'Northwest Territories',
+  NU:'Nunavut', ON:'Ontario', PE:'Prince Edward Island', QC:'Quebec',
+  SK:'Saskatchewan', YT:'Yukon',
+};
+
 function stateFilterVariants(canonical: string): string[] {
-  const abbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === canonical.toLowerCase())?.[0];
-  const variants = new Set<string>([canonical, `${canonical} (US)`, `${canonical} (CA)`]);
-  if (abbr) { variants.add(abbr); variants.add(`${abbr} `); variants.add(`${abbr} (US)`); }
+  const stripped = canonical.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+  const usAbbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+  const caAbbr = Object.entries(CA_PROVINCE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+  const variants = new Set<string>([canonical, stripped, `${stripped} (US)`, `${stripped} (CA)`]);
+  if (usAbbr) { variants.add(usAbbr); variants.add(`${usAbbr} `); variants.add(`${usAbbr} (US)`); }
+  if (caAbbr) { variants.add(caAbbr); variants.add(`${caAbbr} `); variants.add(`${caAbbr} (CA)`); }
   return Array.from(variants);
 }
 
