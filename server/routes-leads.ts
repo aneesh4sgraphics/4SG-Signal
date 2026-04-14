@@ -337,13 +337,42 @@ export function registerLeadsRoutes(app: Express): void {
   });
   app.get("/api/leads/states", isAuthenticated, async (_req: any, res) => {
     try {
+      const STATE_ABBR: Record<string, string> = {
+        AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+        CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',
+        FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',
+        IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',
+        ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',
+        MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',
+        NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',
+        NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',
+        OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+        SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',
+        VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',
+        WY:'Wyoming',PR:'Puerto Rico',VI:'Virgin Islands',
+      };
+      const normalize = (raw: string): string => {
+        const s = raw.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+        return STATE_ABBR[s.toUpperCase()] || (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/(?<=\s)\w/g, c => c.toUpperCase()));
+      };
+
       const rows = await db
         .select({ state: leads.state })
         .from(leads)
-        .where(sql`${leads.state} IS NOT NULL AND TRIM(${leads.state}) != '' AND ${leads.stage} != 'converted'`)
-        .groupBy(leads.state)
-        .orderBy(leads.state);
-      res.json(rows.map(r => r.state).filter(Boolean));
+        .where(sql`${leads.state} IS NOT NULL AND TRIM(${leads.state}) != '' AND ${leads.stage} != 'converted'`);
+
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const row of rows) {
+        if (!row.state) continue;
+        const canonical = normalize(row.state);
+        if (!seen.has(canonical.toLowerCase())) {
+          seen.add(canonical.toLowerCase());
+          result.push(canonical);
+        }
+      }
+      result.sort();
+      res.json(result);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch lead states' });
     }
