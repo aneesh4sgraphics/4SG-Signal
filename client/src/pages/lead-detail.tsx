@@ -28,7 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
-  UserCheck, ChevronDown, ChevronUp, Flame, Trash2, Tag,
+  UserCheck, ChevronDown, ChevronUp, Flame, Trash2, Tag, ExternalLink,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -230,6 +230,12 @@ export default function LeadDetail() {
     staleTime: 60 * 1000,
   });
   const conflictEmailSet = new Set<string>(conflictEmailsData?.emails ?? []);
+
+  const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({
+    queryKey: ['/api/odoo/base-url'],
+    staleTime: 60 * 60 * 1000,
+  });
+  const odooBaseUrl = odooBaseUrlData?.baseUrl || '';
 
   const { data: lead, isLoading } = useQuery<Lead>({
     queryKey: ["/api/leads", leadId],
@@ -630,10 +636,19 @@ export default function LeadDetail() {
                 </Button>
               )}
 
-              {lead.odooPartnerId ? (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-200 bg-green-50 text-green-700 text-xs font-medium">
-                  <CheckCircle className="h-3.5 w-3.5" /> In Odoo
-                </span>
+              {(lead.odooLeadId || lead.odooPartnerId) ? (
+                <a
+                  href={
+                    lead.odooPartnerId
+                      ? `${odooBaseUrl}/web#model=res.partner&id=${lead.odooPartnerId}&view_type=form`
+                      : `${odooBaseUrl}/web#model=crm.lead&id=${lead.odooLeadId}&view_type=form`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-violet-200 bg-violet-50 text-violet-700 text-xs font-medium hover:bg-violet-100 transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Go to Odoo
+                </a>
               ) : (
                 <Button
                   variant="outline" size="sm" className="h-8 text-xs border-violet-200 text-violet-700 hover:bg-violet-50"
@@ -652,7 +667,7 @@ export default function LeadDetail() {
                 <UserCheck className="h-3.5 w-3.5 mr-1" /> Convert to Customer
               </Button>
 
-              {lead.sourceType !== 'shopify' && (
+              {!lead.odooLeadId && !lead.odooPartnerId && (
                 <Button
                   variant="outline"
                   size="sm"
