@@ -40,10 +40,28 @@ const US_STATE_ABBR_TO_NAME: Record<string, string> = {
   WY:'Wyoming', PR:'Puerto Rico', VI:'Virgin Islands',
 };
 
+const CA_PROVINCE_ABBR_TO_NAME: Record<string, string> = {
+  AB:'Alberta', BC:'British Columbia', MB:'Manitoba', NB:'New Brunswick',
+  NL:'Newfoundland and Labrador', NS:'Nova Scotia', NT:'Northwest Territories',
+  NU:'Nunavut', ON:'Ontario', PE:'Prince Edward Island', QC:'Quebec',
+  SK:'Saskatchewan', YT:'Yukon',
+};
+
+const US_NAMES = new Set(Object.values(US_STATE_ABBR_TO_NAME).map(n => n.toLowerCase()));
+const CA_NAMES = new Set(Object.values(CA_PROVINCE_ABBR_TO_NAME).map(n => n.toLowerCase()));
+
+function stripCountrySuffix(s: string): string {
+  return s.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+}
+
 function stateFilterVariants(canonical: string): string[] {
-  const abbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === canonical.toLowerCase())?.[0];
-  const variants = new Set<string>([canonical, `${canonical} (US)`, `${canonical} (CA)`]);
-  if (abbr) { variants.add(abbr); variants.add(`${abbr} `); variants.add(`${abbr} (US)`); }
+  // Strip any country suffix so "Alabama (US)" → "Alabama" before lookup
+  const stripped = stripCountrySuffix(canonical);
+  const usAbbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+  const caAbbr = Object.entries(CA_PROVINCE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+  const variants = new Set<string>([canonical, stripped, `${stripped} (US)`, `${stripped} (CA)`]);
+  if (usAbbr) { variants.add(usAbbr); variants.add(`${usAbbr} `); variants.add(`${usAbbr} (US)`); }
+  if (caAbbr) { variants.add(caAbbr); variants.add(`${caAbbr} `); variants.add(`${caAbbr} (CA)`); }
   return Array.from(variants);
 }
 
@@ -337,23 +355,17 @@ export function registerLeadsRoutes(app: Express): void {
   });
   app.get("/api/leads/states", isAuthenticated, async (_req: any, res) => {
     try {
-      const STATE_ABBR: Record<string, string> = {
-        AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
-        CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',
-        FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',
-        IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',
-        ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',
-        MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',
-        NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',
-        NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',
-        OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
-        SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',
-        VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',
-        WY:'Wyoming',PR:'Puerto Rico',VI:'Virgin Islands',
-      };
       const normalize = (raw: string): string => {
-        const s = raw.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
-        return STATE_ABBR[s.toUpperCase()] || (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/(?<=\s)\w/g, c => c.toUpperCase()));
+        const s = stripCountrySuffix(raw);
+        // Expand abbreviation → full name
+        const full = US_STATE_ABBR_TO_NAME[s.toUpperCase()] ||
+                     CA_PROVINCE_ABBR_TO_NAME[s.toUpperCase()] ||
+                     (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/(?<=\s)\w/g, c => c.toUpperCase()));
+        // Append country suffix
+        const lower = full.toLowerCase();
+        if (US_NAMES.has(lower)) return `${full} (US)`;
+        if (CA_NAMES.has(lower)) return `${full} (CA)`;
+        return full;
       };
 
       const rows = await db

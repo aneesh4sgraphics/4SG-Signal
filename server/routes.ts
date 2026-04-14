@@ -11155,17 +11155,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     WY:'Wyoming', PR:'Puerto Rico', VI:'Virgin Islands',
   };
 
-  // Normalize a raw DB state value → canonical name ("FL " / "Florida (US)" → "Florida")
+  const CA_PROVINCE_ABBR_TO_NAME: Record<string, string> = {
+    AB:'Alberta', BC:'British Columbia', MB:'Manitoba', NB:'New Brunswick',
+    NL:'Newfoundland and Labrador', NS:'Nova Scotia', NT:'Northwest Territories',
+    NU:'Nunavut', ON:'Ontario', PE:'Prince Edward Island', QC:'Quebec',
+    SK:'Saskatchewan', YT:'Yukon',
+  };
+
+  const US_STATE_NAMES = new Set(Object.values(US_STATE_ABBR_TO_NAME).map(n => n.toLowerCase()));
+  const CA_PROVINCE_NAMES = new Set(Object.values(CA_PROVINCE_ABBR_TO_NAME).map(n => n.toLowerCase()));
+
+  function stripCountrySuffix(s: string): string {
+    return s.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+  }
+
+  // Normalize a raw DB state value → display name with country suffix
+  // "FL " → "Florida (US)", "Florida (US)" → "Florida (US)", "Alberta" → "Alberta (CA)"
   function normalizeStateName(raw: string): string {
-    const s = raw.trim().replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
-    return US_STATE_ABBR_TO_NAME[s.toUpperCase()] || (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/(?<=\s)\w/g, c => c.toUpperCase()));
+    const s = stripCountrySuffix(raw);
+    const full = US_STATE_ABBR_TO_NAME[s.toUpperCase()] ||
+                 CA_PROVINCE_ABBR_TO_NAME[s.toUpperCase()] ||
+                 (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace(/(?<=\s)\w/g, c => c.toUpperCase()));
+    const lower = full.toLowerCase();
+    if (US_STATE_NAMES.has(lower)) return `${full} (US)`;
+    if (CA_PROVINCE_NAMES.has(lower)) return `${full} (CA)`;
+    return full;
   }
 
   // Return all DB variants that should match a canonical state name for filtering
   function stateFilterVariants(canonical: string): string[] {
-    const abbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === canonical.toLowerCase())?.[0];
-    const variants = new Set<string>([canonical, `${canonical} (US)`, `${canonical} (CA)`]);
-    if (abbr) { variants.add(abbr); variants.add(`${abbr} `); variants.add(`${abbr} (US)`); }
+    const stripped = stripCountrySuffix(canonical);
+    const usAbbr = Object.entries(US_STATE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+    const caAbbr = Object.entries(CA_PROVINCE_ABBR_TO_NAME).find(([, n]) => n.toLowerCase() === stripped.toLowerCase())?.[0];
+    const variants = new Set<string>([canonical, stripped, `${stripped} (US)`, `${stripped} (CA)`]);
+    if (usAbbr) { variants.add(usAbbr); variants.add(`${usAbbr} `); variants.add(`${usAbbr} (US)`); }
+    if (caAbbr) { variants.add(caAbbr); variants.add(`${caAbbr} `); variants.add(`${caAbbr} (CA)`); }
     return Array.from(variants);
   }
 
