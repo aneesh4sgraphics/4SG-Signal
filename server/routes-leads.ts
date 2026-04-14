@@ -1015,6 +1015,21 @@ export function registerLeadsRoutes(app: Express): void {
       if (result.length === 0) {
         return res.status(404).json({ error: "Lead not found" });
       }
+
+      // If this lead came from Odoo, archive it there so the next sync doesn't re-import it.
+      // Archiving (active=false) removes it from Odoo's default search results without
+      // permanently deleting any Odoo history.
+      const odooLeadId = result[0].odooLeadId;
+      if (odooLeadId) {
+        try {
+          const { odooClient } = await import('./odoo');
+          await odooClient.write('crm.lead', [odooLeadId], { active: false });
+          console.log(`[Leads] Archived Odoo lead ${odooLeadId} after local deletion`);
+        } catch (odooErr: any) {
+          // Non-fatal — local record is already gone; log and continue
+          console.warn(`[Leads] Could not archive Odoo lead ${odooLeadId}:`, odooErr?.message);
+        }
+      }
       
       res.json({ success: true, deleted: result[0] });
     } catch (error) {
