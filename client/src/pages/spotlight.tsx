@@ -5145,6 +5145,13 @@ export default function Spotlight() {
                               Full Research
                             </button>
                           )}
+                          <button
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-red-600 border border-red-300 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
                         </div>
                       )}
                     </div>
