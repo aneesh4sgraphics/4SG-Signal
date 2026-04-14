@@ -168,6 +168,7 @@ import {
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
+import { kanbanCacheGet, kanbanCacheSet } from "./kanban-cache";
 import pricingDatabaseRoutes from "./routes-pricing-database";
 import { registerLeadsRoutes } from "./routes-leads";
 import { registerDripRoutes } from "./routes-drip";
@@ -350,6 +351,8 @@ async function saveProductDataToFile() {
   }
 }
 
+export { invalidateKanbanCache } from "./kanban-cache";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register Object Storage routes for file uploads
   registerObjectStorageRoutes(app);
@@ -386,6 +389,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `);
   } catch (err) {
     console.error("Migration error (sketchboard_entries):", err);
+  }
+
+  // Boot-time: create indexes for dashboard kanban performance
+  try {
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_kanban_stage" ON leads(sales_kanban_stage)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_sales_rep_name" ON leads(sales_rep_name)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_first_email_reply_at" ON leads(first_email_reply_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_first_email_sent_at" ON leads(first_email_sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_last_contact_at" ON leads(last_contact_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_press_test_kit_sent_at" ON leads(press_test_kit_sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_leads_sample_sent_at" ON leads(sample_sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_kanban_stage" ON customers(sales_kanban_stage)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_sales_rep_name" ON customers(sales_rep_name)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_last_outbound_email_at" ON customers(last_outbound_email_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_press_test_sent_at" ON customers(press_test_sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_swatchbook_sent_at" ON customers(swatchbook_sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_gmail_messages_direction_customer_sent" ON gmail_messages(direction, customer_id, sent_at DESC)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_gmail_messages_direction_sent_at" ON gmail_messages(direction, sent_at DESC)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_sft_type_status_reply" ON shipment_follow_up_tasks(shipment_type, status, reply_received)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_email_sends_recipient_sent_at" ON email_sends(recipient_email, sent_at)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_customers_email_lower_trim" ON customers(LOWER(TRIM(email)))`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_sft_customer_id" ON shipment_follow_up_tasks(customer_id) WHERE customer_id IS NOT NULL`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_sft_recipient_email_lower" ON shipment_follow_up_tasks(LOWER(TRIM(recipient_email)))`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_sft_sent_at" ON shipment_follow_up_tasks(sent_at DESC)`);
+  } catch (err) {
+    console.error("Migration error (kanban indexes):", err);
   }
 
   // Boot-time migration: add expectedRevenue, nextBestAction, opportunityAgeDays to opportunity_scores
@@ -21231,6 +21260,8 @@ Analyze this bounced email and provide insights in JSON format:
     }
   });
 
+  // kanban cache is module-level (_kanbanCache / invalidateKanbanCache) above registerRoutes
+
   // Dashboard Kanban board data
   app.get("/api/dashboard/kanban", isAuthenticated, async (req: any, res) => {
     try {
@@ -21248,144 +21279,19 @@ Analyze this bounced email and provide insights in JSON format:
         ? (repParam && repParam !== 'all' ? repParam : null)
         : userFirstName || null;
 
+      // Serve from cache if fresh (60-second TTL)
+      const cacheKey = repFilter ?? '__all__';
+      const cachedData = kanbanCacheGet(cacheKey);
+      if (cachedData) {
+        return res.json(cachedData);
+      }
+
       // Helper: optional ilike condition for Drizzle queries
       const leadRepCond = repFilter ? ilike(leads.salesRepName, `%${repFilter}%`) : undefined;
       const custRepCond = repFilter ? ilike(customers.salesRepName, `%${repFilter}%`) : undefined;
       // SQL fragment for raw queries (safe: repFilter is always derived from email first-name, never user input without validation)
       const repSqlFrag = repFilter ? sql`AND LOWER(c.sales_rep_name) ILIKE ${'%' + repFilter + '%'}` : sql``;
-      const repShipSqlFrag = repFilter ? sql`AND (LOWER(c.sales_rep_name) ILIKE ${'%' + repFilter + '%'} OR (c.id IS NULL AND sft.user_id::text = ${userId}))` : sql``;
-
-      const repliedLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, email: leads.email, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
-        .from(leads)
-        .where(
-          and(
-            isNull(leads.pressTestKitSentAt),
-            isNull(leads.sampleSentAt),
-            or(
-              isNotNull(leads.firstEmailReplyAt),
-              eq(leads.salesKanbanStage, 'replied')
-            ),
-            ne(leads.salesKanbanStage, 'removed'),
-            leadRepCond,
-          )
-        )
-        .orderBy(desc(leads.firstEmailReplyAt))
-        .limit(100);
-
-      // Customers manually placed in replied stage
-      const repliedCustomersManual = await db
-        .select({
-          id: customers.id,
-          name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
-          company: customers.company,
-          type: sql<string>`'customer'`,
-          salesKanbanStage: customers.salesKanbanStage,
-          rep: sql<string | null>`${customers.salesRepName}`,
-          signal: sql<string>`'needs reply'`
-        })
-        .from(customers)
-        .where(and(eq(customers.salesKanbanStage, 'replied'), custRepCond))
-        .limit(50);
-
-      // Customers with an inbound Gmail message in last 60 days, no outbound email from us since then
-      const inboundUnrepliedCustomers = await db.execute(sql`
-        SELECT DISTINCT ON (c.id)
-          c.id,
-          COALESCE(c.first_name || ' ' || c.last_name, c.company, 'Unknown') AS name,
-          c.company,
-          'customer' AS type,
-          c.sales_kanban_stage AS "salesKanbanStage",
-          c.sales_rep_name AS rep,
-          'email needs response' AS signal,
-          gm.gmail_message_id AS "gmailMessageId",
-          gm.thread_id AS "gmailThreadId",
-          gm.from_email AS "senderEmail"
-        FROM gmail_messages gm
-        JOIN customers c ON c.id = gm.customer_id
-        WHERE gm.direction = 'inbound'
-          AND gm.sent_at >= NOW() - INTERVAL '90 days'
-          AND NOT EXISTS (
-            SELECT 1 FROM gmail_messages outbound
-            WHERE outbound.customer_id = gm.customer_id
-              AND outbound.direction = 'outbound'
-              AND outbound.sent_at > gm.sent_at
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM email_sends es
-            WHERE LOWER(TRIM(es.recipient_email)) = LOWER(TRIM(c.email))
-              AND es.sent_at > gm.sent_at
-          )
-          AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
-          ${repSqlFrag}
-        ORDER BY c.id, gm.sent_at DESC
-        LIMIT 50
-      `);
-
-      // Merge: manual + inbound unresponded, dedup by id
-      const seenCustomerIds = new Set<string>();
-      const repliedCustomers: any[] = [];
-      for (const row of [...repliedCustomersManual, ...(inboundUnrepliedCustomers.rows as any[])]) {
-        if (!seenCustomerIds.has(row.id)) {
-          seenCustomerIds.add(row.id);
-          repliedCustomers.push(row);
-        }
-      }
-
-      const samplesLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
-        .from(leads)
-        .where(
-          and(
-            or(
-              isNotNull(leads.pressTestKitSentAt),
-              isNotNull(leads.sampleSentAt),
-              eq(leads.salesKanbanStage, 'samples_requested')
-            ),
-            ne(leads.salesKanbanStage, 'removed'),
-            leadRepCond,
-          )
-        )
-        .orderBy(desc(leads.pressTestKitSentAt))
-        .limit(100);
-
-      // Pull pending sample shipments from shipment_follow_up_tasks, matching to customers
-      const shipmentSamplesRaw = await db.execute(sql`
-        SELECT DISTINCT ON (COALESCE(c.id::text, sft.recipient_email))
-          COALESCE(c.id::text, 'ship_' || sft.id::text) AS id,
-          COALESCE(
-            c.first_name || ' ' || c.last_name,
-            c.company,
-            sft.recipient_name,
-            sft.customer_company,
-            sft.recipient_email,
-            'Unknown'
-          ) AS name,
-          COALESCE(c.company, sft.customer_company) AS company,
-          CASE WHEN c.id IS NOT NULL THEN 'customer' ELSE 'shipment' END AS type,
-          c.sales_kanban_stage AS "salesKanbanStage",
-          c.sales_rep_name AS rep,
-          CASE
-            WHEN sft.shipment_type = 'press_test_kit' THEN 'press test sent'
-            WHEN sft.shipment_type = 'swatchbook' THEN 'swatchbook sent'
-            ELSE 'samples sent'
-          END AS signal
-        FROM shipment_follow_up_tasks sft
-        LEFT JOIN customers c ON (
-          c.id = sft.customer_id
-          OR LOWER(TRIM(c.email)) = LOWER(TRIM(sft.recipient_email))
-        )
-        WHERE sft.shipment_type IN ('samples', 'swatchbook', 'press_test_kit')
-          AND sft.status = 'pending'
-          AND sft.reply_received = false
-          AND sft.dismissed_at IS NULL
-          AND sft.sent_at >= NOW() - INTERVAL '90 days'
-          AND (c.id IS NULL OR c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
-          ${repShipSqlFrag}
-        ORDER BY COALESCE(c.id::text, sft.recipient_email), sft.sent_at DESC
-        LIMIT 100
-      `);
-      const samplesCustomers = (shipmentSamplesRaw.rows as any[]);
+      const repShipSqlFrag = repFilter ? sql`AND (LOWER(cid.sales_rep_name) ILIKE ${'%' + repFilter + '%'} OR LOWER(cematch.sales_rep_name) ILIKE ${'%' + repFilter + '%'} OR ((cid.id IS NULL AND cematch.id IS NULL) AND sft.user_id::text = ${userId}))` : sql``;
 
       // Subquery fragments: exclude records that have a future pending follow-up task (rescheduled/snoozed)
       const noFutureLeadTask = sql`NOT EXISTS (
@@ -21401,32 +21307,135 @@ Analyze this bounced email and provide insights in JSON format:
           AND ft.due_date > NOW()
       )`;
 
-      const noResponseLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
-        .from(leads)
-        .where(
-          and(
+      // Run all 9 independent queries in parallel for maximum speed
+      const [
+        repliedLeads,
+        repliedCustomersManual,
+        inboundUnrepliedCustomers,
+        samplesLeads,
+        shipmentSamplesRaw,
+        noResponseLeads,
+        noResponseCustomers,
+        issueLeads,
+        issueCustomers,
+      ] = await Promise.all([
+        db.select({ id: leads.id, name: leads.name, company: leads.company, email: leads.email, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.firstEmailReplyAt} IS NOT NULL THEN 'email needs response' ELSE 'needs reply' END` })
+          .from(leads)
+          .where(and(
+            isNull(leads.pressTestKitSentAt),
+            isNull(leads.sampleSentAt),
+            or(isNotNull(leads.firstEmailReplyAt), eq(leads.salesKanbanStage, 'replied')),
+            ne(leads.salesKanbanStage, 'removed'),
+            leadRepCond,
+          ))
+          .orderBy(desc(leads.firstEmailReplyAt))
+          .limit(100),
+
+        db.select({
+          id: customers.id,
+          name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
+          company: customers.company,
+          type: sql<string>`'customer'`,
+          salesKanbanStage: customers.salesKanbanStage,
+          rep: sql<string | null>`${customers.salesRepName}`,
+          signal: sql<string>`'needs reply'`
+        })
+          .from(customers)
+          .where(and(eq(customers.salesKanbanStage, 'replied'), custRepCond))
+          .limit(50),
+
+        db.execute(sql`
+          WITH msg_agg AS (
+            SELECT
+              customer_id,
+              MAX(CASE WHEN direction = 'inbound' THEN sent_at END)  AS last_inbound,
+              MAX(CASE WHEN direction = 'outbound' THEN sent_at END) AS last_outbound
+            FROM gmail_messages
+            WHERE sent_at >= NOW() - INTERVAL '90 days'
+              AND customer_id IS NOT NULL
+            GROUP BY customer_id
+          ),
+          latest_send AS (
+            SELECT LOWER(TRIM(recipient_email)) AS email_norm, MAX(sent_at) AS last_sent
+            FROM email_sends
+            GROUP BY LOWER(TRIM(recipient_email))
+          )
+          SELECT
+            c.id,
+            COALESCE(c.first_name || ' ' || c.last_name, c.company, 'Unknown') AS name,
+            c.company,
+            'customer' AS type,
+            c.sales_kanban_stage AS "salesKanbanStage",
+            c.sales_rep_name AS rep,
+            'email needs response' AS signal,
+            gm.gmail_message_id AS "gmailMessageId",
+            gm.thread_id AS "gmailThreadId",
+            gm.from_email AS "senderEmail"
+          FROM msg_agg ma
+          JOIN customers c ON c.id = ma.customer_id
+          JOIN gmail_messages gm ON gm.customer_id = ma.customer_id
+            AND gm.direction = 'inbound'
+            AND gm.sent_at = ma.last_inbound
+          LEFT JOIN latest_send ls ON ls.email_norm = LOWER(TRIM(c.email))
+          WHERE ma.last_inbound IS NOT NULL
+            AND (ma.last_outbound IS NULL OR ma.last_outbound < ma.last_inbound)
+            AND (ls.last_sent IS NULL OR ls.last_sent < ma.last_inbound)
+            AND (c.sales_kanban_stage IS NULL OR c.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
+            ${repSqlFrag}
+          LIMIT 50
+        `),
+
+        db.select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.pressTestKitSentAt} IS NOT NULL THEN 'press test kit sent' WHEN ${leads.sampleEnvelopeSentAt} IS NOT NULL THEN 'sample envelope sent' WHEN ${leads.sampleSentAt} IS NOT NULL THEN 'sample sent' WHEN ${leads.onePageMailerSentAt} IS NOT NULL THEN 'mailer sent' ELSE 'samples requested' END` })
+          .from(leads)
+          .where(and(
+            or(isNotNull(leads.pressTestKitSentAt), isNotNull(leads.sampleSentAt), eq(leads.salesKanbanStage, 'samples_requested')),
+            ne(leads.salesKanbanStage, 'removed'),
+            leadRepCond,
+          ))
+          .orderBy(desc(leads.pressTestKitSentAt))
+          .limit(100),
+
+        db.execute(sql`
+          SELECT DISTINCT ON (COALESCE(cid.id::text, cematch.id::text, sft.recipient_email))
+            COALESCE(cid.id::text, cematch.id::text, 'ship_' || sft.id::text) AS id,
+            COALESCE(cid.first_name || ' ' || cid.last_name, cid.company, cematch.first_name || ' ' || cematch.last_name, cematch.company, sft.recipient_name, sft.customer_company, sft.recipient_email, 'Unknown') AS name,
+            COALESCE(cid.company, cematch.company, sft.customer_company) AS company,
+            CASE WHEN cid.id IS NOT NULL OR cematch.id IS NOT NULL THEN 'customer' ELSE 'shipment' END AS type,
+            COALESCE(cid.sales_kanban_stage, cematch.sales_kanban_stage) AS "salesKanbanStage",
+            COALESCE(cid.sales_rep_name, cematch.sales_rep_name) AS rep,
+            CASE WHEN sft.shipment_type = 'press_test_kit' THEN 'press test sent' WHEN sft.shipment_type = 'swatchbook' THEN 'swatchbook sent' ELSE 'samples sent' END AS signal
+          FROM shipment_follow_up_tasks sft
+          LEFT JOIN customers cid ON cid.id = sft.customer_id
+          LEFT JOIN customers cematch ON cid.id IS NULL AND LOWER(TRIM(cematch.email)) = LOWER(TRIM(sft.recipient_email))
+          WHERE sft.shipment_type IN ('samples', 'swatchbook', 'press_test_kit')
+            AND sft.status = 'pending'
+            AND sft.reply_received = false
+            AND sft.dismissed_at IS NULL
+            AND sft.sent_at >= NOW() - INTERVAL '90 days'
+            AND (cid.id IS NULL OR cid.sales_kanban_stage IS NULL OR cid.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
+            AND (cematch.id IS NULL OR cematch.sales_kanban_stage IS NULL OR cematch.sales_kanban_stage NOT IN ('won', 'lost', 'removed'))
+            ${repShipSqlFrag}
+          ORDER BY COALESCE(cid.id::text, cematch.id::text, sft.recipient_email), sft.sent_at DESC
+          LIMIT 100
+        `),
+
+        db.select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`CASE WHEN ${leads.lastContactAt} IS NOT NULL THEN CONCAT(EXTRACT(DAY FROM NOW() - ${leads.lastContactAt})::int, ' days silent') ELSE 'no contact yet' END` })
+          .from(leads)
+          .where(and(
             isNull(leads.pressTestKitSentAt),
             isNull(leads.sampleSentAt),
             or(
-              and(
-                isNotNull(leads.firstEmailSentAt),
-                isNull(leads.firstEmailReplyAt),
-                lt(leads.lastContactAt, tenDaysAgo),
-                sql`${leads.lastContactAt} >= NOW() - INTERVAL '30 days'`
-              ),
+              and(isNotNull(leads.firstEmailSentAt), isNull(leads.firstEmailReplyAt), lt(leads.lastContactAt, tenDaysAgo), sql`${leads.lastContactAt} >= NOW() - INTERVAL '30 days'`),
               eq(leads.salesKanbanStage, 'no_response')
             ),
             ne(leads.salesKanbanStage, 'removed'),
             noFutureLeadTask,
             leadRepCond,
-          )
-        )
-        .orderBy(asc(leads.lastContactAt))
-        .limit(100);
+          ))
+          .orderBy(asc(leads.lastContactAt))
+          .limit(100),
 
-      const noResponseCustomers = await db
-        .select({
+        db.select({
           id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
@@ -21435,27 +21444,23 @@ Analyze this bounced email and provide insights in JSON format:
           rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`'no recent contact'`
         })
-        .from(customers)
-        .where(
-          and(
+          .from(customers)
+          .where(and(
             isNull(customers.pressTestSentAt),
             isNull(customers.swatchbookSentAt),
             eq(customers.salesKanbanStage, 'no_response'),
             sql`${customers.lastOutboundEmailAt} >= NOW() - INTERVAL '30 days'`,
             noFutureCustomerTask,
             custRepCond,
-          )
-        )
-        .limit(100);
+          ))
+          .limit(100),
 
-      const issueLeads = await db
-        .select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`'issue flagged'` })
-        .from(leads)
-        .where(and(eq(leads.salesKanbanStage, 'issue'), leadRepCond))
-        .limit(100);
+        db.select({ id: leads.id, name: leads.name, company: leads.company, type: sql<string>`'lead'`, salesKanbanStage: leads.salesKanbanStage, rep: sql<string | null>`${leads.salesRepName}`, signal: sql<string>`'issue flagged'` })
+          .from(leads)
+          .where(and(eq(leads.salesKanbanStage, 'issue'), leadRepCond))
+          .limit(100),
 
-      const issueCustomers = await db
-        .select({
+        db.select({
           id: customers.id,
           name: sql<string>`COALESCE(${customers.firstName} || ' ' || ${customers.lastName}, ${customers.company}, 'Unknown')`,
           company: customers.company,
@@ -21464,16 +21469,30 @@ Analyze this bounced email and provide insights in JSON format:
           rep: sql<string | null>`${customers.salesRepName}`,
           signal: sql<string>`'issue flagged'`
         })
-        .from(customers)
-        .where(and(eq(customers.salesKanbanStage, 'issue'), custRepCond))
-        .limit(100);
+          .from(customers)
+          .where(and(eq(customers.salesKanbanStage, 'issue'), custRepCond))
+          .limit(100),
+      ]);
 
-      res.json({
+      // Merge: manual replied customers + inbound unresponded, dedup by id
+      const seenCustomerIds = new Set<string>();
+      const repliedCustomers: any[] = [];
+      for (const row of [...repliedCustomersManual, ...(inboundUnrepliedCustomers.rows as any[])]) {
+        if (!seenCustomerIds.has(row.id)) {
+          seenCustomerIds.add(row.id);
+          repliedCustomers.push(row);
+        }
+      }
+      const samplesCustomers = (shipmentSamplesRaw.rows as any[]);
+
+      const responseData = {
         replied: [...repliedLeads, ...repliedCustomers],
         samplesRequested: [...samplesLeads, ...samplesCustomers],
         noResponse: [...noResponseLeads, ...noResponseCustomers],
         issues: [...issueLeads, ...issueCustomers],
-      });
+      };
+      kanbanCacheSet(cacheKey, responseData);
+      res.json(responseData);
     } catch (error) {
       console.error("Error fetching kanban data:", error);
       res.status(500).json({ error: "Failed to fetch kanban data" });

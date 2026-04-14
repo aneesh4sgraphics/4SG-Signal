@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { db } from "./db";
 import { eq, sql, and, or, desc, asc, lte, isNull, isNotNull, ne, not, inArray } from "drizzle-orm";
 import { isAuthenticated, requireAdmin } from "./replitAuth";
+import { invalidateKanbanCache } from "./kanban-cache";
 import { normalizeEmail } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
 import { storage } from "./storage";
@@ -1947,6 +1948,7 @@ export function registerCustomersRoutes(app: Express): void {
       const customerId = req.params.id;
       const { stage } = req.body;
       await db.update(customers).set({ salesKanbanStage: stage }).where(eq(customers.id, customerId));
+      invalidateKanbanCache();
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to update customer kanban stage" });

@@ -349,7 +349,28 @@ export default function Dashboard() {
       }
       return apiRequest('PATCH', `/api/leads/${leadId}/kanban-stage`, { stage });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }), // matches all kanban keys
+    onMutate: async ({ leadId, stage }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/dashboard/kanban', kanbanRepParam] });
+      const previousData = queryClient.getQueryData(['/api/dashboard/kanban', kanbanRepParam]);
+      queryClient.setQueryData(['/api/dashboard/kanban', kanbanRepParam], (old: any) => {
+        if (!old) return old;
+        const removeFromAll = (cards: any[]) => cards.filter(c => String(c.id) !== String(leadId));
+        const filtered = {
+          replied: removeFromAll(old.replied || []),
+          samplesRequested: removeFromAll(old.samplesRequested || []),
+          noResponse: removeFromAll(old.noResponse || []),
+          issues: removeFromAll(old.issues || []),
+        };
+        return filtered;
+      });
+      return { previousData };
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/dashboard/kanban', kanbanRepParam], context.previousData);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['/api/dashboard/kanban'] }),
   });
 
   const [moveMenu, setMoveMenu] = useState<{ leadId: number; x: number; y: number; type?: string } | null>(null);

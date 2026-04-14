@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { db } from "./db";
 import { eq, sql, and, or, desc, asc, ilike, isNull, isNotNull, not, inArray, notInArray, lt } from "drizzle-orm";
 import { isAuthenticated, requireApproval } from "./replitAuth";
+import { invalidateKanbanCache } from "./kanban-cache";
 import { normalizeEmail, extractCompanyDomain } from "@shared/email-normalizer";
 import { odooClient } from "./odoo";
 import { storage } from "./storage";
@@ -2058,6 +2059,7 @@ Call notes: "${data.details.substring(0, 800)}"`
       const leadId = parseInt(req.params.id);
       const { stage } = req.body;
       await db.update(leads).set({ salesKanbanStage: stage }).where(eq(leads.id, leadId));
+      invalidateKanbanCache();
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to update kanban stage" });
