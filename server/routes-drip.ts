@@ -11,6 +11,41 @@ import {
   dripCampaignAssignments,
   dripCampaignStepStatus,
 } from "@shared/schema";
+import zipcodes from "zipcodes";
+
+// ─── State normalization helpers ──────────────────────────────────────────────
+const US_STATES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas',
+  CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
+  FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho',
+  IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas',
+  KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi',
+  MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
+  NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah',
+  VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia',
+  WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia',
+};
+const FULL_TO_ABBR: Record<string, string> = Object.fromEntries(
+  Object.entries(US_STATES).map(([abbr, full]) => [full.toLowerCase(), abbr])
+);
+
+function normalizeStateToAbbr(raw: string): string {
+  if (!raw) return '';
+  // strip trailing " (US)", " (CA)" etc.
+  const s = raw.trim().replace(/\s*\([^)]+\)\s*$/, '').trim();
+  if (US_STATES[s.toUpperCase()]) return s.toUpperCase();
+  return FULL_TO_ABBR[s.toLowerCase()] || '';
+}
+
+function stateInputToAbbr(input: string): string {
+  const upper = input.trim().toUpperCase();
+  if (US_STATES[upper]) return upper;
+  return FULL_TO_ABBR[input.trim().toLowerCase()] || '';
+}
 
 async function scheduleStepsForAssignment(assignmentId: number, steps: any[], startDate: Date) {
   let scheduledTime = new Date(startDate);
@@ -65,6 +100,164 @@ export function registerDripRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch assignment counts" });
     }
   });
+  // ─── Filter options (distinct values for dropdowns) ────────────────────────
+  app.get("/api/drip-campaigns/filter-options", isAuthenticated, async (req: any, res) => {
+    try {
+      const type = (req.query.type as string) || 'lead';
+      if (type === 'lead') {
+        const [stagesRes, tiersRes, repsRes] = await Promise.all([
+          db.execute(sql`SELECT DISTINCT stage FROM leads WHERE stage IS NOT NULL AND stage != '' ORDER BY stage`),
+          db.execute(sql`SELECT DISTINCT pricing_tier FROM leads WHERE pricing_tier IS NOT NULL AND pricing_tier != '' ORDER BY pricing_tier`),
+          db.execute(sql`SELECT DISTINCT sales_rep_name FROM leads WHERE sales_rep_name IS NOT NULL AND sales_rep_name != '' ORDER BY sales_rep_name`),
+        ]);
+        res.json({
+          stages: stagesRes.rows.map((r: any) => r.stage),
+          pricingTiers: tiersRes.rows.map((r: any) => r.pricing_tier),
+          reps: repsRes.rows.map((r: any) => r.sales_rep_name),
+        });
+      } else {
+        const [tiersRes, repsRes] = await Promise.all([
+          db.execute(sql`SELECT DISTINCT pricing_tier FROM customers WHERE pricing_tier IS NOT NULL AND pricing_tier != '' ORDER BY pricing_tier`),
+          db.execute(sql`SELECT DISTINCT sales_rep_name FROM customers WHERE sales_rep_name IS NOT NULL AND sales_rep_name != '' ORDER BY sales_rep_name`),
+        ]);
+        res.json({
+          stages: [],
+          pricingTiers: tiersRes.rows.map((r: any) => r.pricing_tier),
+          reps: repsRes.rows.map((r: any) => r.sales_rep_name),
+        });
+      }
+    } catch (err) {
+      console.error("filter-options error:", err);
+      res.status(500).json({ error: "Failed to fetch filter options" });
+    }
+  });
+
+  // ─── Filter recipients (smart multi-criteria search) ─────────────────────
+  app.get("/api/drip-campaigns/filter-recipients", isAuthenticated, async (req: any, res) => {
+    try {
+      const type = (req.query.type as string) || 'lead';
+      const search = ((req.query.search as string) || '').toLowerCase();
+      const statesRaw = req.query.states
+        ? (Array.isArray(req.query.states) ? req.query.states : [req.query.states]) as string[]
+        : [];
+      const stagesRaw = req.query.stages
+        ? (Array.isArray(req.query.stages) ? req.query.stages : [req.query.stages]) as string[]
+        : [];
+      const tiersRaw = req.query.pricingTiers
+        ? (Array.isArray(req.query.pricingTiers) ? req.query.pricingTiers : [req.query.pricingTiers]) as string[]
+        : [];
+      const assignedRep = ((req.query.assignedRep as string) || '').toLowerCase();
+      const lastContactedAfter = req.query.lastContactedAfter as string | undefined;
+      const lastContactedBefore = req.query.lastContactedBefore as string | undefined;
+      const lastMailerAfter = req.query.lastMailerAfter as string | undefined;
+      const lastMailerBefore = req.query.lastMailerBefore as string | undefined;
+      const neverMailed = req.query.neverMailed === 'true';
+      const zipCode = (req.query.zipCode as string || '').replace(/\D/g, '').substring(0, 5);
+      const milesRadius = req.query.milesRadius ? parseInt(req.query.milesRadius as string) : 0;
+
+      // Normalize selected states to abbreviations
+      const selectedAbbrs = statesRaw.map(stateInputToAbbr).filter(Boolean);
+
+      // Build zip set for radius filter
+      let zipSet: Set<string> | undefined;
+      if (zipCode.length === 5 && milesRadius > 0) {
+        const nearby = zipcodes.radius(zipCode, milesRadius) as string[];
+        zipSet = new Set(nearby);
+      }
+
+      let results: any[] = [];
+
+      if (type === 'lead') {
+        const rows = await db.select({
+          id: leads.id,
+          name: leads.name,
+          email: leads.email,
+          company: leads.company,
+          state: leads.state,
+          zip: leads.zip,
+          stage: leads.stage,
+          pricingTier: leads.pricingTier,
+          salesRepName: leads.salesRepName,
+          lastContactAt: leads.lastContactAt,
+          lastMailerSentAt: leads.lastMailerSentAt,
+        }).from(leads).limit(4000);
+
+        results = rows
+          .filter(r => {
+            if (search && !`${r.name || ''} ${r.email || ''} ${r.company || ''}`.toLowerCase().includes(search)) return false;
+            if (selectedAbbrs.length > 0 && !selectedAbbrs.includes(normalizeStateToAbbr(r.state || ''))) return false;
+            if (stagesRaw.length > 0 && !stagesRaw.includes(r.stage || '')) return false;
+            if (tiersRaw.length > 0 && !tiersRaw.includes(r.pricingTier || '')) return false;
+            if (assignedRep && !(r.salesRepName || '').toLowerCase().includes(assignedRep)) return false;
+            if (lastContactedAfter && (!r.lastContactAt || new Date(r.lastContactAt) < new Date(lastContactedAfter))) return false;
+            if (lastContactedBefore && r.lastContactAt && new Date(r.lastContactAt) > new Date(lastContactedBefore)) return false;
+            if (neverMailed && r.lastMailerSentAt) return false;
+            if (lastMailerAfter && (!r.lastMailerSentAt || new Date(r.lastMailerSentAt) < new Date(lastMailerAfter))) return false;
+            if (lastMailerBefore && r.lastMailerSentAt && new Date(r.lastMailerSentAt) > new Date(lastMailerBefore)) return false;
+            if (zipSet && r.zip) {
+              const clean = (r.zip || '').trim().replace(/\D/g, '').substring(0, 5);
+              if (!zipSet.has(clean)) return false;
+            } else if (zipSet && !r.zip) return false;
+            return true;
+          })
+          .slice(0, 500)
+          .map(r => ({
+            id: String(r.id),
+            label: r.name || r.email || `Lead #${r.id}`,
+            sublabel: [r.company, r.state].filter(Boolean).join(' · '),
+            email: r.email,
+            type: 'lead',
+          }));
+      } else {
+        const rows = await db.select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          company: customers.company,
+          email: customers.email,
+          province: customers.province,
+          zip: customers.zip,
+          pricingTier: customers.pricingTier,
+          salesRepName: customers.salesRepName,
+          lastOutboundEmailAt: customers.lastOutboundEmailAt,
+          swatchbookSentAt: customers.swatchbookSentAt,
+        }).from(customers).limit(4000);
+
+        results = rows
+          .filter(r => {
+            const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim();
+            if (search && !`${fullName} ${r.company || ''} ${r.email || ''}`.toLowerCase().includes(search)) return false;
+            if (selectedAbbrs.length > 0 && !selectedAbbrs.includes(normalizeStateToAbbr(r.province || ''))) return false;
+            if (tiersRaw.length > 0 && !tiersRaw.includes(r.pricingTier || '')) return false;
+            if (assignedRep && !(r.salesRepName || '').toLowerCase().includes(assignedRep)) return false;
+            if (lastContactedAfter && (!r.lastOutboundEmailAt || new Date(r.lastOutboundEmailAt) < new Date(lastContactedAfter))) return false;
+            if (lastContactedBefore && r.lastOutboundEmailAt && new Date(r.lastOutboundEmailAt) > new Date(lastContactedBefore)) return false;
+            if (neverMailed && r.swatchbookSentAt) return false;
+            if (lastMailerAfter && (!r.swatchbookSentAt || new Date(r.swatchbookSentAt) < new Date(lastMailerAfter))) return false;
+            if (lastMailerBefore && r.swatchbookSentAt && new Date(r.swatchbookSentAt) > new Date(lastMailerBefore)) return false;
+            if (zipSet && r.zip) {
+              const clean = (r.zip || '').trim().replace(/\D/g, '').substring(0, 5);
+              if (!zipSet.has(clean)) return false;
+            } else if (zipSet && !r.zip) return false;
+            return true;
+          })
+          .slice(0, 500)
+          .map(r => ({
+            id: String(r.id),
+            label: r.company || `${r.firstName || ''} ${r.lastName || ''}`.trim() || `Customer #${r.id}`,
+            sublabel: [r.province, r.zip].filter(Boolean).join(', '),
+            email: r.email,
+            type: 'customer',
+          }));
+      }
+
+      res.json(results);
+    } catch (err) {
+      console.error("filter-recipients error:", err);
+      res.status(500).json({ error: "Failed to filter recipients" });
+    }
+  });
+
   app.get("/api/drip-campaigns/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);

@@ -90,7 +90,38 @@ import {
   Loader2,
   Copy,
   Edit2,
+  SlidersHorizontal,
 } from 'lucide-react';
+
+// ─── US States for filter ─────────────────────────────────────────────────────
+const US_STATE_OPTIONS = [
+  { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
+  { abbr: 'AZ', name: 'Arizona' }, { abbr: 'AR', name: 'Arkansas' },
+  { abbr: 'CA', name: 'California' }, { abbr: 'CO', name: 'Colorado' },
+  { abbr: 'CT', name: 'Connecticut' }, { abbr: 'DE', name: 'Delaware' },
+  { abbr: 'FL', name: 'Florida' }, { abbr: 'GA', name: 'Georgia' },
+  { abbr: 'HI', name: 'Hawaii' }, { abbr: 'ID', name: 'Idaho' },
+  { abbr: 'IL', name: 'Illinois' }, { abbr: 'IN', name: 'Indiana' },
+  { abbr: 'IA', name: 'Iowa' }, { abbr: 'KS', name: 'Kansas' },
+  { abbr: 'KY', name: 'Kentucky' }, { abbr: 'LA', name: 'Louisiana' },
+  { abbr: 'ME', name: 'Maine' }, { abbr: 'MD', name: 'Maryland' },
+  { abbr: 'MA', name: 'Massachusetts' }, { abbr: 'MI', name: 'Michigan' },
+  { abbr: 'MN', name: 'Minnesota' }, { abbr: 'MS', name: 'Mississippi' },
+  { abbr: 'MO', name: 'Missouri' }, { abbr: 'MT', name: 'Montana' },
+  { abbr: 'NE', name: 'Nebraska' }, { abbr: 'NV', name: 'Nevada' },
+  { abbr: 'NH', name: 'New Hampshire' }, { abbr: 'NJ', name: 'New Jersey' },
+  { abbr: 'NM', name: 'New Mexico' }, { abbr: 'NY', name: 'New York' },
+  { abbr: 'NC', name: 'North Carolina' }, { abbr: 'ND', name: 'North Dakota' },
+  { abbr: 'OH', name: 'Ohio' }, { abbr: 'OK', name: 'Oklahoma' },
+  { abbr: 'OR', name: 'Oregon' }, { abbr: 'PA', name: 'Pennsylvania' },
+  { abbr: 'RI', name: 'Rhode Island' }, { abbr: 'SC', name: 'South Carolina' },
+  { abbr: 'SD', name: 'South Dakota' }, { abbr: 'TN', name: 'Tennessee' },
+  { abbr: 'TX', name: 'Texas' }, { abbr: 'UT', name: 'Utah' },
+  { abbr: 'VT', name: 'Vermont' }, { abbr: 'VA', name: 'Virginia' },
+  { abbr: 'WA', name: 'Washington' }, { abbr: 'WV', name: 'West Virginia' },
+  { abbr: 'WI', name: 'Wisconsin' }, { abbr: 'WY', name: 'Wyoming' },
+  { abbr: 'DC', name: 'DC' },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DripCampaign {
@@ -1267,20 +1298,82 @@ function EnrollDialog({
   const [type, setType] = useState<'lead' | 'customer'>('lead');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  const { data: leads = [] } = useQuery<any[]>({
-    queryKey: ['/api/leads', { limit: 100 }],
-    enabled: open && type === 'lead',
+  const [showFilters, setShowFilters] = useState(false);
+  const [stateSearch, setStateSearch] = useState('');
+  const [statePopOpen, setStatePopOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    states: [] as string[],
+    stages: [] as string[],
+    pricingTiers: [] as string[],
+    assignedRep: '',
+    lastContactedAfter: '',
+    lastContactedBefore: '',
+    lastMailerAfter: '',
+    lastMailerBefore: '',
+    neverMailed: false,
+    zipCode: '',
+    milesRadius: 50,
   });
 
-  const { data: customers = [] } = useQuery<any[]>({
-    queryKey: ['/api/customers', { limit: 100 }],
-    enabled: open && type === 'customer',
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedZip, setDebouncedZip] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedZip(filters.zipCode), 600);
+    return () => clearTimeout(t);
+  }, [filters.zipCode]);
+
+  useEffect(() => { setSelected(new Set()); setSearch(''); }, [type]);
+
+  const { data: filterOptions } = useQuery<{ stages: string[]; pricingTiers: string[]; reps: string[] }>({
+    queryKey: ['/api/drip-campaigns/filter-options', type],
+    queryFn: async () => {
+      const res = await fetch(`/api/drip-campaigns/filter-options?type=${type}`);
+      return res.json();
+    },
+    enabled: open,
   });
 
-  const items = type === 'lead'
-    ? leads.filter((l: any) => (l.name || l.firstName || '').toLowerCase().includes(search.toLowerCase()))
-    : (customers as any[]).filter((c: any) => (c.company || '').toLowerCase().includes(search.toLowerCase()));
+  const buildParams = () => {
+    const p = new URLSearchParams();
+    p.set('type', type);
+    if (debouncedSearch) p.set('search', debouncedSearch);
+    filters.states.forEach(s => p.append('states[]', s));
+    filters.stages.forEach(s => p.append('stages[]', s));
+    filters.pricingTiers.forEach(t => p.append('pricingTiers[]', t));
+    if (filters.assignedRep) p.set('assignedRep', filters.assignedRep);
+    if (filters.lastContactedAfter) p.set('lastContactedAfter', filters.lastContactedAfter);
+    if (filters.lastContactedBefore) p.set('lastContactedBefore', filters.lastContactedBefore);
+    if (filters.neverMailed) p.set('neverMailed', 'true');
+    if (filters.lastMailerAfter) p.set('lastMailerAfter', filters.lastMailerAfter);
+    if (filters.lastMailerBefore) p.set('lastMailerBefore', filters.lastMailerBefore);
+    if (debouncedZip.length === 5 && filters.milesRadius > 0) {
+      p.set('zipCode', debouncedZip);
+      p.set('milesRadius', String(filters.milesRadius));
+    }
+    return p.toString();
+  };
+
+  const { data: items = [], isLoading } = useQuery<any[]>({
+    queryKey: [
+      '/api/drip-campaigns/filter-recipients',
+      type, debouncedSearch,
+      filters.states.join(','), filters.stages.join(','), filters.pricingTiers.join(','),
+      filters.assignedRep, filters.lastContactedAfter, filters.lastContactedBefore,
+      filters.neverMailed, filters.lastMailerAfter, filters.lastMailerBefore,
+      debouncedZip, filters.milesRadius,
+    ],
+    queryFn: async () => {
+      const res = await fetch(`/api/drip-campaigns/filter-recipients?${buildParams()}`);
+      return res.json();
+    },
+    enabled: open,
+  });
 
   const enroll = useMutation({
     mutationFn: async () => {
@@ -1301,69 +1394,265 @@ function EnrollDialog({
     onError: () => toast({ title: 'Failed to enroll', variant: 'destructive' }),
   });
 
+  const activeFilterCount = [
+    filters.states.length > 0,
+    filters.stages.length > 0,
+    filters.pricingTiers.length > 0,
+    !!filters.assignedRep,
+    !!filters.lastContactedAfter || !!filters.lastContactedBefore,
+    filters.neverMailed || !!filters.lastMailerAfter || !!filters.lastMailerBefore,
+    debouncedZip.length === 5 && filters.milesRadius > 0,
+  ].filter(Boolean).length;
+
+  const clearFilters = () => setFilters({
+    states: [], stages: [], pricingTiers: [], assignedRep: '',
+    lastContactedAfter: '', lastContactedBefore: '',
+    lastMailerAfter: '', lastMailerBefore: '',
+    neverMailed: false, zipCode: '', milesRadius: 50,
+  });
+
+  const toggleState = (abbr: string) =>
+    setFilters(f => ({ ...f, states: f.states.includes(abbr) ? f.states.filter(s => s !== abbr) : [...f.states, abbr] }));
+
+  const toggleStage = (stage: string) =>
+    setFilters(f => ({ ...f, stages: f.stages.includes(stage) ? f.stages.filter(s => s !== stage) : [...f.stages, stage] }));
+
+  const toggleTier = (tier: string) =>
+    setFilters(f => ({ ...f, pricingTiers: f.pricingTiers.includes(tier) ? f.pricingTiers.filter(s => s !== tier) : [...f.pricingTiers, tier] }));
+
+  const allSelectedOnPage = items.length > 0 && items.every((item: any) => selected.has(item.id));
+  const toggleSelectAll = () => {
+    if (allSelectedOnPage) {
+      setSelected(prev => { const n = new Set(prev); items.forEach((item: any) => n.delete(item.id)); return n; });
+    } else {
+      setSelected(prev => { const n = new Set(prev); items.forEach((item: any) => n.add(item.id)); return n; });
+    }
+  };
+
+  const filteredStateOptions = US_STATE_OPTIONS.filter(s =>
+    s.name.toLowerCase().includes(stateSearch.toLowerCase()) ||
+    s.abbr.toLowerCase().includes(stateSearch.toLowerCase())
+  );
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-3">
+        <DialogHeader className="flex-shrink-0 pb-0">
           <DialogTitle>Enroll Recipients</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-2 mb-3">
+        {/* Type selector + filter toggle */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           {(['lead', 'customer'] as const).map(t => (
-            <Button
-              key={t}
-              variant={type === t ? 'default' : 'outline'}
-              size="sm"
+            <Button key={t} variant={type === t ? 'default' : 'outline'} size="sm"
               onClick={() => { setType(t); setSelected(new Set()); }}
-              className="capitalize"
+              className="capitalize h-8 text-xs"
             >
               {t === 'lead' ? <User className="h-3.5 w-3.5 mr-1.5" /> : <Building2 className="h-3.5 w-3.5 mr-1.5" />}
               {t}s
             </Button>
           ))}
-        </div>
-
-        <div className="relative mb-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-8 text-sm"
-          />
-        </div>
-
-        <div className="border rounded-lg max-h-56 overflow-y-auto divide-y">
-          {items.slice(0, 50).map((item: any) => {
-            const id = String(type === 'lead' ? item.id : item.id);
-            const label = type === 'lead' ? (item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim() || `Lead #${item.id}`) : (item.company || `Customer #${item.id}`);
-            return (
-              <label key={id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selected.has(id)}
-                  onChange={e => {
-                    const n = new Set(selected);
-                    e.target.checked ? n.add(id) : n.delete(id);
-                    setSelected(n);
-                  }}
-                  className="rounded"
-                />
-                <span className="text-sm text-gray-800">{label}</span>
-              </label>
-            );
-          })}
-          {items.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">No results</p>
+          <div className="flex-1" />
+          <Button variant={showFilters ? 'default' : 'outline'} size="sm"
+            className="h-8 text-xs gap-1.5" onClick={() => setShowFilters(s => !s)}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-400 hover:text-gray-700" onClick={clearFilters}>
+              Clear all
+            </Button>
           )}
         </div>
 
-        <DialogFooter className="mt-4">
+        {/* Search bar */}
+        <div className="relative flex-shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input placeholder="Search by name, email, or company…" value={search}
+            onChange={e => setSearch(e.target.value)} className="pl-9 h-8 text-sm" />
+        </div>
+
+        {/* Filter panel */}
+        {showFilters && (
+          <div className="border rounded-lg p-3 bg-gray-50 space-y-3 flex-shrink-0 text-xs">
+
+            {/* States */}
+            <div className="flex flex-wrap gap-2 items-start">
+              <span className="text-gray-500 font-medium pt-1 w-20 flex-shrink-0">State</span>
+              <Popover open={statePopOpen} onOpenChange={setStatePopOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                    {filters.states.length === 0 ? 'All states' : `${filters.states.length} selected`}
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <Input placeholder="Search states…" value={stateSearch}
+                    onChange={e => setStateSearch(e.target.value)} className="h-7 text-xs mb-2" />
+                  <div className="max-h-52 overflow-y-auto space-y-0.5">
+                    {filteredStateOptions.map(s => (
+                      <label key={s.abbr} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" checked={filters.states.includes(s.abbr)}
+                          onChange={() => toggleState(s.abbr)} className="rounded" />
+                        <span className="text-xs">{s.name} <span className="text-gray-400">({s.abbr})</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {filters.states.map(abbr => (
+                <span key={abbr} className="inline-flex items-center gap-0.5 bg-blue-100 text-blue-700 rounded px-1.5 py-0.5 text-[11px]">
+                  {abbr}
+                  <button onClick={() => toggleState(abbr)} className="hover:text-blue-900 ml-0.5">×</button>
+                </span>
+              ))}
+            </div>
+
+            {/* Stage (leads only) */}
+            {type === 'lead' && filterOptions?.stages && filterOptions.stages.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-start">
+                <span className="text-gray-500 font-medium pt-1 w-20 flex-shrink-0">Stage</span>
+                <div className="flex flex-wrap gap-1">
+                  {filterOptions.stages.map(s => (
+                    <button key={s} onClick={() => toggleStage(s)}
+                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${filters.stages.includes(s) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'}`}>
+                      {s.replace(/_/g, ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pricing Tier */}
+            {filterOptions?.pricingTiers && filterOptions.pricingTiers.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-start">
+                <span className="text-gray-500 font-medium pt-1 w-20 flex-shrink-0">Tier</span>
+                <div className="flex flex-wrap gap-1">
+                  {filterOptions.pricingTiers.map(t => (
+                    <button key={t} onClick={() => toggleTier(t)}
+                      className={`px-2 py-0.5 rounded text-[11px] border transition-colors ${filters.pricingTiers.includes(t) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'}`}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Assigned Rep */}
+            {filterOptions?.reps && filterOptions.reps.length > 0 && (
+              <div className="flex gap-2 items-center">
+                <span className="text-gray-500 font-medium w-20 flex-shrink-0">Rep</span>
+                <Select value={filters.assignedRep || '__all__'}
+                  onValueChange={v => setFilters(f => ({ ...f, assignedRep: v === '__all__' ? '' : v }))}>
+                  <SelectTrigger className="h-7 text-xs w-48"><SelectValue placeholder="All reps" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All reps</SelectItem>
+                    {filterOptions.reps.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Last Contacted */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-gray-500 font-medium w-20 flex-shrink-0">Last Contacted</span>
+              <span className="text-gray-400 text-[11px]">After</span>
+              <Input type="date" className="h-7 text-xs w-36" value={filters.lastContactedAfter}
+                onChange={e => setFilters(f => ({ ...f, lastContactedAfter: e.target.value }))} />
+              <span className="text-gray-400 text-[11px]">Before</span>
+              <Input type="date" className="h-7 text-xs w-36" value={filters.lastContactedBefore}
+                onChange={e => setFilters(f => ({ ...f, lastContactedBefore: e.target.value }))} />
+            </div>
+
+            {/* Last Mailer Sent */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-gray-500 font-medium w-20 flex-shrink-0">Last Mailer</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={filters.neverMailed}
+                  onChange={e => setFilters(f => ({ ...f, neverMailed: e.target.checked }))} className="rounded" />
+                <span className="text-[11px] text-gray-600">Never mailed</span>
+              </label>
+              {!filters.neverMailed && (
+                <>
+                  <span className="text-gray-400 text-[11px]">After</span>
+                  <Input type="date" className="h-7 text-xs w-36" value={filters.lastMailerAfter}
+                    onChange={e => setFilters(f => ({ ...f, lastMailerAfter: e.target.value }))} />
+                  <span className="text-gray-400 text-[11px]">Before</span>
+                  <Input type="date" className="h-7 text-xs w-36" value={filters.lastMailerBefore}
+                    onChange={e => setFilters(f => ({ ...f, lastMailerBefore: e.target.value }))} />
+                </>
+              )}
+            </div>
+
+            {/* Near Zip */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-gray-500 font-medium w-20 flex-shrink-0">Near Zip</span>
+              <Input placeholder="e.g. 90210" maxLength={5} className="h-7 text-xs w-24"
+                value={filters.zipCode}
+                onChange={e => setFilters(f => ({ ...f, zipCode: e.target.value.replace(/\D/g, '').substring(0, 5) }))} />
+              <span className="text-gray-400 text-[11px]">within</span>
+              <Input type="number" min={1} max={500} className="h-7 text-xs w-16"
+                value={filters.milesRadius}
+                onChange={e => setFilters(f => ({ ...f, milesRadius: Math.max(1, parseInt(e.target.value) || 50) }))} />
+              <span className="text-gray-400 text-[11px]">miles</span>
+              {debouncedZip.length === 5 && filters.milesRadius > 0 && (
+                <span className="text-blue-600 text-[11px]">↳ within {filters.milesRadius}mi of {debouncedZip}</span>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* Results header */}
+        <div className="flex items-center justify-between flex-shrink-0">
+          <span className="text-xs text-gray-500">
+            {isLoading ? 'Searching…' : `${items.length} result${items.length !== 1 ? 's' : ''}${items.length === 500 ? ' (max 500 shown)' : ''}`}
+            {selected.size > 0 && <span className="ml-2 text-indigo-600 font-medium">{selected.size} selected</span>}
+          </span>
+          {items.length > 0 && (
+            <button className="text-xs text-indigo-600 hover:underline" onClick={toggleSelectAll}>
+              {allSelectedOnPage ? 'Deselect all' : `Select all ${items.length}`}
+            </button>
+          )}
+        </div>
+
+        {/* Results list */}
+        <div className="border rounded-lg flex-1 overflow-y-auto divide-y min-h-0" style={{ maxHeight: '260px' }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
+            </div>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No results</p>
+          ) : (
+            items.map((item: any) => (
+              <label key={item.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" checked={selected.has(item.id)}
+                  onChange={e => {
+                    const n = new Set(selected);
+                    e.target.checked ? n.add(item.id) : n.delete(item.id);
+                    setSelected(n);
+                  }}
+                  className="rounded flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{item.label}</p>
+                  {item.sublabel && <p className="text-[11px] text-gray-400 truncate">{item.sublabel}</p>}
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={selected.size === 0 || enroll.isPending}
-            onClick={() => enroll.mutate()}
-          >
+          <Button disabled={selected.size === 0 || enroll.isPending} onClick={() => enroll.mutate()}>
+            {enroll.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
             Enroll {selected.size > 0 ? `(${selected.size})` : ''}
           </Button>
         </DialogFooter>
