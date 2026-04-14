@@ -497,13 +497,13 @@ export function registerDripRoutes(app: Express): void {
       if (!toEmail) return res.status(400).json({ error: 'Could not determine your email address' });
 
       // 5. Append sender signature if the campaign has it enabled
-      // Signatures are keyed by email address, not user ID
-      if (campaignSettings.includeSenderSignature && toEmail) {
-        const userSig = await storage.getEmailSignature(toEmail);
+      // Signatures are keyed by auth user ID (not email address)
+      if (campaignSettings.includeSenderSignature) {
+        const userSig = await storage.getEmailSignature(authUserId);
         if (userSig?.signatureHtml) {
           finalBody = finalBody + '<br><br>--<br>' + userSig.signatureHtml;
         } else {
-          console.log(`[Test Send Signature] No signature found for ${toEmail}`);
+          console.log(`[Test Send Signature] No signature found for user ID: ${authUserId}`);
         }
       }
 
@@ -513,9 +513,9 @@ export function registerDripRoutes(app: Express): void {
       const plain = finalBody.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
 
       if (userGmailConn?.isActive && userGmailConn.scope?.includes('gmail.send')) {
-        await sendEmailAsUser(authUserId, toEmail, finalSubject, plain, finalBody);
+        await sendEmailAsUser(authUserId, toEmail, finalSubject, plain, finalBody, senderName);
       } else {
-        await sendEmail(toEmail, finalSubject, plain, finalBody);
+        await sendEmail(toEmail, finalSubject, plain, finalBody, senderName);
       }
 
       console.log(`[Test Send] Step "${step.name}" sent to ${toEmail} using data from ${recipientType} ${recipientId}`);
