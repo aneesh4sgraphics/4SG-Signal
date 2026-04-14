@@ -227,12 +227,12 @@ export default function OdooCompanyDetail() {
     email: "", phone: "", address1: "", address2: "",
     city: "", province: "", zip: "", country: "", website: "", note: "",
   });
-  type CardKey = "email" | "phone" | "website" | "salesRep" | "customerType" | "location";
+  type CardKey = "email" | "phone" | "website" | "salesRep" | "customerType" | "location" | "pricingTier";
   const [editingCard, setEditingCard] = useState<CardKey | null>(null);
   const [cardValues, setCardValues] = useState({
     email: "", email2: "", phone: "", cell: "",
     website: "", salesRepName: "", salesRepId: "",
-    customerType: "", address1: "", address2: "",
+    customerType: "", pricingTier: "", address1: "", address2: "",
     city: "", province: "", zip: "", country: "",
   });
   const { toast } = useToast();
@@ -477,6 +477,7 @@ export default function OdooCompanyDetail() {
       website: company.website || "",
       salesRepName: company.salesRepName || "", salesRepId: "",
       customerType: company.customerType || "",
+      pricingTier: company.pricingTier || "",
       address1: company.address1 || "", address2: company.address2 || "",
       city: company.city || "", province: company.province || "",
       zip: company.zip || "", country: company.country || "",
@@ -491,6 +492,7 @@ export default function OdooCompanyDetail() {
     else if (editingCard === "website") quickEditMutation.mutate({ website: cardValues.website });
     else if (editingCard === "salesRep") quickEditMutation.mutate({ salesRepName: cardValues.salesRepName || null, salesRepId: cardValues.salesRepId || null });
     else if (editingCard === "customerType") quickEditMutation.mutate({ customerType: cardValues.customerType || null });
+    else if (editingCard === "pricingTier") updateLocalPricingTierMutation.mutate({ pricingTier: cardValues.pricingTier });
     else if (editingCard === "location") quickEditMutation.mutate({ address1: cardValues.address1, address2: cardValues.address2 || null, city: cardValues.city, province: cardValues.province, zip: cardValues.zip, country: cardValues.country });
   };
 
@@ -893,6 +895,11 @@ export default function OdooCompanyDetail() {
                 <HighlightTile label="Customer Type" icon={Printer} onEdit={() => openCardEdit("customerType")}>
                   <span className="capitalize">{company.customerType || "—"}</span>
                 </HighlightTile>
+                <HighlightTile label="Pricing Tier" icon={Tag} onEdit={() => openCardEdit("pricingTier")}>
+                  {company.pricingTier ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">{company.pricingTier}</span>
+                  ) : <span className="text-gray-400">—</span>}
+                </HighlightTile>
               </div>
             </div>
 
@@ -906,6 +913,7 @@ export default function OdooCompanyDetail() {
                     {editingCard === "website" && "Edit Website"}
                     {editingCard === "salesRep" && "Assign Sales Rep"}
                     {editingCard === "customerType" && "Set Customer Type"}
+                    {editingCard === "pricingTier" && "Set Pricing Tier"}
                     {editingCard === "location" && "Edit Location"}
                   </DialogTitle>
                 </DialogHeader>
@@ -953,6 +961,18 @@ export default function OdooCompanyDetail() {
                           <SelectItem value="printer">Printer</SelectItem>
                           <SelectItem value="reseller">Reseller</SelectItem>
                           <SelectItem value="enduser">End User</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {editingCard === "pricingTier" && (
+                    <div className="space-y-1">
+                      <Label>Pricing Tier</Label>
+                      <Select value={cardValues.pricingTier || "__none__"} onValueChange={val => setCardValues(v => ({ ...v, pricingTier: val === "__none__" ? "" : val }))}>
+                        <SelectTrigger><SelectValue placeholder="Select tier…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Not set —</SelectItem>
+                          {PRICING_TIERS.map(tier => <SelectItem key={tier} value={tier}>{tier}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

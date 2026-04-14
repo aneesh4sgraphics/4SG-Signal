@@ -28,7 +28,7 @@ import {
   Users, Globe, Briefcase, StickyNote, Printer, Truck, Upload,
   CheckCircle, Zap, X, Activity, FolderOpen, CheckSquare,
   AtSign, ArrowUpRight, ArrowDownLeft, TrendingUp, AlertTriangle,
-  UserCheck, ChevronDown, ChevronUp, Flame, Trash2,
+  UserCheck, ChevronDown, ChevronUp, Flame, Trash2, Tag,
 } from "lucide-react";
 import { PrintLabelButton } from "@/components/PrintLabelButton";
 
@@ -855,6 +855,31 @@ export default function LeadDetail() {
                       <SelectItem value="__none__">Unassigned</SelectItem>
                       {salesReps.map(rep => (
                         <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </HighlightTile>
+
+                <HighlightTile label="Pricing Tier" icon={Tag}>
+                  {lead.pricingTier ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 mb-1.5">
+                      {lead.pricingTier}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-sm block mb-1.5">Not set</span>
+                  )}
+                  <Select
+                    value={lead.pricingTier || "__none__"}
+                    onValueChange={(v) => updateLeadMutation.mutate({ pricingTier: v === "__none__" ? null : v })}
+                    disabled={updateLeadMutation.isPending}
+                  >
+                    <SelectTrigger className="h-7 text-xs mt-0.5 border-gray-200 bg-gray-50">
+                      <SelectValue placeholder="Set tier…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Not set —</SelectItem>
+                      {PRICING_TIERS.map(tier => (
+                        <SelectItem key={tier} value={tier}>{tier}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
