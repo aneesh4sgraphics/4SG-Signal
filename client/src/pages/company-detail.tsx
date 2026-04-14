@@ -1,17 +1,26 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft, Building2, Phone, MapPin, Mail, TrendingUp,
   FileText, Activity, Users, StickyNote, CheckSquare,
   FolderOpen, DollarSign, PhoneCall, Package, Clock,
   ArrowUpRight, ArrowDownLeft, Send, List, Tag, Eye, EyeOff,
+  Trash2, Loader2,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type ConnectionStrength = 'very_strong' | 'strong' | 'moderate' | 'weak' | 'cold';
 
@@ -90,7 +99,9 @@ interface Contact {
   jobTitle: string | null;
   isCompany: boolean;
   source?: string;
-  odooPartnerId?: number;
+  sources?: string[] | null;
+  odooPartnerId?: number | null;
+  isPrimary?: boolean | null;
 }
 
 interface InvoiceLineItem {
@@ -783,6 +794,8 @@ export default function CompanyDetail() {
   const [matchedById, paramsById] = useRoute("/companies/:id");
   const [matchedByName, paramsByName] = useRoute("/companies/name/:name");
   const [activeTab, setActiveTab] = useState("overview");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { toast } = useToast();
 
   const companyId = matchedById && paramsById ? parseInt(paramsById.id) : null;
   const companyName = matchedByName && paramsByName ? decodeURIComponent(paramsByName.name) : null;
@@ -833,6 +846,30 @@ export default function CompanyDetail() {
   const hasOdooLink = !!overview?.company?.odooCompanyPartnerId;
   const resolvedCompanyId = overview?.company?.id ?? companyId;
 
+  const isShopifyLinked = contacts.some(c =>
+    c.sources?.includes('shopify') || c.id?.toString().startsWith('shopify_')
+  );
+  const canDelete = !hasOdooLink && !isShopifyLinked;
+
+  const deleteCompanyMutation = useMutation({
+    mutationFn: async () => {
+      const body = isById && resolvedCompanyId
+        ? { companyIds: [resolvedCompanyId] }
+        : { companyNames: [displayName] };
+      const res = await apiRequest("POST", "/api/companies/bulk-delete", body);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Delete failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Company deleted" });
+      setLocation('/customer-management');
+    },
+    onError: (e: Error) => toast({ title: "Delete failed", description: e.message, variant: "destructive" }),
+  });
+
   if (overviewLoading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -870,8 +907,8 @@ export default function CompanyDetail() {
         <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-lg font-bold flex-shrink-0">
           {initials(displayName)}
         </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-semibold text-gray-900 truncate">{displayName}</h1>
             {isOrphan && (
               <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-[10px]">
@@ -889,6 +926,21 @@ export default function CompanyDetail() {
             <p className="text-sm text-gray-400">{overview.company.domain}</p>
           )}
         </div>
+        {canDelete && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 flex-shrink-0"
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={deleteCompanyMutation.isPending}
+          >
+            {deleteCompanyMutation.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Trash2 className="h-3.5 w-3.5 mr-1" />
+            }
+            Delete
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -956,6 +1008,26 @@ export default function CompanyDetail() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this company?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{displayName}</strong> and all its contacts from your CRM. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { setShowDeleteConfirm(false); deleteCompanyMutation.mutate(); }}
+            >
+              Delete company
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
