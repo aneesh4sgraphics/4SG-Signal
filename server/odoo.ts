@@ -446,7 +446,7 @@ class OdooClient {
   }
 
   async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
-    return this.searchRead('product.template', options.domain || [], [
+    return this.searchRead('product.template', options.domain || [['active', '=', true]], [
       'id', 'name', 'default_code', 'list_price', 'standard_price', 'categ_id',
       'type', 'description', 'description_sale', 'uom_id', 'active',
     ], { limit: options.limit || 100, offset: options.offset || 0 });

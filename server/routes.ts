@@ -15164,6 +15164,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate all stored mappings against Odoo — returns stale ones pointing to archived/missing products
+  app.get("/api/odoo/product-mappings/validate", requireAdmin, async (req: any, res) => {
+    try {
+      const allMappings = await db.select().from(productOdooMappings);
+      if (allMappings.length === 0) {
+        return res.json({ stale: [], total: 0 });
+      }
+
+      // Batch-read all Odoo product.product IDs at once
+      const odooIds = allMappings.map(m => m.odooProductId);
+      const odooProducts = await odooClient.read('product.product', odooIds, ['id', 'name', 'default_code', 'active']);
+
+      const activeById = new Map<number, boolean>();
+      const nameById = new Map<number, string>();
+      for (const p of odooProducts as any[]) {
+        activeById.set(p.id, p.active !== false);
+        nameById.set(p.id, p.name);
+      }
+
+      const stale: Array<{
+        mappingId: number;
+        itemCode: string;
+        odooProductId: number;
+        odooProductName: string | null;
+        reason: string;
+      }> = [];
+
+      for (const mapping of allMappings) {
+        const isActive = activeById.get(mapping.odooProductId);
+        if (isActive === undefined) {
+          stale.push({
+            mappingId: mapping.id,
+            itemCode: mapping.itemCode,
+            odooProductId: mapping.odooProductId,
+            odooProductName: mapping.odooProductName,
+            reason: 'not_found',
+          });
+        } else if (!isActive) {
+          stale.push({
+            mappingId: mapping.id,
+            itemCode: mapping.itemCode,
+            odooProductId: mapping.odooProductId,
+            odooProductName: nameById.get(mapping.odooProductId) || mapping.odooProductName,
+            reason: 'archived',
+          });
+        }
+      }
+
+      res.json({ stale, total: allMappings.length });
+    } catch (error: any) {
+      console.error("Error validating product mappings:", error);
+      res.status(500).json({ error: error.message || "Failed to validate mappings" });
+    }
+  });
+
   // Preview auto-mapping: returns proposed matches without creating them
   app.post("/api/odoo/product-mappings/auto/preview", requireAdmin, async (req: any, res) => {
     try {
@@ -16524,30 +16579,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build order lines - each item needs to be mapped to Odoo product
       const orderLines: Array<[number, number, { product_id: number; product_uom_qty: number; price_unit: number }]> = [];
       const unmappedItems: string[] = [];
-      
+      const archivedItems: string[] = [];
+
+      // Collect all mapped product IDs first so we can batch-verify active status in Odoo
+      const itemMappings: Array<{ item: any; mapping: any }> = [];
       for (const item of items) {
-        // Get the Odoo mapping for this item
         const [mapping] = await db.select().from(productOdooMappings)
           .where(eq(productOdooMappings.itemCode, item.itemCode))
           .limit(1);
-        
         if (!mapping) {
           unmappedItems.push(item.itemCode || item.productName);
-          continue;
+        } else {
+          itemMappings.push({ item, mapping });
         }
-        
-        // Odoo order line format: [0, 0, { field: value }] for create
-        orderLines.push([0, 0, {
-          product_id: mapping.odooProductId,
-          product_uom_qty: item.quantity || 1,
-          price_unit: item.pricePerSheet || 0,
-        }]);
+      }
+
+      // Batch-check active status of all mapped Odoo products in a single call
+      if (itemMappings.length > 0) {
+        const odooProductIds = itemMappings.map(im => im.mapping.odooProductId);
+        const odooProducts = await odooClient.read('product.product', odooProductIds, ['id', 'name', 'active']);
+        const activeById = new Map(odooProducts.map((p: any) => [p.id, p.active !== false]));
+
+        for (const { item, mapping } of itemMappings) {
+          const isActive = activeById.get(mapping.odooProductId);
+          if (isActive === false) {
+            // Product is archived in Odoo — skip it and report
+            archivedItems.push(`${item.itemCode || item.productName} (Odoo ID ${mapping.odooProductId}: ${mapping.odooProductName || 'unknown'} — archived)`);
+          } else {
+            // Odoo order line format: [0, 0, { field: value }] for create
+            orderLines.push([0, 0, {
+              product_id: mapping.odooProductId,
+              product_uom_qty: item.quantity || 1,
+              price_unit: item.pricePerSheet || 0,
+            }]);
+          }
+        }
       }
       
-      if (unmappedItems.length > 0 && orderLines.length === 0) {
+      if (orderLines.length === 0) {
         return res.status(400).json({ 
-          error: "No items are mapped to Odoo products", 
-          unmappedItems 
+          error: "No items could be added to the order",
+          unmappedItems,
+          archivedItems,
         });
       }
       
@@ -16573,15 +16646,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           odooOrderId: orderId,
           itemCount: orderLines.length,
           unmappedCount: unmappedItems.length,
+          archivedCount: archivedItems.length,
         },
       });
+
+      const skippedParts: string[] = [];
+      if (unmappedItems.length > 0) skippedParts.push(`${unmappedItems.length} not mapped`);
+      if (archivedItems.length > 0) skippedParts.push(`${archivedItems.length} archived in Odoo`);
       
       res.json({
         success: true,
         orderId,
         itemsAdded: orderLines.length,
         unmappedItems: unmappedItems.length > 0 ? unmappedItems : undefined,
-        message: `Sales order created in Odoo${unmappedItems.length > 0 ? ` (${unmappedItems.length} items skipped - not mapped)` : ''}`,
+        archivedItems: archivedItems.length > 0 ? archivedItems : undefined,
+        message: `Sales order created in Odoo${skippedParts.length > 0 ? ` (${skippedParts.join(', ')} skipped)` : ''}`,
       });
     } catch (error: any) {
       console.error("Error creating Odoo sale order:", error);

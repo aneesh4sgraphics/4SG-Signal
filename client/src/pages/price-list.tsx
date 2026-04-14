@@ -129,6 +129,7 @@ export default function PriceList() {
   const [selectedForPDF, setSelectedForPDF] = useState<Set<string>>(new Set());
   const [pdfProgress, setPdfProgress] = useState(0);
   const [showPdfProgress, setShowPdfProgress] = useState(false);
+  const [hideZeroPrice, setHideZeroPrice] = useState(false);
   
   // Helper to update shipping cost input (string for intermediate typing)
   const updateShippingInput = (itemCode: string, value: string) => {
@@ -640,9 +641,16 @@ export default function PriceList() {
     });
   };
 
+  // Count items with $0 price per sheet
+  const zeroPriceCount = useMemo(() => {
+    const itemsToCheck = orderedItems.length > 0 ? orderedItems : priceListItems;
+    return itemsToCheck.filter(item => item.pricePerSheet === 0).length;
+  }, [priceListItems, orderedItems]);
+
   // Group items by product type
   const groupedByType = useMemo(() => {
-    const itemsToGroup = orderedItems.length > 0 ? orderedItems : priceListItems;
+    const itemsToGroup = (orderedItems.length > 0 ? orderedItems : priceListItems)
+      .filter(item => hideZeroPrice ? item.pricePerSheet > 0 : true);
     const grouped: Record<string, PriceListItem[]> = {};
     
     itemsToGroup.forEach(item => {
@@ -652,7 +660,7 @@ export default function PriceList() {
     });
     
     return grouped;
-  }, [priceListItems, orderedItems]);
+  }, [priceListItems, orderedItems, hideZeroPrice]);
 
   // Get sorted product types based on user-defined order
   const sortedProductTypes = useMemo(() => {
@@ -1415,7 +1423,18 @@ export default function PriceList() {
             </div>
           </div>
           <div className="flex items-center justify-between mb-6">
-            <p className="body-small text-gray-500">{priceListItems.length} products found across {sortedProductTypes.length} product types</p>
+            <div className="flex items-center gap-3">
+              <p className="body-small text-gray-500">{priceListItems.length} products found across {sortedProductTypes.length} product types</p>
+              {zeroPriceCount > 0 && (
+                <button
+                  onClick={() => setHideZeroPrice(prev => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${hideZeroPrice ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'}`}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  {zeroPriceCount} $0 item{zeroPriceCount !== 1 ? 's' : ''} {hideZeroPrice ? '(hidden)' : '— click to hide'}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">
                 <span className="font-medium text-purple-700">{selectedForPDF.size}</span> of {priceListItems.length} selected for PDF

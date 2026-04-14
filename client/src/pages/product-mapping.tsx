@@ -76,6 +76,19 @@ interface UnmappedResponse {
   types: ProductType[];
 }
 
+interface StaleMapping {
+  mappingId: number;
+  itemCode: string;
+  odooProductId: number;
+  odooProductName: string | null;
+  reason: 'archived' | 'not_found';
+}
+
+interface ValidationResult {
+  stale: StaleMapping[];
+  total: number;
+}
+
 export default function ProductMapping() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('unmapped');
@@ -115,6 +128,11 @@ export default function ProductMapping() {
   
   // Category selection for filtering types in Categories & Types tab
   const [selectedCategoryForTypes, setSelectedCategoryForTypes] = useState<number | null>(null);
+
+  // Mapping validation state
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [deletingStaleIds, setDeletingStaleIds] = useState<Set<number>>(new Set());
 
   // Fetch unmapped products
   const { data: unmappedData, isLoading: loadingProducts, refetch: refetchProducts } = useQuery<UnmappedResponse>({
@@ -402,6 +420,52 @@ export default function ProductMapping() {
     },
   });
 
+  const validateMappings = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/odoo/product-mappings/validate');
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<ValidationResult>;
+    },
+    onSuccess: (data) => {
+      setValidationResult(data);
+      setShowValidationDialog(true);
+      if (data.stale.length === 0) {
+        toast({ title: 'All mappings are healthy', description: `Checked ${data.total} mappings — none point to archived products.` });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Validation failed', description: error.message });
+    },
+  });
+
+  const deleteStaleMapping = async (mappingId: number) => {
+    setDeletingStaleIds(prev => new Set(prev).add(mappingId));
+    try {
+      await apiRequest('DELETE', `/api/odoo/product-mappings/${mappingId}`);
+      setValidationResult(prev => prev ? { ...prev, stale: prev.stale.filter(s => s.mappingId !== mappingId) } : prev);
+      toast({ title: 'Stale mapping removed', description: 'The mapping to the archived Odoo product has been cleared.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: err.message });
+    } finally {
+      setDeletingStaleIds(prev => { const s = new Set(prev); s.delete(mappingId); return s; });
+    }
+  };
+
+  const deleteAllStaleMappings = async () => {
+    if (!validationResult) return;
+    const ids = validationResult.stale.map(s => s.mappingId);
+    setDeletingStaleIds(new Set(ids));
+    try {
+      await Promise.all(ids.map(id => apiRequest('DELETE', `/api/odoo/product-mappings/${id}`)));
+      setValidationResult(prev => prev ? { ...prev, stale: [] } : prev);
+      toast({ title: `Cleared ${ids.length} stale mappings`, description: 'These products will need to be re-mapped to active Odoo products.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Bulk delete failed', description: err.message });
+    } finally {
+      setDeletingStaleIds(new Set());
+    }
+  };
+
   const resetMappingForm = () => {
     setSelectedCategory('');
     setSelectedType('');
@@ -515,6 +579,18 @@ export default function ProductMapping() {
             </div>
             
             <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => validateMappings.mutate()}
+                disabled={validateMappings.isPending}
+                data-testid="button-validate-mappings"
+              >
+                {validateMappings.isPending ? (
+                  <><span className="mr-2 h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />Checking…</>
+                ) : (
+                  <><CheckCircle2 className="h-4 w-4 mr-2" />Validate Odoo Mappings</>
+                )}
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => refetchProducts()}
@@ -1424,6 +1500,78 @@ export default function ProductMapping() {
             >
               {mergeTypes.isPending ? 'Merging...' : 'Merge & Delete'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mapping Validation Dialog */}
+      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {validationResult && validationResult.stale.length === 0 ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              )}
+              Odoo Mapping Validation
+            </DialogTitle>
+            <DialogDescription>
+              {validationResult
+                ? validationResult.stale.length === 0
+                  ? `All ${validationResult.total} mappings point to active Odoo products.`
+                  : `Found ${validationResult.stale.length} stale mapping${validationResult.stale.length === 1 ? '' : 's'} out of ${validationResult.total} total. These point to archived or deleted Odoo products and will be skipped when creating sales orders.`
+                : 'Loading...'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {validationResult && validationResult.stale.length > 0 && (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {validationResult.stale.map((stale) => (
+                <div key={stale.mappingId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-medium">{stale.itemCode}</span>
+                      <Badge variant="destructive" className="text-xs">
+                        {stale.reason === 'archived' ? 'Archived in Odoo' : 'Not Found in Odoo'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      Odoo: {stale.odooProductName || `ID ${stale.odooProductId}`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive ml-2"
+                    disabled={deletingStaleIds.has(stale.mappingId)}
+                    onClick={() => deleteStaleMapping(stale.mappingId)}
+                  >
+                    {deletingStaleIds.has(stale.mappingId) ? (
+                      <span className="h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowValidationDialog(false)}>
+              Close
+            </Button>
+            {validationResult && validationResult.stale.length > 0 && (
+              <Button
+                variant="destructive"
+                disabled={deletingStaleIds.size > 0}
+                onClick={deleteAllStaleMappings}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear All {validationResult.stale.length} Stale Mappings
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
