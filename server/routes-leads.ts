@@ -335,6 +335,20 @@ export function registerLeadsRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to fetch drip assignments" });
     }
   });
+  app.get("/api/leads/states", isAuthenticated, async (_req: any, res) => {
+    try {
+      const rows = await db
+        .select({ state: leads.state })
+        .from(leads)
+        .where(sql`${leads.state} IS NOT NULL AND TRIM(${leads.state}) != '' AND ${leads.stage} != 'converted'`)
+        .groupBy(leads.state)
+        .orderBy(leads.state);
+      res.json(rows.map(r => r.state).filter(Boolean));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch lead states' });
+    }
+  });
+
   app.get("/api/leads/tags", isAuthenticated, async (_req: any, res) => {
     try {
       const rows = await db

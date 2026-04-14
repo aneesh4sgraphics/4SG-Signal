@@ -270,16 +270,21 @@ export default function LeadsPage() {
 
   const PAGE_SIZE = 100;
   const { data: leadsData, isLoading, refetch } = useQuery<{ leads: Lead[]; total: number; page: number; pageSize: number }>({
-    queryKey: ['/api/leads', { stage: stageFilter, search, page: currentPage }],
+    queryKey: ['/api/leads', { stage: stageFilter, search, page: currentPage, state: stateFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (stageFilter !== 'all') params.set('stage', stageFilter);
       if (search) params.set('search', search);
+      if (stateFilter !== 'all') params.set('state', stateFilter);
       params.set('page', String(currentPage));
       params.set('pageSize', String(PAGE_SIZE));
       const res = await fetch(`/api/leads?${params.toString()}`, { credentials: 'include' });
       return res.json();
     },
+  });
+
+  const { data: allStates = [] } = useQuery<string[]>({
+    queryKey: ['/api/leads/states'],
   });
 
   const { data: stats } = useQuery<LeadStats>({
@@ -469,7 +474,7 @@ export default function LeadsPage() {
   });
 
   const allLeads = leadsData?.leads || [];
-  const uniqueStates = Array.from(new Set(allLeads.map(l => l.state).filter(Boolean) as string[])).sort();
+  const uniqueStates = allStates;
   const uniqueSources = Array.from(new Set(allLeads.map(l => l.sourceType).filter(Boolean) as string[])).sort();
   const uniqueTags = Array.from(new Set(
     allLeads.flatMap(l => l.tags ? l.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [])
@@ -483,7 +488,6 @@ export default function LeadsPage() {
   };
 
   const leads = allLeads.filter(l => {
-    if (stateFilter !== 'all' && l.state !== stateFilter) return false;
     if (sourceFilter !== 'all' && l.sourceType !== sourceFilter) return false;
     if (tagFilter !== 'all' && !l.tags?.split(',').map((t: string) => t.trim()).includes(tagFilter)) return false;
     if (hasEmail === true && !l.email) return false;
