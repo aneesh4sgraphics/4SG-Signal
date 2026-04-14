@@ -358,6 +358,11 @@ export default function OdooCompanyDetail() {
     queryKey: [`/api/customers/${companyId}/navigation`],
     staleTime: 60000, enabled: !!companyId,
   });
+  const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({
+    queryKey: ['/api/odoo/base-url'],
+    staleTime: 60 * 60 * 1000,
+  });
+  const odooBaseUrl = odooBaseUrlData?.baseUrl || '';
 
   // ── Mutations ────────────────────────────────────────────────────────────────
   const addNoteMutation = useMutation({
@@ -814,11 +819,22 @@ export default function OdooCompanyDetail() {
                 </Button>
               </div>
 
-              {user?.role === "admin" && (
-                <Button variant="ghost" size="sm" onClick={() => setIsDeleteConfirmOpen(true)} className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50">
+              {company.odooPartnerId ? (
+                <a
+                  href={`${odooBaseUrl}/web#model=res.partner&id=${company.odooPartnerId}&view_type=form`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-violet-200 bg-violet-50 text-violet-700 text-xs font-medium hover:bg-violet-100 transition-colors h-8"
+                  title={`Open in Odoo (Partner #${company.odooPartnerId})`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Odoo</span>
+                </a>
+              ) : user?.role === "admin" ? (
+                <Button variant="ghost" size="sm" onClick={() => setIsDeleteConfirmOpen(true)} className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50" title="Delete contact (not in Odoo)">
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
 
