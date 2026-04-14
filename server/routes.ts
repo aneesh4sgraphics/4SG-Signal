@@ -16581,39 +16581,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const unmappedItems: string[] = [];
       const archivedItems: string[] = [];
 
-      // Collect all mapped product IDs first so we can batch-verify active status in Odoo
-      const itemMappings: Array<{ item: any; mapping: any }> = [];
       for (const item of items) {
         const [mapping] = await db.select().from(productOdooMappings)
           .where(eq(productOdooMappings.itemCode, item.itemCode))
           .limit(1);
+        
         if (!mapping) {
           unmappedItems.push(item.itemCode || item.productName);
-        } else {
-          itemMappings.push({ item, mapping });
+          continue;
         }
-      }
 
-      // Batch-check active status of all mapped Odoo products in a single call
-      if (itemMappings.length > 0) {
-        const odooProductIds = itemMappings.map(im => im.mapping.odooProductId);
-        const odooProducts = await odooClient.read('product.product', odooProductIds, ['id', 'name', 'active']);
-        const activeById = new Map(odooProducts.map((p: any) => [p.id, p.active !== false]));
-
-        for (const { item, mapping } of itemMappings) {
-          const isActive = activeById.get(mapping.odooProductId);
-          if (isActive === false) {
-            // Product is archived in Odoo — skip it and report
+        // Verify the mapped Odoo product is still active (not archived)
+        try {
+          const odooProduct = await odooClient.getProductVariantById(mapping.odooProductId);
+          if (!odooProduct || odooProduct.active === false) {
+            console.warn(`[Sale Order] Mapped product ${mapping.odooProductId} (${item.itemCode}) is archived in Odoo — skipping`);
+            unmappedItems.push(`${item.itemCode} (archived in Odoo — please re-map)`);
             archivedItems.push(`${item.itemCode || item.productName} (Odoo ID ${mapping.odooProductId}: ${mapping.odooProductName || 'unknown'} — archived)`);
-          } else {
-            // Odoo order line format: [0, 0, { field: value }] for create
-            orderLines.push([0, 0, {
-              product_id: mapping.odooProductId,
-              product_uom_qty: item.quantity || 1,
-              price_unit: item.pricePerSheet || 0,
-            }]);
+            continue;
           }
+        } catch (verifyError) {
+          console.warn(`[Sale Order] Could not verify product ${mapping.odooProductId}:`, verifyError);
         }
+
+        // Odoo order line format: [0, 0, { field: value }] for create
+        orderLines.push([0, 0, {
+          product_id: mapping.odooProductId,
+          product_uom_qty: item.quantity || 1,
+          price_unit: item.pricePerSheet || 0,
+        }]);
       }
       
       if (orderLines.length === 0) {

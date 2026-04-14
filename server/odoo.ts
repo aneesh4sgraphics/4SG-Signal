@@ -446,7 +446,9 @@ class OdooClient {
   }
 
   async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
-    return this.searchRead('product.template', options.domain || [['active', '=', true]], [
+    const baseDomain = [['active', '=', true]];
+    const domain = options.domain ? [...baseDomain, ...options.domain] : baseDomain;
+    return this.searchRead('product.template', domain, [
       'id', 'name', 'default_code', 'list_price', 'standard_price', 'categ_id',
       'type', 'description', 'description_sale', 'uom_id', 'active',
     ], { limit: options.limit || 100, offset: options.offset || 0 });
@@ -546,8 +548,10 @@ class OdooClient {
     // If we found enough variants with codes, skip templates for speed
     // Only fetch templates if we didn't find many variant codes
     if (combined.length < 50) {
-      const templates = await this.getAllProducts();
+      const templates = await this.getAllProducts(); // getAllProducts now filters active only
       for (const template of templates) {
+        // Skip archived templates
+        if (template.active === false) continue;
         // Odoo can return false instead of null for empty fields
         const rawCode = template.default_code;
         const code = (typeof rawCode === 'string') ? rawCode.trim() : null;

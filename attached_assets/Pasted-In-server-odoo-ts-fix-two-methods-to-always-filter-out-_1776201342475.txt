@@ -1,0 +1,58 @@
+In server/odoo.ts, fix two methods to always filter out archived/inactive products:
+
+FIX 1 — getProducts() currently uses an empty domain [] which includes archived products.
+Find:
+  async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
+    return this.searchRead('product.template', options.domain || [], [
+
+Change to:
+  async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
+    const baseDomain = [['active', '=', true]];
+    const domain = options.domain ? [...baseDomain, ...options.domain] : baseDomain;
+    return this.searchRead('product.template', domain, [
+
+FIX 2 — getAllProductsWithVariants() when mapping products to Odoo, it should also verify the matched product is still active before storing the mapping. Find the part where it stores odooProductId and add an active check.
+
+In the getAllProductsWithVariants() method, the combined array already uses getAllProductVariants() which does filter active. But after the fallback to templates, add the active filter explicitly:
+
+Find in getAllProductsWithVariants:
+      const templates = await this.getAllProducts();
+      for (const template of templates) {
+
+Change to:
+      const templates = await this.getAllProducts(); // getAllProducts now filters active only
+      for (const template of templates) {
+        // Skip archived templates
+        if (template.active === false) continue;
+
+FIX 3 — In server/routes.ts, the create-sale-order endpoint uses odooProductId from the mapping table but never verifies the product is still active in Odoo before using it.
+
+Find the create-sale-order endpoint (around line 16503). After finding the mapping:
+        const [mapping] = await db.select().from(productOdooMappings)
+          .where(eq(productOdooMappings.itemCode, item.itemCode))
+          .limit(1);
+        
+        if (!mapping) {
+          unmappedItems.push(item.itemCode || item.productName);
+          continue;
+        }
+
+Add a check that verifies the Odoo product is still active:
+        if (!mapping) {
+          unmappedItems.push(item.itemCode || item.productName);
+          continue;
+        }
+
+        // Verify the mapped Odoo product is still active (not archived)
+        try {
+          const odooProduct = await odooClient.getProductVariantById(mapping.odooProductId);
+          if (!odooProduct || odooProduct.active === false) {
+            console.warn(`[Sale Order] Mapped product ${mapping.odooProductId} (${item.itemCode}) is archived in Odoo — skipping`);
+            unmappedItems.push(`${item.itemCode} (archived in Odoo — please re-map)`);
+            continue;
+          }
+        } catch (verifyError) {
+          console.warn(`[Sale Order] Could not verify product ${mapping.odooProductId}:`, verifyError);
+        }
+
+Do not change anything else.
