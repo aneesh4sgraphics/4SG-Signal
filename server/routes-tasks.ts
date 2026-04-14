@@ -1342,6 +1342,7 @@ Return ONLY a JSON object with these keys (use null for not found):
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
+      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
 
       // Base visibility condition: Aneesh sees all; others see only their assigned tasks
       const visibilityCond = isAneesh ? [] : [eq(followUpTasks.assignedTo, rawEmail)];
@@ -1349,17 +1350,17 @@ Return ONLY a JSON object with these keys (use null for not found):
       const [todayResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(followUpTasks)
-        .where(and(gte(followUpTasks.dueDate, today), lt(followUpTasks.dueDate, tomorrow), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(gte(followUpTasks.dueDate, today), lt(followUpTasks.dueDate, tomorrow), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const [overdueResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(followUpTasks)
-        .where(and(lt(followUpTasks.dueDate, today), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(lt(followUpTasks.dueDate, today), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const [emailResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(followUpTasks)
-        .where(and(eq(followUpTasks.status, 'pending'), ilike(followUpTasks.taskType, '%email%'), ...visibilityCond));
+        .where(and(eq(followUpTasks.status, 'pending'), ilike(followUpTasks.taskType, '%email%'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       // Emails Not Replied count: emailSends rows + Gmail-synced leadActivities + customerActivityEvents
       const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
@@ -1432,23 +1433,23 @@ Return ONLY a JSON object with these keys (use null for not found):
       const [callFollowUpsResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(followUpTasks)
-        .where(and(eq(followUpTasks.status, 'pending'), eq(followUpTasks.sourceType, 'call_log'), ...visibilityCond));
+        .where(and(eq(followUpTasks.status, 'pending'), eq(followUpTasks.sourceType, 'call_log'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
       const sixDaysAgo = new Date(today); sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
       const thirteenDaysAgo = new Date(today); thirteenDaysAgo.setDate(thirteenDaysAgo.getDate() - 13);
 
       const [warmResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
-        .where(and(lt(followUpTasks.dueDate, today), gte(followUpTasks.dueDate, twoDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(lt(followUpTasks.dueDate, today), gte(followUpTasks.dueDate, twoDaysAgo), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const [hotResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
-        .where(and(lt(followUpTasks.dueDate, twoDaysAgo), gte(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(lt(followUpTasks.dueDate, twoDaysAgo), gte(followUpTasks.dueDate, sixDaysAgo), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const [criticalResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
-        .where(and(lt(followUpTasks.dueDate, sixDaysAgo), gte(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(lt(followUpTasks.dueDate, sixDaysAgo), gte(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       const [escalatedResult] = await db.select({ count: sql<number>`count(*)` }).from(followUpTasks)
-        .where(and(lt(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), ...visibilityCond));
+        .where(and(lt(followUpTasks.dueDate, thirteenDaysAgo), eq(followUpTasks.status, 'pending'), gte(followUpTasks.createdAt, thisYearStart), ...visibilityCond));
 
       let repHeat: Array<{ name: string; critical: number; escalated: number }> = [];
       if (isAneesh) {
@@ -1476,7 +1477,6 @@ Return ONLY a JSON object with these keys (use null for not found):
       }
 
       // Per-rep task counts for admin sidebar — only computed for Aneesh
-      const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
       let repTaskCounts: Array<{ email: string; name: string; pending: number; overdue: number }> = [];
       if (isAneesh) {
         const REP_EMAILS = [
