@@ -210,19 +210,25 @@ export default function DripCampaignBuilder() {
 
   const assignCustomersMutation = useMutation({
     mutationFn: async ({ campaignId, customerIds, leadIds }: { campaignId: number; customerIds?: string[]; leadIds?: string[] }) => {
-      if (leadIds) {
-        const res = await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { leadIds });
-        return res.json();
-      }
-      const res = await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { customerIds });
-      return res.json();
+      const res = await apiRequest(
+        "POST",
+        `/api/drip-campaigns/${campaignId}/assignments`,
+        leadIds ? { leadIds } : { customerIds }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to enroll in campaign");
+      return data;
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns/assignment-counts"] });
       setSelectedCustomerIds([]);
       setSelectedLeadIds([]);
-      toast({ title: `${data.created} record(s) enrolled in campaign` });
+      if (data.created === 0 && data.skipped > 0) {
+        toast({ title: "Already enrolled", description: `${data.skipped} record(s) are already in this campaign` });
+      } else {
+        toast({ title: `${data.created} record(s) enrolled in campaign` });
+      }
     },
     onError: () => {
       toast({ title: "Failed to assign to campaign", variant: "destructive" });

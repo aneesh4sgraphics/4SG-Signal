@@ -85,7 +85,11 @@ export function registerDripRoutes(app: Express): void {
   app.get("/api/drip-campaigns", isAuthenticated, async (req: any, res) => {
     try {
       const campaigns = await storage.getDripCampaigns();
-      res.json(campaigns);
+      const withStepCounts = await Promise.all(campaigns.map(async (c) => {
+        const steps = await storage.getDripCampaignSteps(c.id);
+        return { ...c, stepCount: steps.length };
+      }));
+      res.json(withStepCounts);
     } catch (error) {
       console.error("Error fetching drip campaigns:", error);
       res.status(500).json({ error: "Failed to fetch drip campaigns" });
@@ -695,8 +699,27 @@ export function registerDripRoutes(app: Express): void {
       // --- 1 bulk insert: all step statuses (chunked to stay under param limit) ---
       await storage.bulkCreateDripCampaignStepStatuses(stepStatusRows);
 
+      // --- Warn about leads with no email ---
+      const leadsWithNoEmail: number[] = [];
+      if (rawLeadIds.length > 0) {
+        const leadEmails = await db
+          .select({ id: leads.id, email: leads.email })
+          .from(leads)
+          .where(inArray(leads.id, rawLeadIds));
+        for (const lead of leadEmails) {
+          if (!lead.email) leadsWithNoEmail.push(lead.id);
+        }
+      }
+
       console.log(`[Drip Assign] Campaign ${campaignId}: enrolled ${createdAssignments.length}, skipped ${alreadyActive.length}, scheduled ${stepStatusRows.length} step statuses`);
-      res.json({ created: createdAssignments.length, skipped: alreadyActive.length, assignments: createdAssignments });
+      res.json({
+        created: createdAssignments.length,
+        skipped: alreadyActive.length,
+        assignments: createdAssignments,
+        warnings: leadsWithNoEmail.length > 0
+          ? [`${leadsWithNoEmail.length} lead(s) have no email address and will not receive drip emails`]
+          : [],
+      });
     } catch (error) {
       console.error("Error creating drip campaign assignments:", error);
       res.status(500).json({ error: "Failed to create drip campaign assignments" });

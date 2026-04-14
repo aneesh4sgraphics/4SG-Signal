@@ -258,7 +258,7 @@ export default function LeadDetail() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean }[]>({
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean; stepCount?: number }[]>({
     queryKey: ["/api/drip-campaigns"],
     staleTime: 5 * 60 * 1000,
     enabled: showDripEnroll,
@@ -404,9 +404,17 @@ export default function LeadDetail() {
       return res.json();
     },
     onSuccess: (data) => {
-      if (data.created === 0) toast({ title: "Already enrolled" });
-      else { toast({ title: "Drip campaign started" }); refetchDripAssignments(); }
-      setShowDripEnroll(false); setSelectedDripCampaignId("");
+      if (data.created === 0) {
+        toast({ title: "Already enrolled", description: "This lead is already in this campaign" });
+      } else {
+        toast({ title: "Drip campaign started" });
+        if (data.warnings?.length > 0) {
+          setTimeout(() => toast({ title: "Warning", description: data.warnings[0], variant: "destructive" }), 500);
+        }
+        refetchDripAssignments();
+      }
+      setShowDripEnroll(false);
+      setSelectedDripCampaignId("");
     },
     onError: (e: Error) => toast({ title: "Enrollment failed", description: e.message, variant: "destructive" }),
   });
@@ -1459,8 +1467,17 @@ export default function LeadDetail() {
                       selectedDripCampaignId === String(campaign.id) ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white hover:border-amber-200"
                     }`}
                   >
-                    <p className="text-sm font-medium text-gray-800">{campaign.name}</p>
-                    {campaign.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{campaign.description}</p>}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-gray-800">{campaign.name}</p>
+                      {campaign.stepCount === 0 && (
+                        <span style={{ fontSize: '10px', background: '#FCEBEB', color: '#A32D2D', borderRadius: '4px', padding: '1px 6px' }}>
+                          No steps — cannot send
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#6B7280' }}>
+                      {campaign.description || 'No description'}
+                    </span>
                   </button>
                 ))}
               </div>

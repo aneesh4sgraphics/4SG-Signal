@@ -1,0 +1,125 @@
+Fix 4 bugs in the drip enrollment flow:
+
+BUG 1 & 3 — DripCampaignBuilder doesn't check res.ok
+In client/src/components/DripCampaignBuilder.tsx, find the assignCustomersMutation mutationFn (around line 212):
+
+  mutationFn: async ({ campaignId, customerIds, leadIds }) => {
+    if (leadIds) {
+      const res = await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { leadIds });
+      return res.json();
+    }
+    const res = await apiRequest("POST", `/api/drip-campaigns/${campaignId}/assignments`, { customerIds });
+    return res.json();
+  },
+
+Replace with:
+
+  mutationFn: async ({ campaignId, customerIds, leadIds }) => {
+    const res = await apiRequest(
+      "POST",
+      `/api/drip-campaigns/${campaignId}/assignments`,
+      leadIds ? { leadIds } : { customerIds }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to enroll in campaign");
+    return data;
+  },
+
+Also update the onSuccess handler to show a better message when created is 0:
+
+  onSuccess: (data: any) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/drip-campaigns/assignment-counts"] });
+    setSelectedCustomerIds([]);
+    setSelectedLeadIds([]);
+    if (data.created === 0 && data.skipped > 0) {
+      toast({ title: "Already enrolled", description: `${data.skipped} record(s) are already in this campaign` });
+    } else {
+      toast({ title: `${data.created} record(s) enrolled in campaign` });
+    }
+  },
+
+BUG 2 — Enrolling leads with no email shows no warning
+In server/routes-drip.ts, in the POST /api/drip-campaigns/:campaignId/assignments endpoint, after building newAssignmentRows and before inserting, add a warning check for leads without emails:
+
+  // Warn about leads with no email
+  const leadsWithNoEmail: number[] = [];
+  if (rawLeadIds.length > 0) {
+    const leadEmails = await db
+      .select({ id: leads.id, email: leads.email })
+      .from(leads)
+      .where(inArray(leads.id, rawLeadIds));
+    for (const lead of leadEmails) {
+      if (!lead.email) leadsWithNoEmail.push(lead.id);
+    }
+  }
+
+Then include this in the response:
+  res.json({
+    created: createdAssignments.length,
+    skipped: alreadyActive.length,
+    assignments: createdAssignments,
+    warnings: leadsWithNoEmail.length > 0
+      ? [`${leadsWithNoEmail.length} lead(s) have no email address and will not receive drip emails`]
+      : [],
+  });
+
+In client/src/pages/lead-detail.tsx, update the enrollDripMutation onSuccess to show warnings:
+
+  onSuccess: (data) => {
+    if (data.created === 0) {
+      toast({ title: "Already enrolled", description: "This lead is already in this campaign" });
+    } else {
+      toast({ title: "Drip campaign started" });
+      if (data.warnings?.length > 0) {
+        setTimeout(() => toast({ title: "Warning", description: data.warnings[0], variant: "destructive" }), 500);
+      }
+      refetchDripAssignments();
+    }
+    setShowDripEnroll(false);
+    setSelectedDripCampaignId("");
+  },
+
+BUG 4 — Show campaign step count in enrollment dialog so reps know what they're enrolling in
+In client/src/pages/lead-detail.tsx, in the drip enrollment dialog, update the campaign list item to show step count. Find where campaigns are mapped in the dialog:
+
+  {dripCampaigns.filter(c => c.isActive).map((campaign) => (
+    <button ... >
+
+Add after the campaign name:
+  <span style={{ fontSize: '11px', color: '#6B7280' }}>
+    {campaign.description || 'No description'}
+  </span>
+
+Also add a warning icon if the campaign has 0 steps — check by querying step count. In the campaigns query at the top of lead-detail.tsx:
+
+  const { data: dripCampaigns = [] } = useQuery<{ id: number; name: string; description: string | null; isActive: boolean; stepCount?: number }[]>({
+    queryKey: ["/api/drip-campaigns"],
+
+Update the campaigns endpoint in server/routes-drip.ts to include step count. Find the GET /api/drip-campaigns endpoint:
+
+  app.get("/api/drip-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaigns = await storage.getDripCampaigns();
+      res.json(campaigns);
+
+Replace with:
+  app.get("/api/drip-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaigns = await storage.getDripCampaigns();
+      // Add step counts
+      const withStepCounts = await Promise.all(campaigns.map(async (c) => {
+        const steps = await storage.getDripCampaignSteps(c.id);
+        return { ...c, stepCount: steps.length };
+      }));
+      res.json(withStepCounts);
+
+Then in the enrollment dialog in lead-detail.tsx, show a warning badge next to campaigns with no steps:
+
+  {campaign.stepCount === 0 && (
+    <span style={{ fontSize: '10px', background: '#FCEBEB', color: '#A32D2D', borderRadius: '4px', padding: '1px 6px', marginLeft: '4px' }}>
+      No steps — cannot send
+    </span>
+  )}
+
+Do not change any other logic.
