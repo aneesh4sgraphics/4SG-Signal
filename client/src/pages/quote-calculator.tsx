@@ -1937,21 +1937,44 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           </div>
         )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Panel - Customer & Product Selection */}
-        <div className="lg:col-span-1">
-          {/* Customer Selection Card */}
-          <div className="glass-card mb-6 overflow-visible relative z-30">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <User className="h-4 w-4 text-indigo-600" />
-              Select Customer
-            </h3>
-            <SearchableCustomerSelect
-              selectedCustomer={selectedCustomer}
-              onCustomerSelect={handleCustomerSelect}
-              placeholder="Search by name, company, or email"
-              className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '12px', alignItems: 'start' }}>
+        {/* Left Rail */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Customer Card */}
+          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '12px 14px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Customer</div>
+            {selectedCustomer ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedCustomer(null)}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+                  {((selectedCustomer.firstName?.[0] || '') + (selectedCustomer.lastName?.[0] || selectedCustomer.company?.[0] || '')).toUpperCase() || 'C'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
+                  </div>
+                  {selectedCustomer.firstName && selectedCustomer.company && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <SearchableCustomerSelect
+                selectedCustomer={selectedCustomer}
+                onCustomerSelect={handleCustomerSelect}
+                placeholder="Search by name or company"
+                className="w-full"
+              />
+            )}
+            {selectedCustomer && (
+              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {matchingTier && (
+                  <span style={{ fontSize: '10px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '2px 7px' }}>
+                    {allPricingTiers.find(t => t.key === matchingTier)?.label || matchingTier}
+                  </span>
+                )}
+                <span style={{ fontSize: '10px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '2px 7px' }}>matched ✓</span>
+              </div>
+            )}
           </div>
 
           {/* PDF Sent Prices Reference Panel */}
@@ -2023,360 +2046,143 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Product Selection Card */}
-          <div className="glass-card mb-6 overflow-visible relative z-20">
-            <div className="space-y-6">
-              {/* Product Category */}
-              <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Product Category</label>
+          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
+            {/* Category row */}
+            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Category</span>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                  <SelectValue placeholder="Select product category">
-                    {selectedCategory && (() => {
-                      const IconComponent = getProductIcon(selectedCategory);
-                      const iconColor = getProductIconColor(selectedCategory);
-                      return (
-                        <div className="flex items-center gap-2">
-                          <IconComponent className={`h-5 w-5 ${iconColor}`} />
-                          <span className="font-medium">
-                            {selectedCategory.includes('Graffiti') ? (
-                              <>
-                                <span className="font-graffiti">Graffiti</span>
-                                <sup className="text-xs">™</sup>
-                                <span>{selectedCategory.replace('Graffiti', '').trim()}</span>
-                              </>
-                            ) : (
-                              selectedCategory
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(category => {
-                    const IconComponent = getProductIcon(category);
-                    const iconColor = getProductIconColor(category);
-                    return (
-                      <SelectItem key={category} value={category}>
-                        <div className="flex items-center gap-2">
-                          <IconComponent className={`h-4 w-4 ${iconColor}`} />
-                          <span>
-                            {category.includes('Graffiti') ? (
-                              <>
-                                <span className="font-graffiti">Graffiti</span>
-                                <sup className="text-xs">™</sup>
-                                <span>{category.replace('Graffiti', '').trim()}</span>
-                              </>
-                            ) : (
-                              category
-                            )}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-              {/* Product Type */}
-              <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Product Type</label>
-                <Select 
-                  value={selectedType} 
-                  onValueChange={setSelectedType}
-                  disabled={!selectedCategory}
-                >
-                  <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100">
-                  <SelectValue placeholder="Select a type" className="truncate" />
-                </SelectTrigger>
-                <SelectContent className="max-w-none w-auto min-w-[250px]">
-                  {productTypes.map(type => (
-                    <SelectItem key={type} value={type} className="max-w-none whitespace-nowrap">
-                      <span className="whitespace-nowrap">{type}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedCategory && !selectedType && (
-                <p className="text-sm text-red-500 font-light">Product type is required</p>
-              )}
+            {/* Type row */}
+            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Type</span>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                {selectedCategory ? (
+                  <Select value={selectedType} onValueChange={setSelectedType}>
+                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productTypes.map(type => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
+                )}
+              </div>
             </div>
 
-              {/* Size Selection */}
-              {selectedType && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block label-medium text-gray-800">Size</label>
-                  </div>
-                  <Select 
-                    value={selectedSize} 
-                    onValueChange={(value) => {
-                      setSelectedSize(value);
-                      setIsCustomSize(value === 'custom');
-                      if (value !== 'custom') {
-                        setCustomWidth('');
-                        setCustomHeight('');
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                      <SelectValue placeholder="Select size" className="truncate" />
+            {/* Size row */}
+            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Size</span>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                {selectedType ? (
+                  <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }}>
+                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                      <SelectValue placeholder="Select size" />
                     </SelectTrigger>
                     <SelectContent className="max-w-none w-auto min-w-[200px]">
                       {availableSizes.map((product, index) => (
-                        <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size} className="max-w-none whitespace-nowrap">
-                          <span className="whitespace-nowrap">
-                            {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
-                            {product.itemCode?.includes('SAMPLE') && <span className="ml-1 text-purple-600 font-medium">[SAMPLE]</span>}
-                          </span>
+                        <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size}>
+                          {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
                         </SelectItem>
                       ))}
                       {supportsCustomSize(selectedCategory) && (
-                        <SelectItem value="custom" className="max-w-none whitespace-nowrap">
-                          <span className="whitespace-nowrap font-medium text-purple-600">Custom Size</span>
-                        </SelectItem>
+                        <SelectItem value="custom">Custom Size</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
-
-              {/* Custom Size Input */}
-              {isCustomSize && selectedType && (
-                <div className="space-y-2">
-                  <label className="block label-medium text-gray-800">Custom Dimensions (inches)</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={customWidth}
-                      onChange={(e) => setCustomWidth(e.target.value)}
-                      placeholder="Width"
-                      className="w-full"
-                      min="1"
-                      step="0.25"
-                    />
-                    <span className="text-gray-600">×</span>
-                    <Input
-                      type="number"
-                      value={customHeight}
-                      onChange={(e) => setCustomHeight(e.target.value)}
-                      placeholder="Height"
-                      className="w-full"
-                      min="1"
-                      step="0.25"
-                    />
-                  </div>
-                  {customWidth && customHeight && (
-                    <p className="text-sm text-gray-600">
-                      Area: {(parseFloat(customWidth) * parseFloat(customHeight) / 144).toFixed(4)} sq ft
-                      ({(parseFloat(customWidth) * parseFloat(customHeight) * 0.00064516).toFixed(4)} m²)
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Quantity */}
-              <div className="space-y-2">
-                <label className="block label-medium text-gray-800">Quantity</label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  onFocus={(e) => e.target.select()}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                  min={isCustomSize ? 1 : (selectedProduct?.minQuantity || 1)}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
-                  disabled={!selectedSize && !isCustomSize}
-                />
-                {selectedProduct && quantity < selectedProduct.minQuantity && !isCustomSize && (
-                  <p className="text-sm text-red-500">
-                    Minimum order quantity: {selectedProduct.minQuantity}
-                  </p>
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
                 )}
               </div>
+            </div>
 
-              {/* Reset Button - styled to prevent accidental clicks */}
-              <div className="pt-4 mt-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to reset all selections?')) {
-                      resetSelections();
-                    }
-                  }}
-                  className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-xs font-medium rounded-md border border-dashed border-gray-300 transition-colors"
-                  type="button"
-                >
-                  Reset All Selections
-                </button>
+            {/* Quantity row */}
+            <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Qty</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={() => setQuantity(Math.max(selectedProduct?.minQuantity || 1, quantity - (selectedProduct?.minQuantity || 1)))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>−</button>
+                <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} onFocus={(e) => e.target.select()} style={{ width: '60px', textAlign: 'center', fontSize: '14px', fontWeight: 500, border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', padding: '3px 6px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)' }} />
+                <button onClick={() => setQuantity(quantity + (selectedProduct?.minQuantity || 1))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>+</button>
               </div>
-              
-              {/* No Results Banner */}
-              {hasNoResults && (
-                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-amber-900">No results with current filters</p>
-                      <p className="text-sm text-amber-700 mt-1">The selected filters don't match any available products.</p>
-                      <button
-                        onClick={resetSelections}
-                        className="mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition-colors"
-                        type="button"
-                      >
-                        Reset Filters
-                      </button>
-                    </div>
-                  </div>
+            </div>
+          </div>
+
+          {/* Custom Size Input */}
+          {isCustomSize && selectedType && (
+            <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', marginBottom: '8px' }}>Custom dimensions (inches)</div>
+              <div className="flex items-center gap-2">
+                <Input type="number" value={customWidth} onChange={(e) => setCustomWidth(e.target.value)} placeholder="Width" className="w-full" min="1" step="0.25" />
+                <span className="text-gray-600">×</span>
+                <Input type="number" value={customHeight} onChange={(e) => setCustomHeight(e.target.value)} placeholder="Height" className="w-full" min="1" step="0.25" />
+              </div>
+              {customWidth && customHeight && (
+                <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                  {(parseFloat(customWidth) * parseFloat(customHeight) * 0.00064516).toFixed(4)} m²
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Product Info Card */}
+          {selectedProduct && (
+            <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '10px 14px' }}>
+              {[
+                { label: 'SKU', value: selectedProduct.itemCode, mono: true },
+                { label: 'Total sqm', value: `${parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(4)} m²` },
+                { label: 'Format', value: `${selectedProduct.minQuantity || 1} ${selectedProduct.unitOfMeasure || 'sheets'} / pack` },
+                { label: 'Min qty', value: String(selectedProduct.minQuantity || 1) },
+              ].map((row, i) => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '4px' : 0 }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
+                </div>
+              ))}
+              {inventoryData !== undefined && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '6px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>Stock</span>
+                  <span style={{ fontSize: '11px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
+                    {inventoryLoading ? '...' : inventoryData ? `${Math.floor(inventoryData.qtyAvailable)} ✓` : '—'}
+                  </span>
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Right Panel - Customer Details & Quote Summary */}
-        <div className="xl:col-span-3 lg:col-span-3">
-          {/* Customer Details Card */}
-          <div className="glass-card mb-6">
-            <h2 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
-              <User className="h-5 w-5 text-indigo-600" />
-              Customer Details
-            </h2>
-            {selectedCustomer ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-800">
-                      {selectedCustomer.firstName} {selectedCustomer.lastName}
-                    </span>
-                  </div>
-                  {selectedCustomer.company && (
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">{selectedCustomer.company}</span>
-                    </div>
-                  )}
-                  {(() => {
-                    const allEmails: { email: string; source: string }[] = [];
-                    if (selectedCustomer.email) allEmails.push({ email: selectedCustomer.email, source: 'Primary' });
-                    if (selectedCustomer.email2) allEmails.push({ email: selectedCustomer.email2, source: 'Secondary' });
-                    availableContactEmails.forEach(c => {
-                      if (c.email && !allEmails.find(e => e.email.toLowerCase() === c.email.toLowerCase())) {
-                        allEmails.push({ email: c.email, source: c.source || 'Contact' });
-                      }
-                    });
-                    
-                    if (allEmails.length === 0) {
-                      return (
-                        <div className="flex items-center gap-2 text-amber-600">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="text-sm italic">No email address</span>
-                        </div>
-                      );
-                    }
-                    
-                    if (allEmails.length > 1) {
-                      return (
-                        <Popover open={emailDropdownOpen} onOpenChange={setEmailDropdownOpen}>
-                          <PopoverTrigger asChild>
-                            <button className="flex items-center gap-2 text-blue-600 hover:underline">
-                              <Mail className="h-4 w-4" />
-                              <span className="text-sm">{selectedCustomer.email || <span className="text-amber-600 italic">No primary email</span>}</span>
-                              <ChevronsUpDown className="h-3 w-3 text-gray-400" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2" align="start">
-                            <div className="text-xs text-gray-500 mb-2 font-medium">Select Primary Email for Shopify/Odoo</div>
-                            <div className="space-y-1">
-                              {allEmails.map((item, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() => {
-                                    if (item.email !== selectedCustomer.email) {
-                                      updatePrimaryEmailMutation.mutate({ customerId: String(selectedCustomer.id), email: item.email });
-                                    } else {
-                                      setEmailDropdownOpen(false);
-                                    }
-                                  }}
-                                  className={`w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between hover:bg-gray-100 ${item.email === selectedCustomer.email ? 'bg-blue-50 border border-blue-200' : ''}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Mail className="h-3 w-3 text-gray-400" />
-                                    <span className="truncate">{item.email}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-400">{item.source}</span>
-                                    {item.email === selectedCustomer.email && <Check className="h-3 w-3 text-blue-600" />}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    }
-                    
-                    return (
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-gray-500" />
-                        <a 
-                          href={`mailto:${selectedCustomer.email}`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {selectedCustomer.email}
-                        </a>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="space-y-2">
-                  {selectedCustomer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">{selectedCustomer.phone}</span>
-                    </div>
-                  )}
-                  {(selectedCustomer.address1 || selectedCustomer.city || selectedCustomer.province) && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">
-                        {[selectedCustomer.address1, selectedCustomer.city, selectedCustomer.province].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                  {selectedCustomer.tags && (
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-indigo-600" />
-                      <span className="px-3 py-1 bg-indigo-600 text-white text-sm font-semibold rounded-md shadow-sm">
-                        {selectedCustomer.tags}
-                      </span>
-                    </div>
-                  )}
-                  {(selectedCustomer as any).sources && (selectedCustomer as any).sources.length > 0 && (
-                    <div className="flex items-center gap-3">
-                      {(selectedCustomer as any).sources.includes('odoo') && (
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full flex items-center gap-1">
-                          <Database className="h-3 w-3" /> Odoo
-                        </span>
-                      )}
-                      {(selectedCustomer as any).sources.includes('shopify') && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-1">
-                          <ShoppingCart className="h-3 w-3" /> Shopify
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+          {/* No Results Banner */}
+          {hasNoResults && (
+            <div style={{ padding: '10px 14px', background: '#FFFBEB', border: '0.5px solid #FCD34D', borderRadius: '10px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', fontWeight: 500, color: '#78350F' }}>No results</p>
+                <button onClick={resetSelections} style={{ marginTop: '4px', fontSize: '11px', color: '#92400E', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Reset filters</button>
               </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                <User className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                <p className="text-sm">Select a customer to view details</p>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Reset button */}
+          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '7px', fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
+            Reset all selections
+          </button>
+        </div>{/* end left rail */}
+
+        {/* Right Panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
           {/* Active Issues Warning Bar */}
           {selectedCustomer && activeIssues.length > 0 && (
@@ -2404,7 +2210,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Quote Summary Card */}
-          <div className="glass-card mb-6 relative overflow-hidden">
+          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '16px', position: 'relative', overflow: 'hidden' }}>
             {/* SAMPLE PACK Watermark - shows when Min Order Qty is 5 Sheets */}
             {selectedProduct && selectedProduct.minQuantity === 5 && !isRollFormat(selectedProduct.size) && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -2416,8 +2222,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                 </div>
               </div>
             )}
-            <h2 className="heading-secondary text-gray-800 mb-2">Quote Summary</h2>
-            <p className="body-small text-gray-500 mb-6">Using default pricing</p>
             <div>
             {(selectedProduct || (isCustomSize && customWidth && customHeight)) ? (
               <div className="space-y-4">
@@ -2722,7 +2526,15 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
 
                 {/* Pricing Table */}
                 <div className="mt-6">
-                  <h3 className="text-base font-medium text-gray-800 mb-4">Available Pricing Tiers</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>Available pricing tiers</div>
+                    {matchingTier && (
+                      <span style={{ fontSize: '10px', fontWeight: 500, background: '#FAEEDA', color: '#633806', borderRadius: '4px', padding: '2px 8px' }}>
+                        Customer tier: {allPricingTiers.find(t => t.key === matchingTier)?.label}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: '10px', overflow: 'hidden' }}>
                   <AdaptiveTable
                     columns={[
                       { 
@@ -2930,6 +2742,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                     }}
                     maxHeight="600px"
                   />
+                  </div>{/* end AdaptiveTable border wrapper */}
                 </div>
               </div>
               ) : (
@@ -3218,7 +3031,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       handleDownloadPDF();
                     }}
                     disabled={isPDFGenerating || !selectedCustomer}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{ background: '#EAF3DE', color: '#27500A', border: 'none', borderRadius: '8px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: (isPDFGenerating || !selectedCustomer) ? 0.5 : 1 }}
                   >
                     <Download className="h-4 w-4" />
                     {isPDFGenerating ? 'Generating...' : 'Download PDF'}
@@ -3235,7 +3048,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                       handleEmailQuote();
                     }}
                     disabled={isPDFGenerating || !selectedCustomer || quoteItems.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-gray-600 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{ background: '#E6F1FB', color: '#0C447C', border: 'none', borderRadius: '8px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: (isPDFGenerating || !selectedCustomer || quoteItems.length === 0) ? 0.5 : 1 }}
                   >
                     <Mail className="h-4 w-4" />
                     Email Quote
@@ -3243,7 +3056,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                   <button
                     onClick={handleOdooOrderClick}
                     disabled={!selectedCustomer || isCreatingOdooOrder || quoteItems.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{ background: '#EEEDFE', color: '#3C3489', border: 'none', borderRadius: '8px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: (!selectedCustomer || isCreatingOdooOrder || quoteItems.length === 0) ? 0.5 : 1 }}
                     data-testid="btn-create-odoo-order"
                   >
                     {isCreatingOdooOrder ? (
@@ -3256,7 +3069,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                   <button
                     onClick={handleSaveQuote}
                     disabled={!selectedCustomer || isSavingQuote || quoteItems.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    style={{ background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: (!selectedCustomer || isSavingQuote || quoteItems.length === 0) ? 0.5 : 1 }}
                     data-testid="btn-save-quote"
                   >
                     {isSavingQuote ? (

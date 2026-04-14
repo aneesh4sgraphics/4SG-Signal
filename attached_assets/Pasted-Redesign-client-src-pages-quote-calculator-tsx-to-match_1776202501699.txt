@@ -1,0 +1,215 @@
+Redesign client/src/pages/quote-calculator.tsx to match Option C style — side-by-side split with a narrow left rail for selectors and wide right panel for pricing table and quote lines.
+
+CHANGE 1 — Replace the main grid layout wrapper
+Find:
+  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    {/* Left Panel - Customer & Product Selection */}
+    <div className="lg:col-span-1">
+
+Replace with:
+  <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '12px', alignItems: 'start' }}>
+    {/* Left Rail */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+CHANGE 2 — Redesign the Customer Selection card
+Find the existing customer selection card (the glass-card with "Select Customer" heading). Replace the entire card div with:
+
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '12px 14px' }}>
+    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Customer</div>
+    {selectedCustomer ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedCustomer(null)}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+          {((selectedCustomer.firstName?.[0] || '') + (selectedCustomer.lastName?.[0] || selectedCustomer.company?.[0] || '')).toUpperCase() || 'C'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
+          </div>
+          {selectedCustomer.firstName && selectedCustomer.company && (
+            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+          )}
+        </div>
+      </div>
+    ) : (
+      <SearchableCustomerSelect
+        selectedCustomer={selectedCustomer}
+        onCustomerSelect={handleCustomerSelect}
+        placeholder="Search by name or company"
+        className="w-full"
+      />
+    )}
+    {selectedCustomer && (
+      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {matchingTier && (
+          <span style={{ fontSize: '10px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '2px 7px' }}>
+            {allPricingTiers.find(t => t.key === matchingTier)?.label || matchingTier}
+          </span>
+        )}
+        <span style={{ fontSize: '10px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '2px 7px' }}>matched ✓</span>
+      </div>
+    )}
+  </div>
+
+CHANGE 3 — Redesign the Product Selection card (category, type, size, quantity)
+Replace the existing glass-card with "Product Selection Card" comment with:
+
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
+    {/* Category row */}
+    <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+      <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Category</span>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
+        <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+          <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map(category => (
+              <SelectItem key={category} value={category}>{category}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    {/* Type row */}
+    <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Type</span>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        {selectedCategory ? (
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              {productTypes.map(type => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
+        )}
+      </div>
+    </div>
+
+    {/* Size row */}
+    <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Size</span>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        {selectedType ? (
+          <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }}>
+            <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+              <SelectValue placeholder="Select size" />
+            </SelectTrigger>
+            <SelectContent className="max-w-none w-auto min-w-[200px]">
+              {availableSizes.map((product, index) => (
+                <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size}>
+                  {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
+                </SelectItem>
+              ))}
+              {supportsCustomSize(selectedCategory) && (
+                <SelectItem value="custom">Custom Size</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
+        )}
+      </div>
+    </div>
+
+    {/* Quantity row */}
+    <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Qty</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button onClick={() => setQuantity(Math.max(selectedProduct?.minQuantity || 1, quantity - (selectedProduct?.minQuantity || 1)))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>−</button>
+        <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} onFocus={(e) => e.target.select()} style={{ width: '60px', textAlign: 'center', fontSize: '14px', fontWeight: 500, border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', padding: '3px 6px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)' }} />
+        <button onClick={() => setQuantity(quantity + (selectedProduct?.minQuantity || 1))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>+</button>
+      </div>
+    </div>
+  </div>
+
+CHANGE 4 — Add product info card below selectors
+After the product selection card, add a new info card that shows SKU, sqm, unit, min qty, and stock — only when a product is selected:
+
+  {selectedProduct && (
+    <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '10px 14px' }}>
+      {[
+        { label: 'SKU', value: selectedProduct.itemCode, mono: true },
+        { label: 'Total sqm', value: `${parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(4)} m²` },
+        { label: 'Format', value: `${selectedProduct.minQuantity || 1} ${selectedProduct.unitOfMeasure || 'sheets'} / pack` },
+        { label: 'Min qty', value: String(selectedProduct.minQuantity || 1) },
+      ].map((row, i) => (
+        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '4px' : 0 }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
+          <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
+        </div>
+      ))}
+      {inventoryData !== undefined && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '6px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>Stock</span>
+          <span style={{ fontSize: '11px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
+            {inventoryLoading ? '...' : inventoryData ? `${Math.floor(inventoryData.qtyAvailable)} ✓` : '—'}
+          </span>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Reset button */}
+  <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '7px', fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
+    Reset all selections
+  </button>
+
+CHANGE 5 — Close the left rail div and open the right panel
+Find the comment:
+  {/* Right Panel - Customer Details & Quote Summary */}
+  <div className="xl:col-span-3 lg:col-span-3">
+
+Replace with:
+    </div>{/* end left rail */}
+
+    {/* Right Panel */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+CHANGE 6 — Remove the old "Customer Details Card" (the glass-card with "Customer Details" heading in the right panel). It's now replaced by the inline customer card in the left rail. Find and delete the entire <div className="glass-card mb-6"> block that contains "Customer Details" heading and selectedCustomer display.
+
+CHANGE 7 — Redesign the Quote Summary card ("glass-card mb-6 relative overflow-hidden")
+Keep all its internal logic but change the card wrapper style to:
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '16px' }}>
+
+Remove the "Quote Summary" h2 heading and "Using default pricing" paragraph — the content speaks for itself.
+
+CHANGE 8 — Redesign the "Available Pricing Tiers" section
+Keep all the pricing tier logic intact, but replace the table header styling. Find:
+  <h3 className="text-base font-medium text-gray-800 mb-4">Available Pricing Tiers</h3>
+
+Replace with:
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>Available pricing tiers</div>
+    {matchingTier && (
+      <span style={{ fontSize: '10px', fontWeight: 500, background: '#FAEEDA', color: '#633806', borderRadius: '4px', padding: '2px 8px' }}>
+        Customer tier: {allPricingTiers.find(t => t.key === matchingTier)?.label}
+      </span>
+    )}
+  </div>
+
+CHANGE 9 — Style the pricing tier rows with left-border highlight for matched tier
+In the AdaptiveTable renderCell for the 'tier' column, the matched tier row should have a purple left border. Wrap the AdaptiveTable in:
+  <div style={{ border: '0.5px solid var(--color-border-tertiary)', borderRadius: '10px', overflow: 'hidden' }}>
+    <AdaptiveTable ... />
+  </div>
+
+CHANGE 10 — Redesign action buttons
+Find the action buttons row (Download PDF, Email Quote, Sales Order, Save Quote). Change each button style:
+
+Download PDF button → style: background:#EAF3DE, color:#27500A, border:none, borderRadius:8px, padding: 7px 14px
+Email Quote button → style: background:#E6F1FB, color:#0C447C, border:none, borderRadius:8px, padding: 7px 14px  
+Sales Order button → style: background:#EEEDFE, color:#3C3489, border:none, borderRadius:8px, padding: 7px 14px
+Save Quote button → style: background:#1a1a1a, color:#fff, border:none, borderRadius:8px, padding: 7px 14px
+
+Keep all onClick handlers, disabled states, and loading states exactly as they are.
+
+CHANGE 11 — Keep the Quote Items section (Order Lines), PDF Sent Prices collapsible, and all dialogs/modals exactly as they are. Only the layout and visual styling changes.
+
+Do not change any state variables, mutations, query logic, handler functions, or business logic. Only change JSX structure and className/style props.
