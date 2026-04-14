@@ -645,12 +645,15 @@ export interface IStorage {
   getDripCampaignAssignment(id: number): Promise<DripCampaignAssignment | undefined>;
   getDripCampaignAssignmentCounts(): Promise<{ campaignId: number; count: number }[]>;
   createDripCampaignAssignment(data: InsertDripCampaignAssignment): Promise<DripCampaignAssignment>;
+  bulkCreateDripCampaignAssignments(data: InsertDripCampaignAssignment[]): Promise<DripCampaignAssignment[]>;
+  getActiveAssignmentsForCampaign(campaignId: number, customerIds: string[], leadIds: number[]): Promise<DripCampaignAssignment[]>;
   updateDripCampaignAssignment(id: number, data: Partial<InsertDripCampaignAssignment>): Promise<DripCampaignAssignment | undefined>;
   
   // Drip Campaign Step Status
   getDripCampaignStepStatuses(assignmentId: number): Promise<DripCampaignStepStatus[]>;
   getScheduledDripEmails(): Promise<DripCampaignStepStatus[]>;
   createDripCampaignStepStatus(data: InsertDripCampaignStepStatus): Promise<DripCampaignStepStatus>;
+  bulkCreateDripCampaignStepStatuses(data: InsertDripCampaignStepStatus[]): Promise<void>;
   updateDripCampaignStepStatus(id: number, data: Partial<InsertDripCampaignStepStatus>): Promise<DripCampaignStepStatus | undefined>;
   
   // Media Uploads
@@ -3433,6 +3436,30 @@ export class DatabaseStorage implements IStorage {
     return assignment;
   }
 
+  async bulkCreateDripCampaignAssignments(data: InsertDripCampaignAssignment[]): Promise<DripCampaignAssignment[]> {
+    if (data.length === 0) return [];
+    const CHUNK = 200;
+    const results: DripCampaignAssignment[] = [];
+    for (let i = 0; i < data.length; i += CHUNK) {
+      const chunk = data.slice(i, i + CHUNK);
+      const rows = await db.insert(dripCampaignAssignments).values(chunk).returning();
+      results.push(...rows);
+    }
+    return results;
+  }
+
+  async getActiveAssignmentsForCampaign(campaignId: number, customerIds: string[], leadIds: number[]): Promise<DripCampaignAssignment[]> {
+    const conditions: any[] = [
+      eq(dripCampaignAssignments.campaignId, campaignId),
+      eq(dripCampaignAssignments.status, 'active'),
+    ];
+    const orParts: any[] = [];
+    if (customerIds.length > 0) orParts.push(inArray(dripCampaignAssignments.customerId, customerIds));
+    if (leadIds.length > 0) orParts.push(inArray(dripCampaignAssignments.leadId, leadIds));
+    if (orParts.length > 0) conditions.push(or(...orParts));
+    return await db.select().from(dripCampaignAssignments).where(and(...conditions));
+  }
+
   async updateDripCampaignAssignment(id: number, data: Partial<InsertDripCampaignAssignment>): Promise<DripCampaignAssignment | undefined> {
     const [assignment] = await db
       .update(dripCampaignAssignments)
@@ -3466,6 +3493,14 @@ export class DatabaseStorage implements IStorage {
   async createDripCampaignStepStatus(data: InsertDripCampaignStepStatus): Promise<DripCampaignStepStatus> {
     const [status] = await db.insert(dripCampaignStepStatus).values(data).returning();
     return status;
+  }
+
+  async bulkCreateDripCampaignStepStatuses(data: InsertDripCampaignStepStatus[]): Promise<void> {
+    if (data.length === 0) return;
+    const CHUNK = 500;
+    for (let i = 0; i < data.length; i += CHUNK) {
+      await db.insert(dripCampaignStepStatus).values(data.slice(i, i + CHUNK));
+    }
   }
 
   async updateDripCampaignStepStatus(id: number, data: Partial<InsertDripCampaignStepStatus>): Promise<DripCampaignStepStatus | undefined> {

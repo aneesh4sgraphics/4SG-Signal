@@ -627,81 +627,76 @@ export function registerDripRoutes(app: Express): void {
     try {
       const campaignId = parseInt(req.params.campaignId);
       const { customerIds, leadIds, startAt } = req.body;
-      
-      const hasCustomers = Array.isArray(customerIds) && customerIds.length > 0;
-      const hasLeads = Array.isArray(leadIds) && leadIds.length > 0;
-      
-      if (!hasCustomers && !hasLeads) {
+
+      const rawCustomerIds: string[] = Array.isArray(customerIds) ? customerIds : [];
+      const rawLeadIds: number[] = Array.isArray(leadIds)
+        ? leadIds.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id))
+        : [];
+
+      if (rawCustomerIds.length === 0 && rawLeadIds.length === 0) {
         return res.status(400).json({ error: "customerIds or leadIds array is required" });
       }
-      
+
       // Get campaign steps to schedule
       const steps = await storage.getDripCampaignSteps(campaignId);
       if (steps.length === 0) {
         return res.status(400).json({ error: "Campaign has no steps to schedule" });
       }
-      
+
       const startDate = startAt ? new Date(startAt) : new Date();
-      const assignments = [];
-      
-      // Process customers
-      if (hasCustomers) {
-        for (const customerId of customerIds) {
-          // Check if already assigned
-          const existing = await storage.getDripCampaignAssignments(campaignId, customerId);
-          if (existing.some(a => a.status === 'active')) {
-            continue; // Skip if already active
-          }
-          
-          // Create assignment
-          const assignment = await storage.createDripCampaignAssignment({
-            campaignId,
-            customerId,
-            status: 'active',
-            startedAt: startDate,
-            assignedBy: req.user?.email,
-            metadata: {},
-          });
-          
-          // Schedule all steps for this assignment
-          await scheduleStepsForAssignment(assignment.id, steps, startDate);
-          assignments.push(assignment);
+      const assignedBy = req.user?.email ?? null;
+
+      // --- 1 query: find which customers/leads already have active assignments ---
+      const alreadyActive = await storage.getActiveAssignmentsForCampaign(
+        campaignId,
+        rawCustomerIds,
+        rawLeadIds,
+      );
+      const alreadyActiveCustomers = new Set(alreadyActive.map(a => a.customerId).filter(Boolean));
+      const alreadyActiveLeads = new Set(alreadyActive.map(a => a.leadId).filter(Boolean));
+
+      // --- Build new assignment rows ---
+      const newAssignmentRows: any[] = [];
+      for (const customerId of rawCustomerIds) {
+        if (!alreadyActiveCustomers.has(customerId)) {
+          newAssignmentRows.push({ campaignId, customerId, status: 'active', startedAt: startDate, assignedBy, metadata: {} });
         }
       }
-      
-      // Process leads
-      if (hasLeads) {
-        for (const leadId of leadIds) {
-          // Validate leadId is a valid integer
-          const parsedLeadId = parseInt(leadId);
-          if (isNaN(parsedLeadId)) {
-            console.warn(`[Drip Assign] Invalid leadId: ${leadId}, skipping`);
-            continue;
-          }
-          
-          // Check if already assigned (search by leadId)
-          const existing = await storage.getDripCampaignAssignments(campaignId, undefined, parsedLeadId);
-          if (existing.some(a => a.status === 'active')) {
-            continue; // Skip if already active
-          }
-          
-          // Create assignment for lead
-          const assignment = await storage.createDripCampaignAssignment({
-            campaignId,
-            leadId: parsedLeadId,
-            status: 'active',
-            startedAt: startDate,
-            assignedBy: req.user?.email,
-            metadata: {},
-          });
-          
-          // Schedule all steps for this assignment
-          await scheduleStepsForAssignment(assignment.id, steps, startDate);
-          assignments.push(assignment);
+      for (const leadId of rawLeadIds) {
+        if (!alreadyActiveLeads.has(leadId)) {
+          newAssignmentRows.push({ campaignId, leadId, status: 'active', startedAt: startDate, assignedBy, metadata: {} });
         }
       }
-      
-      res.json({ created: assignments.length, assignments });
+
+      if (newAssignmentRows.length === 0) {
+        return res.json({ created: 0, skipped: alreadyActive.length, assignments: [] });
+      }
+
+      // --- 1 bulk insert: all assignments ---
+      const createdAssignments = await storage.bulkCreateDripCampaignAssignments(newAssignmentRows);
+
+      // --- Build all step-status rows in memory ---
+      const stepStatusRows: any[] = [];
+      for (const assignment of createdAssignments) {
+        let scheduledTime = new Date(startDate);
+        for (const step of steps) {
+          if (step.delayAmount > 0) {
+            switch (step.delayUnit) {
+              case 'minutes': scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 60 * 1000); break;
+              case 'hours':   scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 3600 * 1000); break;
+              case 'weeks':   scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 7 * 86400 * 1000); break;
+              default:        scheduledTime = new Date(scheduledTime.getTime() + step.delayAmount * 86400 * 1000); break;
+            }
+          }
+          stepStatusRows.push({ assignmentId: assignment.id, stepId: step.id, scheduledFor: scheduledTime, status: 'scheduled' });
+        }
+      }
+
+      // --- 1 bulk insert: all step statuses (chunked to stay under param limit) ---
+      await storage.bulkCreateDripCampaignStepStatuses(stepStatusRows);
+
+      console.log(`[Drip Assign] Campaign ${campaignId}: enrolled ${createdAssignments.length}, skipped ${alreadyActive.length}, scheduled ${stepStatusRows.length} step statuses`);
+      res.json({ created: createdAssignments.length, skipped: alreadyActive.length, assignments: createdAssignments });
     } catch (error) {
       console.error("Error creating drip campaign assignments:", error);
       res.status(500).json({ error: "Failed to create drip campaign assignments" });
