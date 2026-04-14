@@ -16582,31 +16582,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const archivedItems: string[] = [];
 
       for (const item of items) {
-        const [mapping] = await db.select().from(productOdooMappings)
-          .where(eq(productOdooMappings.itemCode, item.itemCode))
+        // Step 1: Try productPricingMaster.odooItemCode first (most reliable — directly from Odoo SKU)
+        let odooProductId: number | null = null;
+        let resolvedBy = '';
+
+        const [pricingRow] = await db.select({
+          odooItemCode: productPricingMaster.odooItemCode,
+          itemCode: productPricingMaster.itemCode,
+        })
+          .from(productPricingMaster)
+          .where(eq(productPricingMaster.itemCode, item.itemCode))
           .limit(1);
-        
-        if (!mapping) {
-          unmappedItems.push(item.itemCode || item.productName);
+
+        if (pricingRow?.odooItemCode) {
+          // Look up Odoo product by SKU (default_code) — always returns active products
+          try {
+            const odooVariants = await odooClient.searchProductVariants({
+              domain: [
+                ['active', '=', true],
+                ['default_code', '=', pricingRow.odooItemCode],
+              ],
+              limit: 1,
+            });
+            if (odooVariants.length > 0) {
+              odooProductId = odooVariants[0].id;
+              resolvedBy = 'odooItemCode';
+            }
+          } catch (e) {
+            console.warn(`[Sale Order] Odoo SKU lookup failed for ${pricingRow.odooItemCode}:`, e);
+          }
+        }
+
+        // Step 2: Fall back to productOdooMappings if no odooItemCode match
+        if (!odooProductId) {
+          const [mapping] = await db.select().from(productOdooMappings)
+            .where(eq(productOdooMappings.itemCode, item.itemCode))
+            .limit(1);
+          if (mapping) {
+            // Verify it's still active in Odoo
+            try {
+              const odooProduct = await odooClient.getProductVariantById(mapping.odooProductId);
+              if (odooProduct && odooProduct.active !== false) {
+                odooProductId = mapping.odooProductId;
+                resolvedBy = 'productOdooMappings';
+              } else {
+                console.warn(`[Sale Order] Mapped product ${mapping.odooProductId} is archived — skipping`);
+                archivedItems.push(`${item.itemCode || item.productName} (Odoo ID ${mapping.odooProductId}: ${mapping.odooProductName || 'unknown'} — archived)`);
+              }
+            } catch (e) {
+              console.warn(`[Sale Order] Could not verify mapping product ${mapping.odooProductId}:`, e);
+            }
+          }
+        }
+
+        if (!odooProductId) {
+          unmappedItems.push(`${item.itemCode || item.productName} (not mapped to active Odoo product)`);
           continue;
         }
 
-        // Verify the mapped Odoo product is still active (not archived)
-        try {
-          const odooProduct = await odooClient.getProductVariantById(mapping.odooProductId);
-          if (!odooProduct || odooProduct.active === false) {
-            console.warn(`[Sale Order] Mapped product ${mapping.odooProductId} (${item.itemCode}) is archived in Odoo — skipping`);
-            unmappedItems.push(`${item.itemCode} (archived in Odoo — please re-map)`);
-            archivedItems.push(`${item.itemCode || item.productName} (Odoo ID ${mapping.odooProductId}: ${mapping.odooProductName || 'unknown'} — archived)`);
-            continue;
-          }
-        } catch (verifyError) {
-          console.warn(`[Sale Order] Could not verify product ${mapping.odooProductId}:`, verifyError);
-        }
-
-        // Odoo order line format: [0, 0, { field: value }] for create
+        console.log(`[Sale Order] Resolved ${item.itemCode} -> Odoo #${odooProductId} via ${resolvedBy}`);
         orderLines.push([0, 0, {
-          product_id: mapping.odooProductId,
+          product_id: odooProductId,
           product_uom_qty: item.quantity || 1,
           price_unit: item.pricePerSheet || 0,
         }]);

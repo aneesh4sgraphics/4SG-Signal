@@ -1,0 +1,110 @@
+The product mapping system has three separate sources of truth that drift out of sync and cause $0 prices and archived product mappings in Odoo sale orders. Fix this with a two-part change:
+
+PART 1 — Use productPricingMaster.odooItemCode to look up Odoo products instead of productOdooMappings
+
+In server/routes.ts, find the POST /api/odoo/create-sale-order endpoint (around line 16503).
+
+Currently it looks up the Odoo product like this:
+  const [mapping] = await db.select().from(productOdooMappings)
+    .where(eq(productOdooMappings.itemCode, item.itemCode))
+    .limit(1);
+
+Replace the entire product lookup block with a smarter lookup that tries 3 sources in order:
+
+  // Step 1: Try productPricingMaster.odooItemCode first (most reliable — directly from Odoo SKU)
+  let odooProductId: number | null = null;
+  let resolvedBy = '';
+
+  const [pricingRow] = await db.select({
+    odooItemCode: productPricingMaster.odooItemCode,
+    itemCode: productPricingMaster.itemCode,
+  })
+    .from(productPricingMaster)
+    .where(eq(productPricingMaster.itemCode, item.itemCode))
+    .limit(1);
+
+  if (pricingRow?.odooItemCode) {
+    // Look up Odoo product by SKU (default_code) — always returns active products
+    try {
+      const odooVariants = await odooClient.searchProductVariants({
+        domain: [
+          ['active', '=', true],
+          ['default_code', '=', pricingRow.odooItemCode],
+        ],
+        limit: 1,
+      });
+      if (odooVariants.length > 0) {
+        odooProductId = odooVariants[0].id;
+        resolvedBy = 'odooItemCode';
+      }
+    } catch (e) {
+      console.warn(`[Sale Order] Odoo SKU lookup failed for ${pricingRow.odooItemCode}:`, e);
+    }
+  }
+
+  // Step 2: Fall back to productOdooMappings if no odooItemCode match
+  if (!odooProductId) {
+    const [mapping] = await db.select().from(productOdooMappings)
+      .where(eq(productOdooMappings.itemCode, item.itemCode))
+      .limit(1);
+    if (mapping) {
+      // Verify it's still active in Odoo
+      try {
+        const odooProduct = await odooClient.getProductVariantById(mapping.odooProductId);
+        if (odooProduct && odooProduct.active !== false) {
+          odooProductId = mapping.odooProductId;
+          resolvedBy = 'productOdooMappings';
+        } else {
+          console.warn(`[Sale Order] Mapped product ${mapping.odooProductId} is archived — skipping`);
+        }
+      } catch (e) {
+        console.warn(`[Sale Order] Could not verify mapping product ${mapping.odooProductId}:`, e);
+      }
+    }
+  }
+
+  if (!odooProductId) {
+    unmappedItems.push(`${item.itemCode || item.productName} (not mapped to active Odoo product)`);
+    continue;
+  }
+
+  console.log(`[Sale Order] Resolved ${item.itemCode} -> Odoo #${odooProductId} via ${resolvedBy}`);
+  orderLines.push([0, 0, {
+    product_id: odooProductId,
+    product_uom_qty: item.quantity || 1,
+    price_unit: item.pricePerSheet || 0,
+  }]);
+
+PART 2 — Fix $0 prices by filtering out products that have no pricing data
+
+In server/routes-pricing-database.ts, in the GET /product-pricing-database endpoint, find:
+  const pricingData = allPricingData.filter(item => 
+    item.catalogCategoryId && !item.isArchived
+  );
+
+Replace with a filter that also removes products where ALL pricing fields are 0 or null:
+  const pricingData = allPricingData.filter(item => {
+    if (!item.catalogCategoryId || item.isArchived) return false;
+    // Exclude products with no pricing data at all
+    const prices = [
+      item.dealerPrice, item.dealer2Price, item.exportPrice,
+      item.masterDistributorPrice, item.retailPrice, item.approvalNeededPrice,
+      item.tierStage25Price, item.tierStage2Price, item.tierStage15Price, item.tierStage1Price
+    ];
+    const hasAnyPrice = prices.some(p => p && parseFloat(String(p)) > 0);
+    return hasAnyPrice;
+  });
+
+PART 3 — Fix getProducts in server/odoo.ts to always filter active products
+
+Find:
+  async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
+    return this.searchRead('product.template', options.domain || [], [
+
+Replace with:
+  async getProducts(options: { limit?: number; offset?: number; domain?: any[] } = {}): Promise<OdooProduct[]> {
+    const baseDomain: any[] = [['active', '=', true]];
+    const domain = options.domain ? [...baseDomain, ...options.domain] : baseDomain;
+    return this.searchRead('product.template', domain, [
+
+Do not change anything else.

@@ -593,10 +593,18 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
 router.get("/quickquotes/products", async (req, res) => {
   try {
     const allPricingData = await storage.getAllProductPricingMaster();
-    // Filter to only show MAPPED products (have catalogCategoryId) and not archived
-    const pricingData = allPricingData.filter(item => 
-      item.catalogCategoryId && !item.isArchived
-    );
+    // Filter to only show MAPPED products (have catalogCategoryId), not archived, and with at least one price
+    const pricingData = allPricingData.filter(item => {
+      if (!item.catalogCategoryId || item.isArchived) return false;
+      // Exclude products with no pricing data at all
+      const prices = [
+        item.dealerPrice, item.dealer2Price, item.exportPrice,
+        item.masterDistributorPrice, item.retailPrice, item.approvalNeededPrice,
+        item.tierStage25Price, item.tierStage2Price, item.tierStage15Price, item.tierStage1Price
+      ];
+      const hasAnyPrice = prices.some(p => p && parseFloat(String(p)) > 0);
+      return hasAnyPrice;
+    });
     // Return only the fields needed for autocomplete
     const products = pricingData.map(item => ({
       id: item.id,
@@ -626,10 +634,18 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
     const categories = await storage.getProductCategories();
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
-    // Filter to only show MAPPED products (have catalogCategoryId) and not archived
-    const pricingData = allPricingData.filter(item => 
-      item.catalogCategoryId && !item.isArchived
-    );
+    // Filter to only show MAPPED products (have catalogCategoryId), not archived, and with at least one price
+    const pricingData = allPricingData.filter(item => {
+      if (!item.catalogCategoryId || item.isArchived) return false;
+      // Exclude products with no pricing data at all
+      const prices = [
+        item.dealerPrice, item.dealer2Price, item.exportPrice,
+        item.masterDistributorPrice, item.retailPrice, item.approvalNeededPrice,
+        item.tierStage25Price, item.tierStage2Price, item.tierStage15Price, item.tierStage1Price
+      ];
+      const hasAnyPrice = prices.some(p => p && parseFloat(String(p)) > 0);
+      return hasAnyPrice;
+    });
     console.log(`✓ Retrieved ${pricingData.length} mapped pricing records from database (${allPricingData.length} total) in ${Date.now() - startTime}ms`);
     
     if (pricingData.length === 0) {
