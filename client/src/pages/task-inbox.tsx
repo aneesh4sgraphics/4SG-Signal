@@ -913,330 +913,299 @@ export default function TaskInboxPage() {
 
       {/* Task Detail Dialog */}
       <Dialog open={showTaskDetail} onOpenChange={(open) => { setShowTaskDetail(open); if (!open) { setShowReschedule(false); setShowDelegate(false); setDelegateToEmail(''); } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{selectedTask ? formatTaskTitle(selectedTask.title, selectedTask) : ''}</DialogTitle>
-            <DialogDescription>{selectedTask?.description || "No description provided"}</DialogDescription>
-          </DialogHeader>
-
-          {/* Tracking number chips — extracted from description */}
-          {(() => {
-            const numbers = extractTrackingNumbers(selectedTask?.description);
-            if (!numbers.length) return null;
-            return (
-              <div className="flex flex-col gap-1.5 -mt-1">
-                {numbers.map((num) => (
-                  <div key={num} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    <Truck className="h-4 w-4 text-amber-600 flex-shrink-0" />
-                    <span className="text-sm font-mono font-semibold text-amber-800 flex-1 select-all">{num}</span>
-                    <button
-                      className="flex-shrink-0 p-1 rounded hover:bg-amber-100 transition-colors text-amber-600"
-                      title="Copy tracking number"
-                      onClick={() => {
-                        navigator.clipboard.writeText(num);
-                        toast({ title: "Tracking number copied", description: num });
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
+        <DialogContent className="max-w-lg p-0 overflow-hidden gap-0">
           {selectedTask && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  {(() => {
-                    const displayEmail = selectedTask.senderEmail || selectedTask.contactEmail;
-                    const displayName = selectedTask.contactDisplayName;
-                    const isKnown = !!displayName && displayName !== 'Unknown';
-                    const label = selectedTask.recordType === "lead" ? "Lead" : "Contact";
+            <>
+              {/* Header */}
+              <div style={{ padding: '20px 22px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '6px' }}>
+                  <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 500, background: '#E6F1FB', color: '#185FA5', borderRadius: '4px', padding: '2px 8px', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                      {selectedTask.taskType?.replace(/_/g, ' ') || 'Task'}
+                    </span>
+                  </div>
+                </div>
+                <h2 style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)', margin: '0 0 6px', lineHeight: 1.35 }}>
+                  {selectedTask ? formatTaskTitle(selectedTask.title, selectedTask) : ''}
+                </h2>
+                {selectedTask.description && (
+                  <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                    {selectedTask.description}
+                  </p>
+                )}
 
-                    return (
-                      <>
-                        <p className="text-muted-foreground text-xs mb-1">{displayEmail ? label : "Contact"}</p>
-                        <div className="flex flex-col gap-0.5">
-                          {isKnown && (
-                            <p className="font-medium text-gray-900">{displayName}</p>
-                          )}
-                          {displayEmail ? (
-                            <span className={`text-sm break-all ${isKnown ? "text-gray-500" : "font-medium text-gray-900"}`}>
-                              {displayEmail}
-                            </span>
-                          ) : (
-                            <p className="font-medium text-gray-900">{selectedTask.recordName || selectedTask.customerName || "Unknown"}</p>
-                          )}
-                          {displayEmail && !isKnown && (
-                            <div className="mt-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-xs px-2 gap-1 text-green-700 border-green-200 hover:bg-green-50"
-                                onClick={() => addToLeadsMutation.mutate({ email: displayEmail, name: displayEmail })}
-                                disabled={addToLeadsMutation.isPending}
-                              >
-                                <UserPlus className="h-3 w-3" />
-                                Add as Lead
-                              </Button>
-                            </div>
-                          )}
+                {/* Info grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, border: '0.5px solid var(--color-border-tertiary)', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                  {/* Contact */}
+                  <div style={{ padding: '11px 14px', borderRight: '0.5px solid var(--color-border-tertiary)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                      {selectedTask.recordType === 'lead' ? 'Lead' : 'Contact'}
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                      {selectedTask.contactDisplayName || selectedTask.recordName || selectedTask.customerName || 'Unknown'}
+                    </div>
+                    {(selectedTask.contactEmail || selectedTask.senderEmail) && (
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '1px' }}>
+                        {selectedTask.contactEmail || selectedTask.senderEmail}
+                      </div>
+                    )}
+                    <div style={{ marginTop: '5px' }}>
+                      <span style={{ fontSize: '11px', background: selectedTask.recordType === 'lead' ? '#E1F5EE' : '#EEEDFE', color: selectedTask.recordType === 'lead' ? '#0F6E56' : '#3C3489', borderRadius: '4px', padding: '1px 7px', fontWeight: 500 }}>
+                        {selectedTask.recordType === 'lead' ? 'Lead' : 'Customer'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Due date */}
+                  <div style={{ padding: '11px 14px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Due date</div>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                      {selectedTask.dueDate ? format(new Date(selectedTask.dueDate), 'MMM d, yyyy') : 'No date'}
+                    </div>
+                    {selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date() && (
+                      <div style={{ marginTop: '5px' }}>
+                        <span style={{ fontSize: '11px', background: '#FAEEDA', color: '#854F0B', borderRadius: '4px', padding: '1px 7px', fontWeight: 500 }}>
+                          {Math.floor((Date.now() - new Date(selectedTask.dueDate).getTime()) / 86400000)}d overdue
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Priority */}
+                  <div style={{ padding: '11px 14px', borderTop: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Priority</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: selectedTask.priority === 'critical' ? '#E24B4A' : selectedTask.priority === 'high' ? '#EF9F27' : '#888780' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', textTransform: 'capitalize' }}>{selectedTask.priority || 'Normal'}</span>
+                    </div>
+                  </div>
+
+                  {/* Assigned to */}
+                  <div style={{ padding: '11px 14px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Assigned to</div>
+                    {selectedTask.assignedToName ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+                          {selectedTask.assignedToName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)}
                         </div>
-                      </>
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>{selectedTask.assignedToName.split(' ')[0]}</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '13px', color: 'var(--color-text-tertiary)' }}>Unassigned</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons — 2 rows of 3 */}
+              <div style={{ padding: '0 22px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {/* Complete — always first, always black */}
+                  {typeof selectedTask.id === 'number' && selectedTask.source !== 'email_not_replied' && (
+                    <button
+                      onClick={() => completeTaskMutation.mutate(selectedTask.id as number)}
+                      disabled={completeTaskMutation.isPending}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#1a1a1a', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer', opacity: completeTaskMutation.isPending ? 0.6 : 1 }}
+                    >
+                      <CheckCircle2 style={{ width: '14px', height: '14px' }} />
+                      {completeTaskMutation.isPending ? 'Saving…' : 'Complete'}
+                    </button>
+                  )}
+
+                  {/* View lead/customer — blue */}
+                  {(() => {
+                    const link = getRecordLink(selectedTask);
+                    return link ? (
+                      <Link href={link}>
+                        <button style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#E6F1FB', color: '#0C447C', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                          <ExternalLink style={{ width: '14px', height: '14px' }} />
+                          View {selectedTask.recordType === 'lead' ? 'lead' : 'contact'}
+                        </button>
+                      </Link>
+                    ) : null;
+                  })()}
+
+                  {/* Open email — blue */}
+                  {(() => {
+                    const hasEmail = !!(selectedTask.contactEmail || selectedTask.senderEmail || selectedTask.emailSubject || selectedTask.taskType === 'email_engagement');
+                    if (!hasEmail) return null;
+                    const sentBy = selectedTask.assignedTo?.toLowerCase();
+                    if (selectedTask.taskType === 'email_engagement' && sentBy && sentBy !== currentUserEmail) return null;
+                    const emailForSearch = selectedTask.senderEmail || selectedTask.contactEmail;
+                    let gmailSearch = '';
+                    if (selectedTask.taskType === 'email_engagement') {
+                      const subject = selectedTask.title.replace(/^Email Opened:\s*/i, '').replace(/^Email Link Clicked:\s*/i, '');
+                      gmailSearch = emailForSearch ? `subject:"${subject}" (to:${emailForSearch} OR from:${emailForSearch})` : `subject:"${subject}"`;
+                    } else if (emailForSearch && selectedTask.emailSubject) {
+                      gmailSearch = `subject:"${selectedTask.emailSubject}" (to:${emailForSearch} OR from:${emailForSearch})`;
+                    } else if (emailForSearch) {
+                      gmailSearch = `from:${emailForSearch} OR to:${emailForSearch}`;
+                    }
+                    if (!gmailSearch) return null;
+                    return (
+                      <a href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(gmailSearch)}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                        <button style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#E6F1FB', color: '#0C447C', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                          <Mail style={{ width: '14px', height: '14px' }} />
+                          Open email
+                        </button>
+                      </a>
                     );
                   })()}
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs mb-1">Type</p>
-                  <p className="font-medium capitalize">{selectedTask.taskType?.replace(/_/g, " ") || "General"}</p>
-                </div>
-                {selectedTask.dueDate && (
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Due Date</p>
-                    <p className="font-medium">{format(new Date(selectedTask.dueDate), "MMM d, yyyy")}</p>
-                  </div>
-                )}
-                {selectedTask.priority && (
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Priority</p>
-                    <span className="capitalize text-sm font-medium">{selectedTask.priority}</span>
-                  </div>
-                )}
-                {selectedTask.assignedToName && (
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Assigned To</p>
-                    <p className="font-medium">{selectedTask.assignedToName}</p>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex flex-wrap gap-2 pt-4 border-t">
-                {(() => {
-                  const link = getRecordLink(selectedTask);
-                  return link ? (
-                    <Link href={link}>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <ExternalLink className="h-4 w-4" />
-                        View {selectedTask.recordType === "lead" ? "Lead" : "Customer"}
-                      </Button>
-                    </Link>
-                  ) : null;
-                })()}
-                {(() => {
-                  // Show "Open Email" whenever there is a subject or a contact email to search by
-                  const hasEmail = !!(selectedTask.contactEmail || selectedTask.senderEmail || selectedTask.emailSubject || selectedTask.taskType === 'email_engagement');
-                  if (!hasEmail) return null;
-
-                  // For email engagement tasks, only show if sent by the current user
-                  const sentBy = selectedTask.assignedTo?.toLowerCase();
-                  if (selectedTask.taskType === 'email_engagement' && sentBy && sentBy !== currentUserEmail) return null;
-
-                  const emailForSearch = selectedTask.senderEmail || selectedTask.contactEmail;
-                  let gmailSearch = '';
-
-                  if (selectedTask.taskType === 'email_engagement') {
-                    const subject = selectedTask.title
-                      .replace(/^Email Opened:\s*/i, '')
-                      .replace(/^Email Link Clicked:\s*/i, '');
-                    gmailSearch = emailForSearch
-                      ? `subject:"${subject}" (to:${emailForSearch} OR from:${emailForSearch})`
-                      : `subject:"${subject}"`;
-                  } else if (emailForSearch && selectedTask.emailSubject) {
-                    gmailSearch = `subject:"${selectedTask.emailSubject}" (to:${emailForSearch} OR from:${emailForSearch})`;
-                  } else if (emailForSearch) {
-                    gmailSearch = `from:${emailForSearch} OR to:${emailForSearch}`;
-                  } else if (selectedTask.emailSubject) {
-                    gmailSearch = `subject:"${selectedTask.emailSubject}"`;
-                  }
-
-                  if (!gmailSearch) return null;
-                  return (
-                    <a
-                      href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(gmailSearch)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {/* Mark critical — red */}
+                  {typeof selectedTask.id === 'number' && selectedTask.source !== 'email_not_replied' && (
+                    <button
+                      onClick={() => markCriticalMutation.mutate({ taskId: selectedTask.id as number, critical: selectedTask.priority !== 'critical' })}
+                      disabled={markCriticalMutation.isPending}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: selectedTask.priority === 'critical' ? '#E24B4A' : '#FCEBEB', color: selectedTask.priority === 'critical' ? '#fff' : '#791F1F', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
                     >
-                      <Button variant="outline" size="sm" className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50">
-                        <Mail className="h-4 w-4" />
-                        Open Email
-                      </Button>
-                    </a>
-                  );
-                })()}
-                {selectedTask.source === "email_not_replied" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 text-green-700 border-green-200 hover:bg-green-50"
-                    onClick={() => { createEmailTaskMutation.mutate(selectedTask.id); setShowTaskDetail(false); }}
-                    disabled={createEmailTaskMutation.isPending}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Follow-up Task
-                  </Button>
-                )}
-                {typeof selectedTask.id === "number" && selectedTask.source !== "email_not_replied" && (
-                  <Button
-                    size="sm"
-                    variant={selectedTask.priority === "critical" ? "default" : "outline"}
-                    onClick={() => markCriticalMutation.mutate({ taskId: selectedTask.id as number, critical: selectedTask.priority !== "critical" })}
-                    disabled={markCriticalMutation.isPending}
-                    className={selectedTask.priority === "critical"
-                      ? "gap-2 bg-red-600 hover:bg-red-700 text-white border-red-600"
-                      : "gap-2 text-red-600 border-red-200 hover:bg-red-50"}
-                  >
-                    <Flame className="h-4 w-4" />
-                    {selectedTask.priority === "critical" ? "Unmark Critical" : "Mark Critical"}
-                  </Button>
-                )}
-                {selectedTask.source === "calendar" && typeof selectedTask.id === "number" && (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => completeTaskMutation.mutate(selectedTask.id as number)}
-                      disabled={completeTaskMutation.isPending}
-                      className="gap-2"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Complete
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
+                      <Flame style={{ width: '14px', height: '14px' }} />
+                      {selectedTask.priority === 'critical' ? 'Unmark' : 'Critical'}
+                    </button>
+                  )}
+
+                  {/* Reschedule — green */}
+                  {typeof selectedTask.id === 'number' && selectedTask.source !== 'email_not_replied' && selectedTask.source !== 'spotlight' && (
+                    <button
                       onClick={() => {
-                        if (window.confirm('Cancel this task? It will be marked cancelled.')) {
-                          cancelTaskMutation.mutate(selectedTask.id as number);
-                        }
+                        const currentDue = selectedTask.dueDate ? new Date(selectedTask.dueDate) : new Date();
+                        const yyyy = currentDue.getFullYear();
+                        const mm = String(currentDue.getMonth() + 1).padStart(2, '0');
+                        const dd = String(currentDue.getDate()).padStart(2, '0');
+                        const hh = String(currentDue.getHours()).padStart(2, '0');
+                        const min = String(currentDue.getMinutes()).padStart(2, '0');
+                        setRescheduleDate(`${yyyy}-${mm}-${dd}`);
+                        setRescheduleTime(`${hh}:${min}`);
+                        setShowReschedule(v => !v);
+                        setShowDelegate(false);
                       }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#EAF3DE', color: '#27500A', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+                    >
+                      <Calendar style={{ width: '14px', height: '14px' }} />
+                      Reschedule
+                    </button>
+                  )}
+
+                  {/* Delegate — purple */}
+                  {typeof selectedTask.id === 'number' && selectedTask.source === 'calendar' && salesReps.length > 0 && (
+                    <button
+                      onClick={() => { setShowDelegate(v => !v); setShowReschedule(false); setDelegateToEmail(''); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#EEEDFE', color: '#3C3489', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+                    >
+                      <ArrowUpDown style={{ width: '14px', height: '14px' }} />
+                      Delegate
+                    </button>
+                  )}
+
+                  {/* Cancel task — for calendar source */}
+                  {selectedTask.source === 'calendar' && typeof selectedTask.id === 'number' && (
+                    <button
+                      onClick={() => { if (window.confirm('Cancel this task?')) cancelTaskMutation.mutate(selectedTask.id as number); }}
                       disabled={cancelTaskMutation.isPending}
-                      className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#FCEBEB', color: '#791F1F', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
                     >
-                      <X className="h-4 w-4" />
-                      Cancel Task
-                    </Button>
-                  </>
+                      <X style={{ width: '14px', height: '14px' }} />
+                      Cancel
+                    </button>
+                  )}
+
+                  {/* SPOTLIGHT entry */}
+                  {selectedTask.source === 'spotlight' && (
+                    <button
+                      onClick={() => { setShowTaskDetail(false); setLocation('/'); }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: '#EEEDFE', color: '#3C3489', fontSize: '13px', fontWeight: 500, cursor: 'pointer', gridColumn: 'span 3' }}
+                    >
+                      <Zap style={{ width: '14px', height: '14px' }} />
+                      Enter Spotlight mode
+                    </button>
+                  )}
+                </div>
+
+                {/* Reschedule panel */}
+                {showReschedule && typeof selectedTask.id === "number" && (
+                  <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Pick a new date &amp; time</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                        <label className="text-xs text-gray-500">Date</label>
+                        <input
+                          type="date"
+                          value={rescheduleDate}
+                          onChange={e => setRescheduleDate(e.target.value)}
+                          className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
+                        <label className="text-xs text-gray-500">Time</label>
+                        <input
+                          type="time"
+                          value={rescheduleTime}
+                          onChange={e => setRescheduleTime(e.target.value)}
+                          className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                        disabled={rescheduleTaskMutation.isPending || !rescheduleDate}
+                        onClick={() => {
+                          if (!rescheduleDate) return;
+                          const [h, m] = (rescheduleTime || '09:00').split(':').map(Number);
+                          const d = new Date(rescheduleDate);
+                          d.setHours(h, m, 0, 0);
+                          rescheduleTaskMutation.mutate({ taskId: selectedTask.id as number, dueDate: d });
+                        }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {rescheduleTaskMutation.isPending ? 'Saving…' : 'Confirm'}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => setShowReschedule(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
-                {selectedTask.source === "spotlight" && (
-                  <Button onClick={() => { setShowTaskDetail(false); setLocation("/"); }} className="gap-2 bg-purple-600 hover:bg-purple-700" size="sm">
-                    <Zap className="h-4 w-4" />
-                    Enter SPOTLIGHT
-                  </Button>
-                )}
-                {typeof selectedTask.id === "number" && selectedTask.source !== "email_not_replied" && selectedTask.source !== "spotlight" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                    onClick={() => {
-                      const currentDue = selectedTask.dueDate ? new Date(selectedTask.dueDate) : new Date();
-                      const yyyy = currentDue.getFullYear();
-                      const mm = String(currentDue.getMonth() + 1).padStart(2, '0');
-                      const dd = String(currentDue.getDate()).padStart(2, '0');
-                      const hh = String(currentDue.getHours()).padStart(2, '0');
-                      const min = String(currentDue.getMinutes()).padStart(2, '0');
-                      setRescheduleDate(`${yyyy}-${mm}-${dd}`);
-                      setRescheduleTime(`${hh}:${min}`);
-                      setShowReschedule(v => !v);
-                      setShowDelegate(false);
-                    }}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Reschedule
-                  </Button>
-                )}
-                {typeof selectedTask.id === "number" && selectedTask.source === "calendar" && salesReps.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 text-violet-600 border-violet-200 hover:bg-violet-50"
-                    onClick={() => { setShowDelegate(v => !v); setShowReschedule(false); setDelegateToEmail(''); }}
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
-                    Delegate
-                  </Button>
+
+                {/* Delegate panel */}
+                {showDelegate && typeof selectedTask.id === "number" && (
+                  <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Delegate to another rep</p>
+                    <select
+                      className="w-full border border-violet-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      value={delegateToEmail}
+                      onChange={e => setDelegateToEmail(e.target.value)}
+                    >
+                      <option value="">— Select a rep —</option>
+                      {salesReps.map(rep => (
+                        <option key={rep.email} value={rep.email}>{rep.name}</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+                        disabled={!delegateToEmail || delegateTaskMutation.isPending}
+                        onClick={() => {
+                          const rep = salesReps.find(r => r.email === delegateToEmail);
+                          if (!rep) return;
+                          delegateTaskMutation.mutate({ taskId: selectedTask.id as number, assignedTo: rep.email, assignedToName: rep.name });
+                        }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {delegateTaskMutation.isPending ? 'Saving…' : 'Confirm'}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => { setShowDelegate(false); setDelegateToEmail(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
-              {showReschedule && typeof selectedTask.id === "number" && (
-                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex flex-col gap-3">
-                  <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Pick a new date &amp; time</p>
-                  <div className="flex gap-2 flex-wrap">
-                    <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
-                      <label className="text-xs text-gray-500">Date</label>
-                      <input
-                        type="date"
-                        value={rescheduleDate}
-                        onChange={e => setRescheduleDate(e.target.value)}
-                        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 flex-1 min-w-[120px]">
-                      <label className="text-xs text-gray-500">Time</label>
-                      <input
-                        type="time"
-                        value={rescheduleTime}
-                        onChange={e => setRescheduleTime(e.target.value)}
-                        className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
-                      disabled={rescheduleTaskMutation.isPending || !rescheduleDate}
-                      onClick={() => {
-                        if (!rescheduleDate) return;
-                        const [h, m] = (rescheduleTime || '09:00').split(':').map(Number);
-                        const d = new Date(rescheduleDate);
-                        d.setHours(h, m, 0, 0);
-                        rescheduleTaskMutation.mutate({ taskId: selectedTask.id as number, dueDate: d });
-                      }}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {rescheduleTaskMutation.isPending ? 'Saving…' : 'Confirm'}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => setShowReschedule(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {showDelegate && typeof selectedTask.id === "number" && (
-                <div className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg flex flex-col gap-3">
-                  <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Delegate to another rep</p>
-                  <select
-                    className="w-full border border-violet-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
-                    value={delegateToEmail}
-                    onChange={e => setDelegateToEmail(e.target.value)}
-                  >
-                    <option value="">— Select a rep —</option>
-                    {salesReps.map(rep => (
-                      <option key={rep.email} value={rep.email}>{rep.name}</option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
-                      disabled={!delegateToEmail || delegateTaskMutation.isPending}
-                      onClick={() => {
-                        const rep = salesReps.find(r => r.email === delegateToEmail);
-                        if (!rep) return;
-                        delegateTaskMutation.mutate({ taskId: selectedTask.id as number, assignedTo: rep.email, assignedToName: rep.name });
-                      }}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {delegateTaskMutation.isPending ? 'Saving…' : 'Confirm'}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => { setShowDelegate(false); setDelegateToEmail(''); }}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
