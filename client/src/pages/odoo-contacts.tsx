@@ -316,6 +316,7 @@ export default function OdooContacts() {
   if (debouncedSearch) queryParams.set('search', debouncedSearch);
   queryParams.set('isCompany', 'false'); // Contacts page always shows people only
   if (filters.isHotProspect === true) queryParams.set('isHotProspect', 'true');
+  if (filters.state) queryParams.set('province', filters.state);
 
   // Fetch contacts with server-side pagination
   const { data: conflictEmailsData } = useQuery<{ emails: string[] }>({
@@ -336,7 +337,7 @@ export default function OdooContacts() {
     page: number; 
     pageSize: number; 
   }>({
-    queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect],
+    queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect, filters.state],
     queryFn: async () => {
       const res = await fetch(`/api/customers?${queryParams.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch');
@@ -536,7 +537,6 @@ export default function OdooContacts() {
       if (filters.hasAddress === false && (c.address1 || c.city)) return false;
       if (filters.hasPricingTier === true && !c.pricingTier) return false;
       if (filters.hasPricingTier === false && c.pricingTier) return false;
-      if (filters.state && c.province !== filters.state) return false;
       if (filters.tag && !c.tags?.split(',').map((t: string) => t.trim()).includes(filters.tag)) return false;
       return true;
     })
@@ -794,7 +794,10 @@ export default function OdooContacts() {
     return { type: 'none', value: '' };
   };
 
-  const uniqueProvinces = Array.from(new Set(contacts.map(c => c.province).filter(Boolean) as string[])).sort();
+  const { data: uniqueProvinces = [] } = useQuery<string[]>({
+    queryKey: ['/api/label-states'],
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Active filters count (isCompany is always false so not counted)
   const activeFiltersCount = [
