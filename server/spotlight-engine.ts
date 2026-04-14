@@ -2249,7 +2249,8 @@ class SpotlightEngine {
                 website: customer.website,
                 salesRepId: customer.salesRepId,
                 salesRepName: null,
-                pricingTier: customer.pricingTier
+                pricingTier: customer.pricingTier,
+                odooPartnerId: customer.odooPartnerId ?? null,
               },
               extraContext: {
                 bounceId: bounced.id,

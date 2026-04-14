@@ -225,6 +225,8 @@ interface SpotlightTask {
     lastContactAt: string | null;
     totalTouchpoints: number | null;
     customerType: string | null;
+    odooLeadId?: number | null;
+    odooPartnerId?: number | null;
   };
   context?: {
     followUpId?: number;
@@ -965,6 +967,12 @@ export default function Spotlight() {
     staleTime: 2 * 60 * 1000,
   });
   const domainContacts = domainContactsData?.contacts || [];
+
+  const { data: odooBaseUrlData } = useQuery<{ baseUrl: string | null }>({
+    queryKey: ['/api/odoo/base-url'],
+    staleTime: 60 * 60 * 1000,
+  });
+  const odooBaseUrl = odooBaseUrlData?.baseUrl || '';
 
   const { data: customerMachines = [] } = useQuery<{ id: number; machineFamily: string; confirmed: boolean }[]>({
     queryKey: ['/api/crm/machine-profiles', customerId],
@@ -5147,13 +5155,36 @@ export default function Spotlight() {
                               Full Research
                             </button>
                           )}
-                          <button
-                            onClick={() => setShowDeleteConfirm(true)}
-                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-red-600 border border-red-300 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            Delete
-                          </button>
+                          {(() => {
+                            const bounceOdooLeadId = task.isLeadTask ? task.lead?.odooLeadId : null;
+                            const bounceOdooPartnerId = !task.isLeadTask ? task.customer?.odooPartnerId : null;
+                            const hasOdooLink = !!(bounceOdooLeadId || bounceOdooPartnerId);
+                            if (hasOdooLink && odooBaseUrl) {
+                              const odooUrl = bounceOdooLeadId
+                                ? `${odooBaseUrl}/web#model=crm.lead&id=${bounceOdooLeadId}&view_type=form`
+                                : `${odooBaseUrl}/web#model=res.partner&id=${bounceOdooPartnerId}&view_type=form`;
+                              return (
+                                <a
+                                  href={odooUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-blue-600 border border-blue-300 hover:bg-blue-50"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Go to Odoo
+                                </a>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-red-600 border border-red-300 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
