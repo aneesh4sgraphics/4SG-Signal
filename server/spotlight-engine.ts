@@ -5169,7 +5169,9 @@ class SpotlightEngine {
         'hygiene_machines': [], // Machine profiles managed via separate API
       };
 
-      const allowedFields = subtypeAllowedFields[subtype] || [];
+      // Strip _generic suffix so generic variants (e.g. hygiene_pricing_tier_generic) resolve correctly
+      const subtypeBase = subtype.replace(/_generic$/, '');
+      const allowedFields = subtypeAllowedFields[subtypeBase] || [];
       if (allowedFields.includes(field)) {
         if (isLeadTask && leadId) {
           // ── Lead hygiene update: write directly to the leads table ──────────

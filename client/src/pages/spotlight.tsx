@@ -4364,24 +4364,26 @@ export default function Spotlight() {
 
                 {/* Context Card - Issue OR Pro Tip (never both) */}
                 {task.taskSubtype !== 'hygiene_bounced_email' && (() => {
+                  // Strip _generic suffix so both "hygiene_pricing_tier" and "hygiene_pricing_tier_generic" match
+                  const hygieneBase = (task.taskSubtype || '').replace(/_generic$/, '');
                   const hygieneResolved = task.bucket === 'data_hygiene' && customer && (
-                    (task.taskSubtype === 'hygiene_pricing_tier' && customer.pricingTier) ||
-                    (task.taskSubtype === 'hygiene_email' && customer.email) ||
-                    (task.taskSubtype === 'hygiene_phone' && customer.phone) ||
-                    (task.taskSubtype === 'hygiene_sales_rep' && customer.salesRepId) ||
-                    (task.taskSubtype === 'hygiene_name' && (customer.firstName || customer.lastName)) ||
-                    (task.taskSubtype === 'hygiene_company' && customer.company) ||
-                    (task.taskSubtype === 'hygiene_customer_type' && customer.customerType)
+                    (hygieneBase === 'hygiene_pricing_tier' && customer.pricingTier) ||
+                    (hygieneBase === 'hygiene_email' && customer.email) ||
+                    (hygieneBase === 'hygiene_phone' && customer.phone) ||
+                    (hygieneBase === 'hygiene_sales_rep' && customer.salesRepId) ||
+                    (hygieneBase === 'hygiene_name' && (customer.firstName || customer.lastName)) ||
+                    (hygieneBase === 'hygiene_company' && customer.company) ||
+                    (hygieneBase === 'hygiene_customer_type' && customer.customerType)
                   );
                   // User has selected/typed a new value in the inline form but hasn't submitted yet
                   const hygieneReadyToSave = !hygieneResolved && task.bucket === 'data_hygiene' && (
-                    (task.taskSubtype === 'hygiene_pricing_tier' && fixDataFields.pricingTier) ||
-                    (task.taskSubtype === 'hygiene_email' && fixDataFields.email) ||
-                    (task.taskSubtype === 'hygiene_phone' && fixDataFields.phone) ||
-                    (task.taskSubtype === 'hygiene_sales_rep' && fixDataFields.salesRepId) ||
-                    (task.taskSubtype === 'hygiene_name' && (fixDataFields.firstName || fixDataFields.lastName)) ||
-                    (task.taskSubtype === 'hygiene_company' && fixDataFields.company) ||
-                    (task.taskSubtype === 'hygiene_customer_type' && fixDataFields.customerType)
+                    (hygieneBase === 'hygiene_pricing_tier' && fixDataFields.pricingTier) ||
+                    (hygieneBase === 'hygiene_email' && fixDataFields.email) ||
+                    (hygieneBase === 'hygiene_phone' && fixDataFields.phone) ||
+                    (hygieneBase === 'hygiene_sales_rep' && fixDataFields.salesRepId) ||
+                    (hygieneBase === 'hygiene_name' && (fixDataFields.firstName || fixDataFields.lastName)) ||
+                    (hygieneBase === 'hygiene_company' && fixDataFields.company) ||
+                    (hygieneBase === 'hygiene_customer_type' && fixDataFields.customerType)
                   );
                   const hasMissingFields = currentTask.hints?.some(h => h.type === 'missing_field');
                   const hasUnresolvedIssue = task.bucket === 'data_hygiene' && !hygieneResolved && !hygieneReadyToSave && task.whyNow;
@@ -4625,7 +4627,7 @@ export default function Spotlight() {
 
 
               {/* Data Hygiene: Fix Data First Button (replaces individual field editors) */}
-              {(task.taskSubtype === 'hygiene_pricing_tier' || task.taskSubtype === 'hygiene_email' || task.taskSubtype === 'hygiene_name' || task.taskSubtype === 'hygiene_company' || task.taskSubtype === 'hygiene_phone' || task.taskSubtype === 'hygiene_sales_rep' || task.taskSubtype === 'hygiene_customer_type' || task.taskSubtype === 'hygiene_machines') && (
+              {(['hygiene_pricing_tier','hygiene_email','hygiene_name','hygiene_company','hygiene_phone','hygiene_sales_rep','hygiene_customer_type','hygiene_machines'].includes((task.taskSubtype || '').replace(/_generic$/, ''))) && (
                 <div className="mb-4">
                   <button
                     onClick={() => {
