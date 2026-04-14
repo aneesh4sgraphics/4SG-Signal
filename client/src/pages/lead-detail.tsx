@@ -652,7 +652,7 @@ export default function LeadDetail() {
                 <UserCheck className="h-3.5 w-3.5 mr-1" /> Convert to Customer
               </Button>
 
-              {!lead.odooLeadId && lead.sourceType !== 'shopify' && (
+              {lead.sourceType !== 'shopify' && (
                 <Button
                   variant="outline"
                   size="sm"
