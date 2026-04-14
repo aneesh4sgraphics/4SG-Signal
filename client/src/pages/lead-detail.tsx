@@ -839,19 +839,14 @@ export default function LeadDetail() {
                   )}
                 </HighlightTile>
 
-                <HighlightTile label="Sales rep / Tier" icon={User}>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {lead.salesRepName ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        {lead.salesRepName}
-                      </span>
-                    ) : <span className="text-gray-400 text-sm">Unassigned</span>}
-                    {lead.pricingTier && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">
-                        {lead.pricingTier}
-                      </span>
-                    )}
-                  </div>
+                <HighlightTile label="Sales Rep" icon={User}>
+                  {lead.salesRepName ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 mb-1.5">
+                      {lead.salesRepName}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-sm block mb-1.5">Unassigned</span>
+                  )}
                   <Select
                     value={lead.salesRepId || "__none__"}
                     onValueChange={(v) => {
@@ -863,7 +858,7 @@ export default function LeadDetail() {
                     }}
                     disabled={updateSalesRepMutation.isPending}
                   >
-                    <SelectTrigger className="h-7 text-xs mt-1.5 border-gray-200 bg-gray-50">
+                    <SelectTrigger className="h-7 text-xs border-gray-200 bg-gray-50">
                       <SelectValue placeholder="Assign rep…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -876,28 +871,38 @@ export default function LeadDetail() {
                 </HighlightTile>
 
                 <HighlightTile label="Pricing Tier" icon={Tag}>
-                  {lead.pricingTier ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 mb-1.5">
-                      {lead.pricingTier}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-sm block mb-1.5">Not set</span>
-                  )}
-                  <Select
-                    value={lead.pricingTier || "__none__"}
-                    onValueChange={(v) => updateLeadMutation.mutate({ pricingTier: v === "__none__" ? null : v })}
-                    disabled={updateLeadMutation.isPending}
-                  >
-                    <SelectTrigger className="h-7 text-xs mt-0.5 border-gray-200 bg-gray-50">
-                      <SelectValue placeholder="Set tier…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Not set —</SelectItem>
-                      {PRICING_TIERS.map(tier => (
-                        <SelectItem key={tier} value={tier}>{tier}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-2 gap-1">
+                    {PRICING_TIERS.map(tier => {
+                      const isSelected = lead.pricingTier === tier;
+                      const colorMap: Record<string, string> = {
+                        'LANDED PRICE':    'bg-slate-600 text-white border-slate-600',
+                        'EXPORT ONLY':     'bg-cyan-600 text-white border-cyan-600',
+                        'DISTRIBUTOR':     'bg-violet-600 text-white border-violet-600',
+                        'DEALER-VIP':      'bg-amber-500 text-white border-amber-500',
+                        'DEALER':          'bg-orange-500 text-white border-orange-500',
+                        'SHOPIFY LOWEST':  'bg-emerald-700 text-white border-emerald-700',
+                        'SHOPIFY3':        'bg-emerald-600 text-white border-emerald-600',
+                        'SHOPIFY2':        'bg-teal-600 text-white border-teal-600',
+                        'SHOPIFY1':        'bg-green-600 text-white border-green-600',
+                        'SHOPIFY-ACCOUNT': 'bg-lime-600 text-white border-lime-600',
+                        'RETAIL':          'bg-rose-600 text-white border-rose-600',
+                      };
+                      return (
+                        <button
+                          key={tier}
+                          disabled={updateLeadMutation.isPending}
+                          onClick={() => updateLeadMutation.mutate({ pricingTier: isSelected ? null : tier })}
+                          className={`px-2 py-1 rounded text-[11px] font-medium border transition-all text-left truncate ${
+                            isSelected
+                              ? colorMap[tier] || 'bg-violet-600 text-white border-violet-600'
+                              : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {tier}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </HighlightTile>
               </div>
             </div>
