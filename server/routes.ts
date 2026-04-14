@@ -15730,7 +15730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tierStage1Price,
             retailPrice,
             uploadBatch: 'odoo-import-' + new Date().toISOString().split('T')[0],
-            isArchived: false,
+            isArchived: (itemCode || '').toUpperCase().endsWith('-ARCH'),
           });
           
           // Auto-create mapping with Odoo code preserved
@@ -15816,7 +15816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dealerPrice: product.list_price?.toString() || '0',
             retailPrice: product.list_price?.toString() || '0',
             uploadBatch: 'odoo-fresh-import-' + new Date().toISOString().split('T')[0],
-            isArchived: false,
+            isArchived: (odooItemCode || '').toUpperCase().endsWith('-ARCH'),
           });
           
           imported++;
@@ -16435,7 +16435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         minQuantity: minQuantity || 50,
         rollSheet: rollSheet || null,
         unitOfMeasure: unitOfMeasure || null,
-        isArchived: false,
+        isArchived: (itemCode || '').toUpperCase().endsWith('-ARCH'),
       }).returning();
       
       res.json({ success: true, product: newProduct });

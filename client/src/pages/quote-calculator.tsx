@@ -535,24 +535,35 @@ export default function QuoteCalculator() {
     return unique.sort();
   })();
 
-  // Get sizes for selected type with sorting (deduplicated by itemCode/SKU)
+  // Get sizes for selected type with sorting (deduplicated by physical size)
   const availableSizes = selectedCategory && selectedType
     ? (() => {
         const filtered = productData.filter(item => 
-          item.productType === selectedType
+          item.productType === selectedType &&
+          !item.itemCode?.toUpperCase().endsWith('-ARCH')
         ).sort((a, b) => {
           const sqmA = parseFloat(String(a.totalSqm || 0));
           const sqmB = parseFloat(String(b.totalSqm || 0));
           return sqmA - sqmB; // always ascending by square meters
         });
-        // Deduplicate by itemCode (SKU) - keep first occurrence of each unique product
-        const seen = new Set<string>();
-        return filtered.filter(item => {
-          const key = item.itemCode || item.size; // Use SKU as primary key, fallback to size
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+        // Deduplicate by physical size — keep the record that has pricing data
+        const sizeMap = new Map<string, typeof filtered[0]>();
+        for (const item of filtered) {
+          // Normalize the size string as the key (e.g. "23x29", "23 x 29", "23X29" all → "23x29")
+          const normalizedSize = (item.size || '').toLowerCase().replace(/\s+/g, '').replace(/x/g, 'x');
+          const existing = sizeMap.get(normalizedSize);
+          if (!existing) {
+            sizeMap.set(normalizedSize, item);
+          } else {
+            // Prefer the record that has actual pricing data over $0 records
+            const existingHasPrice = parseFloat(String(existing.dealerPrice || 0)) > 0 || parseFloat(String(existing.retailPrice || 0)) > 0;
+            const itemHasPrice = parseFloat(String(item.dealerPrice || 0)) > 0 || parseFloat(String(item.retailPrice || 0)) > 0;
+            if (!existingHasPrice && itemHasPrice) {
+              sizeMap.set(normalizedSize, item);
+            }
+          }
+        }
+        return Array.from(sizeMap.values());
       })()
     : [];
 

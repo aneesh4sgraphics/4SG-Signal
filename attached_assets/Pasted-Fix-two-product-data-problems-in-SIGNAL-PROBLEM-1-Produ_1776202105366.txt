@@ -1,0 +1,72 @@
+Fix two product data problems in SIGNAL:
+
+PROBLEM 1 — Products ending in -ARCH are not filtered out
+The isArchived flag in the database is sometimes not set correctly for products whose itemCode ends in "-ARCH". Add an explicit itemCode suffix check everywhere products are filtered.
+
+In server/routes-pricing-database.ts, find the TWO filter statements (around lines 598 and 631):
+  const pricingData = allPricingData.filter(item => 
+    item.catalogCategoryId && !item.isArchived
+  );
+
+Change BOTH of them to also exclude any itemCode ending in -ARCH (case-insensitive):
+  const pricingData = allPricingData.filter(item => 
+    item.catalogCategoryId && 
+    !item.isArchived && 
+    !item.itemCode?.toUpperCase().endsWith('-ARCH')
+  );
+
+Also, in server/routes.ts, find the CSV import endpoint that inserts into productPricingMaster (search for "isArchived: false" in the insert values). When a new product is imported from CSV, automatically set isArchived = true if the itemCode ends in -ARCH:
+
+Find:
+  isArchived: false,
+
+Change to:
+  isArchived: (data.itemCode || '').toUpperCase().endsWith('-ARCH'),
+
+This applies to ALL insert statements in the CSV import flow. Also add an auto-archive step when saving a product via PUT/PATCH: if the itemCode ends in -ARCH, always force isArchived = true regardless of what was passed.
+
+PROBLEM 2 — Duplicate sizes shown for same product (e.g. GPOLY14-23x29B showing as 0.4303 sqm AND 43.0322 sqm)
+
+The root cause: the same physical size has two entries in productPricingMaster — one with totalSqm representing a single sheet, and one representing a pack (e.g. 100 sheets). They may have different itemCodes (one with -ARCH suffix, one without).
+
+In client/src/pages/quote-calculator.tsx, find the availableSizes deduplication logic (around line 550):
+  const seen = new Set<string>();
+  return filtered.filter(item => {
+    const key = item.itemCode || item.size;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+Change the deduplication key to use the physical size (width x height) extracted from the size field, so that two records with the same physical dimensions are treated as duplicates regardless of itemCode. When there are duplicates by physical size, keep the one with pricing data (i.e. dealerPrice > 0 or retailPrice > 0):
+
+Replace the deduplication block with:
+  // Deduplicate by physical size — keep the record that has pricing data
+  const sizeMap = new Map<string, typeof filtered[0]>();
+  for (const item of filtered) {
+    // Normalize the size string as the key (e.g. "23x29", "23 x 29", "23X29" all → "23x29")
+    const normalizedSize = (item.size || '').toLowerCase().replace(/\s+/g, '').replace(/x/g, 'x');
+    const existing = sizeMap.get(normalizedSize);
+    if (!existing) {
+      sizeMap.set(normalizedSize, item);
+    } else {
+      // Prefer the record that has actual pricing data over $0 records
+      const existingHasPrice = parseFloat(String(existing.dealerPrice || 0)) > 0 || parseFloat(String(existing.retailPrice || 0)) > 0;
+      const itemHasPrice = parseFloat(String(item.dealerPrice || 0)) > 0 || parseFloat(String(item.retailPrice || 0)) > 0;
+      if (!existingHasPrice && itemHasPrice) {
+        sizeMap.set(normalizedSize, item);
+      }
+    }
+  }
+  return Array.from(sizeMap.values());
+
+Also apply the same -ARCH exclusion in quote-calculator.tsx. In the same availableSizes filter block, add to the initial filter:
+  const filtered = productData.filter(item => 
+    item.productType === selectedType &&
+    !item.itemCode?.toUpperCase().endsWith('-ARCH')
+  ).sort(...)
+
+Do the same in client/src/pages/price-list.tsx — wherever productData is filtered to build the product list, add:
+  && !item.itemCode?.toUpperCase().endsWith('-ARCH')
+
+Do not change any other logic.

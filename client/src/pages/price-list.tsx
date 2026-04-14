@@ -925,6 +925,8 @@ export default function PriceList() {
 
     const filteredProducts = productData.filter(
       (item) => {
+        // Exclude archived products by itemCode suffix
+        if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
         // Use categoryName from API which maps to product_categories table
         const categoryName = (item as any).categoryName || item.productName || item.product_name;
         const matchesCategory = categoryName?.toLowerCase() === selectedCategory?.toLowerCase();

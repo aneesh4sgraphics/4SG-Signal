@@ -593,9 +593,10 @@ router.post("/upload-pricing-database", isAuthenticated, requireAdmin, upload.si
 router.get("/quickquotes/products", async (req, res) => {
   try {
     const allPricingData = await storage.getAllProductPricingMaster();
-    // Filter to only show MAPPED products (have catalogCategoryId), not archived, and with at least one price
+    // Filter to only show MAPPED products (have catalogCategoryId), not archived, no -ARCH suffix, and with at least one price
     const pricingData = allPricingData.filter(item => {
       if (!item.catalogCategoryId || item.isArchived) return false;
+      if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
       // Exclude products with no pricing data at all
       const prices = [
         item.dealerPrice, item.dealer2Price, item.exportPrice,
@@ -634,9 +635,10 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
     const categories = await storage.getProductCategories();
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
-    // Filter to only show MAPPED products (have catalogCategoryId), not archived, and with at least one price
+    // Filter to only show MAPPED products (have catalogCategoryId), not archived, no -ARCH suffix, and with at least one price
     const pricingData = allPricingData.filter(item => {
       if (!item.catalogCategoryId || item.isArchived) return false;
+      if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
       // Exclude products with no pricing data at all
       const prices = [
         item.dealerPrice, item.dealer2Price, item.exportPrice,
@@ -1055,6 +1057,8 @@ router.patch("/product-pricing/:id", isAuthenticated, requireAdmin, async (req: 
       uploadBatch: currentRecord.uploadBatch,
       rowHash: currentRecord.rowHash,
       sortOrder: currentRecord.sortOrder,
+      // Auto-archive if itemCode ends in -ARCH
+      isArchived: (currentRecord.itemCode || '').toUpperCase().endsWith('-ARCH') ? true : (currentRecord.isArchived ?? false),
     };
     
     console.log("Merged record:", completeRecord);
