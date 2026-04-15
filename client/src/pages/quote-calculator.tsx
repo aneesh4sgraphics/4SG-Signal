@@ -1941,8 +1941,9 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
         {/* Left Rail */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Customer Card */}
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '16px 18px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
+          <div style={{ position: 'relative', marginTop: '8px' }}>
+            <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.07em', background: 'white', padding: '0 6px', zIndex: 1 }}>Customer</span>
+            <div style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: '14px', padding: '16px 14px 14px' }}>
             {selectedCustomer ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedCustomer(null)}>
                 <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
@@ -2044,11 +2045,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               </div>
             </Collapsible>
           )}
+          </div>{/* closes customer wrapper */}
 
           {/* Product Selection Card */}
           <div style={{ position: 'relative', marginTop: '16px' }}>
-            <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
-            <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', padding: '14px 14px 10px' }}>
+            <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.07em', background: 'white', padding: '0 6px', zIndex: 1 }}>Product</span>
+            <div style={{ background: 'white', border: '1.5px solid #E5E7EB', borderRadius: '14px', padding: '14px 14px 10px' }}>
 
               {/* Category */}
               <div style={{ marginBottom: '10px' }}>
