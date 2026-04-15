@@ -2112,8 +2112,6 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                 </div>
               </div>
 
-            </div>
-          </div>{/* closes outer wrapper */}
 
           {/* Custom Size Input */}
           {isCustomSize && selectedType && (
@@ -2169,9 +2167,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Reset button */}
-          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, color: '#fff', background: '#EA580C', border: 'none', borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.02em' }}>
+          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', marginTop: '8px', padding: '10px', fontSize: '13px', fontWeight: 600, color: '#fff', background: '#EA580C', border: 'none', borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.02em' }}>
             Reset All
           </button>
+
+            </div>{/* closes product inner card */}
+          </div>{/* closes product outer wrapper */}
         </div>{/* end left rail */}
 
         {/* Right Panel */}
