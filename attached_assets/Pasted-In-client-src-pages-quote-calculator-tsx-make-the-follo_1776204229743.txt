@@ -1,0 +1,132 @@
+In client/src/pages/quote-calculator.tsx, make the following sizing and spacing improvements to the left rail. Do not change any logic — only change style values.
+
+FIX 1 — Widen the grid and rail
+Find:
+  <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '12px', alignItems: 'start' }}>
+
+Replace with:
+  <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px', alignItems: 'start' }}>
+
+FIX 2 — More padding and bigger text in customer card
+Find:
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '12px 14px' }}>
+    <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Customer</div>
+
+Replace with:
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '16px 18px' }}>
+    <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
+
+FIX 3 — Bigger avatar and name text in customer card
+Find:
+  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+
+Replace with:
+  <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+
+Find:
+  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+
+Replace with:
+  <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+
+Find:
+  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+
+Replace with:
+  <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+
+FIX 4 — Bigger tier badges in customer card
+Find:
+  <span style={{ fontSize: '10px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '2px 7px' }}>
+
+Replace with:
+  <span style={{ fontSize: '11px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '3px 9px' }}>
+
+Find:
+  <span style={{ fontSize: '10px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '2px 7px' }}>matched ✓</span>
+
+Replace with:
+  <span style={{ fontSize: '11px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '3px 9px' }}>matched ✓</span>
+
+FIX 5 — Bigger label and value text in product selector rows, more padding per row
+Find (first occurrence — Category row):
+  <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Category</span>
+
+Replace with:
+  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
+
+Find (Type row):
+  <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Type</span>
+
+Replace with:
+  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Type</span>
+
+Find (Size row):
+  <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Size</span>
+
+Replace with:
+  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Size</span>
+
+Find (Qty row):
+  <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Qty</span>
+
+Replace with:
+  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Qty</span>
+
+Also increase the padding on ALL four selector rows. Find all four instances of:
+  style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+
+Replace each with:
+  style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+
+And the qty row (no border-bottom):
+  style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+
+Replace with:
+  style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+
+Also make the SelectTrigger font bigger for Category, Type, and Size — find all three instances of:
+  fontSize: '12px', fontWeight: 500, color: selectedCategory ? '#3C3489'
+  fontSize: '12px', fontWeight: 500, color: selectedType ? '#3C3489'
+  fontSize: '12px', fontWeight: 500, color: selectedSize ? '#3C3489'
+
+Change all three fontSize values from '12px' to '14px'.
+
+FIX 6 — Bigger text in the product info card (SKU, sqm, format, stock)
+Find:
+  <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '10px 14px' }}>
+
+Replace with:
+  <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '14px 16px' }}>
+
+Find all instances of:
+  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
+  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
+
+Replace with:
+  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
+  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
+
+Find the Stock row labels:
+  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>Stock</span>
+  <span style={{ fontSize: '11px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
+
+Replace with:
+  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>Stock</span>
+  <span style={{ fontSize: '14px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
+
+Also increase the margin between rows:
+Find:
+  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '4px' : 0 }}>
+
+Replace with:
+  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '8px' : 0 }}>
+
+FIX 7 — Bigger reset button
+Find:
+  <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '7px', fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
+
+Replace with:
+  <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '10px', fontSize: '13px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
+
+Do not change any logic, handlers, or non-style props.

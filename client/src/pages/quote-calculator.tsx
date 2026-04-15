@@ -1937,23 +1937,23 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           </div>
         )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '12px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px', alignItems: 'start' }}>
         {/* Left Rail */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Customer Card */}
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '12px 14px' }}>
-            <div style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Customer</div>
+          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '16px 18px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Customer</div>
             {selectedCustomer ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setSelectedCustomer(null)}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#EEEDFE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 500, color: '#534AB7', flexShrink: 0 }}>
                   {((selectedCustomer.firstName?.[0] || '') + (selectedCustomer.lastName?.[0] || selectedCustomer.company?.[0] || '')).toUpperCase() || 'C'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selectedCustomer.company || `${selectedCustomer.firstName} ${selectedCustomer.lastName}`}
                   </div>
                   {selectedCustomer.firstName && selectedCustomer.company && (
-                    <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
                   )}
                 </div>
               </div>
@@ -1968,11 +1968,11 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             {selectedCustomer && (
               <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {matchingTier && (
-                  <span style={{ fontSize: '10px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '2px 7px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 500, background: '#EEEDFE', color: '#3C3489', borderRadius: '4px', padding: '3px 9px' }}>
                     {allPricingTiers.find(t => t.key === matchingTier)?.label || matchingTier}
                   </span>
                 )}
-                <span style={{ fontSize: '10px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '2px 7px' }}>matched ✓</span>
+                <span style={{ fontSize: '11px', fontWeight: 500, background: '#EAF3DE', color: '#27500A', borderRadius: '4px', padding: '3px 9px' }}>matched ✓</span>
               </div>
             )}
           </div>
@@ -2048,11 +2048,11 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           {/* Product Selection Card */}
           <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
             {/* Category row */}
-            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Category</span>
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2065,12 +2065,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             </div>
 
             {/* Type row */}
-            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Type</span>
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Type</span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {selectedCategory ? (
                   <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2086,12 +2086,12 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             </div>
 
             {/* Size row */}
-            <div style={{ padding: '9px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Size</span>
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Size</span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {selectedType ? (
                   <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }}>
-                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '12px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
                       <SelectValue placeholder="Select size" />
                     </SelectTrigger>
                     <SelectContent className="max-w-none w-auto min-w-[200px]">
@@ -2112,8 +2112,8 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
             </div>
 
             {/* Quantity row */}
-            <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '10px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '56px', flexShrink: 0 }}>Qty</span>
+            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Qty</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <button onClick={() => setQuantity(Math.max(selectedProduct?.minQuantity || 1, quantity - (selectedProduct?.minQuantity || 1)))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>−</button>
                 <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} onFocus={(e) => e.target.select()} style={{ width: '60px', textAlign: 'center', fontSize: '14px', fontWeight: 500, border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', padding: '3px 6px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)' }} />
@@ -2141,22 +2141,22 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
 
           {/* Product Info Card */}
           {selectedProduct && (
-            <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '10px 14px' }}>
+            <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', padding: '14px 16px' }}>
               {[
                 { label: 'SKU', value: selectedProduct.itemCode, mono: true },
                 { label: 'Total sqm', value: `${parseFloat(String(selectedProduct.totalSqm || 0)).toFixed(4)} m²` },
                 { label: 'Format', value: `${selectedProduct.minQuantity || 1} ${selectedProduct.unitOfMeasure || 'sheets'} / pack` },
                 { label: 'Min qty', value: String(selectedProduct.minQuantity || 1) },
               ].map((row, i) => (
-                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '4px' : 0 }}>
-                  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
-                  <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 3 ? '8px' : 0 }}>
+                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>{row.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', fontFamily: row.mono ? 'monospace' : 'inherit' }}>{row.value}</span>
                 </div>
               ))}
               {inventoryData !== undefined && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', paddingTop: '6px', borderTop: '0.5px solid var(--color-border-tertiary)' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>Stock</span>
-                  <span style={{ fontSize: '11px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>Stock</span>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: inventoryData && Math.floor(inventoryData.qtyAvailable) > 0 ? '#27500A' : '#A32D2D' }}>
                     {inventoryLoading ? '...' : inventoryData ? `${Math.floor(inventoryData.qtyAvailable)} ✓` : '—'}
                   </span>
                 </div>
@@ -2176,7 +2176,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Reset button */}
-          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '7px', fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
+          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '10px', fontSize: '13px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
             Reset all selections
           </button>
         </div>{/* end left rail */}
