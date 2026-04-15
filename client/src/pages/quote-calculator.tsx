@@ -2047,6 +2047,10 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
 
           {/* Product Selection Card */}
           <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
+            {/* Product heading */}
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product</span>
+            </div>
             {/* Category row */}
             <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
               <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
@@ -2176,8 +2180,8 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Reset button */}
-          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '10px', fontSize: '13px', color: 'var(--color-text-tertiary)', background: 'transparent', border: '0.5px dashed var(--color-border-secondary)', borderRadius: '8px', cursor: 'pointer' }}>
-            Reset all selections
+          <button onClick={() => { if (window.confirm('Reset all selections?')) resetSelections(); }} style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, color: '#fff', background: '#EA580C', border: 'none', borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.02em' }}>
+            Reset All
           </button>
         </div>{/* end left rail */}
 
