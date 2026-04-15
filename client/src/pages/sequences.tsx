@@ -243,6 +243,8 @@ function StepCard({
   const [imageUrl, setImageUrl] = useState('');
   const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
   const [isImageSelected, setIsImageSelected] = useState(false);
+  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>('visual');
+  const [htmlBody, setHtmlBody] = useState(step.body || '');
 
   const subjectRef = useRef<HTMLInputElement>(null);
 
@@ -422,6 +424,7 @@ function StepCard({
 
       {/* Formatting toolbar */}
       <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+        {bodyMode === 'visual' && (<>
         <button
           type="button"
           onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
@@ -453,6 +456,24 @@ function StepCard({
         >
           <ImagePlus className="h-3.5 w-3.5" />
         </button>
+        </>)}
+        {/* Visual / HTML toggle — always shown */}
+        <div style={{ marginLeft: 'auto', display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
+            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent', color: bodyMode === 'visual' ? '#fff' : '#9ca3af' }}
+          >
+            Visual
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
+            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
+          >
+            {'</>'} HTML
+          </button>
+        </div>
       </div>
 
       {/* Image insert panel */}
@@ -510,9 +531,41 @@ function StepCard({
         </div>
       )}
 
-      {/* Body — TipTap rich text editor */}
+      {/* Body — visual or raw HTML */}
       <div className="px-4 py-3">
-        <EditorContent editor={editor} />
+        {bodyMode === 'visual' ? (
+          <EditorContent editor={editor} />
+        ) : (
+          <div>
+            <textarea
+              value={htmlBody}
+              onChange={e => {
+                setHtmlBody(e.target.value);
+                onUpdate(step.id, { body: e.target.value });
+              }}
+              placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+              style={{
+                width: '100%',
+                minHeight: '280px',
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                lineHeight: '1.6',
+                padding: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                background: '#fafafa',
+                color: '#1f2937',
+                resize: 'vertical',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+              spellCheck={false}
+            />
+            <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+              Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{firstName}}'} work in HTML too.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Click-outside overlay to close panels */}
