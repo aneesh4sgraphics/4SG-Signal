@@ -796,6 +796,41 @@ function extractBodyContent(html: string): string {
   return m ? m[1].trim() : html;
 }
 
+/** Renders HTML in a fully-isolated iframe that auto-sizes to its content.
+ *  - allow-scripts so fonts / Canva layout JS work
+ *  - allow-same-origin so the parent can read scrollHeight for auto-sizing
+ *  - No app CSS bleeds in
+ */
+function HtmlPreviewFrame({ html, minHeight = 200 }: { html: string; minHeight?: number }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  const srcDoc = isFullHtmlDoc(html)
+    ? html
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;padding:16px;margin:0;word-break:break-word}img{max-width:100%}</style></head><body>${html}</body></html>`;
+
+  function autoSize() {
+    try {
+      const frame = frameRef.current;
+      if (!frame) return;
+      const doc = frame.contentDocument ?? frame.contentWindow?.document;
+      if (!doc) return;
+      const h = Math.max(minHeight, doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0);
+      frame.style.height = h + 'px';
+    } catch (_) {}
+  }
+
+  return (
+    <iframe
+      ref={frameRef}
+      srcDoc={srcDoc}
+      title="Email preview"
+      onLoad={autoSize}
+      style={{ width: '100%', height: `${minHeight}px`, border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff', display: 'block' }}
+      sandbox="allow-same-origin allow-scripts allow-popups"
+    />
+  );
+}
+
 function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
@@ -1020,13 +1055,8 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
           {/* Isolated iframe preview */}
           {showPreview && htmlBody.trim() && (
             <div>
-              <p style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '6px' }}>Preview (isolated, no app CSS)</p>
-              <iframe
-                srcDoc={htmlBody}
-                title="HTML email preview"
-                style={{ width: '100%', height: '500px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
-                sandbox="allow-same-origin"
-              />
+              <p style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '6px' }}>Preview (isolated — no app CSS, auto-sized)</p>
+              <HtmlPreviewFrame html={htmlBody} minHeight={300} />
             </div>
           )}
         </div>
@@ -1241,22 +1271,8 @@ function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
                 <span className="text-gray-400 text-xs font-medium">Subject: </span>
                 <span className="text-gray-800 font-medium">{previewTpl.subject}</span>
               </div>
-              {/* Isolated iframe preview — no app CSS, no DOMPurify stripping */}
-              {isFullHtmlDoc(previewTpl.body || '') ? (
-                <iframe
-                  srcDoc={previewTpl.body || ''}
-                  title="Email preview"
-                  style={{ width: '100%', height: '560px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
-                  sandbox="allow-same-origin"
-                />
-              ) : (
-                <iframe
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;padding:16px;margin:0}img{max-width:100%}</style></head><body>${previewTpl.body || ''}</body></html>`}
-                  title="Email preview"
-                  style={{ width: '100%', minHeight: '200px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
-                  sandbox="allow-same-origin"
-                />
-              )}
+              {/* Isolated iframe preview — scripts + fonts allowed, auto-sizes to full content height */}
+              <HtmlPreviewFrame html={previewTpl.body || ''} minHeight={300} />
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="outline" size="sm" onClick={() => copyToClipboard(previewTpl.body)} className="gap-1.5">
                   <Copy className="h-3.5 w-3.5" />

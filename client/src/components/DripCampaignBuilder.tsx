@@ -1,5 +1,15 @@
 import { useState, useCallback, useRef } from "react";
 import DOMPurify from 'dompurify';
+
+function isFullHtmlDoc(html: string): boolean {
+  const t = (html || '').trim().toLowerCase();
+  return t.startsWith('<!doctype') || t.startsWith('<html');
+}
+
+function buildSrcDoc(body: string, bg: string, fg: string, padding: string, fontSize: string): string {
+  if (isFullHtmlDoc(body)) return body;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:${padding};font-family:sans-serif;font-size:${fontSize};line-height:1.6;background:${bg};color:${fg}}img{max-width:100%}</style></head><body>${body || '<p style="color:#9ca3af;padding:8px 0">No content yet</p>'}</body></html>`;
+}
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -1023,8 +1033,8 @@ export default function DripCampaignBuilder() {
                           <iframe
                             title="Email preview mobile"
                             style={{ width: '100%', maxHeight: '380px', border: 'none', background: previewTheme === 'dark' ? '#111827' : '#ffffff', display: 'block', minHeight: '200px' }}
-                            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:12px 16px;font-family:sans-serif;font-size:13px;line-height:1.5;background:${previewTheme === 'dark' ? '#111827' : '#ffffff'};color:${previewTheme === 'dark' ? '#e5e7eb' : '#1f2937'}}</style></head><body>${body || '<p style="color:#9ca3af;padding:8px 0">No content yet</p>'}</body></html>`}
-                            sandbox="allow-same-origin"
+                            srcDoc={buildSrcDoc(body, previewTheme === 'dark' ? '#111827' : '#ffffff', previewTheme === 'dark' ? '#e5e7eb' : '#1f2937', '12px 16px', '13px')}
+                            sandbox="allow-same-origin allow-scripts allow-popups"
                           />
                         </div>
                         <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${previewTheme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'}`} />
@@ -1056,8 +1066,8 @@ export default function DripCampaignBuilder() {
                       <iframe
                         title="Email preview desktop"
                         style={{ width: '100%', maxHeight: '440px', border: 'none', background: previewTheme === 'dark' ? '#111827' : '#ffffff', display: 'block', minHeight: '200px' }}
-                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:20px 24px;font-family:sans-serif;font-size:14px;line-height:1.6;background:${previewTheme === 'dark' ? '#111827' : '#ffffff'};color:${previewTheme === 'dark' ? '#e5e7eb' : '#1f2937'}}</style></head><body>${body || '<p style="color:#9ca3af;padding:8px 0">No content yet</p>'}</body></html>`}
-                        sandbox="allow-same-origin"
+                        srcDoc={buildSrcDoc(body, previewTheme === 'dark' ? '#111827' : '#ffffff', previewTheme === 'dark' ? '#e5e7eb' : '#1f2937', '20px 24px', '14px')}
+                        sandbox="allow-same-origin allow-scripts allow-popups"
                       />
                     </div>
                   );
