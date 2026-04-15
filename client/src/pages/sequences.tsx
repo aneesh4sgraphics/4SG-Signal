@@ -771,6 +771,8 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [isImageSelected, setIsImageSelected] = useState(false);
+  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>('visual');
+  const [htmlBody, setHtmlBody] = useState(value || '');
   const uploadId = useRef(`tpl-upload-${Math.random().toString(36).slice(2)}`);
 
   const editor = useEditor({
@@ -855,6 +857,23 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {/* Visual / HTML toggle */}
+        <div style={{ marginLeft: 'auto', display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
+            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent', color: bodyMode === 'visual' ? '#fff' : '#9ca3af' }}
+          >
+            Visual
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
+            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
+          >
+            {'</>'} HTML
+          </button>
+        </div>
       </div>
 
       {/* Image panel */}
@@ -899,9 +918,38 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
       )}
 
       {/* Editor area */}
-      <div className="px-4 py-3 min-h-[180px] prose prose-sm max-w-none">
-        <EditorContent editor={editor} />
-      </div>
+      {bodyMode === 'visual' ? (
+        <div className="px-4 py-3 min-h-[180px] prose prose-sm max-w-none">
+          <EditorContent editor={editor} />
+        </div>
+      ) : (
+        <div className="px-4 py-3">
+          <textarea
+            value={htmlBody}
+            onChange={e => { setHtmlBody(e.target.value); onChange(e.target.value); }}
+            placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{client.firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+            style={{
+              width: '100%',
+              minHeight: '240px',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              lineHeight: '1.6',
+              padding: '10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              background: '#fafafa',
+              color: '#1f2937',
+              resize: 'vertical',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+            spellCheck={false}
+          />
+          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+            Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{client.firstName}}'} work in HTML too.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
