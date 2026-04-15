@@ -268,9 +268,10 @@ function StepCard({
         const plain = event.clipboardData?.getData('text/plain') || '';
         if (isFullHtmlDoc(plain)) {
           event.preventDefault();
-          setHtmlBody(plain);
+          const fmt = formatHtml(plain);
+          setHtmlBody(fmt);
           setBodyMode('html');
-          onUpdate(step.id, { body: plain });
+          onUpdate(step.id, { body: fmt });
           return true;
         }
         return false;
@@ -476,35 +477,47 @@ function StepCard({
           </button>
           </>)}
         </div>
-        {/* Visual / HTML toggle — always shown, pinned right */}
-        <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-          <button
-            type="button"
-            title={isFullHtmlDoc(htmlBody) ? 'Full HTML document — Visual editing disabled' : 'Switch to Visual editor'}
-            onMouseDown={e => {
-              e.preventDefault();
-              if (bodyMode === 'visual') return;
-              if (isFullHtmlDoc(htmlBody)) return;
-              editor?.commands.setContent(extractBodyContent(htmlBody), false);
-              setBodyMode('visual');
-            }}
-            style={{
-              padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none',
-              cursor: isFullHtmlDoc(htmlBody) ? 'not-allowed' : 'pointer',
-              background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent',
-              color: bodyMode === 'visual' ? '#fff' : (isFullHtmlDoc(htmlBody) ? '#d1d5db' : '#9ca3af'),
-              opacity: isFullHtmlDoc(htmlBody) ? 0.5 : 1,
-            }}
-          >
-            Visual
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
-            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
-          >
-            {'</>'} HTML
-          </button>
+        {/* HTML mode extras: Format + Preview — pinned right of Visual/HTML toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {bodyMode === 'html' && (<>
+            <button type="button"
+              onMouseDown={e => { e.preventDefault(); const fmt = formatHtml(htmlBody); setHtmlBody(fmt); onUpdate(step.id, { body: fmt }); }}
+              title="Prettify / indent HTML code"
+              style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: '0.5px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: '#9ca3af' }}
+            >
+              <Braces className="h-3 w-3" /> Format
+            </button>
+          </>)}
+          {/* Visual / HTML toggle — always shown */}
+          <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+            <button
+              type="button"
+              title={isFullHtmlDoc(htmlBody) ? 'Full HTML document — Visual editing disabled' : 'Switch to Visual editor'}
+              onMouseDown={e => {
+                e.preventDefault();
+                if (bodyMode === 'visual') return;
+                if (isFullHtmlDoc(htmlBody)) return;
+                editor?.commands.setContent(extractBodyContent(htmlBody), false);
+                setBodyMode('visual');
+              }}
+              style={{
+                padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none',
+                cursor: isFullHtmlDoc(htmlBody) ? 'not-allowed' : 'pointer',
+                background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent',
+                color: bodyMode === 'visual' ? '#fff' : (isFullHtmlDoc(htmlBody) ? '#d1d5db' : '#9ca3af'),
+                opacity: isFullHtmlDoc(htmlBody) ? 0.5 : 1,
+              }}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
+              style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
+            >
+              {'</>'} HTML
+            </button>
+          </div>
         </div>
       </div>
 
@@ -809,6 +822,38 @@ function extractBodyContent(html: string): string {
   return m ? m[1].trim() : html;
 }
 
+/** Prettify minified HTML by putting each tag on its own line with indent. */
+function formatHtml(html: string): string {
+  if (!html || html.trim().length < 50) return html;
+  try {
+    // Collapse existing inter-tag whitespace, then split each tag onto its own line
+    const split = html
+      .replace(/>\s+</g, '><')
+      .replace(/></g, '>\n<')
+      .trim();
+
+    const VOID = /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s/>]/i;
+    const OPEN  = /^<[a-zA-Z]/;
+    const CLOSE = /^<\//;
+    const IND   = '  ';
+    let depth   = 0;
+
+    return split.split('\n').map(raw => {
+      const line = raw.trim();
+      if (!line) return '';
+      if (CLOSE.test(line)) depth = Math.max(0, depth - 1);
+      const out = IND.repeat(depth) + line;
+      if (OPEN.test(line) && !CLOSE.test(line) && !VOID.test(line) && !/\/>$/.test(line)) {
+        const tag = line.match(/^<([a-zA-Z]\w*)/)?.[1] ?? '';
+        if (tag && !new RegExp(`</${tag}\\s*>`, 'i').test(line)) depth++;
+      }
+      return out;
+    }).filter(Boolean).join('\n');
+  } catch (_) {
+    return html;
+  }
+}
+
 /** Renders HTML in a fully-isolated iframe that auto-sizes to its content.
  *  - allow-scripts so fonts / Canva layout JS work
  *  - allow-same-origin so the parent can read scrollHeight for auto-sizing
@@ -850,7 +895,7 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
   const [isImageSelected, setIsImageSelected] = useState(false);
   const [bodyMode, setBodyMode] = useState<'visual' | 'html'>(() => isFullHtmlDoc(value) ? 'html' : 'visual');
   const [htmlBody, setHtmlBody] = useState(value || '');
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(() => isFullHtmlDoc(value));
   const uploadId = useRef(`tpl-upload-${Math.random().toString(36).slice(2)}`);
 
   const editor = useEditor({
@@ -866,9 +911,11 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
         const plain = event.clipboardData?.getData('text/plain') || '';
         if (isFullHtmlDoc(plain)) {
           event.preventDefault();
-          setHtmlBody(plain);
+          const fmt = formatHtml(plain);
+          setHtmlBody(fmt);
           setBodyMode('html');
-          onChange(plain);
+          setShowPreview(true);
+          onChange(fmt);
           return true;
         }
         return false;
@@ -959,7 +1006,15 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
         </div>
         {/* Visual / HTML toggle — always pinned right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {bodyMode === 'html' && (
+          {bodyMode === 'html' && (<>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); const fmt = formatHtml(htmlBody); setHtmlBody(fmt); onChange(fmt); }}
+              title="Prettify / indent HTML code"
+              style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: '0.5px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer', background: 'transparent', color: '#9ca3af' }}
+            >
+              <Braces style={{ width: '12px', height: '12px' }} /> Format
+            </button>
             <button
               type="button"
               onMouseDown={e => { e.preventDefault(); setShowPreview(v => !v); }}
@@ -968,7 +1023,7 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
             >
               <Eye style={{ width: '12px', height: '12px' }} /> Preview
             </button>
-          )}
+          </>)}
           <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
             <button
               type="button"
@@ -991,7 +1046,7 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
             </button>
             <button
               type="button"
-              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); setShowPreview(false); } }}
+              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); setShowPreview(true); } }}
               style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
             >
               {'</>'} HTML
