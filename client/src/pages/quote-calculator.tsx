@@ -2046,26 +2046,9 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Product Selection Card */}
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
-            {/* Product heading */}
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-              <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product</span>
-            </div>
-            {/* Category row */}
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
-                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(category => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div style={{ position: 'relative', marginTop: '12px' }}>
+                <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
+                <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', overflow: 'hidden' }}>
             </div>
 
             {/* Type row */}
