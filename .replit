@@ -51,6 +51,7 @@ GOOGLE_REDIRECT_URI = "https://4sgraphics.replit.app/api/gmail-oauth/callback"
 
 [userenv.production]
 NODE_ENV = "production"
+DEV_MODE = "false"
 
 [postMerge]
 path = "scripts/post-merge.sh"

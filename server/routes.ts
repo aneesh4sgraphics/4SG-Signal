@@ -3756,8 +3756,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes (setupAuth already called earlier in this function)
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      // Development bypass for testing using config
+      // Development bypass for testing — ONLY active when NODE_ENV=development.
+      // A belt-and-suspenders runtime assertion ensures this can never fire in production.
       if (APP_CONFIG.DEV_MODE) {
+        if (process.env.NODE_ENV !== 'development') {
+          // This should be unreachable; APP_CONFIG.DEV_MODE is derived from NODE_ENV.
+          // If we somehow get here, reject hard rather than silently allowing access.
+          console.error('[SECURITY] DEV_MODE auth bypass triggered outside development — blocking!');
+          return res.status(401).json({ message: 'Not authenticated' });
+        }
         return res.json({
           email: process.env.DEV_USER_EMAIL || "test@4sgraphics.com",
           role: process.env.DEV_USER_ROLE || "admin",

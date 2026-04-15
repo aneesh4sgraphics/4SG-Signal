@@ -49,9 +49,15 @@ export const APP_CONFIG = {
     "shiva@4sgraphics.com": "admin"
   } as Record<string, string>,
 
-  // Development settings
+  // Development settings.
+  // IMPORTANT: DEV_MODE is derived SOLELY from NODE_ENV — never from a DEV_MODE env var.
+  // This prevents any accidentally-set DEV_MODE=true secret from enabling the auth bypass.
+  // The env var DEV_MODE is explicitly set to "false" in the Replit production environment
+  // as a belt-and-suspenders marker, but the application never reads it.
   DEV_MODE: process.env.NODE_ENV === 'development',
-  ENABLE_DEBUG_LOGS: process.env.ENABLE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development'
+
+  // Debug logs only fire if both the flag is set AND we're actually in development.
+  ENABLE_DEBUG_LOGS: process.env.NODE_ENV === 'development'
 };
 
 // Helper functions for role checking
