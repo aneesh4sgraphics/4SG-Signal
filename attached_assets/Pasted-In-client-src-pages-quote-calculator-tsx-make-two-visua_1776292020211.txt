@@ -1,0 +1,33 @@
+In client/src/pages/quote-calculator.tsx, make two visual changes to the product selector in the left rail:
+
+CHANGE 1 — Floating "PRODUCT" label on top of the card border
+
+Find this block (the Product Selection Card):
+  {/* Product Selection Card */}
+  <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: '12px', overflow: 'hidden' }}>
+    {/* Product heading */}
+    <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+      <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product</span>
+    </div>
+
+Replace with:
+  {/* Product Selection Card */}
+  <div style={{ position: 'relative', marginTop: '12px' }}>
+    <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
+  <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', overflow: 'hidden' }}>
+
+IMPORTANT: After this change, find the closing </div> that closes the product card (right before the {/* Custom Size Input */} comment) and add one more </div> to close the outer wrapper div. It should look like:
+          </div>{/* closes inner card */}
+          </div>{/* closes wrapper */}
+
+          {/* Custom Size Input */}
+
+CHANGE 2 — Rounded dropdown corners
+
+In client/src/components/ui/select.tsx, find:
+  "relative z-50 max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded border bg-popover
+
+Change rounded to rounded-xl:
+  "relative z-50 max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-xl border bg-popover
+
+Do not change anything else.
