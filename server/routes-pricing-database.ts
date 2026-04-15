@@ -6,6 +6,14 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { isAuthenticated, requireAdmin } from "./replitAuth";
 import type { InsertProductPricingMaster } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
+import {
+  productTypePricing,
+  catalogProductTypes,
+  adminCategories,
+  productPricingMaster,
+} from "@shared/schema";
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
@@ -1750,6 +1758,99 @@ router.post("/seed-categories-from-pricing", isAuthenticated, requireAdmin, asyn
   } catch (error) {
     console.error("Error seeding categories:", error);
     res.status(500).json({ error: "Failed to seed categories" });
+  }
+});
+
+// GET all product type pricing (for the pricing management UI)
+router.get("/product-type-pricing", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const types = await db
+      .select({
+        typeId: catalogProductTypes.id,
+        typeLabel: catalogProductTypes.label,
+        typeCode: catalogProductTypes.code,
+        categoryId: catalogProductTypes.categoryId,
+        categoryLabel: adminCategories.label,
+        sortOrder: catalogProductTypes.sortOrder,
+        isActive: catalogProductTypes.isActive,
+      })
+      .from(catalogProductTypes)
+      .leftJoin(adminCategories, eq(catalogProductTypes.categoryId, adminCategories.id))
+      .where(eq(catalogProductTypes.isActive, true))
+      .orderBy(adminCategories.label, catalogProductTypes.sortOrder);
+
+    const existingPricing = await db.select().from(productTypePricing);
+    const pricingByTypeId = new Map(existingPricing.map(p => [p.catalogProductTypeId, p]));
+
+    const result = types.map(t => ({
+      ...t,
+      pricing: pricingByTypeId.get(t.typeId) || null,
+    }));
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error fetching product type pricing:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT/upsert $/m² pricing for one product type — then propagate to all sizes
+router.put("/product-type-pricing/:typeId", isAuthenticated, requireAdmin, async (req: any, res) => {
+  try {
+    const typeId = parseInt(req.params.typeId);
+    const userEmail = req.user?.email || 'admin';
+    const priceFields = [
+      'landedPrice','exportPrice','masterDistributorPrice','dealerPrice','dealer2Price',
+      'approvalNeededPrice','tierStage25Price','tierStage2Price','tierStage15Price',
+      'tierStage1Price','retailPrice',
+    ];
+
+    const sanitized: Record<string, string> = {};
+    for (const field of priceFields) {
+      const raw = req.body[field];
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const num = parseFloat(raw);
+        if (!isNaN(num) && num >= 0) {
+          sanitized[field] = num.toFixed(4);
+        }
+      }
+    }
+
+    const existing = await db.select().from(productTypePricing)
+      .where(eq(productTypePricing.catalogProductTypeId, typeId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db.update(productTypePricing)
+        .set({ ...sanitized, updatedAt: new Date(), updatedBy: userEmail })
+        .where(eq(productTypePricing.catalogProductTypeId, typeId));
+    } else {
+      await db.insert(productTypePricing).values({
+        catalogProductTypeId: typeId,
+        ...sanitized,
+        updatedBy: userEmail,
+      });
+    }
+
+    const propagateFields = Object.keys(sanitized);
+    if (propagateFields.length > 0) {
+      const updateSet: Record<string, any> = { updatedAt: new Date() };
+      for (const field of propagateFields) {
+        updateSet[field] = sanitized[field];
+      }
+      await db.update(productPricingMaster)
+        .set(updateSet)
+        .where(and(
+          eq(productPricingMaster.catalogProductTypeId, typeId),
+          eq(productPricingMaster.isArchived, false),
+        ));
+      console.log(`[Type Pricing] Updated type ${typeId}: propagated ${propagateFields.length} fields to productPricingMaster`);
+    }
+
+    res.json({ success: true, propagated: propagateFields.length > 0 });
+  } catch (error: any) {
+    console.error("Error saving product type pricing:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -2501,6 +2501,33 @@ export const insertCatalogProductTypeSchema = createInsertSchema(catalogProductT
 export type CatalogProductType = typeof catalogProductTypes.$inferSelect;
 export type InsertCatalogProductType = z.infer<typeof insertCatalogProductTypeSchema>;
 
+// Product Type Pricing — $/m² per tier, propagates to all sizes of that type
+export const productTypePricing = pgTable("product_type_pricing", {
+  id: serial("id").primaryKey(),
+  catalogProductTypeId: integer("catalog_product_type_id")
+    .notNull()
+    .references(() => catalogProductTypes.id, { onDelete: "cascade" }),
+  landedPrice: decimal("landed_price", { precision: 10, scale: 4 }),
+  exportPrice: decimal("export_price", { precision: 10, scale: 4 }),
+  masterDistributorPrice: decimal("master_distributor_price", { precision: 10, scale: 4 }),
+  dealerPrice: decimal("dealer_price", { precision: 10, scale: 4 }),
+  dealer2Price: decimal("dealer2_price", { precision: 10, scale: 4 }),
+  approvalNeededPrice: decimal("approval_needed_price", { precision: 10, scale: 4 }),
+  tierStage25Price: decimal("tier_stage25_price", { precision: 10, scale: 4 }),
+  tierStage2Price: decimal("tier_stage2_price", { precision: 10, scale: 4 }),
+  tierStage15Price: decimal("tier_stage15_price", { precision: 10, scale: 4 }),
+  tierStage1Price: decimal("tier_stage1_price", { precision: 10, scale: 4 }),
+  retailPrice: decimal("retail_price", { precision: 10, scale: 4 }),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by", { length: 255 }),
+}, (table) => [
+  uniqueIndex("IDX_product_type_pricing_type_id").on(table.catalogProductTypeId),
+]);
+
+export const insertProductTypePricingSchema = createInsertSchema(productTypePricing).omit({ id: true, updatedAt: true });
+export type ProductTypePricing = typeof productTypePricing.$inferSelect;
+export type InsertProductTypePricing = z.infer<typeof insertProductTypePricingSchema>;
+
 // Shopify Unmapped Items - queue for order line items that couldn't be matched
 export const shopifyUnmappedItems = pgTable("shopify_unmapped_items", {
   id: serial("id").primaryKey(),
