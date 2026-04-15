@@ -1,0 +1,340 @@
+Build a new "Lists" page in SIGNAL at route /lists. This is a 4-tab intelligence dashboard that pulls from existing database tables to show dynamic, auto-populated lists of customers and leads that need attention.
+
+════════════════════════════════════════════
+STEP 1 — New schema in shared/schema.ts
+════════════════════════════════════════════
+
+Add a watchList table (the only new table needed — all other lists use existing data):
+
+export const watchList = pgTable("watch_list", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  addedBy: varchar("added_by", { length: 255 }).notNull(),
+  addedByName: varchar("added_by_name", { length: 255 }),
+  reason: text("reason"),
+  priority: varchar("priority", { length: 20 }).default("normal"), // 'high', 'normal', 'low'
+  notes: text("notes"),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_watch_list_customer_id").on(table.customerId),
+  index("IDX_watch_list_lead_id").on(table.leadId),
+  index("IDX_watch_list_added_by").on(table.addedBy),
+  index("IDX_watch_list_is_resolved").on(table.isResolved),
+]);
+
+export const insertWatchListSchema = createInsertSchema(watchList).omit({ id: true, createdAt: true, updatedAt: true });
+export type WatchListEntry = typeof watchList.$inferSelect;
+export type InsertWatchListEntry = z.infer<typeof insertWatchListSchema>;
+
+Run: npx drizzle-kit push
+
+════════════════════════════════════════════
+STEP 2 — Backend endpoints in server/routes.ts
+════════════════════════════════════════════
+
+Add these 5 endpoints (admin + approved users):
+
+──── LIST 1: Samples Sent ────
+GET /api/lists/samples-sent
+Returns combined list of customers and leads who have received samples.
+Sources:
+  (a) leads where sampleEnvelopeSentAt IS NOT NULL — join leads table
+  (b) sampleRequests table — join with customers table for name/company
+  (c) leadActivities where activityType = 'sample_sent' — join with leads
+
+Query:
+  const leadSamples = await db.select({
+    id: sql<string>`'lead-' || ${leads.id}`,
+    recordType: sql<string>`'lead'`,
+    recordId: sql<string>`${leads.id}::text`,
+    name: leads.name,
+    company: leads.company,
+    email: leads.email,
+    salesRepName: leads.salesRepName,
+    sentAt: leads.sampleEnvelopeSentAt,
+    source: sql<string>`'mailer'`,
+    status: sql<string>`'sent'`,
+    notes: sql<string>`null`,
+  }).from(leads)
+    .where(isNotNull(leads.sampleEnvelopeSentAt))
+    .orderBy(desc(leads.sampleEnvelopeSentAt));
+
+  const customerSamples = await db.select({
+    id: sql<string>`'sample-' || ${sampleRequests.id}`,
+    recordType: sql<string>`'customer'`,
+    recordId: sampleRequests.customerId,
+    name: sql<string>`COALESCE(${customers.company}, ${customers.firstName} || ' ' || ${customers.lastName})`,
+    company: customers.company,
+    email: customers.email,
+    salesRepName: customers.salesRepName,
+    sentAt: sampleRequests.shippedAt,
+    source: sql<string>`'sample_request'`,
+    status: sampleRequests.status,
+    notes: sampleRequests.notes,
+  }).from(sampleRequests)
+    .leftJoin(customers, eq(sampleRequests.customerId, customers.id))
+    .orderBy(desc(sampleRequests.createdAt));
+
+  // Merge, deduplicate by recordId (prefer sampleRequest over mailer entry), sort by sentAt desc
+  const combined = [...leadSamples, ...customerSamples];
+  // Sort by sentAt descending (nulls last)
+  combined.sort((a, b) => {
+    if (!a.sentAt && !b.sentAt) return 0;
+    if (!a.sentAt) return 1;
+    if (!b.sentAt) return -1;
+    return new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime();
+  });
+  res.json(combined);
+
+──── LIST 2: Press Kits Sent ────
+GET /api/lists/press-kits-sent
+Returns customers and leads who received press test kits, with days since sent and follow-up urgency.
+Sources:
+  (a) leads where pressTestKitSentAt IS NOT NULL
+  (b) pressKitShipments table joined with customers
+
+  const leadKits = await db.select({
+    id: sql<string>`'lead-' || ${leads.id}`,
+    recordType: sql<string>`'lead'`,
+    recordId: sql<string>`${leads.id}::text`,
+    name: leads.name,
+    company: leads.company,
+    email: leads.email,
+    salesRepName: leads.salesRepName,
+    sentAt: leads.pressTestKitSentAt,
+    status: sql<string>`'sent'`,
+    trackingNumber: sql<string>`null`,
+    notes: sql<string>`null`,
+  }).from(leads).where(isNotNull(leads.pressTestKitSentAt));
+
+  const customerKits = await db.select({
+    id: sql<string>`'kit-' || ${pressKitShipments.id}`,
+    recordType: sql<string>`'customer'`,
+    recordId: pressKitShipments.customerId,
+    name: sql<string>`COALESCE(${customers.company}, ${customers.firstName} || ' ' || ${customers.lastName})`,
+    company: customers.company,
+    email: customers.email,
+    salesRepName: customers.salesRepName,
+    sentAt: pressKitShipments.shippedAt,
+    status: pressKitShipments.status,
+    trackingNumber: pressKitShipments.trackingNumber,
+    notes: pressKitShipments.notes,
+  }).from(pressKitShipments)
+    .leftJoin(customers, eq(pressKitShipments.customerId, customers.id))
+    .orderBy(desc(pressKitShipments.createdAt));
+
+  const combined = [...leadKits, ...customerKits];
+  // Add daysSinceSent and urgency to each
+  const now = new Date();
+  const enriched = combined.map(r => {
+    const days = r.sentAt ? Math.floor((now.getTime() - new Date(r.sentAt).getTime()) / 86400000) : null;
+    const urgency = days === null ? 'unknown' : days > 30 ? 'overdue' : days > 14 ? 'due' : 'ok';
+    return { ...r, daysSinceSent: days, urgency };
+  });
+  enriched.sort((a, b) => (b.daysSinceSent || 0) - (a.daysSinceSent || 0));
+  res.json(enriched);
+
+──── LIST 3: Working On ────
+GET /api/lists/working-on
+Returns customers and leads who have active commercial activity — prices sent, quotes sent, sales signals, or buying intent emails. Deduplicates so each customer/lead appears once with a summary of all signals.
+
+  // A: Customers/leads with price list sent (last 90 days)
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
+
+  const priceListSent = await db.select({
+    customerId: priceListEvents.customerId,
+    lastActivity: sql<Date>`MAX(${priceListEvents.createdAt})`,
+    signal: sql<string>`'price_list_sent'`,
+  }).from(priceListEvents)
+    .where(and(isNotNull(priceListEvents.customerId), gte(priceListEvents.createdAt, ninetyDaysAgo)))
+    .groupBy(priceListEvents.customerId);
+
+  // B: sentQuotes (QuickQuotes sent, last 90 days, outcome = pending)
+  const quoteSent = await db.select({
+    customerId: sentQuotes.customerId,
+    lastActivity: sql<Date>`MAX(${sentQuotes.createdAt})`,
+    signal: sql<string>`'quote_sent'`,
+    totalAmount: sql<string>`MAX(${sentQuotes.totalAmount}::text)`,
+  }).from(sentQuotes)
+    .where(and(
+      isNotNull(sentQuotes.customerId),
+      gte(sentQuotes.createdAt, ninetyDaysAgo),
+      eq(sentQuotes.outcome, 'pending'),
+    ))
+    .groupBy(sentQuotes.customerId);
+
+  // C: emailSalesEvents with buying signals (last 90 days)
+  const buyingSignalTypes = ['po', 'approval', 'opportunity', 'commitment', 'sales_win', 'price_sent', 'pricelist_sent', 'quote_sent'];
+  const emailSignals = await db.select({
+    customerId: emailSalesEvents.customerId,
+    lastActivity: sql<Date>`MAX(${emailSalesEvents.occurredAt})`,
+    signal: sql<string>`string_agg(DISTINCT ${emailSalesEvents.eventType}, ', ')`,
+  }).from(emailSalesEvents)
+    .where(and(
+      isNotNull(emailSalesEvents.customerId),
+      inArray(emailSalesEvents.eventType, buyingSignalTypes),
+      gte(emailSalesEvents.occurredAt, ninetyDaysAgo),
+    ))
+    .groupBy(emailSalesEvents.customerId);
+
+  // D: emailSends where subject contains pricing/inventory keywords (last 90 days)
+  const emailSentPricing = await db.select({
+    customerId: emailSends.customerId,
+    lastActivity: sql<Date>`MAX(${emailSends.sentAt})`,
+    signal: sql<string>`'email_pricing'`,
+  }).from(emailSends)
+    .where(and(
+      isNotNull(emailSends.customerId),
+      gte(emailSends.sentAt, ninetyDaysAgo),
+      sql`(${emailSends.subject} ILIKE '%price%' OR ${emailSends.subject} ILIKE '%quote%' OR ${emailSends.subject} ILIKE '%sample%' OR ${emailSends.subject} ILIKE '%inventory%' OR ${emailSends.subject} ILIKE '%stock%' OR ${emailSends.subject} ILIKE '%order%')`,
+    ))
+    .groupBy(emailSends.customerId);
+
+  // Merge all signals by customerId
+  const signalMap = new Map<string, { signals: string[]; lastActivity: Date }>();
+  for (const row of [...priceListSent, ...quoteSent, ...emailSignals, ...emailSentPricing]) {
+    if (!row.customerId) continue;
+    const existing = signalMap.get(row.customerId);
+    const activity = new Date(row.lastActivity);
+    const signal = row.signal || 'activity';
+    if (!existing) {
+      signalMap.set(row.customerId, { signals: [signal], lastActivity: activity });
+    } else {
+      if (!existing.signals.includes(signal)) existing.signals.push(signal);
+      if (activity > existing.lastActivity) existing.lastActivity = activity;
+    }
+  }
+
+  // Fetch customer details for all matched IDs
+  const customerIds = Array.from(signalMap.keys());
+  let result: any[] = [];
+  if (customerIds.length > 0) {
+    const customerDetails = await db.select({
+      id: customers.id,
+      company: customers.company,
+      firstName: customers.firstName,
+      lastName: customers.lastName,
+      email: customers.email,
+      salesRepName: customers.salesRepName,
+      pricingTier: customers.pricingTier,
+    }).from(customers).where(inArray(customers.id, customerIds));
+
+    result = customerDetails.map(c => {
+      const sig = signalMap.get(c.id)!;
+      return {
+        recordType: 'customer',
+        recordId: c.id,
+        name: c.company || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+        company: c.company,
+        email: c.email,
+        salesRepName: c.salesRepName,
+        pricingTier: c.pricingTier,
+        signals: sig.signals,
+        lastActivity: sig.lastActivity,
+      };
+    });
+  }
+  result.sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
+  res.json(result);
+
+──── WATCH LIST CRUD ────
+GET /api/lists/watchlist — returns active (isResolved=false) watchlist entries with customer/lead details
+POST /api/lists/watchlist — add entry { customerId?, leadId?, reason?, priority?, notes? }
+PATCH /api/lists/watchlist/:id — update notes, priority, or resolve { isResolved: true }
+DELETE /api/lists/watchlist/:id — remove entry
+
+For GET, join with customers and leads to get name, company, email, salesRepName.
+For POST, require at least one of customerId or leadId. Set addedBy = req.user.email, addedByName = req.user.name || req.user.email.
+
+════════════════════════════════════════════
+STEP 3 — New page: client/src/pages/lists.tsx
+════════════════════════════════════════════
+
+Create a new full-page React component at client/src/pages/lists.tsx.
+
+The page has 4 tabs across the top:
+  Tab 1: "Samples Sent" — badge with count
+  Tab 2: "Press Kits" — badge with count, red if any overdue
+  Tab 3: "Working On" — badge with count
+  Tab 4: "Watch List" — badge with count
+
+Common card pattern for each list row:
+- Left: initials avatar (colored circle, 2 letters from name)
+- Middle: name (bold), company (muted), email (small), rep name (small pill)
+- Right side: signal badges, date info, action button
+
+────── TAB 1: Samples Sent ──────
+Columns: Contact | Sent | Type | Status | Action
+- Fetch /api/lists/samples-sent
+- Show "Lead" or "Customer" badge on each row
+- "Sent" = formatted date (e.g. "Mar 12" or "42 days ago")
+- Action: button that navigates to /leads/:id or /odoo-contacts/:id
+
+────── TAB 2: Press Kits Sent ──────
+Columns: Contact | Sent | Days Since | Status | Follow-up
+- Fetch /api/lists/press-kits-sent
+- Color-code "Days Since" column:
+  - Green if ≤ 14 days
+  - Amber if 15-30 days
+  - Red if > 30 days (overdue)
+- Show "Follow up now" button in red for overdue entries
+- Show tracking number if available (small monospace badge)
+- The list is sorted by most overdue first (longest since sent at top)
+- Show a summary bar: "X press kits sent · Y need follow-up"
+
+────── TAB 3: Working On ──────
+Columns: Contact | Tier | Last Activity | Signals | Action
+- Fetch /api/lists/working-on
+- "Signals" column shows colored pill badges for each signal type:
+  - 'quote_sent' → purple pill "Quote"
+  - 'price_list_sent' → blue pill "Price List"
+  - 'email_pricing' → blue pill "Email"
+  - 'po', 'approval', 'sales_win' → green pill "Buying"
+  - 'opportunity', 'commitment' → amber pill "Intent"
+- "Last Activity" = formatted relative date
+- Sort by lastActivity descending
+
+────── TAB 4: Watch List ──────
+- Fetch /api/lists/watchlist
+- Show add form at top: search customer or lead by name, add reason, priority (High/Normal/Low)
+- Each row has: name, company, who added it, reason, priority badge, notes field (editable inline)
+- "Resolve" button marks isResolved=true and removes from list
+- Priority badge colors: High=red, Normal=amber, Low=gray
+- Allow adding notes inline (textarea that saves on blur)
+- Empty state: "Add customers or leads you want to keep an eye on"
+
+General design rules:
+- Match the SIGNAL design system (Geist font, same card/pill styles as the rest of the app)
+- Use the same glass-card and stat-icon-box CSS classes as the dashboard
+- Each tab shows a count badge next to its name
+- Loading skeleton while data fetches
+- Empty state with helpful text for each tab
+- Use Link from wouter for navigation to lead/contact detail pages
+- All time formatting should be relative (e.g. "3 days ago", "today") using a simple helper function
+
+════════════════════════════════════════════
+STEP 4 — Wire up routes and nav
+════════════════════════════════════════════
+
+In client/src/App.tsx:
+- Add: import Lists from '@/pages/lists';
+- Add: <Route path="/lists" component={Lists} />
+
+In client/src/lib/nav-links.ts:
+- Add a "Lists" nav item with a ListChecks icon (from lucide-react) at path /lists
+- Add it for both admin and rep nav (reps need to see their lists too)
+- Place it after Tasks in the nav order
+
+════════════════════════════════════════════
+IMPORTANT NOTES
+════════════════════════════════════════════
+- Import watchList, pressKitShipments, sampleRequests, priceListEvents, sentQuotes, emailSalesEvents, emailSends from shared/schema in server/routes.ts
+- All list endpoints require isAuthenticated middleware
+- Rep users should only see records where salesRepName matches their email (add filter: if !isAneesh, filter by req.user.email === salesRepName)
+- Do not modify any existing pages or endpoints
+- The Watch List is the only list with write operations — the other 3 are read-only, auto-populated from existing data

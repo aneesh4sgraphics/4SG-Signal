@@ -28,6 +28,7 @@ import {
   Calendar,
   BookOpen,
   ListChecks,
+  Eye,
   Activity,
   Layers,
   RefreshCw,
@@ -79,6 +80,7 @@ const TOP_ITEMS: NavItemDef[] = [
   { path: '/dashboard', label: 'Home', icon: Home, iconColor: '#6366f1' },
   { path: '/spotlight', label: 'Spotlight', icon: Sparkles, iconColor: '#f59e0b' },
   { path: '/tasks', label: 'Tasks', icon: ListChecks, iconColor: '#f59e0b' },
+  { path: '/lists', label: 'Lists', icon: Eye, iconColor: '#0C6E99' },
 ];
 
 // ── Main flat list (no section header) ───────────────────────────────────────

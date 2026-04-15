@@ -58,6 +58,7 @@ const ContactDetail = lazy(() => import("@/pages/contact-detail"));
 const BounceInvestigation = lazy(() => import("@/pages/bounce-investigation"));
 const OpportunitiesPage = lazy(() => import("@/pages/opportunities"));
 const DataIntegrity = lazy(() => import("@/pages/data-integrity"));
+const ListsPage = lazy(() => import("@/pages/lists"));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center py-20">
@@ -187,6 +188,7 @@ const AppRoutes = () => (
       <Route path="/spotlight" component={Spotlight} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/tasks" component={TaskInbox} />
+      <Route path="/lists" component={ListsPage} />
       <Route path="/hot-leads" component={HotLeads} />
       <Route path="/leads" component={LeadsPage} />
       <Route path="/leads/:id" component={LeadDetail} />

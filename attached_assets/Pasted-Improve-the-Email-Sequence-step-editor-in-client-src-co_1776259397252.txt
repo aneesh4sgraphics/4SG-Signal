@@ -1,0 +1,201 @@
+Improve the Email Sequence step editor in client/src/components/DripCampaignBuilder.tsx to support full HTML email design — specifically allowing Aneesh to paste in HTML from tools like Designmodo, Stripo, or any HTML email builder, and also switch between visual editing and raw HTML editing.
+
+The body field in dripCampaignSteps already stores and sends HTML correctly — no backend changes needed.
+
+════════════════════════════════════════════
+CHANGE 1 — Add an "HTML Source" tab to the step editor body section
+════════════════════════════════════════════
+
+In the step editor Dialog (around the RichTextEditor section), replace the current "Email Body" section with a tabbed editor that has two modes:
+
+Mode A — "Visual" tab: the existing RichTextEditor (Tiptap) for simple text editing
+Mode B — "HTML" tab: a raw HTML textarea where the user can paste full HTML email code
+
+Add state at the top of the DripCampaignBuilder component:
+  const [bodyEditorMode, setBodyEditorMode] = useState<'visual' | 'html'>('visual');
+
+Replace the current "Email Body" label + RichTextEditor block with:
+
+  <div className="space-y-2">
+    <div className="flex items-center justify-between">
+      <Label>Email Body</Label>
+      <div className="flex items-center gap-2">
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', overflow: 'hidden' }}>
+          <button
+            type="button"
+            onClick={() => setBodyEditorMode('visual')}
+            style={{
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: 500,
+              border: 'none',
+              cursor: 'pointer',
+              background: bodyEditorMode === 'visual' ? '#1a1a1a' : 'transparent',
+              color: bodyEditorMode === 'visual' ? '#fff' : 'var(--color-text-secondary)',
+            }}
+          >
+            Visual
+          </button>
+          <button
+            type="button"
+            onClick={() => setBodyEditorMode('html')}
+            style={{
+              padding: '4px 10px',
+              fontSize: '12px',
+              fontWeight: 500,
+              border: 'none',
+              cursor: 'pointer',
+              background: bodyEditorMode === 'html' ? '#1a1a1a' : 'transparent',
+              color: bodyEditorMode === 'html' ? '#fff' : 'var(--color-text-secondary)',
+            }}
+          >
+            {'</>'}  HTML
+          </button>
+        </div>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowPreview(true)}>
+          <Eye className="h-3 w-3 mr-1" />
+          Preview
+        </Button>
+      </div>
+    </div>
+
+    {bodyEditorMode === 'visual' ? (
+      <RichTextEditor
+        content={stepForm.body}
+        onChange={(html) => setStepForm(prev => ({ ...prev, body: html }))}
+        onEditorReady={(editor) => { editorRef.current = editor; }}
+      />
+    ) : (
+      <div style={{ position: 'relative' }}>
+        <textarea
+          value={stepForm.body}
+          onChange={(e) => setStepForm(prev => ({ ...prev, body: e.target.value }))}
+          placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{client.firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+          style={{
+            width: '100%',
+            minHeight: '360px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            lineHeight: '1.6',
+            padding: '12px',
+            border: '1px solid var(--color-border-secondary)',
+            borderRadius: '8px',
+            background: 'var(--color-background-secondary)',
+            color: 'var(--color-text-primary)',
+            resize: 'vertical',
+            outline: 'none',
+          }}
+          spellCheck={false}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+            Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{client.firstName}}'} work in HTML too.
+          </span>
+          <button
+            type="button"
+            onClick={() => setStepForm(prev => ({ ...prev, body: '' }))}
+            style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+
+════════════════════════════════════════════
+CHANGE 2 — Improve the Preview to render HTML email properly
+════════════════════════════════════════════
+
+The existing preview (showPreview) renders with dangerouslySetInnerHTML. Make it render in an iframe so HTML email styles don't leak into the SIGNAL UI, and so email-specific CSS (like table-based layouts from Designmodo) renders correctly.
+
+Find the preview Dialog/panel (the one that uses dangerouslySetInnerHTML with DOMPurify.sanitize(body)).
+
+Replace it with an iframe-based preview:
+
+  {showPreview && (
+    <Dialog open={showPreview} onOpenChange={setShowPreview}>
+      <DialogContent className="max-w-2xl" style={{ height: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <DialogHeader>
+          <DialogTitle>Email Preview</DialogTitle>
+          <DialogDescription>
+            Subject: {stepForm.subject || '(no subject)'}
+          </DialogDescription>
+        </DialogHeader>
+        <div style={{ flex: 1, border: '0.5px solid var(--color-border-tertiary)', borderRadius: '8px', overflow: 'hidden' }}>
+          <iframe
+            title="Email preview"
+            style={{ width: '100%', height: '100%', border: 'none', background: '#ffffff' }}
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;padding:0;background:#fff}</style></head><body>${stepForm.body || '<p style="color:#999;padding:20px;font-family:sans-serif;">No content yet</p>'}</body></html>`}
+            sandbox="allow-same-origin"
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px' }}>
+          <Button variant="outline" onClick={() => setShowPreview(false)}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )}
+
+════════════════════════════════════════════
+CHANGE 3 — Also apply the same HTML tab to Email Studio templates
+════════════════════════════════════════════
+
+In client/src/pages/email-app.tsx, find the template editor form (the section where body is edited with EmailRichTextEditor for creating/editing email templates in Email Studio).
+
+Add the same Visual / HTML toggle above the EmailRichTextEditor:
+
+Add state:
+  const [templateBodyMode, setTemplateBodyMode] = useState<'visual' | 'html'>('visual');
+
+Then in the template body section, wrap the EmailRichTextEditor with the same toggle pattern as above:
+
+  {/* Mode toggle */}
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+    <Label>Email Body</Label>
+    <div style={{ display: 'flex', border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', overflow: 'hidden' }}>
+      <button type="button" onClick={() => setTemplateBodyMode('visual')}
+        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 500, border: 'none', cursor: 'pointer',
+          background: templateBodyMode === 'visual' ? '#1a1a1a' : 'transparent',
+          color: templateBodyMode === 'visual' ? '#fff' : 'var(--color-text-secondary)' }}>Visual</button>
+      <button type="button" onClick={() => setTemplateBodyMode('html')}
+        style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 500, border: 'none', cursor: 'pointer',
+          background: templateBodyMode === 'html' ? '#1a1a1a' : 'transparent',
+          color: templateBodyMode === 'html' ? '#fff' : 'var(--color-text-secondary)' }}>{'</>'} HTML</button>
+    </div>
+  </div>
+
+  {templateBodyMode === 'visual' ? (
+    <EmailRichTextEditor ... existing props ... />
+  ) : (
+    <textarea
+      value={/* the template body state variable */}
+      onChange={(e) => /* set the template body state */}
+      placeholder="Paste your HTML email code here..."
+      style={{ width: '100%', minHeight: '360px', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.6', padding: '12px',
+        border: '1px solid var(--color-border-secondary)', borderRadius: '8px', background: 'var(--color-background-secondary)',
+        color: 'var(--color-text-primary)', resize: 'vertical', outline: 'none' }}
+      spellCheck={false}
+    />
+  )}
+
+Find the exact state variable and setter for the template body in email-app.tsx (look for useState that holds the body when creating/editing a template) and use those.
+
+════════════════════════════════════════════
+CHANGE 4 — Reset bodyEditorMode when opening a new step
+════════════════════════════════════════════
+
+In the openStepEditor function (where showStepEditor and stepForm are reset), add:
+  setBodyEditorMode('visual');
+
+So each new step starts in Visual mode by default.
+
+════════════════════════════════════════════
+DO NOT CHANGE:
+- The body storage format (already HTML, works correctly)
+- The drip email sending logic
+- The RichTextEditor component itself
+- Any backend code
+- Any other pages
+════════════════════════════════════════════

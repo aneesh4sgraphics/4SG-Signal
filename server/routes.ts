@@ -146,6 +146,7 @@ import {
   emailIntelligenceBlacklist,
   leads,
   leadActivities,
+  watchList,
   insertLeadSchema,
   insertLeadActivitySchema,
   territorySkipFlags,
@@ -21866,6 +21867,312 @@ Analyze this bounced email and provide insights in JSON format:
   registerEmailRoutes(app);
   registerAdminRoutes(app);
   registerCustomersRoutes(app);
+
+  // ═══════════════════════════════════════════════
+  // LISTS ENDPOINTS
+  // ═══════════════════════════════════════════════
+
+  // Helper: is this user Aneesh (admin who sees all)?
+  const isAdmin = (req: any) => req.user?.role === 'admin' || req.user?.email === 'aneesh@4sgraphics.com';
+
+  // GET /api/lists/samples-sent
+  app.get('/api/lists/samples-sent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      const admin = isAdmin(req);
+
+      const leadSamples = await db.select({
+        id: sql<string>`'lead-' || ${leads.id}`,
+        recordType: sql<string>`'lead'`,
+        recordId: sql<string>`${leads.id}::text`,
+        name: leads.name,
+        company: leads.company,
+        email: leads.email,
+        salesRepName: leads.salesRepName,
+        sentAt: leads.sampleEnvelopeSentAt,
+        source: sql<string>`'mailer'`,
+        status: sql<string>`'sent'`,
+        notes: sql<string>`null`,
+      }).from(leads)
+        .where(and(
+          isNotNull(leads.sampleEnvelopeSentAt),
+          admin ? undefined : eq(leads.salesRepName, userEmail),
+        ))
+        .orderBy(desc(leads.sampleEnvelopeSentAt));
+
+      const customerSamples = await db.select({
+        id: sql<string>`'sample-' || ${sampleRequests.id}`,
+        recordType: sql<string>`'customer'`,
+        recordId: sampleRequests.customerId,
+        name: sql<string>`COALESCE(${customers.company}, ${customers.firstName} || ' ' || ${customers.lastName})`,
+        company: customers.company,
+        email: customers.email,
+        salesRepName: customers.salesRepName,
+        sentAt: sampleRequests.shippedAt,
+        source: sql<string>`'sample_request'`,
+        status: sampleRequests.status,
+        notes: sampleRequests.notes,
+      }).from(sampleRequests)
+        .leftJoin(customers, eq(sampleRequests.customerId, customers.id))
+        .where(admin ? undefined : eq(customers.salesRepName, userEmail))
+        .orderBy(desc(sampleRequests.createdAt));
+
+      const combined = [...leadSamples, ...customerSamples];
+      combined.sort((a: any, b: any) => {
+        if (!a.sentAt && !b.sentAt) return 0;
+        if (!a.sentAt) return 1;
+        if (!b.sentAt) return -1;
+        return new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime();
+      });
+      res.json(combined);
+    } catch (e: any) {
+      console.error('[Lists] samples-sent error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/lists/press-kits-sent
+  app.get('/api/lists/press-kits-sent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      const admin = isAdmin(req);
+      const now = new Date();
+
+      const leadKits = await db.select({
+        id: sql<string>`'lead-' || ${leads.id}`,
+        recordType: sql<string>`'lead'`,
+        recordId: sql<string>`${leads.id}::text`,
+        name: leads.name,
+        company: leads.company,
+        email: leads.email,
+        salesRepName: leads.salesRepName,
+        sentAt: leads.pressTestKitSentAt,
+        status: sql<string>`'sent'`,
+        trackingNumber: sql<string>`null`,
+        notes: sql<string>`null`,
+      }).from(leads)
+        .where(and(
+          isNotNull(leads.pressTestKitSentAt),
+          admin ? undefined : eq(leads.salesRepName, userEmail),
+        ));
+
+      const customerKits = await db.select({
+        id: sql<string>`'kit-' || ${pressKitShipments.id}`,
+        recordType: sql<string>`'customer'`,
+        recordId: pressKitShipments.customerId,
+        name: sql<string>`COALESCE(${customers.company}, ${customers.firstName} || ' ' || ${customers.lastName})`,
+        company: customers.company,
+        email: customers.email,
+        salesRepName: customers.salesRepName,
+        sentAt: pressKitShipments.shippedAt,
+        status: pressKitShipments.status,
+        trackingNumber: pressKitShipments.trackingNumber,
+        notes: pressKitShipments.notes,
+      }).from(pressKitShipments)
+        .leftJoin(customers, eq(pressKitShipments.customerId, customers.id))
+        .where(admin ? undefined : eq(customers.salesRepName, userEmail))
+        .orderBy(desc(pressKitShipments.createdAt));
+
+      const combined = [...leadKits, ...customerKits];
+      const enriched = combined.map((r: any) => {
+        const days = r.sentAt ? Math.floor((now.getTime() - new Date(r.sentAt).getTime()) / 86400000) : null;
+        const urgency = days === null ? 'unknown' : days > 30 ? 'overdue' : days > 14 ? 'due' : 'ok';
+        return { ...r, daysSinceSent: days, urgency };
+      });
+      enriched.sort((a: any, b: any) => (b.daysSinceSent || 0) - (a.daysSinceSent || 0));
+      res.json(enriched);
+    } catch (e: any) {
+      console.error('[Lists] press-kits-sent error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/lists/working-on
+  app.get('/api/lists/working-on', isAuthenticated, async (req: any, res) => {
+    try {
+      const userEmail = req.user?.email;
+      const admin = isAdmin(req);
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
+
+      const priceListSent = await db.select({
+        customerId: priceListEvents.customerId,
+        lastActivity: sql<Date>`MAX(${priceListEvents.createdAt})`,
+        signal: sql<string>`'price_list_sent'`,
+      }).from(priceListEvents)
+        .where(and(isNotNull(priceListEvents.customerId), gte(priceListEvents.createdAt, ninetyDaysAgo)))
+        .groupBy(priceListEvents.customerId);
+
+      const quoteSent = await db.select({
+        customerId: sentQuotes.customerId,
+        lastActivity: sql<Date>`MAX(${sentQuotes.createdAt})`,
+        signal: sql<string>`'quote_sent'`,
+      }).from(sentQuotes)
+        .where(and(
+          isNotNull(sentQuotes.customerId),
+          gte(sentQuotes.createdAt, ninetyDaysAgo),
+          eq(sentQuotes.outcome, 'pending'),
+        ))
+        .groupBy(sentQuotes.customerId);
+
+      const buyingSignalTypes = ['po', 'approval', 'opportunity', 'commitment', 'sales_win', 'price_sent', 'pricelist_sent', 'quote_sent'];
+      const emailSignals = await db.select({
+        customerId: emailSalesEvents.customerId,
+        lastActivity: sql<Date>`MAX(${emailSalesEvents.occurredAt})`,
+        signal: sql<string>`string_agg(DISTINCT ${emailSalesEvents.eventType}, ', ')`,
+      }).from(emailSalesEvents)
+        .where(and(
+          isNotNull(emailSalesEvents.customerId),
+          inArray(emailSalesEvents.eventType, buyingSignalTypes),
+          gte(emailSalesEvents.occurredAt, ninetyDaysAgo),
+        ))
+        .groupBy(emailSalesEvents.customerId);
+
+      const emailSentPricing = await db.select({
+        customerId: emailSends.customerId,
+        lastActivity: sql<Date>`MAX(${emailSends.sentAt})`,
+        signal: sql<string>`'email_pricing'`,
+      }).from(emailSends)
+        .where(and(
+          isNotNull(emailSends.customerId),
+          gte(emailSends.sentAt, ninetyDaysAgo),
+          sql`(${emailSends.subject} ILIKE '%price%' OR ${emailSends.subject} ILIKE '%quote%' OR ${emailSends.subject} ILIKE '%sample%' OR ${emailSends.subject} ILIKE '%inventory%' OR ${emailSends.subject} ILIKE '%stock%' OR ${emailSends.subject} ILIKE '%order%')`,
+        ))
+        .groupBy(emailSends.customerId);
+
+      const signalMap = new Map<string, { signals: string[]; lastActivity: Date }>();
+      for (const row of [...priceListSent, ...quoteSent, ...emailSignals, ...emailSentPricing]) {
+        if (!row.customerId) continue;
+        const existing = signalMap.get(row.customerId);
+        const activity = new Date(row.lastActivity as any);
+        const signal = (row.signal as string) || 'activity';
+        if (!existing) {
+          signalMap.set(row.customerId, { signals: [signal], lastActivity: activity });
+        } else {
+          if (!existing.signals.includes(signal)) existing.signals.push(signal);
+          if (activity > existing.lastActivity) existing.lastActivity = activity;
+        }
+      }
+
+      const customerIds = Array.from(signalMap.keys());
+      let result: any[] = [];
+      if (customerIds.length > 0) {
+        const customerDetails = await db.select({
+          id: customers.id,
+          company: customers.company,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          email: customers.email,
+          salesRepName: customers.salesRepName,
+          pricingTier: customers.pricingTier,
+        }).from(customers)
+          .where(and(
+            inArray(customers.id, customerIds),
+            admin ? undefined : eq(customers.salesRepName, userEmail),
+          ));
+
+        result = customerDetails.map((c: any) => {
+          const sig = signalMap.get(c.id)!;
+          return {
+            recordType: 'customer',
+            recordId: c.id,
+            name: c.company || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+            company: c.company,
+            email: c.email,
+            salesRepName: c.salesRepName,
+            pricingTier: c.pricingTier,
+            signals: sig.signals,
+            lastActivity: sig.lastActivity,
+          };
+        });
+      }
+      result.sort((a: any, b: any) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime());
+      res.json(result);
+    } catch (e: any) {
+      console.error('[Lists] working-on error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/lists/watchlist
+  app.get('/api/lists/watchlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const entries = await db.select().from(watchList)
+        .where(eq(watchList.isResolved, false))
+        .orderBy(desc(watchList.createdAt));
+
+      // Enrich with customer/lead details
+      const enriched = await Promise.all(entries.map(async (e: any) => {
+        let name = null, company = null, email = null, salesRepName = null;
+        if (e.customerId) {
+          const [c] = await db.select({ company: customers.company, firstName: customers.firstName, lastName: customers.lastName, email: customers.email, salesRepName: customers.salesRepName }).from(customers).where(eq(customers.id, e.customerId)).limit(1);
+          if (c) { name = c.company || `${c.firstName || ''} ${c.lastName || ''}`.trim(); company = c.company; email = c.email; salesRepName = c.salesRepName; }
+        } else if (e.leadId) {
+          const [l] = await db.select({ name: leads.name, company: leads.company, email: leads.email, salesRepName: leads.salesRepName }).from(leads).where(eq(leads.id, e.leadId)).limit(1);
+          if (l) { name = l.name; company = l.company; email = l.email; salesRepName = l.salesRepName; }
+        }
+        return { ...e, name, company, email, salesRepName };
+      }));
+      res.json(enriched);
+    } catch (e: any) {
+      console.error('[Lists] watchlist GET error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/lists/watchlist
+  app.post('/api/lists/watchlist', isAuthenticated, async (req: any, res) => {
+    try {
+      const { customerId, leadId, reason, priority, notes } = req.body;
+      if (!customerId && !leadId) return res.status(400).json({ error: 'customerId or leadId required' });
+      const userEmail = (req.user as any)?.claims?.sub || req.user?.email || 'unknown';
+      const userName = req.user?.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : userEmail;
+      const [entry] = await db.insert(watchList).values({
+        customerId: customerId || null,
+        leadId: leadId ? parseInt(leadId) : null,
+        addedBy: userEmail,
+        addedByName: userName,
+        reason: reason || null,
+        priority: priority || 'normal',
+        notes: notes || null,
+      }).returning();
+      res.json(entry);
+    } catch (e: any) {
+      console.error('[Lists] watchlist POST error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PATCH /api/lists/watchlist/:id
+  app.patch('/api/lists/watchlist/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userEmail = (req.user as any)?.claims?.sub || req.user?.email || 'unknown';
+      const updates: any = { updatedAt: new Date() };
+      if (req.body.notes !== undefined) updates.notes = req.body.notes;
+      if (req.body.priority !== undefined) updates.priority = req.body.priority;
+      if (req.body.isResolved !== undefined) {
+        updates.isResolved = req.body.isResolved;
+        if (req.body.isResolved) { updates.resolvedAt = new Date(); updates.resolvedBy = userEmail; }
+      }
+      const [updated] = await db.update(watchList).set(updates).where(eq(watchList.id, id)).returning();
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[Lists] watchlist PATCH error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // DELETE /api/lists/watchlist/:id
+  app.delete('/api/lists/watchlist/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(watchList).where(eq(watchList.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('[Lists] watchlist DELETE error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // Catch-all for unmatched API routes - return JSON 404 instead of HTML
   app.use('/api/*', (req, res) => {

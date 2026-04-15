@@ -15,6 +15,7 @@ import {
   Settings,
   Wrench,
   BarChart3,
+  ListChecks,
   type LucideIcon
 } from "lucide-react";
 import { QuickQuotesIcon, SavedQuotesIcon, PriceListIcon, SalesChartsIcon } from "@/components/HandDrawnIcons";
@@ -84,6 +85,7 @@ export function isAppAllowedForUser(path: string, userEmail?: string): boolean {
 }
 
 export const primaryApps: NavLink[] = [
+  { path: '/lists', icon: ListChecks, label: 'Lists', description: 'Samples, kits & watchlist', iconBg: '#0C6E99', iconColor: '#FFFFFF' },
   { path: '/quick-quotes', icon: QuickQuotesIcon, label: 'QuickQuotes', description: 'Create quotes', iconBg: '#D9730B', iconColor: '#FFFFFF' },
   { path: '/price-list', icon: PriceListIcon, label: 'Price List', description: 'View pricing', iconBg: '#DFAB00', iconColor: '#37352F' },
   { path: '/saved-quotes', icon: SavedQuotesIcon, label: 'Saved Quotes', description: 'Past quotes', iconBg: '#AD1972', iconColor: '#FFFFFF' },

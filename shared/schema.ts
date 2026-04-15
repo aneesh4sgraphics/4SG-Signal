@@ -575,6 +575,32 @@ export const insertLeadActivitySchema = createInsertSchema(leadActivities).omit(
 export type LeadActivity = typeof leadActivities.$inferSelect;
 export type InsertLeadActivity = z.infer<typeof insertLeadActivitySchema>;
 
+// Watch List — customers/leads manually flagged for monitoring
+export const watchList = pgTable("watch_list", {
+  id: serial("id").primaryKey(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  addedBy: varchar("added_by", { length: 255 }).notNull(),
+  addedByName: varchar("added_by_name", { length: 255 }),
+  reason: text("reason"),
+  priority: varchar("priority", { length: 20 }).default("normal"),
+  notes: text("notes"),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_watch_list_customer_id").on(table.customerId),
+  index("IDX_watch_list_lead_id").on(table.leadId),
+  index("IDX_watch_list_added_by").on(table.addedBy),
+  index("IDX_watch_list_is_resolved").on(table.isResolved),
+]);
+
+export const insertWatchListSchema = createInsertSchema(watchList).omit({ id: true, createdAt: true, updatedAt: true });
+export type WatchListEntry = typeof watchList.$inferSelect;
+export type InsertWatchListEntry = z.infer<typeof insertWatchListSchema>;
+
 export const LEAD_ACTIVITY_TYPES = [
   'email_sent',
   'email_opened',
