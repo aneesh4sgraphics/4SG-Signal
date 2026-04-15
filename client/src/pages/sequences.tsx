@@ -267,6 +267,10 @@ function StepCard({
 
   // Sync external changes (e.g. server update) into editor
   useEffect(() => {
+    if (bodyMode === 'html') {
+      setHtmlBody(step.body || '');
+      return;
+    }
     if (editor && !editor.isFocused) {
       const current = editor.getHTML();
       if (current !== (step.body || '')) {
@@ -463,8 +467,21 @@ function StepCard({
         <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
           <button
             type="button"
-            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
-            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent', color: bodyMode === 'visual' ? '#fff' : '#9ca3af' }}
+            title={isFullHtmlDoc(htmlBody) ? 'Full HTML document — Visual editing disabled' : 'Switch to Visual editor'}
+            onMouseDown={e => {
+              e.preventDefault();
+              if (bodyMode === 'visual') return;
+              if (isFullHtmlDoc(htmlBody)) return;
+              editor?.commands.setContent(extractBodyContent(htmlBody), false);
+              setBodyMode('visual');
+            }}
+            style={{
+              padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none',
+              cursor: isFullHtmlDoc(htmlBody) ? 'not-allowed' : 'pointer',
+              background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent',
+              color: bodyMode === 'visual' ? '#fff' : (isFullHtmlDoc(htmlBody) ? '#d1d5db' : '#9ca3af'),
+              opacity: isFullHtmlDoc(htmlBody) ? 0.5 : 1,
+            }}
           >
             Visual
           </button>
@@ -769,12 +786,23 @@ const TEMPLATE_VARS = [
   { label: '{{user.name}}', token: '{{user.name}}' },
 ];
 
+function isFullHtmlDoc(html: string): boolean {
+  const t = (html || '').trim().toLowerCase();
+  return t.startsWith('<!doctype') || t.startsWith('<html');
+}
+
+function extractBodyContent(html: string): string {
+  const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return m ? m[1].trim() : html;
+}
+
 function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const [showImagePanel, setShowImagePanel] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [isImageSelected, setIsImageSelected] = useState(false);
-  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>('visual');
+  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>(() => isFullHtmlDoc(value) ? 'html' : 'visual');
   const [htmlBody, setHtmlBody] = useState(value || '');
+  const [showPreview, setShowPreview] = useState(false);
   const uploadId = useRef(`tpl-upload-${Math.random().toString(36).slice(2)}`);
 
   const editor = useEditor({
@@ -788,6 +816,11 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
   });
 
   useEffect(() => {
+    if (bodyMode === 'html') {
+      // In HTML mode: keep htmlBody in sync with value, never touch Tiptap
+      setHtmlBody(value || '');
+      return;
+    }
     if (editor && !editor.isFocused) {
       const current = editor.getHTML();
       if (current !== (value || '')) editor.commands.setContent(value || '', false);
@@ -864,21 +897,45 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
           </>)}
         </div>
         {/* Visual / HTML toggle — always pinned right */}
-        <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
-            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent', color: bodyMode === 'visual' ? '#fff' : '#9ca3af' }}
-          >
-            Visual
-          </button>
-          <button
-            type="button"
-            onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
-            style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
-          >
-            {'</>'} HTML
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {bodyMode === 'html' && (
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); setShowPreview(v => !v); }}
+              title="Toggle preview"
+              style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: '0.5px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer', background: showPreview ? '#e0e7ff' : 'transparent', color: showPreview ? '#4f46e5' : '#9ca3af' }}
+            >
+              <Eye style={{ width: '12px', height: '12px' }} /> Preview
+            </button>
+          )}
+          <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+            <button
+              type="button"
+              title={isFullHtmlDoc(htmlBody) ? 'Full HTML document — Visual editing disabled' : 'Switch to Visual editor'}
+              onMouseDown={e => {
+                e.preventDefault();
+                if (bodyMode === 'visual') return;
+                if (isFullHtmlDoc(htmlBody)) return; // block Visual for full docs
+                editor?.commands.setContent(extractBodyContent(htmlBody), false); // false = don't fire onUpdate
+                setBodyMode('visual');
+              }}
+              style={{
+                padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: isFullHtmlDoc(htmlBody) ? 'not-allowed' : 'pointer',
+                background: bodyMode === 'visual' ? '#1a1a1a' : 'transparent',
+                color: bodyMode === 'visual' ? '#fff' : (isFullHtmlDoc(htmlBody) ? '#d1d5db' : '#9ca3af'),
+                opacity: isFullHtmlDoc(htmlBody) ? 0.5 : 1,
+              }}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); setShowPreview(false); } }}
+              style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
+            >
+              {'</>'} HTML
+            </button>
+          </div>
         </div>
       </div>
 
@@ -929,11 +986,17 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
           <EditorContent editor={editor} />
         </div>
       ) : (
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 space-y-3">
+          {/* Full-doc notice */}
+          {isFullHtmlDoc(htmlBody) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '11px', color: '#92400e' }}>
+              <span style={{ fontWeight: 600 }}>Full HTML document detected</span> — stored as-is, Visual mode disabled to preserve {'<head>'} styles.
+            </div>
+          )}
           <textarea
             value={htmlBody}
             onChange={e => { setHtmlBody(e.target.value); onChange(e.target.value); }}
-            placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{client.firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+            placeholder={`Paste your full HTML email here (Canva, Mailchimp, etc.)...\n\n<!DOCTYPE html>\n<html>\n<head>\n  <style>/* your styles */</style>\n</head>\n<body>\n  ...\n</body>\n</html>`}
             style={{
               width: '100%',
               minHeight: '240px',
@@ -951,9 +1014,21 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
             }}
             spellCheck={false}
           />
-          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
-            Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{client.firstName}}'} work in HTML too.
+          <p style={{ fontSize: '11px', color: '#9ca3af' }}>
+            Full HTML documents (including {'<head>/<style>'}) are stored exactly as pasted. Variables like {'{{client.firstName}}'} work inside HTML too.
           </p>
+          {/* Isolated iframe preview */}
+          {showPreview && htmlBody.trim() && (
+            <div>
+              <p style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '6px' }}>Preview (isolated, no app CSS)</p>
+              <iframe
+                srcDoc={htmlBody}
+                title="HTML email preview"
+                style={{ width: '100%', height: '500px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
+                sandbox="allow-same-origin"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1153,7 +1228,7 @@ function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewTpl} onOpenChange={v => { if (!v) setPreviewTpl(null); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-indigo-500" />
@@ -1166,9 +1241,22 @@ function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
                 <span className="text-gray-400 text-xs font-medium">Subject: </span>
                 <span className="text-gray-800 font-medium">{previewTpl.subject}</span>
               </div>
-              <div className="border border-gray-200 rounded-lg px-4 py-4 text-sm text-gray-700 whitespace-pre-wrap min-h-[120px] bg-white"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewTpl.body?.replace(/\n/g, '<br/>') || '') }}
-              />
+              {/* Isolated iframe preview — no app CSS, no DOMPurify stripping */}
+              {isFullHtmlDoc(previewTpl.body || '') ? (
+                <iframe
+                  srcDoc={previewTpl.body || ''}
+                  title="Email preview"
+                  style={{ width: '100%', height: '560px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
+                  sandbox="allow-same-origin"
+                />
+              ) : (
+                <iframe
+                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;padding:16px;margin:0}img{max-width:100%}</style></head><body>${previewTpl.body || ''}</body></html>`}
+                  title="Email preview"
+                  style={{ width: '100%', minHeight: '200px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff' }}
+                  sandbox="allow-same-origin"
+                />
+              )}
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="outline" size="sm" onClick={() => copyToClipboard(previewTpl.body)} className="gap-1.5">
                   <Copy className="h-3.5 w-3.5" />
