@@ -1,3 +1,4 @@
+import DOMPurify from 'isomorphic-dompurify';
 import { db } from "./db";
 import { 
   dripCampaignStepStatus, 
@@ -463,8 +464,26 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       return;
     }
 
+    // Sanitize HTML body — strip dangerous JS/events while keeping email-safe HTML.
+    // Runs before replaceVariables so {{token}} placeholders are never treated as markup.
+    const sanitizedBody = DOMPurify.sanitize(email.body, {
+      ALLOWED_TAGS: [
+        'a', 'b', 'br', 'button', 'center', 'div', 'em', 'font', 'footer',
+        'h1', 'h2', 'h3', 'h4', 'head', 'hr', 'html', 'i', 'img', 'li',
+        'ol', 'p', 'small', 'span', 'strong', 'style', 'table', 'tbody',
+        'td', 'th', 'thead', 'tfoot', 'title', 'tr', 'u', 'ul',
+      ],
+      ALLOWED_ATTR: [
+        'href', 'src', 'style', 'class', 'id', 'width', 'height', 'align',
+        'bgcolor', 'border', 'cellpadding', 'cellspacing', 'color', 'colspan',
+        'rowspan', 'target', 'valign', 'alt', 'title', 'role', 'type',
+        'face', 'size', 'nowrap',
+      ],
+      FORCE_BODY: true,
+    });
+
     const processedSubject = replaceVariables(email.subject, email);
-    let processedBody = replaceVariables(email.body, email);
+    let processedBody = replaceVariables(sanitizedBody, email);
 
     // Append sender signature if the campaign has it enabled
     if (email.campaignSettings.includeSenderSignature) {

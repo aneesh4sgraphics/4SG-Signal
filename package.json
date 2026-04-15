@@ -107,6 +107,7 @@
     "iconv-lite": "^0.7.0",
     "imapflow": "^1.2.4",
     "input-otp": "^1.4.2",
+    "isomorphic-dompurify": "^3.9.0",
     "jsdom": "^26.1.0",
     "jspdf": "^4.2.0",
     "lodash": "^4.17.21",
