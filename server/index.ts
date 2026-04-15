@@ -216,8 +216,8 @@ app.use((req, res, next) => {
 // With trust proxy=true, this is now correctly scoped per real client IP.
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 500, // 500 requests per minute per IP (~8 req/sec, comfortably above CRM page-load bursts)
-  message: { error: 'Too many requests, please slow down and try again shortly' },
+  max: 300, // 300 requests per minute per IP (~5 req/sec)
+  message: { error: 'Too many requests, please try again in a minute.' },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
@@ -227,6 +227,18 @@ const generalLimiter = rateLimit({
   },
 });
 app.use('/api', generalLimiter);
+
+// Stricter limiter for Odoo sync endpoints — these trigger expensive remote calls
+// to the Odoo ERP and can hold DB locks, so cap them at 10/min per IP.
+const odooSyncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Odoo sync rate limit reached. Wait 1 minute.' },
+});
+app.use('/api/admin/sync-prices-from-odoo', odooSyncLimiter);
+app.use('/api/odoo/sync-new-products', odooSyncLimiter);
 
 // Rate limiting for auth endpoints (stricter)
 const authRateLimiter = rateLimit({
