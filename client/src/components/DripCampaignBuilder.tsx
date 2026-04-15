@@ -64,6 +64,7 @@ export default function DripCampaignBuilder() {
   const [showStepEditor, setShowStepEditor] = useState(false);
   const [showCampaignDialog, setShowCampaignDialog] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [bodyEditorMode, setBodyEditorMode] = useState<'visual' | 'html'>('visual');
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [customerSearch, setCustomerSearch] = useState("");
@@ -266,6 +267,7 @@ export default function DripCampaignBuilder() {
       setEditingStep(null);
       resetStepForm();
     }
+    setBodyEditorMode('visual');
     setShowStepEditor(true);
   };
 
@@ -814,19 +816,89 @@ export default function DripCampaignBuilder() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Email Body</Label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <div style={{ display: 'flex', border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        onClick={() => setBodyEditorMode('visual')}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: bodyEditorMode === 'visual' ? '#1a1a1a' : 'transparent',
+                          color: bodyEditorMode === 'visual' ? '#fff' : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        Visual
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBodyEditorMode('html')}
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: bodyEditorMode === 'html' ? '#1a1a1a' : 'transparent',
+                          color: bodyEditorMode === 'html' ? '#fff' : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        {'</>'} HTML
+                      </button>
+                    </div>
                     <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setShowPreview(true)}>
                       <Eye className="h-3 w-3 mr-1" />
                       Preview
                     </Button>
                   </div>
                 </div>
-                
-                <RichTextEditor 
-                  content={stepForm.body} 
-                  onChange={(html) => setStepForm(prev => ({ ...prev, body: html }))}
-                  onEditorReady={(editor) => { editorRef.current = editor; }}
-                />
+
+                {bodyEditorMode === 'visual' ? (
+                  <RichTextEditor
+                    content={stepForm.body}
+                    onChange={(html) => setStepForm(prev => ({ ...prev, body: html }))}
+                    onEditorReady={(editor) => { editorRef.current = editor; }}
+                  />
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      value={stepForm.body}
+                      onChange={(e) => setStepForm(prev => ({ ...prev, body: e.target.value }))}
+                      placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{client.firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+                      style={{
+                        width: '100%',
+                        minHeight: '360px',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                        lineHeight: '1.6',
+                        padding: '12px',
+                        border: '1px solid var(--color-border-secondary)',
+                        borderRadius: '8px',
+                        background: 'var(--color-background-secondary)',
+                        color: 'var(--color-text-primary)',
+                        resize: 'vertical',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                      spellCheck={false}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', flex: 1 }}>
+                        Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{'+'client.firstName'+'}}'} work in HTML too.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setStepForm(prev => ({ ...prev, body: '' }))}
+                        style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
@@ -948,10 +1020,11 @@ export default function DripCampaignBuilder() {
                               {subject || '(No subject)'}
                             </p>
                           </div>
-                          <div
-                            className={`px-4 py-3 text-sm overflow-y-auto prose prose-sm max-w-none ${previewTheme === 'dark' ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100' : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'}`}
-                            style={{ maxHeight: '380px', fontSize: '13px', lineHeight: '1.5' }}
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(body || '<p style="color:#999">No content yet</p>') }}
+                          <iframe
+                            title="Email preview mobile"
+                            style={{ width: '100%', maxHeight: '380px', border: 'none', background: previewTheme === 'dark' ? '#111827' : '#ffffff', display: 'block', minHeight: '200px' }}
+                            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:12px 16px;font-family:sans-serif;font-size:13px;line-height:1.5;background:${previewTheme === 'dark' ? '#111827' : '#ffffff'};color:${previewTheme === 'dark' ? '#e5e7eb' : '#1f2937'}}</style></head><body>${body || '<p style="color:#9ca3af;padding:8px 0">No content yet</p>'}</body></html>`}
+                            sandbox="allow-same-origin"
                           />
                         </div>
                         <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${previewTheme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'}`} />
@@ -980,10 +1053,11 @@ export default function DripCampaignBuilder() {
                           {subject || '(No subject)'}
                         </p>
                       </div>
-                      <div
-                        className={`px-6 py-5 prose prose-sm max-w-none overflow-y-auto ${previewTheme === 'dark' ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100' : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'}`}
-                        style={{ maxHeight: '440px', fontSize: '14px', lineHeight: '1.6' }}
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(body || '<p style="color:#999">No content yet</p>') }}
+                      <iframe
+                        title="Email preview desktop"
+                        style={{ width: '100%', maxHeight: '440px', border: 'none', background: previewTheme === 'dark' ? '#111827' : '#ffffff', display: 'block', minHeight: '200px' }}
+                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:20px 24px;font-family:sans-serif;font-size:14px;line-height:1.6;background:${previewTheme === 'dark' ? '#111827' : '#ffffff'};color:${previewTheme === 'dark' ? '#e5e7eb' : '#1f2937'}}</style></head><body>${body || '<p style="color:#9ca3af;padding:8px 0">No content yet</p>'}</body></html>`}
+                        sandbox="allow-same-origin"
                       />
                     </div>
                   );

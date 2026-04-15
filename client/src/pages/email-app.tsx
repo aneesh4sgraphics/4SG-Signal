@@ -78,6 +78,7 @@ export default function EmailApp() {
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<EmailTemplate | null>(null);
+  const [templateBodyMode, setTemplateBodyMode] = useState<'visual' | 'html'>('visual');
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [previewTheme, setPreviewTheme] = useState<'light' | 'dark'>('light');
   const [templateToPreview, setTemplateToPreview] = useState<EmailTemplate | null>(null);
@@ -1114,18 +1115,76 @@ export default function EmailApp() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <Label>Email Body</Label>
-                <span className="text-xs text-gray-500">Use the toolbar to format text, or click a variable below to insert it</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="text-xs text-gray-500">Use the toolbar to format text, or click a variable below to insert it</span>
+                  <div style={{ display: 'flex', border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', overflow: 'hidden' }}>
+                    <button
+                      type="button"
+                      onClick={() => setTemplateBodyMode('visual')}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: templateBodyMode === 'visual' ? '#1a1a1a' : 'transparent',
+                        color: templateBodyMode === 'visual' ? '#fff' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      Visual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTemplateBodyMode('html')}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: templateBodyMode === 'html' ? '#1a1a1a' : 'transparent',
+                        color: templateBodyMode === 'html' ? '#fff' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {'</>'} HTML
+                    </button>
+                  </div>
+                </div>
               </div>
-              <EmailRichTextEditor
-                content={templateForm.body}
-                onChange={(html) => setTemplateForm(prev => ({ ...prev, body: html }))}
-                placeholder="Hello {{client.name}},
+              {templateBodyMode === 'visual' ? (
+                <EmailRichTextEditor
+                  content={templateForm.body}
+                  onChange={(html) => setTemplateForm(prev => ({ ...prev, body: html }))}
+                  placeholder="Hello {{client.name}},
 
 Start typing your email content here. Use the toolbar above to format text, add links, or insert images."
-                ref={editorRef}
-              />
+                  ref={editorRef}
+                />
+              ) : (
+                <textarea
+                  value={templateForm.body}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, body: e.target.value }))}
+                  placeholder="Paste your HTML email code here..."
+                  style={{
+                    width: '100%',
+                    minHeight: '360px',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    lineHeight: '1.6',
+                    padding: '12px',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: '8px',
+                    background: 'var(--color-background-secondary)',
+                    color: 'var(--color-text-primary)',
+                    resize: 'vertical',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  spellCheck={false}
+                />
+              )}
             </div>
 
             {/* Variable Chips */}
