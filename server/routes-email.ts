@@ -8,6 +8,20 @@ import { spotlightEngine } from "./spotlight-engine";
 import multer from "multer";
 import crypto from "crypto";
 import OpenAI from "openai";
+
+// Extracts all {{variable}} tokens from subject and body strings
+function extractTemplateVariables(...texts: (string | undefined | null)[]): string[] {
+  const found = new Set<string>();
+  const pattern = /\{\{([^}]+)\}\}/g;
+  for (const text of texts) {
+    if (!text) continue;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      found.add(m[1].trim());
+    }
+  }
+  return Array.from(found);
+}
 import Anthropic from "@anthropic-ai/sdk";
 import {
   customers,
