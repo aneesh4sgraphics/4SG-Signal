@@ -2049,6 +2049,21 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               <div style={{ position: 'relative', marginTop: '12px' }}>
                 <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
                 <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', overflow: 'hidden' }}>
+            {/* Category row */}
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
+                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Type row */}
@@ -2107,7 +2122,8 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                 <button onClick={() => setQuantity(quantity + (selectedProduct?.minQuantity || 1))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>+</button>
               </div>
             </div>
-          </div>
+          </div>{/* closes inner card */}
+          </div>{/* closes outer wrapper */}
 
           {/* Custom Size Input */}
           {isCustomSize && selectedType && (
