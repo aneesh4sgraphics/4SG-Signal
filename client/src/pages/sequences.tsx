@@ -423,42 +423,44 @@ function StepCard({
       </div>
 
       {/* Formatting toolbar */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
-        {bodyMode === 'visual' && (<>
-        <button
-          type="button"
-          onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
-          className={`h-6 w-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
-            editor?.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
-          }`}
-          title="Bold (Ctrl+B)"
-        >
-          <Bold className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }}
-          className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${
-            editor?.isActive('italic') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
-          }`}
-          title="Italic (Ctrl+I)"
-        >
-          <Italic className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-4 bg-gray-200 mx-1" />
-        <button
-          type="button"
-          onMouseDown={e => { e.preventDefault(); setShowImagePanel(v => !v); }}
-          className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${
-            showImagePanel ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
-          }`}
-          title="Insert image"
-        >
-          <ImagePlus className="h-3.5 w-3.5" />
-        </button>
-        </>)}
-        {/* Visual / HTML toggle — always shown */}
-        <div style={{ marginLeft: 'auto', display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+        <div className="flex items-center gap-0.5">
+          {bodyMode === 'visual' && (<>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
+            className={`h-6 w-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${
+              editor?.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+            }`}
+            title="Bold (Ctrl+B)"
+          >
+            <Bold className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }}
+            className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${
+              editor?.isActive('italic') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+            }`}
+            title="Italic (Ctrl+I)"
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </button>
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); setShowImagePanel(v => !v); }}
+            className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${
+              showImagePanel ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+            }`}
+            title="Insert image"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+          </button>
+          </>)}
+        </div>
+        {/* Visual / HTML toggle — always shown, pinned right */}
+        <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
           <button
             type="button"
             onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
@@ -824,41 +826,45 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
-        <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
-          className={`h-6 w-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor?.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
-          title="Bold">
-          <Bold className="h-3.5 w-3.5" />
-        </button>
-        <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }}
-          className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${editor?.isActive('italic') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
-          title="Italic">
-          <Italic className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-4 bg-gray-200 mx-1" />
-        <button type="button" onMouseDown={e => { e.preventDefault(); setShowImagePanel(v => !v); }}
-          className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${showImagePanel ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
-          title="Insert image">
-          <ImagePlus className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-4 bg-gray-200 mx-1" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="h-6 px-1.5 flex items-center gap-1 rounded text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors">
-              <Braces className="h-3.5 w-3.5" />
-              <span className="text-[11px]">Variables</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
-            {TEMPLATE_VARS.map(v => (
-              <DropdownMenuItem key={v.token} className="text-xs font-mono" onSelect={() => editor?.chain().focus().insertContent(v.token).run()}>
-                {v.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {/* Visual / HTML toggle */}
-        <div style={{ marginLeft: 'auto', display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50/60">
+        <div className="flex items-center gap-0.5">
+          {bodyMode === 'visual' && (<>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
+            className={`h-6 w-6 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor?.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
+            title="Bold">
+            <Bold className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }}
+            className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${editor?.isActive('italic') ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
+            title="Italic">
+            <Italic className="h-3.5 w-3.5" />
+          </button>
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <button type="button" onMouseDown={e => { e.preventDefault(); setShowImagePanel(v => !v); }}
+            className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${showImagePanel ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
+            title="Insert image">
+            <ImagePlus className="h-3.5 w-3.5" />
+          </button>
+          <div className="w-px h-4 bg-gray-200 mx-1" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="h-6 px-1.5 flex items-center gap-1 rounded text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors">
+                <Braces className="h-3.5 w-3.5" />
+                <span className="text-[11px]">Variables</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              {TEMPLATE_VARS.map(v => (
+                <DropdownMenuItem key={v.token} className="text-xs font-mono" onSelect={() => editor?.chain().focus().insertContent(v.token).run()}>
+                  {v.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          </>)}
+        </div>
+        {/* Visual / HTML toggle — always pinned right */}
+        <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
           <button
             type="button"
             onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'visual') { editor?.commands.setContent(htmlBody); setBodyMode('visual'); } }}
