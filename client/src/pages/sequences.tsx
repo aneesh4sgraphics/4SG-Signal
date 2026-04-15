@@ -263,6 +263,19 @@ function StepCard({
       const html = ed.getHTML();
       if (html !== (step.body || '')) onUpdate(step.id, { body: html });
     },
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const plain = event.clipboardData?.getData('text/plain') || '';
+        if (isFullHtmlDoc(plain)) {
+          event.preventDefault();
+          setHtmlBody(plain);
+          setBodyMode('html');
+          onUpdate(step.id, { body: plain });
+          return true;
+        }
+        return false;
+      },
+    },
   });
 
   // Sync external changes (e.g. server update) into editor
@@ -848,6 +861,19 @@ function TemplateBodyEditor({ value, onChange }: { value: string; onChange: (htm
     ],
     content: value || '',
     onUpdate: ({ editor: ed }) => onChange(ed.getHTML()),
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const plain = event.clipboardData?.getData('text/plain') || '';
+        if (isFullHtmlDoc(plain)) {
+          event.preventDefault();
+          setHtmlBody(plain);
+          setBodyMode('html');
+          onChange(plain);
+          return true;
+        }
+        return false;
+      },
+    },
   });
 
   useEffect(() => {
