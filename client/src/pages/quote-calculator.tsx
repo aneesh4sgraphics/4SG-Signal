@@ -2046,16 +2046,16 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
           )}
 
           {/* Product Selection Card */}
-              <div style={{ position: 'relative', marginTop: '12px' }}>
-                <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
-                <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', overflow: 'hidden' }}>
-            {/* Category row */}
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Category</span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
+          <div style={{ position: 'relative', marginTop: '16px' }}>
+            <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#FAFAFA', padding: '0 6px', zIndex: 1 }}>Product</span>
+            <div style={{ background: 'var(--color-background-primary)', border: '1.5px solid var(--color-border-secondary)', borderRadius: '14px', padding: '14px 14px 10px' }}>
+
+              {/* Category */}
+              <div style={{ marginBottom: '10px' }}>
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Category</span>
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
-                    <SelectValue placeholder="Select" />
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                    <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map(category => (
@@ -2064,65 +2064,53 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Type row */}
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Type</span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                {selectedCategory ? (
-                  <Select value={selectedType} onValueChange={setSelectedType}>
-                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productTypes.map(type => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
-                )}
+              {/* Type */}
+              <div style={{ marginBottom: '10px' }}>
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Type</span>
+                <Select value={selectedType} onValueChange={setSelectedType} disabled={!selectedCategory}>
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productTypes.map(type => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            {/* Size row */}
-            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Size</span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                {selectedType ? (
-                  <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }}>
-                    <SelectTrigger style={{ border: 'none', background: 'transparent', padding: 0, height: 'auto', fontSize: '14px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', justifyContent: 'flex-end', gap: '4px' }}>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent className="max-w-none w-auto min-w-[200px]">
-                      {availableSizes.map((product, index) => (
-                        <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size}>
-                          {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
-                        </SelectItem>
-                      ))}
-                      {supportsCustomSize(selectedCategory) && (
-                        <SelectItem value="custom">Custom Size</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>—</span>
-                )}
+              {/* Size */}
+              <div style={{ marginBottom: '10px' }}>
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Size</span>
+                <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }} disabled={!selectedType}>
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-none w-auto min-w-[200px]">
+                    {availableSizes.map((product, index) => (
+                      <SelectItem key={product.itemCode || `${product.size}-${index}`} value={product.itemCode || product.size}>
+                        {product.size} ({parseFloat(String(product.totalSqm || 0)).toFixed(4)} m²)
+                      </SelectItem>
+                    ))}
+                    {supportsCustomSize(selectedCategory) && (
+                      <SelectItem value="custom">Custom Size</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            {/* Quantity row */}
-            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-tertiary)', width: '68px', flexShrink: 0 }}>Qty</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button onClick={() => setQuantity(Math.max(selectedProduct?.minQuantity || 1, quantity - (selectedProduct?.minQuantity || 1)))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>−</button>
-                <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} onFocus={(e) => e.target.select()} style={{ width: '60px', textAlign: 'center', fontSize: '14px', fontWeight: 500, border: '0.5px solid var(--color-border-secondary)', borderRadius: '7px', padding: '3px 6px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)' }} />
-                <button onClick={() => setQuantity(quantity + (selectedProduct?.minQuantity || 1))} style={{ width: '26px', height: '26px', borderRadius: '7px', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>+</button>
+              {/* Qty */}
+              <div>
+                <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Qty</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => setQuantity(Math.max(selectedProduct?.minQuantity || 1, quantity - (selectedProduct?.minQuantity || 1)))} style={{ flexShrink: 0, width: '40px', height: '40px', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>−</button>
+                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} onFocus={(e) => e.target.select()} style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 500, border: '1px solid var(--color-border-secondary)', borderRadius: '10px', padding: '0 8px', height: '40px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)' }} />
+                  <button onClick={() => setQuantity(quantity + (selectedProduct?.minQuantity || 1))} style={{ flexShrink: 0, width: '40px', height: '40px', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>+</button>
+                </div>
               </div>
+
             </div>
-          </div>{/* closes inner card */}
           </div>{/* closes outer wrapper */}
 
           {/* Custom Size Input */}
