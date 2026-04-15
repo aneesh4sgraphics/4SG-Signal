@@ -2054,7 +2054,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               <div style={{ marginBottom: '10px' }}>
                 <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Category</span>
                 <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: '#FFFFFF', fontSize: '14px', fontWeight: 500, color: selectedCategory ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2069,7 +2069,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               <div style={{ marginBottom: '10px' }}>
                 <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Type</span>
                 <Select value={selectedType} onValueChange={setSelectedType} disabled={!selectedCategory}>
-                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: '#FFFFFF', fontSize: '14px', fontWeight: 500, color: selectedType ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2084,7 +2084,7 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
               <div style={{ marginBottom: '10px' }}>
                 <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px' }}>Size</span>
                 <Select value={selectedSize} onValueChange={(value) => { setSelectedSize(value); setIsCustomSize(value === 'custom'); if (value !== 'custom') { setCustomWidth(''); setCustomHeight(''); } }} disabled={!selectedType}>
-                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', fontSize: '14px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
+                  <SelectTrigger style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border-secondary)', background: '#FFFFFF', fontSize: '14px', fontWeight: 500, color: selectedSize ? '#3C3489' : 'var(--color-text-tertiary)', height: '40px', paddingLeft: '12px' }}>
                     <SelectValue placeholder="Select size" />
                   </SelectTrigger>
                   <SelectContent className="max-w-none w-auto min-w-[200px]">
