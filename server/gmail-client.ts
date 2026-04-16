@@ -103,7 +103,7 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   emailLines.push('');
   emailLines.push(`--${boundary}`);
   emailLines.push('Content-Type: text/plain; charset=utf-8');
-  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('Content-Transfer-Encoding: 8bit');
   emailLines.push('');
   emailLines.push(body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() || 'Please view this email in an HTML-compatible email client.');
   emailLines.push('');
