@@ -772,14 +772,11 @@ export default function EmailApp() {
                                   {renderTemplate(selectedTemplate).subject}
                                 </p>
                               </div>
-                              <div
-                                className={`px-4 py-3 text-sm overflow-y-auto prose prose-sm max-w-none ${
-                                  previewTheme === 'dark'
-                                    ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
-                                    : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
-                                }`}
-                                style={{ maxHeight: '360px', fontSize: '13px', lineHeight: '1.5' }}
-                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body, { ALLOWED_TAGS: ['a','b','blockquote','br','center','div','em','font','h1','h2','h3','h4','hr','i','img','li','ol','p','span','strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'], ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height','align','valign','bgcolor','border','cellpadding','cellspacing','colspan','rowspan','target','color','face','size'] }) }}
+                              <iframe
+                                title="Email preview"
+                                style={{ width: '100%', minHeight: '400px', border: 'none', background: '#ffffff' }}
+                                sandbox="allow-same-origin"
+                                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${renderTemplate(selectedTemplate).body}</body></html>`}
                               />
                             </div>
                             <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${
@@ -821,14 +818,11 @@ export default function EmailApp() {
                                 {renderTemplate(selectedTemplate).subject}
                               </p>
                             </div>
-                            <div
-                              className={`px-6 py-4 text-sm overflow-y-auto prose max-w-none ${
-                                previewTheme === 'dark'
-                                  ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
-                                  : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
-                              }`}
-                              style={{ maxHeight: '400px' }}
-                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body, { ALLOWED_TAGS: ['a','b','blockquote','br','center','div','em','font','h1','h2','h3','h4','hr','i','img','li','ol','p','span','strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'], ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height','align','valign','bgcolor','border','cellpadding','cellspacing','colspan','rowspan','target','color','face','size'] }) }}
+                            <iframe
+                              title="Email preview"
+                              style={{ width: '100%', minHeight: '400px', border: 'none', background: '#ffffff' }}
+                              sandbox="allow-same-origin"
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${renderTemplate(selectedTemplate).body}</body></html>`}
                             />
                           </div>
                         )}
@@ -1320,14 +1314,11 @@ Start typing your email content here. Use the toolbar above to format text, add 
                           {templateToPreview.subject}
                         </p>
                       </div>
-                      <div
-                        className={`px-4 py-3 text-sm overflow-y-auto prose prose-sm max-w-none ${
-                          previewTheme === 'dark'
-                            ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
-                            : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
-                        }`}
-                        style={{ maxHeight: '360px', fontSize: '13px', lineHeight: '1.5' }}
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '', { ALLOWED_TAGS: ['a','b','blockquote','br','center','div','em','font','h1','h2','h3','h4','hr','i','img','li','ol','p','span','strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'], ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height','align','valign','bgcolor','border','cellpadding','cellspacing','colspan','rowspan','target','color','face','size'] }) }}
+                      <iframe
+                        title="Email preview"
+                        style={{ width: '100%', minHeight: '500px', border: 'none', background: '#ffffff' }}
+                        sandbox="allow-same-origin"
+                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${templateToPreview.body || ''}</body></html>`}
                       />
                     </div>
                     <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${
@@ -1367,14 +1358,11 @@ Start typing your email content here. Use the toolbar above to format text, add 
                         {templateToPreview.subject}
                       </p>
                     </div>
-                    <div
-                      className={`px-6 py-4 text-sm overflow-y-auto prose max-w-none ${
-                        previewTheme === 'dark'
-                          ? 'text-gray-200 prose-headings:text-gray-100 prose-a:text-blue-400 prose-strong:text-gray-100'
-                          : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
-                      }`}
-                      style={{ maxHeight: '400px' }}
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '', { ALLOWED_TAGS: ['a','b','blockquote','br','center','div','em','font','h1','h2','h3','h4','hr','i','img','li','ol','p','span','strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'], ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height','align','valign','bgcolor','border','cellpadding','cellspacing','colspan','rowspan','target','color','face','size'] }) }}
+                    <iframe
+                      title="Email preview"
+                      style={{ width: '100%', minHeight: '500px', border: 'none', background: '#ffffff' }}
+                      sandbox="allow-same-origin"
+                      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${templateToPreview.body || ''}</body></html>`}
                     />
                   </div>
                 )}
