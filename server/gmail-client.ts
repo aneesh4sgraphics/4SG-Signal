@@ -109,9 +109,11 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   emailLines.push('');
   emailLines.push(`--${boundary}`);
   emailLines.push('Content-Type: text/html; charset=utf-8');
-  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('Content-Transfer-Encoding: base64');
   emailLines.push('');
-  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
+  const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  emailLines.push(encodedContent);
   emailLines.push('');
   emailLines.push(`--${boundary}--`);
   

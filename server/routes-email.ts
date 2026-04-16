@@ -8,7 +8,6 @@ import { spotlightEngine } from "./spotlight-engine";
 import multer from "multer";
 import crypto from "crypto";
 import OpenAI from "openai";
-import juice from "juice";
 
 // Extracts all {{variable}} tokens from subject and body strings
 function extractTemplateVariables(...texts: (string | undefined | null)[]): string[] {
@@ -238,20 +237,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       // Prepare body with signature appended
       // Inline CSS so Gmail doesn't strip <style> tags (Gmail only honors inline style="" attributes)
       let rawHtml = htmlBody || body.replace(/\n/g, '<br>');
-      let finalHtmlBody: string;
-      try {
-        finalHtmlBody = juice(rawHtml, {
-          removeStyleTags: false,
-          preserveMediaQueries: true,
-          preserveFontFaces: true,
-          applyAttributesTableElements: true,
-          xmlMode: false,
-        });
-        console.log('[Email Send] CSS inlined successfully, length:', finalHtmlBody.length);
-      } catch (juiceErr) {
-        console.warn('[Email Send] juice inlining failed:', juiceErr);
-        finalHtmlBody = rawHtml;
-      }
+      let finalHtmlBody = rawHtml;
       let finalPlainBody = body;
       
       // Only auto-append signature if:

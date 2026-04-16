@@ -302,7 +302,9 @@ export async function sendEmailAsUser(userId: string, to: string, subject: strin
   emailLines.push('Content-Transfer-Encoding: base64');
   emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
   emailLines.push('');
-  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
+  const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  emailLines.push(encodedContent);
   
   const email = emailLines.join('\r\n');
   const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
