@@ -1,0 +1,46 @@
+In server/drip-email-worker.ts, the DOMPurify sanitization is stripping tags and attributes that HTML email builders like Designmodo require. Fix by expanding the allowed tags and attributes, and preserving the full HTML document structure.
+
+Find the DOMPurify.sanitize call and replace it with:
+
+    const sanitizedBody = DOMPurify.sanitize(email.body, {
+      ALLOWED_TAGS: [
+        'a', 'abbr', 'acronym', 'address', 'b', 'bdi', 'bdo', 'big',
+        'blockquote', 'body', 'br', 'button', 'caption', 'center', 'cite',
+        'code', 'col', 'colgroup', 'dd', 'del', 'details', 'dfn', 'dir',
+        'div', 'dl', 'dt', 'em', 'fieldset', 'figcaption', 'figure',
+        'font', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'head', 'header', 'hr', 'html', 'i', 'img', 'input', 'ins',
+        'kbd', 'label', 'legend', 'li', 'main', 'map', 'mark', 'menu',
+        'meta', 'nav', 'ol', 'optgroup', 'option', 'p', 'pre', 'q',
+        's', 'samp', 'section', 'select', 'small', 'span', 'strike',
+        'strong', 'style', 'sub', 'summary', 'sup', 'table', 'tbody',
+        'td', 'textarea', 'tfoot', 'th', 'thead', 'title', 'tr', 'tt',
+        'u', 'ul', 'var', 'wbr',
+      ],
+      ALLOWED_ATTR: [
+        // Core
+        'href', 'src', 'srcset', 'alt', 'title', 'style', 'class', 'id',
+        // Table layout (critical for email)
+        'width', 'height', 'align', 'valign', 'bgcolor', 'background',
+        'border', 'cellpadding', 'cellspacing', 'colspan', 'rowspan',
+        'nowrap', 'color', 'face', 'size',
+        // Link behaviour
+        'target', 'rel', 'type',
+        // Image
+        'usemap', 'ismap', 'loading',
+        // Meta / head
+        'charset', 'content', 'name', 'http-equiv', 'media', 'property',
+        // Accessibility
+        'role', 'aria-label', 'aria-hidden', 'lang', 'dir',
+        // HTML email specific
+        'xmlns', 'xmlns:v', 'xmlns:o', 'xmlns:w', 'xmlns:m',
+        'mso-line-height-rule', 'marginwidth', 'marginheight',
+        'leftmargin', 'topmargin', 'vspace', 'hspace',
+      ],
+      WHOLE_DOCUMENT: true,   // preserve <!DOCTYPE> and <html> wrapper
+      FORCE_BODY: false,       // don't strip to body-only
+      ADD_TAGS: ['html', 'head', 'body', 'meta', 'link'],
+      ADD_ATTR: ['xmlns', 'xmlns:v', 'xmlns:o', 'http-equiv', 'charset', 'content'],
+    });
+
+Do not change anything else in the file.
