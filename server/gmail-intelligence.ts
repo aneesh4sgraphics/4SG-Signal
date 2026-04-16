@@ -1269,7 +1269,7 @@ export async function syncAllConnectedUsers(): Promise<{ synced: number; failed:
         const currentHour = new Date().getHours();
         const isBusinessHours = currentHour >= 7 && currentHour < 20;
         if (result.newMessages > 0 && aiAnalysisEnabled && isBusinessHours) {
-          const analysisResult = await analyzeMessagesForInsights(connection.userId, 20);
+          const analysisResult = await analyzeMessagesForInsights(connection.userId, 5);
           if (analysisResult.insights > 0) {
             console.log(`[Gmail Sync] User ${connection.userId}: ${analysisResult.insights} AI insights extracted`);
           }
@@ -1342,7 +1342,7 @@ async function syncUserGmailMessagesDelta(userId: string, maxMessages: number): 
 }
 
 // Gmail sync configuration - optimized for cost (30 minutes instead of 15)
-const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes (cost-optimized)
+const SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const MAX_BACKOFF_MS = 60 * 60 * 1000; // 1 hour max backoff
 const BASE_BACKOFF_MS = 60 * 1000; // 1 minute base backoff
 

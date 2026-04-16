@@ -872,6 +872,9 @@ export async function generateAICoachingSummary(eventId: number): Promise<string
     // Only call OpenAI if confidence > threshold AND we have an API key
     if (confidence >= COACHING_CONFIDENCE_THRESHOLD && process.env.OPENAI_API_KEY) {
       try {
+        // Use template directly — skip AI call to reduce costs
+        coachingTip = template;
+        if (false) {  // Disabled: was making too many API calls
         const OpenAI = (await import('openai')).default;
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         
@@ -897,6 +900,7 @@ Personalize this coaching tip for this event type and customer stage. Be concise
         // Cache the AI-generated tip for this combination
         setCachedCoaching(cacheKey, coachingTip);
         console.log(`[AI Coach] Cached tip for ${cacheKey}`);
+        } // end disabled block
       } catch (aiError) {
         console.error('[AI Coach] OpenAI error, using template:', aiError);
       }
