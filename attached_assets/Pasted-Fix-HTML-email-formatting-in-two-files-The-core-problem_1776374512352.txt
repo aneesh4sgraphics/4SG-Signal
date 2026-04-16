@@ -1,0 +1,92 @@
+Fix HTML email formatting in two files. The core problem is Gmail strips <style> tags, so CSS must be inlined using the juice library.
+
+STEP 1 — Install juice in the shell:
+  npm install juice
+
+STEP 2 — In server/routes-email.ts, change the juice import at the top from dynamic to static:
+
+Find:
+  // any dynamic import of juice like: const juice = (await import("juice")).default;
+
+Replace the static import at the top of the file (with the other imports):
+  import juice from 'juice';
+
+Then find the juice inlining block (around line 238):
+  let finalHtmlBody: string;
+  try {
+    finalHtmlBody = juice(rawHtml, {
+
+Make sure it reads exactly:
+  let finalHtmlBody: string;
+  try {
+    finalHtmlBody = juice(rawHtml, {
+      removeStyleTags: false,
+      preserveMediaQueries: true,
+      preserveFontFaces: true,
+      applyAttributesTableElements: true,
+      xmlMode: false,
+    });
+    console.log('[Email Send] CSS inlined successfully, length:', finalHtmlBody.length);
+  } catch (juiceErr) {
+    console.warn('[Email Send] juice inlining failed:', juiceErr);
+    finalHtmlBody = rawHtml;
+  }
+
+STEP 3 — In server/gmail-client.ts, change the MIME structure from single-part to multipart/alternative so both plain text and HTML are sent properly.
+
+Find the section that builds emailLines:
+  emailLines.push('MIME-Version: 1.0');
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  emailLines.push('');
+  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+
+Replace with:
+  const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+  emailLines.push('MIME-Version: 1.0');
+  emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  emailLines.push('');
+  emailLines.push(`--${boundary}`);
+  emailLines.push('Content-Type: text/plain; charset=utf-8');
+  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('');
+  emailLines.push(body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() || 'Please view this email in an HTML-compatible email client.');
+  emailLines.push('');
+  emailLines.push(`--${boundary}`);
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('');
+  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+  emailLines.push('');
+  emailLines.push(`--${boundary}--`);
+
+STEP 4 — Apply the exact same MIME change to server/user-gmail-oauth.ts. Find the same block:
+  emailLines.push('MIME-Version: 1.0');
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  emailLines.push('');
+  emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+
+And replace it with the same multipart/alternative structure as Step 3.
+
+STEP 5 — In server/drip-email-worker.ts, add juice inlining after processedBody is set. Add this import at top:
+  import juice from 'juice';
+
+Find (around line 502):
+  let processedBody = replaceVariables(sanitizedBody, email);
+
+After that line add:
+  try {
+    processedBody = juice(processedBody, {
+      removeStyleTags: false,
+      preserveMediaQueries: true,
+      preserveFontFaces: true,
+      applyAttributesTableElements: true,
+      xmlMode: false,
+    });
+  } catch (juiceErr) {
+    console.warn('[Drip Worker] juice CSS inlining failed:', juiceErr);
+  }
+
+Do not change anything else. Run npm run build after. Push when done.
