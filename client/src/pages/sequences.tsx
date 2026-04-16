@@ -1184,13 +1184,16 @@ function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
   });
 
   const deleteTpl = useMutation({
-    mutationFn: () => apiRequest('DELETE', `/api/email/templates/${toDelete?.id}`),
+    mutationFn: (id: number) => {
+      if (!id || isNaN(id)) throw new Error("Invalid template ID");
+      return apiRequest('DELETE', `/api/email/templates/${id}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/email/templates'] });
       setToDelete(null);
       toast({ title: 'Template deleted' });
     },
-    onError: () => toast({ title: 'Failed to delete template', variant: 'destructive' }),
+    onError: (e: Error) => toast({ title: 'Failed to delete template', description: e.message, variant: 'destructive' }),
   });
 
   const openEdit = (tpl: any) => {
@@ -1382,7 +1385,7 @@ function TemplatesTab({ isAdmin }: { isAdmin: boolean }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteTpl.mutate()}>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => { if (toDelete?.id) { deleteTpl.mutate(toDelete.id); } }}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
