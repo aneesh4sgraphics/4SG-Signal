@@ -181,13 +181,14 @@ export default function EmailApp() {
       resetTemplateForm();
       toast({ title: "Template created successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to create template", variant: "destructive" });
+    onError: (e: Error) => {
+      toast({ title: "Failed to create template", description: e.message, variant: "destructive" });
     },
   });
 
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: typeof templateForm }) => {
+      if (!id || isNaN(id)) throw new Error("Invalid template ID");
       return await apiRequest("PATCH", `/api/email/templates/${id}`, data);
     },
     onSuccess: () => {
@@ -197,8 +198,8 @@ export default function EmailApp() {
       resetTemplateForm();
       toast({ title: "Template updated successfully" });
     },
-    onError: () => {
-      toast({ title: "Failed to update template", variant: "destructive" });
+    onError: (e: Error) => {
+      toast({ title: "Failed to update template", description: e.message, variant: "destructive" });
     },
   });
 
