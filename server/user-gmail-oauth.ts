@@ -298,7 +298,8 @@ export async function sendEmailAsUser(userId: string, to: string, subject: strin
   emailLines.push(`Message-ID: ${messageId}`);
   emailLines.push(`Reply-To: ${senderEmail}`);
   emailLines.push('MIME-Version: 1.0');
-  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('Content-Type: text/html; charset=UTF-8');
+  emailLines.push('Content-Transfer-Encoding: base64');
   emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
   emailLines.push('');
   emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
