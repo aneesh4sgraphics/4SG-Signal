@@ -497,7 +497,7 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       WHOLE_DOCUMENT: true,
       FORCE_BODY: false,
       ADD_TAGS: ['html', 'head', 'body', 'meta', 'link'],
-      ADD_ATTR: ['xmlns', 'xmlns:v', 'xmlns:o', 'http-equiv', 'charset', 'content'],
+      ADD_ATTR: ['xmlns', 'xmlns:v', 'xmlns:o', 'http-equiv', 'charset', 'content', 'rel', 'type', 'media'],
     });
 
     const processedSubject = replaceVariables(email.subject, email);
