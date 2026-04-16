@@ -1378,6 +1378,9 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
   app.delete("/api/email/templates/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (isNaN(id) || id <= 0) {
+        return res.status(400).json({ error: "Invalid template ID" });
+      }
       const userEmail = req.user?.email;
       const isAdmin = req.user?.role === 'admin';
       

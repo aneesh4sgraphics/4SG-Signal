@@ -1,0 +1,50 @@
+Make two changes to use iframe-based email preview instead of dangerouslySetInnerHTML so HTML emails render with full formatting including fonts, tables, and CSS.
+
+CHANGE 1 — client/src/pages/email-app.tsx
+
+Replace all 4 DOMPurify.sanitize preview instances with iframe rendering.
+
+Find line 780 (inside the email template send flow preview):
+  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body, { ALLOWED_TAGS: [...] }) }}
+
+Replace with:
+  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${renderTemplate(selectedTemplate).body}</body></html>`}
+And change the parent element from a <div> to an <iframe> with these props:
+  <iframe
+    title="Email preview"
+    style={{ width: '100%', minHeight: '400px', border: 'none', background: '#ffffff' }}
+    sandbox="allow-same-origin"
+    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${renderTemplate(selectedTemplate).body}</body></html>`}
+  />
+
+Apply the same iframe replacement to line 829 (second preview of the same template body).
+
+Find line 1328 (template preview modal):
+  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '', { ALLOWED_TAGS: [...] }) }}
+
+Replace the parent <div> with:
+  <iframe
+    title="Email preview"
+    style={{ width: '100%', minHeight: '500px', border: 'none', background: '#ffffff' }}
+    sandbox="allow-same-origin"
+    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${templateToPreview.body || ''}</body></html>`}
+  />
+
+Apply the same to line 1375 (second instance of templateToPreview preview).
+
+CHANGE 2 — client/src/components/DripCampaignBuilder.tsx
+
+The drip step preview Dialog already uses an iframe with srcDoc — verify it exists. Find the preview Dialog that has:
+  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport"...
+
+If that iframe already exists and uses srcDoc with the processedBody or stepForm.body, it is correct — do not change it.
+
+If it does NOT exist (still using dangerouslySetInnerHTML), replace it with:
+  <iframe
+    title="Email preview"
+    style={{ width: '100%', height: '100%', border: 'none', background: '#ffffff' }}
+    sandbox="allow-same-origin"
+    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:0">${stepForm.body || ''}</body></html>`}
+  />
+
+Do not change any other logic, mutations, or state. Push when done.

@@ -204,6 +204,7 @@ export default function EmailApp() {
 
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: number) => {
+      if (!id || isNaN(id)) throw new Error("Invalid template ID");
       return await apiRequest("DELETE", `/api/email/templates/${id}`);
     },
     onSuccess: () => {
