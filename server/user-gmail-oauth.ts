@@ -303,7 +303,7 @@ export async function sendEmailAsUser(userId: string, to: string, subject: strin
   emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
   emailLines.push('');
   const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
-  const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64');
   emailLines.push(encodedContent);
   
   const email = emailLines.join('\r\n');
