@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify';
+import juice from 'juice';
 import { db } from "./db";
 import { 
   dripCampaignStepStatus, 
@@ -522,13 +523,15 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 
     // Inline CSS so Gmail doesn't strip <style> tags (Gmail only honors inline style="" attributes)
     try {
-      const juice = (await import("juice")).default;
       processedBody = juice(processedBody, {
         removeStyleTags: false,
         preserveMediaQueries: true,
         preserveFontFaces: true,
+        applyAttributesTableElements: true,
       });
-    } catch (_) { /* fall through if juice fails */ }
+    } catch (juiceErr) {
+      console.warn('[Drip Worker] juice inlining failed, using raw body:', juiceErr);
+    }
 
     // Generate tracking token for drip emails
     const trackingToken = crypto.randomBytes(24).toString('hex');

@@ -8,6 +8,7 @@ import { spotlightEngine } from "./spotlight-engine";
 import multer from "multer";
 import crypto from "crypto";
 import OpenAI from "openai";
+import juice from "juice";
 
 // Extracts all {{variable}} tokens from subject and body strings
 function extractTemplateVariables(...texts: (string | undefined | null)[]): string[] {
@@ -239,13 +240,14 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       let rawHtml = htmlBody || body.replace(/\n/g, '<br>');
       let finalHtmlBody: string;
       try {
-        const juice = (await import("juice")).default;
         finalHtmlBody = juice(rawHtml, {
           removeStyleTags: false,
           preserveMediaQueries: true,
           preserveFontFaces: true,
+          applyAttributesTableElements: true,
         });
-      } catch (_) {
+      } catch (juiceErr) {
+        console.warn('[Email Send] juice inlining failed, using raw HTML:', juiceErr);
         finalHtmlBody = rawHtml;
       }
       let finalPlainBody = body;
