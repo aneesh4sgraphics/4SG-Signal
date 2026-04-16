@@ -1444,7 +1444,11 @@ Start typing your email content here. Use the toolbar above to format text, add 
             </Button>
             <Button
               variant="destructive"
-              onClick={() => templateToDelete && deleteTemplateMutation.mutate(templateToDelete.id)}
+              onClick={() => {
+                if (templateToDelete?.id) {
+                  deleteTemplateMutation.mutate(templateToDelete.id);
+                }
+              }}
               disabled={deleteTemplateMutation.isPending}
             >
               {deleteTemplateMutation.isPending ? (
