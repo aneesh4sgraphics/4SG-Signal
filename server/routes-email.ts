@@ -235,7 +235,19 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       }
       
       // Prepare body with signature appended
-      let finalHtmlBody = htmlBody || body.replace(/\n/g, '<br>');
+      // Inline CSS so Gmail doesn't strip <style> tags (Gmail only honors inline style="" attributes)
+      let rawHtml = htmlBody || body.replace(/\n/g, '<br>');
+      let finalHtmlBody: string;
+      try {
+        const juice = (await import("juice")).default;
+        finalHtmlBody = juice(rawHtml, {
+          removeStyleTags: false,
+          preserveMediaQueries: true,
+          preserveFontFaces: true,
+        });
+      } catch (_) {
+        finalHtmlBody = rawHtml;
+      }
       let finalPlainBody = body;
       
       // Only auto-append signature if:
