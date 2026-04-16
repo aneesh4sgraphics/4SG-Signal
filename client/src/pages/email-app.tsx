@@ -205,7 +205,12 @@ export default function EmailApp() {
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: number) => {
       if (!id || isNaN(id)) throw new Error("Invalid template ID");
-      return await apiRequest("DELETE", `/api/email/templates/${id}`);
+      const res = await apiRequest("DELETE", `/api/email/templates/${id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete template");
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/email/templates"] });
@@ -215,8 +220,8 @@ export default function EmailApp() {
       }
       toast({ title: "Template deleted" });
     },
-    onError: () => {
-      toast({ title: "Failed to delete template", variant: "destructive" });
+    onError: (e: Error) => {
+      toast({ title: "Failed to delete template", description: e.message, variant: "destructive" });
     },
   });
 
