@@ -497,6 +497,11 @@ async function sendScheduledEmail(email: ScheduledEmail) {
 
     const processedSubject = replaceVariables(email.subject, email);
     let processedBody = replaceVariables(sanitizedBody, email);
+    try {
+      processedBody = juice(processedBody, { removeStyleTags: false, preserveMediaQueries: true });
+    } catch (e) {
+      console.warn('[Drip Worker] juice failed:', e);
+    }
 
     // Append sender signature if the campaign has it enabled
     if (email.campaignSettings.includeSenderSignature) {
