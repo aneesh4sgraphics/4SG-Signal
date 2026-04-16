@@ -376,6 +376,7 @@ export default function EmailApp() {
       customerId: recipient.customerId,
       subject,
       body,
+      htmlBody: body,
       variableData: customVariables,
     });
   };
@@ -777,7 +778,14 @@ export default function EmailApp() {
                                     : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
                                 }`}
                                 style={{ maxHeight: '360px', fontSize: '13px', lineHeight: '1.5' }}
-                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body) }}
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body, {
+                                  ALLOWED_TAGS: ['a','b','blockquote','br','caption','center','div','em','font',
+                                    'h1','h2','h3','h4','h5','h6','hr','i','img','li','ol','p','small','span',
+                                    'strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'],
+                                  ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height',
+                                    'align','valign','bgcolor','border','cellpadding','cellspacing','colspan',
+                                    'rowspan','target','color','face','size','nowrap'],
+                                }) }}
                               />
                             </div>
                             <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${
@@ -826,7 +834,14 @@ export default function EmailApp() {
                                   : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
                               }`}
                               style={{ maxHeight: '400px' }}
-                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body) }}
+                              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderTemplate(selectedTemplate).body, {
+                                ALLOWED_TAGS: ['a','b','blockquote','br','caption','center','div','em','font',
+                                  'h1','h2','h3','h4','h5','h6','hr','i','img','li','ol','p','small','span',
+                                  'strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'],
+                                ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height',
+                                  'align','valign','bgcolor','border','cellpadding','cellspacing','colspan',
+                                  'rowspan','target','color','face','size','nowrap'],
+                              }) }}
                             />
                           </div>
                         )}
@@ -1325,7 +1340,14 @@ Start typing your email content here. Use the toolbar above to format text, add 
                             : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
                         }`}
                         style={{ maxHeight: '360px', fontSize: '13px', lineHeight: '1.5' }}
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '') }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '', {
+                          ALLOWED_TAGS: ['a','b','blockquote','br','caption','center','div','em','font',
+                            'h1','h2','h3','h4','h5','h6','hr','i','img','li','ol','p','small','span',
+                            'strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'],
+                          ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height',
+                            'align','valign','bgcolor','border','cellpadding','cellspacing','colspan',
+                            'rowspan','target','color','face','size','nowrap'],
+                        }) }}
                       />
                     </div>
                     <div className={`w-16 h-1.5 rounded-full mx-auto mt-2 mb-1 ${
@@ -1372,7 +1394,14 @@ Start typing your email content here. Use the toolbar above to format text, add 
                           : 'text-gray-800 prose-headings:text-gray-900 prose-a:text-blue-600'
                       }`}
                       style={{ maxHeight: '400px' }}
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '') }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(templateToPreview.body || '', {
+                        ALLOWED_TAGS: ['a','b','blockquote','br','caption','center','div','em','font',
+                          'h1','h2','h3','h4','h5','h6','hr','i','img','li','ol','p','small','span',
+                          'strong','style','table','tbody','td','tfoot','th','thead','tr','u','ul'],
+                        ALLOWED_ATTR: ['href','src','alt','title','style','class','id','width','height',
+                          'align','valign','bgcolor','border','cellpadding','cellspacing','colspan',
+                          'rowspan','target','color','face','size','nowrap'],
+                      }) }}
                     />
                   </div>
                 )}
