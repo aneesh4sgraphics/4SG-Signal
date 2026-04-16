@@ -245,9 +245,11 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
           preserveMediaQueries: true,
           preserveFontFaces: true,
           applyAttributesTableElements: true,
+          xmlMode: false,
         });
+        console.log('[Email Send] CSS inlined successfully, length:', finalHtmlBody.length);
       } catch (juiceErr) {
-        console.warn('[Email Send] juice inlining failed, using raw HTML:', juiceErr);
+        console.warn('[Email Send] juice inlining failed:', juiceErr);
         finalHtmlBody = rawHtml;
       }
       let finalPlainBody = body;

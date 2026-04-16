@@ -96,11 +96,24 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   if (effectiveReplyTo) {
     emailLines.push(`Reply-To: ${effectiveReplyTo}`);
   }
+  const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substring(2)}`;
   emailLines.push('MIME-Version: 1.0');
-  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
   emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
   emailLines.push('');
+  emailLines.push(`--${boundary}`);
+  emailLines.push('Content-Type: text/plain; charset=utf-8');
+  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('');
+  emailLines.push(body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim() || 'Please view this email in an HTML-compatible email client.');
+  emailLines.push('');
+  emailLines.push(`--${boundary}`);
+  emailLines.push('Content-Type: text/html; charset=utf-8');
+  emailLines.push('Content-Transfer-Encoding: quoted-printable');
+  emailLines.push('');
   emailLines.push(htmlBody || body.replace(/\n/g, '<br>'));
+  emailLines.push('');
+  emailLines.push(`--${boundary}--`);
   
   const email = emailLines.join('\r\n');
   const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
