@@ -556,26 +556,23 @@ export default function ProductPricingManagement() {
                         </td>
                         <td style={{ ...stickyBase, left: COL_SIZE, background: '#FFFBEB', borderBottom: '1px solid #FDE68A', borderRight: '2px solid #FDE68A' }} />
                         {TIERS.map(tier => (
-                          <td key={tier.key} style={{ padding: '5px 8px', borderBottom: '1px solid #FDE68A', borderRight: '0.5px solid #FDE68A', verticalAlign: 'middle' }}>
+                          <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '1px solid #FDE68A', borderRight: '0.5px solid #FDE68A', verticalAlign: 'middle', textAlign: 'center' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
-                              <div style={{ position: 'relative', width: '90px' }}>
-                                <span style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: '#92400E', pointerEvents: 'none' }}>$</span>
-                                <input
-                                  type="text" inputMode="decimal"
-                                  value={bulkByTier[tier.key] ?? ''}
-                                  onChange={e => { if (isDecimalInput(e.target.value)) setBulkByTier(prev => ({ ...prev, [tier.key]: e.target.value })); }}
-                                  placeholder="$/m²"
-                                  onFocus={e => e.target.select()}
-                                  style={{ width: '90px', padding: '3px 4px 3px 16px', border: '0.5px solid #FCD34D', borderRadius: '4px', fontSize: '11px', outline: 'none', background: '#fff', color: '#92400E', textAlign: 'right' }}
-                                />
-                              </div>
+                              <input
+                                type="text" inputMode="decimal"
+                                value={bulkByTier[tier.key] ?? ''}
+                                onChange={e => { if (isDecimalInput(e.target.value)) setBulkByTier(prev => ({ ...prev, [tier.key]: e.target.value })); }}
+                                placeholder="$/m²"
+                                onFocus={e => e.target.select()}
+                                style={{ width: '88px', padding: '3px 6px', border: '0.5px solid #FCD34D', borderRadius: '4px', fontSize: '11px', outline: 'none', background: '#fff', color: '#92400E', textAlign: 'center' }}
+                              />
                               <div style={{ display: 'flex', gap: '3px' }}>
                                 <button onClick={() => applyBulkToTier(family, tier.key, 'all')}
-                                  style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E', fontWeight: 600 }}>
+                                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E', fontWeight: 600 }}>
                                   All
                                 </button>
                                 <button onClick={() => applyBulkToTier(family, tier.key, 'blanks')}
-                                  style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E' }}>
+                                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E' }}>
                                   Blanks
                                 </button>
                               </div>
@@ -607,21 +604,20 @@ export default function ProductPricingManagement() {
                               const isEdited = editMap[product.id]?.[tier.key] !== undefined;
                               const perSheet = livePerSheet(rateStr, product.totalSqm);
                               return (
-                                <td key={tier.key} style={{ padding: '6px 8px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle', textAlign: 'center' }}>
-                                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                                    <span style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }}>$</span>
+                                <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle', textAlign: 'center' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                                     <input
                                       type="text" inputMode="decimal"
                                       value={rateStr}
                                       onChange={e => setRate(product.id, tier.key, e.target.value)}
                                       placeholder="—"
                                       onFocus={e => e.target.select()}
-                                      style={{ width: '90px', padding: '5px 5px 5px 18px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'transparent', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
+                                      style={{ width: '88px', padding: '4px 6px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'transparent', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
                                     />
+                                    <div style={{ width: '88px', fontSize: '10px', color: 'var(--color-text-tertiary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minHeight: '14px' }}>
+                                      {rateStr ? perSheet : ''}
+                                    </div>
                                   </div>
-                                  {rateStr && (
-                                    <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>{perSheet}</div>
-                                  )}
                                 </td>
                               );
                             })}
