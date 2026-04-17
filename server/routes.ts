@@ -21718,6 +21718,18 @@ Analyze this bounced email and provide insights in JSON format:
                 = SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2)
           )
 
+          -- Exclude senders the user has explicitly blocked via the DB blacklist
+          AND NOT EXISTS (
+            SELECT 1 FROM email_intelligence_blacklist bl
+            WHERE bl.pattern_type = 'email'
+              AND bl.pattern = LOWER(TRIM(gm.from_email))
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM email_intelligence_blacklist bl2
+            WHERE bl2.pattern_type = 'domain'
+              AND bl2.pattern = SPLIT_PART(LOWER(TRIM(gm.from_email)), '@', 2)
+          )
+
           -- Exclude obvious marketing / automated senders (domain-based)
           AND gm.from_email NOT ILIKE '%noreply%'
           AND gm.from_email NOT ILIKE '%no-reply%'

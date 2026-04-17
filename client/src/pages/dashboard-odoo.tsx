@@ -223,7 +223,7 @@ export default function Dashboard() {
     });
     setConfirmDismiss(null);
   };
-  const blockSender = (email: string) => {
+  const blockSender = async (email: string) => {
     setBlacklistedSenders(prev => {
       const next = new Set(prev);
       next.add(email.toLowerCase());
@@ -231,6 +231,16 @@ export default function Dashboard() {
       return next;
     });
     setConfirmDismiss(null);
+    try {
+      await apiRequest('POST', '/api/email-intelligence/blacklist', {
+        pattern: email.toLowerCase().trim(),
+        patternType: 'email',
+        reason: 'Blocked from dashboard inbound inquiries',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/unknown-inquiries'] });
+    } catch (e) {
+      console.warn('[Dashboard] Failed to persist sender block to DB:', e);
+    }
   };
   const [addingLead, setAddingLead] = useState<string | null>(null);
   const addAsLeadMutation = useMutation({
