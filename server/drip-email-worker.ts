@@ -464,6 +464,11 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       return;
     }
 
+    // Log the raw HTML as stored in the database
+    console.log('[Drip Worker] ── RAW BODY (from DB) ─────────────────────────────');
+    console.log('[Drip Worker] Raw body length:', email.body.length, 'chars');
+    console.log('[Drip Worker] Raw body preview (first 500 chars):', email.body.slice(0, 500));
+
     // Sanitize HTML body — strip dangerous JS/events while keeping email-safe HTML.
     // Runs before replaceVariables so {{token}} placeholders are never treated as markup.
     const sanitizedBody = DOMPurify.sanitize(email.body, {
@@ -493,6 +498,10 @@ async function sendScheduledEmail(email: ScheduledEmail) {
       ADD_TAGS: ['html', 'head', 'body', 'meta', 'link', 'title'],
       ADD_ATTR: ['xmlns', 'xmlns:v', 'xmlns:o', 'http-equiv', 'charset', 'content', 'media'],
     });
+
+    console.log('[Drip Worker] ── SANITIZED BODY ──────────────────────────────────');
+    console.log('[Drip Worker] Sanitized body length:', sanitizedBody.length, 'chars');
+    console.log('[Drip Worker] Sanitized body preview (first 500 chars):', sanitizedBody.slice(0, 500));
 
     const processedSubject = replaceVariables(email.subject, email);
     let processedBody = replaceVariables(sanitizedBody, email);
@@ -553,6 +562,12 @@ async function sendScheduledEmail(email: ScheduledEmail) {
     } else {
       processedBody = processedBody + trackingPixel;
     }
+
+    console.log('[Drip Worker] ── FINAL BODY (about to send) ────────────────────');
+    console.log('[Drip Worker] Final body length:', processedBody.length, 'chars');
+    console.log('[Drip Worker] Final body preview (first 800 chars):');
+    console.log(processedBody.slice(0, 800));
+    console.log('[Drip Worker] ────────────────────────────────────────────────────');
 
     // Send via the effective sender's personal Gmail (lead's assigned rep first, then campaign creator)
     // so the email appears in their Sent folder and replies come back to them.

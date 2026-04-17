@@ -301,6 +301,15 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         }
       }
       
+      // Log the exact payload being sent
+      console.log('[Email Send] ── FINAL PAYLOAD ──────────────────────────────────');
+      console.log('[Email Send] To:', to, '| Subject:', subject);
+      console.log('[Email Send] Plain text body (first 300 chars):', finalPlainBody.slice(0, 300));
+      console.log('[Email Send] HTML body length:', trackedHtmlBody.length, 'chars');
+      console.log('[Email Send] HTML body preview (first 800 chars):');
+      console.log(trackedHtmlBody.slice(0, 800));
+      console.log('[Email Send] ─────────────────────────────────────────────────');
+
       // Send via Gmail with tracked HTML and signature-appended plain text
       // Use user's personal Gmail if available, otherwise use shared connector
       let result;
@@ -1544,6 +1553,71 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
     } catch (error) {
       console.error("Error fetching email tracking data:", error);
       res.status(500).json({ error: "Failed to fetch tracking data" });
+    }
+  });
+
+  // Email HTML preview/debug endpoint — shows raw, sanitized, and final HTML stages
+  app.post("/api/email/preview-process", isAuthenticated, async (req: any, res) => {
+    try {
+      const DOMPurify = (await import('isomorphic-dompurify')).default;
+      const { html } = req.body;
+      if (!html || typeof html !== 'string') {
+        return res.status(400).json({ error: "Missing html field in request body" });
+      }
+
+      const raw = html;
+
+      const sanitized = DOMPurify.sanitize(html, {
+        WHOLE_DOCUMENT: true,
+        FORCE_BODY: false,
+        ALLOWED_TAGS: [
+          'a', 'abbr', 'b', 'blockquote', 'body', 'br', 'button', 'caption',
+          'center', 'cite', 'code', 'col', 'colgroup', 'dd', 'div', 'dl',
+          'dt', 'em', 'fieldset', 'font', 'footer', 'form', 'h1', 'h2',
+          'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hr', 'html', 'i',
+          'img', 'input', 'label', 'legend', 'li', 'link', 'main', 'meta',
+          'nav', 'ol', 'p', 'pre', 's', 'section', 'select', 'small',
+          'span', 'strong', 'style', 'sub', 'sup', 'table', 'tbody', 'td',
+          'tfoot', 'th', 'thead', 'title', 'tr', 'u', 'ul',
+        ],
+        ALLOWED_ATTR: [
+          'href', 'src', 'srcset', 'alt', 'title', 'style', 'class', 'id',
+          'width', 'height', 'align', 'valign', 'bgcolor', 'background',
+          'border', 'cellpadding', 'cellspacing', 'colspan', 'rowspan',
+          'nowrap', 'color', 'face', 'size', 'target', 'rel', 'type',
+          'charset', 'content', 'name', 'http-equiv', 'media', 'property',
+          'role', 'aria-label', 'aria-hidden', 'lang', 'dir',
+          'xmlns', 'xmlns:v', 'xmlns:o',
+          'marginwidth', 'marginheight', 'leftmargin', 'topmargin',
+          'vspace', 'hspace', 'loading',
+        ],
+        ADD_TAGS: ['html', 'head', 'body', 'meta', 'link', 'title'],
+        ADD_ATTR: ['xmlns', 'xmlns:v', 'xmlns:o', 'http-equiv', 'charset', 'content', 'media'],
+      });
+
+      // Simulate tracking injection (same logic as drip worker / routes-email)
+      const trackingPixel = `<img src="https://example.com/api/t/open/PREVIEW_TOKEN.png" width="1" height="1" style="display:none;width:1px;height:1px;border:0;" alt="" />`;
+      let final = sanitized;
+      if (final.includes('</body>')) {
+        final = final.replace('</body>', `${trackingPixel}</body>`);
+      } else {
+        final = final + trackingPixel;
+      }
+
+      res.json({
+        raw,
+        sanitized,
+        final,
+        stats: {
+          rawLength: raw.length,
+          sanitizedLength: sanitized.length,
+          finalLength: final.length,
+          rawVsSanitizedDiff: raw.length - sanitized.length,
+        },
+      });
+    } catch (error) {
+      console.error("[Email Preview] Error:", error);
+      res.status(500).json({ error: "Failed to process email HTML" });
     }
   });
 }

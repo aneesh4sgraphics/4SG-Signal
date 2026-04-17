@@ -298,18 +298,38 @@ export async function sendEmailAsUser(userId: string, to: string, subject: strin
   emailLines.push(`Message-ID: ${messageId}`);
   emailLines.push(`Reply-To: ${senderEmail}`);
   emailLines.push('MIME-Version: 1.0');
+  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
+  const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+  emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+  emailLines.push('');
+
+  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
+  const plainText = body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+    || 'Please view this email in an HTML-compatible email client.';
+
+  emailLines.push(`--${boundary}`);
+  emailLines.push('Content-Type: text/plain; charset=utf-8');
+  emailLines.push('Content-Transfer-Encoding: 8bit');
+  emailLines.push('');
+  emailLines.push(plainText);
+  emailLines.push('');
+
+  emailLines.push(`--${boundary}`);
   emailLines.push('Content-Type: text/html; charset=UTF-8');
   emailLines.push('Content-Transfer-Encoding: base64');
-  emailLines.push('X-Mailer: 4SG-QuoteSystem/1.0');
   emailLines.push('');
-  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
   const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64');
   emailLines.push(encodedContent);
-  
+  emailLines.push('');
+  emailLines.push(`--${boundary}--`);
+
   const email = emailLines.join('\r\n');
   const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  
+
   console.log('[User Gmail] Sending email from:', senderEmail, 'to:', to, 'Subject:', subject);
+  console.log('[User Gmail] HTML payload length:', htmlContent.length, 'chars');
+  console.log('[User Gmail] HTML payload preview (first 500 chars):', htmlContent.slice(0, 500));
+  console.log('[User Gmail] Plain text payload (first 200 chars):', plainText.slice(0, 200));
   
   const result = await gmail.users.messages.send({
     userId: 'me',

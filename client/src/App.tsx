@@ -44,6 +44,7 @@ const SalesAnalyticsPage = lazy(() => import("@/pages/sales-analytics"));
 const ReportsPage = lazy(() => import("@/pages/reports"));
 const CostDashboard = lazy(() => import("@/pages/cost-dashboard"));
 const EmailSyncDebug = lazy(() => import("@/pages/email-sync-debug"));
+const EmailPreviewDebug = lazy(() => import("@/pages/email-preview-debug"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const TaskInbox = lazy(() => import("@/pages/task-inbox"));
 const HotLeads = lazy(() => import("@/pages/hot-leads"));
@@ -176,6 +177,7 @@ const AppRoutes = () => (
         if (user?.email !== 'aneesh@4sgraphics.com') return <Redirect to="/" />;
         return <EmailSyncDebug />;
       }} />
+      <Route path="/email-preview-debug" component={() => <EmailPreviewDebug />} />
       <Route path="/objections" component={ObjectionsPage} />
       <Route path="/shopify-settings" component={ShopifySettingsPage} />
       <Route path="/odoo-settings" component={OdooSettingsPage} />

@@ -121,6 +121,9 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   
   console.log('Sending email from:', senderEmail, 'to:', to, 'Subject:', subject);
+  console.log('[Gmail Shared] HTML payload length:', htmlContent.length, 'chars');
+  console.log('[Gmail Shared] HTML payload preview (first 500 chars):', htmlContent.slice(0, 500));
+  console.log('[Gmail Shared] Plain text payload (first 200 chars):', (body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()).slice(0, 200));
   
   const result = await gmail.users.messages.send({
     userId: 'me',
