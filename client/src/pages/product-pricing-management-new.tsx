@@ -106,10 +106,14 @@ function getDisplayRate(product: RawProduct, key: TierKey): string {
   return (price / sqm).toFixed(4);
 }
 
-function livePerSheet(rateStr: string, sqm: number): string {
+function livePerUnit(rateStr: string, sqm: number, unit: string): string {
   const r = parseFloat(rateStr);
-  if (isNaN(r) || r <= 0 || sqm <= 0) return '—';
-  return '$' + (r * sqm).toFixed(4);
+  if (isNaN(r) || r <= 0 || sqm <= 0) return '';
+  return '$' + (r * sqm).toFixed(2) + '/' + unit;
+}
+
+function getUnit(rollSheet: string | null): string {
+  return rollSheet === 'Roll' ? 'roll' : 'sheet';
 }
 
 function isDecimalInput(v: string) {
@@ -602,20 +606,26 @@ export default function ProductPricingManagement() {
                             {TIERS.map(tier => {
                               const rateStr = getRateForProduct(product, tier.key);
                               const isEdited = editMap[product.id]?.[tier.key] !== undefined;
-                              const perSheet = livePerSheet(rateStr, product.totalSqm);
+                              const unit = getUnit(product.rollSheet);
+                              const perUnit = livePerUnit(rateStr, product.totalSqm, unit);
                               return (
-                                <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle', textAlign: 'center' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                    <input
-                                      type="text" inputMode="decimal"
-                                      value={rateStr}
-                                      onChange={e => setRate(product.id, tier.key, e.target.value)}
-                                      placeholder="—"
-                                      onFocus={e => e.target.select()}
-                                      style={{ width: '88px', padding: '4px 6px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'transparent', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
-                                    />
-                                    <div style={{ width: '88px', fontSize: '10px', color: 'var(--color-text-tertiary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', minHeight: '14px' }}>
-                                      {rateStr ? perSheet : ''}
+                                <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                    {/* $/m² row: visible $ + input */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                      <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', lineHeight: 1 }}>$</span>
+                                      <input
+                                        type="text" inputMode="decimal"
+                                        value={rateStr}
+                                        onChange={e => setRate(product.id, tier.key, e.target.value)}
+                                        placeholder="0.0000"
+                                        onFocus={e => e.target.select()}
+                                        style={{ width: '74px', padding: '4px 5px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'transparent', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
+                                      />
+                                    </div>
+                                    {/* Per-unit row */}
+                                    <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums', minHeight: '14px' }}>
+                                      {perUnit}
                                     </div>
                                   </div>
                                 </td>
