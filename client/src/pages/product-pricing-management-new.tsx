@@ -253,11 +253,15 @@ export default function ProductPricingManagement() {
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                           <span style={{ position: 'absolute', left: '6px', fontSize: '11px', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }}>$</span>
                           <input
-                            type="number"
-                            step="0.0001"
-                            min="0"
+                            type="text"
+                            inputMode="decimal"
                             value={val}
-                            onChange={e => setEditValue(row.typeId, tier.key, e.target.value)}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              if (raw === '' || /^(\d+\.?\d*|\.\d*)$/.test(raw)) {
+                                setEditValue(row.typeId, tier.key, raw);
+                              }
+                            }}
                             placeholder="—"
                             style={{
                               width: '72px',
