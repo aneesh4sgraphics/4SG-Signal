@@ -620,7 +620,7 @@ export default function ProductPricingManagement() {
                                         onChange={e => setRate(product.id, tier.key, e.target.value)}
                                         placeholder="0.0000"
                                         onFocus={e => e.target.select()}
-                                        style={{ width: '74px', padding: '4px 5px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'transparent', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
+                                        style={{ width: '74px', padding: '4px 5px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : '#fff', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
                                       />
                                     </div>
                                     {/* Per-unit row */}
