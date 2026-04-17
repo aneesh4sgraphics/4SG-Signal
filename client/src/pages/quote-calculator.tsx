@@ -425,20 +425,11 @@ export default function QuoteCalculator() {
   };
 
   // Fetch product pricing data from new database - only fetch when authenticated
-  const { data: productData = [], isLoading, error, refetch } = useQuery<ProductData[]>({
+  const { data: _pricingRaw, isLoading, error, refetch } = useQuery<{ data: ProductData[] }>({
     queryKey: ['/api/product-pricing-database'],
-    queryFn: async () => {
-      const response = await fetch('/api/product-pricing-database', {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch pricing data');
-      }
-      const result = await response.json();
-      return result.data || []; // Extract data from response wrapper
-    },
     enabled: !isAuthLoading && isAuthenticated,
   });
+  const productData: ProductData[] = _pricingRaw?.data ?? [];
 
   // Fetch PDF sent prices for the selected customer
   const { data: sentPricesData } = useQuery<{
