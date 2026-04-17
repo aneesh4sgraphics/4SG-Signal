@@ -761,11 +761,11 @@ export default function OdooCompanyDetail() {
                     </Badge>
                   ) : (
                     <button
-                      onClick={() => pushSyncMutation.mutate()}
-                      disabled={pushSyncMutation.isPending}
+                      onClick={() => createInOdooMutation.mutate()}
+                      disabled={createInOdooMutation.isPending}
                       className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 transition-colors cursor-pointer"
                     >
-                      {pushSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                      {createInOdooMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
                       Push to Odoo
                     </button>
                   )}
