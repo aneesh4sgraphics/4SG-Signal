@@ -106,14 +106,18 @@ function getDisplayRate(product: RawProduct, key: TierKey): string {
   return (price / sqm).toFixed(4);
 }
 
-function livePerUnit(rateStr: string, sqm: number, unit: string): string {
+function livePerUnit(rateStr: string, sqm: number, rollSheet: string | null, minQty: number): string {
   const r = parseFloat(rateStr);
   if (isNaN(r) || r <= 0 || sqm <= 0) return '';
-  return '$' + (r * sqm).toFixed(2) + '/' + unit;
-}
-
-function getUnit(rollSheet: string | null): string {
-  return rollSheet === 'Roll' ? 'roll' : 'sheet';
+  const packPrice = r * sqm;
+  if (rollSheet === 'Roll') {
+    return '$' + packPrice.toFixed(2) + '/roll';
+  }
+  if (rollSheet === 'Packet' || rollSheet === 'Carton') {
+    const sheetPrice = minQty > 1 ? packPrice / minQty : packPrice;
+    return '$' + sheetPrice.toFixed(2) + '/sheet';
+  }
+  return '$' + packPrice.toFixed(2) + '/sheet';
 }
 
 function isDecimalInput(v: string) {
@@ -606,8 +610,7 @@ export default function ProductPricingManagement() {
                             {TIERS.map(tier => {
                               const rateStr = getRateForProduct(product, tier.key);
                               const isEdited = editMap[product.id]?.[tier.key] !== undefined;
-                              const unit = getUnit(product.rollSheet);
-                              const perUnit = livePerUnit(rateStr, product.totalSqm, unit);
+                              const perUnit = livePerUnit(rateStr, product.totalSqm, product.rollSheet, product.minQuantity);
                               return (
                                 <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
