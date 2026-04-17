@@ -1858,10 +1858,13 @@ router.put("/product-type-pricing/:typeId", isAuthenticated, requireAdmin, async
 
 // ============================================================
 // Code-prefix based product pricing API (Tab 1 - Pricing)
+// Handlers are extracted so both /product-pricing/* and
+// /pricing-master/* paths can share the same implementation.
+// The /product-pricing/* paths require the router to be mounted
+// before the legacy /api/product-pricing/:typeId route in routes.ts.
 // ============================================================
 
-// GET /product-pricing/browse — category tree with base-code families for left panel
-router.get("/pricing-master/browse", isAuthenticated, requireAdmin, async (req: any, res) => {
+async function browseHandler(req: any, res: any) {
   try {
     const { rows } = await db.execute(sql`
       SELECT
@@ -1869,10 +1872,19 @@ router.get("/pricing-master/browse", isAuthenticated, requireAdmin, async (req: 
         pc.name as category_name,
         regexp_replace(ppm.item_code, '-[^-]+$', '') as base_code,
         COUNT(*) as product_count,
-        COUNT(CASE WHEN (ppm.landed_price IS NOT NULL AND ppm.landed_price > 0)
-                     OR (ppm.dealer_price IS NOT NULL AND ppm.dealer_price > 0)
-                     OR (ppm.retail_price IS NOT NULL AND ppm.retail_price > 0)
-                   THEN 1 END) as priced_count
+        COUNT(CASE WHEN
+          (ppm.landed_price IS NOT NULL AND ppm.landed_price > 0) OR
+          (ppm.export_price IS NOT NULL AND ppm.export_price > 0) OR
+          (ppm.master_distributor_price IS NOT NULL AND ppm.master_distributor_price > 0) OR
+          (ppm.dealer_price IS NOT NULL AND ppm.dealer_price > 0) OR
+          (ppm.dealer2_price IS NOT NULL AND ppm.dealer2_price > 0) OR
+          (ppm.approval_needed_price IS NOT NULL AND ppm.approval_needed_price > 0) OR
+          (ppm.tier_stage25_price IS NOT NULL AND ppm.tier_stage25_price > 0) OR
+          (ppm.tier_stage2_price IS NOT NULL AND ppm.tier_stage2_price > 0) OR
+          (ppm.tier_stage15_price IS NOT NULL AND ppm.tier_stage15_price > 0) OR
+          (ppm.tier_stage1_price IS NOT NULL AND ppm.tier_stage1_price > 0) OR
+          (ppm.retail_price IS NOT NULL AND ppm.retail_price > 0)
+        THEN 1 END) as priced_count
       FROM product_pricing_master ppm
       LEFT JOIN product_types pt ON ppm.product_type_id = pt.id
       LEFT JOIN product_categories pc ON pt.category_id = pc.id
@@ -1899,10 +1911,9 @@ router.get("/pricing-master/browse", isAuthenticated, requireAdmin, async (req: 
     console.error("Error fetching browse data:", error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
-// GET /product-pricing/search?prefix=X — products matching the base-code prefix
-router.get("/pricing-master/search", isAuthenticated, requireAdmin, async (req: any, res) => {
+async function searchHandler(req: any, res: any) {
   try {
     const prefix = ((req.query.prefix as string) || '').toUpperCase().trim();
 
@@ -1929,8 +1940,8 @@ router.get("/pricing-master/search", isAuthenticated, requireAdmin, async (req: 
       LIMIT 500
     `);
 
-    const familyMap = new Map<string, any>();
-    for (const row of rows as any[]) {
+    const familyMap = new Map<string, { baseCode: string; categoryId: number | null; categoryName: string; typeId: number | null; typeName: string | null; products: Record<string, string | number | null>[] }>();
+    for (const row of rows) {
       const bc = row.base_code as string;
       if (!familyMap.has(bc)) {
         familyMap.set(bc, {
@@ -1949,18 +1960,18 @@ router.get("/pricing-master/search", isAuthenticated, requireAdmin, async (req: 
         productType: row.product_type as string,
         size: row.size as string,
         totalSqm: row.total_sqm as string,
-        rollSheet: row.roll_sheet as string | null,
-        landedPrice: row.landed_price as string | null,
-        exportPrice: row.export_price as string | null,
-        masterDistributorPrice: row.master_distributor_price as string | null,
-        dealerPrice: row.dealer_price as string | null,
-        dealer2Price: row.dealer2_price as string | null,
-        approvalNeededPrice: row.approval_needed_price as string | null,
-        tierStage25Price: row.tier_stage25_price as string | null,
-        tierStage2Price: row.tier_stage2_price as string | null,
-        tierStage15Price: row.tier_stage15_price as string | null,
-        tierStage1Price: row.tier_stage1_price as string | null,
-        retailPrice: row.retail_price as string | null,
+        rollSheet: (row.roll_sheet as string) ?? null,
+        landedPrice: (row.landed_price as string) ?? null,
+        exportPrice: (row.export_price as string) ?? null,
+        masterDistributorPrice: (row.master_distributor_price as string) ?? null,
+        dealerPrice: (row.dealer_price as string) ?? null,
+        dealer2Price: (row.dealer2_price as string) ?? null,
+        approvalNeededPrice: (row.approval_needed_price as string) ?? null,
+        tierStage25Price: (row.tier_stage25_price as string) ?? null,
+        tierStage2Price: (row.tier_stage2_price as string) ?? null,
+        tierStage15Price: (row.tier_stage15_price as string) ?? null,
+        tierStage1Price: (row.tier_stage1_price as string) ?? null,
+        retailPrice: (row.retail_price as string) ?? null,
       });
     }
 
@@ -1969,19 +1980,19 @@ router.get("/pricing-master/search", isAuthenticated, requireAdmin, async (req: 
     console.error("Error searching products:", error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
-// PUT /product-pricing/save-rates — $/m² rates × sqm → price columns in product_pricing_master
-router.put("/pricing-master/save-rates", isAuthenticated, requireAdmin, async (req: any, res) => {
+const PRICE_TIER_KEYS = [
+  'landedPrice', 'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
+  'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 'tierStage15Price',
+  'tierStage1Price', 'retailPrice',
+] as const;
+type PriceTierKey = typeof PRICE_TIER_KEYS[number];
+
+async function saveRatesHandler(req: any, res: any) {
   try {
-    const items: Array<{ itemCode: string; rates: Record<string, string> }> = req.body;
+    const items: Array<{ itemCode: string; rates: Partial<Record<PriceTierKey, string>> }> = req.body;
     if (!Array.isArray(items)) return res.status(400).json({ error: 'Expected array of { itemCode, rates }' });
-
-    const tierKeys = [
-      'landedPrice', 'exportPrice', 'masterDistributorPrice', 'dealerPrice', 'dealer2Price',
-      'approvalNeededPrice', 'tierStage25Price', 'tierStage2Price', 'tierStage15Price',
-      'tierStage1Price', 'retailPrice',
-    ] as const;
 
     let updated = 0;
     let skipped = 0;
@@ -1999,11 +2010,11 @@ router.put("/pricing-master/save-rates", isAuthenticated, requireAdmin, async (r
       const totalSqm = parseFloat(existing[0].totalSqm || '0');
       if (totalSqm <= 0) { skipped++; continue; }
 
-      const updateValues: Record<string, any> = { updatedAt: new Date() };
-      for (const tierKey of tierKeys) {
+      const updateValues: Record<string, string | Date> = { updatedAt: new Date() };
+      for (const tierKey of PRICE_TIER_KEYS) {
         const rate = item.rates?.[tierKey];
         if (rate === undefined || rate === null || rate === '') continue;
-        const rateNum = parseFloat(rate as string);
+        const rateNum = parseFloat(rate);
         if (isNaN(rateNum) || rateNum < 0) continue;
         updateValues[tierKey] = (rateNum * totalSqm).toFixed(4);
       }
@@ -2024,10 +2035,9 @@ router.put("/pricing-master/save-rates", isAuthenticated, requireAdmin, async (r
     console.error("Error saving rates:", error);
     res.status(500).json({ error: error.message });
   }
-});
+}
 
-// GET /product-pricing/odoo-products — all active products with mapped status (Tab 2)
-router.get("/pricing-master/odoo-products", isAuthenticated, requireAdmin, async (req: any, res) => {
+async function odooProductsHandler(req: any, res: any) {
   try {
     const { rows } = await db.execute(sql`
       SELECT
@@ -2050,15 +2060,15 @@ router.get("/pricing-master/odoo-products", isAuthenticated, requireAdmin, async
       ORDER BY ppm.item_code
     `);
 
-    const products = (rows as any[]).map(row => ({
+    const products = rows.map(row => ({
       id: Number(row.id),
       itemCode: row.item_code as string,
-      odooItemCode: row.odoo_item_code as string | null,
+      odooItemCode: (row.odoo_item_code as string) ?? null,
       productName: row.product_name as string,
       productType: row.product_type as string,
       size: row.size as string,
       totalSqm: row.total_sqm as string,
-      rollSheet: row.roll_sheet as string | null,
+      rollSheet: (row.roll_sheet as string) ?? null,
       minQuantity: row.min_quantity != null ? Number(row.min_quantity) : 1,
       productTypeId: row.product_type_id != null ? Number(row.product_type_id) : null,
       catalogCategoryId: row.catalog_category_id != null ? Number(row.catalog_category_id) : null,
@@ -2078,6 +2088,20 @@ router.get("/pricing-master/odoo-products", isAuthenticated, requireAdmin, async
     console.error("Error fetching odoo products:", error);
     res.status(500).json({ error: error.message });
   }
-});
+}
+
+// Register the handlers under the primary /product-pricing/* paths.
+// The router must be mounted in routes.ts BEFORE the legacy GET /api/product-pricing/:typeId
+// route to avoid that catch-all intercepting these named paths.
+router.get("/product-pricing/browse", isAuthenticated, requireAdmin, browseHandler);
+router.get("/product-pricing/search", isAuthenticated, requireAdmin, searchHandler);
+router.put("/product-pricing/save-rates", isAuthenticated, requireAdmin, saveRatesHandler);
+router.get("/product-pricing/odoo-products", isAuthenticated, requireAdmin, odooProductsHandler);
+
+// Alias paths under /pricing-master/* retained for backward compatibility.
+router.get("/pricing-master/browse", isAuthenticated, requireAdmin, browseHandler);
+router.get("/pricing-master/search", isAuthenticated, requireAdmin, searchHandler);
+router.put("/pricing-master/save-rates", isAuthenticated, requireAdmin, saveRatesHandler);
+router.get("/pricing-master/odoo-products", isAuthenticated, requireAdmin, odooProductsHandler);
 
 export default router;

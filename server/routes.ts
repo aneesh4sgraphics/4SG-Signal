@@ -4692,6 +4692,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mount database-backed pricing routes HERE (before /product-pricing/:typeId catch-all)
+  // so that /product-pricing/browse, /product-pricing/search, etc. resolve correctly.
+  app.use("/api", pricingDatabaseRoutes);
+
   // Get all product pricing - maps from pricing_data table to expected format
   app.get("/api/product-pricing", isAuthenticated, async (req, res) => {
     try {
@@ -6971,9 +6975,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add pricing management routes
   addPricingRoutes(app, isAuthenticated, requireAdmin);
-  
-  // Add database-backed pricing routes (mounted at /api so routes like /product-pricing-database work)
-  app.use("/api", pricingDatabaseRoutes);
 
   // Generate Price List PDF
   app.post("/api/generate-price-list-pdf", isAuthenticated, async (req, res) => {

@@ -27,7 +27,14 @@ const TIERS = [
   { key: 'tierStage15Price',       label: 'Shopify 1' },
   { key: 'tierStage1Price',        label: 'Shopify Acct' },
   { key: 'retailPrice',            label: 'Retail' },
-];
+] as const;
+
+type TierKey = typeof TIERS[number]['key'];
+type TabId = 'pricing' | 'odoo';
+
+function getProductTierPrice(product: Product, key: TierKey): string | null {
+  return product[key] ?? null;
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Product {
@@ -101,7 +108,7 @@ function isDecimalInput(v: string) {
 export default function ProductPricingManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'pricing' | 'odoo'>('pricing');
+  const [activeTab, setActiveTab] = useState<TabId>('pricing');
 
   // ── Tab 1 state ────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
@@ -130,13 +137,13 @@ export default function ProductPricingManagement() {
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: browseData = [], isLoading: browseLoading, refetch: refetchBrowse } =
-    useQuery<BrowseCategory[]>({ queryKey: ['/api/pricing-master/browse'] });
+    useQuery<BrowseCategory[]>({ queryKey: ['/api/product-pricing/browse'] });
 
   const { data: families = [], isLoading: familiesLoading, refetch: refetchFamilies } =
     useQuery<Family[]>({
-      queryKey: ['/api/pricing-master/search', searchPrefix],
+      queryKey: ['/api/product-pricing/search', searchPrefix],
       queryFn: async () => {
-        const res = await fetch(`/api/pricing-master/search?prefix=${encodeURIComponent(searchPrefix)}`, { credentials: 'include' });
+        const res = await fetch(`/api/product-pricing/search?prefix=${encodeURIComponent(searchPrefix)}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to load products');
         return res.json();
       },
@@ -144,7 +151,7 @@ export default function ProductPricingManagement() {
 
   const { data: odooData, isLoading: odooLoading, refetch: refetchOdoo } =
     useQuery<{ products: OdooProduct[]; total: number; mapped: number; unmapped: number }>({
-      queryKey: ['/api/pricing-master/odoo-products'],
+      queryKey: ['/api/product-pricing/odoo-products'],
       enabled: activeTab === 'odoo',
     });
 
@@ -200,10 +207,10 @@ export default function ProductPricingManagement() {
   };
 
   // ── Rate helpers ───────────────────────────────────────────────────────────
-  const getRate = (product: Product, tierKey: string): string => {
+  const getRate = (product: Product, tierKey: TierKey): string => {
     const edit = editMap[product.itemCode]?.[tierKey];
     if (edit !== undefined) return edit;
-    return deriveRate((product as any)[tierKey], product.totalSqm);
+    return deriveRate(getProductTierPrice(product, tierKey), product.totalSqm);
   };
 
   const setRate = (itemCode: string, tierKey: string, val: string) => {
@@ -237,7 +244,7 @@ export default function ProductPricingManagement() {
         for (const [tierKey, rate] of Object.entries(bulk)) {
           if (!rate) continue;
           if (mode === 'blanks') {
-            const existing = deriveRate((product as any)[tierKey], product.totalSqm);
+            const existing = deriveRate(getProductTierPrice(product, tierKey as TierKey), product.totalSqm);
             if (existing) continue;
           }
           if (sqm <= 0) continue;
@@ -261,7 +268,7 @@ export default function ProductPricingManagement() {
     }
     setSavingFamilies(prev => new Set([...prev, family.baseCode]));
     try {
-      const res = await apiRequest('PUT', '/api/pricing-master/save-rates', items);
+      const res = await apiRequest('PUT', '/api/product-pricing/save-rates', items);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
       const { updated, skipped } = await res.json();
       setEditMap(prev => {
@@ -269,8 +276,8 @@ export default function ProductPricingManagement() {
         for (const p of family.products) delete next[p.itemCode];
         return next;
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/pricing-master/search'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/pricing-master/browse'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing/search'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing/browse'] });
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
       toast({ title: `Saved ${updated} product${updated !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped — no sqm)` : ''}` });
     } catch (e: any) {
@@ -285,8 +292,8 @@ export default function ProductPricingManagement() {
 
   const familyIsFullyPriced = (family: Family) =>
     family.products.every(p => TIERS.some(t => {
-      const v = (p as any)[t.key];
-      return v && parseFloat(v) > 0;
+      const v = getProductTierPrice(p, t.key);
+      return v !== null && parseFloat(v) > 0;
     }));
 
   // ── Odoo tab helpers ───────────────────────────────────────────────────────
@@ -355,8 +362,8 @@ export default function ProductPricingManagement() {
       toast({ title: 'Product mapped successfully' });
       setMappingProduct(null);
       refetchOdoo();
-      queryClient.invalidateQueries({ queryKey: ['/api/pricing-master/browse'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/pricing-master/search'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing/browse'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing/search'] });
     },
     onError: (e: Error) => toast({ title: 'Mapping failed', description: e.message, variant: 'destructive' }),
   });
@@ -371,10 +378,10 @@ export default function ProductPricingManagement() {
       {/* Tab bar */}
       <div style={{ borderBottom: '1px solid var(--color-border-secondary)', padding: '0 24px', background: 'var(--color-background-primary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '0' }}>
-          {[{ id: 'pricing', label: 'Product Pricing' }, { id: 'odoo', label: 'Odoo Products' }].map(tab => (
+          {([{ id: 'pricing', label: 'Product Pricing' }, { id: 'odoo', label: 'Odoo Products' }] as { id: TabId; label: string }[]).map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               style={{
                 padding: '14px 18px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
                 border: 'none', background: 'transparent',
@@ -546,7 +553,7 @@ export default function ProductPricingManagement() {
                         {family.products.map(product => {
                           const sqm = parseFloat(product.totalSqm || '0');
                           const hasEdits = Object.keys(editMap[product.itemCode] || {}).length > 0;
-                          const hasPrice = TIERS.some(t => { const v = (product as any)[t.key]; return v && parseFloat(v) > 0; });
+                          const hasPrice = TIERS.some(t => { const v = getProductTierPrice(product, t.key); return v !== null && parseFloat(v) > 0; });
 
                           return (
                             <div key={product.itemCode}
