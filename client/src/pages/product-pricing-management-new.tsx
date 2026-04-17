@@ -2,17 +2,12 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  Save, RefreshCw, ChevronDown, ChevronRight, Search, Check, ChevronsUpDown,
-  Package, Tag
-} from 'lucide-react';
+import { Save, RefreshCw, ChevronDown, ChevronRight, Search, Check } from 'lucide-react';
 
 // ── Pricing tier definitions ─────────────────────────────────────────────────
 const TIERS = [
@@ -410,6 +405,9 @@ export default function ProductPricingManagement() {
               <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', fontWeight: 500, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Browse</div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
                 <span style={{ fontWeight: 600 }}>{totalFamilies}</span> families · <span style={{ color: '#639922', fontWeight: 600 }}>{pricedFamilies}</span> priced
+                {totalFamilies - pricedFamilies > 0 && (
+                  <span style={{ color: '#b45309', fontWeight: 600 }}> · {totalFamilies - pricedFamilies} missing</span>
+                )}
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
