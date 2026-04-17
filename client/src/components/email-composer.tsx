@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Send, X, FileText, Loader2 } from "lucide-react";
+import { Mail, Send, X, FileText, Loader2, Code, Eye } from "lucide-react";
 import type { EmailTemplate, Customer } from "@shared/schema";
 import { EmailRichTextEditor, type EmailRichTextEditorRef } from "@/components/EmailRichTextEditor";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,8 +20,8 @@ interface EmailComposeConfig {
   customerName?: string;
   templateId?: number;
   variables?: Record<string, string>;
-  usageType?: string; // quick_quotes, price_list, client_email, marketing
-  onSent?: () => void; // Callback when email is successfully sent
+  usageType?: string;
+  onSent?: () => void;
 }
 
 interface EmailComposerContextType {
@@ -57,9 +57,9 @@ export function EmailComposerProvider({ children }: { children: React.ReactNode 
   return (
     <EmailComposerContext.Provider value={{ open, close, isOpen }}>
       {children}
-      <EmailComposePopup 
-        isOpen={isOpen} 
-        onClose={close} 
+      <EmailComposePopup
+        isOpen={isOpen}
+        onClose={close}
         initialConfig={config}
         onSent={config.onSent}
       />
@@ -74,12 +74,60 @@ interface EmailComposePopupProps {
   onSent?: () => void;
 }
 
+// Returns true if the string is a complete HTML document (starts with <!DOCTYPE or <html)
+function isFullHtmlDoc(html: string): boolean {
+  const t = (html || '').trim().toLowerCase();
+  return t.startsWith('<!doctype') || t.startsWith('<html');
+}
+
+// Isolated iframe that renders email HTML without app CSS interference
+function HtmlPreviewFrame({ html, minHeight = 200 }: { html: string; minHeight?: number }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(minHeight);
+
+  const srcDoc = isFullHtmlDoc(html)
+    ? html
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:sans-serif;font-size:14px;color:#1f2937;padding:16px;margin:0;word-break:break-word}img{max-width:100%}</style></head><body>${html}</body></html>`;
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const onLoad = () => {
+      try {
+        const h = frame.contentDocument?.body?.scrollHeight;
+        if (h && h > minHeight) setHeight(h + 32);
+      } catch {}
+    };
+    frame.addEventListener('load', onLoad);
+    return () => frame.removeEventListener('load', onLoad);
+  }, [srcDoc, minHeight]);
+
+  return (
+    <iframe
+      ref={frameRef}
+      srcDoc={srcDoc}
+      sandbox="allow-same-origin allow-scripts allow-popups"
+      style={{ width: '100%', height, border: '1px solid #e5e7eb', borderRadius: 6, display: 'block' }}
+      title="Email preview"
+    />
+  );
+}
+
 function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComposePopupProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+
+  // Rich-text mode state (used when NOT a full HTML doc)
+  const [richBody, setRichBody] = useState("");
+
+  // Raw HTML mode state (used when a full HTML doc template is loaded)
+  const [rawHtml, setRawHtml] = useState("");
+  const [isRawHtmlMode, setIsRawHtmlMode] = useState(false);
+  const [showRawSource, setShowRawSource] = useState(false);
+
+  // Template tracking
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const editorRef = useRef<EmailRichTextEditorRef>(null);
@@ -100,7 +148,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
     const userLastName = (user as any)?.lastName || '';
     const userFullName = `${userFirstName} ${userLastName}`.trim() || (user as any)?.email?.split('@')[0] || '';
     const userEmail = (user as any)?.email || '';
-    
+
     return {
       'user.name': userFullName,
       'user.email': userEmail,
@@ -122,12 +170,12 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
   };
 
   const sendMutation = useMutation({
-    mutationFn: async (data: { 
-      to: string; 
-      subject: string; 
-      body: string; 
+    mutationFn: async (data: {
+      to: string;
+      subject: string;
+      body: string;
       htmlBody?: string;
-      customerId?: string; 
+      customerId?: string;
       templateId?: number;
       recipientName?: string;
       variableData?: Record<string, string>;
@@ -166,19 +214,27 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
     if (isOpen && !hasInitializedBody.current) {
       setTo(initialConfig.to || "");
       setSubject(initialConfig.subject || "");
-      
-      let bodyContent = initialConfig.body || "";
-      const htmlBody = convertPlainTextToHtml(bodyContent);
-      
-      if (signature?.signatureHtml && !htmlBody.includes(signature.signatureHtml)) {
-        setBody(htmlBody + '<br><br>--<br>' + signature.signatureHtml);
+
+      const bodyContent = initialConfig.body || "";
+
+      if (isFullHtmlDoc(bodyContent)) {
+        setIsRawHtmlMode(true);
+        setRawHtml(bodyContent);
+        setRichBody('');
       } else {
-        setBody(htmlBody);
+        const htmlBody = convertPlainTextToHtml(bodyContent);
+        setIsRawHtmlMode(false);
+        setRawHtml('');
+        if (signature?.signatureHtml && !htmlBody.includes(signature.signatureHtml)) {
+          setRichBody(htmlBody + '<br><br>--<br>' + signature.signatureHtml);
+        } else {
+          setRichBody(htmlBody);
+        }
       }
-      
+
       setSelectedTemplateId(initialConfig.templateId?.toString() || "");
       setVariables(initialConfig.variables || {});
-      
+
       if (signature !== undefined) {
         hasInitializedBody.current = true;
       }
@@ -188,6 +244,10 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
   useEffect(() => {
     if (!isOpen) {
       hasInitializedBody.current = false;
+      setIsRawHtmlMode(false);
+      setRawHtml('');
+      setRichBody('');
+      setShowRawSource(false);
     }
   }, [isOpen]);
 
@@ -198,20 +258,39 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
       if (template) {
         let processedSubject = template.subject;
         let processedBody = template.body;
-        
+
         Object.entries(allVariables).forEach(([key, value]) => {
           const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
           processedSubject = processedSubject.replace(regex, value || '');
           processedBody = processedBody.replace(regex, value || '');
         });
-        
+
         setSubject(processedSubject);
-        setBody(processedBody);
+
+        if (isFullHtmlDoc(processedBody)) {
+          // Full HTML document — bypass the rich text editor entirely
+          console.log('[Compose] Full HTML template selected — using raw HTML mode');
+          console.log('[Compose] Template stored HTML length:', template.body.length);
+          console.log('[Compose] Processed HTML length:', processedBody.length);
+          console.log('[Compose] HTML preview (first 400 chars):', processedBody.slice(0, 400));
+          setIsRawHtmlMode(true);
+          setRawHtml(processedBody);
+          setRichBody('');
+        } else {
+          // Simple rich text template — safe to load into Tiptap
+          console.log('[Compose] Rich text template selected — using editor mode');
+          setIsRawHtmlMode(false);
+          setRawHtml('');
+          setRichBody(processedBody);
+        }
       }
+    } else {
+      // No template selected — go back to rich text mode with whatever was there
+      setIsRawHtmlMode(false);
+      setRawHtml('');
     }
   };
 
-  // Helper to strip HTML tags for plain text version
   const stripHtml = (html: string): string => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return doc.body.textContent || '';
@@ -243,12 +322,35 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
       return;
     }
 
-    const plainTextBody = stripHtml(body);
+    let htmlBody: string;
+    let plainTextBody: string;
+
+    if (isRawHtmlMode) {
+      // Full HTML document template — send the raw HTML exactly as stored
+      // NEVER pass through the rich text editor to avoid Tiptap mangling
+      htmlBody = rawHtml;
+      plainTextBody = stripHtml(rawHtml);
+
+      console.log('[Compose] ── SENDING RAW HTML TEMPLATE ──────────────────────');
+      console.log('[Compose] Raw HTML length:', rawHtml.length, 'chars');
+      console.log('[Compose] Raw HTML preview (first 600 chars):');
+      console.log(rawHtml.slice(0, 600));
+      console.log('[Compose] ────────────────────────────────────────────────────');
+    } else {
+      // Rich text mode — use the Tiptap editor output
+      htmlBody = richBody.trim();
+      plainTextBody = stripHtml(htmlBody);
+
+      console.log('[Compose] ── SENDING RICH TEXT EMAIL ────────────────────────');
+      console.log('[Compose] HTML body length:', htmlBody.length, 'chars');
+      console.log('[Compose] ────────────────────────────────────────────────────');
+    }
+
     sendMutation.mutate({
       to: to.trim(),
       subject: subject.trim(),
       body: plainTextBody.trim(),
-      htmlBody: body.trim(),
+      htmlBody,
       customerId: initialConfig.customerId,
       templateId: selectedTemplateId && selectedTemplateId !== "none" ? parseInt(selectedTemplateId) : undefined,
       recipientName: initialConfig.customerName,
@@ -259,21 +361,18 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
   const activeTemplates = templates.filter(t => {
     if (!t.isActive) return false;
     const tUsage = (t as any).usageType;
-    // lead_email and client_email both use the same general outreach templates
     if (initialConfig.usageType === 'lead_email') {
       return !tUsage || tUsage === 'client_email' || tUsage === 'lead_email';
     }
-    // If another specific usageType is specified, match it exactly
     if (initialConfig.usageType) {
       return tUsage === initialConfig.usageType;
     }
-    // Default: show client_email templates or templates without usageType
     return !tUsage || tUsage === 'client_email';
   });
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-primary" />
@@ -349,26 +448,73 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email-body">Message</Label>
-            <EmailRichTextEditor
-              ref={editorRef}
-              content={body}
-              onChange={setBody}
-              placeholder="Write your message..."
-              className="min-h-[200px]"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email-body">Message</Label>
+              {isRawHtmlMode && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-2 py-0.5">
+                    Full HTML Template
+                  </span>
+                  <button
+                    onClick={() => setShowRawSource(v => !v)}
+                    className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                    title={showRawSource ? "Show preview" : "Show HTML source"}
+                  >
+                    {showRawSource ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
+                    {showRawSource ? "Preview" : "Source"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isRawHtmlMode ? (
+              <div>
+                {/* Full HTML template mode — isolated preview, raw HTML for sending */}
+                <div className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 mb-2 text-xs text-indigo-700">
+                  This is a full HTML email template. It will be sent exactly as designed — the rich text editor is bypassed to preserve all styles, tables, and layout.
+                </div>
+                {showRawSource ? (
+                  <textarea
+                    value={rawHtml}
+                    onChange={e => setRawHtml(e.target.value)}
+                    style={{
+                      width: '100%',
+                      minHeight: 300,
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      padding: '8px 10px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      resize: 'vertical',
+                      background: '#1e1e1e',
+                      color: '#d4d4d4',
+                    }}
+                  />
+                ) : (
+                  <HtmlPreviewFrame html={rawHtml} minHeight={250} />
+                )}
+              </div>
+            ) : (
+              <EmailRichTextEditor
+                ref={editorRef}
+                content={richBody}
+                onChange={setRichBody}
+                placeholder="Write your message..."
+                className="min-h-[200px]"
+              />
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={onClose}
               data-testid="button-cancel-email"
             >
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSend}
               disabled={sendMutation.isPending}
               data-testid="button-send-email"
@@ -396,9 +542,9 @@ interface EmailLaunchIconProps {
   size?: "sm" | "md";
 }
 
-export function EmailLaunchIcon({ 
-  email, 
-  customerId, 
+export function EmailLaunchIcon({
+  email,
+  customerId,
   customerName,
   variables = {},
   className = "",
@@ -421,8 +567,8 @@ export function EmailLaunchIcon({
     });
   };
 
-  const sizeClasses = size === "sm" 
-    ? "h-4 w-4" 
+  const sizeClasses = size === "sm"
+    ? "h-4 w-4"
     : "h-5 w-5";
 
   return (
