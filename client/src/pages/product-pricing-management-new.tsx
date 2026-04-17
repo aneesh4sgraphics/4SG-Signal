@@ -142,7 +142,7 @@ export default function ProductPricingManagement() {
   // Per-family bulk fill $/m² input
   const [bulkRateMap, setBulkRateMap] = useState<Record<string, string>>({});
   // Recently saved families (show ✓ Saved badge)
-  const [savedFamilies, setSavedFamilies] = useState<Set<string>>(new Set());
+  const [savedAtMap, setSavedAtMap] = useState<Record<string, number>>({});
   const [savingFamilies, setSavingFamilies] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
 
@@ -345,9 +345,9 @@ export default function ProductPricingManagement() {
       });
 
       // Show ✓ Saved for 3 seconds
-      setSavedFamilies(prev => new Set([...prev, family.baseCode]));
+      setSavedAtMap(prev => ({ ...prev, [family.baseCode]: Date.now() }));
       setTimeout(() => {
-        setSavedFamilies(prev => { const s = new Set(prev); s.delete(family.baseCode); return s; });
+        setSavedAtMap(prev => { const next = { ...prev }; delete next[family.baseCode]; return next; });
       }, 3000);
 
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
@@ -469,8 +469,8 @@ export default function ProductPricingManagement() {
             {/* Show All */}
             <div
               onClick={() => setSelectedCategoryId(null)}
-              style={{ padding: '8px 12px', cursor: 'pointer', borderLeft: selectedCategoryId === null ? '3px solid #3b82f6' : '3px solid transparent', background: selectedCategoryId === null ? '#EFF6FF' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: selectedCategoryId === null ? '#1d4ed8' : 'var(--color-text-primary)' }}>Show All</span>
+              style={{ padding: '8px 12px', paddingLeft: selectedCategoryId === null ? '13px' : '12px', cursor: 'pointer', borderLeft: selectedCategoryId === null ? '3px solid #378ADD' : '3px solid transparent', background: selectedCategoryId === null ? '#EEF4FF' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 500, color: selectedCategoryId === null ? '#185FA5' : 'var(--color-text-primary)' }}>Show All</span>
               <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{totalFamilies}</span>
             </div>
 
@@ -482,8 +482,8 @@ export default function ProductPricingManagement() {
                 <div
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(active ? null : cat.id)}
-                  style={{ padding: '8px 12px', cursor: 'pointer', borderLeft: active ? '3px solid #3b82f6' : '3px solid transparent', background: active ? '#EFF6FF' : 'transparent' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 500, color: active ? '#1d4ed8' : 'var(--color-text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</div>
+                  style={{ padding: '8px 12px', paddingLeft: active ? '13px' : '12px', cursor: 'pointer', borderLeft: active ? '3px solid #378ADD' : '3px solid transparent', background: active ? '#EEF4FF' : 'transparent' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: active ? '#185FA5' : 'var(--color-text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{cat.familyCount} families · {cat.productCount} products</div>
                   {cat.missingPricing > 0 && (
                     <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px' }}>{cat.missingPricing} families missing pricing</div>
@@ -527,7 +527,7 @@ export default function ProductPricingManagement() {
             </div>
 
             {/* Family cards */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column' }}>
               {pricingLoading && (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--color-text-tertiary)', fontSize: '13px' }}>Loading products…</div>
               )}
@@ -541,14 +541,14 @@ export default function ProductPricingManagement() {
                 const bc = family.baseCode;
                 const dirty = familyHasDirty(family);
                 const saving = savingFamilies.has(bc);
-                const justSaved = savedFamilies.has(bc);
+                const justSaved = !!savedAtMap[bc];
                 const allPriced = isFullyPriced(family);
                 const activeTier = getActiveTier(bc);
                 const bulkTier = getBulkTier(bc);
                 const bulkRate = getBulkRate(bc);
 
                 return (
-                  <div key={bc} style={{ border: '1px solid var(--color-border-secondary)', borderRadius: '10px', overflow: 'hidden', background: 'var(--color-background-primary)' }}>
+                  <div key={bc} style={{ border: '0.5px solid var(--color-border-secondary)', borderRadius: '12px', overflow: 'hidden', background: 'var(--color-background-primary)', marginBottom: '16px' }}>
 
                     {/* Card header */}
                     <div style={{ background: 'var(--color-background-secondary)', padding: '10px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
@@ -633,7 +633,7 @@ export default function ProductPricingManagement() {
                     {/* SKU table */}
                     <div style={{ background: 'var(--color-background-primary)' }}>
                       {/* Table header */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 100px 110px', gap: '8px', padding: '6px 14px', background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 70px 70px 100px 110px', gap: '8px', padding: '6px 14px', background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase' }}>Size</div>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', textAlign: 'right' }}>Sqm</div>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', textAlign: 'right' }}>Min Qty</div>
@@ -650,7 +650,7 @@ export default function ProductPricingManagement() {
 
                         return (
                           <div key={product.id}
-                            style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 100px 110px', gap: '8px', padding: '6px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', alignItems: 'center', background: isEdited ? '#F9F9FF' : 'var(--color-background-primary)' }}>
+                            style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 70px 70px 100px 110px', gap: '8px', padding: '6px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', alignItems: 'center', background: isEdited ? '#F9F9FF' : 'var(--color-background-primary)' }}>
                             {/* Size */}
                             <div>
                               <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--color-text-primary)', fontWeight: 500 }}>{product.itemCode}</div>
@@ -667,19 +667,19 @@ export default function ProductPricingManagement() {
                             {/* $/m² input */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                               <div style={{ position: 'relative' }}>
-                                <span style={{ position: 'absolute', left: '6px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>$</span>
+                                <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--color-text-tertiary)', pointerEvents: 'none' }}>$</span>
                                 <input
                                   type="text" inputMode="decimal"
                                   value={rateStr}
                                   onChange={e => setRate(product.id, activeTier, e.target.value)}
                                   placeholder="—"
-                                  style={{ width: '80px', padding: '4px 4px 4px 14px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'var(--color-background-primary)', color: 'var(--color-text-primary)', outline: 'none' }}
+                                  style={{ width: '90px', padding: '4px 4px 4px 20px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : 'var(--color-background-primary)', color: 'var(--color-text-primary)', outline: 'none' }}
                                   onFocus={e => e.target.select()}
                                 />
                               </div>
                             </div>
                             {/* Per Sheet */}
-                            <div style={{ fontSize: '12px', color: perSheet === '—' ? 'var(--color-text-tertiary)' : '#059669', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                               {perSheet}
                             </div>
                           </div>
