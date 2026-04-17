@@ -364,9 +364,13 @@ export default function ProductPricingManagement() {
     setSyncing(true);
     try {
       const res = await apiRequest('POST', '/api/admin/sync-prices-from-odoo', {});
-      if (!res.ok) throw new Error('Sync failed');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Sync failed');
+      }
+      const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
-      toast({ title: 'Sync complete' });
+      toast({ title: 'Sync complete', description: data.message });
     } catch (e: any) {
       toast({ title: 'Sync failed', description: e.message, variant: 'destructive' });
     } finally {

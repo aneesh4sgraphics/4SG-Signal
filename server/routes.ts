@@ -4181,6 +4181,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sync product name/metadata from Odoo into product_pricing_master
+  app.post('/api/admin/sync-prices-from-odoo', isAuthenticated, requireAdmin, async (req: any, res) => {
+    try {
+      console.log("[Odoo Sync] Starting product sync from Odoo...");
+
+      // Fetch ALL active product variants that have a SKU from Odoo
+      const odooProducts = await odooClient.searchRead(
+        'product.product',
+        [['active', '=', true], ['default_code', '!=', false], ['default_code', '!=', '']],
+        ['id', 'default_code', 'display_name', 'product_tmpl_id', 'uom_id'],
+        { limit: 2000 }
+      );
+
+      console.log(`[Odoo Sync] Fetched ${odooProducts.length} products from Odoo`);
+
+      // Build a map of default_code → Odoo product
+      const odooMap = new Map<string, any>();
+      for (const p of odooProducts) {
+        if (p.default_code) odooMap.set(String(p.default_code).trim(), p);
+      }
+
+      // Fetch all local products
+      const localProducts = await db.select({
+        id: productPricingMaster.id,
+        itemCode: productPricingMaster.itemCode,
+        productName: productPricingMaster.productName,
+      }).from(productPricingMaster).where(eq(productPricingMaster.isArchived, false));
+
+      let updated = 0;
+      let unchanged = 0;
+      let notInOdoo = 0;
+
+      for (const local of localProducts) {
+        const odoo = odooMap.get(local.itemCode);
+        if (!odoo) { notInOdoo++; continue; }
+
+        const newName = (odoo.display_name || odoo.name || local.productName).trim();
+        if (newName === local.productName) { unchanged++; continue; }
+
+        await db.update(productPricingMaster)
+          .set({ productName: newName, updatedAt: new Date() })
+          .where(eq(productPricingMaster.id, local.id));
+        updated++;
+      }
+
+      const newInOdoo = [...odooMap.keys()].filter(
+        code => !localProducts.find(l => l.itemCode === code)
+      ).length;
+
+      console.log(`[Odoo Sync] Done: ${updated} names updated, ${unchanged} unchanged, ${notInOdoo} not in Odoo, ${newInOdoo} new in Odoo (not yet imported)`);
+      res.json({
+        updated,
+        unchanged,
+        notInOdoo,
+        newInOdoo,
+        message: `Sync complete: ${updated} product name${updated !== 1 ? 's' : ''} updated from Odoo${newInOdoo > 0 ? `, ${newInOdoo} new Odoo products not yet imported` : ''}`,
+      });
+    } catch (error: any) {
+      console.error("[Odoo Sync] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to sync from Odoo" });
+    }
+  });
+
   // Auto-assign sales reps based on location rules
   app.post('/api/admin/auto-assign-sales-reps', isAuthenticated, requireAdmin, async (req: any, res) => {
     try {
