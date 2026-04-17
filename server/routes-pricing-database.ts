@@ -2090,6 +2090,38 @@ async function odooProductsHandler(req: any, res: any) {
   }
 }
 
+// ── Bulk-update prices by product ID ────────────────────────────────────────
+router.patch("/product-pricing-database/bulk-update-prices", isAuthenticated, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { updates } = req.body;
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+    const priceFields = [
+      'landedPrice', 'exportPrice', 'masterDistributorPrice',
+      'dealerPrice', 'dealer2Price', 'approvalNeededPrice', 'tierStage25Price',
+      'tierStage2Price', 'tierStage15Price', 'tierStage1Price', 'retailPrice',
+    ];
+    for (const u of updates) {
+      if (!u.id) continue;
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      for (const field of priceFields) {
+        if (u[field] !== undefined && u[field] !== null && u[field] !== '') {
+          updateData[field] = String(parseFloat(u[field]).toFixed(4));
+        }
+      }
+      if (Object.keys(updateData).length <= 1) continue;
+      await db.update(productPricingMaster)
+        .set(updateData)
+        .where(eq(productPricingMaster.id, u.id));
+    }
+    res.json({ success: true, updated: updates.length });
+  } catch (error: any) {
+    console.error('Bulk price update error:', error);
+    res.status(500).json({ error: 'Failed to update prices' });
+  }
+});
+
 // Register the handlers under the primary /product-pricing/* paths.
 // The router must be mounted in routes.ts BEFORE the legacy GET /api/product-pricing/:typeId
 // route to avoid that catch-all intercepting these named paths.

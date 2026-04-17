@@ -1,0 +1,165 @@
+Rebuild client/src/pages/product-pricing-management-new.tsx with a completely 
+new UI/UX. The current wide 11-column table is too hard to read. Replace with 
+the design described below.
+
+════════════════════════════════════════════
+LAYOUT — Two-panel design
+════════════════════════════════════════════
+
+Left sidebar (220px fixed width) + right main content area.
+
+LEFT SIDEBAR:
+- Header: "Browse families" title, stats line: "X families · Y missing" 
+  (missing = families with no pricing at all, shown in red)
+- List of product categories from adminCategories/productCategories table
+- Each category item shows:
+    Category name (font-weight 500)
+    "X families · Y products" (small muted text)
+    If any families in this category have no pricing: 
+    "Z families missing pricing" in red
+- Clicking a category filters the main area to show only that category's families
+- Active category has left border accent and light blue background
+- "Show All" option at top of list
+
+MAIN AREA:
+- Top bar with:
+    Search input: "Search by product code e.g. GPOLY08, RANG..."
+    Clear button
+    "Sync from Odoo" button (calls existing POST /api/admin/sync-prices-from-odoo)
+    Result count: "X families found"
+- Scrollable content area below showing family cards
+
+════════════════════════════════════════════
+FAMILY CARD
+════════════════════════════════════════════
+
+Each product family (group of products sharing the same base code) is one card.
+
+Base code derivation: strip the last hyphen-separated segment from itemCode
+  "GPOLY08-1218B" → base "GPOLY08"
+  "RANG-PP-8511" → base "RANG-PP"
+  "GBP-14-8511" → base "GBP-14"
+  No hyphen → use full itemCode
+
+CARD HEADER (slightly gray background):
+  Left side:
+    - Base code in monospace font, bold
+    - Badge: "N sizes" (gray)
+    - Badge: "All priced" (green) if all 11 price fields are non-null and >0 
+              for ALL products in group
+      OR "Needs pricing" (amber) if any product has any null/zero price field
+  Right side:
+    - "Save group" button
+  Below the badges:
+    - Category + type name in small muted text
+
+BULK FILL ROW (light amber background):
+  Label: "BULK FILL"
+  Tier dropdown: Landed | Export | Distributor | Dealer-VIP | Dealer | 
+                 Shopify 3 | Shopify 2 | Shopify 1 | Shopify Acct | Retail
+  $/m² input field (placeholder "$/m²")
+  "Apply to all" button — fills the selected tier for ALL sizes in group
+  "Fill blanks" button — fills only sizes where that tier has no price yet
+
+TIER TABS (horizontal scrollable tabs):
+  One tab per tier: Landed | Export | Distributor | Dealer-VIP | Dealer | 
+                    Shopify 3 | Shopify 2 | Shopify 1 | Shopify Acct | Retail
+  Clicking a tab switches which tier's $/m² is shown in the table below
+  Active tab highlighted with blue underline
+
+SKU TABLE (shows ONE tier at a time based on active tab):
+  Columns: Size | Sqm | Min Qty | $/m² (tier name) | Per Sheet
+  
+  - Size column: itemCode in monospace on top, dimensions (e.g. "12×18") 
+    in small muted text below
+  - Sqm: the totalSqm value, shown to 2 decimal places
+  - Min Qty: minQuantity
+  - $/m² input: editable number input, width 80px
+    The DISPLAYED value = stored price field ÷ totalSqm (show as $/m²)
+    The SAVED value = entered $/m² × totalSqm (stored as actual price)
+    Use inputMode="decimal" type="text"
+    Placeholder "—" when no price set
+  - Per Sheet: (displayed $/m² × totalSqm) shown live as user types
+    Format as "$X.XXXX" (4 decimal places)
+    Show "—" when input is empty
+
+The tier-to-field mapping:
+  Landed       → landedPrice
+  Export       → exportPrice
+  Distributor  → masterDistributorPrice
+  Dealer-VIP   → dealerPrice
+  Dealer       → dealer2Price
+  Shopify 3    → tierStage25Price
+  Shopify 2    → tierStage2Price
+  Shopify 1    → tierStage15Price
+  Shopify Acct → tierStage1Price
+  Retail       → retailPrice
+
+CARD FOOTER:
+  Right-aligned: Reset button | Save group button
+  When group was just saved: show "✓ Saved" in green text for 3 seconds
+
+════════════════════════════════════════════
+SAVE ENDPOINT
+════════════════════════════════════════════
+
+Add to server/routes-pricing-database.ts:
+
+app.patch('/api/product-pricing-database/bulk-update-prices', requireAdmin,
+async (req, res) => {
+  try {
+    const { updates } = req.body;
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+    for (const u of updates) {
+      if (!u.id) continue;
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      const priceFields = ['landedPrice','exportPrice','masterDistributorPrice',
+        'dealerPrice','dealer2Price','approvalNeededPrice','tierStage25Price',
+        'tierStage2Price','tierStage15Price','tierStage1Price','retailPrice'];
+      for (const field of priceFields) {
+        if (u[field] !== undefined && u[field] !== null && u[field] !== '') {
+          updateData[field] = String(parseFloat(u[field]).toFixed(4));
+        }
+      }
+      await db.update(productPricingMaster)
+        .set(updateData)
+        .where(eq(productPricingMaster.id, u.id));
+    }
+    res.json({ success: true, updated: updates.length });
+  } catch (error) {
+    console.error('Bulk price update error:', error);
+    res.status(500).json({ error: 'Failed to update prices' });
+  }
+});
+
+════════════════════════════════════════════
+DATA LOADING
+════════════════════════════════════════════
+
+Fetch all products from existing GET /api/product-pricing-database
+Fetch categories from existing GET /api/product-categories
+
+Do all grouping, filtering, and searching client-side.
+No new GET endpoints needed.
+
+════════════════════════════════════════════
+STATE MANAGEMENT
+════════════════════════════════════════════
+
+Keep local state per family for edited (dirty) values.
+Edited values are shown immediately in the UI.
+"Save group" sends only the dirty rows for that family to the save endpoint.
+"Reset" reverts dirty values back to what was loaded from the server.
+TanStack Query invalidates /api/product-pricing-database after save.
+
+════════════════════════════════════════════
+DO NOT CHANGE:
+- Any other pages or routes
+- QuickQuotes or Price List logic
+- The Odoo Products tab if already built
+- Any existing working endpoints
+════════════════════════════════════════════
+
+Push when done.
