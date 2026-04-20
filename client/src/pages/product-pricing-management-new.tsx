@@ -141,10 +141,12 @@ export default function ProductPricingManagement() {
   // ── Pricing tab state ───────────────────────────────────────────────────────
   const [formCategoryId, setFormCategoryId] = useState<number | null>(null);
   const [formFamilyCode, setFormFamilyCode] = useState<string | null>(null);
+  // Which size (product id) is selected for editing / check-price
+  const [formSizeProductId, setFormSizeProductId] = useState<number | null>(null);
+  // Which tier is selected in the Check Price Area
+  const [checkTierKey, setCheckTierKey] = useState<TierKey>('landedPrice');
   // editMap[productId][tierKey] = $/m² rate string the user typed
   const [editMap, setEditMap] = useState<Record<number, Record<string, string>>>({});
-  // Per-tier (column) bulk fill $/m² rate
-  const [bulkByTier, setBulkByTier] = useState<Record<string, string>>({});
   // Recently saved families (show ✓ Saved badge)
   const [savedAtMap, setSavedAtMap] = useState<Record<string, number>>({});
   const [savingFamilies, setSavingFamilies] = useState<Set<string>>(new Set());
@@ -226,6 +228,16 @@ export default function ProductPricingManagement() {
     return families.find(f => f.baseCode === formFamilyCode) ?? null;
   }, [families, formFamilyCode]);
 
+  // ── Currently selected product (size) within the family ──────────────────────
+  const selectedProduct = useMemo(() => {
+    if (!selectedFamily) return null;
+    if (formSizeProductId !== null) {
+      const found = selectedFamily.products.find(p => p.id === formSizeProductId);
+      if (found) return found;
+    }
+    return selectedFamily.products[0] ?? null;
+  }, [selectedFamily, formSizeProductId]);
+
   // ── Odoo filtered ────────────────────────────────────────────────────────────
   const filteredOdooProducts = useMemo(() => {
     let list = odooData?.products || [];
@@ -260,25 +272,6 @@ export default function ProductPricingManagement() {
   const familyHasDirty = (family: Family) =>
     family.products.some(p => Object.keys(editMap[p.id] || {}).length > 0);
 
-  // ── Bulk apply for a specific tier column ────────────────────────────────────
-  const applyBulkToTier = (family: Family, tierKey: TierKey, mode: 'all' | 'blanks') => {
-    const rate = bulkByTier[tierKey] ?? '';
-    if (!rate) {
-      toast({ title: `Enter a $/m² rate in the ${TIERS.find(t => t.key === tierKey)?.label} column first`, variant: 'destructive' });
-      return;
-    }
-    setEditMap(prev => {
-      const next = { ...prev };
-      for (const p of family.products) {
-        if (mode === 'blanks') {
-          const existing = editMap[p.id]?.[tierKey] ?? getDisplayRate(p, tierKey);
-          if (existing) continue;
-        }
-        next[p.id] = { ...(next[p.id] || {}), [tierKey]: rate };
-      }
-      return next;
-    });
-  };
 
   // ── Reset family ──────────────────────────────────────────────────────────────
   const resetFamily = (family: Family) => {
@@ -470,7 +463,7 @@ export default function ProductPricingManagement() {
               <label style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--color-text-tertiary)' }}>Type</label>
               <select
                 value={formFamilyCode ?? ''}
-                onChange={e => setFormFamilyCode(e.target.value || null)}
+                onChange={e => { setFormFamilyCode(e.target.value || null); setFormSizeProductId(null); }}
                 disabled={!formCategoryId || pricingLoading}
                 style={{ padding: '9px 12px', border: '1px solid var(--color-border-secondary)', borderRadius: '8px', fontSize: '13px', background: 'var(--color-background-primary)', color: formFamilyCode ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', outline: 'none', cursor: formCategoryId ? 'pointer' : 'default', opacity: formCategoryId ? 1 : 0.45, minWidth: '280px' }}>
                 <option value="">— Select type —</option>
@@ -515,130 +508,135 @@ export default function ProductPricingManagement() {
             </div>
           )}
 
-          {/* ── Pricing table ── */}
+          {/* ── Pricing area (new layout) ── */}
           {selectedFamily && (() => {
             const family = selectedFamily;
             const bc = family.baseCode;
+            const product = selectedProduct;
             const dirty = familyHasDirty(family);
             const saving = savingFamilies.has(bc);
             const justSaved = !!savedAtMap[bc];
 
-            // Sticky column widths
-            const COL_SIZE = 190;
-            const COL_SQM = 72;
-            const COL_TIER = 115;
-            const stickyBase: CSSProperties = { position: 'sticky', background: 'inherit', zIndex: 2 };
+            // Check price area — per-unit price for selected size + tier
+            const checkRateStr = product ? getRateForProduct(product, checkTierKey) : '';
+            const checkPrice = product
+              ? livePerUnit(checkRateStr, product.totalSqm, product.rollSheet, product.minQuantity)
+              : '';
 
             return (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {/* Scrollable table */}
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                  <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: `${COL_SIZE + COL_SQM + TIERS.length * COL_TIER}px` }}>
 
-                    {/* ── Column header row ── */}
-                    <thead>
-                      <tr style={{ background: 'var(--color-background-secondary)' }}>
-                        <th style={{ ...stickyBase, left: 0, width: COL_SIZE, minWidth: COL_SIZE, padding: '8px 14px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', borderBottom: '1px solid var(--color-border-secondary)', borderRight: '1px solid var(--color-border-secondary)' }}>
-                          Size
-                        </th>
-                        <th style={{ ...stickyBase, left: COL_SIZE, width: COL_SQM, minWidth: COL_SQM, padding: '8px 10px', textAlign: 'right', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', borderBottom: '1px solid var(--color-border-secondary)', borderRight: '2px solid var(--color-border-secondary)' }}>
-                          SqM
-                        </th>
-                        {TIERS.map(tier => {
-                          const hasSome = family.products.some(p => {
-                            const ed = editMap[p.id]?.[tier.key];
-                            return (ed !== undefined && ed !== '') || getStoredPrice(p, tier.key) > 0;
-                          });
-                          return (
-                            <th key={tier.key} style={{ width: COL_TIER, minWidth: COL_TIER, padding: '8px 10px', textAlign: 'center', fontSize: '11px', fontWeight: 600, color: hasSome ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border-secondary)', borderRight: '0.5px solid var(--color-border-tertiary)' }}>
-                              {tier.label}
-                            </th>
-                          );
-                        })}
-                      </tr>
+                {/* ── Check Price Area ── */}
+                <div style={{ flexShrink: 0, padding: '14px 24px', borderBottom: '1px solid var(--color-border-secondary)', background: '#F5F7FF' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: '#5B6FAA', marginBottom: '10px' }}>
+                    Check Price Area
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
 
-                      {/* ── Bulk fill row ── */}
-                      <tr style={{ background: '#FFFBEB' }}>
-                        <td style={{ ...stickyBase, left: 0, background: '#FFFBEB', padding: '6px 14px', fontSize: '10px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #FDE68A', borderRight: '1px solid #FDE68A' }}>
-                          Bulk Fill
-                        </td>
-                        <td style={{ ...stickyBase, left: COL_SIZE, background: '#FFFBEB', borderBottom: '1px solid #FDE68A', borderRight: '2px solid #FDE68A' }} />
-                        {TIERS.map(tier => (
-                          <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '1px solid #FDE68A', borderRight: '0.5px solid #FDE68A', verticalAlign: 'middle', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
-                              <input
-                                type="text" inputMode="decimal"
-                                value={bulkByTier[tier.key] ?? ''}
-                                onChange={e => { if (isDecimalInput(e.target.value)) setBulkByTier(prev => ({ ...prev, [tier.key]: e.target.value })); }}
-                                placeholder="$/m²"
-                                onFocus={e => e.target.select()}
-                                style={{ width: '88px', padding: '3px 6px', border: '0.5px solid #FCD34D', borderRadius: '4px', fontSize: '11px', outline: 'none', background: '#fff', color: '#92400E', textAlign: 'center' }}
-                              />
-                              <div style={{ display: 'flex', gap: '3px' }}>
-                                <button onClick={() => applyBulkToTier(family, tier.key, 'all')}
-                                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E', fontWeight: 600 }}>
-                                  All
-                                </button>
-                                <button onClick={() => applyBulkToTier(family, tier.key, 'blanks')}
-                                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '3px', border: '0.5px solid #FCD34D', background: '#FEF3C7', cursor: 'pointer', color: '#92400E' }}>
-                                  Blanks
-                                </button>
-                              </div>
-                            </div>
-                          </td>
+                    {/* Select Size */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Size</label>
+                      <select
+                        value={product?.id ?? ''}
+                        onChange={e => setFormSizeProductId(e.target.value ? Number(e.target.value) : null)}
+                        style={{ padding: '8px 12px', border: '1px solid #C5CEEE', borderRadius: '8px', fontSize: '13px', background: '#fff', color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer', minWidth: '180px' }}>
+                        {family.products.map(p => (
+                          <option key={p.id} value={p.id}>{p.size || p.itemCode}</option>
                         ))}
-                      </tr>
-                    </thead>
+                      </select>
+                    </div>
 
-                    {/* ── Product rows ── */}
-                    <tbody>
-                      {family.products.map((product, idx) => {
-                        const rowEdited = Object.keys(editMap[product.id] || {}).length > 0;
-                        const rowBg = rowEdited ? '#F5F5FF' : idx % 2 === 0 ? 'var(--color-background-primary)' : 'var(--color-background-secondary)';
-                        return (
-                          <tr key={product.id} style={{ background: rowBg }}>
-                            {/* SIZE */}
-                            <td style={{ ...stickyBase, left: 0, background: rowBg, padding: '8px 14px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '1px solid var(--color-border-secondary)', verticalAlign: 'middle' }}>
-                              <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--color-text-primary)', fontWeight: 500 }}>{product.itemCode}</div>
-                              {product.size && <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>{product.size}</div>}
-                            </td>
-                            {/* SQM */}
-                            <td style={{ ...stickyBase, left: COL_SIZE, background: rowBg, padding: '8px 10px', textAlign: 'right', fontSize: '12px', color: 'var(--color-text-tertiary)', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '2px solid var(--color-border-secondary)', fontVariantNumeric: 'tabular-nums', verticalAlign: 'middle' }}>
-                              {product.totalSqm > 0 ? product.totalSqm.toFixed(4) : '—'}
-                            </td>
-                            {/* Tier columns */}
-                            {TIERS.map(tier => {
-                              const rateStr = getRateForProduct(product, tier.key);
-                              const isEdited = editMap[product.id]?.[tier.key] !== undefined;
-                              const perUnit = livePerUnit(rateStr, product.totalSqm, product.rollSheet, product.minQuantity);
-                              return (
-                                <td key={tier.key} style={{ padding: '5px 6px', borderBottom: '0.5px solid var(--color-border-tertiary)', borderRight: '0.5px solid var(--color-border-tertiary)', verticalAlign: 'middle' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                    {/* $/m² row: visible $ + input */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                      <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', lineHeight: 1 }}>$</span>
-                                      <input
-                                        type="text" inputMode="decimal"
-                                        value={rateStr}
-                                        onChange={e => setRate(product.id, tier.key, e.target.value)}
-                                        placeholder="0.0000"
-                                        onFocus={e => e.target.select()}
-                                        style={{ width: '74px', padding: '4px 5px', fontSize: '12px', textAlign: 'right', border: `0.5px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '5px', background: isEdited ? '#EEF2FF' : '#fff', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
-                                      />
-                                    </div>
-                                    {/* Per-unit row */}
-                                    <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums', minHeight: '14px' }}>
+                    {/* Select Pricing Tier */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Pricing Tier</label>
+                      <select
+                        value={checkTierKey}
+                        onChange={e => setCheckTierKey(e.target.value as TierKey)}
+                        style={{ padding: '8px 12px', border: '1px solid #C5CEEE', borderRadius: '8px', fontSize: '13px', background: '#fff', color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer', minWidth: '180px' }}>
+                        {TIERS.map(t => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Price display */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Price</label>
+                      <div style={{ padding: '8px 20px', border: '1px solid #C5CEEE', borderRadius: '8px', fontSize: '16px', fontWeight: 700, color: checkPrice ? '#1A56B0' : 'var(--color-text-tertiary)', background: '#fff', minWidth: '130px', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>
+                        {checkPrice || '—'}
+                      </div>
+                    </div>
+
+                    {/* Size + SqM info */}
+                    {product && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingBottom: '6px' }}>
+                        <div style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{product.itemCode}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                          {product.totalSqm > 0 ? `${product.totalSqm.toFixed(4)} m²` : ''}
+                          {product.rollSheet ? ` · ${product.rollSheet}` : ''}
+                          {(product.rollSheet === 'Packet' || product.rollSheet === 'Carton') && product.minQuantity > 1 ? ` of ${product.minQuantity}` : ''}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Tier pricing table (rows = tiers) ── */}
+                <div style={{ flex: 1, overflow: 'auto' }}>
+                  {product ? (
+                    <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '560px' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--color-background-secondary)' }}>
+                          <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)', width: '220px' }}>
+                            Pricing Tier
+                          </th>
+                          <th style={{ padding: '9px 20px', textAlign: 'right', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)' }}>
+                            Per SqM Price
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {TIERS.map((tier, idx) => {
+                          const rateStr = getRateForProduct(product, tier.key);
+                          const isEdited = editMap[product.id]?.[tier.key] !== undefined;
+                          const perUnit = livePerUnit(rateStr, product.totalSqm, product.rollSheet, product.minQuantity);
+                          const isCheckRow = tier.key === checkTierKey;
+                          const rowBg = isCheckRow ? '#EDF1FF' : idx % 2 === 0 ? 'var(--color-background-primary)' : 'var(--color-background-secondary)';
+                          return (
+                            <tr key={tier.key} style={{ background: rowBg }}>
+                              <td style={{ padding: '10px 20px', borderBottom: '0.5px solid var(--color-border-tertiary)', fontSize: '13px', fontWeight: isCheckRow ? 600 : 400, color: isCheckRow ? '#1A56B0' : 'var(--color-text-primary)' }}>
+                                {tier.label}
+                              </td>
+                              <td style={{ padding: '7px 20px', borderBottom: '0.5px solid var(--color-border-tertiary)', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>$</span>
+                                    <input
+                                      type="text" inputMode="decimal"
+                                      value={rateStr}
+                                      onChange={e => setRate(product.id, tier.key, e.target.value)}
+                                      placeholder="0.0000"
+                                      onFocus={e => e.target.select()}
+                                      style={{ width: '96px', padding: '6px 8px', fontSize: '13px', textAlign: 'right', border: `1px solid ${isEdited ? '#6366f1' : 'var(--color-border-secondary)'}`, borderRadius: '6px', background: isEdited ? '#EEF2FF' : '#fff', color: 'var(--color-text-primary)', outline: 'none', fontVariantNumeric: 'tabular-nums' }}
+                                    />
+                                  </div>
+                                  {perUnit && (
+                                    <div style={{ fontSize: '11px', color: isCheckRow ? '#1A56B0' : 'var(--color-text-tertiary)', fontVariantNumeric: 'tabular-nums', fontWeight: isCheckRow ? 500 : 400 }}>
                                       {perUnit}
                                     </div>
-                                  </div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ padding: '40px', textAlign: 'center', fontSize: '13px', color: 'var(--color-text-tertiary)' }}>
+                      No products in this family.
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Footer ── */}
