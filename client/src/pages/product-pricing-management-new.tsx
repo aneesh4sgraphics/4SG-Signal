@@ -491,6 +491,21 @@ export default function ProductPricingManagement() {
                   {selectedFamily.products.length} size{selectedFamily.products.length !== 1 ? 's' : ''} · {isFullyPriced(selectedFamily) ? '✓ All priced' : 'Needs pricing'}
                 </span>
               )}
+              {/* Apply mode toggle */}
+              {selectedFamily && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0px', border: '1px solid var(--color-border-secondary)', borderRadius: '8px', overflow: 'hidden', background: 'var(--color-background-primary)' }}>
+                  <button
+                    onClick={() => setApplyToAll(false)}
+                    style={{ padding: '6px 14px', fontSize: '11px', fontWeight: applyToAll ? 400 : 600, background: applyToAll ? 'transparent' : '#1a1a1a', color: applyToAll ? 'var(--color-text-tertiary)' : '#fff', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
+                    Per size
+                  </button>
+                  <button
+                    onClick={() => setApplyToAll(true)}
+                    style={{ padding: '6px 14px', fontSize: '11px', fontWeight: applyToAll ? 600 : 400, background: applyToAll ? '#1a1a1a' : 'transparent', color: applyToAll ? '#fff' : 'var(--color-text-tertiary)', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
+                    All {selectedFamily.products.length} sizes
+                  </button>
+                </div>
+              )}
               <button
                 onClick={syncFromOdoo}
                 disabled={syncing}
@@ -539,23 +554,8 @@ export default function ProductPricingManagement() {
 
                 {/* ── Check Price Area ── */}
                 <div style={{ flexShrink: 0, padding: '14px 24px', borderBottom: '1px solid var(--color-border-secondary)', background: '#F5F7FF' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: '#5B6FAA' }}>
-                      Check Price Area
-                    </div>
-                    {/* Apply mode toggle */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0px', border: '1px solid #C5CEEE', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                      <button
-                        onClick={() => setApplyToAll(false)}
-                        style={{ padding: '5px 14px', fontSize: '11px', fontWeight: applyToAll ? 400 : 600, background: applyToAll ? '#fff' : '#1a1a1a', color: applyToAll ? '#6B7280' : '#fff', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
-                        Per size
-                      </button>
-                      <button
-                        onClick={() => setApplyToAll(true)}
-                        style={{ padding: '5px 14px', fontSize: '11px', fontWeight: applyToAll ? 600 : 400, background: applyToAll ? '#1a1a1a' : '#fff', color: applyToAll ? '#fff' : '#6B7280', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
-                        All {family.products.length} sizes
-                      </button>
-                    </div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: '#5B6FAA', marginBottom: '10px' }}>
+                    Check Price Area
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
 
