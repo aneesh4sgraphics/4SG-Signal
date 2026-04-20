@@ -144,6 +144,8 @@ export default function ProductPricingManagement() {
   const [formSizeProductId, setFormSizeProductId] = useState<number | null>(null);
   // Which tier is selected in the Check Price Area
   const [checkTierKey, setCheckTierKey] = useState<TierKey>('landedPrice');
+  // When true, editing a rate propagates to all sizes in the family
+  const [applyToAll, setApplyToAll] = useState(false);
   // editMap[productId][tierKey] = $/m² rate string the user typed
   const [editMap, setEditMap] = useState<Record<number, Record<string, string>>>({});
   // Recently saved families (show ✓ Saved badge)
@@ -262,10 +264,20 @@ export default function ProductPricingManagement() {
 
   const setRate = (productId: number, tierKey: string, val: string) => {
     if (!isDecimalInput(val)) return;
-    setEditMap(prev => ({
-      ...prev,
-      [productId]: { ...(prev[productId] || {}), [tierKey]: val },
-    }));
+    if (applyToAll && selectedFamily) {
+      setEditMap(prev => {
+        const next = { ...prev };
+        for (const p of selectedFamily.products) {
+          next[p.id] = { ...(next[p.id] || {}), [tierKey]: val };
+        }
+        return next;
+      });
+    } else {
+      setEditMap(prev => ({
+        ...prev,
+        [productId]: { ...(prev[productId] || {}), [tierKey]: val },
+      }));
+    }
   };
 
   const familyHasDirty = (family: Family) =>
@@ -462,7 +474,7 @@ export default function ProductPricingManagement() {
               <label style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--color-text-tertiary)' }}>Type</label>
               <select
                 value={formFamilyCode ?? ''}
-                onChange={e => { setFormFamilyCode(e.target.value || null); setFormSizeProductId(null); }}
+                onChange={e => { setFormFamilyCode(e.target.value || null); setFormSizeProductId(null); setApplyToAll(false); }}
                 disabled={!formCategoryId || pricingLoading}
                 style={{ padding: '9px 12px', border: '1px solid var(--color-border-secondary)', borderRadius: '8px', fontSize: '13px', background: 'var(--color-background-primary)', color: formFamilyCode ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', outline: 'none', cursor: formCategoryId ? 'pointer' : 'default', opacity: formCategoryId ? 1 : 0.45, minWidth: '280px' }}>
                 <option value="">— Select type —</option>
@@ -527,18 +539,35 @@ export default function ProductPricingManagement() {
 
                 {/* ── Check Price Area ── */}
                 <div style={{ flexShrink: 0, padding: '14px 24px', borderBottom: '1px solid var(--color-border-secondary)', background: '#F5F7FF' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: '#5B6FAA', marginBottom: '10px' }}>
-                    Check Price Area
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: '#5B6FAA' }}>
+                      Check Price Area
+                    </div>
+                    {/* Apply mode toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0px', border: '1px solid #C5CEEE', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
+                      <button
+                        onClick={() => setApplyToAll(false)}
+                        style={{ padding: '5px 14px', fontSize: '11px', fontWeight: applyToAll ? 400 : 600, background: applyToAll ? '#fff' : '#1a1a1a', color: applyToAll ? '#6B7280' : '#fff', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
+                        Per size
+                      </button>
+                      <button
+                        onClick={() => setApplyToAll(true)}
+                        style={{ padding: '5px 14px', fontSize: '11px', fontWeight: applyToAll ? 600 : 400, background: applyToAll ? '#1a1a1a' : '#fff', color: applyToAll ? '#fff' : '#6B7280', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}>
+                        All {family.products.length} sizes
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
 
-                    {/* Select Size */}
+                    {/* Select Size / preview label */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Size</label>
+                      <label style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {applyToAll ? 'Preview Size' : 'Select Size'}
+                      </label>
                       <select
                         value={product?.id ?? ''}
                         onChange={e => setFormSizeProductId(e.target.value ? Number(e.target.value) : null)}
-                        style={{ padding: '8px 12px', border: '1px solid #C5CEEE', borderRadius: '8px', fontSize: '13px', background: '#fff', color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer', minWidth: '180px' }}>
+                        style={{ padding: '8px 12px', border: '1px solid #C5CEEE', borderRadius: '8px', fontSize: '13px', background: applyToAll ? '#F3F4F6' : '#fff', color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer', minWidth: '180px', opacity: applyToAll ? 0.7 : 1 }}>
                         {family.products.map(p => (
                           <option key={p.id} value={p.id}>{p.size || p.itemCode}</option>
                         ))}
@@ -585,12 +614,12 @@ export default function ProductPricingManagement() {
                   {product ? (
                     <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: '560px' }}>
                       <thead>
-                        <tr style={{ background: 'var(--color-background-secondary)' }}>
-                          <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)', width: '220px' }}>
+                        <tr style={{ background: applyToAll ? '#1a1a1a' : 'var(--color-background-secondary)' }}>
+                          <th style={{ padding: '9px 20px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: applyToAll ? '#A0AEC0' : 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)', width: '220px' }}>
                             Pricing Tier
                           </th>
-                          <th style={{ padding: '9px 20px', textAlign: 'right', fontSize: '10px', fontWeight: 700, color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)' }}>
-                            Per SqM Price
+                          <th style={{ padding: '9px 20px', textAlign: 'right', fontSize: '10px', fontWeight: 700, color: applyToAll ? '#fff' : 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border-secondary)' }}>
+                            {applyToAll ? `Per SqM Price — applying to all ${family.products.length} sizes` : 'Per SqM Price'}
                           </th>
                         </tr>
                       </thead>
@@ -647,7 +676,9 @@ export default function ProductPricingManagement() {
                   )}
                   {dirty && !justSaved && (
                     <span style={{ fontSize: '11px', color: '#6366f1' }}>
-                      {family.products.filter(p => Object.keys(editMap[p.id] || {}).length > 0).length} product(s) changed
+                      {applyToAll
+                        ? `All ${family.products.filter(p => Object.keys(editMap[p.id] || {}).length > 0).length} size(s) will be updated`
+                        : `${family.products.filter(p => Object.keys(editMap[p.id] || {}).length > 0).length} product(s) changed`}
                     </span>
                   )}
                   <button
