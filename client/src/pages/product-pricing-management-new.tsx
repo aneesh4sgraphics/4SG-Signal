@@ -145,7 +145,7 @@ export default function ProductPricingManagement() {
   // Which tier is selected in the Check Price Area
   const [checkTierKey, setCheckTierKey] = useState<TierKey>('landedPrice');
   // When true, editing a rate propagates to all sizes in the family
-  const [applyToAll, setApplyToAll] = useState(false);
+  const [applyToAll, setApplyToAll] = useState(true);
   // editMap[productId][tierKey] = $/m² rate string the user typed
   const [editMap, setEditMap] = useState<Record<number, Record<string, string>>>({});
   // Recently saved families (show ✓ Saved badge)
@@ -474,7 +474,7 @@ export default function ProductPricingManagement() {
               <label style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--color-text-tertiary)' }}>Type</label>
               <select
                 value={formFamilyCode ?? ''}
-                onChange={e => { setFormFamilyCode(e.target.value || null); setFormSizeProductId(null); setApplyToAll(false); }}
+                onChange={e => { setFormFamilyCode(e.target.value || null); setFormSizeProductId(null); setApplyToAll(true); }}
                 disabled={!formCategoryId || pricingLoading}
                 style={{ padding: '9px 12px', border: '1px solid var(--color-border-secondary)', borderRadius: '8px', fontSize: '13px', background: 'var(--color-background-primary)', color: formFamilyCode ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', outline: 'none', cursor: formCategoryId ? 'pointer' : 'default', opacity: formCategoryId ? 1 : 0.45, minWidth: '280px' }}>
                 <option value="">— Select type —</option>
