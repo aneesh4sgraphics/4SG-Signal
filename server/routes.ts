@@ -13213,7 +13213,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rollSheet: localProduct.rollSheet,
             unitOfMeasure: localProduct.unitOfMeasure,
             tiers: tierData.map(tier => {
-              // Guard against division by zero and invalid values
+              // DB stores $/m² rate directly in each tier column.
+              // pricePerSheet = ($/m² rate × totalSqm) / minQuantity
+              // e.g. 0.63 $/m² × 3.0161 m²/pack ÷ 50 sheets = $0.038/sheet
               const pricePerSheet = totalSqm > 0 && minQuantity > 0 
                 ? (tier.pricePerSqm * totalSqm) / minQuantity 
                 : 0;

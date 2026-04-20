@@ -1998,7 +1998,7 @@ async function saveRatesHandler(req: any, res: any) {
     let skipped = 0;
 
     for (const item of items) {
-      const existing = await db.select({ id: productPricingMaster.id, totalSqm: productPricingMaster.totalSqm })
+      const existing = await db.select({ id: productPricingMaster.id })
         .from(productPricingMaster)
         .where(and(
           eq(productPricingMaster.itemCode, item.itemCode),
@@ -2007,8 +2007,6 @@ async function saveRatesHandler(req: any, res: any) {
         .limit(1);
 
       if (!existing.length) { skipped++; continue; }
-      const totalSqm = parseFloat(existing[0].totalSqm || '0');
-      if (totalSqm <= 0) { skipped++; continue; }
 
       const updateValues: Record<string, string | Date> = { updatedAt: new Date() };
       for (const tierKey of PRICE_TIER_KEYS) {
@@ -2016,7 +2014,7 @@ async function saveRatesHandler(req: any, res: any) {
         if (rate === undefined || rate === null || rate === '') continue;
         const rateNum = parseFloat(rate);
         if (isNaN(rateNum) || rateNum < 0) continue;
-        updateValues[tierKey] = (rateNum * totalSqm).toFixed(4);
+        updateValues[tierKey] = rateNum.toFixed(4);
       }
 
       if (Object.keys(updateValues).length <= 1) { skipped++; continue; }

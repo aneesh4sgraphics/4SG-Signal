@@ -101,9 +101,8 @@ function getStoredPrice(product: RawProduct, key: TierKey): number {
 
 function getDisplayRate(product: RawProduct, key: TierKey): string {
   const price = getStoredPrice(product, key);
-  const sqm = product.totalSqm;
-  if (!price || !sqm || sqm <= 0) return '';
-  return (price / sqm).toFixed(4);
+  if (!price) return '';
+  return price.toFixed(4);
 }
 
 function livePerUnit(rateStr: string, sqm: number, rollSheet: string | null, minQty: number): string {
@@ -297,15 +296,15 @@ export default function ProductPricingManagement() {
         for (const [tierKey, rateStr] of Object.entries(edits)) {
           if (rateStr === '') continue;
           const rate = parseFloat(rateStr);
-          if (!isNaN(rate) && rate > 0 && p.totalSqm > 0) {
-            update[tierKey] = (rate * p.totalSqm).toFixed(4);
+          if (!isNaN(rate) && rate > 0) {
+            update[tierKey] = rate.toFixed(4);
           }
         }
         return update;
       }).filter(u => Object.keys(u).length > 1);
 
       if (!updates.length) {
-        toast({ title: 'No valid prices to save (check sqm values)' });
+        toast({ title: 'No valid prices to save' });
         return;
       }
 
