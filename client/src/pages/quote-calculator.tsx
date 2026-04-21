@@ -537,27 +537,21 @@ export default function QuoteCalculator() {
           const sqmB = parseFloat(String(b.totalSqm || 0));
           return sqmA - sqmB; // always ascending by square meters
         });
-        // Deduplicate by physical size — keep the record that has pricing data
+        // Deduplicate by item code — each unique SKU is a separate selectable product.
+        // This allows same physical size with different pack quantities (e.g. sample vs carton)
+        // to both appear in the dropdown. Only collapse exact duplicate item codes.
         const sizeMap = new Map<string, typeof filtered[0]>();
         for (const item of filtered) {
-          // Normalize the size string as the key (e.g. "23x29", "23 x 29", "23X29" all → "23x29")
-          const normalizedSize = (item.size || '').toLowerCase().replace(/\s+/g, '').replace(/x/g, 'x');
-          const existing = sizeMap.get(normalizedSize);
-          if (!existing) {
-            sizeMap.set(normalizedSize, item);
+          const key = item.itemCode || ((item.size || '') + '_' + Math.round(parseFloat(String(item.totalSqm || 0)) * 1000));
+          if (!sizeMap.has(key)) {
+            sizeMap.set(key, item);
           } else {
-            // Prefer the record that has actual pricing data over $0 records
+            // Same item code — prefer the record that has actual pricing data
+            const existing = sizeMap.get(key)!;
             const existingHasPrice = parseFloat(String(existing.dealerPrice || 0)) > 0 || parseFloat(String(existing.retailPrice || 0)) > 0;
             const itemHasPrice = parseFloat(String(item.dealerPrice || 0)) > 0 || parseFloat(String(item.retailPrice || 0)) > 0;
             if (!existingHasPrice && itemHasPrice) {
-              sizeMap.set(normalizedSize, item);
-            } else if (existingHasPrice && itemHasPrice) {
-              // Both have pricing — prefer the larger sqm (main carton over sample pack)
-              const existingSqm = parseFloat(String(existing.totalSqm || 0));
-              const itemSqm = parseFloat(String(item.totalSqm || 0));
-              if (itemSqm > existingSqm) {
-                sizeMap.set(normalizedSize, item);
-              }
+              sizeMap.set(key, item);
             }
           }
         }
