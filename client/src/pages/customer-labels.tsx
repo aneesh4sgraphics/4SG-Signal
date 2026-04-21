@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Search, Printer, Plus, Check, Building2, Zap, MapPin, X, ChevronDown, ChevronUp,
   SlidersHorizontal, Flame, Home, Users, Layers, Star, Tag, Clock,
-  Mail, Droplets, CheckSquare, Square, Send, Loader2, PackagePlus, FileText,
+  Mail, Droplets, CheckSquare, Square, Send, Loader2, PackagePlus, FileText, Eye, Code,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -138,10 +138,13 @@ export default function CustomerLabels() {
   const [composeBody, setComposeBody] = useState('');
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
+  const [composeEditingHtml, setComposeEditingHtml] = useState(false);
+
   const { data: emailTemplates = [] } = useQuery<{ id: number; name: string; subject: string; body: string; isActive: boolean }[]>({
     queryKey: ['/api/email/templates'],
   });
   const activeTemplates = emailTemplates.filter(t => t.isActive);
+  const composeBodyIsHtml = /<html[\s>]|<!DOCTYPE\s+html/i.test(composeBody.trim());
 
   const debouncedSearch = useDebounce(search, 300);
   const { queue, addToQueue, addBulkToQueueAndOpen, isInQueue, openPrintDialog } = useLabelQueue();
@@ -960,13 +963,41 @@ export default function CustomerLabels() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500 mb-1 block">Message</Label>
-              <Textarea
-                value={composeBody}
-                onChange={e => setComposeBody(e.target.value)}
-                placeholder="Write your email here…"
-                className="min-h-[160px]"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs text-gray-500">Message</Label>
+                {composeBodyIsHtml && (
+                  <button
+                    type="button"
+                    onClick={() => setComposeEditingHtml(v => !v)}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    {composeEditingHtml
+                      ? <><Eye className="w-3 h-3" /> Show Preview</>
+                      : <><Code className="w-3 h-3" /> Edit HTML</>}
+                  </button>
+                )}
+              </div>
+              {composeBodyIsHtml && !composeEditingHtml ? (
+                <div className="rounded-md border overflow-hidden bg-white">
+                  <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 flex items-center gap-2">
+                    <Eye className="w-3.5 h-3.5 text-amber-600" />
+                    <span className="text-xs text-amber-700 font-medium">HTML email — rendered preview</span>
+                  </div>
+                  <iframe
+                    srcDoc={composeBody.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}
+                    sandbox="allow-same-origin"
+                    className="w-full h-56 border-0"
+                    title="Email preview"
+                  />
+                </div>
+              ) : (
+                <Textarea
+                  value={composeBody}
+                  onChange={e => setComposeBody(e.target.value)}
+                  placeholder="Write your email here…"
+                  className={`min-h-[160px] ${composeBodyIsHtml ? 'font-mono text-sm' : ''}`}
+                />
+              )}
               <p className="text-xs text-gray-400 mt-1">Use {`{{name}}`} and {`{{company}}`} for personalization</p>
             </div>
             <div className="flex gap-2 justify-end pt-1">

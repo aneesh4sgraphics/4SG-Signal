@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, FileText } from 'lucide-react';
+import { Loader2, Send, FileText, Eye, Code } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { EmailTemplate } from '@shared/schema';
 
@@ -16,17 +16,23 @@ interface BulkEmailComposerProps {
   onSent: (count: number) => void;
 }
 
+function isHtml(text: string) {
+  return /<html[\s>]|<!DOCTYPE\s+html/i.test(text.trim());
+}
+
 export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmailComposerProps) {
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [editingHtml, setEditingHtml] = useState(false);
 
   const { data: templates = [] } = useQuery<EmailTemplate[]>({
     queryKey: ['/api/email/templates'],
   });
 
   const activeTemplates = templates.filter(t => t.isActive);
+  const bodyIsHtml = isHtml(body);
 
   const handleTemplateSelect = (templateId: string) => {
     const tpl = activeTemplates.find(t => String(t.id) === templateId);
@@ -34,6 +40,7 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
     setSubject(tpl.subject);
     setBody(tpl.body);
     setShowPreview(false);
+    setEditingHtml(false);
   };
 
   const sendMutation = useMutation({
@@ -54,6 +61,10 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
   });
 
   const canSend = subject.trim().length > 0 && body.trim().length > 0;
+
+  const previewHtml = body
+    .replace(/\{\{name\}\}/g, 'John')
+    .replace(/\{\{company\}\}/g, 'Acme Print Co');
 
   return (
     <div className="space-y-4 py-2">
@@ -78,7 +89,6 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-400">Selecting a template will populate the fields below. You can still edit after.</p>
         </div>
       )}
 
@@ -90,16 +100,47 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
           placeholder="e.g. Quick intro — waterproof papers for your print shop"
         />
       </div>
+
       <div className="space-y-1">
-        <Label>Message</Label>
-        <Textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Write your email here. Use {{name}} to personalize with the lead's name and {{company}} for their company."
-          className="min-h-[200px]"
-        />
+        <div className="flex items-center justify-between">
+          <Label>Message</Label>
+          {bodyIsHtml && (
+            <button
+              type="button"
+              onClick={() => setEditingHtml(v => !v)}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              {editingHtml
+                ? <><Eye className="w-3 h-3" /> Show Preview</>
+                : <><Code className="w-3 h-3" /> Edit HTML</>}
+            </button>
+          )}
+        </div>
+
+        {bodyIsHtml && !editingHtml ? (
+          <div className="rounded-md border overflow-hidden bg-white">
+            <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 flex items-center gap-2">
+              <Eye className="w-3.5 h-3.5 text-amber-600" />
+              <span className="text-xs text-amber-700 font-medium">HTML email — rendered preview</span>
+            </div>
+            <iframe
+              srcDoc={previewHtml}
+              sandbox="allow-same-origin"
+              className="w-full h-64 border-0"
+              title="Email preview"
+            />
+          </div>
+        ) : (
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Write your email here. Use {{name}} to personalize with the lead's name and {{company}} for their company."
+            className="min-h-[200px] font-mono text-sm"
+          />
+        )}
         <p className="text-xs text-gray-400">Use {'{{name}}'} and {'{{company}}'} for personalization</p>
       </div>
+
       <div className="flex justify-between items-center pt-2">
         <p className="text-sm text-gray-500">Sending to {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''}</p>
         <div className="flex gap-2">
@@ -121,10 +162,21 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
             <p className="text-sm font-medium text-gray-700">Preview (first lead)</p>
             <button onClick={() => setShowPreview(false)} className="text-xs text-gray-400 hover:text-gray-600">Edit</button>
           </div>
-          <p className="text-xs text-gray-500 mb-1"><strong>Subject:</strong> {subject.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}</p>
-          <div className="text-xs text-gray-700 whitespace-pre-wrap bg-white border rounded p-3 mt-2 max-h-32 overflow-y-auto">
-            {body.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}
-          </div>
+          <p className="text-xs text-gray-500 mb-1">
+            <strong>Subject:</strong> {subject.replace(/\{\{name\}\}/g, 'John').replace(/\{\{company\}\}/g, 'Acme Print Co')}
+          </p>
+          {bodyIsHtml ? (
+            <iframe
+              srcDoc={previewHtml}
+              sandbox="allow-same-origin"
+              className="w-full h-48 border rounded bg-white mt-2"
+              title="Email body preview"
+            />
+          ) : (
+            <div className="text-xs text-gray-700 whitespace-pre-wrap bg-white border rounded p-3 mt-2 max-h-32 overflow-y-auto">
+              {previewHtml}
+            </div>
+          )}
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="ghost" size="sm" onClick={() => setShowPreview(false)}>Edit</Button>
             <Button
