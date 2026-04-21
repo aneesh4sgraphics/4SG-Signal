@@ -111,7 +111,10 @@ export async function sendEmail(to: string, subject: string, body: string, htmlB
   emailLines.push('Content-Type: text/html; charset=utf-8');
   emailLines.push('Content-Transfer-Encoding: base64');
   emailLines.push('');
-  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
+  // If body is already a full HTML document, use it as-is — don't replace \n with <br>
+  // which would corrupt the HTML structure and produce a blank email.
+  const bodyIsHtml = /<html[\s>]|<!DOCTYPE\s+html/i.test(body.trim());
+  const htmlContent = htmlBody || (bodyIsHtml ? body : body.replace(/\n/g, '<br>'));
   const encodedContent = Buffer.from(htmlContent, 'utf-8').toString('base64');
   emailLines.push(encodedContent);
   emailLines.push('');

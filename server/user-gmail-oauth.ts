@@ -303,8 +303,11 @@ export async function sendEmailAsUser(userId: string, to: string, subject: strin
   emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
   emailLines.push('');
 
-  const htmlContent = htmlBody || body.replace(/\n/g, '<br>');
-  const plainText = body.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+  // If body is already a full HTML document, use it as-is — don't replace \n with <br>
+  // which would corrupt the HTML structure and produce a blank email.
+  const bodyIsHtml = /<html[\s>]|<!DOCTYPE\s+html/i.test(body.trim());
+  const htmlContent = htmlBody || (bodyIsHtml ? body : body.replace(/\n/g, '<br>'));
+  const plainText = (bodyIsHtml ? body : body).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
     || 'Please view this email in an HTML-compatible email client.';
 
   emailLines.push(`--${boundary}`);
