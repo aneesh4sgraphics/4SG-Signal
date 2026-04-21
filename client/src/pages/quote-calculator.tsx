@@ -551,6 +551,13 @@ export default function QuoteCalculator() {
             const itemHasPrice = parseFloat(String(item.dealerPrice || 0)) > 0 || parseFloat(String(item.retailPrice || 0)) > 0;
             if (!existingHasPrice && itemHasPrice) {
               sizeMap.set(normalizedSize, item);
+            } else if (existingHasPrice && itemHasPrice) {
+              // Both have pricing — prefer the larger sqm (main carton over sample pack)
+              const existingSqm = parseFloat(String(existing.totalSqm || 0));
+              const itemSqm = parseFloat(String(item.totalSqm || 0));
+              if (itemSqm > existingSqm) {
+                sizeMap.set(normalizedSize, item);
+              }
             }
           }
         }
