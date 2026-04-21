@@ -11739,9 +11739,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Filter + sort
+      // Filter + sort — search by name, email, phone, city, or domain
       const filtered = search
-        ? result.filter(r => r.name.toLowerCase().includes(search))
+        ? result.filter(r =>
+            r.name.toLowerCase().includes(search) ||
+            (r.generalEmail ?? '').toLowerCase().includes(search) ||
+            (r.mainPhone ?? '').toLowerCase().includes(search) ||
+            (r.domain ?? '').toLowerCase().includes(search) ||
+            (r.city ?? '').toLowerCase().includes(search)
+          )
         : result;
       filtered.sort((a, b) => a.name.localeCompare(b.name));
 
