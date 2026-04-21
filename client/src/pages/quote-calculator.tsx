@@ -555,7 +555,11 @@ export default function QuoteCalculator() {
             }
           }
         }
-        return Array.from(sizeMap.values());
+        return Array.from(sizeMap.values()).sort((a, b) => {
+          const sqmA = parseFloat(String(a.totalSqm || 0));
+          const sqmB = parseFloat(String(b.totalSqm || 0));
+          return sqmA - sqmB;
+        });
       })()
     : [];
 
