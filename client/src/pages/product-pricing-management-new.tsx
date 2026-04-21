@@ -20,6 +20,7 @@ const TIERS = [
   { key: 'tierStage2Price',        label: 'Shopify 2' },
   { key: 'tierStage15Price',       label: 'Shopify 1' },
   { key: 'tierStage1Price',        label: 'Shopify Acct' },
+  { key: 'approvalNeededPrice',    label: 'Shopify Lowest' },
   { key: 'retailPrice',            label: 'Retail' },
 ] as const;
 
