@@ -1139,8 +1139,8 @@ export function registerLeadsRoutes(app: Express): void {
           } else {
             await sendEmail(lead.email, personalizedSubject, personalizedBody);
           }
-          await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, lead.id));
-          sent++;
+          sent++; // count as sent immediately after the email goes out
+          try { await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, lead.id)); } catch {}
         } catch (e) {
           failed++;
         }

@@ -990,8 +990,8 @@ export function registerCustomersRoutes(app: Express): void {
             const personalized = (s: string) => s.replace(/\{\{name\}\}/g, name).replace(/\{\{company\}\}/g, c.company || '');
             if (usePersonalGmail) await sendEmailAsUser(userGmailConnection, c.email, personalized(subject), personalized(body));
             else await sendEmail(c.email, personalized(subject), personalized(body));
-            await db.update(customers).set({ lastOutboundEmailAt: new Date(), updatedAt: new Date() }).where(eq(customers.id, c.id));
-            sent++;
+            sent++; // count as sent immediately after the email goes out
+            try { await db.update(customers).set({ lastOutboundEmailAt: new Date(), updatedAt: new Date() }).where(eq(customers.id, c.id)); } catch {}
           } catch { failed++; }
         }
       }
@@ -1006,8 +1006,8 @@ export function registerCustomersRoutes(app: Express): void {
             const personalized = (s: string) => s.replace(/\{\{name\}\}/g, l.name || l.company || '').replace(/\{\{company\}\}/g, l.company || '');
             if (usePersonalGmail) await sendEmailAsUser(userGmailConnection, l.email, personalized(subject), personalized(body));
             else await sendEmail(l.email, personalized(subject), personalized(body));
-            await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, l.id));
             sent++;
+            try { await db.update(leads).set({ lastContactAt: new Date() }).where(eq(leads.id, l.id)); } catch {}
           } catch { failed++; }
         }
       }
