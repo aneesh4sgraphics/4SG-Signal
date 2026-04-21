@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Send } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Send, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { EmailTemplate } from '@shared/schema';
 
 interface BulkEmailComposerProps {
   leadIds: number[];
@@ -19,6 +21,20 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+
+  const { data: templates = [] } = useQuery<EmailTemplate[]>({
+    queryKey: ['/api/email/templates'],
+  });
+
+  const activeTemplates = templates.filter(t => t.isActive);
+
+  const handleTemplateSelect = (templateId: string) => {
+    const tpl = activeTemplates.find(t => String(t.id) === templateId);
+    if (!tpl) return;
+    setSubject(tpl.subject);
+    setBody(tpl.body);
+    setShowPreview(false);
+  };
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -41,6 +57,31 @@ export default function BulkEmailComposer({ leadIds, onClose, onSent }: BulkEmai
 
   return (
     <div className="space-y-4 py-2">
+      {activeTemplates.length > 0 && (
+        <div className="space-y-1">
+          <Label className="flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-gray-500" />
+            Load Template
+          </Label>
+          <Select onValueChange={handleTemplateSelect}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose a template to pre-fill subject & message…" />
+            </SelectTrigger>
+            <SelectContent>
+              {activeTemplates.map(tpl => (
+                <SelectItem key={tpl.id} value={String(tpl.id)}>
+                  <span className="font-medium">{tpl.name}</span>
+                  {tpl.category && (
+                    <span className="ml-2 text-xs text-gray-400 capitalize">{tpl.category.replace(/_/g, ' ')}</span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-400">Selecting a template will populate the fields below. You can still edit after.</p>
+        </div>
+      )}
+
       <div className="space-y-1">
         <Label>Subject</Label>
         <Input
