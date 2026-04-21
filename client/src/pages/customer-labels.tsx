@@ -220,7 +220,7 @@ export default function CustomerLabels() {
       if (hasRecentFilter) params.set('createdAfterDays', selectedRecentDays);
       const res = await fetch(`/api/customers?${params}`, { credentials: 'include' });
       const data = await res.json();
-      return { customers: data.data ?? [] };
+      return { customers: data.customers ?? data.data ?? [] };
     },
     enabled,
     staleTime: 30000,
