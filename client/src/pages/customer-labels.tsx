@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Search, Printer, Plus, Check, Building2, Zap, MapPin, X, ChevronDown, ChevronUp,
   SlidersHorizontal, Flame, Home, Users, Layers, Star, Tag, Clock,
-  Mail, Droplets, CheckSquare, Square, Send, Loader2, PackagePlus,
+  Mail, Droplets, CheckSquare, Square, Send, Loader2, PackagePlus, FileText,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -137,6 +137,11 @@ export default function CustomerLabels() {
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
+
+  const { data: emailTemplates = [] } = useQuery<{ id: number; name: string; subject: string; body: string; isActive: boolean }[]>({
+    queryKey: ['/api/email/templates'],
+  });
+  const activeTemplates = emailTemplates.filter(t => t.isActive);
 
   const debouncedSearch = useDebounce(search, 300);
   const { queue, addToQueue, addBulkToQueueAndOpen, isInQueue, openPrintDialog } = useLabelQueue();
@@ -924,6 +929,28 @@ export default function CustomerLabels() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {activeTemplates.length > 0 && (
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Load Template
+                </Label>
+                <Select
+                  onValueChange={(val) => {
+                    const tpl = activeTemplates.find(t => String(t.id) === val);
+                    if (tpl) { setComposeSubject(tpl.subject); setComposeBody(tpl.body); }
+                  }}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Choose a template to auto-fill…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeTemplates.map(t => (
+                      <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Subject</Label>
               <Input
