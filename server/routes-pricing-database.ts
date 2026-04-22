@@ -1411,11 +1411,21 @@ router.post("/catalog-product-types/merge", isAuthenticated, requireAdmin, async
       return res.status(400).json({ error: "Source and target cannot be the same" });
     }
 
+    const [source] = await db
+      .select()
+      .from(catalogProductTypes)
+      .where(eq(catalogProductTypes.id, sourceTypeId));
+    if (!source) return res.status(404).json({ error: "Source catalog type not found" });
+
     const [target] = await db
       .select()
       .from(catalogProductTypes)
       .where(eq(catalogProductTypes.id, targetTypeId));
     if (!target) return res.status(404).json({ error: "Target catalog type not found" });
+
+    if (source.categoryId !== target.categoryId) {
+      return res.status(400).json({ error: "Source and target must belong to the same category" });
+    }
 
     await db
       .update(productPricingMaster)
