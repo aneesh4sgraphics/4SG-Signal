@@ -93,8 +93,8 @@ export async function runCatalogDataMigration(): Promise<void> {
     //    Assigned types (all were previously unmapped, category_id IS NULL):
     //    id 148 – Graffiti Metallic Polyester (Dual)
     //    id 144 – Graffiti Photo Paper - Sample Pack
-    //    id 145 – Graffiti STRATA 8 mil
-    //    id 146 – Graffiti STRATA 5 mil
+    //    id 145 – Graffiti STRATA 5 mil
+    //    id 146 – Graffiti STRATA 8 mil
     await db.execute(sql`
       INSERT INTO admin_categories (code, label, sort_order, is_active, created_at, updated_at)
       VALUES ('graffiti_poly_specialties', 'Graffiti Polyester - SPECIALTIES', 3, true, NOW(), NOW())
