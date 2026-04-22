@@ -11781,14 +11781,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const name = ((req.query.name as string) || '').trim();
       if (!name) return res.status(400).json({ error: "name is required" });
 
-      const localContacts = await db
-        .select()
+      // Find the parent company customer record (isCompany=true) by name
+      const [parentCompanyRecord] = await db.select({ id: customers.id })
         .from(customers)
         .where(and(
           sql`LOWER(${customers.company}) = LOWER(${name})`,
+          eq(customers.isCompany, true),
           sql`${customers.companyId} IS NULL`
         ))
+        .limit(1);
+
+      // Fetch contacts: (1) those with matching company name OR (2) linked via parentCustomerId
+      const localContactsRaw = await db
+        .select()
+        .from(customers)
+        .where(and(
+          sql`${customers.companyId} IS NULL`,
+          eq(customers.isCompany, false),
+          sql`(LOWER(${customers.company}) = LOWER(${name}) OR ${customers.parentCustomerId} = ${parentCompanyRecord?.id ?? '00000000-0000-0000-0000-000000000000'})`
+        ))
         .orderBy(customers.lastName, customers.firstName);
+
+      // Deduplicate by ID (company name match and parent link can overlap)
+      const seen = new Set<string>();
+      const localContacts = localContactsRaw.filter(c => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
 
       // Also pull contacts from Odoo by searching the company name
       let odooContacts: any[] = [];
