@@ -4646,7 +4646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get product types by category
-  app.get("/api/product-types/:categoryId", async (req, res) => {
+  app.get("/api/product-types/:categoryId(\\d+)", async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
       if (isNaN(categoryId)) {
