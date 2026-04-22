@@ -11803,14 +11803,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ) || odooCompanies[0];
           const rawOdooContacts = await odooClient.getCompanyContacts(bestMatch.id);
           const localEmails = new Set(localContacts.map(c => (c.email || '').toLowerCase()).filter(Boolean));
-          odooContacts = rawOdooContacts
-            .filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()))
-            .map((oc: any) => {
+          const filtered = rawOdooContacts.filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()));
+          const odooPartnerIds = filtered.map((oc: any) => oc.id).filter(Boolean);
+          const resolvedMap = new Map<number, string>();
+          if (odooPartnerIds.length > 0) {
+            const rows = await db.select({ id: customers.id, odooPartnerId: customers.odooPartnerId })
+              .from(customers)
+              .where(inArray(customers.odooPartnerId, odooPartnerIds));
+            rows.forEach(r => { if (r.odooPartnerId) resolvedMap.set(r.odooPartnerId, r.id); });
+          }
+          odooContacts = filtered.map((oc: any) => {
               const parts = (oc.name || '').trim().split(/\s+/);
               const firstName = parts.slice(0, -1).join(' ') || parts[0] || null;
               const lastName = parts.length > 1 ? parts[parts.length - 1] : null;
               return {
-                id: `odoo_${oc.id}`,
+                id: resolvedMap.get(oc.id) ?? `odoo_${oc.id}`,
                 firstName,
                 lastName,
                 email: oc.email || null,
@@ -11860,14 +11867,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const rawOdooContacts = await odooClient.getCompanyContacts(company.odooCompanyPartnerId);
           const localEmails = new Set(localContacts.map(c => (c.email || '').toLowerCase()).filter(Boolean));
-          odooContacts = rawOdooContacts
-            .filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()))
-            .map((oc: any) => {
+          const filtered2 = rawOdooContacts.filter((oc: any) => !oc.email || !localEmails.has(oc.email.toLowerCase()));
+          const odooPartnerIds2 = filtered2.map((oc: any) => oc.id).filter(Boolean);
+          const resolvedMap2 = new Map<number, string>();
+          if (odooPartnerIds2.length > 0) {
+            const rows2 = await db.select({ id: customers.id, odooPartnerId: customers.odooPartnerId })
+              .from(customers)
+              .where(inArray(customers.odooPartnerId, odooPartnerIds2));
+            rows2.forEach(r => { if (r.odooPartnerId) resolvedMap2.set(r.odooPartnerId, r.id); });
+          }
+          odooContacts = filtered2.map((oc: any) => {
               const parts = (oc.name || '').trim().split(/\s+/);
               const firstName = parts.slice(0, -1).join(' ') || parts[0] || null;
               const lastName = parts.length > 1 ? parts[parts.length - 1] : null;
               return {
-                id: `odoo_${oc.id}`,
+                id: resolvedMap2.get(oc.id) ?? `odoo_${oc.id}`,
                 firstName,
                 lastName,
                 email: oc.email || null,
