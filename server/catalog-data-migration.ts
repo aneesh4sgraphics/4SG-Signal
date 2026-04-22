@@ -8,15 +8,16 @@ const ORIGIN33_ITEM_CODES = [
   'SZETABL-3378B', 'SZETABL-3378C',
 ];
 
-// Specialties type IDs: Metallics, Clears, Frosteds, Canvas, Photo Paper, STRATA
-const SPECIALTIES_TYPE_IDS = [17, 18, 38, 41, 16, 36, 148, 144, 145, 146];
+// Previously-unmapped Specialties type IDs confirmed by user:
+// Metallic Polyester (148), Photo Paper Sample Pack (144), STRATA 5 mil (145), STRATA 8 mil (146)
+const SPECIALTIES_TYPE_IDS = [148, 144, 145, 146];
 
 interface CountRow { cnt: number; }
 
 /**
  * Idempotent catalog data migration.
  * Applies confirmed product-type category assignments, archives excluded products,
- * and ensures the Misc. Products + Graffiti Polyester Specialties categories exist.
+ * and ensures the Misc. Products + Graffiti Polyester - SPECIALTIES categories exist.
  * Safe to run on every startup — each step uses conditional logic to avoid
  * duplicate-key violations and no-op on already-applied data.
  */
@@ -92,19 +93,21 @@ export async function runCatalogDataMigration(): Promise<void> {
         AND (catalog_category_id IS NULL OR catalog_category_id != 8)
     `);
 
-    // ── 6. Graffiti Polyester - SPECIALTIES category ─────────────────────────
-    //    Covers: Metallics, Clears, Frosteds, Canvas, Photo Paper, STRATA
+    // ── 6. Graffiti Polyester - SPECIALTIES category (new, user-confirmed) ───
+    //    Assigned types (all were previously unmapped, category_id IS NULL):
+    //    id 148 – Graffiti Metallic Polyester (Dual)
+    //    id 144 – Graffiti Photo Paper - Sample Pack
+    //    id 145 – Graffiti STRATA 8 mil
+    //    id 146 – Graffiti STRATA 5 mil
     await db.execute(sql`
       INSERT INTO admin_categories (code, label, sort_order, is_active, created_at, updated_at)
       VALUES ('graffiti_poly_specialties', 'Graffiti Polyester - SPECIALTIES', 3, true, NOW(), NOW())
       ON CONFLICT (code) DO NOTHING
     `);
-
-    // Assign the specialties types to this category
     await db.execute(sql`
       UPDATE catalog_product_types
       SET category_id = (SELECT id FROM admin_categories WHERE code = 'graffiti_poly_specialties')
-      WHERE id IN (17, 18, 38, 41, 16, 36, 148, 144, 145, 146)
+      WHERE id IN (148, 144, 145, 146)
         AND (
           category_id IS NULL
           OR category_id != (SELECT id FROM admin_categories WHERE code = 'graffiti_poly_specialties')
@@ -113,7 +116,7 @@ export async function runCatalogDataMigration(): Promise<void> {
     await db.execute(sql`
       UPDATE product_pricing_master
       SET catalog_category_id = (SELECT id FROM admin_categories WHERE code = 'graffiti_poly_specialties')
-      WHERE catalog_product_type_id IN (17, 18, 38, 41, 16, 36, 148, 144, 145, 146)
+      WHERE catalog_product_type_id IN (148, 144, 145, 146)
         AND (
           catalog_category_id IS NULL
           OR catalog_category_id != (SELECT id FROM admin_categories WHERE code = 'graffiti_poly_specialties')
@@ -199,7 +202,7 @@ export async function runCatalogDataMigration(): Promise<void> {
       SELECT COUNT(*)::int AS cnt
       FROM catalog_product_types cpt
       JOIN admin_categories ac ON ac.id = cpt.category_id
-      WHERE cpt.id IN (17, 18, 38, 41, 16, 36, 148, 144, 145, 146)
+      WHERE cpt.id IN (148, 144, 145, 146)
         AND ac.code = 'graffiti_poly_specialties'
     `);
     const bannerRows = await db.execute(sql`
@@ -209,14 +212,20 @@ export async function runCatalogDataMigration(): Promise<void> {
       WHERE cpt.code = 'misc_banner_stands'
         AND (ppm.is_archived IS NULL OR ppm.is_archived = false)
     `);
+    const unmappedRows = await db.execute(sql`
+      SELECT COUNT(*)::int AS cnt
+      FROM catalog_product_types
+      WHERE category_id IS NULL AND is_active = true
+    `);
 
-    const sfCnt          = (sfRows.rows[0]         as CountRow).cnt;
-    const blkCnt         = (blockoutRows.rows[0]   as CountRow).cnt;
-    const cohoCnt        = (cohoRows.rows[0]        as CountRow).cnt;
-    const clnCnt         = (cleanseRows.rows[0]     as CountRow).cnt;
-    const pinCnt         = (pinnacleRows.rows[0]    as CountRow).cnt;
-    const specCnt        = (specialtiesRows.rows[0] as CountRow).cnt;
-    const banCnt         = (bannerRows.rows[0]       as CountRow).cnt;
+    const sfCnt       = (sfRows.rows[0]         as CountRow).cnt;
+    const blkCnt      = (blockoutRows.rows[0]   as CountRow).cnt;
+    const cohoCnt     = (cohoRows.rows[0]        as CountRow).cnt;
+    const clnCnt      = (cleanseRows.rows[0]     as CountRow).cnt;
+    const pinCnt      = (pinnacleRows.rows[0]    as CountRow).cnt;
+    const specCnt     = (specialtiesRows.rows[0] as CountRow).cnt;
+    const banCnt      = (bannerRows.rows[0]       as CountRow).cnt;
+    const unmappedCnt = (unmappedRows.rows[0]    as CountRow).cnt;
 
     console.log(
       `[CatalogMigration] Migration complete. ` +
@@ -225,8 +234,9 @@ export async function runCatalogDataMigration(): Promise<void> {
       `CoHo→cat13: ${cohoCnt === 1 ? '✓' : '✗'}, ` +
       `Cleanse archived: ${clnCnt === 2 ? '✓' : '✗'} (${clnCnt}/2 SKUs), ` +
       `Pinnacle→cat8: ${pinCnt === 1 ? '✓' : '✗'}, ` +
-      `Specialties: ${specCnt === 10 ? '✓' : '✗'} (${specCnt}/10 types), ` +
-      `BannerStands: ${banCnt >= 13 ? '✓' : '✗'} (${banCnt} SKUs active)`
+      `Specialties: ${specCnt === 4 ? '✓' : '✗'} (${specCnt}/4 types), ` +
+      `BannerStands: ${banCnt >= 13 ? '✓' : '✗'} (${banCnt} SKUs active), ` +
+      `Unmapped active types: ${unmappedCnt === 0 ? '✓' : '✗'} (${unmappedCnt})`
     );
   } catch (error) {
     console.error('[CatalogMigration] Error during catalog data migration:', error);
