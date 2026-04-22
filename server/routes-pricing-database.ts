@@ -1339,6 +1339,43 @@ router.get("/catalog-categories", isAuthenticated, async (req, res) => {
   }
 });
 
+// Get duplicate product types — types sharing the same label within the same category
+router.get("/product-types/duplicates", isAuthenticated, async (req, res) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        cpt.category_id,
+        ac.label AS category_name,
+        cpt.label AS type_label,
+        json_agg(
+          json_build_object(
+            'id', cpt.id,
+            'code', cpt.code,
+            'label', cpt.label,
+            'skus', (
+              SELECT json_agg(ppm.item_code ORDER BY ppm.item_code)
+              FROM product_pricing_master ppm
+              WHERE ppm.catalog_product_type_id = cpt.id
+                AND (ppm.is_archived IS NULL OR ppm.is_archived = false)
+            )
+          )
+          ORDER BY cpt.id
+        ) AS types,
+        COUNT(cpt.id)::int AS type_count
+      FROM catalog_product_types cpt
+      JOIN admin_categories ac ON ac.id = cpt.category_id
+      WHERE cpt.is_active = true
+      GROUP BY cpt.category_id, ac.label, cpt.label
+      HAVING COUNT(cpt.id) > 1
+      ORDER BY ac.label, cpt.label
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching duplicate product types:", error);
+    res.status(500).json({ error: "Failed to fetch duplicates" });
+  }
+});
+
 // Get catalog import logs
 router.get("/catalog-import-logs", isAuthenticated, requireAdmin, async (req, res) => {
   try {

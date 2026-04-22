@@ -89,6 +89,21 @@ interface ValidationResult {
   total: number;
 }
 
+interface DuplicateTypeEntry {
+  id: number;
+  code: string;
+  label: string;
+  skus: string[] | null;
+}
+
+interface DuplicateGroup {
+  category_id: number;
+  category_name: string;
+  type_label: string;
+  types: DuplicateTypeEntry[];
+  type_count: number;
+}
+
 export default function ProductMapping() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('unmapped');
@@ -147,6 +162,12 @@ export default function ProductMapping() {
   // Fetch product types
   const { data: typesData, refetch: refetchTypes } = useQuery<ProductType[]>({
     queryKey: ['/api/product-types'],
+  });
+
+  // Fetch duplicate product types
+  const { data: duplicatesData, isLoading: loadingDuplicates, refetch: refetchDuplicates } = useQuery<DuplicateGroup[]>({
+    queryKey: ['/api/product-types/duplicates'],
+    enabled: activeTab === 'duplicates',
   });
 
   const categories = categoriesData || [];
@@ -344,6 +365,7 @@ export default function ProductMapping() {
       toast({ title: 'Types merged successfully' });
       refetchTypes();
       refetchProducts();
+      refetchDuplicates();
       setTypeToMerge(null);
       setMergeTargetId('');
     },
@@ -378,6 +400,7 @@ export default function ProductMapping() {
     onSuccess: () => {
       toast({ title: 'Type updated' });
       refetchTypes();
+      refetchDuplicates();
       setEditingTypeId(null);
       setEditTypeName('');
     },
@@ -664,6 +687,10 @@ export default function ProductMapping() {
             <TabsTrigger value="categories" data-testid="tab-categories">
               <Layers className="h-4 w-4 mr-2" />
               Categories & Types
+            </TabsTrigger>
+            <TabsTrigger value="duplicates" data-testid="tab-duplicates">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Duplicated
             </TabsTrigger>
           </TabsList>
 
@@ -1163,6 +1190,127 @@ export default function ProductMapping() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Duplicated Types Tab */}
+          <TabsContent value="duplicates" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Duplicate Product Types</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Product types sharing the same name within a category. Rename or merge them to differentiate variants.
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => refetchDuplicates()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingDuplicates ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading duplicates...</div>
+                ) : !duplicatesData || duplicatesData.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    No duplicate type names found.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {duplicatesData.map((group) => (
+                      <div key={`${group.category_id}-${group.type_label}`} className="border rounded-lg overflow-hidden">
+                        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <span className="font-medium text-amber-900">"{group.type_label}"</span>
+                            <span className="text-sm text-amber-700">— {group.type_count} types in</span>
+                            <Badge variant="outline" className="text-amber-700 border-amber-400">
+                              {group.category_name}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="divide-y">
+                          {group.types.map((entry) => {
+                            const isEditing = editingTypeId === entry.id;
+                            return (
+                              <div key={entry.id} className="px-4 py-3 flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        value={editTypeName}
+                                        onChange={(e) => setEditTypeName(e.target.value)}
+                                        className="h-8 text-sm w-64"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') updateType.mutate({ id: entry.id, name: editTypeName });
+                                          if (e.key === 'Escape') { setEditingTypeId(null); setEditTypeName(''); }
+                                        }}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => updateType.mutate({ id: entry.id, name: editTypeName })}
+                                        disabled={updateType.isPending}
+                                      >
+                                        <Check className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => { setEditingTypeId(null); setEditTypeName(''); }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="font-medium text-sm">{entry.label}</div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground mt-1 font-mono">{entry.code}</div>
+                                  {entry.skus && entry.skus.length > 0 ? (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      <span className="font-medium">{entry.skus.length} SKU{entry.skus.length !== 1 ? 's' : ''}:</span>{' '}
+                                      {entry.skus.join(', ')}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-muted-foreground/60 mt-1 italic">No active SKUs</div>
+                                  )}
+                                </div>
+                                {!isEditing && (
+                                  <div className="flex gap-1 shrink-0">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingTypeId(entry.id);
+                                        setEditTypeName(entry.label);
+                                      }}
+                                      title="Rename this type"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setTypeToMerge({ id: entry.id, categoryId: group.category_id, name: entry.label, description: null })}
+                                      title="Merge into another type"
+                                    >
+                                      <Merge className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
