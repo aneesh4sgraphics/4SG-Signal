@@ -11791,18 +11791,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ))
         .limit(1);
 
-      // Fetch contacts: (1) those with matching company name OR (2) linked via parentCustomerId
+      // Also check the companies table for an Odoo partner ID (official companies)
+      const [officialCompany] = await db.select({ odooCompanyPartnerId: companies.odooCompanyPartnerId })
+        .from(companies)
+        .where(sql`LOWER(${companies.name}) = LOWER(${name})`)
+        .limit(1);
+      const odooParentId = officialCompany?.odooCompanyPartnerId ?? null;
+
+      // Fetch contacts: (1) matching company name, (2) linked via parentCustomerId, or (3) linked via odooParentId
       const localContactsRaw = await db
         .select()
         .from(customers)
         .where(and(
           sql`${customers.companyId} IS NULL`,
-          eq(customers.isCompany, false),
-          sql`(LOWER(${customers.company}) = LOWER(${name}) OR ${customers.parentCustomerId} = ${parentCompanyRecord?.id ?? '00000000-0000-0000-0000-000000000000'})`
+          sql`(
+            LOWER(${customers.company}) = LOWER(${name})
+            OR ${customers.parentCustomerId} = ${parentCompanyRecord?.id ?? '00000000-0000-0000-0000-000000000000'}
+            ${odooParentId ? sql`OR ${customers.odooParentId} = ${odooParentId}` : sql``}
+          )`
         ))
         .orderBy(customers.lastName, customers.firstName);
 
-      // Deduplicate by ID (company name match and parent link can overlap)
+      // Deduplicate by ID
       const seen = new Set<string>();
       const localContacts = localContactsRaw.filter(c => {
         if (seen.has(c.id)) return false;
@@ -11875,11 +11885,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
       if (!company) return res.status(404).json({ error: "Company not found" });
 
-      const localContacts = await db
+      const localByCompanyId = await db
         .select()
         .from(customers)
         .where(eq(customers.companyId, companyId))
         .orderBy(customers.lastName, customers.firstName);
+
+      // Also fetch contacts linked via odooParentId (handles is_company=true contacts in Odoo
+      // and cases where company name mismatch caused companyId not to be set)
+      let localByOdooParent: typeof localByCompanyId = [];
+      if (company.odooCompanyPartnerId) {
+        localByOdooParent = await db
+          .select()
+          .from(customers)
+          .where(and(
+            eq(customers.odooParentId, company.odooCompanyPartnerId),
+            sql`${customers.companyId} IS NULL`
+          ))
+          .orderBy(customers.lastName, customers.firstName);
+      }
+
+      // Merge and deduplicate
+      const seenIds = new Set(localByCompanyId.map(c => c.id));
+      const merged = [...localByCompanyId];
+      for (const c of localByOdooParent) {
+        if (!seenIds.has(c.id)) { seenIds.add(c.id); merged.push(c); }
+      }
+      const localContacts = merged;
 
       // Also pull from Odoo if the company has an Odoo partner ID
       let odooContacts: any[] = [];
