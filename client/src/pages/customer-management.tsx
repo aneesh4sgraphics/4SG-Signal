@@ -49,6 +49,7 @@ interface CompanyCard {
   companyTags: string | null;
   isOdooLinked: boolean;
   isShopifyLinked: boolean;
+  importWarning: string | null;
 }
 
 // ─── Connection strength helpers ───────────────────────────────────────────────
@@ -119,6 +120,7 @@ interface Filters {
   customerType: string | null;
   sort: SortOption;
   localOnly: boolean;
+  missingEmail: boolean;
 }
 
 function initials(name: string) {
@@ -330,7 +332,14 @@ function CompanySheet({ company, onClose }: { company: CompanyCard | null; onClo
                 {initials(company.name)}
               </div>
               <div className="min-w-0">
-                <p className="text-base font-semibold text-gray-900 leading-tight truncate">{company.name}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-base font-semibold text-gray-900 leading-tight truncate">{company.name}</p>
+                  {company.importWarning === 'no_email' && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">
+                      <AlertTriangle className="w-2.5 h-2.5" />No Email
+                    </span>
+                  )}
+                </div>
                 {company.domain && (
                   <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                     <Globe className="h-3 w-3" />{company.domain}
@@ -493,6 +502,11 @@ function CompanyCardItem({
             {company.isShopifyLinked && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">Shopify</span>
             )}
+            {company.importWarning === 'no_email' && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                <AlertTriangle className="w-2.5 h-2.5" />No Email
+              </span>
+            )}
           </div>
           {location ? (
             <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5 truncate">
@@ -566,6 +580,7 @@ const DEFAULT_FILTERS: Filters = {
   customerType: null,
   sort: 'name',
   localOnly: false,
+  missingEmail: false,
 };
 
 export default function CustomerManagement() {
@@ -666,6 +681,7 @@ export default function CustomerManagement() {
       if (filters.tag && !c.companyTags?.split(',').map(t => t.trim()).includes(filters.tag)) return false;
       if (filters.customerType && c.primaryCustomerType?.toLowerCase() !== filters.customerType.toLowerCase()) return false;
       if (filters.localOnly && (c.isOdooLinked || c.isShopifyLinked)) return false;
+      if (filters.missingEmail && c.importWarning !== 'no_email') return false;
       return true;
     });
 
@@ -712,6 +728,7 @@ export default function CustomerManagement() {
     filters.tag !== null ? 1 : 0,
     filters.customerType !== null ? 1 : 0,
     filters.localOnly ? 1 : 0,
+    filters.missingEmail ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => setFilters(DEFAULT_FILTERS);
@@ -944,6 +961,17 @@ export default function CustomerManagement() {
                     </SelectContent>
                   </Select>
                 )}
+
+                {/* Missing Email toggle */}
+                <Button
+                  variant={filters.missingEmail ? 'default' : 'outline'}
+                  size="sm"
+                  className={`h-9 gap-1.5 text-sm ${filters.missingEmail ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : 'text-amber-700 border-amber-200 hover:bg-amber-50'}`}
+                  onClick={() => setFilters(f => ({ ...f, missingEmail: !f.missingEmail }))}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Missing Email
+                </Button>
 
                 {/* Local only toggle */}
                 <Button

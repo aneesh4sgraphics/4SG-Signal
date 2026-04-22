@@ -11613,6 +11613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         companyTags: string | null;
         isOdooLinked: boolean;
         isShopifyLinked: boolean;
+        importWarning: string | null;
       };
 
       const result: CompanyCard[] = officialRaw.map(c => {
@@ -11644,6 +11645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyTags: c.companyTags ?? null,
           isOdooLinked: stats?.isOdooLinked ?? false,
           isShopifyLinked: stats?.isShopifyLinked ?? false,
+          importWarning: null,
         };
       });
 
@@ -11662,6 +11664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           province: sql<string>`MODE() WITHIN GROUP (ORDER BY ${customers.province})`,
           isOdooLinked: sql<boolean>`BOOL_OR(${customers.odooPartnerId} IS NOT NULL)`,
           isShopifyLinked: sql<boolean>`BOOL_OR('shopify' = ANY(${customers.sources}))`,
+          importWarning: sql<string | null>`MAX(${customers.importWarning})`,
         })
         .from(customers)
         .where(and(
@@ -11736,6 +11739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyTags: null,
           isOdooLinked: row.isOdooLinked ?? false,
           isShopifyLinked: row.isShopifyLinked ?? false,
+          importWarning: row.importWarning ?? null,
         });
       }
 

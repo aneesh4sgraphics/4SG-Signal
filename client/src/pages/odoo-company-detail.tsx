@@ -49,6 +49,7 @@ interface Contact {
   odooPartnerId: number | null; odooSyncStatus: string | null;
   odooPendingChanges: any | null; odooLastSyncError: string | null;
   totalOrders: number; totalSpent: string; createdAt: string; updatedAt: string;
+  importWarning: string | null;
 }
 
 interface BusinessMetrics {
@@ -755,6 +756,11 @@ export default function OdooCompanyDetail() {
                   <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
                   {company.isHotProspect && <Badge className="bg-orange-100 text-orange-700 text-xs">🔥 Hot Prospect</Badge>}
                   {company.pricingTier && <Badge variant="secondary" className="text-xs capitalize bg-violet-100 text-violet-700">{company.pricingTier}</Badge>}
+                  {company.importWarning === 'no_email' && (
+                    <Badge className="bg-amber-100 text-amber-700 text-xs gap-1 border border-amber-200">
+                      <AlertTriangle className="w-3 h-3" /> No Email
+                    </Badge>
+                  )}
                   {company.odooPartnerId ? (
                     <Badge className="bg-green-100 text-green-700 text-xs gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Odoo #{company.odooPartnerId}
