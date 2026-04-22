@@ -66,6 +66,7 @@ Full-stack TypeScript sales management and CRM application for 4S Graphics. Stre
 - `emailSends` table: has `leadId`, `customerId`, `subject`, `sentAt`, `status`
 - **NEVER change primary key ID column types** (serial ↔ varchar breaks migrations)
 - **Drizzle pattern:** Never mix raw column references with `sql<>` template
+- **Schema changes:** Use `npm run db:push` (drizzle-kit push) — no migration files needed
 
 ### Auth & Users
 - **Dev user ID:** `dev-user-123`
@@ -170,6 +171,13 @@ Auto-generates actionable follow-up tasks from multiple sources:
 - **IMAP client:** `server/imap-client.ts` for reading inbox
 - **Sync worker:** `server/gmail-sync-worker.ts` runs on 30-minute interval
 
+### Odoo Lead Visibility (Task #28)
+- **$0-Spend Contact Import:** Odoo contacts with $0 spending are now imported as leads (not skipped), flagged `isAlsoContact=true` with `alsoContactCustomerId` linking to the Contact
+- **Skipped-Leads Report:** After each Odoo sync, the "X Skipped" amber badge appears in the Leads header; clicking opens a paginated dialog with skip reasons and contact links; state clears on next sync
+- **"Also in Contacts" Badge:** Teal badge on lead cards/list rows for `isAlsoContact=true` leads, links to the contact detail page; "Also in Contacts" filter toggle in filter panel
+- **Email Lookup Tool:** "Email Lookup" button in Leads header opens a dialog to diagnose why an email is missing; checks Leads, Contacts, last Odoo sync presence (using `lastOdooSyncAt` timestamps), and freight filter (checked against company/name, not email); returns structured summary and action buttons
+- **Schema:** `leads.isAlsoContact` (boolean), `leads.alsoContactCustomerId` (varchar); migration: `migrations/0001_leads_also_contact.sql`
+
 ### Shared Batch Address Label Printing
 - Team-wide queue for printing address labels (contacts/leads)
 - Formats: 4×6 Thermal and Letter 30-up
@@ -221,6 +229,12 @@ Auto-generates actionable follow-up tasks from multiple sources:
 ---
 
 ## Recent Changes (April 2026)
+
+### April 22 — Odoo Lead Visibility (Task #28)
+- **$0-Spend Contact Import:** Odoo contacts with $0 spending imported as leads with `isAlsoContact=true`
+- **Sync Report:** Skipped-leads badge + paginated dialog after each sync
+- **Also in Contacts badge:** Teal badge on lead cards/rows, filter toggle
+- **Email Lookup:** Debug dialog with freight check (name/company), last-sync inference, structured actions
 
 ### April 10 — Task Delegation
 - **Delegate button** added to task detail dialog (violet, ArrowUpDown icon) — visible for calendar-source tasks when sales reps are available

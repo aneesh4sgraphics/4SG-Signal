@@ -1961,18 +1961,39 @@ Call notes: "${data.details.substring(0, 800)}"`
       
       console.log(`[Leads] Found ${odooLeads.length} leads in Odoo`);
       
-      // Get all existing customer emails to skip leads that are already contacts (single query)
-      const existingCustomerEmails = await db.select({ emailNormalized: customers.emailNormalized })
+      // Get all existing customers with their email and spending data
+      const existingCustomers = await db.select({
+        id: customers.id,
+        emailNormalized: customers.emailNormalized,
+        email2Normalized: customers.email2Normalized,
+        totalSpent: customers.totalSpent,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+        company: customers.company,
+      })
         .from(customers)
-        .where(isNotNull(customers.emailNormalized));
-      const customerEmailSet = new Set(existingCustomerEmails.map(c => c.emailNormalized?.toLowerCase()));
-      console.log(`[Leads] Found ${customerEmailSet.size} existing customer emails to check against`);
+        .where(or(isNotNull(customers.emailNormalized), isNotNull(customers.email2Normalized)));
+
+      // Build a map: normalized email -> { customerId, totalSpent }
+      const customerEmailMap = new Map<string, { id: string; totalSpent: number; name: string; company: string | null }>();
+      for (const c of existingCustomers) {
+        const spent = parseFloat(c.totalSpent ?? '0') || 0;
+        const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown';
+        if (c.emailNormalized) {
+          customerEmailMap.set(c.emailNormalized.toLowerCase(), { id: c.id, totalSpent: spent, name, company: c.company ?? null });
+        }
+        if (c.email2Normalized) {
+          customerEmailMap.set(c.email2Normalized.toLowerCase(), { id: c.id, totalSpent: spent, name, company: c.company ?? null });
+        }
+      }
+      console.log(`[Leads] Found ${customerEmailMap.size} existing customer emails to check against`);
       
       // Get ALL existing leads by odooLeadId in a single query
-      const existingLeads = await db.select({ id: leads.id, odooLeadId: leads.odooLeadId, salesRepId: leads.salesRepId })
+      const existingLeads = await db.select({ id: leads.id, odooLeadId: leads.odooLeadId, salesRepId: leads.salesRepId, isAlsoContact: leads.isAlsoContact })
         .from(leads)
         .where(isNotNull(leads.odooLeadId));
       const existingLeadsMap = new Map(existingLeads.map(l => [l.odooLeadId, l]));
+      const alsoContactLeadIdsToRemove: number[] = [];
       console.log(`[Leads] Found ${existingLeadsMap.size} existing leads in database`);
       
       // Round-robin counter for distributing leads without location rules
@@ -1983,16 +2004,48 @@ Call notes: "${data.details.substring(0, 800)}"`
       const toInsert: any[] = [];
       const toUpdate: { odooLeadId: number; data: any }[] = [];
       let skippedExistingCustomer = 0;
-      
       let skippedFreight = 0;
+
+      // Skipped leads report — collected for frontend display
+      const skippedLeadsReport: Array<{
+        name: string;
+        email: string | null;
+        company: string | null;
+        reason: 'existing_contact' | 'freight';
+        contactId?: string;
+        contactName?: string;
+      }> = [];
 
       // Process all leads (fast in-memory filtering)
       for (const ol of odooLeads) {
-        // Skip leads whose email already exists in customers (Contacts)
         const leadEmailNormalized = ol.email_from ? normalizeEmail(ol.email_from) : null;
-        if (leadEmailNormalized && customerEmailSet.has(leadEmailNormalized.toLowerCase())) {
-          skippedExistingCustomer++;
-          continue;
+
+        // Check if this email matches an existing contact
+        const matchedContact = leadEmailNormalized
+          ? customerEmailMap.get(leadEmailNormalized.toLowerCase())
+          : undefined;
+
+        if (matchedContact) {
+          if (matchedContact.totalSpent > 0) {
+            // Real customer with spending — skip fully
+            skippedExistingCustomer++;
+            skippedLeadsReport.push({
+              name: ol.contact_name || ol.name || 'Unknown',
+              email: ol.email_from || null,
+              company: ol.partner_name || null,
+              reason: 'existing_contact',
+              contactId: matchedContact.id,
+              contactName: matchedContact.name,
+            });
+            // If this Odoo lead was previously imported as isAlsoContact=true (when contact had $0 spend),
+            // now that contact has real spending, remove the lead so real customers don't appear in Leads
+            const existingLead = existingLeadsMap.get(ol.id);
+            if (existingLead && existingLead.isAlsoContact) {
+              alsoContactLeadIdsToRemove.push(existingLead.id);
+            }
+            continue;
+          }
+          // $0-spending contact — import as lead with isAlsoContact flag
         }
 
         // Skip freight/shipping/ocean contacts
@@ -2001,6 +2054,12 @@ Call notes: "${data.details.substring(0, 800)}"`
         if (isFreightContact(leadCompany) || isFreightContact(leadName)) {
           console.log(`[Leads Import] Skipping freight/shipping contact: ${leadCompany || leadName}`);
           skippedFreight++;
+          skippedLeadsReport.push({
+            name: leadName || leadCompany,
+            email: ol.email_from || null,
+            company: ol.partner_name || null,
+            reason: 'freight',
+          });
           continue;
         }
         
@@ -2042,6 +2101,9 @@ Call notes: "${data.details.substring(0, 800)}"`
           odooWriteDate: ol.write_date ? new Date(ol.write_date) : null,
           lastOdooSyncAt: new Date(),
           updatedAt: new Date(),
+          // Flag if this lead also exists as a $0-spending contact
+          isAlsoContact: matchedContact ? true : false,
+          alsoContactCustomerId: matchedContact ? matchedContact.id : null,
         };
         
         const existing = existingLeadsMap.get(ol.id);
@@ -2083,7 +2145,18 @@ Call notes: "${data.details.substring(0, 800)}"`
         }
       }
       
-      console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skippedExistingCustomer} skipped (already in Contacts), ${skippedFreight} skipped (freight/shipping/ocean)`);
+      // Remove isAlsoContact leads whose matched contact now has real spending
+      // (contact gained purchasing activity since last sync — no longer a $0-prospect)
+      if (alsoContactLeadIdsToRemove.length > 0) {
+        const REMOVE_BATCH_SIZE = 50;
+        for (let i = 0; i < alsoContactLeadIdsToRemove.length; i += REMOVE_BATCH_SIZE) {
+          const batch = alsoContactLeadIdsToRemove.slice(i, i + REMOVE_BATCH_SIZE);
+          await db.delete(leads).where(inArray(leads.id, batch));
+        }
+        console.log(`[Leads] Removed ${alsoContactLeadIdsToRemove.length} isAlsoContact leads whose contact now has spending`);
+      }
+
+      console.log(`[Leads] Import complete: ${imported} new, ${updated} updated, ${skippedExistingCustomer} skipped (real customers), ${skippedFreight} skipped (freight/shipping/ocean)`);
 
       // --- Cleanup: delete local leads whose Odoo ID no longer exists in Odoo ---
       // These were deleted in Odoo, so remove them here too (skip converted leads)
@@ -2117,13 +2190,313 @@ Call notes: "${data.details.substring(0, 800)}"`
         skipped: 0,
         skippedExistingCustomer,
         skippedFreight,
-        total: odooLeads.length
+        total: odooLeads.length,
+        skippedLeads: skippedLeadsReport,
       });
     } catch (error) {
       console.error("Error importing leads from Odoo:", error);
       res.status(500).json({ error: "Failed to import leads from Odoo" });
     }
   });
+  // Email debug lookup: explain why a lead might be missing from Leads page
+  app.get("/api/leads/debug-email", isAuthenticated, async (req: any, res) => {
+    try {
+      const emailInput = (req.query.email as string || '').trim();
+      if (!emailInput) {
+        return res.status(400).json({ error: "email query param required" });
+      }
+      const normEmailRaw = normalizeEmail(emailInput);
+      if (!normEmailRaw) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+      const normEmail = normEmailRaw.toLowerCase();
+
+      // 1. Check Leads table (includes lastOdooSyncAt to determine last sync presence)
+      const matchingLeads = await db.select({
+        id: leads.id,
+        name: leads.name,
+        company: leads.company,
+        stage: leads.stage,
+        isAlsoContact: leads.isAlsoContact,
+        lastOdooSyncAt: leads.lastOdooSyncAt,
+        sourceType: leads.sourceType,
+      })
+        .from(leads)
+        .where(eq(leads.emailNormalized, normEmail));
+
+      // 2. Check Contacts table (primary + secondary email)
+      const matchingContacts = await db.select({
+        id: customers.id,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+        company: customers.company,
+        totalSpent: customers.totalSpent,
+        email: customers.email,
+        emailNormalized: customers.emailNormalized,
+      })
+        .from(customers)
+        .where(
+          or(
+            eq(customers.emailNormalized, normEmail),
+            eq(customers.email2Normalized, normEmail),
+          )
+        );
+
+      // 3. Freight filter check - mirrors sync logic: checks company/name, NOT email address
+      // Check against matched leads' name/company and matched contacts' company (same as sync)
+      const isFreight = matchingLeads.some(l =>
+        isFreightContact(l.company || '') || isFreightContact(l.name)
+      ) || matchingContacts.some(c =>
+        isFreightContact(c.company || '') ||
+        isFreightContact([c.firstName, c.lastName].filter(Boolean).join(' '))
+      );
+
+      // 4. Live Odoo CRM query — exists in Odoo right now (separate from "was in last sync")
+      //    Also checks freight eligibility against Odoo record names (not just local data)
+      let odooLeadsFound: Array<{ id: number; name: string; email_from: string; partner_name: string | null; isFreightInOdoo: boolean }> = [];
+      let odooAvailable = false;
+      let odooQueryNote = '';
+      try {
+        const { isOdooConfigured } = await import('./odoo');
+        if (isOdooConfigured()) {
+          const { odooClient: oc } = await import('./odoo');
+          const odooResults = await oc.getLeads({
+            domain: [['email_from', '=', emailInput]],
+            limit: 5,
+          });
+          odooAvailable = true;
+          odooLeadsFound = odooResults.map((l: any) => {
+            const contactName = l.contact_name || l.name || '';
+            const partnerName = l.partner_name || '';
+            return {
+              id: l.id,
+              name: contactName || partnerName || 'Unknown',
+              email_from: l.email_from || emailInput,
+              partner_name: partnerName || null,
+              // Evaluate freight using same fields as sync logic
+              isFreightInOdoo: isFreightContact(partnerName) || isFreightContact(contactName),
+            };
+          });
+          odooQueryNote = odooLeadsFound.length > 0
+            ? `Found ${odooLeadsFound.length} CRM record(s) in Odoo`
+            : 'No CRM records found in Odoo for this email';
+        } else {
+          odooQueryNote = 'Odoo not configured';
+        }
+      } catch (odooErr: any) {
+        odooQueryNote = `Odoo unavailable: ${odooErr?.message?.substring(0, 80) || 'connection failed'}`;
+      }
+
+      // Recalculate freight: include Odoo live records (covers case where lead exists in Odoo but
+      // no local lead/contact exists yet — this is exactly the "missing lead" scenario)
+      const isFreightFinal = isFreight || odooLeadsFound.some(l => l.isFreightInOdoo);
+
+      // 5. Determine last Odoo sync timestamp (max lastOdooSyncAt across all leads)
+      const [lastSyncRow] = await db.select({ lastSync: sql<string>`MAX(${leads.lastOdooSyncAt})` })
+        .from(leads)
+        .where(isNotNull(leads.lastOdooSyncAt));
+      const lastSyncTimestamp: Date | null = lastSyncRow?.lastSync ? new Date(lastSyncRow.lastSync) : null;
+
+      // "Present in last Odoo sync" is derived from local lead data ONLY (most accurate we can do
+      // without persisting a sync log). "In live Odoo" is a separate, distinct field.
+      const SYNC_WINDOW_MS = 60 * 60 * 1000; // 1 hour tolerance window
+      const leadInLastSync = matchingLeads.some(l =>
+        l.sourceType === 'odoo' &&
+        l.lastOdooSyncAt !== null &&
+        lastSyncTimestamp !== null &&
+        Math.abs(new Date(l.lastOdooSyncAt).getTime() - lastSyncTimestamp.getTime()) < SYNC_WINDOW_MS
+      );
+
+      let presentInLastOdooSync: boolean | null = null;
+      let syncPresenceNote = '';
+      if (leadInLastSync) {
+        presentInLastOdooSync = true;
+        syncPresenceNote = `Lead confirmed in last local sync (${lastSyncTimestamp?.toLocaleDateString()})`;
+      } else if (lastSyncTimestamp && matchingLeads.some(l => l.sourceType === 'odoo')) {
+        presentInLastOdooSync = false;
+        syncPresenceNote = `Odoo-sourced lead, but imported in an earlier sync (not the most recent one on ${lastSyncTimestamp.toLocaleDateString()})`;
+      } else if (lastSyncTimestamp) {
+        presentInLastOdooSync = null;
+        syncPresenceNote = `Last local sync: ${lastSyncTimestamp.toLocaleDateString()} — no matching lead found in that sync`;
+      } else {
+        syncPresenceNote = 'No local sync data available';
+      }
+
+      const result: {
+        email: string;
+        normalizedEmail: string;
+        inLeads: boolean;
+        leads: Array<{ id: number; name: string; company: string | null; stage: string; isAlsoContact: boolean | null }>;
+        inContacts: boolean;
+        contacts: Array<{ id: string; name: string; company: string | null; totalSpent: number }>;
+        wouldBeSkippedByFreight: boolean;
+        inLiveOdoo: boolean;
+        odooAvailable: boolean;
+        presentInLastOdooSync: boolean | null;
+        lastOdooSyncAt: string | null;
+        syncPresenceNote: string;
+        odooLeadsInCRM: Array<{ id: number; name: string; email_from: string; partner_name: string | null; isFreightInOdoo: boolean }>;
+        odooQueryNote: string;
+        summary: string;
+        actions: Array<{ label: string; type: string; value: string }>;
+      } = {
+        email: emailInput,
+        normalizedEmail: normEmail,
+        inLeads: matchingLeads.length > 0,
+        leads: matchingLeads.map(l => ({
+          id: l.id,
+          name: l.name,
+          company: l.company ?? null,
+          stage: l.stage,
+          isAlsoContact: l.isAlsoContact ?? null,
+        })),
+        inContacts: matchingContacts.length > 0,
+        contacts: matchingContacts.map(c => ({
+          id: c.id,
+          name: [c.firstName, c.lastName].filter(Boolean).join(' ') || c.company || 'Unknown',
+          company: c.company ?? null,
+          totalSpent: parseFloat(c.totalSpent ?? '0') || 0,
+        })),
+        wouldBeSkippedByFreight: isFreightFinal,
+        inLiveOdoo: odooLeadsFound.length > 0,
+        odooAvailable,
+        presentInLastOdooSync,
+        odooLeadsInCRM: odooLeadsFound,
+        odooQueryNote,
+        lastOdooSyncAt: lastSyncTimestamp ? lastSyncTimestamp.toISOString() : null,
+        syncPresenceNote,
+        summary: '',
+        actions: [],
+      };
+
+      // Build plain-language summary and action buttons
+      if (isFreightFinal) {
+        const freightSource = odooLeadsFound.some(l => l.isFreightInOdoo) && !isFreight
+          ? ` (detected from Odoo CRM record: ${odooLeadsFound.find(l => l.isFreightInOdoo)?.name})`
+          : '';
+        result.summary = `This lead would be skipped during Odoo sync because it matches freight/shipping keyword filters${freightSource}.`;
+      } else if (result.inContacts && !result.inLeads) {
+        const c = result.contacts[0];
+        if (c.totalSpent > 0) {
+          result.summary = `This email exists as a Contact (${c.name}${c.company ? `, ${c.company}` : ''}) with $${c.totalSpent.toFixed(2)} in spending. It was skipped during the last Odoo sync because it matched an existing Contact. High-spending contacts are excluded from Leads — they are real customers.`;
+          result.actions.push({ label: 'Go to Contact', type: 'contact', value: c.id });
+        } else {
+          result.summary = `This email exists as a Contact (${c.name}${c.company ? `, ${c.company}` : ''}) with $0 spending. It was previously skipped during sync but will now be imported as a lead on the next Odoo sync (flagged as "Also a Contact").`;
+          result.actions.push({ label: 'Go to Contact', type: 'contact', value: c.id });
+        }
+      } else if (result.inLeads && result.inContacts) {
+        const c = result.contacts[0];
+        const l = result.leads[0];
+        result.summary = `This email exists both as a Lead (${l.name}, stage: ${l.stage}) and as a Contact (${c.name}, $${c.totalSpent.toFixed(2)} spending). The lead is flagged as "Also a Contact".`;
+        result.actions.push({ label: 'Go to Lead', type: 'lead', value: String(l.id) });
+        result.actions.push({ label: 'Go to Contact', type: 'contact', value: c.id });
+      } else if (result.inLeads) {
+        const l = result.leads[0];
+        result.summary = `This email exists as a Lead (${l.name}, stage: ${l.stage}). It is not in Contacts.`;
+        result.actions.push({ label: 'Go to Lead', type: 'lead', value: String(l.id) });
+      } else if (result.inLiveOdoo && !result.inLeads) {
+        // Found in live Odoo CRM, but missing from local Leads — most interesting "missing lead" case
+        const odooLead = result.odooLeadsInCRM[0];
+        result.summary = `This email exists in Odoo CRM as "${odooLead.name}"${odooLead.partner_name ? ` (company: ${odooLead.partner_name})` : ''}, but was not imported during the last sync. You can create it as a lead manually.`;
+        result.actions.push({ label: 'Create as Lead', type: 'create_lead', value: String(odooLead.id) });
+      } else if (result.inLiveOdoo && result.inLeads) {
+        const l = result.leads[0];
+        result.summary = `This email exists in Odoo CRM and is imported as a Lead (${l.name}, stage: ${l.stage}).`;
+        result.actions.push({ label: 'Go to Lead', type: 'lead', value: String(l.id) });
+      } else {
+        const odooNote = odooAvailable
+          ? `Not found in live Odoo CRM — this email does not exist as a CRM record in Odoo.`
+          : `Could not check live Odoo CRM (${odooQueryNote}).`;
+        result.summary = `This email was not found in Leads or Contacts and is not blocked by the freight filter. ${odooNote}`;
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error in debug-email:", error);
+      res.status(500).json({ error: "Failed to debug email" });
+    }
+  });
+
+  // POST /api/leads/create-from-odoo — manually import a specific Odoo lead, bypassing skip logic
+  app.post("/api/leads/create-from-odoo", isAuthenticated, async (req: any, res) => {
+    try {
+      const { odooLeadId } = req.body as { odooLeadId: number };
+      if (!odooLeadId || typeof odooLeadId !== 'number') {
+        return res.status(400).json({ error: 'odooLeadId (number) is required' });
+      }
+
+      const { isOdooConfigured } = await import('./odoo');
+      if (!isOdooConfigured()) {
+        return res.status(503).json({ error: 'Odoo is not configured' });
+      }
+
+      const { odooClient: oc } = await import('./odoo');
+      const results = await oc.getLeads({ domain: [['id', '=', odooLeadId]], limit: 1 });
+      if (!results || results.length === 0) {
+        return res.status(404).json({ error: `Odoo lead #${odooLeadId} not found` });
+      }
+      const ol = results[0];
+
+      // Check if already imported
+      const [existing] = await db.select().from(leads).where(eq(leads.odooLeadId, odooLeadId));
+      if (existing) {
+        return res.json({ success: true, leadId: existing.id, alreadyExisted: true });
+      }
+
+      // Determine sales rep via location rules (same as sync)
+      const { determineSalesRep, SALES_REPS } = await import('./sales-rep-auto-assign');
+      const country = ol.country_id ? ol.country_id[1] : null;
+      const state = ol.state_id ? ol.state_id[1] : null;
+      const assignedRep = determineSalesRep({ country, province: state }) ?? SALES_REPS[0] ?? null;
+
+      const leadEmailNormalized = ol.email_from ? ol.email_from.toLowerCase().trim() : null;
+
+      const leadData: any = {
+        odooLeadId: ol.id,
+        sourceType: 'odoo',
+        name: ol.contact_name || ol.name || 'Unknown',
+        email: ol.email_from || null,
+        emailNormalized: leadEmailNormalized,
+        phone: ol.phone || null,
+        mobile: ol.mobile || null,
+        company: ol.partner_name || null,
+        jobTitle: ol.function || null,
+        website: ol.website || null,
+        street: ol.street || null,
+        street2: ol.street2 || null,
+        city: ol.city || null,
+        state: state,
+        zip: ol.zip || null,
+        country: country,
+        description: ol.description || null,
+        stage: 'new',
+        priority: ol.priority === '3' ? 'high' : ol.priority === '2' ? 'medium' : 'low',
+        probability: ol.probability ? Math.round(Number(ol.probability)) : 10,
+        expectedRevenue: ol.expected_revenue ? String(ol.expected_revenue) : null,
+        salesRepId: assignedRep?.id ?? null,
+        salesRepName: assignedRep?.name ?? null,
+        odooWriteDate: ol.write_date ? new Date(ol.write_date) : null,
+        lastOdooSyncAt: new Date(),
+        updatedAt: new Date(),
+        isAlsoContact: false,
+        alsoContactCustomerId: null,
+      };
+
+      const [created] = await db.insert(leads).values(leadData).returning();
+      await db.insert(leadActivities).values({
+        leadId: created.id,
+        activityType: 'note',
+        summary: `Manually imported from Odoo CRM (lead #${odooLeadId}) via Email Lookup Tool`,
+      });
+
+      console.log(`[Leads] Manually imported Odoo lead #${odooLeadId} → local lead #${created.id}`);
+      res.json({ success: true, leadId: created.id, alreadyExisted: false });
+    } catch (err: any) {
+      console.error('[Leads] create-from-odoo error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to create lead from Odoo' });
+    }
+  });
+
   app.patch("/api/leads/:id/kanban-stage", isAuthenticated, async (req: any, res) => {
     try {
       const leadId = parseInt(req.params.id);

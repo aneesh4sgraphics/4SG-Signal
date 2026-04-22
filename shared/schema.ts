@@ -532,6 +532,11 @@ export const leads = pgTable("leads", {
   // Region tag
   regionTag: varchar("region_tag", { length: 100 }),
 
+  // Also-in-contacts flag: true when lead's email matched a $0-spending Contact during Odoo sync
+  isAlsoContact: boolean("is_also_contact").default(false),
+  // The customer ID of the matching Contact (for linking to contact detail page)
+  alsoContactCustomerId: varchar("also_contact_customer_id"),
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

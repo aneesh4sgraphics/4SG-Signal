@@ -71,6 +71,9 @@ import {
   Zap,
   Camera,
   Flame,
+  HelpCircle,
+  UserCheck,
+  AlertCircle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -135,6 +138,9 @@ interface Lead {
   primaryContactEmail: string | null;
   // Odoo push tracking
   odooPartnerId: number | null;
+  // Also-in-contacts flag
+  isAlsoContact: boolean | null;
+  alsoContactCustomerId: string | null;
 }
 
 interface LeadStats {
@@ -226,9 +232,47 @@ export default function LeadsPage() {
       return next;
     });
   };
+  const [alsoInContactsFilter, setAlsoInContactsFilter] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showScreenshotImport, setShowScreenshotImport] = useState(false);
   const [importStatus, setImportStatus] = useState<{ message: string; progress: number } | null>(null);
+  
+  // Sync report state
+  interface SkippedLead {
+    name: string;
+    email: string | null;
+    company: string | null;
+    reason: 'existing_contact' | 'freight';
+    contactId?: string;
+    contactName?: string;
+  }
+  const [syncSkippedLeads, setSyncSkippedLeads] = useState<SkippedLead[]>([]);
+  const [showSyncReport, setShowSyncReport] = useState(false);
+  const [syncReportPage, setSyncReportPage] = useState(1);
+
+  // Email lookup state
+  interface EmailLookupResult {
+    email: string;
+    normalizedEmail: string;
+    inLeads: boolean;
+    leads: Array<{ id: number; name: string; company: string | null; stage: string; isAlsoContact: boolean | null }>;
+    inContacts: boolean;
+    contacts: Array<{ id: string; name: string; company: string | null; totalSpent: number }>;
+    wouldBeSkippedByFreight: boolean;
+    inLiveOdoo: boolean;
+    odooAvailable: boolean;
+    presentInLastOdooSync: boolean | null;
+    lastOdooSyncAt: string | null;
+    syncPresenceNote: string;
+    odooLeadsInCRM: Array<{ id: number; name: string; email_from: string; partner_name: string | null; isFreightInOdoo: boolean }>;
+    odooQueryNote: string;
+    summary: string;
+    actions: Array<{ label: string; type: string; value: string }>;
+  }
+  const [showEmailLookup, setShowEmailLookup] = useState(false);
+  const [emailLookupInput, setEmailLookupInput] = useState('');
+  const [emailLookupResult, setEmailLookupResult] = useState<EmailLookupResult | null>(null);
+  const [emailLookupLoading, setEmailLookupLoading] = useState(false);
   const [showBulkDrip, setShowBulkDrip] = useState(false);
   const [showBulkEmail, setShowBulkEmail] = useState(false);
   const [selectedBulkDripCampaignId, setSelectedBulkDripCampaignId] = useState<string>('');
@@ -392,11 +436,16 @@ export default function LeadsPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/leads/stats'] });
       
+      // Always update skipped leads state so it resets between syncs
+      setSyncSkippedLeads(data.skippedLeads ?? []);
+      setSyncReportPage(1);
+
       const parts = [];
       parts.push(`${data.imported} new leads imported`);
       if (data.updated > 0) parts.push(`${data.updated} updated`);
       if (data.deleted > 0) parts.push(`${data.deleted} removed (deleted in Odoo)`);
-      if (data.skippedExistingCustomer > 0) parts.push(`${data.skippedExistingCustomer} skipped (already in Contacts)`);
+      const totalSkipped = (data.skippedExistingCustomer || 0) + (data.skippedFreight || 0);
+      if (totalSkipped > 0) parts.push(`${totalSkipped} skipped — see "Skipped" badge above`);
       
       toast({
         title: 'Odoo CRM Sync Complete',
@@ -498,6 +547,7 @@ export default function LeadsPage() {
     if (hasPhone === false && (l.phone || l.mobile)) return false;
     if (hasAddress === true && !l.street && !l.city) return false;
     if (hasAddress === false && (l.street || l.city)) return false;
+    if (alsoInContactsFilter && !l.isAlsoContact) return false;
     return true;
   }).sort((a, b) => {
     let aVal: string | number, bVal: string | number;
@@ -542,6 +592,7 @@ export default function LeadsPage() {
     hasWebsite !== null ? 1 : 0,
     hasPhone !== null ? 1 : 0,
     hasAddress !== null ? 1 : 0,
+    alsoInContactsFilter ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearLeadFilters = () => {
@@ -553,6 +604,7 @@ export default function LeadsPage() {
     setHasWebsite(null);
     setHasPhone(null);
     setHasAddress(null);
+    setAlsoInContactsFilter(false);
   };
 
   const getStageInfo = (stage: string) => STAGES.find(s => s.value === stage) || STAGES[0];
@@ -646,6 +698,27 @@ export default function LeadsPage() {
               <Camera className="w-4 h-4" />
               From Screenshot
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setEmailLookupInput(''); setEmailLookupResult(null); setShowEmailLookup(true); }}
+              className="gap-2"
+              title="Why is this lead missing? Look up an email address to understand why it might not appear in Leads."
+            >
+              <HelpCircle className="w-4 h-4" />
+              Email Lookup
+            </Button>
+            {syncSkippedLeads.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSyncReport(true)}
+                className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                <AlertCircle className="w-4 h-4" />
+                {syncSkippedLeads.length} Skipped
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => setShowCreateDialog(true)}
@@ -812,6 +885,13 @@ export default function LeadsPage() {
               <SelectItem value="no">No Address</SelectItem>
             </SelectContent>
           </Select>
+          <button
+            onClick={() => setAlsoInContactsFilter(f => !f)}
+            className={`text-sm px-3 py-1.5 rounded-md border font-medium transition-colors flex items-center gap-1.5 ${alsoInContactsFilter ? 'bg-teal-50 border-teal-300 text-teal-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            {alsoInContactsFilter ? 'Also in Contacts' : 'Also in Contacts'}
+          </button>
           {activeLeadFilters > 0 && (
             <Button variant="ghost" size="sm" onClick={clearLeadFilters} className="text-gray-500">
               <X className="w-4 h-4 mr-1" />
@@ -1141,6 +1221,24 @@ export default function LeadsPage() {
                             )}
                           </div>
                         )}
+                        {/* Also-a-Contact badge */}
+                        {lead.isAlsoContact && (
+                          <div className="mt-1">
+                            {lead.alsoContactCustomerId ? (
+                              <Link href={`/customers/${lead.alsoContactCustomerId}`} onClick={(e) => e.stopPropagation()}>
+                                <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 flex items-center gap-1 cursor-pointer hover:bg-teal-100">
+                                  <UserCheck className="w-3 h-3" />
+                                  <span>Contact</span>
+                                </Badge>
+                              </Link>
+                            ) : (
+                              <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 flex items-center gap-1">
+                                <UserCheck className="w-3 h-3" />
+                                <span>Contact</span>
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1387,7 +1485,7 @@ export default function LeadsPage() {
                         )}
                         {visibleLeadColumns.origin && (
                         <td className="p-3">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             {lead.existsInOdooAsContact && (
                               <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-purple-50 border-purple-200 text-purple-700 flex items-center gap-1">
                                 <SiOdoo className="w-3 h-3" />
@@ -1398,7 +1496,22 @@ export default function LeadsPage() {
                                 <SiShopify className="w-3 h-3" />
                               </Badge>
                             )}
-                            {!lead.existsInOdooAsContact && !lead.existsInShopify && '-'}
+                            {lead.isAlsoContact && (
+                              lead.alsoContactCustomerId ? (
+                                <Link href={`/customers/${lead.alsoContactCustomerId}`} onClick={(e) => e.stopPropagation()}>
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 flex items-center gap-1 cursor-pointer hover:bg-teal-100">
+                                    <UserCheck className="w-3 h-3" />
+                                    Contact
+                                  </Badge>
+                                </Link>
+                              ) : (
+                                <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-teal-50 border-teal-200 text-teal-700 flex items-center gap-1">
+                                  <UserCheck className="w-3 h-3" />
+                                  Contact
+                                </Badge>
+                              )
+                            )}
+                            {!lead.existsInOdooAsContact && !lead.existsInShopify && !lead.isAlsoContact && '-'}
                           </div>
                         </td>
                         )}
@@ -2009,6 +2122,264 @@ export default function LeadsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Sync Report Dialog */}
+      <Dialog open={showSyncReport} onOpenChange={setShowSyncReport}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              Skipped Leads from Last Sync ({syncSkippedLeads.length})
+            </DialogTitle>
+            <DialogDescription>
+              These leads were not imported from Odoo during the last sync. Leads with real customers ($0+ spending) stay excluded; only freight/shipping contacts remain fully skipped.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {syncSkippedLeads.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-green-400" />
+                <p>No skipped leads from the last sync.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-4 mb-3 text-sm">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full">
+                    <User className="w-3.5 h-3.5" />
+                    {syncSkippedLeads.filter(l => l.reason === 'existing_contact').length} existing contacts (spending &gt; $0)
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-full">
+                    <Package className="w-3.5 h-3.5" />
+                    {syncSkippedLeads.filter(l => l.reason === 'freight').length} freight/shipping
+                  </span>
+                </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Name</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Email</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Company</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {syncSkippedLeads
+                        .slice((syncReportPage - 1) * 20, syncReportPage * 20)
+                        .map((lead, i) => (
+                          <tr key={i} className="border-t border-slate-100 hover:bg-slate-50/50">
+                            <td className="px-4 py-2.5 font-medium text-slate-800">{lead.name}</td>
+                            <td className="px-4 py-2.5 text-slate-500 text-xs">{lead.email || '-'}</td>
+                            <td className="px-4 py-2.5 text-slate-600">{lead.company || '-'}</td>
+                            <td className="px-4 py-2.5">
+                              {lead.reason === 'existing_contact' ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200 text-amber-700">
+                                    Existing Contact
+                                  </Badge>
+                                  {lead.contactId && (
+                                    <Link href={`/customers/${lead.contactId}`} onClick={() => setShowSyncReport(false)}>
+                                      <span className="text-xs text-blue-600 hover:text-blue-800 underline">
+                                        {lead.contactName || 'View'}
+                                      </span>
+                                    </Link>
+                                  )}
+                                </span>
+                              ) : (
+                                <Badge variant="outline" className="text-xs bg-slate-50 border-slate-200 text-slate-600">
+                                  Freight/Shipping
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {syncSkippedLeads.length > 20 && (
+                  <div className="flex items-center justify-between mt-3 text-sm text-slate-600">
+                    <span>
+                      Showing {Math.min((syncReportPage - 1) * 20 + 1, syncSkippedLeads.length)}–{Math.min(syncReportPage * 20, syncSkippedLeads.length)} of {syncSkippedLeads.length}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={syncReportPage === 1} onClick={() => setSyncReportPage(p => p - 1)}>
+                        Previous
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={syncReportPage * 20 >= syncSkippedLeads.length} onClick={() => setSyncReportPage(p => p + 1)}>
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSyncReport(false)}>Close</Button>
+            <Button onClick={() => { setShowSyncReport(false); setSyncSkippedLeads([]); }} className="gap-2" variant="ghost">
+              <X className="w-4 h-4" />
+              Dismiss
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Lookup Dialog */}
+      <Dialog open={showEmailLookup} onOpenChange={setShowEmailLookup}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-blue-500" />
+              Why is this lead missing?
+            </DialogTitle>
+            <DialogDescription>
+              Enter an email address to understand why it might not appear in the Leads page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="email@example.com"
+                value={emailLookupInput}
+                onChange={(e) => setEmailLookupInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && emailLookupInput.trim()) {
+                    setEmailLookupLoading(true);
+                    setEmailLookupResult(null);
+                    fetch(`/api/leads/debug-email?email=${encodeURIComponent(emailLookupInput.trim())}`, { credentials: 'include' })
+                      .then(r => {
+                        if (!r.ok) throw new Error(`Server error: ${r.status}`);
+                        return r.json();
+                      })
+                      .then(data => { setEmailLookupResult(data); setEmailLookupLoading(false); })
+                      .catch((err) => { setEmailLookupLoading(false); toast({ title: 'Lookup failed', description: err.message, variant: 'destructive' }); });
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  if (!emailLookupInput.trim()) return;
+                  setEmailLookupLoading(true);
+                  setEmailLookupResult(null);
+                  fetch(`/api/leads/debug-email?email=${encodeURIComponent(emailLookupInput.trim())}`, { credentials: 'include' })
+                    .then(r => {
+                      if (!r.ok) throw new Error(`Server error: ${r.status}`);
+                      return r.json();
+                    })
+                    .then(data => { setEmailLookupResult(data); setEmailLookupLoading(false); })
+                    .catch((err) => { setEmailLookupLoading(false); toast({ title: 'Lookup failed', description: err.message, variant: 'destructive' }); });
+                }}
+                disabled={emailLookupLoading || !emailLookupInput.trim()}
+              >
+                {emailLookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {emailLookupResult && (
+              <div className="space-y-4">
+                {/* Summary */}
+                <div className={`p-3.5 rounded-lg border text-sm leading-relaxed ${
+                  emailLookupResult.wouldBeSkippedByFreight
+                    ? 'bg-slate-50 border-slate-200 text-slate-700'
+                    : emailLookupResult.inContacts && !emailLookupResult.inLeads
+                    ? emailLookupResult.contacts[0]?.totalSpent > 0
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : 'bg-blue-50 border-blue-200 text-blue-800'
+                    : emailLookupResult.inLeads
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  {emailLookupResult.summary}
+                </div>
+
+                {/* Status chips */}
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${emailLookupResult.inLeads ? 'bg-green-50 border-green-300 text-green-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    {emailLookupResult.inLeads ? '✓ In Leads' : '✗ Not in Leads'}
+                  </span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${emailLookupResult.inContacts ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    {emailLookupResult.inContacts ? `✓ In Contacts ($${emailLookupResult.contacts[0]?.totalSpent?.toFixed(2) ?? '0.00'} spent)` : '✗ Not in Contacts'}
+                  </span>
+                  {emailLookupResult.inLiveOdoo && (
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-purple-50 border-purple-300 text-purple-700">
+                      ✓ Found in Odoo CRM (live)
+                    </span>
+                  )}
+                  {!emailLookupResult.inLiveOdoo && emailLookupResult.presentInLastOdooSync === true && (
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-purple-50 border-purple-300 text-purple-700">
+                      ✓ In last local sync
+                    </span>
+                  )}
+                  {!emailLookupResult.inLiveOdoo && emailLookupResult.odooAvailable && (
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-slate-50 border-slate-200 text-slate-500">
+                      ✗ Not in Odoo CRM
+                    </span>
+                  )}
+                  {emailLookupResult.wouldBeSkippedByFreight && (
+                    <span className="text-xs px-2.5 py-1 rounded-full border font-medium bg-slate-100 border-slate-300 text-slate-600">
+                      ⚠ Freight filter match
+                    </span>
+                  )}
+                </div>
+                {emailLookupResult.syncPresenceNote && (
+                  <p className="text-xs text-slate-500 italic">{emailLookupResult.syncPresenceNote}</p>
+                )}
+
+                {/* Action buttons */}
+                {emailLookupResult.actions?.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {emailLookupResult.actions.map((action: { label: string; type: string; value: string }, i: number) => (
+                      <Button
+                        key={i}
+                        variant={action.type === 'create_lead' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={async () => {
+                          if (action.type === 'contact') {
+                            setShowEmailLookup(false);
+                            setLocation(`/customers/${action.value}`);
+                          } else if (action.type === 'lead') {
+                            setShowEmailLookup(false);
+                            setLocation(`/leads/${action.value}`);
+                          } else if (action.type === 'create_lead') {
+                            try {
+                              setEmailLookupLoading(true);
+                              const resp = await fetch('/api/leads/create-from-odoo', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ odooLeadId: Number(action.value) }),
+                              });
+                              if (!resp.ok) {
+                                const errData = await resp.json().catch(() => ({}));
+                                toast({ title: 'Failed to create lead', description: errData.error || 'Unknown error', variant: 'destructive' });
+                              } else {
+                                const data = await resp.json();
+                                queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+                                setShowEmailLookup(false);
+                                toast({ title: data.alreadyExisted ? 'Lead already exists' : 'Lead created', description: data.alreadyExisted ? 'This lead was already imported.' : 'Lead imported from Odoo CRM successfully.' });
+                                if (data.leadId) setLocation(`/leads/${data.leadId}`);
+                              }
+                            } catch {
+                              toast({ title: 'Error', description: 'Could not create lead', variant: 'destructive' });
+                            } finally {
+                              setEmailLookupLoading(false);
+                            }
+                          }
+                        }}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailLookup(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       </div>
     </div>
