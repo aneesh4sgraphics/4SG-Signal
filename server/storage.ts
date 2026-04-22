@@ -1092,6 +1092,7 @@ export class DatabaseStorage implements IStorage {
     sources: customers.sources,
     odooPartnerId: customers.odooPartnerId,
     parentCustomerId: customers.parentCustomerId,
+    importWarning: customers.importWarning,
     updatedAt: customers.updatedAt,
     createdAt: customers.createdAt,
   };

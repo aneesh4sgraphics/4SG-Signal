@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import type { ProductOdooMapping, OdooPriceSyncQueue } from "@shared/schema";
@@ -206,9 +207,18 @@ export default function OdooSettingsPage() {
       });
       const modeText = data.mode === 'full_reset' ? 'Full import' : data.mode === 'sync_with_deletions' ? 'Full sync' : 'Incremental import';
       const deletedText = data.deleted > 0 ? `, Deleted: ${data.deleted}` : '';
+      const skipDetails = data.skipDetails as { noEmail: string[]; vendor: string[]; accountTeam: string[]; blocked: string[]; excluded: string[] } | undefined;
+      const totalDetailedSkips = skipDetails ? (skipDetails.noEmail?.length ?? 0) + (skipDetails.vendor?.length ?? 0) + (skipDetails.accountTeam?.length ?? 0) + (skipDetails.blocked?.length ?? 0) + (skipDetails.excluded?.length ?? 0) : 0;
       toast({ 
         title: `${modeText} complete`,
-        description: `New: ${data.imported}, Already existed: ${data.alreadyExists || 0}, Skipped: ${data.skipped}${deletedText}, Failed: ${data.failed}`
+        description: `New: ${data.imported}, Already existed: ${data.alreadyExists || 0}, Skipped: ${data.skipped}${deletedText}, Failed: ${data.failed}`,
+        ...(totalDetailedSkips > 0 ? {
+          action: (
+            <ToastAction altText="View skip details" onClick={() => setShowSkipReport(true)}>
+              {totalDetailedSkips} skipped — Details
+            </ToastAction>
+          )
+        } : {})
       });
     },
     onError: (error: any) => {
@@ -984,18 +994,19 @@ export default function OdooSettingsPage() {
                         )}
 
                         {/* Skip report link */}
-                        {importResult.skipDetails && (
-                          (importResult.skipDetails.noEmail.length > 0 || importResult.skipDetails.vendor.length > 0 || importResult.skipDetails.accountTeam.length > 0 || importResult.skipDetails.blocked.length > 0 || importResult.skipDetails.excluded.length > 0)
-                        ) && (
-                          <div className="text-center">
-                            <button
-                              onClick={() => setShowSkipReport(true)}
-                              className="text-sm text-amber-700 underline hover:text-amber-900"
-                            >
-                              {importResult.skipped} contacts skipped — View Details
-                            </button>
-                          </div>
-                        )}
+                        {importResult.skipDetails && (() => {
+                          const n = (importResult.skipDetails!.noEmail?.length ?? 0) + (importResult.skipDetails!.vendor?.length ?? 0) + (importResult.skipDetails!.accountTeam?.length ?? 0) + (importResult.skipDetails!.blocked?.length ?? 0) + (importResult.skipDetails!.excluded?.length ?? 0);
+                          return n > 0 ? (
+                            <div className="text-center">
+                              <button
+                                onClick={() => setShowSkipReport(true)}
+                                className="text-sm text-amber-700 underline hover:text-amber-900"
+                              >
+                                {n} contacts skipped — View Details
+                              </button>
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     )}
 

@@ -19,6 +19,12 @@ interface CountRow { cnt: number; }
  */
 export async function runCatalogDataMigration(): Promise<void> {
   try {
+    // ── 0. Schema migrations (idempotent column additions) ───────────────────
+    // Add import_warning column to customers if it doesn't already exist
+    await db.execute(sql`
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS import_warning varchar(50)
+    `);
+
     // ── 1. Graffiti Polyester Paper (Scuff Free) → category 1 ──────────────
     await db.execute(sql`
       UPDATE catalog_product_types
