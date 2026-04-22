@@ -1113,6 +1113,7 @@ export class DatabaseStorage implements IStorage {
       hasAddress?: boolean;
       connectionStrength?: string;
       createdAfterDays?: number;
+      missingEmail?: boolean;
     }
   ): Promise<{ data: Partial<Customer>[]; total: number; page: number; limit: number; totalPages: number }> {
     const offset = (page - 1) * limit;
@@ -1168,6 +1169,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.hasAddress === true) {
       conditions.push(sql`${customers.address1} IS NOT NULL AND ${customers.address1} <> ''`);
+    }
+    if (filters?.missingEmail === true) {
+      conditions.push(eq(customers.importWarning, 'no_email'));
     }
     if (filters?.createdAfterDays) {
       const cutoff = new Date(Date.now() - filters.createdAfterDays * 86400000);

@@ -318,7 +318,13 @@ export default function OdooContacts() {
     limit: pageSize.toString(),
   });
   if (debouncedSearch) queryParams.set('search', debouncedSearch);
-  queryParams.set('isCompany', 'false'); // Contacts page always shows people only
+  // When Missing Email filter is active, lift the isCompany lock so company records
+  // with importWarning='no_email' are included; otherwise restrict to persons only
+  if (filters.missingEmail === true) {
+    queryParams.set('missingEmail', 'true');
+  } else {
+    queryParams.set('isCompany', 'false'); // Contacts page normally shows people only
+  }
   if (filters.isHotProspect === true) queryParams.set('isHotProspect', 'true');
   if (filters.state) queryParams.set('province', filters.state);
 
@@ -341,7 +347,7 @@ export default function OdooContacts() {
     page: number; 
     pageSize: number; 
   }>({
-    queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect, filters.state],
+    queryKey: ['/api/customers', currentPage, pageSize, debouncedSearch, filters.isCompany, filters.isHotProspect, filters.state, filters.missingEmail],
     queryFn: async () => {
       const res = await fetch(`/api/customers?${queryParams.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch');

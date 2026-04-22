@@ -521,6 +521,7 @@ export function registerCustomersRoutes(app: Express): void {
           hasAddress?: boolean;
           connectionStrength?: string;
           createdAfterDays?: number;
+          missingEmail?: boolean;
         } = {};
         
         if (req.query.salesRepId) filters.salesRepId = req.query.salesRepId as string;
@@ -540,6 +541,7 @@ export function registerCustomersRoutes(app: Express): void {
         if (req.query.hasAddress === 'true') filters.hasAddress = true;
         if (req.query.connectionStrength) filters.connectionStrength = req.query.connectionStrength as string;
         if (req.query.createdAfterDays) filters.createdAfterDays = parseInt(req.query.createdAfterDays as string);
+        if (req.query.missingEmail === 'true') filters.missingEmail = true;
         
         const hasFilters = Object.keys(filters).length > 0;
         
