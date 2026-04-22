@@ -14714,12 +14714,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear customer cache to ensure fresh data is returned
       setCachedData("customers", null);
       
-      const totalSkipped = results.skippedNoEmail + results.skippedVendors + results.skippedAccountTeam + results.skippedBlocked + results.skippedExcluded;
+      const totalDetailedSkipped = results.skippedNoEmail + results.skippedVendors + results.skippedAccountTeam + results.skippedBlocked + results.skippedExcluded;
+      const totalSkipped = results.skipped + totalDetailedSkipped;
       res.json({
         success: true,
         message: `Imported ${results.imported} partners from Odoo${totalSkipped > 0 ? ` (${totalSkipped} skipped)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
         parentLinksResolved,
-        ...results
+        ...results,
+        skipped: totalSkipped,
       });
     } catch (error: any) {
       console.error("Error importing partners from Odoo:", error);
