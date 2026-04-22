@@ -12087,7 +12087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(customers)
           .where(and(
             eq(customers.odooPartnerId, company.odooCompanyPartnerId),
-            eq(customers.isCompany, true)
+            eq(customers.isCompany, true),
+            sql`${customers.importWarning} IS NOT NULL`
           ))
           .limit(1);
         importWarning = warnRow?.importWarning ?? null;
