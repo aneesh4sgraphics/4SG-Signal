@@ -621,9 +621,9 @@ export function registerCustomersRoutes(app: Express): void {
       }
 
       // Auto-clear importWarning when a rep adds an email to a no-email company
-      const incomingEmail = customerData.email as string | undefined;
+      const incomingEmail = customerData.email;
       const hadNoEmail = !existingCustomer?.email || existingCustomer.email.trim() === '';
-      const nowHasEmail = incomingEmail && incomingEmail.trim() !== '';
+      const nowHasEmail = typeof incomingEmail === 'string' && incomingEmail.trim() !== '';
       if (nowHasEmail && hadNoEmail && existingCustomer?.importWarning === 'no_email') {
         customerData.importWarning = null;
       }
