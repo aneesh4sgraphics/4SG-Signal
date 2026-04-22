@@ -380,7 +380,7 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
     return (
       <div
         className="p-3 rounded-lg border bg-white hover:bg-gray-50 cursor-pointer"
-        onClick={() => !isOdoo && setLocation(`/odoo-contacts/${c.id}`)}
+        onClick={() => setLocation(`/odoo-contacts/${c.id}`)}
       >
         <div className="flex items-start gap-3">
           <div className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold ${isOdoo ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700'}`}>
