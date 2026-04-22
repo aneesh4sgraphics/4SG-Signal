@@ -620,6 +620,14 @@ export function registerCustomersRoutes(app: Express): void {
         customerData.email2Normalized = normalizeEmail(customerData.email2);
       }
 
+      // Auto-clear importWarning when a rep adds an email to a no-email company
+      const incomingEmail = customerData.email as string | undefined;
+      const hadNoEmail = !existingCustomer?.email || existingCustomer.email.trim() === '';
+      const nowHasEmail = incomingEmail && incomingEmail.trim() !== '';
+      if (nowHasEmail && hadNoEmail && existingCustomer?.importWarning === 'no_email') {
+        customerData.importWarning = null;
+      }
+
       // Server-side: stamp who/when set the pricing tier (client must not control these)
       if (newPricingTier && newPricingTier !== oldPricingTier) {
         customerData.pricingTierSetBy = req.user?.claims?.email || req.user?.email || 'system';
