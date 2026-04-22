@@ -14424,6 +14424,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skippedExcludedNames: [] as string[],
         deletedCustomers: [] as string[],
         mode: useFullReset ? 'full_reset' : useSyncWithDeletions ? 'sync_with_deletions' : 'add_new',
+        skipDetails: {
+          noEmail: [] as string[],
+          vendor: [] as string[],
+          accountTeam: [] as string[],
+          blocked: [] as string[],
+          excluded: [] as string[],
+        },
       };
       
       // Track which Odoo partner IDs are still active in Odoo
@@ -14439,15 +14446,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Skip partners with Vendor tag
-          if (vendorCategoryId && odooClient.hasVendorTag(partner, vendorCategoryId)) {
+          // Skip individual person contacts with Vendor tag.
+          // Company-type records are NEVER skipped due to the Vendor tag — even if a child
+          // contact under them is tagged Vendor. Only the individual contact itself is excluded.
+          if (vendorCategoryId && !partner.is_company && odooClient.hasVendorTag(partner, vendorCategoryId)) {
             results.skippedVendors++;
+            results.skipDetails.vendor.push(partner.name);
             continue;
           }
           
           // Skip (and retroactively remove) partners tagged as Account Team
           if (accountTeamCategoryId && odooClient.hasVendorTag(partner, accountTeamCategoryId)) {
             results.skippedAccountTeam++;
+            results.skipDetails.accountTeam.push(partner.name);
             // If this partner is already in the app, remove them
             if (existingOdooIds.has(partner.id)) {
               const existingId = existingOdooCustomers.get(partner.id);
@@ -14464,10 +14475,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Skip partners without email (email is required for CRM to work)
+          // Skip person contacts without email (email is required for CRM to work).
+          // Company records with no email on the company record itself are imported with
+          // importWarning="no_email" so the UI can badge them and reps can follow up.
           if (!partner.email || partner.email.trim() === '') {
-            results.skippedNoEmail++;
-            continue;
+            if (!partner.is_company) {
+              results.skippedNoEmail++;
+              results.skipDetails.noEmail.push(partner.name);
+              continue;
+            }
+            // Company with no email — fall through to import with importWarning flag
           }
           
           // Skip blocked companies (cargo, freight, logistics, etc.)
@@ -14477,6 +14494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (results.skippedBlockedNames.length < 20) {
               results.skippedBlockedNames.push(`${partner.name} (${blockedKeyword})`);
             }
+            results.skipDetails.blocked.push(`${partner.name} (${blockedKeyword})`);
             console.log(`[Odoo Import] Skipped blocked company: ${partner.name} (matched: ${blockedKeyword})`);
             continue;
           }
@@ -14487,6 +14505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (results.skippedExcludedNames.length < 20) {
               results.skippedExcludedNames.push(partner.name);
             }
+            results.skipDetails.excluded.push(partner.name);
             console.log(`[Odoo Import] Skipped excluded partner: ${partner.name} (previously deleted)`);
             continue;
           }
@@ -14583,6 +14602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             firstName,
             lastName,
             company,
+            importWarning: (partner.is_company && (!partner.email || partner.email.trim() === '')) ? 'no_email' : null,
             email: partner.email || null,
             phone: partner.phone || partner.mobile || null,
             cell: partner.mobile || null,
@@ -14694,9 +14714,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear customer cache to ensure fresh data is returned
       setCachedData("customers", null);
       
+      const totalSkipped = results.skippedNoEmail + results.skippedVendors + results.skippedAccountTeam + results.skippedBlocked + results.skippedExcluded;
       res.json({
         success: true,
-        message: `Imported ${results.imported} partners from Odoo${results.skippedNoEmail > 0 ? ` (skipped ${results.skippedNoEmail} without email)` : ''}${results.skippedBlocked > 0 ? ` (skipped ${results.skippedBlocked} blocked companies)` : ''}${results.skippedExcluded > 0 ? ` (skipped ${results.skippedExcluded} previously deleted)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
+        message: `Imported ${results.imported} partners from Odoo${totalSkipped > 0 ? ` (${totalSkipped} skipped)` : ''}${results.deleted > 0 ? `, deleted ${results.deleted} removed from Odoo` : ''}`,
         parentLinksResolved,
         ...results
       });

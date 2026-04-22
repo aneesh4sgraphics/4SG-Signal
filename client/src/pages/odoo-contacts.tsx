@@ -118,6 +118,7 @@ interface Contact {
   jobTitle: string | null;
   companyId: number | null;
   odooCompanyId: number | null;
+  importWarning: string | null;
 }
 
 interface ShopifyCustomerMapping {
@@ -174,6 +175,7 @@ export default function OdooContacts() {
       hasAddress: saved?.hasAddress ?? (null as boolean | null),
       hasPricingTier: saved?.hasPricingTier ?? (null as boolean | null),
       isHotProspect: saved?.isHotProspect ?? (null as boolean | null),
+      missingEmail: saved?.missingEmail ?? (null as boolean | null),
       state: saved?.state ?? (null as string | null),
       tag: saved?.tag ?? (null as string | null),
     };
@@ -299,7 +301,9 @@ export default function OdooContacts() {
         hasAddress: null,
         hasPricingTier: null,
         isHotProspect: null,
+        missingEmail: null,
         state: null,
+        tag: null,
       });
     } else if (!searchQuery && searchActiveFilterSnapshot) {
       setFilters(searchActiveFilterSnapshot);
@@ -529,6 +533,7 @@ export default function OdooContacts() {
       }
       if (filters.hasEmail === true && !c.email) return false;
       if (filters.hasEmail === false && c.email) return false;
+      if (filters.missingEmail === true && c.importWarning !== 'no_email') return false;
       if (filters.hasWebsite === true && !c.website) return false;
       if (filters.hasWebsite === false && c.website) return false;
       if (filters.hasPhone === true && !c.phone && !c.phone2 && !c.cell) return false;
@@ -808,6 +813,7 @@ export default function OdooContacts() {
     filters.hasAddress !== null ? 1 : 0,
     filters.hasPricingTier !== null ? 1 : 0,
     filters.isHotProspect !== null ? 1 : 0,
+    filters.missingEmail !== null ? 1 : 0,
     filters.state !== null ? 1 : 0,
     filters.tag !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
@@ -822,6 +828,7 @@ export default function OdooContacts() {
       hasAddress: null,
       hasPricingTier: null,
       isHotProspect: null,
+      missingEmail: null,
       state: null,
       tag: null,
     });
@@ -1207,6 +1214,20 @@ export default function OdooContacts() {
                   >
                     <Flame className={`w-4 h-4 ${filters.isHotProspect ? 'text-orange-500' : ''}`} />
                     Hot Prospects
+                  </Button>
+
+                  {/* Missing Email */}
+                  <Button
+                    variant={filters.missingEmail ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setFilters(f => ({
+                      ...f,
+                      missingEmail: f.missingEmail ? null : true,
+                    }))}
+                    className={`gap-2 ${filters.missingEmail ? 'border-amber-400 bg-amber-50 text-amber-800' : ''}`}
+                  >
+                    <AlertTriangle className={`w-4 h-4 ${filters.missingEmail ? 'text-amber-500' : ''}`} />
+                    Missing Email
                   </Button>
 
                   {activeFiltersCount > 0 && (
@@ -1602,6 +1623,11 @@ export default function OdooContacts() {
                                 ) : null}
                               </div>
                               {contact.isHotProspect && <Flame className="w-4 h-4 text-orange-500" />}
+                              {contact.importWarning === 'no_email' && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 py-0.5">
+                                  <AlertTriangle className="w-2.5 h-2.5" />No Email
+                                </span>
+                              )}
                             </div>
                             {!contact.isCompany && contact.company && (
                               <span className="text-xs text-gray-500">{contact.company}</span>
@@ -1885,6 +1911,12 @@ export default function OdooContacts() {
                               <Flame className="w-4 h-4 text-orange-500" />
                             </div>
                           )}
+                          {contact.importWarning === 'no_email' && (
+                            <div className="h-7 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center px-1.5 gap-0.5" title="No email on record — add email to remove this warning">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              <span className="text-[10px] font-semibold text-amber-700">No Email</span>
+                            </div>
+                          )}
                           {domainMismatchSet.has(contact.id) && (
                             <div
                               className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center"
@@ -2081,6 +2113,11 @@ export default function OdooContacts() {
                         )}
                       </div>
                       {detailContact.isHotProspect && <Flame className="w-5 h-5 text-orange-500" />}
+                      {detailContact.importWarning === 'no_email' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5">
+                          <AlertTriangle className="w-3 h-3" />No Email
+                        </span>
+                      )}
                     </SheetTitle>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="capitalize">

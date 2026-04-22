@@ -277,6 +277,7 @@ export const customers = pgTable("customers", {
   odooPendingChanges: jsonb("odoo_pending_changes"), // JSON of pending field changes to push to Odoo
   odooLastSyncError: text("odoo_last_sync_error"), // Last sync error message if any
   odooParentId: integer("odoo_parent_id"), // Parent partner ID in Odoo (for tree structure)
+  importWarning: varchar("import_warning", { length: 50 }), // Import-time warning flag, e.g. "no_email" for companies imported without an email address
   parentCustomerId: varchar("parent_customer_id"), // Local parent customer ID (resolved after import)
   contactType: varchar("contact_type", { length: 50 }), // 'company', 'contact', 'delivery', 'invoice', 'other'
   isCompany: boolean("is_company").default(false), // True if this is a company, false if individual/address

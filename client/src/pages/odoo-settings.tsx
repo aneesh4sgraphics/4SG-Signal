@@ -202,6 +202,7 @@ export default function OdooSettingsPage() {
         skippedPartners: data.skippedPartners || [],
         deletedCustomers: data.deletedCustomers || [],
         mode: data.mode || 'add_new',
+        skipDetails: data.skipDetails,
       });
       const modeText = data.mode === 'full_reset' ? 'Full import' : data.mode === 'sync_with_deletions' ? 'Full sync' : 'Incremental import';
       const deletedText = data.deleted > 0 ? `, Deleted: ${data.deleted}` : '';
@@ -319,7 +320,15 @@ export default function OdooSettingsPage() {
     skippedPartners?: string[];
     deletedCustomers?: string[];
     mode?: string;
+    skipDetails?: {
+      noEmail: string[];
+      vendor: string[];
+      accountTeam: string[];
+      blocked: string[];
+      excluded: string[];
+    };
   } | null>(null);
+  const [showSkipReport, setShowSkipReport] = useState(false);
 
 
   // Import Products state
@@ -971,6 +980,20 @@ export default function OdooSettingsPage() {
                                 <div key={i} className="py-1 border-b border-red-100 last:border-0">{err}</div>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Skip report link */}
+                        {importResult.skipDetails && (
+                          (importResult.skipDetails.noEmail.length > 0 || importResult.skipDetails.vendor.length > 0 || importResult.skipDetails.accountTeam.length > 0 || importResult.skipDetails.blocked.length > 0 || importResult.skipDetails.excluded.length > 0)
+                        ) && (
+                          <div className="text-center">
+                            <button
+                              onClick={() => setShowSkipReport(true)}
+                              className="text-sm text-amber-700 underline hover:text-amber-900"
+                            >
+                              {importResult.skipped} contacts skipped — View Details
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1887,6 +1910,88 @@ export default function OdooSettingsPage() {
                 </>
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Skip Report Dialog */}
+      <Dialog open={showSkipReport} onOpenChange={setShowSkipReport}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Contacts Skipped During Import</DialogTitle>
+            <DialogDescription>
+              These contacts were not imported. Review each group and take action where needed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+            {importResult?.skipDetails?.noEmail && importResult.skipDetails.noEmail.length > 0 && (
+              <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
+                <div className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-200 text-amber-900 text-xs font-bold">{importResult.skipDetails.noEmail.length}</span>
+                  No Email (person contacts only)
+                </div>
+                <div className="text-sm text-amber-700 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.skipDetails.noEmail.map((name, i) => (
+                    <div key={i} className="py-0.5 border-b border-amber-100 last:border-0">{name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importResult?.skipDetails?.vendor && importResult.skipDetails.vendor.length > 0 && (
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <div className="font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 text-slate-900 text-xs font-bold">{importResult.skipDetails.vendor.length}</span>
+                  Vendor Tag (shipping/logistics contacts)
+                </div>
+                <div className="text-sm text-slate-600 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.skipDetails.vendor.map((name, i) => (
+                    <div key={i} className="py-0.5 border-b border-slate-100 last:border-0">{name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importResult?.skipDetails?.accountTeam && importResult.skipDetails.accountTeam.length > 0 && (
+              <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                <div className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-200 text-blue-900 text-xs font-bold">{importResult.skipDetails.accountTeam.length}</span>
+                  Account Team (internal staff)
+                </div>
+                <div className="text-sm text-blue-700 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.skipDetails.accountTeam.map((name, i) => (
+                    <div key={i} className="py-0.5 border-b border-blue-100 last:border-0">{name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importResult?.skipDetails?.blocked && importResult.skipDetails.blocked.length > 0 && (
+              <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                <div className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-orange-200 text-orange-900 text-xs font-bold">{importResult.skipDetails.blocked.length}</span>
+                  Blocked Keywords (freight/cargo companies)
+                </div>
+                <div className="text-sm text-orange-700 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.skipDetails.blocked.map((name, i) => (
+                    <div key={i} className="py-0.5 border-b border-orange-100 last:border-0">{name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {importResult?.skipDetails?.excluded && importResult.skipDetails.excluded.length > 0 && (
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                <div className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-200 text-red-900 text-xs font-bold">{importResult.skipDetails.excluded.length}</span>
+                  Previously Deleted (on exclusion list)
+                </div>
+                <div className="text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.skipDetails.excluded.map((name, i) => (
+                    <div key={i} className="py-0.5 border-b border-red-100 last:border-0">{name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSkipReport(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
