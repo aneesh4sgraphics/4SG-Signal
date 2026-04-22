@@ -8,10 +8,6 @@ const ORIGIN33_ITEM_CODES = [
   'SZETABL-3378B', 'SZETABL-3378C',
 ];
 
-// Previously-unmapped Specialties type IDs confirmed by user:
-// Metallic Polyester (148), Photo Paper Sample Pack (144), STRATA 5 mil (145), STRATA 8 mil (146)
-const SPECIALTIES_TYPE_IDS = [148, 144, 145, 146];
-
 interface CountRow { cnt: number; }
 
 /**
