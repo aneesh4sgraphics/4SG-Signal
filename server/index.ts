@@ -13,6 +13,7 @@ import { startOdooSyncWorker, stopOdooSyncWorker } from "./odoo-sync-worker";
 import { startSpotlightDigestWorker, stopSpotlightDigestWorker } from "./spotlightDigestWorker";
 import { ensureTaxonomySeeded } from "./taxonomy-seed";
 import { seedSpotlightCoachingContent } from "./spotlight-coaching-seed";
+import { runCatalogDataMigration } from "./catalog-data-migration";
 import { sessionConfig } from "./replitAuth";
 import { pool } from "./db";
 
@@ -319,6 +320,7 @@ app.use((req, res, next) => {
   // Ensure admin taxonomy is seeded before starting server
   await ensureTaxonomySeeded();
   await seedSpotlightCoachingContent();
+  await runCatalogDataMigration();
   
   server.listen({
     port,

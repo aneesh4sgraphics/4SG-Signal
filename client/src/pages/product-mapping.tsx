@@ -1266,7 +1266,16 @@ export default function ProductMapping() {
                                       </Button>
                                     </div>
                                   ) : (
-                                    <div className="font-medium text-sm">{entry.label}</div>
+                                    <button
+                                      className="font-medium text-sm text-left hover:underline hover:text-primary cursor-pointer"
+                                      onClick={() => {
+                                        setEditingTypeId(entry.id);
+                                        setEditTypeName(entry.label);
+                                      }}
+                                      title="Click to rename"
+                                    >
+                                      {entry.label}
+                                    </button>
                                   )}
                                   <div className="text-xs text-muted-foreground mt-1 font-mono">{entry.code}</div>
                                   {entry.skus && entry.skus.length > 0 ? (
