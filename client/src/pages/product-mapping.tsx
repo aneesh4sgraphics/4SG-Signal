@@ -134,6 +134,7 @@ export default function ProductMapping() {
   const [typeToDelete, setTypeToDelete] = useState<ProductType | null>(null);
   const [typeToMerge, setTypeToMerge] = useState<ProductType | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  const [isMergingCatalogType, setIsMergingCatalogType] = useState(false);
   
   // Category/Type editing
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
@@ -406,6 +407,40 @@ export default function ProductMapping() {
     },
     onError: (error: Error) => {
       toast({ variant: 'destructive', title: 'Failed to update type', description: error.message });
+    },
+  });
+
+  const updateCatalogType = useMutation({
+    mutationFn: async (data: { id: number; label: string }) => {
+      const res = await apiRequest('PATCH', `/api/catalog-product-types/${data.id}`, { label: data.label });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Type renamed' });
+      refetchDuplicates();
+      setEditingTypeId(null);
+      setEditTypeName('');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to rename type', description: error.message });
+    },
+  });
+
+  const mergeCatalogTypes = useMutation({
+    mutationFn: async (data: { sourceTypeId: number; targetTypeId: number }) => {
+      const res = await apiRequest('POST', '/api/catalog-product-types/merge', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Types merged successfully' });
+      refetchDuplicates();
+      refetchProducts();
+      setTypeToMerge(null);
+      setMergeTargetId('');
+      setIsMergingCatalogType(false);
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to merge types', description: error.message });
     },
   });
 
@@ -1245,15 +1280,15 @@ export default function ProductMapping() {
                                         className="h-8 text-sm w-64"
                                         autoFocus
                                         onKeyDown={(e) => {
-                                          if (e.key === 'Enter') updateType.mutate({ id: entry.id, name: editTypeName });
+                                          if (e.key === 'Enter') updateCatalogType.mutate({ id: entry.id, label: editTypeName });
                                           if (e.key === 'Escape') { setEditingTypeId(null); setEditTypeName(''); }
                                         }}
                                       />
                                       <Button
                                         size="sm"
                                         variant="ghost"
-                                        onClick={() => updateType.mutate({ id: entry.id, name: editTypeName })}
-                                        disabled={updateType.isPending}
+                                        onClick={() => updateCatalogType.mutate({ id: entry.id, label: editTypeName })}
+                                        disabled={updateCatalogType.isPending}
                                       >
                                         <Check className="h-4 w-4" />
                                       </Button>
@@ -1303,7 +1338,10 @@ export default function ProductMapping() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => setTypeToMerge({ id: entry.id, categoryId: group.category_id, name: entry.label, description: null })}
+                                      onClick={() => {
+                                        setTypeToMerge({ id: entry.id, categoryId: group.category_id, name: entry.label, description: null });
+                                        setIsMergingCatalogType(true);
+                                      }}
                                       title="Merge into another type"
                                     >
                                       <Merge className="h-4 w-4" />
@@ -1613,14 +1651,18 @@ export default function ProductMapping() {
       </AlertDialog>
 
       {/* Merge Type Dialog */}
-      <Dialog open={!!typeToMerge} onOpenChange={() => { setTypeToMerge(null); setMergeTargetId(''); }}>
+      <Dialog open={!!typeToMerge} onOpenChange={() => { setTypeToMerge(null); setMergeTargetId(''); setIsMergingCatalogType(false); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Merge Product Type</DialogTitle>
             <DialogDescription>
               {typeToMerge && (
                 <>
-                  Move all products from "{typeToMerge.name}" to another type within the same category ({categories.find(c => c.id === typeToMerge.categoryId)?.name}), then delete the source type.
+                  Move all products from &quot;{typeToMerge.name}&quot; to another type within the same category (
+                  {isMergingCatalogType
+                    ? (duplicatesData?.find(g => g.types.some(t => t.id === typeToMerge.id))?.category_name ?? '')
+                    : (categories.find(c => c.id === typeToMerge.categoryId)?.name ?? '')}
+                  ), then archive the source type.
                 </>
               )}
             </DialogDescription>
@@ -1633,29 +1675,44 @@ export default function ProductMapping() {
                   <SelectValue placeholder="Select target type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {types
-                    .filter(t => t.id !== typeToMerge?.id && t.categoryId === typeToMerge?.categoryId)
-                    .map((type) => (
-                      <SelectItem key={type.id} value={type.id.toString()}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
+                  {isMergingCatalogType
+                    ? duplicatesData
+                        ?.find(g => g.types.some(t => t.id === typeToMerge?.id))
+                        ?.types
+                        .filter(t => t.id !== typeToMerge?.id)
+                        .map(t => (
+                          <SelectItem key={t.id} value={t.id.toString()}>
+                            {t.label}
+                          </SelectItem>
+                        ))
+                    : types
+                        .filter(t => t.id !== typeToMerge?.id && t.categoryId === typeToMerge?.categoryId)
+                        .map((type) => (
+                          <SelectItem key={type.id} value={type.id.toString()}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setTypeToMerge(null); setMergeTargetId(''); }}>
+            <Button variant="outline" onClick={() => { setTypeToMerge(null); setMergeTargetId(''); setIsMergingCatalogType(false); }}>
               Cancel
             </Button>
             <Button
-              onClick={() => typeToMerge && mergeTargetId && mergeTypes.mutate({
-                sourceTypeId: typeToMerge.id,
-                targetTypeId: parseInt(mergeTargetId)
-              })}
-              disabled={!mergeTargetId || mergeTypes.isPending}
+              onClick={() => {
+                if (!typeToMerge || !mergeTargetId) return;
+                const targetId = parseInt(mergeTargetId);
+                if (isMergingCatalogType) {
+                  mergeCatalogTypes.mutate({ sourceTypeId: typeToMerge.id, targetTypeId: targetId });
+                } else {
+                  mergeTypes.mutate({ sourceTypeId: typeToMerge.id, targetTypeId: targetId });
+                }
+              }}
+              disabled={!mergeTargetId || mergeTypes.isPending || mergeCatalogTypes.isPending}
             >
-              {mergeTypes.isPending ? 'Merging...' : 'Merge & Delete'}
+              {(mergeTypes.isPending || mergeCatalogTypes.isPending) ? 'Merging...' : 'Merge & Archive'}
             </Button>
           </DialogFooter>
         </DialogContent>

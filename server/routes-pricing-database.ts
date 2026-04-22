@@ -1376,6 +1376,68 @@ router.get("/product-types/duplicates", isAuthenticated, async (req, res) => {
   }
 });
 
+router.patch("/catalog-product-types/:id", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid type ID" });
+
+    const { label } = req.body as { label?: string };
+    if (!label || typeof label !== "string" || !label.trim()) {
+      return res.status(400).json({ error: "Label is required" });
+    }
+
+    const [updated] = await db
+      .update(catalogProductTypes)
+      .set({ label: label.trim(), updatedAt: new Date() })
+      .where(eq(catalogProductTypes.id, id))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Catalog product type not found" });
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error renaming catalog product type:", error);
+    res.status(500).json({ error: error.message || "Failed to rename catalog product type" });
+  }
+});
+
+router.post("/catalog-product-types/merge", isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { sourceTypeId, targetTypeId } = req.body as { sourceTypeId?: number; targetTypeId?: number };
+
+    if (!sourceTypeId || !targetTypeId) {
+      return res.status(400).json({ error: "sourceTypeId and targetTypeId are required" });
+    }
+    if (sourceTypeId === targetTypeId) {
+      return res.status(400).json({ error: "Source and target cannot be the same" });
+    }
+
+    const [target] = await db
+      .select()
+      .from(catalogProductTypes)
+      .where(eq(catalogProductTypes.id, targetTypeId));
+    if (!target) return res.status(404).json({ error: "Target catalog type not found" });
+
+    await db
+      .update(productPricingMaster)
+      .set({
+        catalogProductTypeId: targetTypeId,
+        catalogCategoryId: target.categoryId,
+        updatedAt: new Date(),
+      })
+      .where(eq(productPricingMaster.catalogProductTypeId, sourceTypeId));
+
+    await db
+      .update(catalogProductTypes)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(catalogProductTypes.id, sourceTypeId));
+
+    res.json({ success: true, message: "Catalog types merged successfully" });
+  } catch (error: any) {
+    console.error("Error merging catalog product types:", error);
+    res.status(500).json({ error: error.message || "Failed to merge catalog types" });
+  }
+});
+
 // Get catalog import logs
 router.get("/catalog-import-logs", isAuthenticated, requireAdmin, async (req, res) => {
   try {
