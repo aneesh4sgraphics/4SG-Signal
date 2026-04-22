@@ -11559,6 +11559,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const custStatMap = new Map(custStats.map(r => [r.companyId, r]));
 
+      // ── importWarning for official companies via odooPartnerId lookup ────────
+      const officialWarningRows = await db
+        .select({ odooPartnerId: customers.odooPartnerId, importWarning: customers.importWarning })
+        .from(customers)
+        .where(and(
+          eq(customers.isCompany, true),
+          sql`${customers.importWarning} IS NOT NULL`,
+          sql`${customers.odooPartnerId} IS NOT NULL`
+        ));
+      const odooWarningMap = new Map<number, string>(
+        officialWarningRows.filter(r => r.odooPartnerId && r.importWarning).map(r => [r.odooPartnerId as number, r.importWarning as string])
+      );
+
       // ── Last interaction: activity events by companyId ──────────────────────
       const activityByCompId = await db
         .select({
@@ -11645,7 +11658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyTags: c.companyTags ?? null,
           isOdooLinked: stats?.isOdooLinked ?? false,
           isShopifyLinked: stats?.isShopifyLinked ?? false,
-          importWarning: null,
+          importWarning: c.odooCompanyPartnerId ? (odooWarningMap.get(c.odooCompanyPartnerId) ?? null) : null,
         };
       });
 
@@ -11927,8 +11940,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lastInteraction = latestOf(lastActRow[0]?.lastDate, lastEmailRow[0]?.lastDate);
       const connectionStrength = calcConnectionStrength(lastInteraction);
 
+      const companyRecord = contacts.find(c => c.isCompany);
+      const importWarning = companyRecord?.importWarning ?? null;
+
       res.json({
-        company: { id: null, name, isOrphan: true, odooCompanyPartnerId: null, source: 'contact' },
+        company: { id: null, name, isOrphan: true, odooCompanyPartnerId: null, source: 'contact', importWarning },
         contacts,
         contactCount,
         lifetimeSales,
@@ -12064,8 +12080,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      let importWarning: string | null = null;
+      if (company.odooCompanyPartnerId) {
+        const [warnRow] = await db
+          .select({ importWarning: customers.importWarning })
+          .from(customers)
+          .where(and(
+            eq(customers.odooPartnerId, company.odooCompanyPartnerId),
+            eq(customers.isCompany, true)
+          ))
+          .limit(1);
+        importWarning = warnRow?.importWarning ?? null;
+      }
+
       res.json({
-        company: { ...company, isOrphan: false },
+        company: { ...company, isOrphan: false, importWarning },
         contacts,
         contactCount,
         lifetimeSales,

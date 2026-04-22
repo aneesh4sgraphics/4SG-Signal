@@ -16,7 +16,7 @@ import {
   FileText, Activity, Users, StickyNote, CheckSquare,
   FolderOpen, DollarSign, PhoneCall, Package, Clock,
   ArrowUpRight, ArrowDownLeft, Send, List, Tag, Eye, EyeOff,
-  Trash2, Loader2,
+  Trash2, Loader2, AlertTriangle,
 } from "lucide-react";
 import { SiShopify } from "react-icons/si";
 import { apiRequest } from "@/lib/queryClient";
@@ -43,6 +43,7 @@ interface CompanyData {
   stateProvince?: string | null;
   country?: string | null;
   source?: string;
+  importWarning?: string | null;
 }
 
 interface CompanyOverview {
@@ -919,6 +920,11 @@ export default function CompanyDetail() {
             {!isOrphan && !hasOdooLink && (
               <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50">
                 No Odoo Link
+              </Badge>
+            )}
+            {overview?.company?.importWarning === 'no_email' && (
+              <Badge className="bg-amber-100 text-amber-700 border border-amber-200 gap-1 text-[10px]">
+                <AlertTriangle className="h-3 w-3" /> No Email
               </Badge>
             )}
           </div>
