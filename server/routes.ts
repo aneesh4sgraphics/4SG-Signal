@@ -13820,6 +13820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           jobTitle: customers.jobTitle,
           parentCustomerId: customers.parentCustomerId,
           company: customers.company,
+          tags: customers.tags,
         })
         .from(customers)
         .where(and(
@@ -13831,6 +13832,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               : sql`false`
           )
         ));
+
+      // Resolve tags for Odoo contacts via DB lookup by odooPartnerId
+      const odooPartnerIds = odooContacts.map(c => c.id).filter(Boolean);
+      const odooTagMap = new Map<number, string | null>();
+      if (odooPartnerIds.length > 0) {
+        const tagRows = await db
+          .select({ odooPartnerId: customers.odooPartnerId, tags: customers.tags })
+          .from(customers)
+          .where(inArray(customers.odooPartnerId, odooPartnerIds));
+        tagRows.forEach(r => { if (r.odooPartnerId != null) odooTagMap.set(r.odooPartnerId, r.tags ?? null); });
+      }
+
+      // Enrich Odoo contacts with DB-stored tags
+      const enrichedOdooContacts = odooContacts.map(c => ({
+        ...c,
+        tags: odooTagMap.get(c.id) ?? null,
+      }));
 
       // Convert local contacts to the same shape, skipping those already in Odoo
       const localContacts = localRows
@@ -13846,9 +13864,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           function: r.jobTitle || null,
           localId: r.id,   // UUID for navigation to the contact's detail page
           localOnly: true,
+          tags: r.tags ?? null,
         }));
 
-      res.json({ contacts: [...odooContacts, ...localContacts] });
+      res.json({ contacts: [...enrichedOdooContacts, ...localContacts] });
     } catch (error: any) {
       console.error("Error fetching company contacts:", error);
       res.status(500).json({ error: error.message || "Failed to fetch company contacts" });
