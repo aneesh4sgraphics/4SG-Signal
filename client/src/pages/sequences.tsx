@@ -239,7 +239,27 @@ function StepCard({
 }) {
   const [subject, setSubject] = useState(step.subject || '');
   const [showVars, setShowVars] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [tplSearch, setTplSearch] = useState('');
+  const templatePickerRef = useRef<HTMLDivElement>(null);
   const [showImagePanel, setShowImagePanel] = useState(false);
+
+  const { data: availableTemplates = [] } = useQuery<any[]>({
+    queryKey: ['/api/email/templates'],
+  });
+
+  // Close template picker when clicking outside
+  useEffect(() => {
+    if (!showTemplatePicker) return;
+    function handler(e: MouseEvent) {
+      if (templatePickerRef.current && !templatePickerRef.current.contains(e.target as Node)) {
+        setShowTemplatePicker(false);
+        setTplSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showTemplatePicker]);
   const [imageUrl, setImageUrl] = useState('');
   const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
   const [isImageSelected, setIsImageSelected] = useState(false);
@@ -372,13 +392,65 @@ function StepCard({
           <span className="text-sm text-gray-400">Automated email</span>
         </div>
         <div className="flex items-center gap-1">
+          {/* Template picker button */}
+          <div className="relative" ref={templatePickerRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 gap-1"
+              onClick={() => { setShowTemplatePicker(v => !v); setShowVars(false); }}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Use template
+            </Button>
+            {showTemplatePicker && (
+              <div className="absolute right-0 top-8 z-50 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-2 border-b border-gray-100">
+                  <Input
+                    autoFocus
+                    placeholder="Search templates…"
+                    value={tplSearch}
+                    onChange={e => setTplSearch(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {availableTemplates.length === 0 && (
+                    <p className="px-3 py-4 text-xs text-gray-400 text-center">No templates yet — create one in the Templates tab.</p>
+                  )}
+                  {availableTemplates
+                    .filter(t => !tplSearch || t.name?.toLowerCase().includes(tplSearch.toLowerCase()) || t.subject?.toLowerCase().includes(tplSearch.toLowerCase()))
+                    .map((tpl: any) => (
+                      <button
+                        key={tpl.id}
+                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          const newSubject = tpl.subject || '';
+                          const newBody = tpl.body || '';
+                          setSubject(newSubject);
+                          if (editor) editor.commands.setContent(newBody, false);
+                          onUpdate(step.id, { subject: newSubject, body: newBody, templateId: tpl.id });
+                          setShowTemplatePicker(false);
+                          setTplSearch('');
+                        }}
+                      >
+                        <p className="text-sm font-medium text-gray-800 truncate">{tpl.name}</p>
+                        {tpl.subject && <p className="text-xs text-gray-400 truncate mt-0.5">Subject: {tpl.subject}</p>}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Variables button */}
           <div className="relative">
             <Button
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 gap-1"
-              onClick={() => setShowVars(v => !v)}
+              onClick={() => { setShowVars(v => !v); setShowTemplatePicker(false); setTplSearch(''); }}
             >
               <Braces className="h-3.5 w-3.5" />
               Variables
