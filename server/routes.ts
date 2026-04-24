@@ -13840,7 +13840,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const tagRows = await db
           .select({ odooPartnerId: customers.odooPartnerId, tags: customers.tags })
           .from(customers)
-          .where(inArray(customers.odooPartnerId, odooPartnerIds));
+          .where(and(
+            inArray(customers.odooPartnerId, odooPartnerIds),
+            eq(customers.isCompany, false),
+          ));
         tagRows.forEach(r => { if (r.odooPartnerId != null) odooTagMap.set(r.odooPartnerId, r.tags ?? null); });
       }
 

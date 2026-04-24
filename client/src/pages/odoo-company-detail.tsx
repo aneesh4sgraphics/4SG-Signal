@@ -1288,15 +1288,18 @@ export default function OdooCompanyDetail() {
                                 <p className="text-sm font-medium text-gray-800">{contact.name}</p>
                               )}
                               {contact.function && <p className="text-xs text-gray-400">{contact.function}</p>}
-                              {contact.tags && (
-                                <div className="flex flex-wrap gap-1 mt-0.5">
-                                  {contact.tags.split(',').map((tag, i) => (
-                                    <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-800">
-                                      {tag.trim()}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
+                              {contact.tags && (() => {
+                                const tagList = contact.tags.split(',').map(t => t.trim()).filter(Boolean);
+                                return tagList.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {tagList.map((tag, i) => (
+                                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-800">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null;
+                              })()}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
