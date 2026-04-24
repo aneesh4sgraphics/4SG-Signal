@@ -289,6 +289,37 @@ export default function OdooSettingsPage() {
     },
   });
 
+  const [syncTagsResult, setSyncTagsResult] = useState<{
+    updated: number;
+    unchanged: number;
+    skipped: number;
+    totalProcessed: number;
+  } | null>(null);
+
+  const syncTagsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/odoo/sync-tags');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed'); }
+      return res.json();
+    },
+    onSuccess: (data: { updated: number; unchanged: number; skipped: number; totalProcessed: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      setSyncTagsResult({
+        updated: data.updated,
+        unchanged: data.unchanged,
+        skipped: data.skipped,
+        totalProcessed: data.totalProcessed,
+      });
+      toast({
+        title: "Tag sync complete",
+        description: `Updated ${data.updated} of ${data.totalProcessed} contacts with Odoo tags`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Tag sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const [vendorRemovalResult, setVendorRemovalResult] = useState<{
     removed: number;
     vendorNames: string[];
@@ -1106,6 +1137,39 @@ export default function OdooSettingsPage() {
                               <div className="text-2xl font-bold text-gray-700">{salesRepSyncResult.totalProcessed}</div>
                               <div className="text-xs">Total</div>
                             </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sync Tags Section */}
+                    <div className="border-t pt-6 mt-6">
+                      <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                        <Target className="h-5 w-5 text-blue-500" />
+                        Sync Contact Tags from Odoo
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Backfill Odoo tags for all existing contacts that were imported before tag syncing was added. This is safe to run multiple times and does not remove any other data.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => syncTagsMutation.mutate()}
+                        disabled={syncTagsMutation.isPending}
+                        className="border-blue-200 text-blue-700 hover:bg-blue-50 gap-2"
+                      >
+                        {syncTagsMutation.isPending
+                          ? <RefreshCw className="h-4 w-4 animate-spin" />
+                          : <RefreshCw className="h-4 w-4" />
+                        }
+                        {syncTagsMutation.isPending ? 'Syncing Tags...' : 'Sync Tags Now'}
+                      </Button>
+
+                      {syncTagsResult && (
+                        <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                          <div className="font-semibold text-blue-800 dark:text-blue-200">Tag Sync Complete</div>
+                          <div className="text-sm text-blue-700 dark:text-blue-300 mt-2 space-y-1">
+                            <div className="text-2xl font-bold">{syncTagsResult.updated} contacts updated</div>
+                            <div>{syncTagsResult.unchanged} already up-to-date · {syncTagsResult.skipped} not found in Odoo · {syncTagsResult.totalProcessed} total checked</div>
                           </div>
                         </div>
                       )}
