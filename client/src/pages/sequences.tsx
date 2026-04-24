@@ -429,7 +429,16 @@ function StepCard({
                           const newSubject = tpl.subject || '';
                           const newBody = tpl.body || '';
                           setSubject(newSubject);
-                          if (editor) editor.commands.setContent(newBody, false);
+                          if (isFullHtmlDoc(newBody)) {
+                            // Full HTML document (e.g. styled email template) — use HTML mode
+                            // so TipTap doesn't strip tags/styles it doesn't understand.
+                            setHtmlBody(newBody);
+                            setBodyMode('html');
+                          } else {
+                            // Plain fragment — TipTap visual editor can handle it
+                            setBodyMode('visual');
+                            if (editor) editor.commands.setContent(newBody, false);
+                          }
                           onUpdate(step.id, { subject: newSubject, body: newBody, templateId: tpl.id });
                           setShowTemplatePicker(false);
                           setTplSearch('');
