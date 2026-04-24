@@ -98,6 +98,7 @@ interface Customer {
   country: string | null;
   role: string | null;
   pricingTier: string | null;
+  tags: string | null;
   totalSpent: string | null;
   totalOrders: number | null;
   salesRepName: string | null;
@@ -235,6 +236,15 @@ function CompanyContacts({ company }: { company: CompanyCard }) {
                     {isOdooContact && <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-medium">Odoo</span>}
                     {isShopifyContact && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">Shopify</span>}
                   </div>
+                  {c.tags && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {c.tags.split(',').map((tag, i) => (
+                        <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-800">
+                          {tag.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-1 space-y-0.5">
                     {c.email && (
                       <p className="text-xs text-gray-500 flex items-center gap-1.5">

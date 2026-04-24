@@ -14477,14 +14477,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Odoo Import] Found ${existingOdooIds.size} existing Odoo-linked customers, ${existingEmailMap.size} total by email`);
       }
       
-      // Step 3: Get excluded category IDs (Vendor + Account Team)
-      console.log("[Odoo Import] Fetching excluded category IDs...");
-      const [vendorCategoryId, accountTeamCategoryId] = await Promise.all([
+      // Step 3: Get excluded category IDs (Vendor + Account Team) and full tag name map
+      console.log("[Odoo Import] Fetching excluded category IDs and all partner categories...");
+      const [vendorCategoryId, accountTeamCategoryId, allPartnerCategories] = await Promise.all([
         odooClient.getVendorCategoryId(),
         odooClient.getAccountTeamCategoryId(),
+        odooClient.getPartnerCategories(),
       ]);
+      // Build a Map<id, name> for resolving tag IDs to display names
+      const tagNameMap = new Map<number, string>(allPartnerCategories.map(c => [c.id, c.name]));
+      // IDs that are control/filter tags — excluded from the visible tags stored on contacts
+      const controlTagIds = new Set<number>([
+        ...(vendorCategoryId ? [vendorCategoryId] : []),
+        ...(accountTeamCategoryId ? [accountTeamCategoryId] : []),
+      ]);
+      console.log(`[Odoo Import] Loaded ${tagNameMap.size} partner categories for tag name resolution`);
       if (vendorCategoryId) {
-        console.log(`[Odoo Import] Will filter out contacts with Vendor category ID: ${vendorCategoryId}`);
+        console.log(`[Odoo Import] Will filter out Vendor-tagged records (ID: ${vendorCategoryId}) — applies to ALL types (companies and persons)`);
       } else {
         console.log("[Odoo Import] WARNING: No 'Vendor' category found in Odoo - vendor filtering disabled");
       }
@@ -14546,12 +14555,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Skip individual person contacts with Vendor tag.
-          // Company-type records are NEVER skipped due to the Vendor tag — even if a child
-          // contact under them is tagged Vendor. Only the individual contact itself is excluded.
-          if (vendorCategoryId && !partner.is_company && odooClient.hasVendorTag(partner, vendorCategoryId)) {
+          // Skip any partner (company OR person) tagged as Vendor — Vendor is a wholesale supplier,
+          // not a customer, so it should never appear in the CRM regardless of is_company.
+          if (vendorCategoryId && odooClient.hasVendorTag(partner, vendorCategoryId)) {
             results.skippedVendors++;
             results.skipDetails.vendor.push(partner.name);
+            // If already imported (e.g. vendor flag was added after initial sync), remove them
+            if (existingOdooIds.has(partner.id)) {
+              const existingId = existingOdooCustomers.get(partner.id);
+              if (existingId) {
+                try {
+                  await db.delete(customers).where(eq(customers.id, existingId));
+                  results.removedAccountTeam++; // reuse counter for removal
+                  console.log(`[Odoo Import] Removed Vendor-tagged record: ${partner.name} (Odoo ID: ${partner.id})`);
+                } catch (delErr: any) {
+                  console.error(`[Odoo Import] Failed to remove Vendor record ${partner.id}:`, delErr.message);
+                }
+              }
+            }
             continue;
           }
           
@@ -14695,6 +14716,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               pricingTier = restoredTier; // Restore Signal's value, ignore Odoo's
             }
           }
+
+          // Resolve display tags from Odoo category_id (array of integer IDs).
+          // Exclude control tags (Vendor, Account Team) — they're filter-only, not display labels.
+          const tagNames = (partner.category_id || [])
+            .filter((id): id is number => typeof id === 'number' && !controlTagIds.has(id))
+            .map(id => tagNameMap.get(id))
+            .filter((name): name is string => !!name);
+          const tags = tagNames.length > 0 ? tagNames.join(', ') : null;
           
           // Create customer record - map Odoo address fields exactly
           const customerData = {
@@ -14720,7 +14749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contactType,
             salesRepId,
             salesRepName,
-            pricingTier, // Category/tag from Odoo
+            pricingTier,
+            tags, // Visible Odoo tags (Vendor/AccountTeam excluded — those are control tags)
             accountState: 'prospect' as const,
             lastOdooSyncAt: new Date(),
             createdAt: new Date(),
@@ -14947,13 +14977,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/odoo/sync-tags", requireAdmin, async (req: any, res) => {
     try {
       console.log("[Odoo Tag Sync] Starting tag sync from Odoo...");
-      
+
+      // Fetch all partner categories to build a name lookup map
+      const allCategories = await odooClient.getPartnerCategories();
+      const tagNameMap = new Map<number, string>(allCategories.map(c => [c.id, c.name]));
+      // Identify control tags (Vendor / Account Team) so they are excluded from visible tags
+      const [vendorCatId, accountTeamCatId] = await Promise.all([
+        odooClient.getVendorCategoryId(),
+        odooClient.getAccountTeamCategoryId(),
+      ]);
+      const controlTagIds = new Set<number>([
+        ...(vendorCatId ? [vendorCatId] : []),
+        ...(accountTeamCatId ? [accountTeamCatId] : []),
+      ]);
+      console.log(`[Odoo Tag Sync] Loaded ${tagNameMap.size} categories; control tags excluded: ${[...controlTagIds].join(', ')}`);
+
       // Get all customers with Odoo partner IDs
       const customersWithOdoo = await db.select({
         id: customers.id,
         odooPartnerId: customers.odooPartnerId,
-        company: customers.company,
-        pricingTier: customers.pricingTier,
+        tags: customers.tags,
       }).from(customers)
         .where(sql`${customers.odooPartnerId} IS NOT NULL`);
       
@@ -14968,10 +15011,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Fetch partner data in batches to get category_id
-      const batchSize = 50;
+      // Fetch partner category_id in batches (IDs only — we resolve names via tagNameMap)
+      const batchSize = 100;
       const partnerIds = customersWithOdoo.map(c => c.odooPartnerId!);
-      const partnerMap = new Map<number, string | null>();
+      // Map<partnerId, tagString | null>
+      const partnerTagMap = new Map<number, string | null>();
       
       for (let i = 0; i < partnerIds.length; i += batchSize) {
         const batchIds = partnerIds.slice(i, i + batchSize);
@@ -14981,14 +15025,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ], ['id', 'category_id'], { limit: batchSize });
           
           for (const partner of partners) {
-            let tag: string | null = null;
-            if (partner.category_id && Array.isArray(partner.category_id) && partner.category_id.length > 0) {
-              const firstCategory = partner.category_id[0];
-              if (Array.isArray(firstCategory) && firstCategory.length >= 2) {
-                tag = firstCategory[1];
-              }
-            }
-            partnerMap.set(partner.id, tag);
+            const categoryIds: number[] = Array.isArray(partner.category_id)
+              ? partner.category_id.flatMap((c: any) => {
+                  if (typeof c === 'number') return [c];
+                  if (Array.isArray(c) && typeof c[0] === 'number') return [c[0]];
+                  return [];
+                })
+              : [];
+            const tagNames = categoryIds
+              .filter(id => !controlTagIds.has(id))
+              .map(id => tagNameMap.get(id))
+              .filter((name): name is string => !!name);
+            partnerTagMap.set(partner.id, tagNames.length > 0 ? tagNames.join(', ') : null);
           }
           console.log(`[Odoo Tag Sync] Fetched batch ${Math.floor(i/batchSize) + 1}: ${partners.length} partners`);
         } catch (batchError: any) {
@@ -14996,46 +15044,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Odoo Tag Sync] Retrieved tags for ${partnerMap.size} partners`);
+      console.log(`[Odoo Tag Sync] Retrieved tags for ${partnerTagMap.size} partners`);
       
-      // Update customers with tags
+      // Update customers.tags (NOT pricingTier) with resolved tag names
       let updated = 0;
       let skipped = 0;
-      let alreadySet = 0;
+      let unchanged = 0;
       
       for (const customer of customersWithOdoo) {
         if (!customer.odooPartnerId) continue;
         
-        const tag = partnerMap.get(customer.odooPartnerId);
-        if (tag === undefined) {
+        if (!partnerTagMap.has(customer.odooPartnerId)) {
           skipped++;
           continue;
         }
-        
-        // Skip if customer already has this tag
-        if (customer.pricingTier === tag) {
-          alreadySet++;
+
+        const newTags = partnerTagMap.get(customer.odooPartnerId) ?? null;
+        // Skip if already identical
+        if (customer.tags === newTags) {
+          unchanged++;
           continue;
         }
         
-        // Update the customer with tag
         await db.update(customers)
-          .set({ pricingTier: tag })
+          .set({ tags: newTags })
           .where(eq(customers.id, customer.id));
         
         updated++;
       }
       
-      console.log(`[Odoo Tag Sync] Complete: ${updated} updated, ${alreadySet} already had tag, ${skipped} skipped`);
+      console.log(`[Odoo Tag Sync] Complete: ${updated} updated, ${unchanged} unchanged, ${skipped} not found in Odoo`);
       
       // Clear customer cache
       setCachedData("customers", null);
       
       res.json({
         success: true,
-        message: `Updated ${updated} customers with tags from Odoo`,
+        message: `Synced Odoo tags: ${updated} contacts updated`,
         updated,
-        alreadySet,
+        unchanged,
         skipped,
         totalProcessed: customersWithOdoo.length,
       });

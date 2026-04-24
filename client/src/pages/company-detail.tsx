@@ -99,6 +99,7 @@ interface Contact {
   country: string | null;
   jobTitle: string | null;
   isCompany: boolean;
+  tags?: string | null;
   source?: string;
   sources?: string[] | null;
   odooPartnerId?: number | null;
@@ -398,6 +399,15 @@ function TeamTab({ companyId, companyName }: { companyId: number | null; company
                 {str.label}
               </span>
             </div>
+            {c.tags && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {c.tags.split(',').map((tag, i) => (
+                  <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-teal-100 text-teal-800">
+                    {tag.trim()}
+                  </span>
+                ))}
+              </div>
+            )}
             {c.jobTitle && <p className="text-xs text-gray-500">{c.jobTitle}</p>}
             <div className="mt-1.5 space-y-0.5">
               {c.email && (
