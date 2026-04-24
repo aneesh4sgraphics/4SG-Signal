@@ -14525,6 +14525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skippedExcluded: 0,
         alreadyExists: 0,
         deleted: 0,
+        removedVendors: 0,
         removedAccountTeam: 0,
         failed: 0,
         errors: [] as string[],
@@ -14566,7 +14567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (existingId) {
                 try {
                   await db.delete(customers).where(eq(customers.id, existingId));
-                  results.removedAccountTeam++; // reuse counter for removal
+                  results.removedVendors++;
+                  // Remove from tracking maps so later delete-pass doesn't double-count
+                  existingOdooIds.delete(partner.id);
+                  existingOdooCustomers.delete(partner.id);
                   console.log(`[Odoo Import] Removed Vendor-tagged record: ${partner.name} (Odoo ID: ${partner.id})`);
                 } catch (delErr: any) {
                   console.error(`[Odoo Import] Failed to remove Vendor record ${partner.id}:`, delErr.message);
@@ -14587,6 +14591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 try {
                   await db.delete(customers).where(eq(customers.id, existingId));
                   results.removedAccountTeam++;
+                  // Remove from tracking maps so later delete-pass doesn't double-count
+                  existingOdooIds.delete(partner.id);
+                  existingOdooCustomers.delete(partner.id);
                   console.log(`[Odoo Import] Removed Account Team contact: ${partner.name} (Odoo ID: ${partner.id})`);
                 } catch (delErr: any) {
                   console.error(`[Odoo Import] Failed to remove Account Team contact ${partner.id}:`, delErr.message);
@@ -14764,7 +14771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped, ${results.skippedAccountTeam} account team skipped (${results.removedAccountTeam} existing removed), ${results.skippedBlocked} blocked, ${results.skippedExcluded} excluded, ${results.skippedNoEmail} no email, ${results.failed} failed`);
+      console.log(`[Odoo Import] Complete: ${results.imported} imported, ${results.alreadyExists} already existed, ${results.skipped} skipped, ${results.skippedVendors} vendors skipped (${results.removedVendors} existing removed), ${results.skippedAccountTeam} account team skipped (${results.removedAccountTeam} existing removed), ${results.skippedBlocked} blocked, ${results.skippedExcluded} excluded, ${results.skippedNoEmail} no email, ${results.failed} failed`);
       
       // Step 5: Resolve parent customer IDs (link children to their parent companies)
       console.log("[Odoo Import] Resolving parent relationships...");
