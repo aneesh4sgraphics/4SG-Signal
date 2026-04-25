@@ -263,8 +263,9 @@ function StepCard({
   const [imageUrl, setImageUrl] = useState('');
   const [activeField, setActiveField] = useState<'subject' | 'body'>('body');
   const [isImageSelected, setIsImageSelected] = useState(false);
-  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>('visual');
+  const [bodyMode, setBodyMode] = useState<'visual' | 'html'>(() => isFullHtmlDoc(step.body || '') ? 'html' : 'visual');
   const [htmlBody, setHtmlBody] = useState(step.body || '');
+  const [showPreview, setShowPreview] = useState(() => isFullHtmlDoc(step.body || ''));
 
   const subjectRef = useRef<HTMLInputElement>(null);
 
@@ -434,9 +435,11 @@ function StepCard({
                             // so TipTap doesn't strip tags/styles it doesn't understand.
                             setHtmlBody(newBody);
                             setBodyMode('html');
+                            setShowPreview(true);
                           } else {
                             // Plain fragment — TipTap visual editor can handle it
                             setBodyMode('visual');
+                            setShowPreview(false);
                             if (editor) editor.commands.setContent(newBody, false);
                           }
                           onUpdate(step.id, { subject: newSubject, body: newBody, templateId: tpl.id });
@@ -568,6 +571,13 @@ function StepCard({
             >
               <Braces className="h-3 w-3" /> Format
             </button>
+            <button type="button"
+              onMouseDown={e => { e.preventDefault(); setShowPreview(v => !v); }}
+              title="Toggle rendered preview"
+              style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: '0.5px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer', background: showPreview ? '#e0e7ff' : 'transparent', color: showPreview ? '#4f46e5' : '#9ca3af' }}
+            >
+              <Eye className="h-3 w-3" /> Preview
+            </button>
           </>)}
           {/* Visual / HTML toggle — always shown */}
           <div style={{ display: 'flex', border: '0.5px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
@@ -593,7 +603,7 @@ function StepCard({
             </button>
             <button
               type="button"
-              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { setHtmlBody(editor?.getHTML() || ''); setBodyMode('html'); } }}
+              onMouseDown={e => { e.preventDefault(); if (bodyMode !== 'html') { const raw = editor?.getHTML() || ''; setHtmlBody(raw); setBodyMode('html'); setShowPreview(isFullHtmlDoc(raw)); } }}
               style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 500, border: 'none', cursor: 'pointer', background: bodyMode === 'html' ? '#1a1a1a' : 'transparent', color: bodyMode === 'html' ? '#fff' : '#9ca3af' }}
             >
               {'</>'} HTML
@@ -662,34 +672,49 @@ function StepCard({
         {bodyMode === 'visual' ? (
           <EditorContent editor={editor} />
         ) : (
-          <div>
-            <textarea
-              value={htmlBody}
-              onChange={e => {
-                setHtmlBody(e.target.value);
-                onUpdate(step.id, { body: e.target.value });
-              }}
-              placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
-              style={{
-                width: '100%',
-                minHeight: '280px',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-                lineHeight: '1.6',
-                padding: '10px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                background: '#fafafa',
-                color: '#1f2937',
-                resize: 'vertical',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-              spellCheck={false}
-            />
-            <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
-              Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{firstName}}'} work in HTML too.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {isFullHtmlDoc(htmlBody) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '11px', color: '#92400e' }}>
+                <span style={{ fontWeight: 600 }}>Full HTML document detected</span> — stored as-is, Visual mode disabled to preserve {'<head>'} styles.
+              </div>
+            )}
+            {!showPreview && (
+              <textarea
+                value={htmlBody}
+                onChange={e => {
+                  setHtmlBody(e.target.value);
+                  onUpdate(step.id, { body: e.target.value });
+                }}
+                placeholder={`Paste your HTML email code here...\n\nExample:\n<!DOCTYPE html>\n<html>\n<body style="font-family: Arial, sans-serif;">\n  <h1>Hello {{firstName}}!</h1>\n  <p>Your message here.</p>\n</body>\n</html>`}
+                style={{
+                  width: '100%',
+                  minHeight: '280px',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  lineHeight: '1.6',
+                  padding: '10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  background: '#fafafa',
+                  color: '#1f2937',
+                  resize: 'vertical',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+                spellCheck={false}
+              />
+            )}
+            {showPreview && htmlBody.trim() && (
+              <div>
+                <p style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '6px' }}>Rendered preview (no app styles)</p>
+                <HtmlPreviewFrame html={htmlBody} minHeight={300} />
+              </div>
+            )}
+            {!showPreview && (
+              <p style={{ fontSize: '11px', color: '#9ca3af' }}>
+                Paste HTML from Designmodo, Stripo, or any email builder. Variables like {'{{firstName}}'} work in HTML too.
+              </p>
+            )}
           </div>
         )}
       </div>
