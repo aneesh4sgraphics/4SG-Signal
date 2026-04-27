@@ -15,7 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ArrowLeft, Search, RefreshCw, Download, CheckCircle2, Check,
   Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2, Ban, Merge,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, DollarSign, ExternalLink
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -45,6 +45,7 @@ interface Product {
   retailPrice: string | null;
   updatedAt: string;
   uploadBatch: string | null;
+  isQuickQuoteEligible: boolean;
 }
 
 interface Category {
@@ -221,6 +222,16 @@ export default function ProductMapping() {
       p.productType.toLowerCase().includes(query)
     );
   }, [excludedProducts, excludedSearchQuery]);
+
+  // Check if a mapped product would be excluded from QuickQuotes due to missing pricing.
+  // Uses the isQuickQuoteEligible field computed server-side, which applies the same
+  // 10-field hasAnyPrice rule as routes-pricing-database.ts lines 653-658.
+  const isUnpriced = (product: Product) => !product.isQuickQuoteEligible;
+
+  // Count mapped products with no pricing
+  const unpricedMappedCount = useMemo(() => {
+    return products.filter(p => p.catalogCategoryId && p.productTypeId && isUnpriced(p)).length;
+  }, [products]);
 
   // Get types for selected category (mapping dialog) - sorted alphabetically
   const filteredTypes = useMemo(() => {
@@ -736,7 +747,7 @@ export default function ProductMapping() {
 
       {/* Stats */}
       <div className="container mx-auto px-4 py-4">
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4">
               <div className="text-2xl font-bold">{counts.all}</div>
@@ -753,6 +764,14 @@ export default function ProductMapping() {
             <CardContent className="pt-4">
               <div className="text-2xl font-bold text-green-600">{counts.all - counts.unmapped}</div>
               <div className="text-sm text-muted-foreground">Mapped</div>
+            </CardContent>
+          </Card>
+          <Card className={unpricedMappedCount > 0 ? 'border-amber-400' : ''}>
+            <CardContent className="pt-4">
+              <div className={`text-2xl font-bold ${unpricedMappedCount > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                {unpricedMappedCount}
+              </div>
+              <div className="text-sm text-muted-foreground">Needs Pricing</div>
             </CardContent>
           </Card>
           <Card>
@@ -934,14 +953,15 @@ export default function ProductMapping() {
                       {filteredProducts.map((product) => {
                         const category = categories.find(c => c.id === product.catalogCategoryId);
                         const type = types.find(t => t.id === product.productTypeId);
+                        const unpriced = isUnpriced(product);
                         return (
                           <div
                             key={product.id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                            className={`flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors ${unpriced ? 'border-amber-300 bg-amber-50/40 dark:bg-amber-950/20' : ''}`}
                             data-testid={`product-row-mapped-${product.id}`}
                           >
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-mono text-sm font-medium">{product.itemCode}</span>
                                 <Badge variant="outline" className="text-green-600 border-green-600">
                                   {category?.name || 'Unknown'}
@@ -949,20 +969,43 @@ export default function ProductMapping() {
                                 <Badge variant="secondary">
                                   {type?.name || 'Unknown'}
                                 </Badge>
+                                {unpriced && (
+                                  <Badge variant="outline" className="text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/40 gap-1">
+                                    <DollarSign className="h-3 w-3" />
+                                    No pricing — hidden from QuickQuotes
+                                  </Badge>
+                                )}
                               </div>
                               <div className="text-sm text-muted-foreground mt-1">
                                 {product.productName} | Size: {product.size} | Total SqM per Pack: {product.totalSqm}
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openMappingDialog(product)}
-                              data-testid={`button-edit-${product.id}`}
-                            >
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Edit
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              {unpriced && (
+                                <Link href="/product-pricing-management">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-amber-600 border-amber-400 hover:bg-amber-50"
+                                    title="Set pricing so this product appears in QuickQuotes"
+                                    data-testid={`button-set-pricing-${product.id}`}
+                                  >
+                                    <DollarSign className="h-4 w-4 mr-1" />
+                                    Set Pricing
+                                    <ExternalLink className="h-3 w-3 ml-1" />
+                                  </Button>
+                                </Link>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openMappingDialog(product)}
+                                data-testid={`button-edit-${product.id}`}
+                              >
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Edit
+                              </Button>
+                            </div>
                           </div>
                         );
                       })}

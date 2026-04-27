@@ -5,6 +5,7 @@ import path from "path";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { isAuthenticated, requireAdmin } from "./replitAuth";
+import { hasAnyPrice } from "./pricing-utils";
 import type { InsertProductPricingMaster } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql } from "drizzle-orm";
@@ -607,14 +608,8 @@ router.get("/quickquotes/products", async (req, res) => {
     const pricingData = allPricingData.filter(item => {
       if (!item.catalogCategoryId || item.isArchived) return false;
       if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
-      // Exclude products with no pricing data at all
-      const prices = [
-        item.dealerPrice, item.dealer2Price, item.exportPrice,
-        item.masterDistributorPrice, item.retailPrice, item.approvalNeededPrice,
-        item.tierStage25Price, item.tierStage2Price, item.tierStage15Price, item.tierStage1Price
-      ];
-      const hasAnyPrice = prices.some(p => p && parseFloat(String(p)) > 0);
-      return hasAnyPrice;
+      // Exclude products with no pricing data at all (shared predicate in pricing-utils.ts)
+      return hasAnyPrice(item);
     });
     // Return only the fields needed for autocomplete
     const products = pricingData.map(item => ({
@@ -649,14 +644,8 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
     const pricingData = allPricingData.filter(item => {
       if (!item.catalogCategoryId || item.isArchived) return false;
       if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
-      // Exclude products with no pricing data at all
-      const prices = [
-        item.dealerPrice, item.dealer2Price, item.exportPrice,
-        item.masterDistributorPrice, item.retailPrice, item.approvalNeededPrice,
-        item.tierStage25Price, item.tierStage2Price, item.tierStage15Price, item.tierStage1Price
-      ];
-      const hasAnyPrice = prices.some(p => p && parseFloat(String(p)) > 0);
-      return hasAnyPrice;
+      // Exclude products with no pricing data at all (shared predicate in pricing-utils.ts)
+      return hasAnyPrice(item);
     });
     console.log(`✓ Retrieved ${pricingData.length} mapped pricing records from database (${allPricingData.length} total) in ${Date.now() - startTime}ms`);
     

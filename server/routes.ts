@@ -18,6 +18,7 @@ import { parseOdooExcel, isFreightContact } from "./odoo-parser";
 import { odooClient, isOdooConfigured } from "./odoo";
 import { isBlockedCompany, getBlockedKeywordMatch, BLOCKED_COMPANY_KEYWORDS } from "./customer-blocklist";
 import { autoAssignSalesRepIfNeeded } from "./sales-rep-auto-assign";
+import { hasAnyPrice } from "./pricing-utils";
 
 import { generateQuoteHTMLForDownload, generatePriceListHTML, validateQuoteNumber, generateQuoteNumber } from "./stub-functions";
 import { normalizeEmail, extractCompanyDomain } from "@shared/email-normalizer";
@@ -16173,8 +16174,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filter = (req.query.filter as string) || 'all';
       const search = (req.query.search as string || '').toLowerCase();
       
+      // Reusable price field selector (same set used by the QuickQuotes pricing filter)
+      const priceFields = {
+        dealerPrice: productPricingMaster.dealerPrice,
+        dealer2Price: productPricingMaster.dealer2Price,
+        exportPrice: productPricingMaster.exportPrice,
+        masterDistributorPrice: productPricingMaster.masterDistributorPrice,
+        retailPrice: productPricingMaster.retailPrice,
+        approvalNeededPrice: productPricingMaster.approvalNeededPrice,
+        tierStage25Price: productPricingMaster.tierStage25Price,
+        tierStage2Price: productPricingMaster.tierStage2Price,
+        tierStage15Price: productPricingMaster.tierStage15Price,
+        tierStage1Price: productPricingMaster.tierStage1Price,
+      };
+
+      // computeIsQuickQuoteEligible delegates to the shared hasAnyPrice helper
+      // (server/pricing-utils.ts) which mirrors the filter in routes-pricing-database.ts
+      const computeIsQuickQuoteEligible = (p: Parameters<typeof hasAnyPrice>[0]) => hasAnyPrice(p);
+
       // Get all products with their category/type info (excluding archived)
-      const allProducts = await db.select({
+      const allProductsRaw = await db.select({
         id: productPricingMaster.id,
         itemCode: productPricingMaster.itemCode,
         odooItemCode: productPricingMaster.odooItemCode,
@@ -16186,16 +16205,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalSqm: productPricingMaster.totalSqm,
         rollSheet: productPricingMaster.rollSheet,
         unitOfMeasure: productPricingMaster.unitOfMeasure,
-        dealerPrice: productPricingMaster.dealerPrice,
-        retailPrice: productPricingMaster.retailPrice,
         updatedAt: productPricingMaster.updatedAt,
         uploadBatch: productPricingMaster.uploadBatch,
+        ...priceFields,
       }).from(productPricingMaster)
         .where(or(eq(productPricingMaster.isArchived, false), isNull(productPricingMaster.isArchived)))
         .orderBy(productPricingMaster.productName);
+
+      // Attach computed field so the frontend uses the same rule as QuickQuotes
+      const allProducts = allProductsRaw.map(p => ({
+        ...p,
+        isQuickQuoteEligible: computeIsQuickQuoteEligible(p),
+      }));
       
       // Get excluded/archived products separately
-      const excludedProducts = await db.select({
+      const excludedProductsRaw = await db.select({
         id: productPricingMaster.id,
         itemCode: productPricingMaster.itemCode,
         odooItemCode: productPricingMaster.odooItemCode,
@@ -16207,13 +16231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalSqm: productPricingMaster.totalSqm,
         rollSheet: productPricingMaster.rollSheet,
         unitOfMeasure: productPricingMaster.unitOfMeasure,
-        dealerPrice: productPricingMaster.dealerPrice,
-        retailPrice: productPricingMaster.retailPrice,
         updatedAt: productPricingMaster.updatedAt,
         uploadBatch: productPricingMaster.uploadBatch,
+        ...priceFields,
       }).from(productPricingMaster)
         .where(eq(productPricingMaster.isArchived, true))
         .orderBy(productPricingMaster.productName);
+
+      const excludedProducts = excludedProductsRaw.map(p => ({
+        ...p,
+        isQuickQuoteEligible: computeIsQuickQuoteEligible(p),
+      }));
       
       // Get categories and types for reference
       const categories = await db.select().from(productCategories);
