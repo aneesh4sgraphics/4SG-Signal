@@ -321,15 +321,30 @@ export default function ProductMapping() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(interval);
-  }, []);
+    let timerId: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      const ageMs = lastOdooCheckTs ? current - lastOdooCheckTs : Infinity;
+      const delay = ageMs < 2 * 60 * 1000 ? 1000 : 30000;
+      timerId = setTimeout(tick, delay);
+    };
+
+    timerId = setTimeout(tick, lastOdooCheckTs && Date.now() - lastOdooCheckTs < 2 * 60 * 1000 ? 1000 : 30000);
+    return () => clearTimeout(timerId);
+  }, [lastOdooCheckTs]);
 
   const odooLastCheckedLabel = (() => {
     if (!lastOdooCheckTs) return null;
     const diffMs = now - lastOdooCheckTs;
+    if (diffMs < 2 * 60 * 1000) {
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 5) return 'Last checked just now';
+      if (diffSecs === 1) return 'Last checked 1 second ago';
+      return `Last checked ${diffSecs} seconds ago`;
+    }
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Last checked just now';
     if (diffMins === 1) return 'Last checked 1 minute ago';
     return `Last checked ${diffMins} minutes ago`;
   })();
