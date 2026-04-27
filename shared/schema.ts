@@ -6,6 +6,7 @@ export const productCategories = pgTable("product_categories", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  sortOrder: integer("sort_order").default(0),
 });
 
 export const productTypes = pgTable("product_types", {
@@ -13,6 +14,7 @@ export const productTypes = pgTable("product_types", {
   categoryId: integer("category_id").notNull().references(() => productCategories.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  sortOrder: integer("sort_order").default(0),
 });
 
 export const productSizes = pgTable("product_sizes", {

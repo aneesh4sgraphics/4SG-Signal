@@ -14,7 +14,8 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ArrowLeft, Search, RefreshCw, Download, CheckCircle2, Check,
-  Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2, Ban, Merge
+  Edit2, Package, Layers, Save, X, AlertCircle, Plus, Trash2, Ban, Merge,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -234,7 +235,11 @@ export default function ProductMapping() {
     const filtered = selectedCategoryForTypes === null 
       ? types 
       : types.filter(t => t.categoryId === selectedCategoryForTypes);
-    return filtered.sort((a, b) => a.name.localeCompare(b.name));
+    return [...filtered].sort((a, b) => {
+      const orderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return a.id - b.id;
+    });
   }, [types, selectedCategoryForTypes]);
 
   // Import from Odoo mutation
@@ -407,6 +412,34 @@ export default function ProductMapping() {
     },
     onError: (error: Error) => {
       toast({ variant: 'destructive', title: 'Failed to update type', description: error.message });
+    },
+  });
+
+  const reorderCategories = useMutation({
+    mutationFn: async (orderedIds: number[]) => {
+      const res = await apiRequest('PATCH', '/api/product-categories/reorder', { orderedIds });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/product-categories'] });
+      refetchCategories();
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to reorder categories', description: error.message });
+    },
+  });
+
+  const reorderTypes = useMutation({
+    mutationFn: async (orderedIds: number[]) => {
+      const res = await apiRequest('PATCH', '/api/product-types/reorder', { orderedIds });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/product-types'] });
+      refetchTypes();
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Failed to reorder types', description: error.message });
     },
   });
 
@@ -1088,18 +1121,52 @@ export default function ProductMapping() {
                               )}
                             </div>
                             {!isEditing && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingCategoryId(cat.id);
-                                  setEditCategoryName(cat.name);
-                                }}
-                                title="Edit category name"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={categories.indexOf(cat) === 0 || reorderCategories.isPending}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const idx = categories.indexOf(cat);
+                                    if (idx <= 0) return;
+                                    const newOrder = [...categories];
+                                    [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+                                    reorderCategories.mutate(newOrder.map(c => c.id));
+                                  }}
+                                  title="Move up"
+                                >
+                                  <ChevronUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={categories.indexOf(cat) === categories.length - 1 || reorderCategories.isPending}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const idx = categories.indexOf(cat);
+                                    if (idx >= categories.length - 1) return;
+                                    const newOrder = [...categories];
+                                    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+                                    reorderCategories.mutate(newOrder.map(c => c.id));
+                                  }}
+                                  title="Move down"
+                                >
+                                  <ChevronDown className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingCategoryId(cat.id);
+                                    setEditCategoryName(cat.name);
+                                  }}
+                                  title="Edit category name"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             )}
                           </div>
                         );
@@ -1198,6 +1265,36 @@ export default function ProductMapping() {
                             </div>
                             {!isEditing && (
                               <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={typesForCategoryTab.indexOf(type) === 0 || reorderTypes.isPending}
+                                  onClick={() => {
+                                    const idx = typesForCategoryTab.indexOf(type);
+                                    if (idx <= 0) return;
+                                    const newOrder = [...typesForCategoryTab];
+                                    [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+                                    reorderTypes.mutate(newOrder.map(t => t.id));
+                                  }}
+                                  title="Move up"
+                                >
+                                  <ChevronUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={typesForCategoryTab.indexOf(type) === typesForCategoryTab.length - 1 || reorderTypes.isPending}
+                                  onClick={() => {
+                                    const idx = typesForCategoryTab.indexOf(type);
+                                    if (idx >= typesForCategoryTab.length - 1) return;
+                                    const newOrder = [...typesForCategoryTab];
+                                    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+                                    reorderTypes.mutate(newOrder.map(t => t.id));
+                                  }}
+                                  title="Move down"
+                                >
+                                  <ChevronDown className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"

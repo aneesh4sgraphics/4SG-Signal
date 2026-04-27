@@ -4478,6 +4478,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder product categories (must be before /:categoryId to avoid param capture)
+  app.patch("/api/product-categories/reorder", requireAdmin, async (req: any, res) => {
+    try {
+      const { orderedIds } = req.body;
+      if (!Array.isArray(orderedIds) || orderedIds.some(id => typeof id !== 'number')) {
+        return res.status(400).json({ error: "orderedIds must be an array of numbers" });
+      }
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          db.update(productCategories)
+            .set({ sortOrder: index })
+            .where(eq(productCategories.id, id))
+        )
+      );
+      setCachedData("product-categories", null);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error reordering categories:", error);
+      res.status(500).json({ error: error.message || "Failed to reorder categories" });
+    }
+  });
+
   // Update a category name
   app.patch("/api/product-categories/:categoryId", requireAdmin, async (req: any, res) => {
     try {
@@ -4529,6 +4551,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error adding type:", error);
       res.status(500).json({ error: error.message || "Failed to add type" });
+    }
+  });
+
+  // Reorder product types (within a category or globally)
+  app.patch("/api/product-types/reorder", requireAdmin, async (req: any, res) => {
+    try {
+      const { orderedIds } = req.body;
+      if (!Array.isArray(orderedIds) || orderedIds.some(id => typeof id !== 'number')) {
+        return res.status(400).json({ error: "orderedIds must be an array of numbers" });
+      }
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          db.update(productTypes)
+            .set({ sortOrder: index })
+            .where(eq(productTypes.id, id))
+        )
+      );
+      setCachedData("product-types", null);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error reordering types:", error);
+      res.status(500).json({ error: error.message || "Failed to reorder types" });
     }
   });
 

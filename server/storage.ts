@@ -950,7 +950,7 @@ export class DatabaseStorage implements IStorage {
 
   // Product Categories - Database implementation
   async getProductCategories(): Promise<ProductCategory[]> {
-    return await db.select().from(productCategories).orderBy(productCategories.id);
+    return await db.select().from(productCategories).orderBy(productCategories.sortOrder, productCategories.id);
   }
 
   async getProductCategory(id: number): Promise<ProductCategory | undefined> {
@@ -971,7 +971,7 @@ export class DatabaseStorage implements IStorage {
 
   // Product Types - Database implementation
   async getProductTypes(): Promise<ProductType[]> {
-    return await db.select().from(productTypes).orderBy(productTypes.id);
+    return await db.select().from(productTypes).orderBy(productTypes.sortOrder, productTypes.id);
   }
 
   async getProductTypesByCategory(categoryId: number): Promise<ProductType[]> {
@@ -979,7 +979,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(productTypes)
       .where(eq(productTypes.categoryId, categoryId))
-      .orderBy(productTypes.id);
+      .orderBy(productTypes.sortOrder, productTypes.id);
   }
 
   async getProductType(id: number): Promise<ProductType | undefined> {
