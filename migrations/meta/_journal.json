@@ -15,6 +15,13 @@
       "when": 1745347200000,
       "tag": "0001_leads_also_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1745780000000,
+      "tag": "0002_product_sort_order",
+      "breakpoints": true
     }
   ]
 }

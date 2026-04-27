@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -266,16 +266,19 @@ export default function ProductMapping() {
   });
 
   // Check Odoo for new products mutation
+  // Pass { silent: true } for background auto-check (no toast); omit for manual button press
   const checkOdooNewProducts = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ silent = false }: { silent?: boolean } = {}) => {
       const res = await apiRequest('POST', '/api/odoo/sync-new-products');
-      return res.json();
+      return { ...(await res.json()), silent };
     },
-    onSuccess: () => {
-      toast({
-        title: 'Check Complete',
-        description: 'Odoo checked for new products. Any new ones are now in the Unmapped tab.',
-      });
+    onSuccess: ({ silent }) => {
+      if (!silent) {
+        toast({
+          title: 'Check Complete',
+          description: 'Odoo checked for new products. Any new ones are now in the Unmapped tab.',
+        });
+      }
       refetchProducts();
     },
     onError: (error: Error) => {
@@ -286,6 +289,14 @@ export default function ProductMapping() {
       });
     },
   });
+
+  // Auto-check runs silently on page load; track it separately so the status indicator
+  // only shows during the background check, not during manual button presses
+  const isAutoChecking = checkOdooNewProducts.isPending && checkOdooNewProducts.variables?.silent === true;
+
+  useEffect(() => {
+    checkOdooNewProducts.mutate({ silent: true });
+  }, []);
 
   // Update product mapping mutation
   const updateMapping = useMutation({
@@ -663,9 +674,16 @@ export default function ProductMapping() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold">Product Mapping</h1>
-                <p className="text-muted-foreground text-sm">
-                  Assign categories and types to products imported from Odoo
-                </p>
+                {isAutoChecking ? (
+                  <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Checking Odoo for new products…
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Assign categories and types to products imported from Odoo
+                  </p>
+                )}
               </div>
             </div>
             
