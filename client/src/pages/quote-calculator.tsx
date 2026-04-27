@@ -496,10 +496,27 @@ export default function QuoteCalculator() {
   const categoryIdToName = new Map(dbCategories.map(c => [c.id, c.name]));
   const categoryNameToId = new Map(dbCategories.map(c => [c.name, c.id]));
 
-  // Use categories from database, fallback to hardcoded list if empty
-  const categories = dbCategories.length > 0 
-    ? dbCategories.map(c => c.name).filter(name => ALLOWED_CATEGORIES.includes(name as typeof ALLOWED_CATEGORIES[number]))
-    : [...ALLOWED_CATEGORIES];
+  // Derive categories dynamically from the actual mapped products loaded from the DB.
+  // Any product that has been mapped (has a catalogCategoryId) and has pricing data will
+  // contribute its category here — no hardcoded allow-list needed.
+  const categories: string[] = (() => {
+    if (productData.length === 0) {
+      // Nothing loaded yet — fall back to DB categories or hardcoded list
+      return dbCategories.length > 0
+        ? dbCategories.map(c => c.name).sort()
+        : [...ALLOWED_CATEGORIES];
+    }
+    const seenIds = new Set<number>();
+    const names: string[] = [];
+    for (const p of productData) {
+      if (p.catalogCategoryId && !seenIds.has(p.catalogCategoryId)) {
+        seenIds.add(p.catalogCategoryId);
+        const name = categoryIdToName.get(p.catalogCategoryId);
+        if (name) names.push(name);
+      }
+    }
+    return names.sort();
+  })();
 
   // Get product types for selected category using catalogCategoryId when available
   const productTypes = (() => {

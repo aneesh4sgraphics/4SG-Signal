@@ -657,6 +657,19 @@ export default function ProductMapping() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => checkOdooNewProducts.mutate()}
+                disabled={checkOdooNewProducts.isPending}
+                data-testid="button-sync-new-odoo"
+                title="Check Odoo for new products added since last import and add them to the Unmapped tab"
+              >
+                {checkOdooNewProducts.isPending ? (
+                  <><span className="mr-2 h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />Syncing…</>
+                ) : (
+                  <><RefreshCw className="h-4 w-4 mr-2" />Sync New from Odoo</>
+                )}
+              </Button>
               <Button 
                 onClick={() => setShowImportConfirm(true)}
                 disabled={importFromOdoo.isPending}
