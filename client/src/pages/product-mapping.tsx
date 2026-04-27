@@ -318,9 +318,16 @@ export default function ProductMapping() {
   // only shows during the background check, not during manual button presses
   const isAutoChecking = checkOdooNewProducts.isPending && checkOdooNewProducts.variables?.silent === true;
 
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const odooLastCheckedLabel = (() => {
     if (!lastOdooCheckTs) return null;
-    const diffMs = Date.now() - lastOdooCheckTs;
+    const diffMs = now - lastOdooCheckTs;
     const diffMins = Math.floor(diffMs / 60000);
     if (diffMins < 1) return 'Last checked just now';
     if (diffMins === 1) return 'Last checked 1 minute ago';
