@@ -486,7 +486,9 @@ export default function ProductPricingManagement() {
                 style={{ padding: '9px 12px', border: '1px solid var(--color-border-secondary)', borderRadius: '8px', fontSize: '13px', background: 'var(--color-background-primary)', color: formFamilyCode ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)', outline: 'none', cursor: formCategoryId ? 'pointer' : 'default', opacity: formCategoryId ? 1 : 0.45, minWidth: '280px' }}>
                 <option value="">— Select type —</option>
                 {familiesInCategory.map(f => (
-                  <option key={f.baseCode} value={f.baseCode}>{f.typeName}</option>
+                  <option key={f.baseCode} value={f.baseCode}>
+                    {isFullyPriced(f) ? f.typeName : `⚠ ${f.typeName}`}
+                  </option>
                 ))}
               </select>
             </div>
