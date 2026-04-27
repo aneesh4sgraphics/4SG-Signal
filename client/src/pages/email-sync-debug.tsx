@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { 
   RefreshCw, 
   CheckCircle2, 
@@ -126,9 +126,41 @@ export default function EmailSyncDebug() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [customerSearch, setCustomerSearch] = useState("");
 
+  const [now, setNow] = useState(() => Date.now());
+
   const { data: syncStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<SyncStatus>({
     queryKey: ["/api/email-intelligence/sync-status"],
   });
+
+  const lastSyncedTs = syncStatus?.syncState?.lastSyncedAt
+    ? new Date(syncStatus.syncState.lastSyncedAt).getTime()
+    : null;
+
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      const ageMs = lastSyncedTs ? current - lastSyncedTs : Infinity;
+      const delay = ageMs < 2 * 60 * 1000 ? 1000 : 30000;
+      timerId = setTimeout(tick, delay);
+    };
+    timerId = setTimeout(tick, lastSyncedTs && Date.now() - lastSyncedTs < 2 * 60 * 1000 ? 1000 : 30000);
+    return () => clearTimeout(timerId);
+  }, [lastSyncedTs]);
+
+  const lastSyncedLabel = (() => {
+    if (!lastSyncedTs) return "Never synced";
+    const diffMs = now - lastSyncedTs;
+    if (diffMs < 2 * 60 * 1000) {
+      const diffSecs = Math.floor(diffMs / 1000);
+      if (diffSecs < 5) return "Last synced just now";
+      return `Last synced ${diffSecs} seconds ago`;
+    }
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins === 1) return "Last synced 1 minute ago";
+    return `Last synced ${diffMins} minutes ago`;
+  })();
 
   const { data: unmatchedEmails, isLoading: unmatchedLoading } = useQuery<UnmatchedEmail[]>({
     queryKey: ["/api/email-intelligence/unmatched"],
@@ -326,9 +358,7 @@ export default function EmailSyncDebug() {
             Sync Statistics
           </CardTitle>
           <CardDescription>
-            {state?.lastSyncedAt 
-              ? `Last synced ${formatDistanceToNow(new Date(state.lastSyncedAt), { addSuffix: true })}`
-              : "Never synced"}
+            {lastSyncedLabel}
           </CardDescription>
         </CardHeader>
         <CardContent>
