@@ -286,9 +286,8 @@ export default function ProductMapping() {
       return { ...(await res.json()), silent };
     },
     onSuccess: ({ silent }) => {
-      if (silent) {
-        localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(Date.now()));
-      } else {
+      localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(Date.now()));
+      if (!silent) {
         toast({
           title: 'Check Complete',
           description: 'Odoo checked for new products. Any new ones are now in the Unmapped tab.',
@@ -297,6 +296,8 @@ export default function ProductMapping() {
       refetchProducts();
     },
     onError: (error: Error) => {
+      // On failure, set a 2-minute backoff so repeated page loads don't hammer a failing endpoint
+      localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(Date.now() - ODOO_AUTO_CHECK_COOLDOWN_MS + 2 * 60 * 1000));
       toast({
         variant: 'destructive',
         title: 'Check Failed',
