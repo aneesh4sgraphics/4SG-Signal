@@ -150,6 +150,12 @@ export default function ProductMapping() {
   // Category selection for filtering types in Categories & Types tab
   const [selectedCategoryForTypes, setSelectedCategoryForTypes] = useState<number | null>(null);
 
+  // Last Odoo check timestamp (read from localStorage, updated after each sync)
+  const [lastOdooCheckTs, setLastOdooCheckTs] = useState<number>(() => {
+    const stored = parseInt(localStorage.getItem(ODOO_AUTO_CHECK_KEY) || '0', 10);
+    return stored || 0;
+  });
+
   // Mapping validation state
   const [showValidationDialog, setShowValidationDialog] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -286,7 +292,9 @@ export default function ProductMapping() {
       return { ...(await res.json()), silent };
     },
     onSuccess: ({ silent }) => {
-      localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(Date.now()));
+      const now = Date.now();
+      localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(now));
+      setLastOdooCheckTs(now);
       if (!silent) {
         toast({
           title: 'Check Complete',
@@ -309,6 +317,15 @@ export default function ProductMapping() {
   // Auto-check runs silently on page load; track it separately so the status indicator
   // only shows during the background check, not during manual button presses
   const isAutoChecking = checkOdooNewProducts.isPending && checkOdooNewProducts.variables?.silent === true;
+
+  const odooLastCheckedLabel = (() => {
+    if (!lastOdooCheckTs) return null;
+    const diffMs = Date.now() - lastOdooCheckTs;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Last checked just now';
+    if (diffMins === 1) return 'Last checked 1 minute ago';
+    return `Last checked ${diffMins} minutes ago`;
+  })();
 
   useEffect(() => {
     const lastCheck = parseInt(localStorage.getItem(ODOO_AUTO_CHECK_KEY) || '0', 10);
@@ -727,19 +744,24 @@ export default function ProductMapping() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => checkOdooNewProducts.mutate()}
-                disabled={checkOdooNewProducts.isPending}
-                data-testid="button-sync-new-odoo"
-                title="Check Odoo for new products added since last import and add them to the Unmapped tab"
-              >
-                {checkOdooNewProducts.isPending ? (
-                  <><span className="mr-2 h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />Syncing…</>
-                ) : (
-                  <><RefreshCw className="h-4 w-4 mr-2" />Sync New from Odoo</>
+              <div className="flex flex-col items-end gap-0.5">
+                <Button
+                  variant="outline"
+                  onClick={() => checkOdooNewProducts.mutate()}
+                  disabled={checkOdooNewProducts.isPending}
+                  data-testid="button-sync-new-odoo"
+                  title="Check Odoo for new products added since last import and add them to the Unmapped tab"
+                >
+                  {checkOdooNewProducts.isPending ? (
+                    <><span className="mr-2 h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent" />Syncing…</>
+                  ) : (
+                    <><RefreshCw className="h-4 w-4 mr-2" />Sync New from Odoo</>
+                  )}
+                </Button>
+                {odooLastCheckedLabel && (
+                  <span className="text-xs text-muted-foreground">{odooLastCheckedLabel}</span>
                 )}
-              </Button>
+              </div>
               <Button 
                 onClick={() => setShowImportConfirm(true)}
                 disabled={importFromOdoo.isPending}
