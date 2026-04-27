@@ -823,7 +823,7 @@ export function LabelQueueIndicator() {
   if (isLoading || queue.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-24 right-6 z-50">
       <button
         onClick={openPrintDialog}
         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-2.5 shadow-lg transition-all hover:shadow-xl"

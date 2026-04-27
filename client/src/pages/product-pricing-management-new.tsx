@@ -675,7 +675,7 @@ export default function ProductPricingManagement() {
                 </div>
 
                 {/* ── Footer ── */}
-                <div style={{ flexShrink: 0, padding: '10px 24px', borderTop: '1px solid var(--color-border-secondary)', background: dirty ? '#F5F5FF' : 'var(--color-background-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                <div style={{ flexShrink: 0, padding: '10px 88px 10px 24px', borderTop: '1px solid var(--color-border-secondary)', background: dirty ? '#F5F5FF' : 'var(--color-background-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
                   {justSaved && (
                     <span style={{ fontSize: '12px', color: '#059669', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Check style={{ width: '12px', height: '12px' }} /> Saved
