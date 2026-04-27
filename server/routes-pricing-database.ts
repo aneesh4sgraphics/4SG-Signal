@@ -639,15 +639,21 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
     // Fetch product categories for lookup
     const categories = await storage.getProductCategories();
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
-    
+
+    // ?includeUnpriced=true is used by the Pricing Management page so admins can
+    // enter prices for mapped products that have no pricing yet.
+    // All other callers (QuickQuotes, Price List) get the default priced-only view.
+    const includeUnpriced = req.query.includeUnpriced === 'true';
+
     // Filter to only show MAPPED products (have catalogCategoryId), not archived, no -ARCH suffix, and with at least one price
     const pricingData = allPricingData.filter(item => {
       if (!item.catalogCategoryId || item.isArchived) return false;
       if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
-      // Exclude products with no pricing data at all (shared predicate in pricing-utils.ts)
-      return hasAnyPrice(item);
+      // Exclude products with no pricing data at all unless caller wants to manage them
+      if (!includeUnpriced && !hasAnyPrice(item)) return false;
+      return true;
     });
-    console.log(`✓ Retrieved ${pricingData.length} mapped pricing records from database (${allPricingData.length} total) in ${Date.now() - startTime}ms`);
+    console.log(`✓ Retrieved ${pricingData.length} mapped pricing records from database (${allPricingData.length} total, includeUnpriced=${includeUnpriced}) in ${Date.now() - startTime}ms`);
     
     if (pricingData.length === 0) {
       console.warn("⚠ No mapped pricing data found in database");

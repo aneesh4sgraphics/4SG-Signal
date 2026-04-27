@@ -166,8 +166,11 @@ export default function ProductPricingManagement() {
   const [sheetsPerPack, setSheetsPerPack] = useState('1');
 
   // ── Queries ─────────────────────────────────────────────────────────────────
+  // includeUnpriced=true so admins can see and enter prices for mapped products
+  // with no pricing yet (e.g. newly added types like 17mil). QuickQuotes/Price List
+  // use the default endpoint (without this flag) and only see priced products.
   const { data: pricingRaw, isLoading: pricingLoading, refetch: refetchPricing } =
-    useQuery<{ data: RawProduct[] }>({ queryKey: ['/api/product-pricing-database'] });
+    useQuery<{ data: RawProduct[] }>({ queryKey: ['/api/product-pricing-database?includeUnpriced=true'] });
 
   const { data: categoriesData = [], isLoading: categoriesLoading } =
     useQuery<Category[]>({ queryKey: ['/api/product-categories'] });
@@ -341,6 +344,7 @@ export default function ProductPricingManagement() {
       }, 3000);
 
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database?includeUnpriced=true'] });
       toast({ title: `Saved ${dirtyProducts.length} product${dirtyProducts.length !== 1 ? 's' : ''}` });
     } catch (e: any) {
       toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
@@ -360,6 +364,7 @@ export default function ProductPricingManagement() {
       }
       const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database?includeUnpriced=true'] });
       toast({ title: 'Sync complete', description: data.message });
     } catch (e: any) {
       toast({ title: 'Sync failed', description: e.message, variant: 'destructive' });
@@ -420,6 +425,7 @@ export default function ProductPricingManagement() {
       setMappingProduct(null);
       refetchOdoo();
       queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/product-pricing-database?includeUnpriced=true'] });
     },
     onError: (e: Error) => toast({ title: 'Mapping failed', description: e.message, variant: 'destructive' }),
   });
