@@ -106,6 +106,9 @@ interface DuplicateGroup {
   type_count: number;
 }
 
+const ODOO_AUTO_CHECK_KEY = 'odoo_last_auto_check_ts';
+const ODOO_AUTO_CHECK_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
 export default function ProductMapping() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('unmapped');
@@ -276,7 +279,6 @@ export default function ProductMapping() {
     },
   });
 
-  // Check Odoo for new products mutation
   // Pass { silent: true } for background auto-check (no toast); omit for manual button press
   const checkOdooNewProducts = useMutation({
     mutationFn: async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -284,7 +286,9 @@ export default function ProductMapping() {
       return { ...(await res.json()), silent };
     },
     onSuccess: ({ silent }) => {
-      if (!silent) {
+      if (silent) {
+        localStorage.setItem(ODOO_AUTO_CHECK_KEY, String(Date.now()));
+      } else {
         toast({
           title: 'Check Complete',
           description: 'Odoo checked for new products. Any new ones are now in the Unmapped tab.',
@@ -306,7 +310,10 @@ export default function ProductMapping() {
   const isAutoChecking = checkOdooNewProducts.isPending && checkOdooNewProducts.variables?.silent === true;
 
   useEffect(() => {
-    checkOdooNewProducts.mutate({ silent: true });
+    const lastCheck = parseInt(localStorage.getItem(ODOO_AUTO_CHECK_KEY) || '0', 10);
+    if (Date.now() - lastCheck >= ODOO_AUTO_CHECK_COOLDOWN_MS) {
+      checkOdooNewProducts.mutate({ silent: true });
+    }
   }, []);
 
   // Update product mapping mutation
