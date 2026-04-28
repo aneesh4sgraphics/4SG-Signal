@@ -1074,7 +1074,7 @@ export default function Spotlight() {
     mutationFn: async (data: { to: string; subject: string; body: string; customerId?: string; taskId?: string }) => {
       return apiRequest('POST', '/api/email/send', {
         ...data,
-        htmlBody: data.body.replace(/\n/g, '<br>'),
+        htmlBody: data.body,
       });
     },
     onSuccess: (_, variables) => {
