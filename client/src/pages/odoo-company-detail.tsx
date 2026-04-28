@@ -448,6 +448,7 @@ export default function OdooCompanyDetail() {
       toast({ title: "Pricing Tier Updated" });
       setTagSaveSuccess(true); setTimeout(() => setTagSaveSuccess(false), 3000);
       queryClient.setQueryData<Contact>(["/api/customers", companyId], old => old ? { ...old, pricingTier: vars.pricingTier } : old);
+      setEditingCard(null);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message || "Failed", variant: "destructive" }),
   });
