@@ -843,20 +843,42 @@ export default function OdooProductDetail() {
                       if (!isLandedPrice) return true;
                       return canSeeCost && landedPriceRevealed;
                     })
-                    .map((tier) => (
-                    <TableRow key={tier.key}>
-                      <TableCell className="font-medium uppercase">{tier.label}</TableCell>
-                      <TableCell className="text-right text-gray-600">
-                        {tier.pricePerSqm > 0 ? formatPrice(tier.pricePerSqm) : '-'}
+                    .map((tier) => {
+                      const isLandedPrice = tier.key === 'landedPrice';
+                      return (
+                        <TableRow
+                          key={tier.key}
+                          className={isLandedPrice ? 'bg-amber-50' : undefined}
+                        >
+                          <TableCell className={`font-medium uppercase ${isLandedPrice ? 'text-amber-700' : ''}`}>
+                            {isLandedPrice ? 'Calc. Landed Price' : tier.label}
+                          </TableCell>
+                          <TableCell className={`text-right ${isLandedPrice ? 'text-amber-600' : 'text-gray-600'}`}>
+                            {tier.pricePerSqm > 0 ? formatPrice(tier.pricePerSqm) : '-'}
+                          </TableCell>
+                          <TableCell className={`text-right ${isLandedPrice ? 'text-amber-600' : 'text-gray-600'}`}>
+                            {tier.pricePerSheet > 0 ? formatPrice(tier.pricePerSheet) : '-'}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold ${isLandedPrice ? 'text-amber-700' : 'text-green-700'}`}>
+                            {tier.minOrderQtyPrice > 0 ? formatPrice(tier.minOrderQtyPrice) : '-'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  {canSeeCost && landedPriceRevealed && product.averageCost > 0 && (
+                    <TableRow className="bg-orange-50">
+                      <TableCell className="font-medium uppercase text-orange-700">
+                        Odoo Cost Price
                       </TableCell>
-                      <TableCell className="text-right text-gray-600">
-                        {tier.pricePerSheet > 0 ? formatPrice(tier.pricePerSheet) : '-'}
+                      <TableCell className="text-right text-orange-600">—</TableCell>
+                      <TableCell className="text-right text-orange-600">
+                        {formatPrice(product.averageCost)}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-green-700">
-                        {tier.minOrderQtyPrice > 0 ? formatPrice(tier.minOrderQtyPrice) : '-'}
+                      <TableCell className="text-right font-semibold text-orange-700">
+                        {formatPrice(product.averageCost * (localPricing.minQuantity || 1))}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                   {canSeeCost && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-2">
