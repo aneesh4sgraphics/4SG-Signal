@@ -68,7 +68,7 @@ function RoleSelect({ user, onRoleChange, isPending }: RoleSelectProps) {
       className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
       disabled={isPending}
     >
-      <option value="user">User</option>
+      <option value="user">Sales Rep</option>
       <option value="manager">Manager</option>
       <option value="admin">Admin</option>
     </select>
@@ -648,7 +648,7 @@ export default function Admin() {
                             />
                           ) : (
                             <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                              {user.role}
+                              {user.role === 'user' ? 'Sales Rep' : user.role}
                             </Badge>
                           )}
                         </TableCell>

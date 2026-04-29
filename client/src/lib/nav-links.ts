@@ -31,30 +31,13 @@ export interface NavLink {
 
 // User-specific app visibility configuration
 // Key: user email (lowercase), Value: array of allowed app paths
-// Dashboard ('/') is always allowed for all users
+// Used only for special-purpose accounts that need a completely different app set
 const USER_APP_RESTRICTIONS: Record<string, string[]> = {
   'warehouse@4sgraphics.com': [
     '/',  // Dashboard always accessible
     '/shipping-calculator',
     '/shipping-labels',
     '/product-labels',
-  ],
-  'patricio@4sgraphics.com': [
-    '/',
-    '/leads',
-    '/odoo-contacts',
-    '/customer-management',
-    '/spotlight',
-    '/quick-quotes',
-    '/price-list',
-  ],
-  'santiago@4sgraphics.com': [
-    '/',
-    '/leads',
-    '/odoo-contacts',
-    '/spotlight',
-    '/quick-quotes',
-    '/price-list',
   ],
 };
 

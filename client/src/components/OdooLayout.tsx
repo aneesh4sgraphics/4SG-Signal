@@ -248,6 +248,7 @@ function CollapsibleSection({
 function SidebarContent({
   location,
   isAdmin,
+  showAutomations,
   user,
   userInitials,
   onLogout,
@@ -258,6 +259,7 @@ function SidebarContent({
 }: {
   location: string;
   isAdmin: boolean;
+  showAutomations: boolean;
   user: any;
   userInitials: string;
   onLogout: () => void;
@@ -285,7 +287,7 @@ function SidebarContent({
           ))}
           <div className="w-full border-t border-gray-100 my-1" />
           <CollapsibleSection label="Labels" items={LABEL_ITEMS} isAdmin={isAdmin} location={location} storageKey="4s-nav-labels" onNavClick={onNavClick} iconOnly />
-          <CollapsibleSection label="Automations" items={AUTOMATION_ITEMS} isAdmin={isAdmin} location={location} storageKey="4s-nav-automations" onNavClick={onNavClick} iconOnly />
+          {showAutomations && <CollapsibleSection label="Automations" items={AUTOMATION_ITEMS} isAdmin={isAdmin} location={location} storageKey="4s-nav-automations" onNavClick={onNavClick} iconOnly />}
           {isAdmin && <CollapsibleSection label="Admin" items={ADMIN_ITEMS} isAdmin={isAdmin} location={location} storageKey="4s-nav-admin" onNavClick={onNavClick} iconOnly />}
         </nav>
         {/* Avatar footer */}
@@ -380,15 +382,17 @@ function SidebarContent({
           onNavClick={onNavClick}
         />
 
-        {/* Automations collapsible */}
-        <CollapsibleSection
-          label="Automations"
-          items={AUTOMATION_ITEMS}
-          isAdmin={isAdmin}
-          location={location}
-          storageKey="4s-nav-automations"
-          onNavClick={onNavClick}
-        />
+        {/* Automations collapsible — admin and manager only */}
+        {showAutomations && (
+          <CollapsibleSection
+            label="Automations"
+            items={AUTOMATION_ITEMS}
+            isAdmin={isAdmin}
+            location={location}
+            storageKey="4s-nav-automations"
+            onNavClick={onNavClick}
+          />
+        )}
 
         {/* Admin collapsible */}
         {isAdmin && (
@@ -472,7 +476,9 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
     window.location.href = '/api/logout';
   };
 
-  const isAdmin = (user as any)?.role === 'admin';
+  const userRole = (user as any)?.role || 'user';
+  const isAdmin = userRole === 'admin';
+  const showAutomations = userRole === 'admin' || userRole === 'manager';
   const userEmail = (user as any)?.email;
   const userInitials = getUserInitials(userEmail);
   const iconOnly = location === '/tasks';
@@ -480,6 +486,7 @@ function OdooLayoutContent({ children }: OdooLayoutProps) {
   const sidebarProps = {
     location,
     isAdmin,
+    showAutomations,
     user: user as any,
     userInitials,
     onLogout: logout,
