@@ -1717,7 +1717,7 @@ ${plainTextBody}`;
   }
 
   // Get customer purchase history for a product
-  async getProductCustomerPurchases(productTemplateId: number): Promise<Array<{
+  async getProductCustomerPurchases(productVariantId: number): Promise<Array<{
     partner_id: number;
     partner_name: string;
     total_qty: number;
@@ -1726,18 +1726,9 @@ ${plainTextBody}`;
     last_order_date: string;
   }>> {
     try {
-      // First get variant IDs for this template
-      const variants = await this.searchRead('product.product', [
-        ['product_tmpl_id', '=', productTemplateId]
-      ], ['id'], { limit: 100 });
-      
-      if (variants.length === 0) return [];
-      
-      const variantIds = variants.map((v: any) => v.id);
-
-      // Get sale order lines for confirmed/done orders
+      // Get sale order lines for this specific variant only
       const saleLines = await this.searchRead('sale.order.line', [
-        ['product_id', 'in', variantIds],
+        ['product_id', '=', productVariantId],
         ['state', 'in', ['sale', 'done']]
       ], [
         'id', 'order_id', 'product_uom_qty', 'price_subtotal', 'order_partner_id'

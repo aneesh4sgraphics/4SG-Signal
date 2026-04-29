@@ -13315,7 +13315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         odooClient.getPricelistItemsForProduct(templateId),
         odooClient.getProductInventoryByTemplate(templateId),
         odooClient.getProductPurchaseOrders(productId),
-        odooClient.getProductCustomerPurchases(templateId), // Uses template ID to find all variant sales
+        odooClient.getProductCustomerPurchases(productId), // Variant-level: only this specific variant's sales
       ]);
 
       // Defensive defaults for all data
