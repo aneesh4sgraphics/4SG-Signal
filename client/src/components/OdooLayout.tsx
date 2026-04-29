@@ -89,6 +89,7 @@ const MAIN_ITEMS: NavItemDef[] = [
   { path: '/odoo-contacts', label: 'Contacts', icon: Contact, iconColor: '#6366f1' },
   { path: '/customer-management', label: 'Companies', icon: Building2, iconColor: '#8b5cf6' },
   { path: '/opportunities', label: 'Opportunities', icon: Target, iconColor: '#f59e0b' },
+  { path: '/odoo-products', label: 'Products', icon: Package, iconColor: '#0e7b6c' },
   { path: '/quick-quotes', label: 'QuickQuotes', icon: DollarSign, iconColor: '#d97706' },
   { path: '/price-list', label: 'Price List', icon: FileText, iconColor: '#ca8a04' },
   { path: '/saved-quotes', label: 'Saved Quotes', icon: BookOpen, iconColor: '#be185d' },

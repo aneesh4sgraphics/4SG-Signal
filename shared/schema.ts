@@ -129,6 +129,25 @@ export const odooPriceSyncQueue = pgTable("odoo_price_sync_queue", {
 
 // Removed: pricingData table - legacy table replaced by productPricingMaster
 
+// Product attachments: photos and PDFs attached to Odoo products (uploaded by admin/manager)
+export const productAttachments = pgTable("product_attachments", {
+  id: serial("id").primaryKey(),
+  odooProductId: integer("odoo_product_id").notNull(), // Odoo product.product or product.template ID
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url", { length: 1024 }).notNull(), // objectPath from object storage
+  fileType: varchar("file_type", { length: 10 }).notNull(), // 'photo' or 'pdf'
+  label: varchar("label", { length: 255 }), // e.g. "Spec Sheet", "Install Guide"
+  mimeType: varchar("mime_type", { length: 100 }),
+  uploadedBy: varchar("uploaded_by", { length: 255 }),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+}, (table) => [
+  index("IDX_product_attachments_odoo_product_id").on(table.odooProductId),
+]);
+
+export const insertProductAttachmentSchema = createInsertSchema(productAttachments).omit({ id: true, uploadedAt: true });
+export type InsertProductAttachment = z.infer<typeof insertProductAttachmentSchema>;
+export type ProductAttachment = typeof productAttachments.$inferSelect;
+
 // Session storage table for authentication
 export const sessions = pgTable(
   "sessions",

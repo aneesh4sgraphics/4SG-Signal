@@ -1,17 +1,21 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { 
   ArrowLeft, Package, DollarSign, Users, Warehouse, 
   ShoppingCart, ExternalLink, TrendingUp, Box, Layers,
   AlertCircle, Loader2, Target, TrendingDown, TrendingUp as TrendUp,
-  Eye, EyeOff, ChevronLeft, ChevronRight
+  Eye, EyeOff, ChevronLeft, ChevronRight, ImageIcon, FileText,
+  Upload, Trash2, Download, X, Tag, TrendingUp as TrendingUpIcon,
+  ClipboardList
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -21,6 +25,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useUpload } from "@/hooks/use-upload";
 
 interface PricingTier {
   key: string;
@@ -162,8 +169,19 @@ export default function OdooProductDetail() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [landedPriceRevealed, setLandedPriceRevealed] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [uploadingType, setUploadingType] = useState<'photo' | 'pdf' | null>(null);
+  const [pdfLabel, setPdfLabel] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const qc = useQueryClient();
   
-  const isAdmin = (user as any)?.role === 'admin';
+  const userRole = (user as any)?.role || 'user';
+  const isAdmin = userRole === 'admin';
+  const isManager = userRole === 'manager';
+  const canSeeCost = isAdmin || isManager;
+  const canUpload = isAdmin || isManager;
 
   const { data: navData } = useQuery<{ prevId: number | null; nextId: number | null }>({
     queryKey: ['/api/odoo/products', productId, 'navigation'],
@@ -198,6 +216,70 @@ export default function OdooProductDetail() {
     },
     enabled: !!productId,
   });
+
+  interface Attachment {
+    id: number;
+    odooProductId: number;
+    fileName: string;
+    fileUrl: string;
+    fileType: 'photo' | 'pdf';
+    label: string | null;
+    mimeType: string | null;
+    uploadedBy: string | null;
+    uploadedAt: string;
+  }
+
+  const { data: attachments = [], isLoading: attachmentsLoading } = useQuery<Attachment[]>({
+    queryKey: ['/api/odoo/products', productId, 'attachments'],
+    queryFn: async () => {
+      const res = await fetch(`/api/odoo/products/${productId}/attachments`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!productId,
+  });
+
+  const { uploadFile, isUploading } = useUpload();
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: number) => {
+      await apiRequest('DELETE', `/api/odoo/products/${productId}/attachments/${attachmentId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/odoo/products', productId, 'attachments'] });
+      toast({ title: 'Attachment removed' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to remove attachment', variant: 'destructive' });
+    },
+  });
+
+  const handleFileUpload = async (file: File, type: 'photo' | 'pdf') => {
+    setUploadingType(type);
+    try {
+      const result = await uploadFile(file);
+      if (!result) return;
+      const label = type === 'pdf' ? (pdfLabel.trim() || file.name) : undefined;
+      await apiRequest('POST', `/api/odoo/products/${productId}/attachments`, {
+        fileName: file.name,
+        fileUrl: result.objectPath,
+        fileType: type,
+        label: label || null,
+        mimeType: file.type || null,
+        odooProductId: parseInt(productId!),
+      });
+      qc.invalidateQueries({ queryKey: ['/api/odoo/products', productId, 'attachments'] });
+      toast({ title: type === 'photo' ? 'Photo uploaded' : 'PDF uploaded' });
+      setPdfLabel('');
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' });
+    } finally {
+      setUploadingType(null);
+    }
+  };
+
+  const photos = attachments.filter(a => a.fileType === 'photo');
+  const pdfs = attachments.filter(a => a.fileType === 'pdf');
 
   if (!productId) {
     return (
@@ -315,100 +397,331 @@ export default function OdooProductDetail() {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      {/* Inventory + Cost highlight tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Available to Sell (virtual_available) */}
+        <Card className="border border-green-200 bg-green-50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <DollarSign className="w-4 h-4" />
-              {isAdmin ? 'Average Cost' : 'List Price'}
+            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
+              <Warehouse className="w-4 h-4" />
+              Available to Sell
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isAdmin && landedPriceRevealed ? (
-              <>
-                <div className="text-2xl font-bold text-gray-900">
-                  {formatPrice(product.averageCost)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  List: {formatPrice(product.listPrice)} • {margin.toFixed(1)}% margin
-                </p>
-              </>
-            ) : isAdmin ? (
-              <div className="flex items-center gap-2">
+            <div className="text-3xl font-bold text-green-800">
+              {formatNumber(inventory.virtual)}
+            </div>
+            <p className="text-xs text-green-600 mt-1">
+              On hand: {formatNumber(inventory.available)} {product.uom}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* On Sales Orders (outgoing_qty) */}
+        <Card className="border border-orange-200 bg-orange-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-orange-700 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              On Sales Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-800">
+              {formatNumber(inventory.outgoing)}
+            </div>
+            <p className="text-xs text-orange-600 mt-1">
+              Reserved for active orders
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* On Purchase Orders */}
+        <Card className="border border-blue-200 bg-blue-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-blue-700 flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              On Purchase Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-800">
+              {formatNumber(purchaseOrders.totalOnOrder)}
+            </div>
+            <p className="text-xs text-blue-600 mt-1">
+              {purchaseOrders.orders.length} open order{purchaseOrders.orders.length !== 1 ? 's' : ''}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Average Cost — admin + manager only */}
+        {canSeeCost && (
+          <Card className="border border-violet-200 bg-violet-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-violet-700 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Average Cost
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {landedPriceRevealed ? (
+                <>
+                  <div className="text-3xl font-bold text-violet-800">
+                    {formatPrice(product.averageCost)}
+                  </div>
+                  <p className="text-xs text-violet-600 mt-1">
+                    List: {formatPrice(product.listPrice)} • {margin.toFixed(1)}% margin
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLandedPriceRevealed(false)}
+                    className="text-violet-500 hover:text-violet-700 mt-1 h-7 text-xs px-1"
+                  >
+                    <EyeOff className="w-3 h-3 mr-1" /> Hide
+                  </Button>
+                </>
+              ) : (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setLandedPriceRevealed(true)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-violet-600 hover:text-violet-800"
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   Show Cost
                 </Button>
-              </div>
-            ) : (
-              <>
-                <div className="text-2xl font-bold text-gray-900">
-                  {formatPrice(product.listPrice)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {product.uom}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Warehouse className="w-4 h-4" />
-              Available Quantity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(inventory.available)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Virtual: {formatNumber(inventory.virtual)} • {product.uom}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              On Purchase Order
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(purchaseOrders.totalOnOrder)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {purchaseOrders.orders.length} active orders
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Customers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatNumber(customerPurchases.length)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Have purchased this product
-            </p>
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* ── Photo Gallery ──────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-violet-500" />
+              Photos
+              {photos.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{photos.length}</Badge>
+              )}
+            </CardTitle>
+            {canUpload && (
+              <div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, 'photo');
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isUploading && uploadingType === 'photo'}
+                >
+                  {isUploading && uploadingType === 'photo'
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
+                    : <><Upload className="w-4 h-4 mr-2" />Add Photo</>
+                  }
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {photos.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No photos yet</p>
+              {canUpload && (
+                <p className="text-xs mt-1">Click "Add Photo" to upload product images</p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {photos.map((photo, idx) => (
+                <div key={photo.id} className="relative group">
+                  <button
+                    className="w-full aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-violet-400 transition-colors block focus:outline-none"
+                    onClick={() => setLightboxIdx(idx)}
+                  >
+                    <img
+                      src={photo.fileUrl}
+                      alt={photo.fileName}
+                      className="w-full h-full object-cover"
+                      onError={e => {
+                        (e.target as HTMLImageElement).src = '';
+                        (e.target as HTMLImageElement).classList.add('bg-gray-100');
+                      }}
+                    />
+                  </button>
+                  {canUpload && (
+                    <button
+                      className="absolute top-1 right-1 bg-white/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                      onClick={() => deleteAttachmentMutation.mutate(photo.id)}
+                      title="Remove photo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lightbox */}
+      {lightboxIdx !== null && photos[lightboxIdx] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxIdx(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full"
+            onClick={() => setLightboxIdx(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          {lightboxIdx > 0 && (
+            <button
+              className="absolute left-4 text-white p-2 hover:bg-white/10 rounded-full"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! - 1 + photos.length) % photos.length); }}
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+          )}
+          <img
+            src={photos[lightboxIdx].fileUrl}
+            alt={photos[lightboxIdx].fileName}
+            className="max-h-[85vh] max-w-[85vw] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+          {lightboxIdx < photos.length - 1 && (
+            <button
+              className="absolute right-4 text-white p-2 hover:bg-white/10 rounded-full"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! + 1) % photos.length); }}
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          )}
+          <p className="absolute bottom-4 text-white/70 text-sm">
+            {lightboxIdx + 1} / {photos.length}
+          </p>
+        </div>
+      )}
+
+      {/* ── PDF Attachments ─────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-red-500" />
+              Documents & PDFs
+              {pdfs.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{pdfs.length}</Badge>
+              )}
+            </CardTitle>
+            {canUpload && (
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="pdf-label" className="text-xs text-gray-500">Label (optional)</Label>
+                  <Input
+                    id="pdf-label"
+                    placeholder="e.g. Spec Sheet"
+                    value={pdfLabel}
+                    onChange={e => setPdfLabel(e.target.value)}
+                    className="h-8 w-40 text-sm"
+                  />
+                </div>
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, 'pdf');
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={isUploading && uploadingType === 'pdf'}
+                >
+                  {isUploading && uploadingType === 'pdf'
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
+                    : <><Upload className="w-4 h-4 mr-2" />Add PDF</>
+                  }
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pdfs.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No documents yet</p>
+              {canUpload && (
+                <p className="text-xs mt-1">Upload spec sheets, brochures, or install guides</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pdfs.map(pdf => (
+                <div
+                  key={pdf.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex-shrink-0 w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {pdf.label || pdf.fileName}
+                      </p>
+                      {pdf.label && pdf.label !== pdf.fileName && (
+                        <p className="text-xs text-gray-400 truncate">{pdf.fileName}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      href={pdf.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-violet-600 hover:text-violet-700 px-2 py-1 rounded hover:bg-violet-50"
+                    >
+                      <Download className="w-4 h-4" />
+                      Open
+                    </a>
+                    {canUpload && (
+                      <button
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        onClick={() => deleteAttachmentMutation.mutate(pdf.id)}
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <CardHeader>
@@ -528,7 +841,7 @@ export default function OdooProductDetail() {
                     .filter(tier => {
                       const isLandedPrice = tier.key === 'landedPrice';
                       if (!isLandedPrice) return true;
-                      return isAdmin && landedPriceRevealed;
+                      return canSeeCost && landedPriceRevealed;
                     })
                     .map((tier) => (
                     <TableRow key={tier.key}>
@@ -544,7 +857,7 @@ export default function OdooProductDetail() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {isAdmin && (
+                  {canSeeCost && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-2">
                         <Button
@@ -697,45 +1010,49 @@ export default function OdooProductDetail() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              Recent Purchase Orders
+              <ShoppingCart className="w-5 h-5 text-blue-600" />
+              Open Purchase Orders
             </CardTitle>
             <CardDescription>
-              Pending and completed purchase orders
+              {purchaseOrders.orders.length} order line{purchaseOrders.orders.length !== 1 ? 's' : ''} — {formatNumber(purchaseOrders.totalOnOrder)} units remaining
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>PO Number</TableHead>
-                  <TableHead className="text-right">Ordered</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead className="text-right">Remaining</TableHead>
-                  <TableHead className="text-right">Unit Price</TableHead>
-                  <TableHead>Expected</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {purchaseOrders.orders.map((po) => (
-                  <TableRow key={po.id}>
-                    <TableCell className="font-medium">{po.order_name}</TableCell>
-                    <TableCell className="text-right">{formatNumber(po.product_qty)}</TableCell>
-                    <TableCell className="text-right">{formatNumber(po.qty_received)}</TableCell>
-                    <TableCell className="text-right font-medium text-orange-600">
-                      {formatNumber(po.qty_remaining)}
-                    </TableCell>
-                    <TableCell className="text-right">{formatPrice(po.price_unit)}</TableCell>
-                    <TableCell>
-                      {po.date_planned 
-                        ? new Date(po.date_planned).toLocaleDateString()
-                        : '-'
-                      }
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {purchaseOrders.orders.map((po) => (
+                <div key={po.id} className="p-3 rounded-lg border border-blue-100 bg-blue-50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-blue-800">{po.order_name}</span>
+                    <Badge
+                      variant="secondary"
+                      className={po.state === 'done' ? 'bg-green-100 text-green-700 text-xs' : 'bg-orange-100 text-orange-700 text-xs'}
+                    >
+                      {po.state === 'done' ? 'Done' : 'Confirmed'}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div>
+                      <span className="text-gray-500">Ordered</span>
+                      <div className="font-semibold text-gray-800">{formatNumber(po.product_qty)}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Received</span>
+                      <div className="font-semibold text-green-700">{formatNumber(po.qty_received)}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Remaining</span>
+                      <div className="font-semibold text-orange-700">{formatNumber(po.qty_remaining)}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Expected</span>
+                      <div className="font-semibold text-gray-800">
+                        {po.date_planned ? new Date(po.date_planned).toLocaleDateString() : '-'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

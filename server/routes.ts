@@ -167,6 +167,8 @@ import {
   sketchboardEntries,
   opportunityScores,
   domainAcknowledgments,
+  productAttachments,
+  insertProductAttachmentSchema,
 } from "@shared/schema";
 // Removed: pricingData import - legacy table removed
 import { addPricingRoutes } from "./routes-pricing";
@@ -13547,6 +13549,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error calculating best price:", error);
       res.status(500).json({ error: error.message || "Failed to calculate best price" });
+    }
+  });
+
+  // ── Product Attachments (photos + PDFs) ────────────────────────────────────
+
+  // GET /api/odoo/products/:id/attachments — list all attachments for a product
+  app.get("/api/odoo/products/:id/attachments", requireApproval, async (req: any, res) => {
+    try {
+      const odooProductId = parseInt(req.params.id);
+      if (isNaN(odooProductId)) return res.status(400).json({ error: "Invalid product ID" });
+      const rows = await db.select().from(productAttachments)
+        .where(eq(productAttachments.odooProductId, odooProductId))
+        .orderBy(productAttachments.uploadedAt);
+      res.json(rows);
+    } catch (err: any) {
+      console.error("Error fetching product attachments:", err);
+      res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  // POST /api/odoo/products/:id/attachments — save attachment record (admin/manager only)
+  app.post("/api/odoo/products/:id/attachments", requireApproval, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user?.claims?.sub || user?.id;
+      const dbUser = userId ? await storage.getUser(userId) : null;
+      const role = dbUser?.role || 'user';
+      if (role !== 'admin' && role !== 'manager') {
+        return res.status(403).json({ error: "Admin or Manager access required" });
+      }
+      const odooProductId = parseInt(req.params.id);
+      if (isNaN(odooProductId)) return res.status(400).json({ error: "Invalid product ID" });
+      const body = insertProductAttachmentSchema.parse({ ...req.body, odooProductId });
+      const [created] = await db.insert(productAttachments).values({
+        ...body,
+        uploadedBy: dbUser?.email || undefined,
+      }).returning();
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("Error creating product attachment:", err);
+      res.status(400).json({ error: err.message || "Failed to create attachment" });
+    }
+  });
+
+  // DELETE /api/odoo/products/:id/attachments/:attachmentId — remove attachment (admin/manager only)
+  app.delete("/api/odoo/products/:id/attachments/:attachmentId", requireApproval, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      const userId = user?.claims?.sub || user?.id;
+      const dbUser = userId ? await storage.getUser(userId) : null;
+      const role = dbUser?.role || 'user';
+      if (role !== 'admin' && role !== 'manager') {
+        return res.status(403).json({ error: "Admin or Manager access required" });
+      }
+      const attachmentId = parseInt(req.params.attachmentId);
+      if (isNaN(attachmentId)) return res.status(400).json({ error: "Invalid attachment ID" });
+      const odooProductId = parseInt(req.params.id);
+      const deleted = await db.delete(productAttachments)
+        .where(and(
+          eq(productAttachments.id, attachmentId),
+          eq(productAttachments.odooProductId, odooProductId)
+        ))
+        .returning();
+      if (deleted.length === 0) return res.status(404).json({ error: "Attachment not found" });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error deleting product attachment:", err);
+      res.status(500).json({ error: "Failed to delete attachment" });
     }
   });
 
