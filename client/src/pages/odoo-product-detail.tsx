@@ -399,20 +399,20 @@ export default function OdooProductDetail() {
 
       {/* Inventory + Cost highlight tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Available to Sell (virtual_available) */}
+        {/* Quantity on Hand (qty_available from Odoo) */}
         <Card className="border border-green-200 bg-green-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
               <Warehouse className="w-4 h-4" />
-              Available to Sell
+              Quantity on Hand
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-800">
-              {formatNumber(inventory.virtual)}
+              {formatNumber(inventory.available)}
             </div>
             <p className="text-xs text-green-600 mt-1">
-              On hand: {formatNumber(inventory.available)} {product.uom}
+              {product.uom} · Forecasted: {formatNumber(inventory.virtual)}
             </p>
           </CardContent>
         </Card>
