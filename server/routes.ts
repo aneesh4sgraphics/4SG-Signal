@@ -13320,6 +13320,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Defensive defaults for all data
       const safeInventory = inventory || { totalAvailable: 0, totalVirtual: 0, totalIncoming: 0, totalOutgoing: 0, variants: [] };
+
+      // Find the specific variant's inventory (not the template total which sums all variants)
+      const currentVariantInventory = safeInventory.variants.find(v => v.id === productId);
       const safePricingTiers = pricingTiers || [];
       const safePurchaseOrders = purchaseOrders || [];
       const safeCustomerPurchases = customerPurchases || [];
@@ -13406,10 +13409,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         localPricing,
         inventory: {
-          available: safeInventory.totalAvailable || 0,
-          virtual: safeInventory.totalVirtual || 0,
-          incoming: safeInventory.totalIncoming || 0,
-          outgoing: safeInventory.totalOutgoing || 0,
+          // Use this specific variant's numbers; fall back to template total only if variant not found
+          available: currentVariantInventory?.available ?? safeInventory.totalAvailable ?? 0,
+          virtual: currentVariantInventory?.virtual ?? safeInventory.totalVirtual ?? 0,
+          incoming: currentVariantInventory?.incoming ?? safeInventory.totalIncoming ?? 0,
+          outgoing: currentVariantInventory?.outgoing ?? safeInventory.totalOutgoing ?? 0,
           variants: safeInventory.variants || [],
         },
         purchaseOrders: {
