@@ -43,6 +43,7 @@ const USER_APP_RESTRICTIONS: Record<string, string[]> = {
     '/',
     '/leads',
     '/odoo-contacts',
+    '/customer-management',
     '/spotlight',
     '/quick-quotes',
     '/price-list',
