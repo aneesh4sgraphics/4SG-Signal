@@ -144,7 +144,15 @@ export const productAttachments = pgTable("product_attachments", {
   index("IDX_product_attachments_odoo_product_id").on(table.odooProductId),
 ]);
 
-export const insertProductAttachmentSchema = createInsertSchema(productAttachments).omit({ id: true, uploadedAt: true });
+export const insertProductAttachmentSchema = createInsertSchema(productAttachments)
+  .omit({ id: true, uploadedAt: true })
+  .extend({
+    fileType: z.enum(['photo', 'pdf']),
+    fileUrl: z.string().min(1).refine(
+      (v) => v.startsWith('/objects/') || v.startsWith('public/') || v.startsWith('.private/'),
+      { message: "fileUrl must be a valid object storage path (e.g. /objects/...)" }
+    ),
+  });
 export type InsertProductAttachment = z.infer<typeof insertProductAttachmentSchema>;
 export type ProductAttachment = typeof productAttachments.$inferSelect;
 
