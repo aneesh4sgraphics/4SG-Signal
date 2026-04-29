@@ -496,7 +496,8 @@ export default function OdooProductDetail() {
         )}
       </div>
 
-      {/* ── Photo Gallery ──────────────────────────────────────────────────── */}
+      {/* ── Photos + Documents — side-by-side ─────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -577,46 +578,6 @@ export default function OdooProductDetail() {
           )}
         </CardContent>
       </Card>
-
-      {/* Lightbox */}
-      {lightboxIdx !== null && photos[lightboxIdx] && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
-          onClick={() => setLightboxIdx(null)}
-        >
-          <button
-            className="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full"
-            onClick={() => setLightboxIdx(null)}
-          >
-            <X className="w-6 h-6" />
-          </button>
-          {lightboxIdx > 0 && (
-            <button
-              className="absolute left-4 text-white p-2 hover:bg-white/10 rounded-full"
-              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! - 1 + photos.length) % photos.length); }}
-            >
-              <ChevronLeft className="w-8 h-8" />
-            </button>
-          )}
-          <img
-            src={photos[lightboxIdx].fileUrl}
-            alt={photos[lightboxIdx].fileName}
-            className="max-h-[85vh] max-w-[85vw] object-contain rounded-lg"
-            onClick={e => e.stopPropagation()}
-          />
-          {lightboxIdx < photos.length - 1 && (
-            <button
-              className="absolute right-4 text-white p-2 hover:bg-white/10 rounded-full"
-              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! + 1) % photos.length); }}
-            >
-              <ChevronRight className="w-8 h-8" />
-            </button>
-          )}
-          <p className="absolute bottom-4 text-white/70 text-sm">
-            {lightboxIdx + 1} / {photos.length}
-          </p>
-        </div>
-      )}
 
       {/* ── PDF Attachments ─────────────────────────────────────────────────── */}
       <Card>
@@ -722,6 +683,47 @@ export default function OdooProductDetail() {
           )}
         </CardContent>
       </Card>
+      </div>{/* end photos+docs grid */}
+
+      {/* Lightbox */}
+      {lightboxIdx !== null && photos[lightboxIdx] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxIdx(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full"
+            onClick={() => setLightboxIdx(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          {lightboxIdx > 0 && (
+            <button
+              className="absolute left-4 text-white p-2 hover:bg-white/10 rounded-full"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! - 1 + photos.length) % photos.length); }}
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+          )}
+          <img
+            src={photos[lightboxIdx].fileUrl}
+            alt={photos[lightboxIdx].fileName}
+            className="max-h-[85vh] max-w-[85vw] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+          {lightboxIdx < photos.length - 1 && (
+            <button
+              className="absolute right-4 text-white p-2 hover:bg-white/10 rounded-full"
+              onClick={e => { e.stopPropagation(); setLightboxIdx(i => (i! + 1) % photos.length); }}
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          )}
+          <p className="absolute bottom-4 text-white/70 text-sm">
+            {lightboxIdx + 1} / {photos.length}
+          </p>
+        </div>
+      )}
 
       <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <CardHeader>
