@@ -838,47 +838,63 @@ export default function OdooProductDetail() {
                 </TableHeader>
                 <TableBody>
                   {localPricing.tiers
-                    .filter(tier => {
-                      const isLandedPrice = tier.key === 'landedPrice';
-                      if (!isLandedPrice) return true;
-                      return canSeeCost && landedPriceRevealed;
-                    })
-                    .map((tier) => {
-                      const isLandedPrice = tier.key === 'landedPrice';
-                      return (
-                        <TableRow
-                          key={tier.key}
-                          className={isLandedPrice ? 'bg-amber-50' : undefined}
-                        >
-                          <TableCell className={`font-medium uppercase ${isLandedPrice ? 'text-amber-700' : ''}`}>
-                            {isLandedPrice ? 'Calc. Landed Price' : tier.label}
-                          </TableCell>
-                          <TableCell className={`text-right ${isLandedPrice ? 'text-amber-600' : 'text-gray-600'}`}>
-                            {tier.pricePerSqm > 0 ? formatPrice(tier.pricePerSqm) : '-'}
-                          </TableCell>
-                          <TableCell className={`text-right ${isLandedPrice ? 'text-amber-600' : 'text-gray-600'}`}>
-                            {tier.pricePerSheet > 0 ? formatPrice(tier.pricePerSheet) : '-'}
-                          </TableCell>
-                          <TableCell className={`text-right font-semibold ${isLandedPrice ? 'text-amber-700' : 'text-green-700'}`}>
-                            {tier.minOrderQtyPrice > 0 ? formatPrice(tier.minOrderQtyPrice) : '-'}
+                    .filter(tier => tier.key !== 'landedPrice')
+                    .map((tier) => (
+                      <TableRow key={tier.key}>
+                        <TableCell className="font-medium uppercase">{tier.label}</TableCell>
+                        <TableCell className="text-right text-gray-600">
+                          {tier.pricePerSqm > 0 ? formatPrice(tier.pricePerSqm) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right text-gray-600">
+                          {tier.pricePerSheet > 0 ? formatPrice(tier.pricePerSheet) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-green-700">
+                          {tier.minOrderQtyPrice > 0 ? formatPrice(tier.minOrderQtyPrice) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  {canSeeCost && landedPriceRevealed && (() => {
+                    const landedTier = localPricing.tiers.find(t => t.key === 'landedPrice');
+                    return (
+                      <>
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-1 px-0">
+                            <div className="border-t-2 border-dashed border-amber-300" />
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
-                  {canSeeCost && landedPriceRevealed && product.averageCost > 0 && (
-                    <TableRow className="bg-orange-50">
-                      <TableCell className="font-medium uppercase text-orange-700">
-                        Odoo Cost Price
-                      </TableCell>
-                      <TableCell className="text-right text-orange-600">—</TableCell>
-                      <TableCell className="text-right text-orange-600">
-                        {formatPrice(product.averageCost)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-orange-700">
-                        {formatPrice(product.averageCost * (localPricing.minQuantity || 1))}
-                      </TableCell>
-                    </TableRow>
-                  )}
+                        {landedTier && (
+                          <TableRow className="bg-amber-50">
+                            <TableCell className="font-medium uppercase text-amber-700">
+                              Calc. Landed Price
+                            </TableCell>
+                            <TableCell className="text-right text-amber-600">
+                              {landedTier.pricePerSqm > 0 ? formatPrice(landedTier.pricePerSqm) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-amber-600">
+                              {landedTier.pricePerSheet > 0 ? formatPrice(landedTier.pricePerSheet) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-amber-700">
+                              {landedTier.minOrderQtyPrice > 0 ? formatPrice(landedTier.minOrderQtyPrice) : '-'}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {product.averageCost > 0 && (
+                          <TableRow className="bg-orange-50">
+                            <TableCell className="font-medium uppercase text-orange-700">
+                              Odoo Cost Price
+                            </TableCell>
+                            <TableCell className="text-right text-orange-600">—</TableCell>
+                            <TableCell className="text-right text-orange-600">
+                              {formatPrice(product.averageCost)}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-orange-700">
+                              {formatPrice(product.averageCost * (localPricing.minQuantity || 1))}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })()}
                   {canSeeCost && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-2">
