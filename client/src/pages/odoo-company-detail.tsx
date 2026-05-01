@@ -50,6 +50,9 @@ interface Contact {
   odooPendingChanges: any | null; odooLastSyncError: string | null;
   totalOrders: number; totalSpent: string; createdAt: string; updatedAt: string;
   importWarning: string | null;
+  isBlindShip: boolean | null;
+  parentCustomerId: string | null;
+  parentCompanyName: string | null;
 }
 
 interface BusinessMetrics {
@@ -611,6 +614,19 @@ export default function OdooCompanyDetail() {
     onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
   });
 
+  const toggleBlindShipMutation = useMutation({
+    mutationFn: async (newValue: boolean) => {
+      const r = await apiRequest("PUT", `/api/customers/${companyId}`, { isBlindShip: newValue });
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    onSuccess: (_, newValue) => {
+      toast({ title: newValue ? "Marked as Blind Ship" : "Blind Ship tag removed" });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", companyId] });
+    },
+    onError: () => toast({ title: "Failed to update Blind Ship flag", variant: "destructive" }),
+  });
+
   const toggleMachineMutation = useMutation({
     mutationFn: async ({ machineFamily, currentlyEnabled }: { machineFamily: string; currentlyEnabled: boolean }) => {
       const r = await apiRequest("POST", "/api/crm/machine-profiles", { customerId: companyId, machineFamily, enabled: !currentlyEnabled });
@@ -756,6 +772,7 @@ export default function OdooCompanyDetail() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
                   {company.isHotProspect && <Badge className="bg-orange-100 text-orange-700 text-xs">🔥 Hot Prospect</Badge>}
+                  {company.isBlindShip && <Badge className="bg-sky-100 text-sky-700 border border-sky-200 text-xs gap-1"><Truck className="w-3 h-3" /> Blind Ship</Badge>}
                   {company.pricingTier && <Badge variant="secondary" className="text-xs capitalize bg-violet-100 text-violet-700">{company.pricingTier}</Badge>}
                   {company.importWarning === 'no_email' && (
                     <Badge className="bg-amber-100 text-amber-700 text-xs gap-1 border border-amber-200">
@@ -818,6 +835,19 @@ export default function OdooCompanyDetail() {
                   <Truck className="w-3.5 h-3.5 mr-1" /> Reseller
                 </Button>
               </div>
+
+              {/* Blind Ship toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleBlindShipMutation.mutate(!company.isBlindShip)}
+                disabled={toggleBlindShipMutation.isPending}
+                className={`h-8 text-xs gap-1 ${company.isBlindShip ? "bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100" : "text-gray-500 hover:bg-gray-50"}`}
+                title={company.isBlindShip ? "Remove Blind Ship tag" : "Mark as Blind Ship"}
+              >
+                {toggleBlindShipMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                {company.isBlindShip ? "Blind Ship ✓" : "Blind Ship"}
+              </Button>
 
               {/* Prev/Next */}
               <div className="flex items-center gap-0.5 border border-[#EBEBEB] rounded-lg">
@@ -1028,16 +1058,37 @@ export default function OdooCompanyDetail() {
               </DialogContent>
             </Dialog>
 
-            {/* KPI tiles */}
-            <div>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Business Performance</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <KpiTile label="Lifetime Sales" color="bg-green-50 border-green-100 text-green-800" value={metricsLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(metrics?.lifetimeSales || 0)} />
-                <KpiTile label="Outstanding" color="bg-red-50 border-red-100 text-red-800" value={metricsLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(metrics?.totalOutstanding || 0)} />
-                <KpiTile label="Avg Margin" color="bg-blue-50 border-blue-100 text-blue-800" value={metricsLoading ? <Skeleton className="h-6 w-16" /> : (metrics?.averageMargin != null ? `${metrics.averageMargin}%` : "N/A")} />
-                <KpiTile label="Products" color="bg-purple-50 border-purple-100 text-purple-800" value={metricsLoading ? <Skeleton className="h-6 w-10" /> : String(metrics?.topProducts?.length || 0)} />
+            {/* KPI tiles — hidden for Blind Ship customers; show parent link instead */}
+            {company.isBlindShip ? (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-sky-200 bg-sky-50">
+                <Truck className="w-5 h-5 text-sky-500 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-0.5">Blind Ship Customer</p>
+                  <p className="text-sm text-gray-700">
+                    Customer linked to:{" "}
+                    {company.parentCustomerId ? (
+                      <Link href={`/odoo-contacts/${company.parentCustomerId}`}>
+                        <span className="font-semibold text-sky-700 hover:underline cursor-pointer">
+                          {company.parentCompanyName || company.parentCustomerId}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-gray-500 italic">No parent linked</span>
+                    )}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Business Performance</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <KpiTile label="Lifetime Sales" color="bg-green-50 border-green-100 text-green-800" value={metricsLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(metrics?.lifetimeSales || 0)} />
+                  <KpiTile label="Outstanding" color="bg-red-50 border-red-100 text-red-800" value={metricsLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(metrics?.totalOutstanding || 0)} />
+                  <KpiTile label="Avg Margin" color="bg-blue-50 border-blue-100 text-blue-800" value={metricsLoading ? <Skeleton className="h-6 w-16" /> : (metrics?.averageMargin != null ? `${metrics.averageMargin}%` : "N/A")} />
+                  <KpiTile label="Products" color="bg-purple-50 border-purple-100 text-purple-800" value={metricsLoading ? <Skeleton className="h-6 w-10" /> : String(metrics?.topProducts?.length || 0)} />
+                </div>
+              </div>
+            )}
 
             {/* Opportunity Signals */}
             {opportunityData?.score > 0 && opportunityData?.signals?.length > 0 && (

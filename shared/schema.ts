@@ -320,6 +320,7 @@ export const customers = pgTable("customers", {
   priceListSentAt: timestamp("price_list_sent_at"), // Track price list send date
   customerType: varchar("customer_type", { length: 50 }), // 'reseller' or 'printer'
   salesKanbanStage: varchar("sales_kanban_stage", { length: 30 }), // 'replied', 'samples_requested', 'no_response', 'issue', or null (not in kanban)
+  isBlindShip: boolean("is_blind_ship").default(false), // True if this customer receives blind drip shipments via a parent distributor
   spotlightMeta: jsonb("spotlight_meta"), // Cached spotlight score + signal breakdown
   // Company grouping (Lead-Contact Parity v1)
   companyDomain: text("company_domain"), // e.g. "acme.com" — auto-derived from email

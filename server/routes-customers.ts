@@ -591,6 +591,7 @@ export function registerCustomersRoutes(app: Express): void {
         'doNotContact', 'doNotContactReason',
         'customerType',
         'parentCustomerId',
+        'isBlindShip',
       ]);
 
       const raw = req.body as Record<string, unknown>;
@@ -1088,8 +1089,17 @@ export function registerCustomersRoutes(app: Express): void {
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
       }
+
+      // If this customer has a local parent, resolve parent company name
+      let parentCompanyName: string | null = null;
+      if (customer.parentCustomerId) {
+        const parent = await storage.getCustomer(customer.parentCustomerId);
+        if (parent) {
+          parentCompanyName = parent.company || `${parent.firstName || ""} ${parent.lastName || ""}`.trim() || null;
+        }
+      }
       
-      res.json(customer);
+      res.json({ ...customer, parentCompanyName });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch customer" });
     }
