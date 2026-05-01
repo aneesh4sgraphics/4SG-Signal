@@ -17,6 +17,7 @@ interface EmailComposeConfig {
   subject?: string;
   body?: string;
   customerId?: string;
+  leadId?: number;
   customerName?: string;
   templateId?: number;
   variables?: Record<string, string>;
@@ -176,6 +177,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
       body: string;
       htmlBody?: string;
       customerId?: string;
+      leadId?: number;
       templateId?: number;
       recipientName?: string;
       variableData?: Record<string, string>;
@@ -198,6 +200,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
         description: "Your email has been sent successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/email/sends"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customer-activity/emails"] });
       onSent?.();
       onClose();
     },
@@ -352,6 +355,7 @@ function EmailComposePopup({ isOpen, onClose, initialConfig, onSent }: EmailComp
       body: plainTextBody.trim(),
       htmlBody,
       customerId: initialConfig.customerId,
+      leadId: initialConfig.leadId,
       templateId: selectedTemplateId && selectedTemplateId !== "none" ? parseInt(selectedTemplateId) : undefined,
       recipientName: initialConfig.customerName,
       variableData: allVariables,

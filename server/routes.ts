@@ -9424,7 +9424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .limit(limitNum);
         }
 
-        // Also pull drip/manual email_sends for this lead (use offset ID to avoid collision)
+        // Pull email_sends by leadId OR by recipient email (catches historical sends without leadId)
+        const leadEmail = lead.length > 0 && lead[0].email ? lead[0].email.toLowerCase().trim() : null;
         const dripRows = await db.select({
           id: emailSends.id,
           recipientEmail: emailSends.recipientEmail,
@@ -9433,7 +9434,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sentBy: emailSends.sentBy,
         })
         .from(emailSends)
-        .where(and(eq(emailSends.leadId, leadIdNum), eq(emailSends.status, 'sent')))
+        .where(
+          and(
+            eq(emailSends.status, 'sent'),
+            leadEmail
+              ? or(
+                  eq(emailSends.leadId, leadIdNum),
+                  sql`LOWER(TRIM(${emailSends.recipientEmail})) = ${leadEmail}`
+                )
+              : eq(emailSends.leadId, leadIdNum)
+          )
+        )
         .orderBy(desc(emailSends.sentAt))
         .limit(limitNum);
 

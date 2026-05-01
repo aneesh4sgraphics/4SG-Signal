@@ -181,7 +181,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       const { sendEmail } = await import("./gmail-client");
       const { sendEmailAsUser, getUserGmailConnection } = await import("./user-gmail-oauth");
       const crypto = await import("crypto");
-      const { to, subject, body, htmlBody, customerId, templateId, recipientName, variableData, enableTracking = true } = req.body;
+      const { to, subject, body, htmlBody, customerId, leadId, templateId, recipientName, variableData, enableTracking = true } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
@@ -339,6 +339,7 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
         recipientEmail: to,
         recipientName: recipientName || null,
         customerId: resolvedCustomerId,
+        leadId: leadId ? parseInt(leadId) : null,
         subject,
         body: finalPlainBody,
         variableData: variableData || {},
@@ -419,8 +420,28 @@ Return only the JSON object. No markdown, no code blocks, no explanation.`;
       // Log lead activity and update trust timestamps if this email is to a lead
       let matchedLeadId: number | undefined;
       try {
-        // Prefer direct lead ID from customerId (lead-{id}) — avoids email mismatch when recipient differs
-        if (resolvedCustomerId?.startsWith('lead-') || customerId?.startsWith('lead-')) {
+        // Prefer direct leadId field, then fall back to customerId "lead-{id}" format
+        const directLeadId = leadId ? parseInt(leadId) : null;
+        if (directLeadId && !isNaN(directLeadId)) {
+          matchedLeadId = directLeadId;
+          const now = new Date();
+          const existing = await db.select({ firstEmailSentAt: leads.firstEmailSentAt }).from(leads).where(eq(leads.id, directLeadId)).limit(1);
+          if (existing.length > 0 && !existing[0].firstEmailSentAt) {
+            await db.update(leads).set({ firstEmailSentAt: now }).where(eq(leads.id, directLeadId));
+            console.log(`[Lead Trust] Marked firstEmailSentAt for lead ${directLeadId}`);
+          }
+          await db.insert(leadActivities).values({
+            leadId: directLeadId,
+            activityType: 'email_sent',
+            summary: `Email sent: ${subject}`,
+            details: `To: ${to}`,
+            performedBy: req.user?.email || req.user?.claims?.email || 'unknown',
+            performedByName: req.user?.email || req.user?.claims?.email || 'unknown',
+            createdAt: now,
+          });
+          await db.update(leads).set({ totalTouchpoints: sql`${leads.totalTouchpoints} + 1`, lastContactAt: now, updatedAt: now }).where(eq(leads.id, directLeadId));
+          console.log(`[Lead Activity] Logged email activity for lead ${directLeadId}`);
+        } else if (resolvedCustomerId?.startsWith('lead-') || customerId?.startsWith('lead-')) {
           const rawId = (resolvedCustomerId || customerId).replace('lead-', '');
           const parsedLeadId = parseInt(rawId);
           if (!isNaN(parsedLeadId)) {

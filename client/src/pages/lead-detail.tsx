@@ -636,7 +636,7 @@ export default function LeadDetail() {
                 <Button
                   variant="outline" size="sm" className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-50"
                   onClick={() => emailComposer.open({
-                    to: lead.email || "", customerName: lead.name, usageType: "lead_email",
+                    to: lead.email || "", customerName: lead.name, leadId: lead.id, usageType: "lead_email",
                     variables: { "lead.name": lead.name, "lead.company": lead.company || "", "lead.email": lead.email || "", "lead.id": String(lead.id) },
                   })}
                 >
@@ -795,7 +795,7 @@ export default function LeadDetail() {
                   {lead.email ? (
                     <button
                       onClick={() => emailComposer.open({
-                        to: lead.email || "", customerName: lead.name, usageType: "lead_email",
+                        to: lead.email || "", customerName: lead.name, leadId: lead.id, usageType: "lead_email",
                         variables: { "lead.name": lead.name, "lead.company": lead.company || "", "lead.email": lead.email || "", "lead.id": String(lead.id) },
                       })}
                       className="text-blue-600 hover:underline text-sm"
@@ -1167,7 +1167,7 @@ export default function LeadDetail() {
               </h2>
               {lead.email && (
                 <Button size="sm" variant="outline" onClick={() => emailComposer.open({
-                  to: lead.email || "", customerName: lead.name, usageType: "lead_email",
+                  to: lead.email || "", customerName: lead.name, leadId: lead.id, usageType: "lead_email",
                   variables: { "lead.name": lead.name, "lead.company": lead.company || "", "lead.email": lead.email || "", "lead.id": String(lead.id) },
                 })}>
                   <Plus className="w-4 h-4 mr-1" /> Compose
