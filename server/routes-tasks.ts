@@ -1560,6 +1560,8 @@ Return ONLY a JSON object with these keys (use null for not found):
       const assigneeFilter = req.query.assignee as string;
       const repNameFilter = req.query.repName as string; // e.g. "patricio@4sgraphics.com"
       const priorityFilter = req.query.priority as string;
+      const leadIdParam = req.query.leadId as string;
+      const customerIdParam = req.query.customerId as string;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1569,17 +1571,24 @@ Return ONLY a JSON object with these keys (use null for not found):
       endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay()));
 
       const thisYearStart = new Date('2026-01-01T00:00:00.000Z');
-      const baseConditions: any[] = [
-        eq(followUpTasks.status, 'pending'),
-        gte(followUpTasks.createdAt, thisYearStart),
-      ];
 
-      const rawEmail = req.user?.email || '';
-      // Visibility: Aneesh sees all; others see only their own tasks
-      if (!isAneesh) {
-        baseConditions.push(
-          sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
-        );
+      // When scoped to a specific lead or customer, filter strictly by that record
+      // and skip the user-visibility filter (so all assignees' tasks are visible)
+      const baseConditions: any[] = [eq(followUpTasks.status, 'pending')];
+
+      if (leadIdParam) {
+        baseConditions.push(eq(followUpTasks.leadId, Number(leadIdParam)));
+      } else if (customerIdParam) {
+        baseConditions.push(eq(followUpTasks.customerId, customerIdParam));
+      } else {
+        baseConditions.push(gte(followUpTasks.createdAt, thisYearStart));
+        const rawEmail = req.user?.email || '';
+        // Visibility: Aneesh sees all; others see only their own tasks
+        if (!isAneesh) {
+          baseConditions.push(
+            sql`(${followUpTasks.assignedTo} = ${rawEmail} OR ${followUpTasks.assignedTo} = ${userId})`
+          );
+        }
       }
 
       if (filter === 'today') {
