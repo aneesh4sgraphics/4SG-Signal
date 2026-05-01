@@ -1778,13 +1778,11 @@ function EnrollDialog({
 
   const enroll = useMutation({
     mutationFn: async () => {
-      const promises = Array.from(selected).map(id => {
-        const body = type === 'lead'
-          ? { leadId: parseInt(id), campaignId }
-          : { customerId: id, campaignId };
-        return apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, body);
-      });
-      await Promise.all(promises);
+      const ids = Array.from(selected);
+      const body = type === 'lead'
+        ? { leadIds: ids.map(id => parseInt(id)) }
+        : { customerIds: ids };
+      await apiRequest('POST', `/api/drip-campaigns/${campaignId}/assignments`, body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/drip-campaigns', campaignId, 'assignments', 'enriched'] });
