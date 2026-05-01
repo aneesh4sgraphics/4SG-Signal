@@ -18,6 +18,7 @@ import {
   followUpTasks,
   customerActivityEvents,
   leadActivities,
+  emailIntelligenceBlacklist,
   InsertGmailMessage,
   InsertEmailSalesEvent,
 } from '@shared/schema';
@@ -164,6 +165,21 @@ export async function matchEmailToCustomer(
   const normalized = normalizeEmail(email);
   if (!normalized) {
     return { customerId: null, contactId: null, matchType: 'none', confidence: 0, matchedEmailNormalized: null };
+  }
+
+  // Check DB blacklist — specific emails or domains that must never be matched
+  const emailDomainForBl = extractEmailDomain(email) || '';
+  const blacklistHit = await db.select({ id: emailIntelligenceBlacklist.id })
+    .from(emailIntelligenceBlacklist)
+    .where(
+      or(
+        and(eq(emailIntelligenceBlacklist.patternType, 'email'), eq(emailIntelligenceBlacklist.pattern, normalized)),
+        and(eq(emailIntelligenceBlacklist.patternType, 'domain'), eq(emailIntelligenceBlacklist.pattern, emailDomainForBl))
+      )
+    )
+    .limit(1);
+  if (blacklistHit.length > 0) {
+    return { customerId: null, contactId: null, matchType: 'none', confidence: 0, matchedEmailNormalized: normalized };
   }
 
   const emailDomain = domain || extractEmailDomain(email);

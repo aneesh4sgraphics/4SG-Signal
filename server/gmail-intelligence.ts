@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { gmailSyncState, gmailMessages, gmailInsights, customers, shipmentFollowUpTasks, userGmailConnections, leads, followUpTasks } from "@shared/schema";
+import { gmailSyncState, gmailMessages, gmailInsights, customers, shipmentFollowUpTasks, userGmailConnections, leads, followUpTasks, emailIntelligenceBlacklist } from "@shared/schema";
 import { eq, and, desc, sql, inArray, lt, isNull, or, ne } from "drizzle-orm";
 import { getMessages, getMessage } from "./gmail-client";
 import { getImapMessages, getImapMessage, hasAnyImapCredentials } from "./imap-client";
@@ -82,11 +82,18 @@ const EXCLUDED_EMAIL_DOMAINS = [
 ];
 
 // Check if an email should be excluded based on sender domain OR automated local part
-function shouldExcludeEmail(fromEmail: string): boolean {
+// Optional dbBlacklist set contains exact emails and domains loaded from the DB
+function shouldExcludeEmail(fromEmail: string, dbBlacklist?: { emails: Set<string>; domains: Set<string> }): boolean {
   if (!fromEmail) return true;
   // Automated senders (noreply, tracking, alerts, etc.) are always excluded
   if (isAutomatedSender(fromEmail)) return true;
-  const domain = fromEmail.toLowerCase().split('@')[1] || '';
+  const normalized = fromEmail.toLowerCase().trim();
+  const domain = normalized.split('@')[1] || '';
+  // DB blacklist check (specific email or domain)
+  if (dbBlacklist) {
+    if (dbBlacklist.emails.has(normalized)) return true;
+    if (dbBlacklist.domains.has(domain)) return true;
+  }
   return EXCLUDED_EMAIL_DOMAINS.some(excluded => 
     domain === excluded || domain.endsWith('.' + excluded)
   );
@@ -195,15 +202,26 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
     const emailToCustomer: Record<string, string> = {};
     const domainToCustomer: Record<string, string> = {};
     
+    // Load DB blacklist once — used for both the lookup map and per-message exclusion
+    const blacklistRowsAll = await db.select({ pattern: emailIntelligenceBlacklist.pattern, patternType: emailIntelligenceBlacklist.patternType })
+      .from(emailIntelligenceBlacklist);
+    const blEmailSet = new Set(blacklistRowsAll.filter(r => r.patternType === 'email').map(r => r.pattern.toLowerCase()));
+    const blDomainSet = new Set(blacklistRowsAll.filter(r => r.patternType === 'domain').map(r => r.pattern.toLowerCase()));
+    const dbBlacklistForSync = { emails: blEmailSet, domains: blDomainSet };
+
     customerData.forEach(c => {
-      // Exact email match
+      // Exact email match — skip blacklisted emails
       if (c.email) {
-        emailToCustomer[c.email.toLowerCase()] = c.id;
+        const emailLow = c.email.toLowerCase();
+        const emailDomain = emailLow.split('@')[1] || '';
+        if (!blEmailSet.has(emailLow) && !blDomainSet.has(emailDomain)) {
+          emailToCustomer[emailLow] = c.id;
+        }
         // Domain matching — skip free providers and large carrier/service domains
-        const emailDomain = c.email.toLowerCase().split('@')[1];
         if (emailDomain && !domainToCustomer[emailDomain]
             && !FREE_EMAIL_PROVIDERS.has(emailDomain)
-            && !DOMAIN_MATCH_BLOCKLIST.has(emailDomain)) {
+            && !DOMAIN_MATCH_BLOCKLIST.has(emailDomain)
+            && !blDomainSet.has(emailDomain)) {
           domainToCustomer[emailDomain] = c.id;
         }
       }
@@ -243,7 +261,7 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       const toParsed = parseEmailAddress(fullMessage.to);
       
       // Skip emails from excluded domains (marketing, notifications, banks, etc.)
-      if (shouldExcludeEmail(fromParsed.email)) {
+      if (shouldExcludeEmail(fromParsed.email, dbBlacklistForSync)) {
         skipped++;
         console.log(`[Gmail Intelligence] Skipping email from excluded domain: ${fromParsed.email}`);
         continue;
