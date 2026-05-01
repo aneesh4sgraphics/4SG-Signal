@@ -22,7 +22,7 @@ import {
   InsertEmailSalesEvent,
 } from '@shared/schema';
 import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from './advisory-lock';
-import { normalizeEmail, extractEmailDomain, isFreeEmailProvider, FREE_EMAIL_PROVIDERS } from '@shared/email-normalizer';
+import { normalizeEmail, extractEmailDomain, isFreeEmailProvider, isDomainMatchBlocked, isAutomatedSender, FREE_EMAIL_PROVIDERS } from '@shared/email-normalizer';
 
 const SYNC_DAYS = 30;
 
@@ -165,7 +165,7 @@ export async function matchEmailToCustomer(
   if (!normalized) {
     return { customerId: null, contactId: null, matchType: 'none', confidence: 0, matchedEmailNormalized: null };
   }
-  
+
   const emailDomain = domain || extractEmailDomain(email);
   const { userId, userEmail, isPrivileged } = userContext;
   
@@ -259,8 +259,9 @@ export async function matchEmailToCustomer(
     };
   }
   
-  // Step 4: Domain matching (only for non-free email providers, scoped)
-  if (emailDomain && !isFreeEmailProvider(email)) {
+  // Step 4: Domain matching — blocked for free providers, large service/carrier domains,
+  // and automated sender addresses (noreply, tracking, etc.)
+  if (emailDomain && !isDomainMatchBlocked(email) && !isAutomatedSender(email)) {
     const domainPattern = `%@${emailDomain}`;
     
     const contactDomainMatch = await db.select({

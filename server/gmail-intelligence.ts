@@ -11,6 +11,7 @@ import OpenAI from "openai";
 import { logApiCost } from "./cost-tracker";
 import { tryAcquireAdvisoryLock, releaseAdvisoryLock } from "./advisory-lock";
 import { isAIEmailAnalysisEnabled } from "./admin-settings";
+import { isAutomatedSender, isDomainMatchBlocked, DOMAIN_MATCH_BLOCKLIST, FREE_EMAIL_PROVIDERS } from "@shared/email-normalizer";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -73,11 +74,18 @@ const EXCLUDED_EMAIL_DOMAINS = [
   
   // Marketing/spam patterns
   '163.com',
+
+  // Shipping carriers — transactional emails only, never CRM signals
+  'fedex.com', 'ups.com', 'usps.com', 'dhl.com', 'dhl.de',
+  'ontrac.com', 'lasership.com', 'amazonlogistics.com',
+  'shipconfirmation.ups.com', 'pkginfo.ups.com',
 ];
 
-// Check if an email should be excluded based on sender domain
+// Check if an email should be excluded based on sender domain OR automated local part
 function shouldExcludeEmail(fromEmail: string): boolean {
   if (!fromEmail) return true;
+  // Automated senders (noreply, tracking, alerts, etc.) are always excluded
+  if (isAutomatedSender(fromEmail)) return true;
   const domain = fromEmail.toLowerCase().split('@')[1] || '';
   return EXCLUDED_EMAIL_DOMAINS.some(excluded => 
     domain === excluded || domain.endsWith('.' + excluded)
@@ -191,9 +199,11 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       // Exact email match
       if (c.email) {
         emailToCustomer[c.email.toLowerCase()] = c.id;
-        // Also extract domain from customer email for domain matching
+        // Domain matching — skip free providers and large carrier/service domains
         const emailDomain = c.email.toLowerCase().split('@')[1];
-        if (emailDomain && !domainToCustomer[emailDomain]) {
+        if (emailDomain && !domainToCustomer[emailDomain]
+            && !FREE_EMAIL_PROVIDERS.has(emailDomain)
+            && !DOMAIN_MATCH_BLOCKLIST.has(emailDomain)) {
           domainToCustomer[emailDomain] = c.id;
         }
       }
@@ -204,7 +214,9 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
           const urlMatch = website.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s]+)/);
           if (urlMatch && urlMatch[1]) {
             const websiteDomain = urlMatch[1];
-            if (!domainToCustomer[websiteDomain]) {
+            if (!domainToCustomer[websiteDomain]
+                && !FREE_EMAIL_PROVIDERS.has(websiteDomain)
+                && !DOMAIN_MATCH_BLOCKLIST.has(websiteDomain)) {
               domainToCustomer[websiteDomain] = c.id;
             }
           }
@@ -242,10 +254,13 @@ export async function syncGmailMessages(userId: string, userEmail: string, maxMe
       const contactDomain = contactEmailLower.split('@')[1] || '';
       
       // Try exact email match first, then fall back to domain matching
+      // (domain fallback blocked for free providers and large carrier/service domains)
       let customerId = emailToCustomer[contactEmailLower] || null;
       let matchMethod = customerId ? 'email' : null;
       
-      if (!customerId && contactDomain) {
+      if (!customerId && contactDomain
+          && !FREE_EMAIL_PROVIDERS.has(contactDomain)
+          && !DOMAIN_MATCH_BLOCKLIST.has(contactDomain)) {
         customerId = domainToCustomer[contactDomain] || null;
         matchMethod = customerId ? 'domain' : null;
       }
