@@ -109,6 +109,18 @@ interface DuplicateGroup {
 const ODOO_AUTO_CHECK_KEY = 'odoo_last_auto_check_ts';
 const ODOO_AUTO_CHECK_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
+// Auto-calculate sqm from a size string like "12x18" (inches → sqm).
+// Returns null when the size is not a parseable WxH dimension (e.g., "Roll 54").
+function calcSqmFromSize(sizeStr: string): number | null {
+  if (!sizeStr) return null;
+  const match = sizeStr.replace(/\s/g, '').match(/^(\d+\.?\d*)[xX×](\d+\.?\d*)/);
+  if (!match) return null;
+  const w = parseFloat(match[1]);
+  const h = parseFloat(match[2]);
+  if (!w || !h || w <= 0 || h <= 0) return null;
+  return parseFloat(((w * h) / 1550.0031).toFixed(4));
+}
+
 export default function ProductMapping() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('unmapped');
@@ -124,6 +136,7 @@ export default function ProductMapping() {
   const [selectedSqm, setSelectedSqm] = useState<string>('0');
   const [selectedPackingType, setSelectedPackingType] = useState<string>('');
   const [sheetsPerPack, setSheetsPerPack] = useState<string>('1');
+  const [sqmAutoCalculated, setSqmAutoCalculated] = useState(false);
   
   // Category/Type management
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -643,6 +656,7 @@ export default function ProductMapping() {
     setSelectedSqm(product.totalSqm || '0');
     setSelectedPackingType(product.rollSheet || '');
     setSheetsPerPack('1');
+    setSqmAutoCalculated(false);
   };
 
   const handleSaveMapping = () => {
@@ -849,6 +863,10 @@ export default function ProductMapping() {
             <TabsTrigger value="mapped" data-testid="tab-mapped">
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Mapped ({counts.all - counts.unmapped})
+            </TabsTrigger>
+            <TabsTrigger value="needs-pricing" data-testid="tab-needs-pricing">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Needs Pricing ({unpricedMappedCount})
             </TabsTrigger>
             <TabsTrigger value="excluded" data-testid="tab-excluded">
               <Ban className="h-4 w-4 mr-2" />
@@ -1064,6 +1082,92 @@ export default function ProductMapping() {
                     </div>
                   </ScrollArea>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Needs Pricing Tab — mapped products with no prices in any tier */}
+          <TabsContent value="needs-pricing" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Needs Pricing</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Mapped products that have no pricing in any tier — they will not appear in QuickQuotes until prices are added.
+                    </p>
+                  </div>
+                  <a
+                    href="/product-pricing"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border rounded-md hover:bg-accent transition-colors"
+                    data-testid="link-open-product-pricing"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Product Pricing App →
+                  </a>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Use the same predicate as unpricedMappedCount (the badge above) so the
+                  // count and the list always agree. isUnpriced wraps server-computed
+                  // isQuickQuoteEligible, which mirrors the QuickQuotes filter (same hasAnyPrice
+                  // rule, -ARCH suffix exclusion, archive check) without depending on whether
+                  // the unmapped API response carries all 10 price fields.
+                  const needsPricingProducts = products.filter(p =>
+                    p.catalogCategoryId &&
+                    p.productTypeId &&
+                    isUnpriced(p)
+                  );
+                  if (loadingProducts) {
+                    return <div className="text-center py-8 text-muted-foreground">Loading products...</div>;
+                  }
+                  if (needsPricingProducts.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        All mapped products have pricing — nothing to do here.
+                      </div>
+                    );
+                  }
+                  return (
+                    <ScrollArea className="h-[500px]">
+                      <div className="space-y-2">
+                        {needsPricingProducts.map((product) => {
+                          const category = categories.find(c => c.id === product.catalogCategoryId);
+                          const searchTerm = product.itemCode?.split('-')[0] || product.itemCode;
+                          return (
+                            <div
+                              key={product.id}
+                              className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                              data-testid={`product-row-needs-pricing-${product.id}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-sm font-medium">{product.itemCode}</span>
+                                  <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                                    No prices
+                                  </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1 truncate">
+                                  {product.productName}
+                                  {category && <span className="ml-2 text-xs">| {category.name}</span>}
+                                </div>
+                              </div>
+                              <a
+                                href={`/product-pricing?search=${encodeURIComponent(searchTerm)}`}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-amber-700 border border-amber-300 rounded-md hover:bg-amber-50 transition-colors flex-shrink-0"
+                                data-testid={`link-go-to-pricing-${product.id}`}
+                              >
+                                <DollarSign className="h-4 w-4" />
+                                Go to Product Pricing →
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1649,7 +1753,20 @@ export default function ProductMapping() {
                 <div className="flex gap-2">
                   <Input
                     value={selectedSize}
-                    onChange={(e) => setSelectedSize(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setSelectedSize(next);
+                      // Auto-calculate sqm from WxH dimensions; user can still override manually below.
+                      // If the size becomes non-parseable, clear the auto-calc note so it doesn't
+                      // mislead the user about what the displayed sqm value represents.
+                      const auto = calcSqmFromSize(next);
+                      if (auto != null) {
+                        setSelectedSqm(String(auto));
+                        setSqmAutoCalculated(true);
+                      } else {
+                        setSqmAutoCalculated(false);
+                      }
+                    }}
                     placeholder="e.g., 12x18 or Roll 54"
                     data-testid="input-size"
                   />
@@ -1711,7 +1828,10 @@ export default function ProductMapping() {
                 <div className="flex gap-2">
                   <Input
                     value={selectedSqm}
-                    onChange={(e) => setSelectedSqm(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedSqm(e.target.value);
+                      setSqmAutoCalculated(false);
+                    }}
                     placeholder="0.0000"
                     data-testid="input-sqm"
                   />
@@ -1731,6 +1851,14 @@ export default function ProductMapping() {
                 <p className="text-xs text-muted-foreground">
                   Total square meters for the entire pack/carton (not per sheet)
                 </p>
+                {sqmAutoCalculated && (
+                  <span
+                    style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}
+                    data-testid="text-sqm-autocalc"
+                  >
+                    Auto-calculated from dimensions
+                  </span>
+                )}
               </div>
             </div>
           )}

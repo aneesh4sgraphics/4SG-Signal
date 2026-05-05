@@ -1,0 +1,132 @@
+Three pipeline fixes needed for the Odoo → Product Mapping → QuickQuotes flow.
+The unpricedMappedCount stat box already exists in product-mapping.tsx — 
+do not rebuild that.
+
+════════════════════════════════════════════
+FIX 1 — Warning banner in QuickQuotes
+════════════════════════════════════════════
+
+In server/routes-pricing-database.ts, in the GET /api/product-pricing-database 
+endpoint, after building pricingData, also count mapped products with no prices:
+
+  const mappedButUnpriced = allPricingData.filter(item => {
+    if (!item.catalogCategoryId || item.isArchived) return false;
+    if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
+    return !hasAnyPrice(item);
+  });
+
+Add to the res.json() response (alongside existing data field):
+  mappedButUnpricedCount: mappedButUnpriced.length,
+  mappedButUnpricedSample: mappedButUnpriced.slice(0, 5).map(p => p.itemCode),
+
+In client/src/pages/quote-calculator.tsx, after:
+  const productData: ProductData[] = _pricingRaw?.data ?? [];
+
+Add:
+  const unpricedCount = (_pricingRaw as any)?.mappedButUnpricedCount ?? 0;
+  const unpricedSample = (_pricingRaw as any)?.mappedButUnpricedSample ?? [];
+
+Then in the left rail, above the Customer section, add this banner 
+(only shows when unpricedCount > 0):
+
+  {unpricedCount > 0 && (
+    <div style={{
+      padding: '10px 14px',
+      background: '#FAEEDA',
+      borderRadius: '10px',
+      marginBottom: '12px',
+      fontSize: '12px',
+      color: '#633806',
+      border: '0.5px solid #F5C28A',
+      lineHeight: '1.6',
+    }}>
+      <strong>⚠ {unpricedCount} mapped product{unpricedCount !== 1 ? 's' : ''} have no pricing</strong>
+      <br />
+      {unpricedSample.join(', ')}{unpricedCount > 5 ? ` +${unpricedCount - 5} more` : ''}
+      <br />
+      <a href="/product-pricing" style={{ color: '#633806', fontWeight: 600, textDecoration: 'underline' }}>
+        Go to Product Pricing →
+      </a>
+    </div>
+  )}
+
+════════════════════════════════════════════
+FIX 2 — Auto-calculate sqm from size in Product Mapping
+════════════════════════════════════════════
+
+In client/src/pages/product-mapping.tsx, find the mapping dialog/form 
+where size is entered (the input for the size field like "12x18").
+
+Add this helper function at the top of the component (not inside render):
+
+  function calcSqmFromSize(sizeStr: string): number | null {
+    const match = sizeStr.replace(/\s/g, '').match(/^(\d+\.?\d*)[xX×](\d+\.?\d*)/);
+    if (!match) return null;
+    const w = parseFloat(match[1]);
+    const h = parseFloat(match[2]);
+    if (!w || !h || w <= 0 || h <= 0) return null;
+    return parseFloat(((w * h) / 1550.0031).toFixed(4));
+  }
+
+Wire it to the size input field's onChange handler:
+When size changes, call calcSqmFromSize(newSize). If it returns a non-null 
+value, automatically update the totalSqm field in the form state.
+
+Show a small note below the sqm field when auto-calculated:
+  <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+    Auto-calculated from dimensions
+  </span>
+
+The user can still manually override the sqm value after auto-fill.
+
+════════════════════════════════════════════
+FIX 3 — "Needs Pricing" tab in Product Mapping
+════════════════════════════════════════════
+
+In client/src/pages/product-mapping.tsx, add a new tab called "Needs Pricing" 
+between the "Mapped" and "Excluded" tabs.
+
+Add the tab trigger:
+  <TabsTrigger value="needs-pricing">
+    <AlertCircle className="h-4 w-4 mr-2" />
+    Needs Pricing ({unpricedMappedCount})
+  </TabsTrigger>
+
+Add the tab content (client-side filter — no new API needed):
+Use the existing products data. Filter to products where:
+  - catalogCategoryId is set (mapped)
+  - isArchived is false
+  - all 11 price fields are null or 0
+
+Add this hasAnyPrice helper at the top of the component:
+  function hasAnyPrice(p: any): boolean {
+    return [
+      p.dealerPrice, p.dealer2Price, p.exportPrice,
+      p.masterDistributorPrice, p.retailPrice, p.approvalNeededPrice,
+      p.tierStage25Price, p.tierStage2Price, p.tierStage15Price, p.tierStage1Price
+    ].some(v => v != null && parseFloat(String(v)) > 0);
+  }
+
+Tab content shows a list of unpriced products with:
+  - itemCode (monospace)
+  - productName
+  - Category name
+  - A "Go to Product Pricing →" link that navigates to /product-pricing 
+    with the product code pre-filled as a search query:
+    href={`/product-pricing?search=${p.itemCode?.split('-')[0]}`}
+
+At the top of the tab, show a button:
+  <a href="/product-pricing">
+    Open Product Pricing App →
+  </a>
+
+════════════════════════════════════════════
+DO NOT CHANGE:
+- The unpricedMappedCount stat box (already built)
+- The existing sync endpoints
+- QuickQuotes pricing formula
+- Price List app
+- Any other pages
+════════════════════════════════════════════
+
+Push when done.

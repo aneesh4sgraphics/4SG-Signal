@@ -430,6 +430,8 @@ export default function QuoteCalculator() {
     enabled: !isAuthLoading && isAuthenticated,
   });
   const productData: ProductData[] = _pricingRaw?.data ?? [];
+  const unpricedCount = (_pricingRaw as any)?.mappedButUnpricedCount ?? 0;
+  const unpricedSample: string[] = (_pricingRaw as any)?.mappedButUnpricedSample ?? [];
 
   // Fetch PDF sent prices for the selected customer
   const { data: sentPricesData } = useQuery<{
@@ -1953,6 +1955,31 @@ ${(user as any)?.email ? (user as any).email.split('@')[0].charAt(0).toUpperCase
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px', alignItems: 'start' }}>
         {/* Left Rail */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Mapped-but-unpriced warning banner */}
+          {unpricedCount > 0 && (
+            <div
+              data-testid="banner-unpriced-mapped"
+              style={{
+                padding: '10px 14px',
+                background: '#FAEEDA',
+                borderRadius: '10px',
+                marginBottom: '4px',
+                fontSize: '12px',
+                color: '#633806',
+                border: '0.5px solid #F5C28A',
+                lineHeight: '1.6',
+              }}
+            >
+              <strong>⚠ {unpricedCount} mapped product{unpricedCount !== 1 ? 's' : ''} have no pricing</strong>
+              <br />
+              {unpricedSample.join(', ')}{unpricedCount > 5 ? ` +${unpricedCount - 5} more` : ''}
+              <br />
+              <a href="/product-pricing" style={{ color: '#633806', fontWeight: 600, textDecoration: 'underline' }}>
+                Go to Product Pricing →
+              </a>
+            </div>
+          )}
+
           {/* Customer Card */}
           <div style={{ position: 'relative', marginTop: '8px' }}>
             <span style={{ position: 'absolute', top: '-9px', left: '14px', fontSize: '10px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.07em', background: 'white', padding: '0 6px', zIndex: 1 }}>Customer</span>

@@ -681,10 +681,23 @@ router.get("/product-pricing-database", isAuthenticated, async (req, res) => {
       retailPrice: parseFloat(String(item.retailPrice || 0))
     }));
     
+    // Count mapped products with no pricing (warning banner in QuickQuotes).
+    // Uses the same predicate as the QuickQuotes filter (no -ARCH suffix, mapped, not archived, no prices).
+    const mappedButUnpriced = allPricingData.filter(item => {
+      if (!item.catalogCategoryId || item.isArchived) return false;
+      if (item.itemCode?.toUpperCase().endsWith('-ARCH')) return false;
+      return !hasAnyPrice(item);
+    });
+
     console.log(`✓ Successfully transformed ${transformedData.length} records`);
+    console.log(`✓ Mapped-but-unpriced count: ${mappedButUnpriced.length}`);
     console.log(`=== GET /api/product-pricing-database END (${Date.now() - startTime}ms) ===`);
     
-    res.json({ data: transformedData });
+    res.json({
+      data: transformedData,
+      mappedButUnpricedCount: mappedButUnpriced.length,
+      mappedButUnpricedSample: mappedButUnpriced.slice(0, 5).map(p => p.itemCode),
+    });
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error("=== GET /api/product-pricing-database ERROR ===");
